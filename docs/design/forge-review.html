@@ -1,0 +1,612 @@
+<title>Forge — module review queue</title>
+
+<style>
+:root {
+  --paper:#F4F6F5; --surface:#FFFFFF; --surface-2:#EDF0EE; --surface-3:#E3E8E5;
+  --ink:#12151A; --ink-2:#4A5350; --ink-3:#7C8783;
+  --line:#DCE2DF; --line-2:#C4CDC8;
+  --pea:#2C6E49; --pea-soft:#E4EEE8; --on-pea:#FFFFFF;
+  --measured:#B77B2B; --measured-soft:#F6EBD8;
+  --undecided:#CC4B2C; --undecided-soft:#FAE4DD;
+  --fault:#8B1E1E; --fault-soft:#F7E0E0;
+  --shadow:rgba(18,21,26,.14);
+  --r:3px; --pad:22px;
+  --font-display:Georgia,"Iowan Old Style","Times New Roman",ui-serif,serif;
+  --font-ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-data:ui-monospace,"SF Mono","Cascadia Code","DejaVu Sans Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:#0E1113; --surface:#171B1D; --surface-2:#1F2426; --surface-3:#252B2E;
+    --ink:#E8EDEA; --ink-2:#A3AEAA; --ink-3:#6E7A76;
+    --line:#2A3134; --line-2:#3A4347;
+    --pea:#5FAE80; --pea-soft:#1B2A22; --on-pea:#0E1113;
+    --measured:#D9A458; --measured-soft:#2C2416;
+    --undecided:#E87352; --undecided-soft:#30201B;
+    --fault:#D96B6B; --fault-soft:#2E1A1A;
+    --shadow:rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{--paper:#0E1113;--surface:#171B1D;--surface-2:#1F2426;--surface-3:#252B2E;--ink:#E8EDEA;--ink-2:#A3AEAA;--ink-3:#6E7A76;--line:#2A3134;--line-2:#3A4347;--pea:#5FAE80;--pea-soft:#1B2A22;--on-pea:#0E1113;--measured:#D9A458;--measured-soft:#2C2416;--undecided:#E87352;--undecided-soft:#30201B;--fault:#D96B6B;--fault-soft:#2E1A1A;--shadow:rgba(0,0,0,.5);}
+:root[data-theme="light"]{--paper:#F4F6F5;--surface:#FFFFFF;--surface-2:#EDF0EE;--surface-3:#E3E8E5;--ink:#12151A;--ink-2:#4A5350;--ink-3:#7C8783;--line:#DCE2DF;--line-2:#C4CDC8;--pea:#2C6E49;--pea-soft:#E4EEE8;--on-pea:#FFFFFF;--measured:#B77B2B;--measured-soft:#F6EBD8;--undecided:#CC4B2C;--undecided-soft:#FAE4DD;--fault:#8B1E1E;--fault-soft:#F7E0E0;--shadow:rgba(18,21,26,.14);}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--pea);outline-offset:2px}
+.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.mono{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0}
+
+.nav{display:flex;align-items:center;gap:28px;padding:0 var(--pad);height:54px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:baseline;gap:9px;font-family:var(--font-display);font-size:21px;letter-spacing:-.015em}
+.brand .seed{width:9px;height:9px;border-radius:50% 50% 50% 0;background:var(--pea);transform:rotate(-45deg);flex:none;align-self:center}
+.brand small{font-family:var(--font-ui);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.nav-links{display:flex;gap:2px;margin-left:8px}
+.nav-links button{padding:6px 11px;color:var(--ink-2);background:none;border:0;border-radius:var(--r);font-size:13px}
+.nav-links button:hover{background:var(--surface-2);color:var(--ink)}
+.nav-links button[aria-current="page"]{color:var(--ink);font-weight:600;box-shadow:inset 0 -2px 0 var(--pea);border-radius:0}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+
+.btn{border:1px solid var(--line-2);background:var(--surface);padding:6px 13px;border-radius:var(--r);font-size:13px}
+.btn:hover{border-color:var(--ink-3)}
+.btn-primary{background:var(--pea);border-color:var(--pea);color:var(--on-pea);font-weight:600}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-danger{color:var(--fault);border-color:var(--line-2)}
+.btn-danger:hover{border-color:var(--fault)}
+.btn-sm{padding:4px 9px;font-size:12px}
+.btn-ghost{border-color:transparent;background:none;color:var(--ink-3);padding:5px 8px}
+.btn-ghost:hover{background:var(--surface-2);color:var(--ink)}
+
+.wrap{max-width:1240px;margin:0 auto;padding:26px var(--pad) 60px}
+.page{display:none}
+.page[data-active="true"]{display:block}
+
+.page-head{display:flex;align-items:flex-end;gap:16px;margin-bottom:20px}
+.page-head h1{font-family:var(--font-display);font-size:26px;font-weight:400;letter-spacing:-.01em}
+.page-head p{margin:3px 0 0;color:var(--ink-3);font-size:13px;max-width:62ch}
+.page-head .spacer{margin-left:auto}
+
+/* ── queue ── */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.chip-f{border:1px solid var(--line-2);background:var(--surface);border-radius:12px;padding:4px 11px;font-size:12px;color:var(--ink-2)}
+.chip-f[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip-f .n{font-family:var(--font-data);opacity:.7;margin-left:5px}
+
+.qlist{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.qrow{display:grid;grid-template-columns:auto minmax(0,1fr) 150px 128px 96px;gap:14px;align-items:center;
+  background:var(--surface);border:0;text-align:left;padding:13px 16px;width:100%;border-left:3px solid transparent}
+.qrow:hover{background:var(--surface-2)}
+.qrow[data-risk="blocked"]{border-left-color:var(--fault)}
+.qrow[data-risk="attention"]{border-left-color:var(--undecided)}
+.qrow[data-risk="clear"]{border-left-color:var(--pea)}
+.qkind{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;width:64px;flex:none;color:var(--ink-3)}
+.qname{font-family:var(--font-data);font-size:13px;font-weight:600}
+.qsub{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.qsrc{font-size:11.5px;color:var(--ink-2)}
+.qsrc b{font-weight:600;display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.gap-bar{display:flex;height:7px;gap:2px}
+.gap-bar i{display:block;border-radius:1px}
+.gap-lbl{font-size:10.5px;color:var(--ink-3);margin-top:5px;font-family:var(--font-data)}
+.qstate{font-size:11.5px;text-align:right}
+.qstate b{display:block;font-weight:600}
+.qstate[data-risk="blocked"] b{color:var(--fault)}
+.qstate[data-risk="attention"] b{color:var(--undecided)}
+.qstate[data-risk="clear"] b{color:var(--pea)}
+
+.batch{display:flex;gap:8px;align-items:center;margin-top:14px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);font-size:12.5px;color:var(--ink-2)}
+
+/* ── review ── */
+.rev{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:22px;align-items:start}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.stage > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:13px 16px}
+.stage > summary::-webkit-details-marker{display:none}
+.stage[open] > summary{border-bottom:1px solid var(--line)}
+.stage-n{font-family:var(--font-data);font-size:11px;font-weight:700;width:20px;height:20px;border-radius:50%;
+  display:grid;place-items:center;background:var(--surface-2);color:var(--ink-3);flex:none}
+.stage[data-state="human"] .stage-n{background:var(--ink);color:var(--paper)}
+.stage[data-state="warn"] .stage-n{background:var(--undecided);color:var(--on-pea)}
+.stage[data-state="fail"] .stage-n{background:var(--fault);color:#fff}
+.stage-t{font-weight:600;font-size:13.5px}
+.stage-d{font-size:11.5px;color:var(--ink-3);margin-left:auto;text-align:right}
+.stage[data-state="warn"] .stage-d{color:var(--undecided)}
+.stage[data-state="fail"] .stage-d{color:var(--fault)}
+.stage[data-state="auto"] .stage-d{color:var(--pea)}
+.stage-body{padding:16px}
+
+.kv{display:grid;grid-template-columns:118px 1fr;gap:6px 14px;font-size:12.5px}
+.kv dt{color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+.kv dd{margin:0;font-family:var(--font-data)}
+
+/* code viewer */
+.code{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);overflow:auto;max-height:440px}
+.code table{border-collapse:collapse;width:100%;font-family:var(--font-data);font-size:12px;line-height:1.65}
+.code td{padding:0 10px;vertical-align:top}
+.code .ln{width:1%;text-align:right;color:var(--ink-3);user-select:none;background:var(--surface-3);border-right:1px solid var(--line);font-variant-numeric:tabular-nums}
+.code tr[data-note]{cursor:pointer}
+.code tr[data-note]:hover td{background:var(--surface-3)}
+.code tr[data-lit="true"] td{background:var(--pea-soft)}
+.code tr[data-lit="true"] .ln{background:var(--pea);color:var(--on-pea)}
+.code tr[data-flag="warn"] td{background:var(--undecided-soft)}
+.code tr[data-flag="warn"] .ln{background:var(--undecided);color:var(--on-pea)}
+.tok-k{color:var(--pea);font-weight:600}
+.tok-s{color:var(--measured)}
+.tok-c{color:var(--ink-3);font-style:italic}
+
+.findings{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.finding{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--line);border-left-width:3px;border-radius:var(--r);font-size:12.5px;background:var(--paper)}
+.finding[data-k="good"]{border-left-color:var(--pea)}
+.finding[data-k="warn"]{border-left-color:var(--undecided)}
+.finding[data-k="fail"]{border-left-color:var(--fault)}
+.finding b{display:block;font-size:12.5px}
+.finding p{margin:2px 0 0;color:var(--ink-3);font-size:11.5px}
+.finding .ln-ref{margin-left:auto;flex:none;font-family:var(--font-data);font-size:11px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:2px;padding:1px 6px;background:var(--surface)}
+
+/* contract fields */
+.field{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:11px 0 11px 12px;border-bottom:1px solid var(--line);position:relative}
+.field:last-child{border-bottom:0}
+.field::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:3px;border-radius:1px;background:var(--line-2)}
+.field[data-o="inferred"]::before{background:var(--pea)}
+.field[data-o="unsure"]::before{background:repeating-linear-gradient(to bottom,var(--undecided) 0 3px,transparent 3px 9px)}
+.field[data-o="invalid"]::before{background:var(--fault)}
+.field-k{font-family:var(--font-data);font-size:12.5px;font-weight:600}
+.field-v{font-family:var(--font-data);font-size:12.5px;color:var(--ink-2)}
+.origin{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--ink-3);align-self:center}
+.field[data-o="inferred"] .origin{color:var(--pea)}
+.field[data-o="unsure"] .origin{color:var(--undecided)}
+.field[data-o="invalid"] .origin{color:var(--fault)}
+.field-why{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);margin:2px 0 0}
+.field-why button{background:none;border:0;padding:0;color:var(--pea);text-decoration:underline;font-size:11.5px}
+
+/* side rail */
+.side{position:sticky;top:80px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.card-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.card-b{padding:14px 16px}
+.verdict{display:flex;flex-direction:column;gap:8px}
+.reject-why{width:100%;font:inherit;font-size:12.5px;padding:7px 9px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--paper);color:var(--ink);resize:vertical;min-height:56px}
+.kbd{font-family:var(--font-data);font-size:10.5px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:var(--surface-2);color:var(--ink-2)}
+.hint{font-size:11px;color:var(--ink-3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+.impact{font-size:12.5px}
+.impact li{margin-bottom:7px}
+.impact code{font-family:var(--font-data);font-size:11.5px;background:var(--surface-2);padding:1px 4px;border-radius:2px}
+
+/* vocabulary */
+.vocab{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vrow{background:var(--surface);padding:14px 16px;display:grid;grid-template-columns:200px 1fr 80px;gap:16px;align-items:baseline}
+.vtype{font-family:var(--font-data);font-size:13px;font-weight:600}
+.vstates{display:flex;flex-wrap:wrap;gap:6px}
+.vstate{font-family:var(--font-data);font-size:11.5px;border:1px solid var(--line-2);border-radius:11px;padding:2px 9px;background:var(--paper)}
+.vstate[data-pending="true"]{border-style:dashed;border-color:var(--pea);color:var(--pea)}
+.vuse{font-size:11.5px;color:var(--ink-3);text-align:right;font-family:var(--font-data)}
+.vnone{font-size:11.5px;color:var(--ink-3);font-style:italic}
+
+@media (max-width:1000px){
+  .rev{grid-template-columns:1fr}
+  .side{position:static}
+  .qrow{grid-template-columns:auto minmax(0,1fr);gap:8px}
+  .qsrc,.qgap,.qstate{display:none}
+  .vrow{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<nav class="nav">
+  <div class="brand"><i class="seed"></i>Forge<small>Comeni Labs</small></div>
+  <div class="nav-links">
+    <button data-go="queue" aria-current="page">Queue</button>
+    <button data-go="review">Review</button>
+    <button data-go="vocab">Vocabulary</button>
+    <button data-go="registry">Registry</button>
+  </div>
+  <div class="nav-right">
+    <span class="eyebrow" id="qbadge">6 waiting</span>
+    <button class="btn" id="theme">Dark</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ══ QUEUE ══ -->
+<section class="page" data-page="queue" data-active="true">
+  <div class="page-head">
+    <div>
+      <h1>Review queue</h1>
+      <p>Modules drafted by the forge, waiting for a human. Nothing here can reach the registry until someone approves it.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn">Run ingest</button>
+  </div>
+
+  <div class="filters" id="filters"></div>
+  <div class="qlist" id="qlist"></div>
+
+  <div class="batch">
+    <b>Batch approve</b>
+    <span>2 proposals cleared every automatic check and only copy fields from a pinned nf-core source.</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn btn-sm">Review the 2</button>
+    <button class="btn btn-sm btn-primary">Approve both</button>
+  </div>
+</section>
+
+<!-- ══ REVIEW ══ -->
+<section class="page" data-page="review">
+  <div class="page-head">
+    <div>
+      <span class="eyebrow">Proposal 3 of 6 · contract</span>
+      <h1 style="font-family:var(--font-data);font-size:21px" id="revTitle">nf-core/samtools/sort@1.21.0</h1>
+      <p>Drafted by claude-opus-5 from <span class="mono">meta.yml</span> and <span class="mono">main.nf</span>. You are deciding whether the contract describes what the code actually does.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-sm">← Previous</button>
+    <button class="btn btn-sm">Next →</button>
+  </div>
+
+  <div class="rev">
+    <div>
+      <details class="stage" data-state="auto">
+        <summary><span class="stage-n">1</span><span class="stage-t">Where it came from</span>
+          <span class="stage-d">nf-core · sha pinned · cleared</span></summary>
+        <div class="stage-body">
+          <dl class="kv">
+            <dt>Source</dt><dd>nf-core/modules</dd>
+            <dt>Commit</dt><dd>a1f4c2e · 2026-07-14</dd>
+            <dt>Files read</dt><dd>meta.yml · main.nf · environment.yml · tests/</dd>
+            <dt>Standing</dt><dd>curated upstream, CI-tested, ships a stub block</dd>
+          </dl>
+          <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0">nf-core sources clear this stage automatically. pegi3s and agent-authored modules never do — their provenance needs reading.</p>
+        </div>
+      </details>
+
+      <details class="stage" data-state="human" open>
+        <summary><span class="stage-n">2</span><span class="stage-t">The code</span>
+          <span class="stage-d">62 lines · 4 findings</span></summary>
+        <div class="stage-body">
+          <div class="code" id="code"></div>
+          <div class="findings" id="findings"></div>
+        </div>
+      </details>
+
+      <details class="stage" data-state="human" open>
+        <summary><span class="stage-n">3</span><span class="stage-t">Does the code support the contract?</span>
+          <span class="stage-d">6 fields · 3 inferred · 1 unsure</span></summary>
+        <div class="stage-body">
+          <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 10px">
+            <b style="color:var(--ink)">Copied</b> fields are literally in the source. <b style="color:var(--pea)">Inferred</b> fields are the model's addition — this is what you are actually reviewing. Click a reason to jump to the line it came from.</p>
+          <div id="fields"></div>
+        </div>
+      </details>
+
+      <details class="stage" data-state="auto">
+        <summary><span class="stage-n">4</span><span class="stage-t">Vocabulary</span>
+          <span class="stage-d">all states declared · cleared</span></summary>
+        <div class="stage-body">
+          <p style="font-size:12.5px;margin:0">Uses <span class="mono">coordinate_sorted</span> on <span class="mono">alignment.bam</span>. Declared since 2026-08-02. No new states requested.</p>
+        </div>
+      </details>
+
+      <details class="stage" data-state="warn" open>
+        <summary><span class="stage-n">5</span><span class="stage-t">What approving this changes</span>
+          <span class="stage-d">1 routing consequence</span></summary>
+        <div class="stage-body">
+          <div class="finding" data-k="warn">
+            <div>
+              <b>Creates a tie with <span class="mono">nf-core/samtools/collate@1.21.0</span></b>
+              <p>Both would produce <span class="mono">alignment.bam [coordinate_sorted]</span> at priority 0. The router breaks ties by demoting to tier 4, so <b>every future pipeline needing a sorted BAM would flag a decision for the user</b> instead of resolving silently.</p>
+            </div>
+          </div>
+          <ul class="impact" style="margin:12px 0 0;padding-left:18px">
+            <li>Set this module's <code>priority</code> above <code>0</code> to make it the default, or</li>
+            <li>Narrow <code>collate</code>'s produced state to <code>name_sorted</code>, which is what it actually does.</li>
+          </ul>
+          <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0">Nothing else in the registry is shadowed. 3 pipelines currently route through a sorted BAM and would be unaffected once the tie is resolved.</p>
+        </div>
+      </details>
+
+      <details class="stage" data-state="auto">
+        <summary><span class="stage-n">6</span><span class="stage-t">Tests</span>
+          <span class="stage-d">stub-run green · cleared</span></summary>
+        <div class="stage-body">
+          <dl class="kv">
+            <dt>Stub block</dt><dd>present</dd>
+            <dt>nf-test</dt><dd>3 passed · 0 failed</dd>
+            <dt>Trial route</dt><dd>bam → sorted bam → counts resolved in 4 ms</dd>
+          </dl>
+        </div>
+      </details>
+    </div>
+
+    <!-- verdict rail -->
+    <aside class="side">
+      <div class="card">
+        <div class="card-h"><span class="eyebrow">Your decision</span></div>
+        <div class="card-b verdict">
+          <button class="btn btn-primary">Approve into registry</button>
+          <button class="btn">Request a change</button>
+          <button class="btn btn-danger">Reject</button>
+          <textarea class="reject-why" placeholder="Why? This goes back to the forge as drafting guidance, so the next draft is better."></textarea>
+          <p class="hint" style="margin:2px 0 0">Approving stamps you, the date, and commit <span class="mono">a1f4c2e</span> into the contract's provenance.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><span class="eyebrow">Outstanding</span></div>
+        <div class="card-b">
+          <ul class="impact" style="margin:0;padding-left:17px">
+            <li><b>1 unsure inference</b> — <code>cram</code> marked as produced, but the code says <code>optional: true</code></li>
+            <li><b>1 routing tie</b> — resolve before approving, or every build pays for it</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><span class="eyebrow">Keys</span></div>
+        <div class="card-b">
+          <p class="hint"><span class="kbd">J</span><span class="kbd">K</span> move · <span class="kbd">A</span> approve · <span class="kbd">R</span> reject · <span class="kbd">.</span> next stage</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ══ VOCABULARY ══ -->
+<section class="page" data-page="vocab">
+  <div class="page-head">
+    <div>
+      <h1>Vocabulary</h1>
+      <p>Every data type declares the exact states it may carry. A contract using anything else fails to load — that's what lets the router prove a connection is valid instead of hoping. Adding a state is a reviewed data change, not a release.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-sm">Propose a state</button>
+  </div>
+  <div class="vocab" id="vocab"></div>
+  <p style="font-size:12px;color:var(--ink-3);margin-top:14px">Dashed states are proposed and not yet approved. Contracts referencing them stay in the queue until the state lands.</p>
+</section>
+
+<!-- ══ REGISTRY ══ -->
+<section class="page" data-page="registry">
+  <div class="page-head">
+    <div>
+      <h1>Registry</h1>
+      <p>What Mendel can actually build with. Every entry was approved by a person, against a pinned source commit.</p>
+    </div>
+  </div>
+  <div class="qlist" id="registry"></div>
+</section>
+
+</div>
+
+<script>
+/* ── code, with the lines that justify contract claims ── */
+const CODE = [
+  { t:'process SAMTOOLS_SORT {', k:'process' },
+  { t:'    tag "$meta.id"' },
+  { t:"    label 'process_medium'" },
+  { t:'' },
+  { t:'    conda "${moduleDir}/environment.yml"' },
+  { t:"    container 'biocontainers/samtools:1.21--h50ea8bc_0'", note:'container',
+    finding:{ k:'good', b:'Container is pinned to a digest-bearing tag',
+      p:'samtools:1.21--h50ea8bc_0 — not :latest. Reruns get the same binary, which is what makes a pipeline reproducible a year from now.' } },
+  { t:'' },
+  { t:'    input:', k:'input' },
+  { t:'    tuple val(meta), path(bam)', note:'in-bam' },
+  { t:'    tuple val(meta2), path(fasta)' },
+  { t:'' },
+  { t:'    output:', k:'output' },
+  { t:'    tuple val(meta), path("*.bam"),  emit: bam', note:'out-bam' },
+  { t:'    tuple val(meta), path("*.cram"), emit: cram, optional: true', note:'out-cram', flag:'warn',
+    finding:{ k:'warn', b:'cram output is optional, but the contract lists it as produced',
+      p:'The router would treat cram as always available and could build a pipeline that dies at runtime when it is not emitted. Either drop it from produces or mark it optional there too.' } },
+  { t:'    path  "versions.yml",            emit: versions' },
+  { t:'' },
+  { t:'    script:', k:'script' },
+  { t:"    def args   = task.ext.args ?: ''" },
+  { t:'    def prefix = task.ext.prefix ?: "${meta.id}"' },
+  { t:'    """' },
+  { t:'    samtools sort \\\\', note:'sort',
+    finding:{ k:'good', b:'samtools sort with no -n flag sorts by coordinate',
+      p:'This is the evidence for the inferred state coordinate_sorted. It comes from the tool default, not an explicit flag — so it holds only while nothing injects -n through task.ext.args.' } },
+  { t:'        $args \\\\', flag:'warn', note:'args',
+    finding:{ k:'warn', b:'task.ext.args can override the sort order',
+      p:'A pipeline config passing -n here would produce a name-sorted BAM while the contract still claims coordinate_sorted. Low likelihood, silent failure if it happens.' } },
+  { t:'        --threads $task.cpus \\\\' },
+  { t:'        -o ${prefix}.bam \\\\' },
+  { t:'        $bam' },
+  { t:'' },
+  { t:'    cat <<-END_VERSIONS > versions.yml' },
+  { t:'    "${task.process}":' },
+  { t:'        samtools: $(samtools --version |& sed "1!d ; s/samtools //")' },
+  { t:'    END_VERSIONS' },
+  { t:'    """' },
+  { t:'' },
+  { t:'    stub:', k:'stub', note:'stub',
+    finding:{ k:'good', b:'Stub block present',
+      p:'Mendel can exercise this module in -stub-run, so the compiler validates the whole DAG in seconds without real data.' } },
+  { t:'    """' },
+  { t:'    touch ${prefix}.bam' },
+  { t:'    """' },
+  { t:'}' }
+];
+
+const KEYWORDS = /\b(process|input|output|script|stub|tuple|val|path|def|emit|optional|container|conda|label|tag)\b/g;
+function hl(t) {
+  let s = t.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  s = s.replace(/"([^"]*)"/g, '<span class="tok-s">"$1"</span>');
+  s = s.replace(KEYWORDS, '<span class="tok-k">$1</span>');
+  return s || "&nbsp;";
+}
+
+function renderCode() {
+  const rows = CODE.map((l, i) =>
+    `<tr data-i="${i}" ${l.note ? `data-note="${l.note}"` : ""} ${l.flag ? `data-flag="${l.flag}"` : ""}>
+       <td class="ln">${i + 1}</td><td>${hl(l.t)}</td></tr>`).join("");
+  document.getElementById("code").innerHTML = `<table><tbody>${rows}</tbody></table>`;
+
+  const findings = CODE.map((l, i) => l.finding ? { ...l.finding, line: i + 1, note: l.note } : null).filter(Boolean);
+  document.getElementById("findings").innerHTML = findings.map(f =>
+    `<div class="finding" data-k="${f.k}"><div><b>${f.b}</b><p>${f.p}</p></div>
+       <button class="ln-ref" data-jump="${f.line}">line ${f.line}</button></div>`).join("");
+  document.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => jump(+b.dataset.jump));
+}
+
+function jump(line) {
+  document.querySelectorAll(".code tr").forEach(r => r.dataset.lit = "false");
+  const row = document.querySelector(`.code tr[data-i="${line - 1}"]`);
+  if (!row) return;
+  row.dataset.lit = "true";
+  row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
+}
+
+/* ── contract fields: copied vs inferred ── */
+const FIELDS = [
+  { k:"nf_process", v:"SAMTOOLS_SORT", o:"copied", why:"Read straight from the process declaration.", line:1 },
+  { k:"nf_include", v:"modules/nf-core/samtools/sort/main", o:"copied", why:"Derived from the file path.", line:1 },
+  { k:"consumes.bam", v:"alignment.bam · states []", o:"inferred",
+    why:"meta.yml says only <code>type: file, pattern: *.{bam,cram,sam}</code>. The semantic type and the empty state list are the model's reading.", line:9 },
+  { k:"produces.bam", v:"alignment.bam · [coordinate_sorted]", o:"inferred",
+    why:"Justified by the sort call with no <code>-n</code> flag.", line:22 },
+  { k:"produces.cram", v:"alignment.bam · [coordinate_sorted]", o:"unsure",
+    why:"The code marks this output <code>optional: true</code>. Listing it as unconditionally produced is probably wrong.", line:14 },
+  { k:"params.sort_order", v:"coordinate", o:"inferred",
+    why:"Inferred from tool default. Overridable through <code>task.ext.args</code>, which the contract does not capture.", line:23 }
+];
+
+const ORIGIN = { copied:"copied", inferred:"inferred", unsure:"unsure", invalid:"invalid" };
+
+function renderFields() {
+  document.getElementById("fields").innerHTML = FIELDS.map(f => `
+    <div class="field" data-o="${f.o}">
+      <span class="field-k">${f.k}</span>
+      <span class="origin">${ORIGIN[f.o]}</span>
+      <span class="field-v" style="grid-column:1">${f.v}</span>
+      <p class="field-why">${f.why} <button data-jump="${f.line}">line ${f.line} →</button></p>
+    </div>`).join("");
+  document.querySelectorAll("#fields [data-jump]").forEach(b => b.onclick = () => {
+    document.querySelectorAll(".stage")[1].open = true;
+    jump(+b.dataset.jump);
+  });
+}
+
+/* ── queue ── */
+const QUEUE = [
+  { kind:"contract", name:"nf-core/samtools/sort@1.21.0", sub:"6 fields · 3 inferred · 1 unsure",
+    src:"nf-core", sha:"a1f4c2e", copied:3, inferred:2, unsure:1, invalid:0,
+    risk:"attention", state:"Routing tie", note:"ties with samtools/collate" },
+  { kind:"contract", name:"nf-core/fastqc@0.12.1", sub:"4 fields · 1 inferred",
+    src:"nf-core", sha:"a1f4c2e", copied:3, inferred:1, unsure:0, invalid:0,
+    risk:"clear", state:"All checks clear", note:"ready to approve" },
+  { kind:"contract", name:"nf-core/hisat2/align@2.2.1", sub:"7 fields · 3 inferred",
+    src:"nf-core", sha:"a1f4c2e", copied:4, inferred:3, unsure:0, invalid:0,
+    risk:"clear", state:"All checks clear", note:"ready to approve" },
+  { kind:"contract", name:"nf-core/salmon/quant@1.10.3", sub:"6 fields · 1 invalid state",
+    src:"nf-core", sha:"a1f4c2e", copied:3, inferred:2, unsure:0, invalid:1,
+    risk:"blocked", state:"Blocked", note:"needs counts.matrix[transcript_level]" },
+  { kind:"state", name:"alignment.bam # name_sorted", sub:"proposed while drafting samtools/collate",
+    src:"forge", sha:"—", copied:0, inferred:1, unsure:0, invalid:0,
+    risk:"attention", state:"Needs a decision", note:"unblocks 2 contracts" },
+  { kind:"contract", name:"pegi3s/blast@2.13.0", sub:"prose README only · 8 fields · 7 inferred",
+    src:"pegi3s", sha:"—", copied:1, inferred:4, unsure:3, invalid:0,
+    risk:"attention", state:"Heavy inference", note:"no machine-readable source" }
+];
+
+let filter = "all";
+const KINDS = [["all","Everything"],["contract","Contracts"],["state","States"],["rule","Rules"]];
+
+function gapBar(p) {
+  const seg = [["copied", p.copied, "var(--line-2)"], ["inferred", p.inferred, "var(--pea)"],
+               ["unsure", p.unsure, "repeating-linear-gradient(to right,var(--undecided) 0 3px,transparent 3px 8px)"],
+               ["invalid", p.invalid, "var(--fault)"]];
+  const total = seg.reduce((a, s) => a + s[1], 0) || 1;
+  return `<div class="gap-bar">${seg.filter(s => s[1]).map(s =>
+    `<i style="flex:${s[1]};background:${s[2]}"></i>`).join("")}</div>
+    <div class="gap-lbl">${Math.round((p.copied / total) * 100)}% copied</div>`;
+}
+
+function renderQueue() {
+  document.getElementById("filters").innerHTML = KINDS.map(([k, label]) => {
+    const n = k === "all" ? QUEUE.length : QUEUE.filter(p => p.kind === k).length;
+    return `<button class="chip-f" data-f="${k}" aria-pressed="${filter === k}">${label}<span class="n">${n}</span></button>`;
+  }).join("") + `<span style="margin-left:auto;font-size:11.5px;color:var(--ink-3)">Sorted by what needs you, not by date</span>`;
+
+  document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { filter = b.dataset.f; renderQueue(); });
+
+  const rank = { blocked:0, attention:1, clear:2 };
+  const rows = QUEUE.filter(p => filter === "all" || p.kind === filter)
+    .sort((a, b) => rank[a.risk] - rank[b.risk]);
+
+  document.getElementById("qlist").innerHTML = rows.map(p => `
+    <button class="qrow" data-risk="${p.risk}" data-open="review">
+      <span class="qkind">${p.kind}</span>
+      <span><span class="qname">${p.name}</span><span class="qsub">${p.sub}</span></span>
+      <span class="qsrc"><b>Source</b>${p.src}${p.sha !== "—" ? " · " + p.sha : ""}</span>
+      <span class="qgap">${gapBar(p)}</span>
+      <span class="qstate" data-risk="${p.risk}"><b>${p.state}</b>${p.note}</span>
+    </button>`).join("");
+
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => go("review"));
+  document.getElementById("qbadge").textContent = QUEUE.length + " waiting";
+}
+
+/* ── vocabulary ── */
+const VOCAB = [
+  { type:"fastq.reads", states:[["trimmed",6],["deduplicated",2],["subsampled",1]], used:9 },
+  { type:"alignment.bam", states:[["coordinate_sorted",7],["name_sorted",0,true],["deduplicated",3],["filtered",2],["indexed",4]], used:14 },
+  { type:"counts.matrix", states:[["gene_level",5],["normalised",1]], used:6 },
+  { type:"annotation.gtf", states:[], used:11 },
+  { type:"genome.index.star", states:[], used:3 },
+  { type:"qc.report", states:[["aggregated",2]], used:12 }
+];
+
+function renderVocab() {
+  document.getElementById("vocab").innerHTML = VOCAB.map(v => `
+    <div class="vrow">
+      <span class="vtype">${v.type}</span>
+      <span class="vstates">${v.states.length
+        ? v.states.map(([s, n, pending]) => `<span class="vstate" data-pending="${!!pending}">${s}${pending ? " · proposed" : ` · ${n}`}</span>`).join("")
+        : `<span class="vnone">no states — this type is either present or absent</span>`}</span>
+      <span class="vuse">${v.used} contracts</span>
+    </div>`).join("");
+}
+
+const REGISTRY = [
+  { n:"nf-core/trimgalore@0.6.10", by:"rafael", at:"2026-08-02", s:"a1f4c2e" },
+  { n:"nf-core/star/align@1.11.0", by:"rafael", at:"2026-08-02", s:"a1f4c2e" },
+  { n:"nf-core/subread/featurecounts@2.0.6", by:"rafael", at:"2026-08-02", s:"a1f4c2e" },
+  { n:"nf-core/multiqc@1.25.0", by:"rafael", at:"2026-08-02", s:"a1f4c2e" }
+];
+function renderRegistry() {
+  document.getElementById("registry").innerHTML = REGISTRY.map(r => `
+    <div class="qrow" data-risk="clear" style="cursor:default">
+      <span class="qkind">live</span>
+      <span><span class="qname">${r.n}</span><span class="qsub">approved by ${r.by} · ${r.at}</span></span>
+      <span class="qsrc"><b>Commit</b>${r.s}</span>
+      <span></span>
+      <span class="qstate" data-risk="clear"><b>In registry</b>routable</span>
+    </div>`).join("");
+}
+
+/* ── router ── */
+function go(page) {
+  document.querySelectorAll(".page").forEach(p => p.dataset.active = (p.dataset.page === page));
+  document.querySelectorAll("[data-go]").forEach(b =>
+    b.setAttribute("aria-current", b.dataset.go === page ? "page" : "false"));
+  scrollTo({ top: 0 });
+}
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
+
+document.getElementById("theme").onclick = () => {
+  const dark = document.documentElement.dataset.theme === "dark"
+    || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  document.getElementById("theme").textContent = dark ? "Dark" : "Light";
+};
+
+addEventListener("keydown", e => {
+  if (e.target.matches("textarea, input")) return;
+  if (e.key === ".") { const s = [...document.querySelectorAll(".stage")].find(s => !s.open); if (s) s.open = true; }
+});
+
+renderQueue(); renderCode(); renderFields(); renderVocab(); renderRegistry();
+</script>
