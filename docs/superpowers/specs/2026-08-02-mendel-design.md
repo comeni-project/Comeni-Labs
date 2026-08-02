@@ -1,8 +1,8 @@
-# Lab X — Deterministic Pipeline Builder
+# Mendel — Deterministic Pipeline Builder
 
 **Date:** 2026-08-02
 **Status:** Design approved, ready for implementation planning
-**Scope:** Lab X only. Lab Y, Lab Z and Comeni Code are separate specs.
+**Scope:** Mendel only. Lab Y, Lab Z and Comeni Code are separate specs.
 
 ---
 
@@ -19,11 +19,11 @@ rather than merely fast. The name comes from John Amos Comenius, generally credi
 with the idea of universal public education: in an age where AI leads, humans must
 still be able to follow.
 
-Lab X is the pipeline builder — the first and load-bearing component.
+Mendel is the pipeline builder — the first and load-bearing component.
 
 ### The product claim
 
-> Given the same goal, Lab X produces the same pipeline, and every decision in it
+> Given the same goal, Mendel produces the same pipeline, and every decision in it
 > can be traced to a constraint, a convention, a measurement, or an explicitly
 > flagged judgement call.
 
@@ -36,17 +36,24 @@ below serves it.
 
 | Component | Role | Depends on | Status |
 |---|---|---|---|
-| **Lab X** | prompt → resolved module graph → Nextflow | nothing | **this spec** |
-| Lab Y | run pipelines on Azure/AWS, monitor, auto-diagnose failures | Lab X output format | later spec |
-| Lab Z | data analysis / QC agent | Lab X contracts | **parked** |
-| Comeni Code | node-based learning platform; modules become lessons | Lab X registry | separate repo |
+| **Mendel** | prompt → resolved module graph → Nextflow | nothing | **this spec** |
+| Lab Y | run pipelines on Azure/AWS, monitor, auto-diagnose failures | Mendel output format | later spec |
+| Lab Z | data analysis / QC agent | Mendel contracts | **parked** |
+| Comeni Code | node-based learning platform; modules become lessons | Mendel registry | separate repo |
 
-Lab X is first because it has no upstream dependency and both Lab Y and Comeni Code
+Mendel is first because it has no upstream dependency and both Lab Y and Comeni Code
 consume its artifacts. Lab Z is parked deliberately: a data-checking agent cannot be
 designed before the pipeline contract exists.
 
-**Repository:** Lab X, Y and Z live in `Comeni-Labs`. `Comeni-Code` remains the
-learning platform, developed independently so release cycles stay decoupled.
+**Repository:** Mendel, Lab Y and Lab Z live in `Comeni-Labs`. `Comeni-Code` remains
+the learning platform, developed independently so release cycles stay decoupled.
+
+**Naming.** Lab X is named **Mendel**, after Gregor Mendel — who derived deterministic
+laws from observed data, which is precisely what the tier-3 rule tables in §6.2 are.
+The house convention is historical figures who made knowledge transmissible: Comeni
+itself from Comenius, following Rosalind from Franklin. Packages specific to Mendel
+carry the product name; `comeni-core` keeps the platform name because its IR is the
+interface Lab Y will consume.
 
 ---
 
@@ -54,7 +61,7 @@ learning platform, developed independently so release cycles stay decoupled.
 
 Falsifiable, in CI:
 
-> From a plain-language prompt plus a test dataset, Lab X emits Nextflow that runs
+> From a plain-language prompt plus a test dataset, Mendel emits Nextflow that runs
 > green on the `nf-core` test profile and produces a counts matrix.
 
 Target pipeline is the **RNA-seq spine** — roughly 15–20 modules on the canonical
@@ -110,7 +117,7 @@ pure core imports anything AI-shaped. This makes the determinism claim testable 
 makes the model provider a configuration detail.
 
 ```
-                     ┌────────── comeni-forge ──────────┐
+                     ┌────────── mendel-forge ──────────┐
   nf-core meta.yml ─▶│  ingest → AI draft → human OK    │
                      └──────────────┬───────────────────┘
                                     ▼
@@ -119,7 +126,7 @@ makes the model provider a configuration detail.
   ┌─────────────────────────────────┼──────────────────────────────────┐
   │                    WORKFLOW 2 — builder                            │
   │                                 ▼                                  │
-  │ prompt ─▶[AI port]─▶ GOAL ─▶ comeni-resolver ─▶ IR                 │
+  │ prompt ─▶[AI port]─▶ GOAL ─▶ mendel-resolver ─▶ IR                 │
   │           extract   (user      tier 1 structural                   │
   │                     edits)     tier 2 convention                   │
   │                                tier 3 rule table                   │
@@ -139,13 +146,13 @@ makes the model provider a configuration detail.
 | Package | Contains | Pure |
 |---|---|---|
 | `comeni-core` | data types, contract schema, pipeline IR, registry | yes — no I/O, no model |
-| `comeni-resolver` | four-tier ladder, rule tables, decision records | yes — AI only via injected port |
-| `comeni-compiler` | IR → Nextflow DSL2, validation gates, repair cycle | yes — AI only via injected port |
-| `comeni-ai` | port implementations via LiteLLM | no — the only package that calls models |
-| `comeni-forge` | ingestion adapters, contract drafting, approval queue | no |
-| `comeni-api` | FastAPI surface, OpenAPI schema, job dispatch | no |
+| `mendel-resolver` | four-tier ladder, rule tables, decision records | yes — AI only via injected port |
+| `mendel-compiler` | IR → Nextflow DSL2, validation gates, repair cycle | yes — AI only via injected port |
+| `mendel-ai` | port implementations via LiteLLM | no — the only package that calls models |
+| `mendel-forge` | ingestion adapters, contract drafting, approval queue | no |
+| `mendel-api` | FastAPI surface, OpenAPI schema, job dispatch | no |
 
-Named `comeni-compiler` rather than `codegen` deliberately: "compiler" carries the
+Named `mendel-compiler` rather than `codegen` deliberately: "compiler" carries the
 determinism claim.
 
 ---
@@ -366,9 +373,9 @@ monthly cadence. Comeni Labs is not a CRUD app — the value is a pure Python li
 the API is a thin skin over a compute engine with long jobs and streaming, which is
 FastAPI's shape.
 
-**This decision is low-stakes by construction.** `comeni-core`, `comeni-resolver` and
-`comeni-compiler` import no web framework. Replacing FastAPI later means rewriting
-`comeni-api` and nothing else.
+**This decision is low-stakes by construction.** `comeni-core`, `mendel-resolver` and
+`mendel-compiler` import no web framework. Replacing FastAPI later means rewriting
+`mendel-api` and nothing else.
 
 ---
 
@@ -378,11 +385,11 @@ FastAPI's shape.
 comeni-labs/
 ├─ packages/
 │  ├─ comeni-core/          types, contract schema, IR, registry
-│  ├─ comeni-resolver/      four-tier ladder, rules, decision records
-│  ├─ comeni-compiler/      IR → Nextflow, validation gates, repair cycle
-│  ├─ comeni-ai/            model ports via LiteLLM
-│  ├─ comeni-forge/         ingestion, drafting, approval queue
-│  └─ comeni-api/           FastAPI surface
+│  ├─ mendel-resolver/      four-tier ladder, rules, decision records
+│  ├─ mendel-compiler/      IR → Nextflow, validation gates, repair cycle
+│  ├─ mendel-ai/            model ports via LiteLLM
+│  ├─ mendel-forge/         ingestion, drafting, approval queue
+│  └─ mendel-api/           FastAPI surface
 ├─ vocabularies/            data types and their closed state lists
 ├─ rules/                   tier-3 rule tables, versioned, citable
 ├─ contracts/               approved module contracts
@@ -428,5 +435,5 @@ than rhetorical.
 - **nf-core/modules** — `meta.yml` as ingestion scaffold; stub blocks as a validation
   tier.
 - **auto-phylo / auto-phylo-pipeliner** (pegi3s) — an existing Docker-based pipeline
-  maker with a GUI from the host lab. Noted as prior art and as the comparison Lab X
+  maker with a GUI from the host lab. Noted as prior art and as the comparison Mendel
   will be measured against. Its implementation is not a model to follow.
