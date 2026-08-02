@@ -15,6 +15,7 @@ The product claim, which every design decision serves:
 | Read this | For |
 |---|---|
 | `docs/superpowers/specs/2026-08-02-mendel-design.md` | the architecture. **Read before writing code.** |
+| `docs/superpowers/specs/2026-08-02-comeni-federation-design.md` | provider access, registry stacking, pipeline publication, licensing |
 | `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 12 TDD tasks, zero AI. Start here. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
@@ -59,6 +60,17 @@ Violating any of these breaks the product claim, not just a test.
    Records are replayed on rerun rather than re-asking the model — that is how determinism
    survives having a model in the loop.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
+11. **The registry is a stack**: public curated base, then private overlays. A higher layer
+    sharing a **module key** (the contract ID minus `@version`) shadows every lower-layer
+    contract for that module and writes a `ShadowRecord`. A different module key is an
+    ordinary candidate and obeys invariant 8. Keying on the module key rather than the full ID
+    is what lets a lab pin `@1.22.0` over `@1.21.0` without the two tying — a version bump is
+    not ambiguity. Never let an installed overlay reroute a pipeline silently.
+12. **No subscription OAuth.** Claude Pro/Max tokens in third-party tools violate Anthropic's
+    Consumer ToS (documented 2026-02-19, enforced since 2026-01). API keys or local models only.
+13. **Self-hosted is not a degraded tier.** Same registry, same resolver, byte-identical
+    output. The hosted instance sells convenience, never capability. Anything that would only
+    work on our infrastructure is a design error.
 
 ## The four tiers
 
@@ -98,6 +110,28 @@ Ports and adapters: the pure packages declare `Protocol`s in
 `comeni-core` keeps the platform name rather than the product name because its IR is the
 interface Wiener will consume.
 
+## Distribution
+
+Open source, self-hostable, public registry. Revenue is the hosted service only.
+
+**Model access — three lanes.** `--no-ai` (none; what CI runs), self-hosted (BYO API key, or
+a local model over an OpenAI-compatible endpoint — Ollama and vLLM both qualify), and
+Comeni-hosted (our keys). `mendel-ai` reaches all of them through one LiteLLM adapter behind
+the `mendel_resolver.ports` protocols.
+
+**Registry.** Public curated base at `registry.comeni.org` — a git repo of data files with
+signed tags — plus zero or more private overlays via repeated `--registry`. A lab that never
+publishes is the normal case. Contributing upstream is a proposal into the forge queue.
+
+**Pipelines are publishable artifacts**: `Goal` + `PipelineIR` + `DecisionRecord[]` + a
+lockfile pinning contract digests and module versions. Three tiers — private, published
+(mechanical gate: stub-run then `-profile test`), curated (**a named human signs off**;
+never mechanical). Editing a curated pipeline replays every untouched decision from its
+record, so only what you touched can move. See the federation spec.
+
+**Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
+contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
+
 ## Commands
 
 ```bash
@@ -109,6 +143,9 @@ uv run pytest tests/test_purity.py   # the invariant-1 guard
 
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --no-ai --gate stub
+
+# same build, with the lab's private contracts stacked over the public registry
+uv run mendel build --goal examples/rnaseq-goal.yml --registry ./lab-contracts --no-ai
 
 # the forge
 uv run forge ingest --modules modules/
@@ -142,6 +179,11 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
   testable, and it is the mode CI runs in.
 - **Import modules, not symbols, where tests monkeypatch.** `from x import f` binds past a
   later patch of `x.f`.
+- **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
+  "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
+  `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy
+  recall layer beside them could influence resolution without passing the forge, which breaks
+  invariant 2. Federation is registry distribution, solved by git and a lockfile.
 
 ## Testing
 

@@ -112,6 +112,11 @@ than showing an ambiguous blank.
   English rather than declarations. The nf-core layout does not fit that case well.
 - **Tier-3 rule proposals are designed for but not drafted.** The queue's `kind` filter
   includes rules; no drafter emits them yet (see Plan 2 self-review).
+- **Pipeline review is a separate screen set, not yet designed.** The
+  [federation spec](../superpowers/specs/2026-08-02-comeni-federation-design.md) adds
+  `kind: pipeline` to the queue, but it asks a different question — *is this a defensible way
+  to do this analysis?* rather than *does the source support this claim?* — so it needs its
+  own stages and its own evidence panel. Plan 2.5.
 - **Keyboard shortcuts are advertised, partly wired.** Only `.` (next stage) works in the
   mockup; J/K/A/R are shown in the hints but not implemented.
 - **No diff view for re-drafts.** When a rejected proposal is redrafted, a curator will want

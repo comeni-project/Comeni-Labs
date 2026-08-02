@@ -3,6 +3,9 @@
 **Date:** 2026-08-02
 **Status:** Design approved, ready for implementation planning
 **Scope:** Mendel only. Wiener, Nightingale and Comeni Code are separate specs.
+**Amended by:** [`2026-08-02-comeni-federation-design.md`](2026-08-02-comeni-federation-design.md)
+— provider access, registry stacking, pipeline publication, curation, licensing. Where the two
+differ, the amendment wins.
 
 ---
 
@@ -427,9 +430,16 @@ than rhetorical.
 - `pegi3s` ingestion
 - Full `nf-core/rnaseq` branching: alternative aligners, pseudo-aligners, UMI handling
 - Agent-authored *new* modules (as opposed to contracts for existing ones)
-- Vector-store retrieval of decision records — records are persisted in v1, similarity
-  retrieval comes once there is a corpus
 - Gamification, auth beyond a single-tenant deployment, billing
+- Pipeline publication, lockfiles and the curated catalogue — designed in the federation
+  amendment, built in Plan 2.5, after the IR and decision records exist
+
+Withdrawn rather than deferred:
+
+- **Vector-store retrieval of decision records.** An earlier draft deferred this to "once
+  there is a corpus". The federation amendment §7 rejects it outright: a fuzzy recall layer
+  that can influence resolution without passing the forge breaks invariant 2. Decision records
+  are searched by exact structure, not by similarity.
 
 ---
 

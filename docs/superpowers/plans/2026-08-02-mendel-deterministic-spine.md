@@ -707,7 +707,17 @@ git commit -m "feat(core): pipeline IR, tiers, review levels and decision record
 
 ---
 
-### Task 5: The registry
+### Task 5: The layered registry
+
+Implements invariant 11 and §3 of the federation spec. The registry is an ordered stack —
+public curated base, then private overlays — where a higher layer **shadows** every contract
+sharing a module key with a lower one. `load()` accepts a single `Path` as the one-layer case,
+so every other task in this plan calls it unchanged.
+
+Collision is keyed on the **module key** (`id` minus `@version`), not the full ID. That is
+what lets a lab pin `nf-core/samtools/sort@1.22.0` over the base's `@1.21.0` without the two
+tying and demoting every downstream build to tier 4. Within one layer nothing changes: two
+versions of the same module remain separate candidates under `(-priority, id)`.
 
 **Files:**
 - Create: `packages/comeni-core/src/comeni_core/registry.py`
@@ -716,13 +726,13 @@ git commit -m "feat(core): pipeline IR, tiers, review levels and decision record
 
 **Interfaces:**
 - Consumes: `ModuleContract` (Task 3), `Vocabulary` (Task 2)
-- Produces: `Registry.load(contracts_dir: Path, vocab: Vocabulary) -> Registry`; `Registry.get(contract_id: str) -> ModuleContract`; `Registry.producers_of(type_id: str, states: frozenset[str]) -> list[ModuleContract]` returning contracts sorted by `(-priority, id)`; `Registry.all() -> list[ModuleContract]`
+- Produces: `Registry.load(layers: Path | Sequence[Path], vocab: Vocabulary) -> Registry`; `Registry.get(contract_id: str) -> ModuleContract`; `Registry.producers_of(type_id: str, states: frozenset[str]) -> list[ModuleContract]` sorted by `(-priority, id)`; `Registry.all() -> list[ModuleContract]`; `Registry.shadowed: list[ShadowRecord]`; `module_key(contract_id: str) -> str`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 import pytest
-from comeni_core.registry import Registry
+from comeni_core.registry import Registry, module_key
 from comeni_core.vocabulary import Vocabulary
 
 SORT = """
@@ -739,17 +749,38 @@ PREFERRED_SORT = SORT.replace(
     "nf-core/samtools/sort@1.21.0", "nf-core/samtools/fastsort@1.21.0"
 ).replace("priority: 0", "priority: 10")
 
+# same module key, newer version — the lab pinning a different build
+NEWER_SORT = SORT.replace("@1.21.0", "@1.22.0").replace("SAMTOOLS_SORT", "SAMTOOLS_SORT_NEW")
+
+
+def _layer(root, name, files):
+    d = root / name
+    d.mkdir()
+    for filename, body in files.items():
+        (d / filename).write_text(body)
+    return d
+
 
 @pytest.fixture
-def registry(tmp_path):
+def vocab(tmp_path):
     vocab_dir = tmp_path / "vocab"
     vocab_dir.mkdir()
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    contracts = tmp_path / "contracts"
-    contracts.mkdir()
-    (contracts / "sort.yml").write_text(SORT)
-    (contracts / "fastsort.yml").write_text(PREFERRED_SORT)
-    return Registry.load(contracts, Vocabulary.load(vocab_dir))
+    return Vocabulary.load(vocab_dir)
+
+
+@pytest.fixture
+def base(tmp_path):
+    return _layer(tmp_path, "base", {"sort.yml": SORT, "fastsort.yml": PREFERRED_SORT})
+
+
+@pytest.fixture
+def registry(base, vocab):
+    return Registry.load(base, vocab)
+
+
+def test_module_key_strips_the_version():
+    assert module_key("nf-core/samtools/sort@1.21.0") == "nf-core/samtools/sort"
 
 
 def test_get_returns_contract_by_id(registry):
@@ -776,6 +807,54 @@ def test_producers_are_sorted_by_priority_then_id(registry):
 def test_get_raises_on_unknown_id(registry):
     with pytest.raises(KeyError):
         registry.get("nf-core/nope@1.0.0")
+
+
+def test_a_single_path_is_the_one_layer_case(base, vocab):
+    assert Registry.load(base, vocab).contracts == Registry.load([base], vocab).contracts
+
+
+def test_overlay_shadows_the_same_module_key_at_any_version(tmp_path, base, vocab):
+    overlay = _layer(tmp_path, "lab", {"sort.yml": NEWER_SORT})
+    reg = Registry.load([base, overlay], vocab)
+
+    # the base's @1.21.0 is gone, displaced by the overlay's @1.22.0
+    assert reg.get("nf-core/samtools/sort@1.22.0").nf_process == "SAMTOOLS_SORT_NEW"
+    with pytest.raises(KeyError):
+        reg.get("nf-core/samtools/sort@1.21.0")
+
+    # and it did not tie: exactly one sort candidate survives, plus fastsort
+    found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
+    assert [c.id for c in found] == [
+        "nf-core/samtools/fastsort@1.21.0",
+        "nf-core/samtools/sort@1.22.0",
+    ]
+
+
+def test_shadowing_is_recorded(tmp_path, base, vocab):
+    overlay = _layer(tmp_path, "lab", {"sort.yml": NEWER_SORT})
+    reg = Registry.load([base, overlay], vocab)
+
+    assert len(reg.shadowed) == 1
+    record = reg.shadowed[0]
+    assert record.module_key == "nf-core/samtools/sort"
+    assert record.winning_id == "nf-core/samtools/sort@1.22.0"
+    assert record.displaced_ids == ["nf-core/samtools/sort@1.21.0"]
+
+
+def test_a_different_module_key_does_not_shadow(tmp_path, base, vocab):
+    overlay = _layer(tmp_path, "lab", {"mine.yml": SORT.replace("nf-core/samtools/sort", "lab/mysort")})
+    reg = Registry.load([base, overlay], vocab)
+
+    assert reg.shadowed == []
+    # it competes normally — and ties with the base at equal priority, which invariant 8
+    # leaves for the router to demote to tier 4
+    found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
+    assert len(found) == 3
+
+
+def test_unshadowed_stack_is_the_union(tmp_path, base, vocab):
+    overlay = _layer(tmp_path, "lab", {"mine.yml": SORT.replace("nf-core/samtools/sort", "lab/mysort")})
+    assert len(Registry.load([base, overlay], vocab).contracts) == 3
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -786,8 +865,9 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'comeni_core.registry'
 - [ ] **Step 3: Write minimal implementation**
 
 ```python
-"""The contract registry: what exists, and what can produce what."""
+"""The contract registry: what exists, what produces what, and which layer won."""
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -796,16 +876,58 @@ from comeni_core.contract import ModuleContract
 from comeni_core.vocabulary import Vocabulary
 
 
+def module_key(contract_id: str) -> str:
+    """A contract ID minus its version. Shadowing is decided on this, not the full ID."""
+    return contract_id.rsplit("@", 1)[0]
+
+
+class ShadowRecord(BaseModel):
+    """A higher layer displaced every lower-layer contract for one module key."""
+
+    module_key: str
+    winning_id: str
+    winning_layer: str
+    displaced_ids: list[str]
+
+
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
+    shadowed: list[ShadowRecord] = []
 
     @classmethod
-    def load(cls, contracts_dir: Path, vocab: Vocabulary) -> "Registry":
-        contracts = {}
-        for path in sorted(contracts_dir.rglob("*.yml")):
-            contract = ModuleContract.load(path, vocab)
-            contracts[contract.id] = contract
-        return cls(contracts=contracts)
+    def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
+        if isinstance(layers, Path):
+            layers = [layers]
+
+        contracts: dict[str, ModuleContract] = {}
+        shadowed: list[ShadowRecord] = []
+
+        for layer in layers:
+            incoming = {}
+            for path in sorted(layer.rglob("*.yml")):
+                contract = ModuleContract.load(path, vocab)
+                incoming[contract.id] = contract
+
+            keys = {module_key(cid) for cid in incoming}
+            for key in sorted(keys):
+                displaced = sorted(c for c in contracts if module_key(c) == key)
+                if not displaced:
+                    continue
+                winner = sorted(cid for cid in incoming if module_key(cid) == key)[0]
+                shadowed.append(
+                    ShadowRecord(
+                        module_key=key,
+                        winning_id=winner,
+                        winning_layer=str(layer),
+                        displaced_ids=displaced,
+                    )
+                )
+                for cid in displaced:
+                    del contracts[cid]
+
+            contracts.update(incoming)
+
+        return cls(contracts=contracts, shadowed=shadowed)
 
     def get(self, contract_id: str) -> ModuleContract:
         if contract_id not in self.contracts:
@@ -825,6 +947,9 @@ class Registry(BaseModel):
         return sorted(matches, key=lambda c: (-c.priority, c.id))
 ```
 
+Every collection that reaches `shadowed` is sorted before it is stored. `ShadowRecord` ends up
+in `PipelineIR`, so it is subject to the byte-identical rule like everything else.
+
 - [ ] **Step 4: Export the public API**
 
 `packages/comeni-core/src/comeni_core/__init__.py`:
@@ -835,7 +960,7 @@ class Registry(BaseModel):
 from comeni_core.contract import InputPort, ModuleContract, OutputPort, Param, Provenance
 from comeni_core.decision import Ambiguity, DecisionRecord, Resolution
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, ReviewLevel, Tier
-from comeni_core.registry import Registry
+from comeni_core.registry import Registry, ShadowRecord, module_key
 from comeni_core.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
 
 __version__ = "0.1.0"
@@ -843,21 +968,21 @@ __version__ = "0.1.0"
 __all__ = [
     "Ambiguity", "DecisionRecord", "IREdge", "IRNode", "InputPort", "ModuleContract",
     "OutputPort", "Param", "PipelineIR", "Provenance", "Registry", "ResolvedValue",
-    "Resolution", "ReviewLevel", "Tier", "UnknownStateError", "UnknownTypeError",
-    "Vocabulary",
+    "Resolution", "ReviewLevel", "ShadowRecord", "Tier", "UnknownStateError",
+    "UnknownTypeError", "Vocabulary", "module_key",
 ]
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/ -v && uv run ruff check .`
-Expected: PASS, 5 new tests, 17 total.
+Expected: PASS, 11 new tests, 23 total.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/
-git commit -m "feat(core): registry with priority-ordered producer lookup"
+git commit -m "feat(core): layered registry with module-key shadowing"
 ```
 
 ---

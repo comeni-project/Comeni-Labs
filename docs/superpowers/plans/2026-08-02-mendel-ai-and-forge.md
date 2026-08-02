@@ -1746,6 +1746,8 @@ from pydantic import BaseModel
 
 
 class Proposal(BaseModel):
+    # free string, not an enum: "contract" and "state" here, "rule" and "pipeline" later
+    # without a schema migration. See the federation spec §5.
     kind: str
     target_path: str
     body: str
