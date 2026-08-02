@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-02
 **Status:** Design approved, ready for implementation planning
-**Scope:** Mendel only. Lab Y, Lab Z and Comeni Code are separate specs.
+**Scope:** Mendel only. Wiener, Nightingale and Comeni Code are separate specs.
 
 ---
 
@@ -37,23 +37,30 @@ below serves it.
 | Component | Role | Depends on | Status |
 |---|---|---|---|
 | **Mendel** | prompt → resolved module graph → Nextflow | nothing | **this spec** |
-| Lab Y | run pipelines on Azure/AWS, monitor, auto-diagnose failures | Mendel output format | later spec |
-| Lab Z | data analysis / QC agent | Mendel contracts | **parked** |
+| Wiener | run pipelines on Azure/AWS, monitor, auto-diagnose failures | Mendel output format | later spec |
+| Nightingale | data analysis / QC agent | Mendel contracts | **parked** |
 | Comeni Code | node-based learning platform; modules become lessons | Mendel registry | separate repo |
 
-Mendel is first because it has no upstream dependency and both Lab Y and Comeni Code
-consume its artifacts. Lab Z is parked deliberately: a data-checking agent cannot be
+Mendel is first because it has no upstream dependency and both Wiener and Comeni Code
+consume its artifacts. Nightingale is parked deliberately: a data-checking agent cannot be
 designed before the pipeline contract exists.
 
-**Repository:** Mendel, Lab Y and Lab Z live in `Comeni-Labs`. `Comeni-Code` remains
+**Repository:** Mendel, Wiener and Nightingale live in `Comeni-Labs`. `Comeni-Code` remains
 the learning platform, developed independently so release cycles stay decoupled.
 
-**Naming.** Lab X is named **Mendel**, after Gregor Mendel — who derived deterministic
-laws from observed data, which is precisely what the tier-3 rule tables in §6.2 are.
-The house convention is historical figures who made knowledge transmissible: Comeni
-itself from Comenius, following Rosalind from Franklin. Packages specific to Mendel
-carry the product name; `comeni-core` keeps the platform name because its IR is the
-interface Lab Y will consume.
+### Naming
+
+The house convention is historical figures who made a hard thing legible or dependable
+— Comeni itself from Comenius, following Rosalind from Franklin.
+
+| Lab | Name | After | Why |
+|---|---|---|---|
+| X | **Mendel** | Gregor Mendel | derived deterministic laws from observed data — precisely what the tier-3 rule tables in §6.2 are |
+| Y | **Wiener** | Norbert Wiener | founded cybernetics, the science of control through feedback — measure the running system, detect drift, correct |
+| Z | **Nightingale** | Florence Nightingale | made data legible to people who could not read statistics, and made them act on it |
+
+Packages specific to Mendel carry the product name. `comeni-core` keeps the platform
+name because its IR is the interface Wiener will consume.
 
 ---
 
@@ -258,7 +265,7 @@ carries it forever.
 | **4 ambiguous** | no rule matched | AI proposal + reasoning + alternatives | `required` | **red** |
 
 `review_level` is a field on the resolution, not a UI convention, so the API exposes it
-and Lab Y and Comeni Code can both consume it.
+and Wiener and Comeni Code can both consume it.
 
 **Tier 3 is yellow, not green, deliberately.** A tier-3 match is only as good as the
 rule *and* the measurement. If the profiler misreads strandedness, the rule fires
@@ -415,7 +422,7 @@ than rhetorical.
 
 ## 12. Explicitly out of scope for v1
 
-- Lab Y (cloud execution and monitoring) and Lab Z (data analysis)
+- Wiener (cloud execution and monitoring) and Nightingale (data analysis)
 - Comeni Code integration — modules becoming lessons
 - `pegi3s` ingestion
 - Full `nf-core/rnaseq` branching: alternative aligners, pseudo-aligners, UMI handling
