@@ -21,6 +21,32 @@ The product claim, which every design decision serves:
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
 
+## How to start implementing — decided 2026-08-02, read this first
+
+> **Use `superpowers:executing-plans`. Subagents for review and design when needed.**
+
+That is the operator's instruction, not a suggestion. Concretely:
+
+- **Drive the plan yourself** with `superpowers:executing-plans`, sequentially, task by task.
+  Do **not** use `subagent-driven-development` to farm out implementation tasks.
+- **Subagents are for review and design only**, and only when the work calls for it — a
+  second opinion on a design question, a review pass over something already written. Never
+  as the default way to write code.
+- **Work in the worktree**, not the main checkout:
+  `.worktrees/plan-1-spine` on branch `plan-1-spine`. Fast-forward it onto `main` first.
+- **Start with Plan 1**, task 1 (the AST purity guard), and go in order.
+
+**Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
+(the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
+installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
+reachable.
+
+**Task 11 ships a known defect on purpose.** `_calls` gives every node with no incoming edge
+the same `ch_reads` channel — right for `FASTQC` and `TRIMGALORE`, wrong for
+`STAR_GENOMEGENERATE`, which needs the GTF channel. Task 12's `-stub-run` gate is what
+surfaces it. Fix it *then*, test-first, by keying entry channels on the port's `type_id`.
+Do not pre-empt it; the failing gate is the point.
+
 ## The three Labs
 
 Named for people who made a hard thing legible or dependable — after Comenius, following
