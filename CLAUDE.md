@@ -47,6 +47,16 @@ the same `ch_reads` channel — right for `FASTQC` and `TRIMGALORE`, wrong for
 surfaces it. Fix it *then*, test-first, by keying entry channels on the port's `type_id`.
 Do not pre-empt it; the failing gate is the point.
 
+**Do not write Plan 2.5 yet.** It is designed (federation spec §8: lockfiles, `mendel
+publish`, `mendel upgrade`, the pipeline catalogue, the pipeline review screens, and the
+registry split out of `examples/`) but deliberately unwritten, and its absence is not an
+oversight. Its code steps reference `PipelineIR.registry_layers`, `PipelineIR.shadowed`,
+`DecisionRecord` fields and the lockfile shape — all of which exist only as text inside Plan 1
+until Plan 1 builds them. Plans 2 and 3 were written ahead of Plan 1 in one sitting and the
+cross-plan review found three defects, two of them plans referencing things that had drifted;
+Task 5's own signature changed shape mid-implementation today. **Write Plan 2.5 after Plan 1
+runs green, against real types rather than predicted ones.**
+
 ## The three Labs
 
 Named for people who made a hard thing legible or dependable — after Comenius, following
