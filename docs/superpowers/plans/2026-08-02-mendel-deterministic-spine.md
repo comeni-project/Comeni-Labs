@@ -2452,7 +2452,10 @@ Gaps are deliberate and named: everything AI-shaped is Plan 2, everything web-sh
 
 **Type consistency.** `ResolvedValue.review_level` is a computed field throughout. `Ambiguity.key()` is used identically in Tasks 7 and 9. `Registry.producers_of` returns `list[ModuleContract]` sorted `(-priority, id)` and both callers rely on that order. `nf_include` is consistently a path without the `.nf` suffix — Task 10's test appends it, Task 11's template prefixes `./`.
 
-**One known rough edge to watch during execution.** Task 11's `emit` builds an anonymous class for template values, which works but is ugly. If it causes trouble, replace it with a small Pydantic model — the tests will tell you immediately either way.
+**Two known rough edges to watch during execution.**
+
+1. Task 11's `emit` builds an anonymous class for template values. It works but is ugly. If it causes trouble, replace it with a small Pydantic model — the tests will tell you immediately either way.
+2. Task 11's `_calls` gives every node with no incoming edge the same `ch_reads` channel. That is correct for `FASTQC` and `TRIMGALORE` but wrong for `STAR_GENOMEGENERATE`, which needs the GTF channel. The `-stub-run` gate in Task 12 is what will surface it. When it does, the fix is to key entry channels by the port's `type_id` (`fastq.reads` → `ch_reads`, `annotation.gtf` → `ch_gtf`) rather than defaulting them all — roughly ten lines, but do it as a fix with a failing test first, not pre-emptively.
 
 ---
 
