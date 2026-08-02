@@ -67,7 +67,21 @@ installed and authenticated on their own machine. That is the user running their
 locally, not us reselling their token. It ships disabled, documented as unsupported, and is
 absent from the hosted instance.
 
-### 2.3 Why this is cheaper for us than for anyone else
+### 2.3 Telemetry
+
+**Opt-in, off by default, and never on without an explicit act by the operator.** A
+self-hosted instance that has not been configured sends nothing.
+
+Invariant 1 already enforces the boundary structurally: `comeni-core`, `mendel-resolver` and
+`mendel-compiler` may not import an HTTP client, so telemetry cannot physically exist in the
+packages that do the resolving. It can only live in `mendel-api`, where an operator reviewing
+the deployment will find it in one place. This is a property of the architecture rather than a
+promise in a privacy policy, and the AST test in `tests/test_purity.py` fails if it erodes.
+
+Institutes running Mendel on patient or unpublished data will read the source before
+deploying. What they find must match what we say.
+
+### 2.4 Why this is cheaper for us than for anyone else
 
 Mendel's runtime AI surface is three declared points (spec §4.2). Tiers 1–3 resolve with no
 model at all. A self-hosted Mendel with no provider configured still ingests a goal, routes
@@ -88,7 +102,7 @@ The registry loads as an ordered stack: the public curated base, then zero or mo
 overlays, supplied by repeated `--registry` or by config. Later layers win.
 
 ```
---registry https://registry.comeni.org      # public base, implicit default
+--registry <comeni-registry checkout>       # public base, implicit default
 --registry ./lab-contracts                  # the institute's own
 --registry ./my-contracts                   # personal
 ```
@@ -132,9 +146,20 @@ says so, so a reviewer at another institution can tell it was not stock without 
 
 ### 3.4 Distribution
 
-The public registry is a git repository of data files — `contracts/`, `rules/`,
-`vocabularies/` — with signed tags. Pulling is `git pull`. Verification is tag signature plus
-a content digest recorded in the lockfile. No sync protocol is invented.
+The public registry is **its own repository** — `comeni-registry`, holding `contracts/`,
+`rules/` and `vocabularies/` with signed tags. Pulling is `git pull`. Verification is tag
+signature plus a content digest recorded in the lockfile. No sync protocol is invented.
+
+It is separate from the code repository for three reasons: pulling the registry should not
+mean cloning a Python workspace; the two carry different licences (Apache-2.0 against
+CC-BY-4.0), and one repository with two licences invites exactly the confusion the licence
+files exist to prevent; and a lab forking the registry to build an overlay should not fork the
+compiler.
+
+**The split happens at Plan 2.5, not now.** Through Plan 1 the repository keeps a handful of
+hand-written contracts under `examples/` purely as test fixtures, because the tests need data
+before a registry exists. `Registry.load()` takes paths, so relocating them later is a change
+to configuration rather than to code — but only because the split is decided in advance.
 
 Contributing back is a proposal into the forge queue already designed in
 [the forge review design](../../design/2026-08-02-forge-review-design.md): a lab approves a
@@ -267,8 +292,10 @@ shadowing; the single-directory form remains as the one-layer case.
 code there. Drafting and the pipeline review screens are Plan 2.5's work.
 
 **New Plan 2.5 — publication and curation.** Lockfiles, `mendel publish`, `mendel upgrade`,
-the pipeline catalogue and the pipeline review screens. It depends on the IR and decision
-records, so it lands after Plan 1 and alongside or after Plan 2.
+the pipeline catalogue and the pipeline review screens. Also the registry split: moving
+`contracts/`, `rules/` and `vocabularies/` out of `examples/` and into the `comeni-registry`
+repository, with signed tags. It depends on the IR and decision records, so it lands after
+Plan 1 and alongside or after Plan 2.
 
 **Plan 3 unchanged.** The dashboard renders `registry_layers` and shadow markers, but that is
 display of data the IR already carries.
@@ -284,5 +311,9 @@ display of data the IR already carries.
 - **Overlay conflict across two private layers.** Two overlays shadowing the same public
   contract resolves by stack order, which is correct but silent within the private stack. If
   labs routinely run more than two layers this may want its own warning.
-- **Registry hosting.** `registry.comeni.org` is a git repository behind a domain we do not
-  own yet.
+- **Registry hosting.** The registry is the `comeni-registry` repository. Whether it also gets
+  a vanity domain is open; `registry.comeni.org` appears in this document as a placeholder and
+  no domain has been registered or checked.
+- **GitHub namespace.** `comeni` is taken on GitHub by an existing user account, and users and
+  organisations share one namespace, so the organisation carries a suffixed name. Every clone
+  URL and `git pull` instruction in these docs inherits whatever is chosen.

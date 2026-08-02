@@ -96,12 +96,16 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-vocabularies/  data types and their closed state lists   (data, versioned)
-rules/         tier-3 rule tables, citable to papers     (data, versioned)
-contracts/     approved module contracts                 (data, versioned)
+examples/      hand-written vocabularies, rules and contracts — TEST FIXTURES ONLY
 modules/       vendored nf-core module code
 frontend/      React + TS + Vite + Tailwind SPA
 ```
+
+**The registry is a separate repository.** `comeni-registry` holds the real `contracts/`,
+`rules/` and `vocabularies/` under CC-BY-4.0 with signed tags; this repo holds only enough
+hand-written data under `examples/` for tests to run. The split happens at Plan 2.5 — until
+then, do not treat `examples/` as a registry or add contracts there expecting them to ship.
+`Registry.load()` takes paths, which is what keeps the move cheap.
 
 Ports and adapters: the pure packages declare `Protocol`s in
 `mendel_resolver/ports.py`; `mendel-ai` implements them. The dependency arrow points
@@ -119,15 +123,20 @@ a local model over an OpenAI-compatible endpoint — Ollama and vLLM both qualif
 Comeni-hosted (our keys). `mendel-ai` reaches all of them through one LiteLLM adapter behind
 the `mendel_resolver.ports` protocols.
 
-**Registry.** Public curated base at `registry.comeni.org` — a git repo of data files with
-signed tags — plus zero or more private overlays via repeated `--registry`. A lab that never
-publishes is the normal case. Contributing upstream is a proposal into the forge queue.
+**Registry.** Public curated base — the `comeni-registry` repo, data files with signed tags —
+plus zero or more private overlays via repeated `--registry`. A lab that never publishes is
+the normal case. Contributing upstream is a proposal into the forge queue.
 
 **Pipelines are publishable artifacts**: `Goal` + `PipelineIR` + `DecisionRecord[]` + a
 lockfile pinning contract digests and module versions. Three tiers — private, published
 (mechanical gate: stub-run then `-profile test`), curated (**a named human signs off**;
 never mechanical). Editing a curated pipeline replays every untouched decision from its
 record, so only what you touched can move. See the federation spec.
+
+**Telemetry is opt-in and off by default.** Invariant 1 makes this structural rather than a
+promise: the pure packages cannot import an HTTP client, so telemetry can only live in
+`mendel-api`. Anything that would put a network call in `comeni-core`, `mendel-resolver` or
+`mendel-compiler` fails `tests/test_purity.py`, which is the intended outcome.
 
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
