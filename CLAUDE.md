@@ -177,6 +177,21 @@ promise: the pure packages cannot import an HTTP client, so telemetry can only l
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
 
+**Repo status, decided 2026-08-02.** Pushed to `github.com/rafaelmdc/Comeni-Labs`, **private
+until Plan 1 runs green**, then public. It is meant to move to a GitHub **org** — deferred,
+not dropped, because `comeni` is taken by an existing GitHub *user* and users and orgs share
+one namespace, so the org needs a suffixed name (`comeni-project` was the leading candidate).
+**Transfer before publishing anything that hardcodes clone URLs.**
+
+**Two things to do before flipping it public**, neither of which is urgent while it is private:
+
+1. There is no `README`, `CONTRIBUTING` or `CODE_OF_CONDUCT`. An Apache-2.0 repo wants them.
+2. **Re-read how these docs describe pegi3s / auto-phylo.** The Mendel spec §13 says their
+   implementation "is not a model to follow", and the forge design says nearly every field
+   from their sources is inferred. Both are fair and diplomatically worded — but Rafael is
+   joining that lab, and going public means they can read it. His call, made with eyes open,
+   not discovered afterwards.
+
 ## Commands
 
 ```bash
