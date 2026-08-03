@@ -72,9 +72,22 @@ def test_goal_has_nowhere_to_put_a_sample_identifier():
         Goal(want=["counts.matrix"], samples=["patient_4471023_R1.fastq.gz"])
 
 
-def test_profile_rejects_unknown_measurements():
-    with pytest.raises(ValidationError):
-        DataProfile(read_length=150, sample_name="SILVA_biopsy_01")
+def test_profile_rejects_unknown_measurements(tmp_path):
+    """Invariant 15, moved rather than weakened.
+
+    `DataProfile` used to hold four hardcoded fields, so `extra="forbid"` alone refused
+    `sample_name`. Measurements are declared data now, so the model cannot know what is
+    declared and the mapping shorthand is no longer a validation boundary — which is why
+    `MeasurementRegistry.profile()` is the only sanctioned constructor,
+    `tests/test_construction.py` enforces that, and `mendel build` re-builds every goal's
+    profile through it. This asserts the door itself is shut.
+    """
+    from comeni_core.measurement import MeasurementRegistry
+
+    (tmp_path / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    registry = MeasurementRegistry.load(tmp_path)
+    with pytest.raises(KeyError, match="sample_name"):
+        registry.profile({"read_length": 150, "sample_name": "SILVA_biopsy_01"})
 
 
 def test_a_path_cannot_enter_through_constraints():

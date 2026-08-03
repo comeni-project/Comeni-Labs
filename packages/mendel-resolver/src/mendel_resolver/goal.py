@@ -1,30 +1,26 @@
 """What the user has, what they want, and what the data actually looks like.
 
 Invariant 15: Mendel does not receive patient data. A `Goal` describes a *shape* —
-type ids, states, and four measurements. "Paired, 150bp, reverse-stranded, twelve
+type ids, states, and declared measurements. "Paired, 150bp, reverse-stranded, twelve
 samples" is true of thousands of studies and identifies nobody. There is no filename
-field, no sample identifier field and no path, and `extra="forbid"` on both models is
-what stops one being added by accident: an unrecognised key is a loud error rather
-than a quietly carried payload.
+field, no sample identifier field and no path, and `extra="forbid"` on every model
+here is what stops one being added by accident: an unrecognised key is a loud error
+rather than a quietly carried payload.
 
 Sample identity enters at run time, in the laboratory's own environment, through the
 `params.input` placeholder the emitted pipeline declares. It never reaches Mendel's
 process. See the clinical data-protection spec, §3.
+
+`DataProfile` and `Measured` are defined in `comeni_core.profile` — a profile is made of
+measurements and measurements are declared there — and re-exported here because a goal is
+where most code meets one.
 """
 
 from comeni_core.marks import ParamValue, PortName, StateName, TypeId
+from comeni_core.profile import DataProfile, Measured
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-
-class DataProfile(BaseModel):
-    """Measured properties of the input data. Pure computation, no inference."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    read_length: int | None = None
-    strandedness: str | None = None
-    n_samples: int | None = None
-    paired: bool | None = None
+__all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
 
 
 class GoalInput(BaseModel):

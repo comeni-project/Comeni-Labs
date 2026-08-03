@@ -6,6 +6,11 @@ import sys
 from pathlib import Path
 
 import yaml
+from comeni_core.measurement import (
+    BadMeasurementValueError,
+    MeasurementRegistry,
+    UnknownMeasurementError,
+)
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal
@@ -26,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mendel: cannot route this goal — {exc}", file=sys.stderr)
     except ValidationError as exc:
         print(f"mendel: this goal is not valid —\n{exc}", file=sys.stderr)
+    except (UnknownMeasurementError, BadMeasurementValueError) as exc:
+        print(f"mendel: this goal's profile is not valid — {exc}", file=sys.stderr)
     except (OSError, KeyError) as exc:
         print(f"mendel: {exc}", file=sys.stderr)
     return 2
@@ -57,7 +64,20 @@ def _build(argv: list[str] | None = None) -> int:
     vocab = Vocabulary.load([layer / "vocabularies" for layer in layers])
     registry = Registry.load([layer / "contracts" for layer in layers], vocab)
     rules = RuleTable.load([layer / "rules" for layer in layers])
+    measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
     goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
+
+    # Re-build the goal's profile through the one constructor that validates it. The
+    # mapping shorthand in the goal file cannot check itself — measurements are declared
+    # data, so the model has no idea what is declared — and `profile: {sample_name: ...}`
+    # is exactly the shape invariant 15 exists to refuse. This is the door.
+    goal = goal.model_copy(
+        update={
+            "profile": measurements.profile(
+                {m.measurement: m.value for m in goal.profile.measurements}
+            )
+        }
+    )
 
     ir = resolve(goal, registry, rules)
 

@@ -32,7 +32,7 @@ class Rule(BaseModel):
 
     def matches(self, profile: DataProfile) -> bool:
         for field, comparison in self.when.items():
-            actual = getattr(profile, field, None)
+            actual = profile.get(field)
             if actual is None:
                 return False
             for symbol, expected in comparison.items():

@@ -19,6 +19,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.marks import MeasurementId, ParamValue
+from comeni_core.profile import DataProfile, Measured
+from comeni_core.tiers import ValueSource
 
 
 class UnknownMeasurementError(KeyError):
@@ -136,6 +138,29 @@ class MeasurementRegistry(BaseModel):
             raise BadMeasurementValueError(
                 f"{measurement_id!r} has maximum {measurement.maximum}, got {value!r}"
             )
+
+    def profile(
+        self,
+        mapping: dict[str, ParamValue],
+        *,
+        source: ValueSource = ValueSource.GOAL,
+        by: str | None = None,
+    ) -> DataProfile:
+        """The one validated way to build a `DataProfile`.
+
+        Validation needs this registry, which the model cannot hold, so it happens here.
+        `tests/test_construction.py` asserts nothing else constructs a profile — a second
+        path skipping validation would produce an unchecked profile flowing straight into
+        routing, which is the class of bug that left `subject: aligner` dead for months.
+        """
+        for measurement_id, value in mapping.items():
+            self.check(measurement_id, value)
+        return DataProfile(
+            measurements=[
+                Measured(measurement=k, value=v, source=source, by=by)
+                for k, v in sorted(mapping.items())
+            ]
+        )
 
 
 def _extend(

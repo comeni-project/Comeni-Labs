@@ -62,6 +62,39 @@ def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
     assert "nf-core/samtools/sort@1.99.0" in [n["contract_id"] for n in ir["nodes"]]
 
 
+def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, capsys):
+    """Invariant 15 at the door a goal file actually enters through.
+
+    `DataProfile` accepts a mapping because that is how a person writes one, and since
+    measurements became declared data the model cannot know which keys are real. So the
+    check moved to `MeasurementRegistry.profile()` and `mendel build` routes every goal
+    through it. Without that call `profile: {sample_name: SILVA_biopsy_01}` validates,
+    resolves and reaches `pipeline.ir.json` — the shape of the hole the 2026-08-03 audit
+    found in `constraints`, re-opened one field over.
+    """
+    goal = tmp_path / "goal.yml"
+    goal.write_text(
+        "have: [{type_id: fastq.reads}]\nwant: [qc.report]\n"
+        "profile: {read_length: 150, sample_name: SILVA_biopsy_01}\n"
+    )
+    exit_code = main([
+        "build", "--goal", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
+    ])
+    assert exit_code == 2
+    assert "sample_name" in capsys.readouterr().err
+
+
+def test_a_goal_file_cannot_carry_an_out_of_range_measurement(tmp_path, capsys):
+    goal = tmp_path / "goal.yml"
+    goal.write_text(
+        "have: [{type_id: fastq.reads}]\nwant: [qc.report]\nprofile: {read_length: 0}\n"
+    )
+    assert main([
+        "build", "--goal", str(goal), "--out", str(tmp_path / "p"), "--root", str(ROOT),
+    ]) == 2
+    assert "minimum" in capsys.readouterr().err
+
+
 def test_two_builds_produce_identical_output(tmp_path):
     for name in ["a", "b"]:
         main([
