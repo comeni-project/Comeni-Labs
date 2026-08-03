@@ -46,8 +46,11 @@ def main(argv: list[str] | None = None) -> int:
     (args.out / "main.nf").write_text(emit(ir, registry, vocab))
     (args.out / "nextflow.config").write_text(emit_config(ir, registry, vocab))
     (args.out / "pipeline.ir.json").write_text(ir.model_dump_json(indent=2))
-    if (args.root / "modules").exists():
-        shutil.copytree(args.root / "modules", args.out / "modules", dirs_exist_ok=True)
+    # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is
+    # where this repository keeps the source. Deliberately not the same path.
+    vendored = args.root / "vendor" / "modules"
+    if vendored.exists():
+        shutil.copytree(vendored, args.out / "modules", dirs_exist_ok=True)
 
     for record in registry.shadowed:
         print(

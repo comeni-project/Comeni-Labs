@@ -7,6 +7,7 @@ from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import route
 
 ROOT = pathlib.Path(__file__).parent.parent
+VENDOR = ROOT / "vendor"
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def test_all_spine_contracts_load(registry):
 
 
 def test_every_contract_points_at_vendored_module_code(registry):
-    missing = [c.id for c in registry.all() if not (ROOT / f"{c.nf_include}.nf").exists()]
+    missing = [c.id for c in registry.all() if not (VENDOR / f"{c.nf_include}.nf").exists()]
     assert missing == [], f"contracts without vendored module code: {missing}"
 
 
@@ -73,7 +74,7 @@ def test_contract_input_signatures_match_the_vendored_modules(registry):
     for contract in registry.all():
         block = re.search(
             r"^    input:\n(.*?)^    output:",
-            (ROOT / f"{contract.nf_include}.nf").read_text(),
+            (VENDOR / f"{contract.nf_include}.nf").read_text(),
             re.S | re.M,
         )
         declared = [
@@ -100,7 +101,7 @@ def test_contract_containers_match_the_vendored_modules(registry):
 
     mismatched = []
     for contract in registry.all():
-        main_nf = ROOT / f"{contract.nf_include}.nf"
+        main_nf = VENDOR / f"{contract.nf_include}.nf"
         directive = re.search(r"container\s+\"(.*?)\"", main_nf.read_text(), re.S)
         declared = re.findall(r"'([^']+)'", directive.group(1))[-1]
         if declared != contract.container:

@@ -2360,8 +2360,8 @@ things must exist first. It also crashes on the *first* install writing
 landed, which makes it look like a partial failure when it is not.
 
 ```bash
-mkdir -p modules conf
-cat > .nf-core.yml <<'YAML'
+mkdir -p vendor/modules vendor/conf
+cat > vendor/.nf-core.yml <<'YAML'
 repository_type: pipeline
 nf_core_version: "4.1.0"
 YAML
@@ -2371,17 +2371,17 @@ YAML
 harmless — this repository is not a pipeline, it vendors modules for one it generates.
 
 ```bash
-uvx uvx nf-core modules install fastqc --dir .
-uvx nf-core modules install trimgalore --dir .
-uvx nf-core modules install star/align --dir .
-uvx nf-core modules install star/genomegenerate --dir .
-uvx nf-core modules install samtools/sort --dir .
-uvx nf-core modules install samtools/index --dir .
-uvx nf-core modules install subread/featurecounts --dir .
-uvx nf-core modules install multiqc --dir .
+uvx nf-core modules install --dir vendor fastqc
+uvx nf-core modules install --dir vendor trimgalore
+uvx nf-core modules install --dir vendor star/align
+uvx nf-core modules install --dir vendor star/genomegenerate
+uvx nf-core modules install --dir vendor samtools/sort
+uvx nf-core modules install --dir vendor samtools/index
+uvx nf-core modules install --dir vendor subread/featurecounts
+uvx nf-core modules install --dir vendor multiqc
 ```
 
-Verify each landed: `ls modules/nf-core/*/main.nf modules/nf-core/*/*/main.nf`
+Verify each landed: `ls vendor/modules/nf-core/*/main.nf vendor/modules/nf-core/*/*/main.nf`
 
 - [ ] **Step 4: Write the eight contracts**
 
@@ -2412,7 +2412,7 @@ Seqera Containers and only two of the eight are still biocontainers:
 ```bash
 uv run python - <<'PY'
 import re, pathlib
-for f in sorted(pathlib.Path("modules/nf-core").rglob("main.nf")):
+for f in sorted(pathlib.Path("vendor/modules/nf-core").rglob("main.nf")):
     src = f.read_text()
     proc = re.search(r"process\s+([A-Z0-9_]+)", src).group(1)
     directive = re.search(r'container\s+"(.*?)"', src, re.S)
@@ -2541,7 +2541,7 @@ Expected: PASS, 6 tests.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/contracts/ modules/ tests/test_spine_contracts.py
+git add examples/contracts/ vendor/ tests/test_spine_contracts.py
 git commit -m "feat(contracts): RNA-seq spine contracts with vendored nf-core modules"
 ```
 

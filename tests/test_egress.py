@@ -52,6 +52,15 @@ def _has_bare_str(annotation: object) -> bool:
     return any(_has_bare_str(arg) for arg in typing.get_args(annotation))
 
 
+def _mentions_mapping(annotation: object) -> bool:
+    origin = typing.get_origin(annotation)
+    if origin is not None and isinstance(origin, type) and issubclass(origin, dict):
+        return True
+    if getattr(annotation, "__metadata__", None):
+        return any(_mentions_mapping(arg) for arg in typing.get_args(annotation)[:1])
+    return any(_mentions_mapping(arg) for arg in typing.get_args(annotation))
+
+
 def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
     hints = typing.get_type_hints(model, include_extras=True)
     return {
@@ -97,6 +106,29 @@ def test_no_payload_carries_an_undeclared_string():
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are plain `str`; annotate them as an ID type or as FreeText: "
+        + ", ".join(sorted(offenders))
+    )
+
+
+def test_no_payload_carries_a_mapping():
+    """A payload may not contain a dict, however cleverly its key is typed.
+
+    `dict[MeasurementId, MeasurementValue]` passes every other rule in this file —
+    the key is an Annotated newtype, so the bare-str rule does not fire — and is
+    still unsafe, because nothing checks the key was ever *declared*. A payload
+    carrying {"patient_id": "4471023"} would type-check perfectly.
+
+    That is the `user_note: str` lesson one level up: the right shape is not the
+    right content. Rather than a subtle rule about which key types are acceptable,
+    payloads carry lists of declared records. Subtlety is what failed last time.
+    """
+    offenders = []
+    for payload in _payload_types():
+        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
+            if name in payload.model_fields and _mentions_mapping(annotation):
+                offenders.append(f"{payload.__name__}.{name}")
+    assert offenders == [], (
+        "these fields are mappings; use a list of declared records instead: "
         + ", ".join(sorted(offenders))
     )
 

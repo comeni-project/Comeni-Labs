@@ -181,7 +181,7 @@ packages/
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
 examples/      vocabularies/ rules/ contracts/ + rnaseq-goal.yml — TEST FIXTURES ONLY
-modules/       vendored nf-core module code — root-level, does not move at Plan 2.5
+vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 frontend/      React + TS + Vite + Tailwind SPA
 ```
 
