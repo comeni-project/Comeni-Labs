@@ -133,7 +133,9 @@ def test_pure_packages_import_nothing_impure():
             for imported in _imports(py):
                 if imported.split(".")[0] in BANNED_PREFIXES:
                     violations.append(f"{py.relative_to(root)} imports {imported}")
-    assert violations == [], "Pure packages must not import I/O or model libraries:\n" + "\n".join(violations)
+    assert violations == [], "Pure packages must not import I/O or model libraries:\n" + "\n".join(
+        violations
+    )
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -150,6 +152,7 @@ Root `pyproject.toml`:
 name = "comeni-labs"
 version = "0.1.0"
 requires-python = ">=3.12"
+dependencies = ["comeni-core"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -163,6 +166,13 @@ dev = ["pytest>=8.0", "ruff>=0.6", "pytest-cov>=5.0"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]
 ```
+
+**The `dependencies` line is load-bearing and was missing when this plan was first executed.**
+`[tool.uv.sources]` says *where* `comeni-core` comes from if something needs it; it does not make
+anything need it. Without the dependency, `uv sync` installs the dev tools and stops, and Task 2
+fails on `ModuleNotFoundError: No module named 'comeni_core'` — not the error it expects. Each
+later package repeats this: Task 6 adds `mendel-resolver` and Task 11 adds `mendel-compiler` to
+both lists.
 
 `packages/comeni-core/pyproject.toml`:
 
@@ -611,7 +621,8 @@ def test_ir_is_deterministically_serialisable():
         from_node="star", from_port="bam", to_node="sort", to_port="bam",
         type_id="alignment.bam", states=frozenset({"b", "a"}),
     )])
-    assert ir.model_dump_json() == PipelineIR.model_validate_json(ir.model_dump_json()).model_dump_json()
+    once = ir.model_dump_json()
+    assert once == PipelineIR.model_validate_json(once).model_dump_json()
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1195,6 +1206,17 @@ packages = ["src/mendel_resolver"]
 """Mendel's four-tier resolver: typed goal in, pipeline IR out."""
 
 __version__ = "0.1.0"
+```
+
+Then add the package to the root `pyproject.toml`, in both places — `dependencies` so it is
+installed at all, `[tool.uv.sources]` so it resolves to the workspace copy rather than PyPI:
+
+```toml
+dependencies = ["comeni-core", "mendel-resolver"]
+
+[tool.uv.sources]
+comeni-core = { workspace = true }
+mendel-resolver = { workspace = true }
 ```
 
 `src/mendel_resolver/goal.py`:
@@ -2590,6 +2612,20 @@ packages = ["src/mendel_compiler"]
 
 __version__ = "0.1.0"
 ```
+
+And the root `pyproject.toml`, both places again — this is the third and last package, so the
+root ends up as:
+
+```toml
+dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler"]
+
+[tool.uv.sources]
+comeni-core = { workspace = true }
+mendel-resolver = { workspace = true }
+mendel-compiler = { workspace = true }
+```
+
+This is also what puts `mendel` on the path, so `uv run mendel build` works in Task 12.
 
 - [ ] **Step 4: Write the template**
 
