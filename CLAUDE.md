@@ -31,6 +31,7 @@ list — read it before trusting an invariant.
 | `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Approved, unimplemented.** |
 | `docs/superpowers/audits/2026-08-03-plan-1-audit.md` | **open defects.** C2 and C3 block Plan 2. Read before touching egress or `Goal`. |
 | `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
+| `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` | **Next.** 11 tasks implementing both 2026-08-03 specs. Pure packages, zero AI. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -48,8 +49,10 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
-- **Plan 1 is done.** The next work is a plan for the rule-tables and profiling specs — neither
-  has one yet, and both are approved designs waiting on `superpowers:writing-plans`.
+- **Plan 1 is done and audited.** The next work is
+  `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` — 11 tasks covering both
+  2026-08-03 specs in one plan, because measurements are types, rules validate against measurements,
+  and profiling produces them; splitting would make two plans each depending on half the other.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
