@@ -1,4 +1,4 @@
-"""`mendel build` — goal in, pipeline directory out."""
+"""`mendel build` — goal in, pipeline directory out; `mendel profile` — measure first."""
 
 import argparse
 import shutil
@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
-from mendel_resolver.goal import Goal
+from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
@@ -37,8 +37,14 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
-    parser.add_argument("command", choices=["build"])
-    parser.add_argument("--goal", type=Path, required=True)
+    parser.add_argument("command", choices=["build", "profile"])
+    parser.add_argument("--goal", type=Path, default=None)
+    parser.add_argument(
+        "--have",
+        action="append",
+        default=None,
+        help="a type id the laboratory holds; repeat. `profile` only.",
+    )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--gate", type=Gate, default=None)
@@ -59,19 +65,24 @@ def _build(argv: list[str] | None = None) -> int:
     # modules. Only contracts stacked before the 2026-08-03 audit.
     loaded = layers.load(args.registry or [args.root / "examples"])
     vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
-    goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
 
-    # Re-build the goal's profile through the one constructor that validates it. The
-    # mapping shorthand in the goal file cannot check itself — measurements are declared
-    # data, so the model has no idea what is declared — and `profile: {sample_name: ...}`
-    # is exactly the shape invariant 15 exists to refuse. This is the door.
-    goal = goal.model_copy(
-        update={
-            "profile": loaded.measurements.profile(
-                {m.measurement: m.value for m in goal.profile.measurements}
-            )
-        }
-    )
+    if args.command == "profile":
+        goal = _profiling_goal(args, loaded)
+    else:
+        if args.goal is None:
+            parser.error("build needs --goal")
+        goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
+        # Re-build the goal's profile through the one constructor that validates it. The
+        # mapping shorthand in the goal file cannot check itself — measurements are
+        # declared data, so the model has no idea what is declared — and
+        # `profile: {sample_name: ...}` is exactly the shape invariant 15 refuses.
+        goal = goal.model_copy(
+            update={
+                "profile": loaded.measurements.profile(
+                    {m.measurement: m.value for m in goal.profile.measurements}
+                )
+            }
+        )
 
     ir = resolve(goal, registry, rules)
 
@@ -106,6 +117,48 @@ def _build(argv: list[str] | None = None) -> int:
             print(result.output, file=sys.stderr)
             return 1
     return 0
+
+
+def _profiling_goal(args: argparse.Namespace, loaded: layers.Layers) -> Goal:
+    """Sugar for `build --want measurement.*`. One resolver, one emitter, one set of
+    decision records — the verb exists for discoverability, not as a second path.
+
+    Two rules do the work.
+
+    **The profile is empty.** A build resolves tier-3 parameters against a profile, and a
+    profiling build is a build; resolving one against a profile would need a profile to
+    profile with. So profiling contracts resolve at tiers 1, 2 and 4 only, and the regress
+    stops here rather than one recursion later.
+
+    **`want` is what this registry can actually reach.** Declaring a measurement is how a
+    laboratory *starts* — before any tool for it exists — so wanting every declared
+    measurement would make the verb unroutable for exactly the people adopting it. What
+    cannot be measured is named on stderr, never dropped in silence.
+    """
+    have = args.have or []
+    reachable, unreachable = [], []
+    for measurement_id in loaded.measurements.ids():
+        type_id = f"measurement.{measurement_id}"
+        (reachable if loaded.registry.producers_of(type_id, frozenset()) else unreachable).append(
+            measurement_id
+        )
+    if not reachable:
+        raise UnroutableError(
+            f"nothing can measure anything: no contract produces a measurement.* type. "
+            f"Declared measurements: {', '.join(loaded.measurements.ids()) or '(none)'}"
+        )
+    print(f"profiling for: {', '.join(reachable)}", file=sys.stderr)
+    if unreachable:
+        print(
+            f"  NOT MEASURED  {', '.join(unreachable)} — declared, but no contract in this "
+            f"registry produces them",
+            file=sys.stderr,
+        )
+    return Goal(
+        have=[GoalInput(type_id=t) for t in have],
+        want=[f"measurement.{m}" for m in reachable],
+        profile=loaded.measurements.profile({}),
+    )
 
 
 if __name__ == "__main__":

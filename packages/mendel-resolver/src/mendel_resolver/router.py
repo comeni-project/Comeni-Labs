@@ -139,12 +139,18 @@ def _satisfy_port(
     failing that a CRAM" — so it is first-match-wins, exactly like decision-table rows.
     A port with no `accepts` has one alternative and this is the old behaviour verbatim.
     """
+    alternatives = port.alternatives()
     failures = []
-    for alternative in port.alternatives():
+    for alternative in alternatives:
         try:
             satisfy(alternative.type_id, alternative.states, depth, visiting)
             return
         except UnroutableError as exc:
+            if len(alternatives) == 1:
+                # One alternative, so its own message is the whole truth. Wrapping it
+                # would stack "no alternative for port 'reads'" once per level of a
+                # recursive route, which buries the fact at the bottom.
+                raise
             failures.append(str(exc))
     raise UnroutableError(
         f"no alternative for port {port.name!r} can be routed: " + "; ".join(failures)
