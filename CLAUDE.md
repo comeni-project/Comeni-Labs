@@ -111,8 +111,10 @@ Violating any of these breaks the product claim, not just a test.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
     exactly two fields across the whole surface may hold free text: `PromptRequest.prompt` and
-    `GateFailure.tool_message`. Everything else is closed vocabulary, and no payload may carry
-    an `Any`-typed field. Enforced by `tests/test_egress.py`, which holds both lists literally,
+    `GateFailure.tool_message`. Everything else is closed vocabulary; no payload may carry an
+    `Any`-typed field, and none may carry a plain `str` — every string is a declared ID alias or
+    marked `FreeText`, because a bare `str` bypasses the marker in one line and a prompt fits in
+    it perfectly. Enforced by `tests/test_egress.py`, which holds both lists literally,
     so widening the boundary means editing a test that says these are all the ways data leaves.
     Publication is the door with no undo.
 15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or

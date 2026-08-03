@@ -217,8 +217,13 @@ A third entry — someone adding `user_note` to `RepairRequest` — fails the su
 allowlist is edited. Leaking by accident is unavailable; leaking requires editing the file named
 after the thing being defeated.
 
-The same test forbids any payload field annotated `Any`, because a `dict[str, Any]` carries
-anything and would make the rest of the guard decorative. That constraint is what shaped
+Two further rules make the first one mean something. A payload field may not be annotated `Any`,
+because a `dict[str, Any]` carries anything and would make the rest of the guard decorative. And
+**a payload field may not be a plain `str`** — every string is either a declared ID alias or
+marked `FreeText`, with `Annotated[...]` itself serving as the evidence that somebody decided.
+Without that second rule the first is bypassable in one line: a bare `user_note: str` carries no
+marker to catch and no `Any` to forbid, and a prompt fits in it perfectly. That gap was found by
+running the plan's break-the-guard step during implementation, which is what the step is for. That constraint is what shaped
 `AmbiguityRequest`: it declares `node_id`, `subject`, `candidates`, `states` and `tier_hint`
 rather than the free-form context dict `Ambiguity` uses internally.
 

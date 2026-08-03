@@ -1702,17 +1702,24 @@ DOORS: dict[str, type[EgressPayload]] = {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_egress.py -v && uv run ruff check .`
-Expected: PASS, 5 tests.
+Expected: PASS, 6 tests.
 
 - [ ] **Step 5: Prove the guard actually catches something**
 
 A guard nobody has watched fail is a guard nobody knows works. Temporarily add
-`user_note: str` to `AmbiguityRequest`, run the suite, and confirm
-`test_no_payload_carries_an_untyped_container` still passes while nothing else complains —
-then change it to `user_note: Text` and confirm `test_free_text_lives_only_where_declared`
-fails naming `('AmbiguityRequest', 'user_note')`. Remove it before committing.
+`user_note: Text | None = None` to `AmbiguityRequest` and confirm
+`test_free_text_lives_only_where_declared` fails naming `('AmbiguityRequest', 'user_note')`.
+Then change it to `user_note: str | None = None` and confirm
+`test_no_payload_carries_an_undeclared_string` fails naming `AmbiguityRequest.user_note`.
+Remove it before committing.
 
-This costs two minutes and is the only evidence that the mechanism works as described.
+**Run this step. It found a real hole when the plan was executed on 2026-08-03.** The first
+five tests all passed with a bare `user_note: str` in place: no `FreeText` marker to catch, no
+`Any` to forbid, and a prompt fits in it perfectly. The spec claimed every string field was
+either a declared ID alias or marked free text, and nothing enforced the claim. Hence
+`test_no_payload_carries_an_undeclared_string` and `_has_bare_str`, which treats `Annotated[...]`
+as the declaration — so `NodeId`, `Text` and a `StrEnum` all pass, and a plain `str`, the one
+with nothing said about it, does not.
 
 - [ ] **Step 6: Commit**
 
