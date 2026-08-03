@@ -252,6 +252,10 @@ DataProfile(read_length=150, strandedness="reverse") # unchanged
 Validation needs the measurement registry, which the model cannot hold, so it happens through
 Pydantic validation context at a single construction point.
 
+Note that a profile cannot cross an egress door as a map: `tests/test_egress.py` forbids any
+mapping in a payload, because a typed key does not prove a *declared* key. A payload carrying
+measurements carries a list of declared records instead.
+
 **That single point is enforced, not documented.** `DataProfile` is constructible only through
 `MeasurementRegistry.profile(...)`, and an AST test asserts nothing else calls `DataProfile(` or
 `model_validate` on it — the third instance of the pattern `tests/test_purity.py` and
@@ -352,6 +356,18 @@ full boolean logic would have cost.
 alternative: among candidates satisfying the same alternative at the same priority, one producing
 a preferred state wins. It never causes insertion and never causes failure, matching spec §5.1.
 
+**`prefer` never promotes a later alternative over an earlier one.** Alternative order is the
+author's statement of preference between kinds of input; `prefer` discriminates within one kind.
+The reason is consistency rather than principle: `rows` in a decision table are ordered and
+first-match-wins, and `accepts` is the same structure one layer down. One mental model used twice
+is worth more than the expressiveness given up, and if preference could reorder alternatives then
+"why did it choose CRAM" would need a paragraph instead of a line.
+
+Making alternatives unordered, with two satisfiable ones demoting to tier 4 under invariant 8, was
+considered. It is more consistent with how ties are treated elsewhere, but it would flag red
+whenever both a BAM and a CRAM producer exist — noise for a case where authors nearly always do
+have a preference, and YAML forces them to write one anyway.
+
 ### Full boolean logic was considered and rejected
 
 Arbitrary AND/OR/NOT with nesting would express more, and would cost the thing the product sells.
@@ -444,6 +460,6 @@ No package gains a dependency. Nothing here touches an egress door, a model, or 
 - **Ranking policies.** Issue #1 proposes that candidate ordering vary by purpose. A named policy
   and a rule-pinned producer both decide the same thing, and the interaction needs settling before
   both exist.
-- **`prefer` across alternatives.** Preference is defined within a matched alternative. Whether a
-  preferred state should ever promote a *later* alternative over an earlier one is left open;
-  the answer is probably no, but no case has been examined.
+- **Cohort versus sample.** A measurement like `read_length` is per-sample and a rule needs one
+  value. Whether that is a mean, a median, or a fan-out is unresolved — see the profiling spec §9,
+  where it is the question most likely to change `profile.yml`.
