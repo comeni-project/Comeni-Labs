@@ -39,6 +39,7 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
+| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -64,11 +65,13 @@ That is the operator's instruction, not a suggestion. Concretely:
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
 reachable.
 
-**Plan 2.5 is now writable, and writing it is the next job.** It is designed (federation spec
-§8: lockfiles, `mendel publish`, `mendel upgrade`, the pipeline catalogue, the pipeline review
-screens, and the registry split out of `examples/`) and was deliberately left unwritten because
-its code steps referenced `PipelineIR.shadowed`, `DecisionRecord` fields and the lockfile shape
-— things that existed only as text. Those types exist now. Write it against them.
+**Plan 2.5 is written** — `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md`,
+nine tasks, against the types that exist rather than the ones the spec predicted. Three of those
+predicted types did not exist and the plan creates them (`PipelineIR.registry_layers`,
+`PipelineIR.shadowed`, `PublishBundle.goal`); one did and is the key to replay
+(`DecisionRecord.human_override`). The catalogue and review screens moved to Plan 3, because they
+need `mendel-api`. Two egress-guard failures were found by running the guard while writing it,
+and their fixes are steps rather than warnings.
 
 That rule earned itself again on 2026-08-03: the measurements plan predicted a YAML row syntax
 that does not parse, a producer pin that makes the spine unbuildable, a `mendel profile` whose
