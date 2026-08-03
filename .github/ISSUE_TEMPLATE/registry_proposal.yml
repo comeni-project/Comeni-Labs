@@ -11,9 +11,9 @@ body:
         proposing something you would like to exist, or checking an approach before you
         write it.
 
-        Guides: [writing a contract](../blob/main/docs/guides/writing-a-contract.md) ·
-        [writing a rule](../blob/main/docs/guides/writing-a-rule.md) ·
-        [measurements](../blob/main/docs/guides/measuring-your-data.md)
+        Guides: [writing a contract](https://github.com/comeni-project/Comeni-Labs/blob/main/docs/guides/writing-a-contract.md) ·
+        [writing a rule](https://github.com/comeni-project/Comeni-Labs/blob/main/docs/guides/writing-a-rule.md) ·
+        [measurements](https://github.com/comeni-project/Comeni-Labs/blob/main/docs/guides/measuring-your-data.md)
 
   - type: dropdown
     id: kind
