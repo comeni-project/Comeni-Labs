@@ -29,6 +29,41 @@ class Param(BaseModel):
     default: Any = None
 
 
+class NfInput(BaseModel):
+    """One positional input of the process, and what fills it.
+
+    A contract port is *semantic* — a typed thing the module consumes. A process
+    input is *plumbing* — one channel in the call signature. They do not
+    correspond, and assuming they did is what made the first generated spine
+    uncallable:
+
+    - `subread/featurecounts` takes **one** channel carrying a tuple of bam *and*
+      annotation, so two ports collapse into one position;
+    - `samtools/sort` takes **three**, of which a reference tuple and an
+      `index_format` value model nothing in the type system;
+    - `star/align` takes **four** for two ports.
+
+    Declaring the signature here rather than parsing it out of `main.nf` is what
+    lets the compiler emit a call for *any* module — a pegi3s image, an in-house
+    process — not only for nf-core ones. Exactly one field is meaningful per entry.
+    """
+
+    ports: list[str] = Field(default_factory=list)
+    """Contract port names filling this channel, in tuple order."""
+
+    literal: Any = None
+    """A plain value for a `val` input that carries no data dependency."""
+
+    empty: int = 0
+    """Width of an empty tuple standing in for an input the type system does not model.
+
+    0 means this entry is not a placeholder. Otherwise it is the number of elements
+    the process declares in that tuple, because Nextflow matches tuple arity: an
+    `[[:], []]` handed to `tuple val(meta), path(fasta), path(fai)` fails with "Path
+    value cannot be null". `samtools/sort` wants 3; most want 2.
+    """
+
+
 class Provenance(BaseModel):
     source: str
     drafted_by: str
@@ -53,7 +88,20 @@ class ModuleContract(BaseModel):
     refuses to build against one that will not resolve — both in later plans. What Plan 1
     owes them is somewhere to start.
     """
+    nf_inputs: list[NfInput] = Field(default_factory=list)
+    """The process call signature. Empty means one channel per consumed port, in order."""
+
     provenance: Provenance
+
+    def input_signature(self) -> list[NfInput]:
+        """What the process is actually called with.
+
+        Defaulting to one channel per port keeps single-input modules trivial to
+        write, which is most of them.
+        """
+        if self.nf_inputs:
+            return self.nf_inputs
+        return [NfInput(ports=[port.name]) for port in self.consumes]
 
     @classmethod
     def load(cls, path: Path, vocab: Vocabulary) -> "ModuleContract":

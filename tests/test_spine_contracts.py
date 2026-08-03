@@ -58,6 +58,37 @@ def test_no_contract_uses_a_floating_container_tag(registry):
     assert floating == []
 
 
+def test_contract_input_signatures_match_the_vendored_modules(registry):
+    """nf_inputs must have one entry per channel the process declares.
+
+    Written after guessing wrong twice: multiqc takes one tuple of six paths rather
+    than six channels, and samtools/index takes one rather than two. A signature
+    invented by a person reading a plan produces Nextflow that fails at launch with
+    "declares N inputs but was called with M arguments", which is a slow way to learn
+    something a test can say instantly.
+    """
+    import re
+
+    mismatched = []
+    for contract in registry.all():
+        block = re.search(
+            r"^    input:\n(.*?)^    output:",
+            (ROOT / f"{contract.nf_include}.nf").read_text(),
+            re.S | re.M,
+        )
+        declared = [
+            line
+            for line in block.group(1).splitlines()
+            if line.strip() and not line.strip().startswith("//")
+        ]
+        if len(declared) != len(contract.input_signature()):
+            mismatched.append(
+                f"{contract.id}: contract declares {len(contract.input_signature())} "
+                f"inputs, module declares {len(declared)}"
+            )
+    assert mismatched == [], "\n".join(mismatched)
+
+
 def test_contract_containers_match_the_vendored_modules(registry):
     """A container reference invented by a planner is the failure this project exists to stop.
 

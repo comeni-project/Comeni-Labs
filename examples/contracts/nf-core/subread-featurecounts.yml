@@ -8,5 +8,6 @@ produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
 params:
   - {name: strandedness, tier_hint: 3}
 priority: 0
+nf_inputs: [{ports: [bam, annotation]}]
 container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

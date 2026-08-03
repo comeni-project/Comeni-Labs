@@ -1,0 +1,13 @@
+have:
+  - type_id: fastq.reads
+  - type_id: annotation.gtf
+want:
+  - counts.matrix
+constraints:
+  required_states:
+    counts.matrix: [gene_level]
+profile:
+  read_length: 150
+  strandedness: reverse
+  n_samples: 12
+  paired: true

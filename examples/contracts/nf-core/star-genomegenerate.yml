@@ -5,5 +5,6 @@ consumes: [{name: gtf, type_id: annotation.gtf, state_required: []}]
 produces: [{name: index, type_id: genome.index.star, state: []}]
 params: []
 priority: 0
+nf_inputs: [{empty: 2}, {ports: [gtf]}]
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

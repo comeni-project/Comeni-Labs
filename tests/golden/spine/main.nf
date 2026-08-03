@@ -13,8 +13,9 @@ include { STAR_ALIGN } from './modules/nf-core/star/align/main'
 params.star_align_seq_platform = 'illumina'
 
 workflow {
-    ch_reads = Channel.fromFilePairs(params.input, checkIfExists: true)
+    ch_reads = Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }
+    ch_star = Channel.fromPath(params.star, checkIfExists: true).map { f -> [ [:], f ] }
 
     TRIMGALORE(ch_reads)
-    STAR_ALIGN(TRIMGALORE.out.reads)
+    STAR_ALIGN(TRIMGALORE.out.reads, ch_star, Channel.value([[:], []]), false)
 }

@@ -18,7 +18,9 @@ params.{{ node.id }}_{{ name }} = {{ value.rendered }}
 {% endfor %}
 
 workflow {
-    ch_reads = Channel.fromFilePairs(params.input, checkIfExists: true)
+{% for name, expression in entry_channels %}
+    {{ name }} = {{ expression }}
+{% endfor %}
 
 {% for call in calls %}
     {{ call }}

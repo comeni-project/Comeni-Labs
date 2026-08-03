@@ -3108,6 +3108,53 @@ def test_two_builds_produce_identical_output(tmp_path):
 Run: `uv sync && uv run pytest -v && uv run ruff check .`
 Expected: PASS, all tests.
 
+- [ ] **Step 7B: The mapping the plan was missing — added 2026-08-03**
+
+The stub gate failed with *"Process `STAR_GENOMEGENERATE` declares 2 inputs but was called with
+1 argument"*, and investigating it found an assumption running through Tasks 9 and 11:
+
+> **A contract port is semantic; a process input is plumbing. They do not correspond.**
+
+Measured against the vendored modules, only one of five spine processes matches its contract's
+port count:
+
+| process | inputs declared | contract ports |
+|---|---|---|
+| `TRIMGALORE` | 1 | 1 |
+| `STAR_GENOMEGENERATE` | 2 (fasta, gtf) | 1 |
+| `STAR_ALIGN` | 4 (reads, index, gtf, a `val`) | 2 |
+| `SAMTOOLS_SORT` | 3 (bam, fasta+fai, a `val`) | 1 |
+| `SUBREAD_FEATURECOUNTS` | **1** tuple carrying bam *and* annotation | 2 |
+
+`ModuleContract` therefore gains `nf_inputs: list[NfInput]`, one entry per process input, each
+naming contract ports (several may share one channel), an `empty` tuple width, or a `literal`.
+Absent, it defaults to one channel per port, which keeps simple modules simple.
+
+**Declared rather than parsed out of `main.nf`, deliberately.** A parser would work for nf-core
+and nothing else; the compiler has to emit calls for a pegi3s image or an in-house process too.
+The contract is the module-agnostic layer, so the signature belongs in it — and `meta.yml`'s
+`input:` is a list-of-lists carrying exactly this, so the Plan 2 forge can draft it rather than
+it being hand-work forever.
+
+Four smaller things fell out of the same investigation:
+
+- **Entry channels are declared in the vocabulary**, as `entry_channel`, for the same
+  module-agnostic reason. A type says how it arrives; the compiler does not hardcode it.
+- **`empty` carries a tuple width.** Nextflow matches arity, so `[[:], []]` handed to
+  `tuple val(meta), path(fasta), path(fai)` fails with "Path value cannot be null".
+  `samtools/sort` needs 3.
+- **`_render_literal(None)` emitted the string `'None'`.** It emits `null`.
+- **The pipeline had no `nextflow.config`.** `emit_config` writes one where every input parameter
+  defaults to `null` — invariant 15 reaching the configuration as well as the workflow — plus
+  `docker`/`singularity` profiles and a `stub_data` profile pointing at synthetic files the gate
+  materialises. Fixtures belong to the validation harness, never to the emitted pipeline.
+
+Also: nf-core 4.x captures tool versions with `eval()`, which runs **even under `-stub-run`**, so
+the stub gate needs a container engine — hence `-profile stub_data,docker` and a 900s timeout for
+the first run's image pulls. And the docker profile sets
+`docker.runOptions = '-u $(id -u):$(id -g)'`, without which every work directory is root-owned and
+the person who created it cannot delete it.
+
 - [ ] **Step 8: Run the real gate manually**
 
 ```bash
@@ -3172,7 +3219,9 @@ by then it is already in CI.
 **Two known rough edges to watch during execution.**
 
 1. Task 11's `emit` builds an anonymous class for template values. It works but is ugly. If it causes trouble, replace it with a small Pydantic model — the tests will tell you immediately either way.
-2. Task 11's `_calls` gives every node with no incoming edge the same `ch_reads` channel. That is correct for `FASTQC` and `TRIMGALORE` but wrong for `STAR_GENOMEGENERATE`, which needs the GTF channel. The `-stub-run` gate in Task 12 is what will surface it. When it does, the fix is to key entry channels by the port's `type_id` (`fastq.reads` → `ch_reads`, `annotation.gtf` → `ch_gtf`) rather than defaulting them all — roughly ten lines, but do it as a fix with a failing test first, not pre-emptively.
+2. Task 11's `_calls` gives every node with no incoming edge the same `ch_reads` channel. That is correct for `FASTQC` and `TRIMGALORE` but wrong for `STAR_GENOMEGENERATE`, which needs the GTF channel. The `-stub-run` gate in Task 12 is what will surface it. When it does, the fix is to key entry channels by the port's `type_id` (`fastq.reads` → `ch_reads`, `annotation.gtf` → `ch_gtf`) rather than defaulting them all.
+
+   **Executed 2026-08-03: the gate surfaced it, and that fix is not sufficient.** Keying entry channels on `type_id` yields `STAR_GENOMEGENERATE(ch_gtf)` — one argument to a two-input process, which fails identically. The root cause is deeper and is recorded in Task 12, Step 7B.
 
 ---
 

@@ -1,1 +1,2 @@
 states: []
+entry_channel: "Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName], gtf ] }"

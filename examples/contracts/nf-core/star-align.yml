@@ -8,5 +8,6 @@ produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
   - {name: seq_platform, tier_hint: 4}
 priority: 0
+nf_inputs: [{ports: [reads]}, {ports: [index]}, {empty: 2}, {literal: false}]
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

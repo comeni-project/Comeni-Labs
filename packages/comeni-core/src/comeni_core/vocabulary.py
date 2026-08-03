@@ -17,15 +17,26 @@ class UnknownStateError(ValueError):
 
 class Vocabulary(BaseModel):
     types: dict[str, frozenset[str]]
+    entry_channels: dict[str, str] = {}
+    """How a type enters a pipeline when nothing upstream produces it.
+
+    Declared per type rather than hardcoded in the compiler, so a type the compiler
+    has never seen — from a pegi3s image, an in-house process — can say how it
+    arrives without a code change. Absent means the default in
+    `mendel_compiler.emit`.
+    """
 
     @classmethod
     def load(cls, directory: Path) -> "Vocabulary":
         types: dict[str, frozenset[str]] = {}
+        entry_channels: dict[str, str] = {}
         for path in sorted(directory.glob("*.yml")):
             type_id = path.name.removesuffix(".yml")
             data = yaml.safe_load(path.read_text()) or {}
             types[type_id] = frozenset(data.get("states", []))
-        return cls(types=types)
+            if data.get("entry_channel"):
+                entry_channels[type_id] = data["entry_channel"]
+        return cls(types=types, entry_channels=entry_channels)
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:

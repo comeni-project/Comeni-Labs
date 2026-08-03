@@ -1,1 +1,2 @@
 states: [trimmed, deduplicated, subsampled]
+entry_channel: "Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
