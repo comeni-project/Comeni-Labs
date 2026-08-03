@@ -6,6 +6,12 @@ traced to the moment it was made — and they are not maintained against the cod
 If you want to know how Mendel works, read [`ARCHITECTURE.md`](../../ARCHITECTURE.md) and
 [`docs/`](../README.md). If you want to know *why*, read [`docs/design/`](../design/).
 
+## journal/
+
+**Start here if you are picking the project up.** One append-only entry per working
+session: where things stand, what changed, what was decided and rejected, what is next, and
+what a fresh reader gets wrong. Newest first — see [journal/README.md](journal/README.md).
+
 ## plans/
 
 Step-by-step implementation plans, written before the work and executed task by task.

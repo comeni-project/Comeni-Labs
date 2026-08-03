@@ -10,6 +10,11 @@ The product claim, which every design decision serves:
 
 ## Current state
 
+> **Start with the latest entry in [`docs/internal/journal/`](docs/internal/journal/).**
+> It is append-only and dated, so it cannot silently go stale the way this section can —
+> and it carries what is next, what was decided, and what a fresh reader gets wrong. This
+> section is a summary; the journal is the handoff.
+
 **Plan 1 and the measurements/rules/profiling plan are both complete** (2026-08-03). 164 tests
 green, `ruff check` clean, and `uv run mendel build --goal examples/rnaseq-goal.yml --out build/
 --gate stub` runs the RNA-seq spine end to end with `gate stub: PASS`. `uv run mendel profile
@@ -30,6 +35,7 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
 | `docs/design/rule-tables-and-port-logic.md` | tier-3 rule format, module pinning, port alternatives. **Implemented.** |
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
+| `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
@@ -330,6 +336,14 @@ From a plain-language prompt plus a test dataset, Mendel emits Nextflow that run
 the nf-core test profile and produces a counts matrix. Target is the **RNA-seq spine** —
 ~15–20 modules on the canonical path, *not* the full `nf-core/rnaseq` decision tree with its
 alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
+
+**None of those four clauses is met yet, and one of them is not currently reachable.**
+`Gate.TEST` runs `-profile test`, which `emit_config` deliberately does not emit — see the
+comment at `gates.py:21-25`. So the spine has never run on real data and has never produced
+a counts matrix; `gate stub: PASS` proves the DAG executes, not that the analysis is right.
+The spine is also 10 distinct processes, not 15–20. **Plan 1 is a verified compiler, not a
+verified pipeline.** Either close the gap or revise the criterion, but do not leave it
+stated in terms of a gate that cannot pass. See the journal.
 
 ## Gotchas
 
