@@ -43,16 +43,20 @@ def _build(argv: list[str] | None = None) -> int:
         type=Path,
         action="append",
         default=None,
-        help="a registry layer; repeat to stack overlays, later layers win",
+        help=(
+            "a registry layer — a directory holding contracts/, rules/ and vocabularies/; "
+            "repeat to stack overlays, later layers win"
+        ),
     )
     args = parser.parse_args(argv)
 
-    data = args.root / "examples"
-    layers = args.registry or [data / "contracts"]
-
-    vocab = Vocabulary.load(data / "vocabularies")
-    registry = Registry.load(layers, vocab)
-    rules = RuleTable.load(data / "rules" / "rnaseq.yml")
+    # A layer is a directory, not a contracts folder: all three kinds of registry data
+    # stack together, so a laboratory can ship its own types and rules alongside its
+    # modules. Only contracts stacked before the 2026-08-03 audit.
+    layers = args.registry or [args.root / "examples"]
+    vocab = Vocabulary.load([layer / "vocabularies" for layer in layers])
+    registry = Registry.load([layer / "contracts" for layer in layers], vocab)
+    rules = RuleTable.load([layer / "rules" for layer in layers])
     goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
 
     ir = resolve(goal, registry, rules)

@@ -16,6 +16,19 @@ class Tier(IntEnum):
     AMBIGUOUS = 4
 
 
+class ValueSource(StrEnum):
+    """Who decided a value, recorded separately from how well it was decided.
+
+    A tier says *how* something was settled; it should not also have to say *who*. A user
+    who pins a parameter has legitimately removed the ambiguity, so the tier is still
+    structural — but a reviewer needs to see that Mendel did not derive it. Same shape as
+    measured-versus-asserted in the profiling spec, and for the same reason.
+    """
+
+    RESOLVER = "resolver"
+    GOAL = "goal"
+
+
 class ReviewLevel(StrEnum):
     NONE = "none"
     ADVISORY = "advisory"

@@ -58,3 +58,20 @@ def test_ir_is_deterministically_serialisable():
     )
     once = ir.model_dump_json()
     assert once == PipelineIR.model_validate_json(once).model_dump_json()
+
+
+def test_a_goal_supplied_value_records_its_source():
+    """Tiers say how well something was decided; `source` says who decided it.
+
+    A user pinning a parameter legitimately removes the ambiguity, so the tier stays
+    structural — but the IR has to show Mendel did not derive it. Same distinction as
+    measured-versus-asserted in the profiling spec.
+    """
+    from comeni_core.tiers import ValueSource
+
+    derived = ResolvedValue(value=2, tier=Tier.DATA_PROFILED, reason="rule")
+    pinned = ResolvedValue(
+        value="illumina", tier=Tier.STRUCTURAL, source=ValueSource.GOAL, reason="goal"
+    )
+    assert derived.source is ValueSource.RESOLVER
+    assert pinned.source is ValueSource.GOAL

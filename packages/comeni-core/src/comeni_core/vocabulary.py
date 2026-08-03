@@ -1,6 +1,6 @@
 """Closed state vocabularies. A type declares exactly the states it may carry."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import yaml
@@ -27,15 +27,25 @@ class Vocabulary(BaseModel):
     """
 
     @classmethod
-    def load(cls, directory: Path) -> "Vocabulary":
+    def load(cls, layers: "Path | Sequence[Path]") -> "Vocabulary":
+        """Stacked like the registry: later layers win, keyed on type id.
+
+        A laboratory adding a state — or, once the rule-tables spec lands, a measurement —
+        needs types to stack the way contracts already do. Only contracts stacked before
+        the 2026-08-03 audit, so a lab could ship modules but not the vocabulary they
+        depend on.
+        """
+        if isinstance(layers, Path):
+            layers = [layers]
         types: dict[str, frozenset[str]] = {}
         entry_channels: dict[str, str] = {}
-        for path in sorted(directory.glob("*.yml")):
-            type_id = path.name.removesuffix(".yml")
-            data = yaml.safe_load(path.read_text()) or {}
-            types[type_id] = frozenset(data.get("states", []))
-            if data.get("entry_channel"):
-                entry_channels[type_id] = data["entry_channel"]
+        for directory in layers:
+            for path in sorted(directory.glob("*.yml")):
+                type_id = path.name.removesuffix(".yml")
+                data = yaml.safe_load(path.read_text()) or {}
+                types[type_id] = frozenset(data.get("states", []))
+                if data.get("entry_channel"):
+                    entry_channels[type_id] = data["entry_channel"]
         return cls(types=types, entry_channels=entry_channels)
 
     def states_for(self, type_id: str) -> frozenset[str]:

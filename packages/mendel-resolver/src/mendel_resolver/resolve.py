@@ -4,6 +4,7 @@ from comeni_core.contract import InputPort
 from comeni_core.decision import Ambiguity, DecisionRecord
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.registry import Registry
+from comeni_core.tiers import ValueSource
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
@@ -156,6 +157,7 @@ def _resolve_param(
         return ResolvedValue(
             value=override.value,
             tier=Tier.STRUCTURAL,
+            source=ValueSource.GOAL,
             reason=f"specified in the goal as {param_name}",
         )
 

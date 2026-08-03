@@ -107,3 +107,35 @@ def test_contract_containers_match_the_vendored_modules(registry):
         if declared != contract.container:
             mismatched.append(f"{contract.id}: contract={contract.container} module={declared}")
     assert mismatched == [], "\n".join(mismatched)
+
+
+def test_an_index_is_not_a_bam(registry):
+    """samtools/index emits a sidecar, and nf-core's process emits no BAM at all.
+
+    Declaring it `alignment.bam[indexed]` is what let the router hand featureCounts a
+    `.bai` — audit 2026-08-03, C4. The resolver no longer believes it, but the contract
+    must not assert it either.
+    """
+    index = registry.get("nf-core/samtools/index@1.21.0")
+    assert [p.type_id for p in index.produces] == ["alignment.bai"]
+
+
+def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
+    """Every pre-audit test used a single `want`, which is why last-writer-wins survived."""
+    from comeni_core.vocabulary import Vocabulary
+    from mendel_resolver.resolve import resolve
+    from mendel_resolver.rules import RuleTable
+
+    vocab = Vocabulary.load(ROOT / "examples" / "vocabularies")
+    rules = RuleTable.load(ROOT / "examples" / "rules" / "rnaseq.yml")
+    goal = Goal(
+        have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="annotation.gtf")],
+        want=["counts.matrix", "alignment.bai"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+    )
+    ir = resolve(goal, Registry.load(ROOT / "examples" / "contracts", vocab), rules)
+    fed_by = {
+        e.to_node: e.from_node for e in ir.edges if e.to_node == "subread_featurecounts"
+    }
+    assert fed_by["subread_featurecounts"] == "samtools_sort"
+    assert "samtools_index" in [n.id for n in ir.nodes]

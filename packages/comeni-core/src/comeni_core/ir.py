@@ -19,7 +19,7 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
-from comeni_core.tiers import ReviewLevel, Tier, review_level_for
+from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 
 class ResolvedValue(BaseModel):
@@ -27,6 +27,7 @@ class ResolvedValue(BaseModel):
 
     value: ParamValue
     tier: Tier
+    source: ValueSource = ValueSource.RESOLVER
     reason: Text
     """Why this value was chosen. Prose, and declared as such — it reaches an egress
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly

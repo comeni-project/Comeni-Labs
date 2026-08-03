@@ -2,7 +2,11 @@ id: nf-core/samtools/index@1.21.0
 nf_process: SAMTOOLS_INDEX
 nf_include: modules/nf-core/samtools/index/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
-produces: [{name: bai, type_id: alignment.bam, state: [coordinate_sorted, indexed]}]
+# An index is a sidecar file, not a BAM. Modelling it as alignment.bam[indexed] is
+# what let the router hand featureCounts a .bai — see the 2026-08-03 audit, C4.
+# nf-core SAMTOOLS_INDEX emits bai/csi/crai and no BAM at all, so there is no
+# honest passthrough output to declare either.
+produces: [{name: bai, type_id: alignment.bai, state: []}]
 params: []
 priority: 0
 nf_inputs: [{ports: [bam]}]

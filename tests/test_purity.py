@@ -18,7 +18,26 @@ only at import statements.
 import ast
 import pathlib
 
-PURE_PACKAGES = ["comeni-core", "mendel-resolver", "mendel-compiler"]
+# Two shapes, because the packages genuinely differ. `comeni-core` and `mendel-resolver`
+# import almost nothing, so their permitted set can be *closed* — an allowlist has no
+# unknown unknowns, and a banlist can only ever forbid what somebody thought of, which is
+# exactly how the stdlib transports went unnoticed until the 2026-08-03 audit.
+#
+# `mendel-compiler` cannot be closed: it must run Nextflow, so it needs `subprocess`, and
+# `subprocess` can shell out to `curl`. Pretending otherwise would put a hole inside a set
+# whose shape implies there is none. An honest banlist is better than a dishonest allowlist.
+CLOSED_PACKAGES = {
+    "comeni-core": {
+        "collections", "collections.abc", "datetime", "enum", "hashlib", "pathlib",
+        "typing", "pydantic", "yaml", "comeni_core",
+    },
+    "mendel-resolver": {
+        "collections", "collections.abc", "operator", "pathlib", "typing",
+        "pydantic", "yaml", "comeni_core", "mendel_resolver",
+    },
+}
+
+BANLIST_PACKAGES = ["mendel-compiler"]
 
 BANNED_PREFIXES = (
     # web frameworks
@@ -59,10 +78,33 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
     return found
 
 
+def _outside_allowlist(path: pathlib.Path, root: pathlib.Path, allowed: set[str]) -> list[str]:
+    tree = ast.parse(path.read_text())
+    where = path.relative_to(root)
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names = [node.module]
+        else:
+            continue
+        found += [
+            f"{where} imports {n}, which is not on this package's allowlist"
+            for n in names
+            if n.split(".")[0] not in allowed
+        ]
+    return found
+
+
 def test_pure_packages_import_nothing_impure():
     root = pathlib.Path(__file__).parent.parent
     violations: list[str] = []
-    for pkg in PURE_PACKAGES:
+    for pkg, allowed in CLOSED_PACKAGES.items():
+        for py in sorted((root / "packages" / pkg / "src").rglob("*.py")):
+            violations += _violations(py, root)
+            violations += _outside_allowlist(py, root, allowed)
+    for pkg in BANLIST_PACKAGES:
         for py in sorted((root / "packages" / pkg / "src").rglob("*.py")):
             violations += _violations(py, root)
     assert violations == [], "Pure packages must not import I/O or model libraries:\n" + "\n".join(

@@ -37,17 +37,23 @@ def test_strandedness_resolves_at_tier_3_from_the_profile(tmp_path):
 
 def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
     """--registry stacks layers, and a build on a modified registry announces it."""
+    # A layer is a directory holding contracts/, rules/ and vocabularies/ — the lab ships
+    # only contracts here, and inherits the base layer's types and rules.
     overlay = tmp_path / "lab"
-    overlay.mkdir()
+    (overlay / "contracts").mkdir(parents=True)
+    (overlay / "rules").mkdir()
+    (overlay / "vocabularies").mkdir()
     base = ROOT / "examples" / "contracts" / "nf-core" / "samtools-sort.yml"
-    (overlay / "sort.yml").write_text(base.read_text().replace("@1.21.0", "@1.99.0"))
+    (overlay / "contracts" / "sort.yml").write_text(
+        base.read_text().replace("@1.21.0", "@1.99.0")
+    )
 
     exit_code = main([
         "build",
         "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
-        "--registry", str(ROOT / "examples" / "contracts"),
+        "--registry", str(ROOT / "examples"),
         "--registry", str(overlay),
     ])
     assert exit_code == 0

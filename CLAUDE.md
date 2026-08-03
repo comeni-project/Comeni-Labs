@@ -111,7 +111,8 @@ Violating any of these breaks the product claim, not just a test.
    Records are replayed on rerun rather than re-asking the model — that is how determinism
    survives having a model in the loop.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
-11. **The registry is a stack**: public curated base, then private overlays. A higher layer
+11. **The registry is a stack**: public curated base, then private overlays. A layer is a
+    **directory** holding `contracts/`, `rules/` and `vocabularies/`, and all three stack. A higher layer
     sharing a **module key** (the contract ID minus `@version`) shadows every lower-layer
     contract for that module and writes a `ShadowRecord`. A different module key is an
     ordinary candidate and obeys invariant 8. Keying on the module key rather than the full ID
@@ -272,16 +273,19 @@ uvx nf-core modules install --dir vendor samtools/sort
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
 # same build, with the lab's private contracts stacked over the public registry
+# a registry layer is a DIRECTORY holding contracts/, rules/ and vocabularies/
 uv run mendel build --goal examples/rnaseq-goal.yml \
-  --registry examples/contracts --registry ./lab-contracts --out build/
+  --registry examples/ --registry ./lab-registry --out build/
 
 # the forge
+# --- arrives with Plan 2; these do not exist yet ---
 uv run forge ingest --modules vendor/modules/
 uv run forge pending
 uv run forge approve nf-core/samtools-sort.yml --by "$USER"
 ```
 
-`make test`, `make lint`, `make dev`, `make migrate` wrap the common ones.
+`make test`, `make lint` and `make fmt` wrap the common ones. `make dev` and `make migrate`
+arrive with Plan 3, along with the API and its migrations.
 
 ## v1 success criterion
 
