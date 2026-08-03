@@ -1,0 +1,12 @@
+id: nf-core/subread/featurecounts@2.0.6
+nf_process: SUBREAD_FEATURECOUNTS
+nf_include: modules/nf-core/subread/featurecounts/main
+consumes:
+  - {name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}
+  - {name: annotation, type_id: annotation.gtf, state_required: []}
+produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
+params:
+  - {name: strandedness, tier_hint: 3}
+priority: 0
+container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
+provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

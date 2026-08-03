@@ -1,0 +1,9 @@
+id: nf-core/samtools/sort@1.21.0
+nf_process: SAMTOOLS_SORT
+nf_include: modules/nf-core/samtools/sort/main
+consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
+produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
+params: []
+priority: 0
+container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
+provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

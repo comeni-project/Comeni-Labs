@@ -1,0 +1,9 @@
+id: nf-core/star/genomegenerate@1.11.0
+nf_process: STAR_GENOMEGENERATE
+nf_include: modules/nf-core/star/genomegenerate/main
+consumes: [{name: gtf, type_id: annotation.gtf, state_required: []}]
+produces: [{name: index, type_id: genome.index.star, state: []}]
+params: []
+priority: 0
+container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

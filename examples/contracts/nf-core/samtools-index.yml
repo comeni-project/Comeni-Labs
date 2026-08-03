@@ -1,0 +1,9 @@
+id: nf-core/samtools/index@1.21.0
+nf_process: SAMTOOLS_INDEX
+nf_include: modules/nf-core/samtools/index/main
+consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
+produces: [{name: bai, type_id: alignment.bam, state: [coordinate_sorted, indexed]}]
+params: []
+priority: 0
+container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
+provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

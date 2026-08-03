@@ -1,0 +1,12 @@
+id: nf-core/star/align@1.11.0
+nf_process: STAR_ALIGN
+nf_include: modules/nf-core/star/align/main
+consumes:
+  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+  - {name: index, type_id: genome.index.star, state_required: []}
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+params:
+  - {name: seq_platform, tier_hint: 4}
+priority: 0
+container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

@@ -2354,16 +2354,31 @@ Expected: FAIL — `examples/contracts/` is empty so `test_all_spine_contracts_l
 
 - [ ] **Step 3: Vendor the nf-core modules**
 
+`nf-core modules install` refuses to run outside something it recognises as a pipeline, so three
+things must exist first. It also crashes on the *first* install writing
+`conf/containers_docker_amd64.config` if `conf/` is absent — after the module files have already
+landed, which makes it look like a partial failure when it is not.
+
 ```bash
-uv tool install nf-core
-nf-core modules install fastqc --dir .
-nf-core modules install trimgalore --dir .
-nf-core modules install star/align --dir .
-nf-core modules install star/genomegenerate --dir .
-nf-core modules install samtools/sort --dir .
-nf-core modules install samtools/index --dir .
-nf-core modules install subread/featurecounts --dir .
-nf-core modules install multiqc --dir .
+mkdir -p modules conf
+cat > .nf-core.yml <<'YAML'
+repository_type: pipeline
+nf_core_version: "4.1.0"
+YAML
+```
+
+`WARNING Could not find a 'main.nf' or 'nextflow.config' file` on every install is expected and
+harmless — this repository is not a pipeline, it vendors modules for one it generates.
+
+```bash
+uvx uvx nf-core modules install fastqc --dir .
+uvx nf-core modules install trimgalore --dir .
+uvx nf-core modules install star/align --dir .
+uvx nf-core modules install star/genomegenerate --dir .
+uvx nf-core modules install samtools/sort --dir .
+uvx nf-core modules install samtools/index --dir .
+uvx nf-core modules install subread/featurecounts --dir .
+uvx nf-core modules install multiqc --dir .
 ```
 
 Verify each landed: `ls modules/nf-core/*/main.nf modules/nf-core/*/*/main.nf`
@@ -2384,17 +2399,40 @@ container: quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-**Every one of the eight carries a `container:` line, and you read it out of the vendored
-module rather than out of this plan.** Each `modules/nf-core/<tool>/main.nf` declares its
-container in a `container "..."` directive, usually alongside a Singularity URL in a ternary.
-Copy the `quay.io/biocontainers/...` value verbatim. The one above is what `fastqc` should
-have; if the vendored module disagrees, **the module is right and this plan is stale** — nf-core
-bumps these, and a container reference invented by a planner is exactly the kind of plausible
-wrong value the whole project exists to stop producing.
+**Every one of the eight carries a `container:` line, and you read it out of the vendored module
+rather than out of this plan.** If the module disagrees with anything written here, **the module
+is right and this plan is stale** — a container reference invented by a planner is exactly the
+plausible wrong value the whole project exists to stop producing.
+
+The `container` directive is a ternary: a Singularity URL when the engine is
+singularity/apptainer, an OCI reference otherwise. Take the **last** quoted string — the OCI
+one — and do not grep for `quay.io`, because as of nf-core 4.1.0 most modules have moved to
+Seqera Containers and only two of the eight are still biocontainers:
 
 ```bash
-grep -h "quay.io/biocontainers" modules/nf-core/*/main.nf modules/nf-core/*/*/main.nf
+uv run python - <<'PY'
+import re, pathlib
+for f in sorted(pathlib.Path("modules/nf-core").rglob("main.nf")):
+    src = f.read_text()
+    proc = re.search(r"process\s+([A-Z0-9_]+)", src).group(1)
+    directive = re.search(r'container\s+"(.*?)"', src, re.S)
+    print(f"{proc:24} {re.findall(r\"'([^']+)'\", directive.group(1))[-1]}")
+PY
 ```
+
+On 2026-08-03 that printed `quay.io/biocontainers/...` for `FASTQC` and
+`SUBREAD_FEATURECOUNTS`, and `community.wave.seqera.io/library/...` for the other six. Worth
+noticing for §6.1 of the clinical spec: the Seqera Singularity URLs are already
+`blobs/sha256/<digest>/data`, and the Docker tags carry a content hash
+(`1.24--d697cfb9dce007cd`), so upstream has largely solved digest pinning ahead of us.
+
+**Use the process name the module declares, not the one you expect.** `subread/featurecounts`
+declares `SUBREAD_FEATURECOUNTS`, so its node id is `subread_featurecounts` — Task 12's
+end-to-end test depends on this and the plan originally had it wrong.
+
+`test_contract_containers_match_the_vendored_modules` in Step 1 keeps the contract and the module
+honest with each other, so an upstream bump shows up as a failing test rather than as a build
+claiming a reproducibility it does not have.
 
 `examples/contracts/nf-core/trimgalore.yml`:
 
