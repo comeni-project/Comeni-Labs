@@ -163,6 +163,25 @@ class MeasurementRegistry(BaseModel):
         )
 
 
+    def to_measure(self, by_contract: dict[str, str]) -> DataProfile:
+        """A profile naming what will be measured and by what, with no values yet.
+
+        `value: None` is deliberate and honest: the pipeline has been *emitted*, not run.
+        The laboratory runs it and fills the values in. Anything else would be Mendel
+        reporting a number it has never seen, which is what invariant 15 exists to
+        prevent — and the file it writes is the same shape a goal accepts back, so the
+        round trip is measure, fill in, build.
+        """
+        for measurement_id in by_contract:
+            self.get(measurement_id)  # raises naming what is declared
+        return DataProfile(
+            measurements=[
+                Measured(measurement=k, value=None, source=ValueSource.MEASURED, by=v)
+                for k, v in sorted(by_contract.items())
+            ]
+        )
+
+
 def _extend(
     found: dict[str, Measurement], measurement_id: str, added: list[str], path: Path
 ) -> Measurement:

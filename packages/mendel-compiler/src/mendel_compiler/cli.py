@@ -96,6 +96,23 @@ def _build(argv: list[str] | None = None) -> int:
     if vendored.exists():
         shutil.copytree(vendored, args.out / "modules", dirs_exist_ok=True)
 
+    if args.command == "profile":
+        # Which contract measures what, read off the IR that was actually resolved rather
+        # than off the registry — the file records what this pipeline will produce, not
+        # what the registry could produce in principle.
+        produced = {
+            port.type_id.removeprefix("measurement."): node.contract_id
+            for node in ir.nodes
+            for port in registry.get(node.contract_id).produces
+            if port.type_id.startswith("measurement.")
+        }
+        (args.out / "profile.yml").write_text(
+            yaml.safe_dump(
+                loaded.measurements.to_measure(produced).model_dump(mode="json"),
+                sort_keys=True,
+            )
+        )
+
     for record in registry.shadowed:
         print(
             f"  SHADOW  {record.module_key}: {record.winning_id} from {record.winning_layer} "

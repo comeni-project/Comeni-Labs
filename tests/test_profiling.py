@@ -69,6 +69,51 @@ def test_a_registry_with_no_profiling_contract_says_so(tmp_path, capsys):
     assert "nothing can measure" in capsys.readouterr().err
 
 
+def test_a_generated_profile_records_its_tool(tmp_path):
+    import yaml
+
+    main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"), "--root", str(ROOT)])
+    profile = yaml.safe_load((tmp_path / "p" / "profile.yml").read_text())
+    entry = next(m for m in profile["measurements"] if m["measurement"] == "read_length")
+    assert entry["source"] == "measured"
+    assert entry["by"].startswith("comeni/profile/")
+
+
+def test_a_generated_profile_claims_no_value_it_has_not_seen(tmp_path):
+    """The pipeline has been emitted, not run. Anything else would be Mendel reporting a
+    number it has never looked at, which is what invariant 15 exists to prevent."""
+    import yaml
+
+    main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"), "--root", str(ROOT)])
+    profile = yaml.safe_load((tmp_path / "p" / "profile.yml").read_text())
+    assert all(m["value"] is None for m in profile["measurements"])
+
+
+def test_the_emitted_profile_is_a_profile_mendel_will_accept_back(tmp_path):
+    """The round trip is the point: measure, fill the values in, build against them."""
+    import yaml
+    from comeni_core.measurement import MeasurementRegistry
+    from mendel_resolver.goal import DataProfile
+
+    main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"), "--root", str(ROOT)])
+    raw = yaml.safe_load((tmp_path / "p" / "profile.yml").read_text())
+    for measurement in raw["measurements"]:
+        measurement["value"] = 150
+    profile = DataProfile.model_validate(raw)
+    assert profile.get("read_length") == 150
+    MeasurementRegistry.load(ROOT / "examples" / "measurements").profile(
+        {m.measurement: m.value for m in profile.measurements}
+    )
+
+
+def test_a_hand_written_profile_is_asserted():
+    """A scalar in a file a person wrote is an assertion by that person."""
+    from comeni_core.tiers import ValueSource
+    from mendel_resolver.goal import DataProfile
+
+    assert DataProfile(read_length=150).measurements[0].source is ValueSource.GOAL
+
+
 def test_profiling_from_an_input_the_measurer_cannot_reach_fails_clearly(tmp_path, capsys):
     """`--have annotation.gtf` cannot feed FASTQC, and the message says which port."""
     assert main([
