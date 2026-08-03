@@ -4,22 +4,65 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core.vocabulary import Vocabulary
 
 
+class Alternative(BaseModel):
+    """One acceptable shape for a port: a type, and states that must all hold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type_id: str
+    states: frozenset[str] = frozenset()
+
+    @field_serializer("states")
+    def _sorted(self, states: frozenset[str]) -> list[str]:
+        return sorted(states)
+
+
 class InputPort(BaseModel):
     name: str
-    type_id: str
+    type_id: str = ""
     state_required: frozenset[str] = frozenset()
     state_preferred: frozenset[str] = frozenset()
+    """Deprecated spelling of `prefer`, kept so no vendored contract breaks."""
+    accepts: list[Alternative] = Field(default_factory=list)
+    """Ordered alternatives, ANDed within each. One level of DNF, deliberately.
+
+    Full boolean logic would express more and cost the thing the product sells: today
+    "why is SAMTOOLS_SORT here?" answers itself in a sentence, and under a general
+    constraint language it becomes a solver trace.
+    """
+    prefer: frozenset[str] = frozenset()
+    """Tiebreak *within* a matched alternative. Never causes insertion or failure.
+
+    Does not promote a later alternative over an earlier one: alternative order is the
+    author's statement of preference between kinds of input, the same way decision-table
+    rows are ordered and first-match-wins.
+    """
     cardinality: str = "1"
 
-    @field_serializer("state_required", "state_preferred")
+    @field_serializer("state_required", "state_preferred", "prefer")
     def _sorted(self, states: frozenset[str]) -> list[str]:
         """Plan 2.5's lockfile pins a contract digest, which hashes exactly these."""
         return sorted(states)
+
+    @model_validator(mode="after")
+    def _one_form(self) -> "InputPort":
+        if self.type_id and self.accepts:
+            raise ValueError(f"port {self.name!r} declares both `type_id` and `accepts`; use one")
+        if not self.type_id and not self.accepts:
+            raise ValueError(f"port {self.name!r} declares neither `type_id` nor `accepts`")
+        if self.state_preferred and not self.prefer:
+            object.__setattr__(self, "prefer", self.state_preferred)
+        return self
+
+    def alternatives(self) -> list[Alternative]:
+        if self.accepts:
+            return self.accepts
+        return [Alternative(type_id=self.type_id, states=self.state_required)]
 
 
 class OutputPort(BaseModel):
@@ -120,7 +163,11 @@ class ModuleContract(BaseModel):
 
     def check_against(self, vocab: Vocabulary) -> None:
         for port in self.consumes:
-            vocab.validate(port.type_id, port.state_required)
-            vocab.validate(port.type_id, port.state_preferred)
+            # Every alternative, not only the first: a port whose second branch names an
+            # undeclared state is exactly as broken as one whose first does, and it fails
+            # later, on the input nobody tested with.
+            for alternative in port.alternatives():
+                vocab.validate(alternative.type_id, alternative.states)
+                vocab.validate(alternative.type_id, port.prefer)
         for port in self.produces:
             vocab.validate(port.type_id, port.state)

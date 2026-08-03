@@ -1,0 +1,14 @@
+# Profiling contracts produce `measurement.<id>` types, which is what makes
+# `mendel profile` an ordinary build rather than a second subsystem: the router
+# already knows how to reach a type, and a measurement is one.
+id: comeni/profile/fastqc@0.12.1
+nf_process: FASTQC
+nf_include: modules/nf-core/fastqc/main
+consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+produces:
+  - {name: read_length, type_id: measurement.read_length, state: []}
+params: []
+priority: 0
+nf_inputs: [{ports: [reads]}]
+container: quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0
+provenance: {source: hand, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

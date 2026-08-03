@@ -36,6 +36,7 @@ PortName = Annotated[str, "port-name"]
 StateName = Annotated[str, "state-name"]
 DecisionKey = Annotated[str, "decision-key"]
 ResolverId = Annotated[str, "resolver-id"]
+MeasurementId = Annotated[str, "measurement-id"]
 
 ParamValue = int | float | bool | Annotated[str, ParamLiteral] | None
 """What a resolved parameter or a decision may hold.

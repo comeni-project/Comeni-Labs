@@ -27,6 +27,15 @@ class ValueSource(StrEnum):
 
     RESOLVER = "resolver"
     GOAL = "goal"
+    MEASURED = "measured"
+    """A tool produced this value by looking at the data, and named itself.
+
+    The distinction that matters clinically: a measured 150bp read length is a fact a
+    profiling run established, while an asserted one is a claim by whoever typed the goal
+    file. Both are legitimate; only one is checkable. The `sealed` protection profile is
+    meant to refuse a tier-3 decision resting on an assertion — issue #2, once Plan 2
+    builds `ProfilePolicy`. Recording provenance here is what makes that check possible.
+    """
 
 
 class ReviewLevel(StrEnum):

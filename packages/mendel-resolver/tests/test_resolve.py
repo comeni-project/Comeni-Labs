@@ -1,5 +1,6 @@
 import pytest
 from comeni_core.ir import ReviewLevel, Tier
+from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import DataProfile, Goal, GoalInput
@@ -28,13 +29,32 @@ priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
 RULES = """
-rules:
-  - id: strandedness-reverse
-    subject: strandedness
-    when: {strandedness: {"==": reverse}}
-    then: {value: 2}
-    citation: "featureCounts -s 2 for reverse-stranded libraries"
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    cite: "featureCounts -s 2 for reverse-stranded libraries"
+    rows:
+      - {when: {strandedness: reverse}, then: 2}
 """
+MEASUREMENTS = {
+    "strandedness.yml": "kind: enum\nvalues: [forward, reverse, unstranded]\n",
+    "read_length.yml": "kind: integer\nminimum: 1\n",
+}
+
+
+def _rule_table(tmp_path, registry, vocabulary, body):
+    measurements = tmp_path / "measurements"
+    measurements.mkdir(exist_ok=True)
+    for name, declaration in MEASUREMENTS.items():
+        (measurements / name).write_text(declaration)
+    rules = tmp_path / "rules.yml"
+    rules.write_text(body)
+    return RuleTable.load(
+        rules,
+        registry=registry,
+        vocabulary=vocabulary,
+        measurements=MeasurementRegistry.load(measurements),
+    )
 
 
 @pytest.fixture
@@ -47,9 +67,9 @@ def setup(tmp_path):
     contracts.mkdir()
     (contracts / "fc.yml").write_text(COUNTS)
     (contracts / "sort.yml").write_text(SORT)
-    rules = tmp_path / "rules.yml"
-    rules.write_text(RULES)
-    return Registry.load(contracts, Vocabulary.load(vocab_dir)), RuleTable.load(rules)
+    vocabulary = Vocabulary.load(vocab_dir)
+    registry = Registry.load(contracts, vocabulary)
+    return registry, _rule_table(tmp_path, registry, vocabulary, RULES)
 
 
 def test_tier_3_rule_sets_value_and_marks_advisory(setup):
@@ -160,8 +180,9 @@ def tied(tmp_path):
             "STAR_ALIGN", "HISAT2_ALIGN"
         )
     )
-    (rules := tmp_path / "rules.yml").write_text("rules: []\n")
-    return Registry.load(contracts, Vocabulary.load(vocab_dir)), RuleTable.load(rules)
+    vocabulary = Vocabulary.load(vocab_dir)
+    registry = Registry.load(contracts, vocabulary)
+    return registry, _rule_table(tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n")
 
 
 def test_a_routing_tie_is_surfaced_for_review(tied):
@@ -176,7 +197,12 @@ def test_a_routing_tie_is_surfaced_for_review(tied):
     ir = resolve(goal, registry, rules)
 
     assert len(ir.decisions) == 1
-    assert "producer:alignment.bam" in ir.needs_review()[0]
+    flagged = ir.needs_review()
+    # Twice over, on purpose: the DecisionRecord names the ambiguity, and now the node's
+    # own `selection` names the module. A reviewer asking "which modules need looking at"
+    # should not have to join those two lists.
+    assert any("producer:alignment.bam" in item for item in flagged)
+    assert any(item.endswith("(module)") for item in flagged)
 
 
 def test_review_list_covers_params_and_decisions_together(setup):
@@ -212,8 +238,9 @@ def with_index(tmp_path):
     (contracts / "fc.yml").write_text(COUNTS)
     (contracts / "sort.yml").write_text(SORT)
     (contracts / "index.yml").write_text(INDEX)
-    (rules := tmp_path / "rules.yml").write_text("rules: []\n")
-    return Registry.load(contracts, Vocabulary.load(vocab_dir)), RuleTable.load(rules)
+    vocabulary = Vocabulary.load(vocab_dir)
+    registry = Registry.load(contracts, vocabulary)
+    return registry, _rule_table(tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n")
 
 
 def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_index):

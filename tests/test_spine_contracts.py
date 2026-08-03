@@ -1,8 +1,7 @@
 import pathlib
 
 import pytest
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import route
 
@@ -12,9 +11,7 @@ VENDOR = ROOT / "vendor"
 
 @pytest.fixture
 def registry():
-    return Registry.load(
-        ROOT / "examples" / "contracts", Vocabulary.load(ROOT / "examples" / "vocabularies")
-    )
+    return layers.load(ROOT / "examples").registry
 
 
 def test_all_spine_contracts_load(registry):
@@ -122,18 +119,15 @@ def test_an_index_is_not_a_bam(registry):
 
 def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
     """Every pre-audit test used a single `want`, which is why last-writer-wins survived."""
-    from comeni_core.vocabulary import Vocabulary
     from mendel_resolver.resolve import resolve
-    from mendel_resolver.rules import RuleTable
 
-    vocab = Vocabulary.load(ROOT / "examples" / "vocabularies")
-    rules = RuleTable.load(ROOT / "examples" / "rules" / "rnaseq.yml")
+    loaded = layers.load(ROOT / "examples")
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="annotation.gtf")],
         want=["counts.matrix", "alignment.bai"],
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
     )
-    ir = resolve(goal, Registry.load(ROOT / "examples" / "contracts", vocab), rules)
+    ir = resolve(goal, loaded.registry, loaded.rules)
     fed_by = {
         e.to_node: e.from_node for e in ir.edges if e.to_node == "subread_featurecounts"
     }
@@ -141,21 +135,16 @@ def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
     assert "samtools_index" in [n.id for n in ir.nodes]
 
 
-# Two shipped rules can never fire: `subject` is matched against contract parameter
-# names and no contract declares `aligner`. Documented in the rule-tables spec, which
-# replaces `subject` with a validated `decides` target and refuses to load a rule that
-# cannot fire. Until then this literal is the record — a *third* dead rule fails the day
-# it appears, and when the spec lands the set empties and this test deletes itself.
-KNOWN_DEAD_RULES = {"aligner-long-reads", "aligner-short-reads"}
+def test_every_shipped_rule_can_fire(registry):
+    """`KNOWN_DEAD_RULES` used to live here, recording two rules that had never once run.
 
-
-def test_no_new_dead_rules_are_shipped(registry):
-    from mendel_resolver.rules import RuleTable
-
-    rules = RuleTable.load(ROOT / "examples" / "rules")
-    declared = {p.name for c in registry.all() for p in c.params}
-    dead = {rule.id for rule in rules.rules if rule.subject not in declared}
-    assert dead == KNOWN_DEAD_RULES, (
-        f"dead rules changed — cannot fire: {sorted(dead)}; "
-        f"contract parameters that exist: {sorted(declared)}"
-    )
+    It is gone because loading is now the check: `RuleTable.load` validates every decision
+    against the registry, the vocabulary and the measurement declarations, and refuses a
+    table it cannot satisfy. So the assertion is simply that the shipped table loads —
+    a dead rule can no longer be shipped to be recorded.
+    """
+    table = layers.load(ROOT / "examples").rules
+    assert [d.decides.key() for d in table.decisions] == [
+        "param:strandedness",
+        "producer_of:alignment.bam",
+    ]

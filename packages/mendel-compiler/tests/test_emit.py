@@ -1,19 +1,18 @@
 import pathlib
 
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
 from mendel_compiler.emit import emit
+from mendel_resolver import layers
 
 ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 
 def _vocab():
-    return Vocabulary.load(ROOT / "examples" / "vocabularies")
+    return layers.load(ROOT / "examples").vocabulary
 
 
 def _registry():
-    return Registry.load(ROOT / "examples" / "contracts", _vocab())
+    return layers.load(ROOT / "examples").registry
 
 
 def _ir():
