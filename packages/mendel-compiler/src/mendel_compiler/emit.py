@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.contract import ModuleContract, NfInput
+from comeni_core.contract import InputPort, ModuleContract, NfInput
 from comeni_core.ir import PipelineIR
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
@@ -55,6 +55,16 @@ def _channel_name(type_id: str) -> str:
     return "ch_" + type_id.replace(".", "_").replace("-", "_")
 
 
+def _entry_type(port: InputPort) -> str:
+    """Which type a port not fed by the pipeline expects from outside.
+
+    The *first* alternative, because that is the author's stated preference and nothing
+    upstream has narrowed it: if a port accepts a BAM or a CRAM and the laboratory is
+    supplying the file, the pipeline asks for the one the contract names first.
+    """
+    return port.alternatives()[0].type_id
+
+
 def _default_entry(type_id: str) -> str:
     param = type_id.rsplit(".", 1)[-1]
     return f"Channel.fromPath(params.{param}, checkIfExists: true).map {{ f -> [ [:], f ] }}"
@@ -76,7 +86,7 @@ def _port_expression(ir: PipelineIR, registry: Registry, node_id: str, port_name
             return f"{_process(ir, registry, edge.from_node)}.out.{edge.from_port}"
     contract = _contract(ir, registry, node_id)
     port = next(p for p in contract.consumes if p.name == port_name)
-    return _channel_name(port.type_id)
+    return _channel_name(_entry_type(port))
 
 
 def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -> str:
@@ -102,9 +112,8 @@ def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> li
         for port in registry.get(node.contract_id).consumes:
             if (node.id, port.name) in fed:
                 continue
-            needed[port.type_id] = vocab.entry_channels.get(
-                port.type_id, _default_entry(port.type_id)
-            )
+            type_id = _entry_type(port)
+            needed[type_id] = vocab.entry_channels.get(type_id, _default_entry(type_id))
     return [(_channel_name(type_id), needed[type_id]) for type_id in sorted(needed)]
 
 

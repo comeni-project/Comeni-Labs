@@ -14,7 +14,9 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 - **ambiguous** — nothing distinguished them. Invariant 8: demote, record, flag.
 """
 
-from comeni_core.contract import ModuleContract
+from collections.abc import Callable
+
+from comeni_core.contract import InputPort, ModuleContract
 from comeni_core.decision import Ambiguity
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
@@ -98,7 +100,7 @@ def route(
 
         for port in chosen.consumes:
             try:
-                satisfy(port.type_id, port.state_required, depth + 1, visiting | {chosen.id})
+                _satisfy_port(port, satisfy, depth + 1, visiting | {chosen.id})
             except UnroutablePinError:
                 raise
             except UnroutableError as exc:
@@ -123,6 +125,30 @@ def route(
     for wanted in goal.want:
         satisfy(wanted, frozenset(required_states.get(wanted, [])), 0, frozenset())
     return plan
+
+
+def _satisfy_port(
+    port: InputPort,
+    satisfy: Callable[[str, frozenset[str], int, frozenset[str]], None],
+    depth: int,
+    visiting: frozenset[str],
+) -> None:
+    """Try each alternative in declaration order and take the first that routes.
+
+    Order is the author's statement of preference between kinds of input — "a BAM, or
+    failing that a CRAM" — so it is first-match-wins, exactly like decision-table rows.
+    A port with no `accepts` has one alternative and this is the old behaviour verbatim.
+    """
+    failures = []
+    for alternative in port.alternatives():
+        try:
+            satisfy(alternative.type_id, alternative.states, depth, visiting)
+            return
+        except UnroutableError as exc:
+            failures.append(str(exc))
+    raise UnroutableError(
+        f"no alternative for port {port.name!r} can be routed: " + "; ".join(failures)
+    )
 
 
 def _choose(

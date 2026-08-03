@@ -52,14 +52,17 @@ def resolve(
         for port in contract.consumes:
             source = _source_for(produced, port, node.id, ir.decisions, resolver)
             if source is not None:
-                from_node, from_port, _, states = source
+                from_node, from_port, type_id, states = source
                 ir.edges.append(
                     IREdge(
                         from_node=from_node,
                         from_port=from_port,
                         to_node=node.id,
                         to_port=port.name,
-                        type_id=port.type_id,
+                        # The type the *source* emits, which for a single-alternative port
+                        # is the port's own type and for an `accepts` port is whichever
+                        # alternative actually matched.
+                        type_id=type_id,
                         states=states,
                     )
                 )
@@ -109,27 +112,40 @@ def _source_for(
     When more than one source is equally good that is a genuine choice, so it is recorded at
     tier 4 rather than taken silently — invariant 8 applied inside the graph rather than at
     its edges.
+
+    A port may declare several alternatives; they are tried in declaration order and the
+    first with any qualifying source wins, matching how the router picked which one to
+    route. `prefer` then breaks ties *within* that alternative — it never promotes a later
+    alternative over an earlier one, because alternative order is the author saying which
+    kind of input they would rather have.
     """
-    qualifying = [
-        source
-        for source in produced
-        if source[2] == port.type_id and port.state_required <= source[3]
-    ]
-    if not qualifying:
+    for alternative in port.alternatives():
+        qualifying = [
+            source
+            for source in produced
+            if source[2] == alternative.type_id and alternative.states <= source[3]
+        ]
+        if qualifying:
+            required = alternative.states
+            break
+    else:
         return None
 
     def surplus(source: tuple[str, str, str, frozenset[str]]) -> int:
-        return len(source[3] - port.state_required)
+        return len(source[3] - required)
 
     best = min(surplus(source) for source in qualifying)
     equally_good = [source for source in qualifying if surplus(source) == best]
+    if port.prefer and len(equally_good) > 1:
+        preferred = [source for source in equally_good if port.prefer <= source[3]]
+        equally_good = preferred or equally_good
     chosen = equally_good[-1]
     if len(equally_good) > 1:
         ambiguity = Ambiguity(
             node_id=node_id,
             subject=f"source:{port.name}",
             candidates=sorted(f"{n}.{p}" for n, p, _, _ in equally_good),
-            context={"type_id": port.type_id, "required": sorted(port.state_required)},
+            context={"type_id": chosen[2], "required": sorted(required)},
         )
         resolution = resolver.resolve(ambiguity)
         decisions.append(
