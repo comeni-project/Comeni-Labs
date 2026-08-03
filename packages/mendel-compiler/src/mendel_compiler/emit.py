@@ -32,8 +32,13 @@ def _render_literal(value: object) -> str:
 
 
 def _channel_name(type_id: str) -> str:
-    """`fastq.reads` -> `ch_reads`. The last segment is what a reader recognises."""
-    return f"ch_{type_id.rsplit('.', 1)[-1]}"
+    """`fastq.reads` -> `ch_fastq_reads`.
+
+    The last segment alone reads better but is not injective: `qc.report` and
+    `multiqc.report` both became `ch_report`, so one assignment shadowed the other and
+    two ports were fed the same channel, silently.
+    """
+    return "ch_" + type_id.replace(".", "_").replace("-", "_")
 
 
 def _default_entry(type_id: str) -> str:

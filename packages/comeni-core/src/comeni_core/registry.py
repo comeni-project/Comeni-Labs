@@ -77,10 +77,14 @@ class Registry(BaseModel):
         return sorted(self.contracts.values(), key=lambda c: c.id)
 
     def producers_of(self, type_id: str, states: frozenset[str]) -> list[ModuleContract]:
-        matches = [
-            contract
+        # Deduplicated on contract id: a contract declaring several outputs of one type —
+        # real `star/align` has three BAM outputs — otherwise appeared once per port, tied
+        # with itself, and raised a tier-4 ambiguity a human had to clear between a thing
+        # and itself.
+        matches = {
+            contract.id: contract
             for contract in self.contracts.values()
             for port in contract.produces
             if port.type_id == type_id and states <= port.state
-        ]
-        return sorted(matches, key=lambda c: (-c.priority, c.id))
+        }
+        return sorted(matches.values(), key=lambda c: (-c.priority, c.id))
