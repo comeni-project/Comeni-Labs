@@ -1,0 +1,26 @@
+rules:
+  - id: aligner-long-reads
+    subject: aligner
+    when: {read_length: {">=": 70}}
+    then: {module: nf-core/star/align@1.11.0}
+    citation: "STAR is the nf-core/rnaseq default for reads >=70bp (Dobin et al. 2013)"
+  - id: aligner-short-reads
+    subject: aligner
+    when: {read_length: {"<": 70}}
+    then: {module: nf-core/hisat2/align@2.2.1}
+    citation: "HISAT2 handles short reads with lower memory (Kim et al. 2019)"
+  - id: strandedness-reverse
+    subject: strandedness
+    when: {strandedness: {"==": reverse}}
+    then: {value: 2}
+    citation: "featureCounts -s 2 for reverse-stranded (dUTP) libraries"
+  - id: strandedness-forward
+    subject: strandedness
+    when: {strandedness: {"==": forward}}
+    then: {value: 1}
+    citation: "featureCounts -s 1 for forward-stranded libraries"
+  - id: strandedness-unstranded
+    subject: strandedness
+    when: {strandedness: {"==": unstranded}}
+    then: {value: 0}
+    citation: "featureCounts -s 0 for unstranded libraries"

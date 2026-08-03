@@ -2,13 +2,14 @@
 name = "comeni-labs"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["comeni-core"]
+dependencies = ["comeni-core", "mendel-resolver"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
 
 [tool.uv.sources]
 comeni-core = { workspace = true }
+mendel-resolver = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6", "pytest-cov>=5.0"]
