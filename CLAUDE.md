@@ -17,7 +17,7 @@ The product claim, which every design decision serves:
 | `docs/superpowers/specs/2026-08-02-mendel-design.md` | the architecture. **Read before writing code.** |
 | `docs/superpowers/specs/2026-08-02-comeni-federation-design.md` | provider access, registry stacking, pipeline publication, licensing |
 | `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
-| `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 12 TDD tasks, zero AI. Start here. |
+| `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. Start here. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -109,10 +109,12 @@ Violating any of these breaks the product claim, not just a test.
     output. The hosted instance sells convenience, never capability. Anything that would only
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
-    resolution, compiler repair, publication. Each carries one declared payload type.
-    `PromptRequest` is the only payload that may contain free text; the rest are closed
-    vocabulary. Enforced by `tests/test_egress.py`, which holds the allowlist literally, so
-    adding a door means editing a test that says these are all the ways data leaves.
+    resolution, compiler repair, publication. Each carries one declared payload type, and
+    exactly two fields across the whole surface may hold free text: `PromptRequest.prompt` and
+    `GateFailure.tool_message`. Everything else is closed vocabulary, and no payload may carry
+    an `Any`-typed field. Enforced by `tests/test_egress.py`, which holds both lists literally,
+    so widening the boundary means editing a test that says these are all the ways data leaves.
+    Publication is the door with no undo.
 15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or
     path. `Goal` holds type IDs, states and four measurements — a shape, not data. Profiling
     happens where the data is; the emitted pipeline references `params.input` as a placeholder

@@ -1,6 +1,9 @@
 # Mendel — AI Adapters and Forge Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task, sequentially, driving it yourself. Steps use checkbox (`- [ ]`) syntax for
+> tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
+> review and design only. This matches the execution decision recorded in `CLAUDE.md`.
 
 **Goal:** Add the three declared runtime AI points and the offline contract forge, turning a typed-goal compiler into a prompt-driven one without weakening determinism.
 
@@ -19,6 +22,14 @@
 - The forge writes to `proposals/`, never to `contracts/`. Only human approval moves a file across that boundary.
 - Repair proposes IR patches. Any change to generated `.nf` text is a last resort that sets `PipelineIR.diverged = True`.
 - Repair is bounded to 3 attempts.
+- **Every model call goes through a door declared in `comeni_core.egress` and writes an
+  `EgressRecord`.** No task here may pass a bare string to a model. `tests/test_egress.py` from
+  Plan 1 Task 7B must still pass; if a payload needs a new free-text field, that is a decision
+  to be argued in review, not a line to be added quietly.
+- **The active `ProfilePolicy` governs every door.** No task may hard-code behaviour the policy
+  is supposed to decide, and `guarded` is the default when nothing is configured.
+- **Raw Nextflow output never crosses a door.** Repair receives `GateFailure`. Stderr stays on
+  the machine that produced it.
 - Ruff line length 100. `uv run ruff check` and `uv run pytest` pass before every commit.
 
 ---
@@ -35,6 +46,8 @@ packages/
 │  │  ├─ extract.py              prompt -> Goal (runtime AI point 1)
 │  │  ├─ ambiguity.py            LLMAmbiguityResolver (runtime AI point 2)
 │  │  ├─ repair.py               RepairProposer (runtime AI point 3)
+│  │  ├─ egress.py               the one place a door actually opens; writes EgressRecords
+│  │  ├─ prompts.py              PromptStore — the only personal data Mendel holds
 │  │  └─ store.py                DecisionStore — persist and replay
 │  └─ tests/fixtures/            recorded model responses
 └─ mendel-forge/
@@ -49,7 +62,441 @@ packages/
 proposals/                       drafted, awaiting human approval
 ```
 
-Also modified: `packages/mendel-resolver/src/mendel_resolver/ports.py` (add two Protocols), `packages/mendel-compiler/src/mendel_compiler/cli.py` (wire the repair loop), `packages/comeni-core/src/comeni_core/ir.py` (add `diverged`).
+Also modified: `packages/mendel-resolver/src/mendel_resolver/ports.py` (add two Protocols), `packages/mendel-compiler/src/mendel_compiler/cli.py` (wire the repair loop), `packages/comeni-core/src/comeni_core/ir.py` (add `diverged`), `packages/comeni-core/src/comeni_core/egress.py` (add `EgressRecord`), `packages/mendel-compiler/src/mendel_compiler/gates.py` (classify failures).
+
+Also created: `packages/comeni-core/src/comeni_core/protection.py` — `Profile`, `ProfilePolicy`, `Actor`. Pure policy data, so it belongs in the core beside the doors it governs rather than in the package that happens to open them.
+
+---
+
+### Task 1A: Protection profiles, egress records and the prompt store
+
+Implements §5 of the clinical data-protection spec. First, because Task 1's client cannot log a
+crossing to a record type that does not exist, and because every task after it consults the
+policy.
+
+Nothing here calls a model. It is the policy layer the model calls will be routed through.
+
+**Files:**
+- Create: `packages/comeni-core/src/comeni_core/protection.py`
+- Modify: `packages/comeni-core/src/comeni_core/egress.py` (add `EgressRecord`)
+- Create: `packages/mendel-ai/src/mendel_ai/prompts.py`
+- Test: `packages/comeni-core/tests/test_protection.py`, `packages/mendel-ai/tests/test_prompts.py`
+
+**Interfaces:**
+- Consumes: `EgressPayload`, `DOORS` (Plan 1 Task 7B)
+- Produces: `Profile` StrEnum (`OPEN, GUARDED, SEALED`); `PromptDoor` StrEnum (`SEND, CONFIRM,
+  CLOSED`); `ActorMethod` StrEnum (`LOCAL_USER, API_TOKEN, OIDC`); `Actor(id, display_name,
+  method)`; `ProfilePolicy.for_profile(Profile) -> ProfilePolicy` with fields `prompt_door`,
+  `include_tool_message`, `repair_applies`, `tier4_blocks`, `requires_actor`,
+  `requires_digests`; `DEFAULT_PROFILE`; `EgressRecord.of(door, payload, *, profile, actor,
+  destination, at) -> EgressRecord`; `PromptStore(root).put/get/forget/prune`
+
+- [ ] **Step 1: Write the failing test**
+
+`packages/comeni-core/tests/test_protection.py` — the matrix is a table in the spec, so it is a
+table here. If the two ever disagree, this test is what says so.
+
+```python
+import pytest
+from comeni_core.protection import (
+    DEFAULT_PROFILE,
+    Actor,
+    ActorMethod,
+    Profile,
+    ProfilePolicy,
+    PromptDoor,
+)
+
+# Clinical data-protection spec §5.1, transcribed. Column order:
+# prompt_door, include_tool_message, repair_applies, tier4_blocks,
+# requires_actor, requires_digests
+MATRIX = {
+    Profile.OPEN:    (PromptDoor.SEND,    True,  True,  False, False, False),
+    Profile.GUARDED: (PromptDoor.CONFIRM, False, True,  False, False, False),
+    Profile.SEALED:  (PromptDoor.CLOSED,  False, False, True,  True,  True),
+}
+
+
+@pytest.mark.parametrize("profile", list(Profile))
+def test_policy_matches_the_spec_matrix(profile):
+    policy = ProfilePolicy.for_profile(profile)
+    assert (
+        policy.prompt_door,
+        policy.include_tool_message,
+        policy.repair_applies,
+        policy.tier4_blocks,
+        policy.requires_actor,
+        policy.requires_digests,
+    ) == MATRIX[profile]
+
+
+def test_guarded_is_the_default():
+    """The unconfigured install is the one most likely to exist."""
+    assert DEFAULT_PROFILE is Profile.GUARDED
+
+
+def test_the_boundary_does_not_move_between_profiles():
+    """Ceremony varies. The boundary does not. No policy field can widen a door."""
+    for profile in Profile:
+        policy = ProfilePolicy.for_profile(profile)
+        assert not hasattr(policy, "extra_doors")
+        assert policy.prompt_door in set(PromptDoor)
+
+
+def test_policies_are_frozen():
+    policy = ProfilePolicy.for_profile(Profile.SEALED)
+    with pytest.raises(Exception):
+        policy.tier4_blocks = False
+
+
+def test_actor_records_the_method_the_deployment_used():
+    actor = Actor(id="rafael", display_name="Rafael", method=ActorMethod.LOCAL_USER)
+    assert actor.method is ActorMethod.LOCAL_USER
+```
+
+And `packages/comeni-core/tests/test_egress_record.py`:
+
+```python
+from datetime import UTC, datetime
+
+import pytest
+from comeni_core.egress import EgressRecord, PromptRequest
+from comeni_core.protection import Profile
+
+AT = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+
+
+def test_record_stores_a_digest_not_the_payload():
+    """A log that keeps prompts is a second store of personal data in a hat."""
+    payload = PromptRequest(prompt="RNA-seq for patient 4471023")
+    record = EgressRecord.of(
+        "goal_extraction", payload,
+        profile=Profile.OPEN, actor=None, destination="anthropic/claude", at=AT,
+    )
+    serialised = record.model_dump_json()
+    assert "4471023" not in serialised
+    assert len(record.payload_digest) == 64
+
+
+def test_the_digest_is_stable_for_the_same_payload():
+    args = dict(profile=Profile.OPEN, actor=None, destination="d", at=AT)
+    one = EgressRecord.of("goal_extraction", PromptRequest(prompt="x"), **args)
+    two = EgressRecord.of("goal_extraction", PromptRequest(prompt="x"), **args)
+    assert one.payload_digest == two.payload_digest
+
+
+def test_the_digest_changes_when_the_payload_does():
+    args = dict(profile=Profile.OPEN, actor=None, destination="d", at=AT)
+    one = EgressRecord.of("goal_extraction", PromptRequest(prompt="x"), **args)
+    two = EgressRecord.of("goal_extraction", PromptRequest(prompt="y"), **args)
+    assert one.payload_digest != two.payload_digest
+
+
+def test_the_door_must_be_one_of_the_four():
+    with pytest.raises(ValueError, match="telemetry"):
+        EgressRecord.of(
+            "telemetry", PromptRequest(prompt="x"),
+            profile=Profile.OPEN, actor=None, destination="d", at=AT,
+        )
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `uv run pytest packages/comeni-core/tests/test_protection.py packages/comeni-core/tests/test_egress_record.py -v`
+Expected: FAIL with `ModuleNotFoundError: No module named 'comeni_core.protection'`
+
+- [ ] **Step 3: Write `protection.py`**
+
+```python
+"""The three protection profiles, and who a build belongs to.
+
+Ceremony varies by profile. The boundary does not: the doors, their payload types,
+the egress log and the flagging of tier 4 are fixed at every level and in every
+deployment. A policy can decide whether a door needs a confirmation; it can never
+open one that is not declared.
+
+`guarded` is the default because the unconfigured install is the one most likely
+to exist, and safety should not depend on having read the manual.
+"""
+
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict
+
+
+class Profile(StrEnum):
+    OPEN = "open"
+    GUARDED = "guarded"
+    SEALED = "sealed"
+
+
+class PromptDoor(StrEnum):
+    SEND = "send"
+    CONFIRM = "confirm"
+    CLOSED = "closed"
+
+
+class ActorMethod(StrEnum):
+    """How the deployment established who this is. Mendel never issues an identity."""
+
+    LOCAL_USER = "local_user"
+    API_TOKEN = "api_token"
+    OIDC = "oidc"
+
+
+class Actor(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    display_name: str
+    method: ActorMethod
+
+
+class ProfilePolicy(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    profile: Profile
+    prompt_door: PromptDoor
+    include_tool_message: bool
+    repair_applies: bool
+    """False under `sealed`: the model proposes an IR patch and a human applies it.
+
+    A patch to a validated artifact is a change to a validated artifact, which under
+    CLIA and ISO 15189 is a revalidation trigger. The diagnosis is still worth having;
+    the action belongs to a person.
+    """
+    tier4_blocks: bool
+    requires_actor: bool
+    requires_digests: bool
+
+    @classmethod
+    def for_profile(cls, profile: Profile) -> "ProfilePolicy":
+        return _POLICIES[profile]
+
+
+_POLICIES: dict[Profile, ProfilePolicy] = {
+    Profile.OPEN: ProfilePolicy(
+        profile=Profile.OPEN,
+        prompt_door=PromptDoor.SEND,
+        include_tool_message=True,
+        repair_applies=True,
+        tier4_blocks=False,
+        requires_actor=False,
+        requires_digests=False,
+    ),
+    Profile.GUARDED: ProfilePolicy(
+        profile=Profile.GUARDED,
+        prompt_door=PromptDoor.CONFIRM,
+        include_tool_message=False,
+        repair_applies=True,
+        tier4_blocks=False,
+        requires_actor=False,
+        requires_digests=False,
+    ),
+    Profile.SEALED: ProfilePolicy(
+        profile=Profile.SEALED,
+        prompt_door=PromptDoor.CLOSED,
+        include_tool_message=False,
+        repair_applies=False,
+        tier4_blocks=True,
+        requires_actor=True,
+        requires_digests=True,
+    ),
+}
+
+DEFAULT_PROFILE = Profile.GUARDED
+```
+
+- [ ] **Step 4: Add `EgressRecord` to `egress.py`**
+
+Append to `packages/comeni-core/src/comeni_core/egress.py`:
+
+```python
+import hashlib
+from datetime import datetime
+
+from comeni_core.protection import Actor, Profile
+
+
+class EgressRecord(BaseModel):
+    """Proof of what crossed a door, without becoming a second copy of it.
+
+    The payload is reduced to a digest deliberately. An egress log that stored
+    prompts would be a second store of personal data wearing an audit trail's
+    clothes — it would prove compliance by holding the thing compliance is about.
+    A digest proves what left and proves it has not changed since.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    door: str
+    profile: Profile
+    at: datetime
+    actor: Actor | None
+    destination: str
+    payload_digest: str
+
+    @classmethod
+    def of(
+        cls,
+        door: str,
+        payload: EgressPayload,
+        *,
+        profile: Profile,
+        actor: Actor | None,
+        destination: str,
+        at: datetime,
+    ) -> "EgressRecord":
+        if door not in DOORS:
+            raise ValueError(f"{door!r} is not a declared door; the four are {sorted(DOORS)}")
+        digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+        return cls(
+            door=door,
+            profile=profile,
+            at=at,
+            actor=actor,
+            destination=destination,
+            payload_digest=digest,
+        )
+```
+
+`at` is a parameter rather than `datetime.now()` so the record is testable and so a replay can
+reconstruct one honestly.
+
+- [ ] **Step 5: Run the core tests**
+
+Run: `uv run pytest packages/comeni-core/tests/ tests/test_egress.py -v && uv run ruff check .`
+Expected: PASS. `tests/test_egress.py` still passes — `EgressRecord` is not a payload and does
+not cross a door, so it is not in `_payload_types()`.
+
+- [ ] **Step 6: Write the prompt store test**
+
+`packages/mendel-ai/tests/test_prompts.py`:
+
+```python
+from datetime import UTC, datetime, timedelta
+
+from mendel_ai.prompts import PromptStore
+
+AT = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+
+
+def test_put_then_get_round_trips(tmp_path):
+    store = PromptStore(tmp_path)
+    prompt_id = store.put("RNA-seq on twelve samples", at=AT)
+    assert store.get(prompt_id).prompt == "RNA-seq on twelve samples"
+
+
+def test_forget_removes_it(tmp_path):
+    store = PromptStore(tmp_path)
+    prompt_id = store.put("something identifying", at=AT)
+    assert store.forget(prompt_id) is True
+    assert store.get(prompt_id) is None
+
+
+def test_forget_is_idempotent(tmp_path):
+    store = PromptStore(tmp_path)
+    assert store.forget("never-existed") is False
+
+
+def test_prune_removes_only_what_aged_out(tmp_path):
+    store = PromptStore(tmp_path)
+    old = store.put("old", at=AT)
+    new = store.put("new", at=AT + timedelta(days=29))
+    removed = store.prune(older_than=timedelta(days=30), now=AT + timedelta(days=31))
+    assert removed == [old]
+    assert store.get(new) is not None
+
+
+def test_the_store_is_the_only_place_the_prompt_lives(tmp_path):
+    """If the prompt is inlined anywhere else, `forget` becomes a lie."""
+    store = PromptStore(tmp_path)
+    prompt_id = store.put("patient 4471023", at=AT)
+    store.forget(prompt_id)
+    remaining = "".join(p.read_text() for p in tmp_path.rglob("*") if p.is_file())
+    assert "4471023" not in remaining
+```
+
+- [ ] **Step 7: Write `prompts.py`**
+
+```python
+"""The prompt store: the only place Mendel holds personal data.
+
+Kept apart from the `Goal` on purpose. Because every downstream artifact — the IR,
+the decision records, the lockfile, the emitted pipeline — derives only from typed
+inputs, deleting a prompt destroys nothing else. Erasure and audit retention
+normally pull against each other; the taint rule means they do not have to here.
+
+Which is only true while this stays the single copy. Inline a prompt anywhere else
+and `forget` quietly becomes a false claim.
+"""
+
+import json
+import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from pydantic import BaseModel
+
+
+class PromptRecord(BaseModel):
+    id: str
+    prompt: str
+    created_at: datetime
+
+
+class PromptStore:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, prompt_id: str) -> Path:
+        return self.root / f"{prompt_id}.json"
+
+    def put(self, prompt: str, *, at: datetime) -> str:
+        prompt_id = str(uuid.uuid4())
+        record = PromptRecord(id=prompt_id, prompt=prompt, created_at=at)
+        self._path(prompt_id).write_text(record.model_dump_json(indent=2))
+        return prompt_id
+
+    def get(self, prompt_id: str) -> PromptRecord | None:
+        path = self._path(prompt_id)
+        if not path.exists():
+            return None
+        return PromptRecord.model_validate(json.loads(path.read_text()))
+
+    def forget(self, prompt_id: str) -> bool:
+        path = self._path(prompt_id)
+        if not path.exists():
+            return False
+        path.unlink()
+        return True
+
+    def prune(self, *, older_than: timedelta, now: datetime) -> list[str]:
+        removed = []
+        for path in sorted(self.root.glob("*.json")):
+            record = PromptRecord.model_validate(json.loads(path.read_text()))
+            if now - record.created_at > older_than:
+                path.unlink()
+                removed.append(record.id)
+        return removed
+```
+
+- [ ] **Step 8: Run tests to verify they pass**
+
+Run: `uv run pytest packages/comeni-core/tests/ packages/mendel-ai/tests/test_prompts.py -v && uv run ruff check .`
+Expected: PASS, 14 new tests.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add packages/comeni-core/src/comeni_core/protection.py \
+        packages/comeni-core/src/comeni_core/egress.py \
+        packages/comeni-core/tests/ \
+        packages/mendel-ai/src/mendel_ai/prompts.py \
+        packages/mendel-ai/tests/test_prompts.py
+git commit -m "feat(core): protection profiles, egress records and the prompt store"
+```
 
 ---
 
@@ -1219,6 +1666,157 @@ git commit -m "feat(ai,compiler): IR-patch repair proposals and bounded repair l
 
 ---
 
+### Task 6B: Classifying gate failures into closed vocabulary
+
+Implements §4.4 of the clinical data-protection spec. The gates execute Nextflow; Nextflow's
+stderr carries work-directory paths and input filenames. If a laboratory points the `test` gate
+at real data and the repair loop forwards that output to a model, the leak is complete and
+nobody reviewed it — machine-generated text is the likeliest leak precisely because no human
+wrote it and no human reads it.
+
+So `RepairRequest` never receives stderr. It receives facts.
+
+**Files:**
+- Modify: `packages/mendel-compiler/src/mendel_compiler/gates.py`
+- Test: `packages/mendel-compiler/tests/test_gate_classify.py`
+
+**Interfaces:**
+- Consumes: `GateResult` (Plan 1 Task 12), `GateFailure` / `ErrorCategory` (Plan 1 Task 7B),
+  `ProfilePolicy` (Task 1A)
+- Produces: `classify(result: GateResult, *, node_id: str, policy: ProfilePolicy) -> GateFailure`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+from comeni_core.egress import ErrorCategory
+from comeni_core.protection import Profile, ProfilePolicy
+from mendel_compiler.gates import Gate, GateResult, classify
+
+OPEN = ProfilePolicy.for_profile(Profile.OPEN)
+GUARDED = ProfilePolicy.for_profile(Profile.GUARDED)
+
+MISSING = """
+ERROR ~ Error executing process > 'STAR_ALIGN (1)'
+Caused by:
+  Missing output file(s) `*.bam` expected by process `STAR_ALIGN (1)`
+Work dir:
+  /data/oncology/work/3f/pt_4471023_R1_aligned
+"""
+
+SYNTAX = "ERROR ~ Script compilation error\n- file: main.nf\n  Unexpected input: '{'"
+
+PULL = "ERROR ~ Failed to pull singularity image\n  name: quay.io/biocontainers/star"
+
+
+def test_classifies_a_missing_output():
+    result = GateResult(gate=Gate.STUB, passed=False, stderr=MISSING)
+    failure = classify(result, node_id="star_align", policy=GUARDED)
+    assert failure.category is ErrorCategory.MISSING_INPUT
+    assert failure.process == "star_align"
+
+
+def test_classifies_a_syntax_error():
+    result = GateResult(gate=Gate.LINT, passed=False, stderr=SYNTAX)
+    assert classify(result, node_id="n", policy=GUARDED).category is ErrorCategory.SYNTAX
+
+
+def test_classifies_a_container_pull():
+    result = GateResult(gate=Gate.STUB, passed=False, stderr=PULL)
+    assert classify(result, node_id="n", policy=GUARDED).category is ErrorCategory.CONTAINER_PULL
+
+
+def test_unrecognised_output_is_unknown_not_a_guess():
+    result = GateResult(gate=Gate.STUB, passed=False, stderr="something entirely new")
+    assert classify(result, node_id="n", policy=GUARDED).category is ErrorCategory.UNKNOWN
+
+
+def test_guarded_drops_the_tool_message_entirely():
+    """The path in MISSING must not survive into anything that can cross a door."""
+    failure = classify(
+        GateResult(gate=Gate.STUB, passed=False, stderr=MISSING), node_id="n", policy=GUARDED
+    )
+    assert failure.tool_message is None
+    assert "4471023" not in failure.model_dump_json()
+
+
+def test_open_keeps_the_tool_message_and_says_so():
+    failure = classify(
+        GateResult(gate=Gate.STUB, passed=False, stderr=MISSING), node_id="n", policy=OPEN
+    )
+    assert failure.tool_message is not None
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `uv run pytest packages/mendel-compiler/tests/test_gate_classify.py -v`
+Expected: FAIL with `ImportError: cannot import name 'classify' from 'mendel_compiler.gates'`
+
+- [ ] **Step 3: Add `classify` to `gates.py`**
+
+```python
+import re
+
+from comeni_core.egress import ErrorCategory, GateFailure
+from comeni_core.protection import ProfilePolicy
+
+# Ordered: first match wins, most specific first. A miss is UNKNOWN, never a guess —
+# the same discipline tier 3 uses, and for the same reason.
+_PATTERNS: list[tuple[str, ErrorCategory]] = [
+    ("Script compilation error", ErrorCategory.SYNTAX),
+    ("Unexpected input", ErrorCategory.SYNTAX),
+    ("Failed to pull", ErrorCategory.CONTAINER_PULL),
+    ("image not found", ErrorCategory.CONTAINER_PULL),
+    ("Missing output file", ErrorCategory.MISSING_INPUT),
+    ("No such file or directory", ErrorCategory.MISSING_INPUT),
+    ("Process .* input .* cardinality", ErrorCategory.CHANNEL_CARDINALITY),
+    ("Input tuple does not match", ErrorCategory.CHANNEL_CARDINALITY),
+    ("Error executing process", ErrorCategory.TOOL_ERROR),
+]
+
+
+def classify(result: GateResult, *, node_id: str, policy: ProfilePolicy) -> GateFailure:
+    """Reduce a gate failure to facts that may cross a door.
+
+    The raw text stays in `GateResult`, on this machine, for the human to read. What
+    leaves is a process name, an exit code and a category from a closed vocabulary.
+    """
+    text = f"{result.stderr}\n{result.stdout}"
+    category = ErrorCategory.UNKNOWN
+    for pattern, candidate in _PATTERNS:
+        if re.search(pattern, text):
+            category = candidate
+            break
+
+    return GateFailure(
+        process=node_id,
+        exit_code=0 if result.passed else 1,
+        category=category,
+        tool_message=text if policy.include_tool_message else None,
+    )
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `uv run pytest packages/mendel-compiler/tests/ -v && uv run ruff check .`
+Expected: PASS, 6 new tests.
+
+- [ ] **Step 5: Verify the purity guard still holds**
+
+Run: `uv run pytest tests/test_purity.py tests/test_egress.py -v`
+Expected: PASS. `mendel-compiler` now imports `comeni_core.protection`, which is pure policy
+data — no HTTP client, no model library. If this fails, something impure was pulled in and the
+fix is to move it, not to widen the guard.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/mendel-compiler/src/mendel_compiler/gates.py \
+        packages/mendel-compiler/tests/test_gate_classify.py
+git commit -m "feat(compiler): classify gate failures into closed vocabulary"
+```
+
+---
+
 ### Task 7: Wire AI into the CLI
 
 **Files:**
@@ -2131,6 +2729,37 @@ git commit -m "feat(forge): vocabulary state proposals through the same approval
 | §7.2 bounded to 3 attempts | Task 6 |
 | §8 one queue, three proposal kinds | Tasks 9, 10 — contract and state. **Tier-3 rule proposals are not implemented**; the queue's `kind` field accepts them and `approve_state` is the template to copy, but no drafter emits them yet. |
 | §9 LiteLLM | Task 1 |
+
+**Clinical data-protection spec coverage.**
+
+| Spec section | Covered by |
+|---|---|
+| §4.4 `GateFailure`, raw stderr never crosses | **Task 6B** |
+| §5.1 the profile matrix | **Task 1A** |
+| §5.5 `EgressRecord`, `Actor` | **Task 1A** |
+| §5.6 prompt store, `mendel forget` | **Task 1A** (store), Task 7 (the CLI verb) |
+| §4.1 doors wired to real calls | Tasks 3, 5, 6 — amended below |
+| §6.1 lockfile, §6.2 curation | **Plan 2.5** |
+
+**Amendments to tasks already written, to be applied while implementing them.** These were
+written before the clinical spec existed, and each now has a constraint it did not have. None
+changes a task's shape; all four change what crosses a boundary.
+
+- **Task 3 (prompt → Goal)** builds a `PromptRequest` rather than passing a bare string, stores
+  the prompt through `PromptStore` and keeps only its id on the build, and honours
+  `policy.prompt_door`: `SEND` proceeds, `CONFIRM` returns the payload for the caller to show
+  and confirm before sending, `CLOSED` refuses and directs the user to a typed goal. Writes an
+  `EgressRecord`.
+- **Task 5 (tier-4 resolver)** sends an `AmbiguityRequest` built from the `Ambiguity`'s closed
+  fields — `node_id`, `subject`, `candidates`, `states`, `tier_hint` — never its `context` dict,
+  which is free-form and stays local. Writes an `EgressRecord`.
+- **Task 6 (repair)** sends a `RepairRequest` carrying the IR and the `GateFailure` from Task 6B,
+  never `GateResult.stderr`. Under `sealed`, `policy.repair_applies` is `False`: the proposal is
+  returned and recorded, and applying it is a human action. Writes an `EgressRecord`.
+- **Task 7 (CLI)** grows `--profile {open,guarded,sealed}` defaulting to `DEFAULT_PROFILE`, an
+  `--actor` the deployment supplies, a `mendel forget <build-id>` verb, and a refusal to run
+  `sealed` with no actor. It also refuses to run `sealed` when any resolved value sits at tier 4,
+  per `policy.tier4_blocks`.
 
 **Known gap, stated rather than hidden:** the spec's §8 promises three proposal kinds and this plan ships two. Rule drafting needs a corpus of tier-4 flags to learn from, which does not exist until Mendel has been run on real data — so it belongs after Plan 3, not here.
 

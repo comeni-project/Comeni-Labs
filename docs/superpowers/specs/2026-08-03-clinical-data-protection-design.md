@@ -201,12 +201,26 @@ constant and asserts the declared set equals exactly that. Adding a door means e
 that says *these are all the ways data leaves this building*, which is the moment a person
 should be thinking rather than a moment they can skip.
 
-**The free-text marker.** Every string field in a payload type must be either a declared ID type
-(`ContractId`, `TypeId`, `NodeId`, `RuleId` — `Annotated[str, ...]` newtypes) or explicitly
-annotated `FreeText`. The test walks each payload's Pydantic fields and asserts that **only
-`PromptRequest` carries a `FreeText` field**. A future change adding `user_note: str` to
-`RepairRequest` fails the suite. Leaking by accident is not available; leaking requires editing
-the file named after the thing being defeated.
+**The free-text marker.** Every string field in a payload type is either a declared ID type
+(`ContractId`, `TypeId`, `NodeId`, `Subject` — `Annotated[str, ...]` aliases) or explicitly
+annotated `FreeText`. The test walks each payload's annotations and asserts the set of
+free-text-carrying fields equals a literal allowlist of **exactly two**:
+
+```
+("PromptRequest", "prompt")     the human's prompt — the taint source
+("GateFailure", "tool_message") raw tool output, populated only in `open`
+```
+
+`tool_message` is on that list rather than exempted from it. It genuinely is free text, and
+§4.4's design depends on that being admitted where a reader can see it rather than argued away.
+A third entry — someone adding `user_note` to `RepairRequest` — fails the suite until the
+allowlist is edited. Leaking by accident is unavailable; leaking requires editing the file named
+after the thing being defeated.
+
+The same test forbids any payload field annotated `Any`, because a `dict[str, Any]` carries
+anything and would make the rest of the guard decorative. That constraint is what shaped
+`AmbiguityRequest`: it declares `node_id`, `subject`, `candidates`, `states` and `tier_hint`
+rather than the free-form context dict `Ambiguity` uses internally.
 
 ---
 
@@ -338,8 +352,9 @@ away, so it must carry its own label.
 Numbered continuing from CLAUDE.md's existing thirteen.
 
 > **14. Data leaves through four declared doors and no others.** Each carries one declared
-> payload type. `PromptRequest` is the only one that may contain free text; every other payload
-> is closed vocabulary. Enforced by `tests/test_egress.py`.
+> payload type, and exactly two fields in the whole surface may hold free text —
+> `PromptRequest.prompt` and `GateFailure.tool_message`. Everything else is closed vocabulary.
+> Enforced by `tests/test_egress.py`, which holds both lists literally.
 >
 > **15. Mendel does not receive patient data.** No input accepts a sample identifier, filename
 > or path. Profiling happens where the data is and yields measurements only. The emitted

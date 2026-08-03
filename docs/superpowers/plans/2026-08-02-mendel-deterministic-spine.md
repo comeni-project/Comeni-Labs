@@ -22,6 +22,10 @@
 - Every ambiguity emits a `DecisionRecord`, including when resolved by `FlagOnlyResolver`.
 - Determinism is a test, not an aspiration: same `Goal` → byte-identical `.nf`.
 - Vocabularies are closed. A contract using an undeclared state fails to load.
+- Data leaves through four declared doors and no others; only the two fields named in
+  `tests/test_egress.py` may carry free text. Plan 1 opens none of the doors — it declares them.
+- A `Goal` describes a shape, never data. No filename, sample identifier or path may enter it,
+  and `extra="forbid"` is what enforces that rather than good intentions.
 - Ruff for lint and format, line length 100. `uv run ruff check` and `uv run pytest` must pass before every commit.
 
 ---
@@ -40,6 +44,7 @@ comeni-labs/
 │  │  │  ├─ contract.py                    ModuleContract, InputPort, OutputPort, Param
 │  │  │  ├─ ir.py                          PipelineIR, IRNode, IREdge, ResolvedValue, Tier
 │  │  │  ├─ decision.py                    DecisionRecord, Ambiguity, Resolution
+│  │  │  ├─ egress.py                      the four doors and their payload types
 │  │  │  └─ registry.py                    Registry — contract lookup by produced type
 │  │  └─ tests/
 │  ├─ mendel-resolver/
@@ -373,7 +378,7 @@ git commit -m "feat(core): closed type vocabularies with state validation"
 
 **Interfaces:**
 - Consumes: `Vocabulary` from Task 2
-- Produces: `ModuleContract`, `InputPort`, `OutputPort`, `Param`, `Provenance`; `ModuleContract.load(path: Path, vocab: Vocabulary) -> ModuleContract`; `ModuleContract.id: str`, `.nf_process: str`, `.nf_include: str`, `.consumes: list[InputPort]`, `.produces: list[OutputPort]`, `.params: list[Param]`, `.priority: int`
+- Produces: `ModuleContract`, `InputPort`, `OutputPort`, `Param`, `Provenance`; `ModuleContract.load(path: Path, vocab: Vocabulary) -> ModuleContract`; `ModuleContract.id: str`, `.nf_process: str`, `.nf_include: str`, `.consumes: list[InputPort]`, `.produces: list[OutputPort]`, `.params: list[Param]`, `.priority: int`, `.container: str | None`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -396,6 +401,7 @@ produces:
     state: [coordinate_sorted]
 params: []
 priority: 0
+container: quay.io/biocontainers/samtools:1.21--h50ea8bc_0
 provenance:
   source: nf-core-meta-yml
   drafted_by: hand
@@ -432,6 +438,26 @@ def test_input_port_defaults_preferred_to_empty(tmp_path, vocab):
     path.write_text(CONTRACT_YAML)
     contract = ModuleContract.load(path, vocab)
     assert contract.consumes[0].state_preferred == frozenset()
+
+
+def test_carries_the_container_reference(tmp_path, vocab):
+    """The lockfile pins container digests; the contract is where the reference starts."""
+    path = tmp_path / "sort.yml"
+    path.write_text(CONTRACT_YAML)
+    contract = ModuleContract.load(path, vocab)
+    assert contract.container == "quay.io/biocontainers/samtools:1.21--h50ea8bc_0"
+
+
+def test_container_is_optional(tmp_path, vocab):
+    path = tmp_path / "no-container.yml"
+    path.write_text(
+        "\n".join(
+            line
+            for line in CONTRACT_YAML.splitlines()
+            if not line.startswith("container:")
+        )
+    )
+    assert ModuleContract.load(path, vocab).container is None
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -488,6 +514,15 @@ class ModuleContract(BaseModel):
     produces: list[OutputPort] = Field(default_factory=list)
     params: list[Param] = Field(default_factory=list)
     priority: int = 0
+    container: str | None = None
+    """The container URI as the module declares it, tag and all.
+
+    Optional here because `nf-core` declares containers in `main.nf` rather than
+    `meta.yml`, so a hand-written contract may not have one yet. The clinical spec
+    (§6.1) resolves this reference to a digest at lock time, and the `sealed`
+    profile refuses to build against a reference that will not resolve — but both
+    of those live in later plans. What Plan 1 owes them is somewhere to start.
+    """
     provenance: Provenance
 
     @classmethod
@@ -507,7 +542,7 @@ class ModuleContract(BaseModel):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/test_contract.py -v && uv run ruff check .`
-Expected: PASS, 3 tests.
+Expected: PASS, 5 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1109,6 +1144,27 @@ def test_first_matching_rule_wins(tmp_path):
     assert table.match("aligner", DataProfile(read_length=70)).id == "aligner-long-reads"
 ```
 
+Then, in the same file, the two tests that make invariant 15 enforceable rather than
+aspirational. A goal describes a shape; there must be nowhere to put a sample identifier.
+
+```python
+import pytest
+from pydantic import ValidationError
+
+from mendel_resolver.goal import DataProfile, Goal
+
+
+def test_goal_has_nowhere_to_put_a_sample_identifier():
+    """Invariant 15. Not a rule the user must follow — an absence they cannot fill."""
+    with pytest.raises(ValidationError):
+        Goal(want=["counts.matrix"], samples=["patient_4471023_R1.fastq.gz"])
+
+
+def test_profile_rejects_unknown_measurements():
+    with pytest.raises(ValidationError):
+        DataProfile(read_length=150, sample_name="SILVA_biopsy_01")
+```
+
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest packages/mendel-resolver/tests/test_rules.py -v`
@@ -1144,15 +1200,29 @@ __version__ = "0.1.0"
 `src/mendel_resolver/goal.py`:
 
 ```python
-"""What the user has, what they want, and what the data actually looks like."""
+"""What the user has, what they want, and what the data actually looks like.
+
+Invariant 15: Mendel does not receive patient data. A `Goal` describes a *shape* —
+type ids, states, and four measurements. "Paired, 150bp, reverse-stranded, twelve
+samples" is true of thousands of studies and identifies nobody. There is no
+filename field, no sample identifier field and no path, and `extra="forbid"` on
+both models is what stops one being added by accident: an unrecognised key is a
+loud error rather than a quietly carried payload.
+
+Sample identity enters at run time, in the laboratory's own environment, through
+the `params.input` placeholder the emitted pipeline declares. It never reaches
+Mendel's process. See the clinical data-protection spec, §3.
+"""
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DataProfile(BaseModel):
     """Measured properties of the input data. Pure computation, no inference."""
+
+    model_config = ConfigDict(extra="forbid")
 
     read_length: int | None = None
     strandedness: str | None = None
@@ -1166,6 +1236,8 @@ class GoalInput(BaseModel):
 
 
 class Goal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     have: list[GoalInput] = Field(default_factory=list)
     want: list[str] = Field(default_factory=list)
     constraints: dict[str, Any] = Field(default_factory=dict)
@@ -1265,7 +1337,7 @@ rules:
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `uv sync && uv run pytest packages/mendel-resolver/tests/ -v && uv run ruff check .`
-Expected: PASS, 6 tests.
+Expected: PASS, 8 tests.
 
 - [ ] **Step 7: Commit**
 
@@ -1380,6 +1452,273 @@ Expected: PASS, 4 tests.
 ```bash
 git add packages/mendel-resolver/src/mendel_resolver/ports.py packages/mendel-resolver/tests/test_ports.py
 git commit -m "feat(resolver): ambiguity port with flag-only implementation"
+```
+
+---
+
+### Task 7B: Egress payload types and the boundary guard
+
+Implements invariant 14 and §4 of the clinical data-protection spec. Numbered `7B` rather than
+renumbering everything after it, because Task 11's known defect and Task 12's gate are referred
+to by number in `CLAUDE.md` and in this plan's self-review.
+
+This lands in Plan 1, before any of the code it constrains exists, for the same reason Task 1's
+purity guard does: a guard written after the thing it guards is a guard written around the thing
+it guards. Nothing in Plan 1 can violate it. Plan 2 is where that stops being true, and by then
+the test is already in CI.
+
+**Files:**
+- Create: `packages/comeni-core/src/comeni_core/egress.py`
+- Test: `tests/test_egress.py`
+
+**Interfaces:**
+- Consumes: `PipelineIR`, `DecisionRecord` (Task 4)
+- Produces: `FreeText` marker; `Text`, `ContractId`, `TypeId`, `NodeId`, `Subject` annotated
+  aliases; `EgressPayload`; `ErrorCategory` StrEnum; `GateFailure`, `PromptRequest`,
+  `AmbiguityRequest`, `RepairRequest`, `PublishBundle`; `DOORS: dict[str, type[EgressPayload]]`
+
+- [ ] **Step 1: Write the failing test**
+
+`tests/test_egress.py` — sibling of `test_purity.py`, and the same kind of object: a claim about
+the shape of the system that a machine checks.
+
+```python
+"""Invariant 14: data leaves through four declared doors and no others.
+
+The doors are listed here, literally, on purpose. Adding one means editing a file
+whose contents say "these are all the ways data leaves this building" — which is
+the moment a person should be thinking, and this test is what makes them.
+"""
+
+import typing
+
+from pydantic import BaseModel
+
+from comeni_core import egress
+
+DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
+
+# Free text is the taint source. Exactly two fields may carry it, and both are
+# named here. A third requires editing this line.
+FREE_TEXT_FIELDS = {
+    ("PromptRequest", "prompt"),
+    ("GateFailure", "tool_message"),
+}
+
+
+def _payload_types() -> set[type[BaseModel]]:
+    return {
+        obj
+        for obj in vars(egress).values()
+        if isinstance(obj, type)
+        and issubclass(obj, egress.EgressPayload)
+        and obj is not egress.EgressPayload
+    }
+
+
+def _mentions(annotation: object, marker: object) -> bool:
+    """Walk an annotation tree. `Text | None` hides its metadata one level down."""
+    metadata = getattr(annotation, "__metadata__", ())
+    if any(meta is marker for meta in metadata):
+        return True
+    return any(_mentions(arg, marker) for arg in typing.get_args(annotation))
+
+
+def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
+    hints = typing.get_type_hints(model, include_extras=True)
+    return {
+        (model.__name__, name)
+        for name, annotation in hints.items()
+        if name in model.model_fields and _mentions(annotation, marker)
+    }
+
+
+def test_the_doors_are_exactly_four():
+    assert set(egress.DOORS) == DOORS
+
+
+def test_every_door_declares_an_egress_payload():
+    for name, payload in egress.DOORS.items():
+        assert issubclass(payload, egress.EgressPayload), name
+
+
+def test_free_text_lives_only_where_declared():
+    found: set[tuple[str, str]] = set()
+    for payload in _payload_types():
+        found |= _fields(payload, egress.FreeText)
+    assert found == FREE_TEXT_FIELDS
+
+
+def test_payloads_forbid_unknown_fields():
+    for payload in _payload_types():
+        assert payload.model_config.get("extra") == "forbid", payload.__name__
+
+
+def test_no_payload_carries_an_untyped_container():
+    """A dict[str, Any] would defeat the whole thing, so no payload may declare one."""
+    offenders = []
+    for payload in _payload_types():
+        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
+            if name in payload.model_fields and _mentions(annotation, typing.Any):
+                offenders.append(f"{payload.__name__}.{name}")
+    assert offenders == []
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `uv run pytest tests/test_egress.py -v`
+Expected: FAIL with `ImportError: cannot import name 'egress' from 'comeni_core'`
+
+- [ ] **Step 3: Write minimal implementation**
+
+`packages/comeni-core/src/comeni_core/egress.py`:
+
+```python
+"""The doors data may leave through, and the types that may pass them.
+
+Invariant 14. There are four: goal extraction, tier-4 resolution, compiler repair,
+and publication. Each carries one declared payload type.
+
+This module declares those types and can never send one. Invariant 1 keeps every
+transport in the impure packages, so pure code decides what may leave and impure
+code does the leaving; neither can do the other's job.
+
+Publication is the door with no undo. A leaked prompt in a model call is an
+incident; a leaked prompt in a signed public registry is in every clone's history
+permanently, and git is built to make that hard to reverse.
+"""
+
+from enum import StrEnum
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict
+
+from comeni_core.decision import DecisionRecord
+from comeni_core.ir import PipelineIR
+
+
+class FreeText:
+    """Marker: this field may hold text a human typed or a tool printed.
+
+    Two fields carry it and `tests/test_egress.py` names both. A third means
+    editing that test, which is the point — the admission is forced rather than
+    made quietly.
+    """
+
+
+Text = Annotated[str, FreeText]
+ContractId = Annotated[str, "contract-id"]
+TypeId = Annotated[str, "type-id"]
+NodeId = Annotated[str, "node-id"]
+Subject = Annotated[str, "subject"]
+
+
+class EgressPayload(BaseModel):
+    """Base for anything that may cross a door.
+
+    `extra="forbid"` so a field cannot be smuggled in at runtime; `frozen=True` so
+    what was reviewed is what is sent.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ErrorCategory(StrEnum):
+    """Why a gate failed, as closed vocabulary.
+
+    Nextflow's stderr carries work directories and input filenames, and the repair
+    loop would forward it to a model. Machine-generated text is the likeliest leak
+    precisely because nobody wrote it and nobody reads it. So the category is
+    parsed from the output and the output itself stays on the machine that made it.
+    """
+
+    MISSING_INPUT = "missing_input"
+    CHANNEL_CARDINALITY = "channel_cardinality"
+    SYNTAX = "syntax"
+    CONTAINER_PULL = "container_pull"
+    TOOL_ERROR = "tool_error"
+    UNKNOWN = "unknown"
+
+
+class GateFailure(EgressPayload):
+    """A gate failure reduced to facts."""
+
+    process: NodeId
+    exit_code: int
+    category: ErrorCategory
+    tool_message: Text | None = None
+    """Populated only in the `open` profile. Free text, and declared as such."""
+
+
+class PromptRequest(EgressPayload):
+    """Door 1 — goal extraction. The single taint source."""
+
+    prompt: Text
+
+
+class AmbiguityRequest(EgressPayload):
+    """Door 2 — tier-4 resolution. Registry vocabulary and nothing else.
+
+    Deliberately not a free-form context dict. `dict[str, Any]` would carry
+    anything, which is why the guard forbids it — the fields a tier-4 call
+    actually needs are these.
+    """
+
+    node_id: NodeId
+    subject: Subject
+    candidates: list[ContractId] = []
+    states: list[TypeId] = []
+    tier_hint: int | None = None
+
+
+class RepairRequest(EgressPayload):
+    """Door 3 — compiler repair. The IR, plus typed failure facts."""
+
+    ir: PipelineIR
+    failure: GateFailure
+
+
+class PublishBundle(EgressPayload):
+    """Door 4 — publication.
+
+    Carries the IR and its decision records. The `Goal` is absent because it lives
+    in `mendel-resolver` and `comeni-core` must not depend on it, and the lockfile
+    is absent because it does not exist until Plan 2.5. Both are additions to this
+    type, made where those questions are settled, not predicted here.
+    """
+
+    ir: PipelineIR
+    decisions: list[DecisionRecord] = []
+
+
+DOORS: dict[str, type[EgressPayload]] = {
+    "goal_extraction": PromptRequest,
+    "tier4_resolution": AmbiguityRequest,
+    "compiler_repair": RepairRequest,
+    "publication": PublishBundle,
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `uv run pytest tests/test_egress.py -v && uv run ruff check .`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 5: Prove the guard actually catches something**
+
+A guard nobody has watched fail is a guard nobody knows works. Temporarily add
+`user_note: str` to `AmbiguityRequest`, run the suite, and confirm
+`test_no_payload_carries_an_untyped_container` still passes while nothing else complains —
+then change it to `user_note: Text` and confirm `test_free_text_lives_only_where_declared`
+fails naming `('AmbiguityRequest', 'user_note')`. Remove it before committing.
+
+This costs two minutes and is the only evidence that the mechanism works as described.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/comeni-core/src/comeni_core/egress.py tests/test_egress.py
+git commit -m "feat(core): four declared egress doors with a free-text boundary guard"
 ```
 
 ---
@@ -1945,6 +2284,22 @@ def test_counts_matrix_is_reachable_from_raw_reads(registry):
 def test_qc_report_is_reachable_from_raw_reads(registry):
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"])
     assert route(goal, registry).steps != []
+
+
+def test_every_spine_contract_declares_its_container(registry):
+    """The lockfile resolves these to digests later. It cannot resolve what is absent."""
+    missing = [c.id for c in registry.all() if not c.container]
+    assert missing == [], f"contracts without a container reference: {missing}"
+
+
+def test_no_contract_uses_a_floating_container_tag(registry):
+    """`latest` and friends are not reproducible, and nf-core forbids them upstream too."""
+    floating = [
+        c.id
+        for c in registry.all()
+        if c.container and c.container.rsplit(":", 1)[-1] in {"latest", "dev", "master"}
+    ]
+    assert floating == []
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1980,7 +2335,20 @@ consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
 produces: [{name: zip, type_id: qc.report, state: []}]
 params: []
 priority: 0
+container: quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
+```
+
+**Every one of the eight carries a `container:` line, and you read it out of the vendored
+module rather than out of this plan.** Each `modules/nf-core/<tool>/main.nf` declares its
+container in a `container "..."` directive, usually alongside a Singularity URL in a ternary.
+Copy the `quay.io/biocontainers/...` value verbatim. The one above is what `fastqc` should
+have; if the vendored module disagrees, **the module is right and this plan is stale** — nf-core
+bumps these, and a container reference invented by a planner is exactly the kind of plausible
+wrong value the whole project exists to stop producing.
+
+```bash
+grep -h "quay.io/biocontainers" modules/nf-core/*/main.nf modules/nf-core/*/*/main.nf
 ```
 
 `examples/contracts/nf-core/trimgalore.yml`:
@@ -2085,7 +2453,7 @@ provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, ap
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_spine_contracts.py -v && uv run ruff check .`
-Expected: PASS, 4 tests.
+Expected: PASS, 6 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -2169,6 +2537,13 @@ def test_emission_is_byte_identical_across_runs():
     assert emit(_ir(), _registry()) == emit(_ir(), _registry())
 
 
+def test_carries_its_intended_purpose_statement():
+    """The .nf travels alone. It has to say what it is without the rest of the repo."""
+    source = emit(_ir(), _registry())
+    assert "It is not a diagnostic" in source
+    assert "must be validated by" in source
+
+
 def test_matches_the_golden_file():
     golden = ROOT / "tests" / "golden" / "spine" / "main.nf"
     assert emit(_ir(), _registry()) == golden.read_text()
@@ -2213,9 +2588,19 @@ __version__ = "0.1.0"
 
 `src/mendel_compiler/templates/main.nf.j2`:
 
+The header is not decoration. The `.nf` is the artifact that travels — it gets emailed,
+committed to somebody else's repository and pasted into methods sections with every other file
+left behind — so it has to carry its own label. Wording is fixed by the clinical
+data-protection spec §2.2 and must match it verbatim; it is what keeps the manufacturer
+boundary where §2.1 needs it.
+
 ```jinja
 #!/usr/bin/env nextflow
 // Generated by Mendel. Do not edit by hand — edit the goal and recompile.
+//
+// Mendel constructs and documents analysis pipelines. It is not a diagnostic
+// device and produces no diagnostic result. This pipeline must be validated by
+// the laboratory before clinical use.
 nextflow.enable.dsl = 2
 
 {% for node in nodes %}
@@ -2322,7 +2707,7 @@ cat tests/golden/spine/main.nf
 - [ ] **Step 7: Run tests to verify they pass**
 
 Run: `uv run pytest packages/mendel-compiler/tests/ -v && uv run ruff check .`
-Expected: PASS, 5 tests.
+Expected: PASS, 6 tests.
 
 - [ ] **Step 8: Commit**
 
@@ -2640,7 +3025,7 @@ git commit -m "feat(compiler): validation gates and mendel build CLI"
 
 | Spec section | Covered by |
 |---|---|
-| §4.3 ports and adapters | Task 1 (purity guard), Task 7 (the port) |
+| §4.3 ports and adapters | Task 1 (purity guard), Task 7 (the port), Task 7B (the egress guard) |
 | §4.4 packages | Tasks 1, 6, 11 — `mendel-ai`, `mendel-forge`, `mendel-api` are Plans 2 and 3 |
 | §5.1 module contracts | Task 3, Task 10 |
 | §5.2 vocabularies | Task 2 |
@@ -2656,6 +3041,23 @@ git commit -m "feat(compiler): validation gates and mendel build CLI"
 | §11 testing | golden files in Task 11, determinism tests in Tasks 8, 9, 11, 12 |
 
 Gaps are deliberate and named: everything AI-shaped is Plan 2, everything web-shaped is Plan 3.
+
+**Clinical data-protection spec coverage.** That spec's §9 assigns Plan 1 three additions, and a
+fourth moved here during planning:
+
+| Spec section | Covered by |
+|---|---|
+| §2.2 intended purpose on the artifact | Task 11 — template header, asserted by test |
+| §3 Mendel receives a shape, not data (invariant 15) | Task 6 — `extra="forbid"` on `Goal` and `DataProfile` |
+| §4 the four doors (invariant 14) | **Task 7B** |
+| §6.1 container reference | Task 3 (`ModuleContract.container`), Task 10 (the eight contracts) |
+| §5 profiles, §5.5 `EgressRecord`, §5.6 prompt store | **Plan 2** — nothing to protect until a door opens |
+| §6.1 lockfile, §6.2 curation evidence | **Plan 2.5** |
+
+Task 7B was moved from Plan 2 to Plan 1 deliberately. It is pure `comeni-core` work needing no
+model, and a guard belongs in place before the code it constrains — the same reasoning that puts
+the purity guard in Task 1. Nothing in Plan 1 can violate it; Plan 2 is where that changes, and
+by then it is already in CI.
 
 **Placeholder scan.** No TBDs. Every code step contains runnable code. Task 11 Step 6 asks the engineer to read the golden file before committing it rather than generating it blind.
 

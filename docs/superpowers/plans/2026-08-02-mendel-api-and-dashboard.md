@@ -1,6 +1,9 @@
 # Mendel — API and Dashboard Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task, sequentially, driving it yourself. Steps use checkbox (`- [ ]`) syntax for
+> tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
+> review and design only. This matches the execution decision recorded in `CLAUDE.md`.
 
 **Goal:** Put Mendel behind an OpenAPI service with background workers and a React dashboard that renders the IR — including the red/yellow review triage that is the product's whole point.
 
@@ -18,6 +21,15 @@
 - Long work runs in ARQ, never in a request. Any endpoint that could exceed one second returns a job id.
 - **This plan implements structure and behaviour, not visual design.** Components use plain semantic markup and minimal utility classes. The `frontend-design` skill runs after this plan lands.
 - Review levels drive the UI contract: `required` blocks running, `advisory` is acknowledgeable, `none` collapses by default.
+- **The dashboard never accepts a sample sheet, a filename or a path.** Invariant 15 says Mendel
+  receives a shape, not data, and this plan is where that is most likely to be lost — "let the
+  user upload their samplesheet" is a natural feature request and it would end the guarantee. If
+  a task appears to need one, the design is wrong: sample identity belongs to the laboratory's
+  execution environment, reaching the pipeline through `params.input` at run time.
+- Every screen that can cause a model call shows the active profile, and the `guarded`
+  confirmation is a real gate, not a toast. It shows the exact payload and waits.
+- Telemetry stays opt-in and off by default, and can only exist in `mendel-api` — invariant 1
+  makes that structural rather than a promise.
 - Ruff line length 100 for Python; `tsc --noEmit` and `eslint` clean for TypeScript. Both pass before every commit.
 
 ---
@@ -1982,6 +1994,25 @@ git commit -m "chore: dev compose stack, Makefile targets and CI"
 | §9 FastAPI, ARQ, SQLAlchemy, Alembic, React/Vite/Tailwind/TanStack Query | Tasks 1, 2, 3, 6 |
 | §9 generated TypeScript client | Task 6 |
 | §11 testing | Tasks 1–9; CI runs both suites plus a `--no-ai` stub-run |
+
+**Clinical data-protection spec coverage.** Amendments to tasks already written, applied while
+implementing them:
+
+- **Task 4 (build endpoints)** accepts a profile per build, defaulting to the deployment's, and
+  refuses `sealed` without an actor. `POST /builds` takes a typed goal or a prompt; under
+  `guarded` a prompt returns `409` with the exact `PromptRequest` payload for confirmation
+  rather than sending it, and under `sealed` it returns `400` pointing at typed goals.
+- **Task 5 (review endpoints)** records the acting `Actor` on every override. This also settles
+  the `by="me"` hardcoding named below: the deployment asserts identity, so the value comes from
+  the request context rather than a literal.
+- **Task 7 (node inspector)** shows the profile badge, and renders `shadowed` and
+  `registry_layers` so a reviewer at another institution can see the build was not stock.
+- **New component, `ConfirmEgress.tsx`** — the `guarded` gate. Renders the payload field by
+  field, states the destination provider and model, and requires an explicit action. It must not
+  be dismissible by clicking away: the whole point is that someone looked.
+- **New screen, the egress log** — `EgressRecord`s for a build, showing door, profile, actor,
+  destination and digest. This is what an auditor asks for, and it is cheap because the records
+  already exist.
 
 **Known gaps, stated rather than hidden:**
 - **The forge queue has no HTTP surface.** `routes/proposals.py` appears in the file structure but no task builds it — approval stays CLI-only (`forge pending` / `forge approve`) for now. Adding it is a straight copy of Task 5's shape once the CLI flow has been used enough to know what the UI needs.
