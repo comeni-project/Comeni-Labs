@@ -1,43 +1,33 @@
 import pathlib
+import shutil
 
 import pytest
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
-from mendel_resolver.rules import RuleTable
 
 ROOT = pathlib.Path(__file__).parents[3]
 EXAMPLES = ROOT / "examples"
 
 
-def _spine(contracts: pathlib.Path):
-    """A resolver over `examples/`, with the contract tree swapped out if asked."""
-    vocabulary = Vocabulary.load(EXAMPLES / "vocabularies")
-    registry = Registry.load(contracts, vocabulary)
-    measurements = MeasurementRegistry.load(EXAMPLES / "measurements")
-    rules = RuleTable.load(
-        EXAMPLES / "rules",
-        registry=registry,
-        vocabulary=vocabulary,
-        measurements=measurements,
-    )
+def _spine(layer: pathlib.Path):
+    """A resolver over a registry layer — `examples/`, or a doctored copy of it."""
+    loaded = layers.load(layer)
 
     def build(*, want, profile=None, have=("fastq.reads", "annotation.gtf")):
         goal = Goal(
             have=[GoalInput(type_id=t) for t in have],
             want=want,
-            profile=measurements.profile(profile or {}),
+            profile=loaded.measurements.profile(profile or {}),
         )
-        return resolve(goal, registry, rules)
+        return resolve(goal, loaded.registry, loaded.rules)
 
     return build
 
 
 @pytest.fixture
 def spine():
-    return _spine(EXAMPLES / "contracts")
+    return _spine(EXAMPLES)
 
 
 @pytest.fixture
@@ -48,10 +38,7 @@ def spine_without_hisat2_index(tmp_path):
     but nothing can build its index any more, so the pin leads somewhere unreachable.
     That is the case the router must refuse loudly rather than quietly re-ranking.
     """
-    contracts = tmp_path / "contracts"
-    contracts.mkdir()
-    for path in sorted((EXAMPLES / "contracts").rglob("*.yml")):
-        if path.stem == "hisat2-build":
-            continue
-        (contracts / path.name).write_text(path.read_text())
-    return _spine(contracts)
+    layer = tmp_path / "layer"
+    shutil.copytree(EXAMPLES, layer)
+    next(layer.rglob("hisat2-build.yml")).unlink()
+    return _spine(layer)

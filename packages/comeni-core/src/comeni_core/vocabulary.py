@@ -2,9 +2,13 @@
 
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import BaseModel
+
+if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
+    from comeni_core.measurement import MeasurementRegistry
 
 
 class UnknownTypeError(KeyError):
@@ -47,6 +51,24 @@ class Vocabulary(BaseModel):
                 if data.get("entry_channel"):
                     entry_channels[type_id] = data["entry_channel"]
         return cls(types=types, entry_channels=entry_channels)
+
+    def with_measurements(self, registry: "MeasurementRegistry") -> "Vocabulary":
+        """Derive a stateless `measurement.<id>` type per declaration.
+
+        This is what makes profiling free: a measurement is a type a module produces, so
+        "measure the read length" is an ordinary routing problem and the router needs no
+        profiling code at all.
+
+        Derived rather than declared twice: the measurement file already says what the
+        measurement is, and a second vocabulary file saying it again is a thing to drift.
+        Stateless because a measurement has a *value*, not a condition — `strandedness`'s
+        three values are declared values, not states, and letting them be both would give
+        routing two places to disagree.
+        """
+        types = dict(self.types)
+        for measurement_id in registry.ids():
+            types[f"measurement.{measurement_id}"] = frozenset()
+        return Vocabulary(types=types, entry_channels=dict(self.entry_channels))
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:

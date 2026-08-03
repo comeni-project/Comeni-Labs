@@ -1,8 +1,7 @@
 import pathlib
 
 import pytest
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import route
 
@@ -12,9 +11,7 @@ VENDOR = ROOT / "vendor"
 
 @pytest.fixture
 def registry():
-    return Registry.load(
-        ROOT / "examples" / "contracts", Vocabulary.load(ROOT / "examples" / "vocabularies")
-    )
+    return layers.load(ROOT / "examples").registry
 
 
 def test_all_spine_contracts_load(registry):
@@ -122,24 +119,15 @@ def test_an_index_is_not_a_bam(registry):
 
 def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
     """Every pre-audit test used a single `want`, which is why last-writer-wins survived."""
-    from comeni_core.measurement import MeasurementRegistry
-    from comeni_core.vocabulary import Vocabulary
     from mendel_resolver.resolve import resolve
-    from mendel_resolver.rules import RuleTable
 
-    vocab = Vocabulary.load(ROOT / "examples" / "vocabularies")
-    rules = RuleTable.load(
-        ROOT / "examples" / "rules" / "rnaseq.yml",
-        registry=registry,
-        vocabulary=vocab,
-        measurements=MeasurementRegistry.load(ROOT / "examples" / "measurements"),
-    )
+    loaded = layers.load(ROOT / "examples")
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="annotation.gtf")],
         want=["counts.matrix", "alignment.bai"],
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
     )
-    ir = resolve(goal, Registry.load(ROOT / "examples" / "contracts", vocab), rules)
+    ir = resolve(goal, loaded.registry, loaded.rules)
     fed_by = {
         e.to_node: e.from_node for e in ir.edges if e.to_node == "subread_featurecounts"
     }
@@ -155,16 +143,7 @@ def test_every_shipped_rule_can_fire(registry):
     table it cannot satisfy. So the assertion is simply that the shipped table loads —
     a dead rule can no longer be shipped to be recorded.
     """
-    from comeni_core.measurement import MeasurementRegistry
-    from mendel_resolver.rules import RuleTable
-
-    vocabulary = Vocabulary.load(ROOT / "examples" / "vocabularies")
-    table = RuleTable.load(
-        ROOT / "examples" / "rules",
-        registry=registry,
-        vocabulary=vocabulary,
-        measurements=MeasurementRegistry.load(ROOT / "examples" / "measurements"),
-    )
+    table = layers.load(ROOT / "examples").rules
     assert [d.decides.key() for d in table.decisions] == [
         "param:strandedness",
         "producer_of:alignment.bam",

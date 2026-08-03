@@ -6,17 +6,12 @@ import sys
 from pathlib import Path
 
 import yaml
-from comeni_core.measurement import (
-    BadMeasurementValueError,
-    MeasurementRegistry,
-    UnknownMeasurementError,
-)
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
+from mendel_resolver import layers
 from mendel_resolver.goal import Goal
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
-from mendel_resolver.rules import RuleTable, RuleValidationError
+from mendel_resolver.rules import RuleValidationError
 from pydantic import ValidationError
 
 from mendel_compiler.emit import emit, emit_config, entry_params
@@ -62,16 +57,8 @@ def _build(argv: list[str] | None = None) -> int:
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
     # modules. Only contracts stacked before the 2026-08-03 audit.
-    layers = args.registry or [args.root / "examples"]
-    vocab = Vocabulary.load([layer / "vocabularies" for layer in layers])
-    registry = Registry.load([layer / "contracts" for layer in layers], vocab)
-    measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
-    rules = RuleTable.load(
-        [layer / "rules" for layer in layers],
-        registry=registry,
-        vocabulary=vocab,
-        measurements=measurements,
-    )
+    loaded = layers.load(args.registry or [args.root / "examples"])
+    vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
     goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
 
     # Re-build the goal's profile through the one constructor that validates it. The
@@ -80,7 +67,7 @@ def _build(argv: list[str] | None = None) -> int:
     # is exactly the shape invariant 15 exists to refuse. This is the door.
     goal = goal.model_copy(
         update={
-            "profile": measurements.profile(
+            "profile": loaded.measurements.profile(
                 {m.measurement: m.value for m in goal.profile.measurements}
             )
         }
