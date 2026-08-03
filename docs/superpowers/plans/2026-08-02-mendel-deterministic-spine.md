@@ -1764,6 +1764,22 @@ git commit -m "feat(core): four declared egress doors with a free-text boundary 
 
 This is the heart of the system. Backward chaining from wanted types to available ones, inserting producers to fill gaps. A tie between candidate routes is ambiguity, not a coin flip.
 
+**Two rules below were added during implementation on 2026-08-03**, because the version first
+written here recursed until it hit the depth bound and then reported a perfectly routable goal as
+unroutable. Both are consequences of `producers_of` matching on **superset**, which is correct —
+asking for `coordinate_sorted` should accept a producer that also indexes — but which means an
+empty requirement matches every producer of the type.
+
+1. **A contract may not satisfy its own input.** `SAMTOOLS_SORT` consumes `alignment.bam` and
+   produces `alignment.bam`, so it is a candidate for its own dependency and selects itself
+   forever. The recursion carries the set of contracts currently being expanded and excludes
+   them.
+2. **Prefer the producer with the smallest surplus** — the fewest states beyond those asked for.
+   With nothing required, the aligner (`alignment.bam[]`) and the sorter
+   (`alignment.bam[coordinate_sorted]`) both match, and lexical order picks the sorter. Ranking
+   by `(surplus, -priority, id)` keeps "get me a BAM" from quietly meaning "get me a sorted
+   BAM". Invariant 8 still holds: a tie is now a tie on `(surplus, priority)`, and still demotes.
+
 - [ ] **Step 1: Write the failing test**
 
 ```python
