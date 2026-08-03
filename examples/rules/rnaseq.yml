@@ -1,32 +1,16 @@
-# NOTE: the two `aligner` rules below never fire. `subject` is matched against
-# contract parameter names, and no contract declares `aligner`; `then: {module: ...}`
-# is ignored because the resolver reads only `then.value`. Both are fixed by
-# docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md, which
-# replaces `subject` with a validated `decides` target that refuses to load if it
-# cannot fire. They are kept as the worked example that spec is written against.
-rules:
-  - id: aligner-long-reads
-    subject: aligner
-    when: {read_length: {">=": 70}}
-    then: {module: nf-core/star/align@1.11.0}
-    citation: "STAR is the nf-core/rnaseq default for reads >=70bp (Dobin et al. 2013)"
-  - id: aligner-short-reads
-    subject: aligner
-    when: {read_length: {"<": 70}}
-    then: {module: nf-core/hisat2/align@2.2.2}
-    citation: "HISAT2 handles short reads with lower memory (Kim et al. 2019)"
-  - id: strandedness-reverse
-    subject: strandedness
-    when: {strandedness: {"==": reverse}}
-    then: {value: 2}
-    citation: "featureCounts -s 2 for reverse-stranded (dUTP) libraries"
-  - id: strandedness-forward
-    subject: strandedness
-    when: {strandedness: {"==": forward}}
-    then: {value: 1}
-    citation: "featureCounts -s 1 for forward-stranded libraries"
-  - id: strandedness-unstranded
-    subject: strandedness
-    when: {strandedness: {"==": unstranded}}
-    then: {value: 0}
-    citation: "featureCounts -s 0 for unstranded libraries"
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    because: "featureCounts -s follows library strandedness"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - {when: {strandedness: reverse},    then: 2}
+      - {when: {strandedness: forward},    then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
+
+  - decides: {producer_of: alignment.bam}
+    because: "read length determines which aligner is appropriate"
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
+      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}

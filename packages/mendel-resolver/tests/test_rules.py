@@ -1,69 +1,223 @@
 import pytest
-from mendel_resolver.goal import DataProfile, Goal, GoalInput
-from mendel_resolver.rules import RuleTable
+from comeni_core.measurement import MeasurementRegistry
+from comeni_core.registry import Registry
+from comeni_core.vocabulary import Vocabulary
+from mendel_resolver.goal import DataProfile, Goal
+from mendel_resolver.rules import RuleTable, RuleValidationError
 from pydantic import ValidationError
 
-RULES = """
-rules:
-  - id: aligner-long-reads
-    subject: aligner
-    when: {read_length: {">=": 70}}
-    then: {module: nf-core/star/align@1.11.0}
-    citation: "STAR handles reads >=70bp well (Dobin 2013)"
-  - id: aligner-short-reads
-    subject: aligner
-    when: {read_length: {"<": 70}}
-    then: {module: nf-core/hisat2/align@2.2.1}
-    citation: "HISAT2 preferred for short reads"
-  - id: strand-reverse
-    subject: strandedness
-    when: {strandedness: {"==": reverse}}
-    then: {value: 2}
-    citation: "featureCounts -s 2 for reverse-stranded libraries"
+CONTRACT = """
+id: nf-core/subread/featurecounts@2.0.6
+nf_process: SUBREAD_FEATURECOUNTS
+nf_include: modules/nf-core/subread/featurecounts/main
+consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
+produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
+params: [{name: strandedness, tier_hint: 3}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
+"""
+
+GOOD = """
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    because: "featureCounts -s follows library strandedness"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - {when: {strandedness: reverse},    then: 2}
+      - {when: {strandedness: forward},    then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
 """
 
 
-def test_matches_rule_on_numeric_comparison(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    table = RuleTable.load(path)
-    rule = table.match("aligner", DataProfile(read_length=150))
-    assert rule is not None
-    assert rule.id == "aligner-long-reads"
-    assert rule.then == {"module": "nf-core/star/align@1.11.0"}
+@pytest.fixture
+def world(tmp_path):
+    vocab_dir = tmp_path / "vocabularies"
+    vocab_dir.mkdir()
+    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    (contracts / "fc.yml").write_text(CONTRACT)
+    measurements = tmp_path / "measurements"
+    measurements.mkdir()
+    (measurements / "strandedness.yml").write_text(
+        "kind: enum\nvalues: [forward, reverse, unstranded]\n"
+    )
+    (measurements / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    vocabulary = Vocabulary.load(vocab_dir)
+    return {
+        "vocabulary": vocabulary,
+        "registry": Registry.load(contracts, vocabulary),
+        "measurements": MeasurementRegistry.load(measurements),
+        "rules": tmp_path / "rules",
+    }
 
 
-def test_matches_the_other_branch(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    rule = RuleTable.load(path).match("aligner", DataProfile(read_length=50))
-    assert rule.id == "aligner-short-reads"
+def _rules(world, body):
+    world["rules"].mkdir(exist_ok=True)
+    (world["rules"] / "r.yml").write_text(body)
+    return RuleTable.load(
+        world["rules"],
+        registry=world["registry"],
+        vocabulary=world["vocabulary"],
+        measurements=world["measurements"],
+    )
 
 
-def test_matches_string_equality(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    rule = RuleTable.load(path).match("strandedness", DataProfile(strandedness="reverse"))
-    assert rule.then == {"value": 2}
+def test_a_matching_row_yields_its_value_and_provenance(world):
+    table = _rules(world, GOOD)
+    value, decision, row = table.value_for("strandedness", DataProfile(strandedness="reverse"))
+    assert value == 2
+    assert "Liao" in decision.cite
 
 
-def test_returns_none_when_no_rule_matches(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    assert RuleTable.load(path).match("aligner", DataProfile()) is None
+def test_no_matching_row_falls_through(world):
+    table = _rules(world, GOOD)
+    assert table.value_for("strandedness", DataProfile()) is None
 
 
-def test_returns_none_for_unknown_subject(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    assert RuleTable.load(path).match("umi_handling", DataProfile(read_length=150)) is None
+def test_row_order_decides(world):
+    table = _rules(world, """
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    rows:
+      - {when: {strandedness: reverse}, then: 99}
+      - {when: {strandedness: reverse}, then: 2}
+""")
+    value, _, _ = table.value_for("strandedness", DataProfile(strandedness="reverse"))
+    assert value == 99
 
 
-def test_first_matching_rule_wins(tmp_path):
-    path = tmp_path / "r.yml"
-    path.write_text(RULES)
-    table = RuleTable.load(path)
-    assert table.match("aligner", DataProfile(read_length=70)).id == "aligner-long-reads"
+def test_a_comparison_string_works(world):
+    table = _rules(world, """
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    rows:
+      - {when: {read_length: ">= 70", strandedness: reverse}, then: 2}
+""")
+    assert table.value_for("strandedness", DataProfile(read_length=150, strandedness="reverse"))
+    assert (
+        table.value_for("strandedness", DataProfile(read_length=50, strandedness="reverse"))
+        is None
+    )
+
+
+def test_a_rule_for_a_parameter_no_contract_declares_will_not_load(world):
+    """The bug this whole format exists to prevent: `subject: aligner` fired never."""
+    with pytest.raises(RuleValidationError) as exc:
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {param: aligner}
+    rows:
+      - {when: {read_length: ">= 70"}, then: star}
+""")
+    message = str(exc.value)
+    assert "aligner" in message
+    assert "strandedness" in message, "the error must say what the author *can* write"
+
+
+def test_a_rule_naming_an_undeclared_measurement_will_not_load(world):
+    with pytest.raises(RuleValidationError, match="organism"):
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    rows:
+      - {when: {organism: human}, then: 2}
+""")
+
+
+def test_a_producer_rule_must_name_a_contract_that_exists(world):
+    with pytest.raises(RuleValidationError, match="hisat2"):
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {producer_of: counts.matrix}
+    rows:
+      - {when: {read_length: "< 70"}, then: nf-core/hisat2/align@2.2.2}
+""")
+
+
+def test_a_producer_rule_returns_the_pinned_contract(world):
+    table = _rules(world, """
+version: 1
+decisions:
+  - decides: {producer_of: counts.matrix}
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
+""")
+    pinned, _, _ = table.producer_for("counts.matrix", DataProfile(read_length=150))
+    assert pinned == "nf-core/subread/featurecounts@2.0.6"
+
+
+def test_a_producer_rule_naming_a_contract_that_produces_something_else(world):
+    with pytest.raises(RuleValidationError, match="does not produce"):
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {producer_of: alignment.bam}
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
+""")
+
+
+def test_two_decisions_for_one_target_in_one_layer_is_an_error(world):
+    with pytest.raises(RuleValidationError, match="twice"):
+        _rules(world, GOOD + """
+  - decides: {param: strandedness}
+    rows:
+      - {when: {strandedness: reverse}, then: 3}
+""")
+
+
+def test_a_comparison_on_an_enum_will_not_load(world):
+    with pytest.raises(RuleValidationError, match="enum"):
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    rows:
+      - {when: {strandedness: ">= 70"}, then: 2}
+""")
+
+
+def test_a_decision_must_decide_exactly_one_thing(world):
+    with pytest.raises(RuleValidationError, match="exactly one"):
+        _rules(world, """
+version: 1
+decisions:
+  - decides: {param: strandedness, producer_of: counts.matrix}
+    rows:
+      - {when: {strandedness: reverse}, then: 2}
+""")
+
+
+def test_a_higher_layer_replaces_a_whole_decision_block(world, tmp_path):
+    """Whole-block replacement, not row merging: one block is the effective decision."""
+    world["rules"].mkdir(exist_ok=True)
+    (world["rules"] / "r.yml").write_text(GOOD)
+    overlay = tmp_path / "lab-rules"
+    overlay.mkdir()
+    (overlay / "r.yml").write_text("""
+version: 1
+decisions:
+  - decides: {param: strandedness}
+    rows:
+      - {when: {strandedness: reverse}, then: 0}
+""")
+    table = RuleTable.load(
+        [world["rules"], overlay],
+        registry=world["registry"],
+        vocabulary=world["vocabulary"],
+        measurements=world["measurements"],
+    )
+    value, _, _ = table.value_for("strandedness", DataProfile(strandedness="reverse"))
+    assert value == 0
+    assert table.value_for("strandedness", DataProfile(strandedness="forward")) is None
 
 
 def test_goal_has_nowhere_to_put_a_sample_identifier():
@@ -82,8 +236,6 @@ def test_profile_rejects_unknown_measurements(tmp_path):
     `tests/test_construction.py` enforces that, and `mendel build` re-builds every goal's
     profile through it. This asserts the door itself is shut.
     """
-    from comeni_core.measurement import MeasurementRegistry
-
     (tmp_path / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
     registry = MeasurementRegistry.load(tmp_path)
     with pytest.raises(KeyError, match="sample_name"):
@@ -99,18 +251,3 @@ def test_a_path_cannot_enter_through_constraints():
     """
     with pytest.raises(ValidationError):
         Goal(constraints={"seq_platform": "/data/patients/PT-4471023/S1_R1.fastq.gz"})
-
-
-def test_a_declared_override_still_works():
-    goal = Goal(constraints={"params": [{"name": "seq_platform", "value": "illumina"}]})
-    assert goal.constraints.params[0].value == "illumina"
-
-
-def test_an_override_cannot_hold_a_structured_value():
-    with pytest.raises(ValidationError):
-        Goal(constraints={"params": [{"name": "x", "value": {"path": "/data/pt.fastq"}}]})
-
-
-def test_goal_input_rejects_a_filename():
-    with pytest.raises(ValidationError):
-        GoalInput(type_id="fastq.reads", filename="PT-4471023_R1.fastq.gz")

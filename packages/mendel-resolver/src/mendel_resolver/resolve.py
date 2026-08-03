@@ -162,12 +162,13 @@ def _resolve_param(
         )
 
     # Tier 3 — a declared rule matches the measured profile.
-    rule = rules.match(param_name, goal.profile)
-    if rule is not None and "value" in rule.then:
+    matched = rules.value_for(param_name, goal.profile)
+    if matched is not None:
+        value, decision, row = matched
         return ResolvedValue(
-            value=rule.then["value"],
+            value=value,
             tier=Tier.DATA_PROFILED,
-            reason=f"rule {rule.id}: {rule.citation}",
+            reason=f"rule {decision.decides.key()}: {row.cite or decision.cite or ''}",
         )
 
     # Tier 2 — a documented default exists for this context.

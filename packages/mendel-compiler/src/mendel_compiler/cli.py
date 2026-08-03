@@ -16,7 +16,7 @@ from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
-from mendel_resolver.rules import RuleTable
+from mendel_resolver.rules import RuleTable, RuleValidationError
 from pydantic import ValidationError
 
 from mendel_compiler.emit import emit, emit_config, entry_params
@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mendel: cannot route this goal — {exc}", file=sys.stderr)
     except ValidationError as exc:
         print(f"mendel: this goal is not valid —\n{exc}", file=sys.stderr)
+    except RuleValidationError as exc:
+        print(f"mendel: a rule table will not load —\n{exc}", file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:
         print(f"mendel: this goal's profile is not valid — {exc}", file=sys.stderr)
     except (OSError, KeyError) as exc:
@@ -63,8 +65,13 @@ def _build(argv: list[str] | None = None) -> int:
     layers = args.registry or [args.root / "examples"]
     vocab = Vocabulary.load([layer / "vocabularies" for layer in layers])
     registry = Registry.load([layer / "contracts" for layer in layers], vocab)
-    rules = RuleTable.load([layer / "rules" for layer in layers])
     measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
+    rules = RuleTable.load(
+        [layer / "rules" for layer in layers],
+        registry=registry,
+        vocabulary=vocab,
+        measurements=measurements,
+    )
     goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
 
     # Re-build the goal's profile through the one constructor that validates it. The
