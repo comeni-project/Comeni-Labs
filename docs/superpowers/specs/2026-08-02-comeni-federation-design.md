@@ -3,6 +3,9 @@
 **Date:** 2026-08-02
 **Status:** Approved.
 **Extends:** [`2026-08-02-mendel-design.md`](2026-08-02-mendel-design.md). Read that first.
+**Amended by:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+— which constrains §4 publication to typed bundles, §5 curation to reference material a
+laboratory validates, and answers §9's open question on reference datasets.
 
 An addendum, not a replacement. It answers four questions the original spec left open: how
 Mendel reaches a model, how a lab keeps private modules without forking, how a working

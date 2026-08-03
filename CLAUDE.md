@@ -16,6 +16,7 @@ The product claim, which every design decision serves:
 |---|---|
 | `docs/superpowers/specs/2026-08-02-mendel-design.md` | the architecture. **Read before writing code.** |
 | `docs/superpowers/specs/2026-08-02-comeni-federation-design.md` | provider access, registry stacking, pipeline publication, licensing |
+| `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 12 TDD tasks, zero AI. Start here. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
@@ -107,6 +108,16 @@ Violating any of these breaks the product claim, not just a test.
 13. **Self-hosted is not a degraded tier.** Same registry, same resolver, byte-identical
     output. The hosted instance sells convenience, never capability. Anything that would only
     work on our infrastructure is a design error.
+14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
+    resolution, compiler repair, publication. Each carries one declared payload type.
+    `PromptRequest` is the only payload that may contain free text; the rest are closed
+    vocabulary. Enforced by `tests/test_egress.py`, which holds the allowlist literally, so
+    adding a door means editing a test that says these are all the ways data leaves.
+15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or
+    path. `Goal` holds type IDs, states and four measurements — a shape, not data. Profiling
+    happens where the data is; the emitted pipeline references `params.input` as a placeholder
+    the lab fills at run time. This is currently true by accident and is one plausible dashboard
+    feature away from being false.
 
 ## The four tiers
 
@@ -121,6 +132,38 @@ Every module choice and parameter exits at exactly one tier and carries it forev
 
 Tier 3 is yellow rather than silent on purpose: a rule match is only as good as the
 measurement behind it. Yellow means "the machinery worked, check the premise."
+
+## The three protection profiles
+
+Clinical labs are a target user, not a later market. Three ladders now exist and must never be
+conflated: **four resolution tiers** (above), **three visibility tiers** (private / published /
+curated, federation §4.2), and **three protection profiles** — below.
+
+| | `open` | `guarded` (default) | `sealed` |
+|---|---|---|---|
+| prompt door | sends | shows the payload, waits for confirmation | closed — typed goals only |
+| `GateFailure.tool_message` | included | `None` | `None` |
+| repair | proposes and applies | proposes and applies | proposes only; a human applies |
+| tier 4 | flags | flags | **blocks the build** |
+| attribution | optional | when available | required |
+| reference pinning | tags | tags | digests required |
+
+Never configurable at any level: the four doors, typed payloads, an `EgressRecord` per crossing,
+tier 4 always flagged, typed-only publish bundles, no patient data received. `guarded` is the
+default because the unconfigured install is the one most likely to exist.
+
+**Say "Mendel does not receive patient data" — never "anonymised".** Genetic data are not
+reliably anonymisable and pseudonymised data stays personal data under GDPR Art. 9. The accurate
+claim is also the stronger one: minimisation by non-receipt.
+
+**Scrubbing was considered and rejected.** Safe Harbor needs all 18 identifier classes gone;
+NLP de-identification leaves false negatives, and it fails silently. Pattern matching survives
+only inverted, in `guarded`, where it halts the send and asks a human.
+
+**We are a tool; the lab is the manufacturer.** Never claim IVDR/CLIA/CAP/ISO 15189 compliance —
+those attach to a laboratory's processes. Mendel supplies the documentation substrate. Curated
+means reference material a lab validates, never a validated test, because distributing across
+legal entities forfeits the IVDR Art. 5(5) in-house exemption.
 
 ## Architecture
 

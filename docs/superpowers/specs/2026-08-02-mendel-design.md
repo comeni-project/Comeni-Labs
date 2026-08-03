@@ -4,8 +4,10 @@
 **Status:** Design approved, ready for implementation planning
 **Scope:** Mendel only. Wiener, Nightingale and Comeni Code are separate specs.
 **Amended by:** [`2026-08-02-comeni-federation-design.md`](2026-08-02-comeni-federation-design.md)
-— provider access, registry stacking, pipeline publication, curation, licensing. Where the two
-differ, the amendment wins.
+— provider access, registry stacking, pipeline publication, curation, licensing.
+**Amended by:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+— clinical use, the egress boundary, protection profiles, lockfile scope. Where these differ,
+the later amendment wins.
 
 ---
 
