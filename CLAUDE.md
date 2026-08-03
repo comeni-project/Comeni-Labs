@@ -18,6 +18,10 @@ listed. `comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI
 Two specs are **approved and unimplemented**, and both change types Plan 1 shipped — read them
 before touching `contract.py`, `rules.py`, `router.py` or `goal.py`.
 
+An independent audit on 2026-08-03 defeated all three test-enforced invariants (1, 14, 15).
+**C1 and C4 are fixed; C2 and C3 are open and block Plan 2.** The audit document is the working
+list — read it before trusting an invariant.
+
 | Read this | For |
 |---|---|
 | `docs/superpowers/specs/2026-08-02-mendel-design.md` | the architecture. **Read before writing code.** |
@@ -25,6 +29,7 @@ before touching `contract.py`, `rules.py`, `router.py` or `goal.py`.
 | `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md` | tier-3 rule format, module pinning, port alternatives. **Approved, unimplemented.** |
 | `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Approved, unimplemented.** |
+| `docs/superpowers/audits/2026-08-03-plan-1-audit.md` | **open defects.** C2 and C3 block Plan 2. Read before touching egress or `Goal`. |
 | `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
