@@ -177,22 +177,41 @@ The public registry lives in its own repository under CC-BY-4.0. What ships here
 
 ---
 
-## Design documents
+## Documentation
 
-Everything below is written down before it is built, and the reasoning is kept rather than
-summarised away.
+[**`docs/`**](docs/) is the index. In short:
 
-| Document | Covers |
+| You want | Read |
 |---|---|
-| [`specs/…-mendel-design.md`](docs/superpowers/specs/2026-08-02-mendel-design.md) | the architecture |
-| [`specs/…-comeni-federation-design.md`](docs/superpowers/specs/2026-08-02-comeni-federation-design.md) | registry stacking, publication, licensing |
-| [`specs/…-clinical-data-protection-design.md`](docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md) | clinical use, the egress boundary, protection profiles |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | how the five stages fit together, against real types |
-| [`specs/…-rule-tables-and-port-logic-design.md`](docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md) | tier-3 rule format, declared measurements |
-| [`specs/…-profiling-design.md`](docs/superpowers/specs/2026-08-03-profiling-design.md) | where measurements come from |
-| [`audits/…-plan-1-audit.md`](docs/superpowers/audits/2026-08-03-plan-1-audit.md) | an independent audit that defeated all three test-enforced invariants, and the fixes |
+| to build your first pipeline | [`docs/guides/getting-started.md`](docs/guides/getting-started.md) |
+| to teach Mendel a tool it does not know | [`docs/guides/writing-a-contract.md`](docs/guides/writing-a-contract.md) |
+| a choice to depend on your data | [`docs/guides/writing-a-rule.md`](docs/guides/writing-a-rule.md) |
+| to look up a field or a flag | [`docs/reference/`](docs/reference/) |
+| to know why it works this way | [`docs/concepts/`](docs/concepts/) |
+| to change the code | [`ARCHITECTURE.md`](ARCHITECTURE.md), then [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| the design records and what was rejected | [`docs/design/`](docs/design/) |
 
-That last one is linked deliberately. Three guards claimed to enforce the properties this project
-sells, and an independent reviewer broke all three on first attempt — each the same way, by
-checking the surface it was written against and stopping at the first boundary. Keeping the record
-public is cheaper than the alternative.
+## The audit
+
+[`docs/internal/audits/2026-08-03-plan-1-audit.md`](docs/internal/audits/2026-08-03-plan-1-audit.md)
+is linked deliberately. Three guards claimed to enforce the properties this project sells, and an
+independent reviewer broke all three on first attempt — each the same way, by checking the surface
+it was written against and stopping at the first boundary. One fell to four lines:
+
+```python
+import urllib.request, socket, http.client
+importlib.import_module("httpx").post(...)
+__import__("openai").OpenAI()
+```
+
+All four defects are closed and the guards are the shape they are because of it. Keeping the
+record public is cheaper than the alternative.
+
+## Contributing
+
+Registry data — a contract, a rule, a measurement — is the most valuable contribution and needs
+no Python. See [`CONTRIBUTING.md`](CONTRIBUTING.md), and
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), which applies everywhere in this project.
+
+Security and privacy reports go through [`SECURITY.md`](SECURITY.md) rather than a public issue.
+A hole in the egress boundary, or a way to get patient data into a `Goal`, is a security issue.

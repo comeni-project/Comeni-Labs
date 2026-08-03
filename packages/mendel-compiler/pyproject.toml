@@ -2,7 +2,30 @@
 name = "mendel-compiler"
 version = "0.1.0"
 requires-python = ">=3.12"
+description = "Pipeline IR to Nextflow DSL2, validation gates, and the mendel CLI"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{name = "Rafael Correia"}]
+keywords = ["bioinformatics", "nextflow", "workflow", "reproducibility", "pipeline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+
 dependencies = ["comeni-core", "mendel-resolver", "pydantic>=2.9", "jinja2>=3.1", "pyyaml>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/comeni-project/Comeni-Labs"
+Documentation = "https://github.com/comeni-project/Comeni-Labs/tree/main/docs"
+Repository = "https://github.com/comeni-project/Comeni-Labs"
+Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
+Changelog = "https://github.com/comeni-project/Comeni-Labs/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mendel = "mendel_compiler.cli:main"

@@ -1,0 +1,65 @@
+name: Nightly stub gate
+
+# The slow lane. `-stub-run` executes the whole DAG against real nf-core containers,
+# which proves the emitted Nextflow is callable — arity, channel shapes, includes.
+# Too slow for a pull request (about 15 minutes on a cold container cache), and too
+# important to run only before a release.
+#
+# Docker is genuinely required even for stubs: nf-core 4.x captures tool versions with
+# eval(), which executes regardless of -stub-run.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stub-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync the workspace
+        run: uv sync --locked
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+
+      - name: Build the RNA-seq spine and run the stub gate
+        run: uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
+
+      - name: Emit a profiling pipeline
+        run: uv run mendel profile --have fastq.reads --out profile-build/
+
+      - name: Lint the profiling pipeline too
+        run: uv run mendel profile --have fastq.reads --out profile-lint/ --gate lint
+
+      - name: Upload the generated pipelines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-pipelines
+          path: |
+            build/main.nf
+            build/nextflow.config
+            build/pipeline.ir.json
+            profile-build/
+          retention-days: 14
+
+      - name: Upload the Nextflow log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextflow-log
+          path: build/.nextflow.log
+          retention-days: 14

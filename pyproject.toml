@@ -2,7 +2,30 @@
 name = "comeni-labs"
 version = "0.1.0"
 requires-python = ">=3.12"
+description = "Deterministic bioinformatics pipeline construction — same goal in, same pipeline out, and nothing guessed silently"
+license = "Apache-2.0"
+license-files = ["LICENSE", "LICENSE-DATA"]
+readme = "README.md"
+authors = [{name = "Rafael Correia"}]
+keywords = ["bioinformatics", "nextflow", "workflow", "reproducibility", "pipeline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+
 dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler"]
+
+[project.urls]
+Homepage = "https://github.com/comeni-project/Comeni-Labs"
+Documentation = "https://github.com/comeni-project/Comeni-Labs/tree/main/docs"
+Repository = "https://github.com/comeni-project/Comeni-Labs"
+Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
+Changelog = "https://github.com/comeni-project/Comeni-Labs/blob/main/CHANGELOG.md"
 
 [tool.uv.workspace]
 members = ["packages/*"]

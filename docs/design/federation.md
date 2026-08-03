@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-02
 **Status:** Approved.
-**Extends:** [`2026-08-02-mendel-design.md`](2026-08-02-mendel-design.md). Read that first.
-**Amended by:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+**Extends:** [`mendel.md`](mendel.md). Read that first.
+**Amended by:** [`clinical-data-protection.md`](clinical-data-protection.md)
 — which constrains §4 publication to typed bundles, §5 curation to reference material a
 laboratory validates, and answers §9's open question on reference datasets.
 
@@ -165,7 +165,7 @@ before a registry exists. `Registry.load()` takes paths, so relocating them late
 to configuration rather than to code — but only because the split is decided in advance.
 
 Contributing back is a proposal into the forge queue already designed in
-[the forge review design](../../design/2026-08-02-forge-review-design.md): a lab approves a
+[the forge review design](forge-review.md): a lab approves a
 contract locally, then opens it upstream, where it meets the same curator screens.
 
 ---

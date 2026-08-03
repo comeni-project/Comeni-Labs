@@ -2,9 +2,9 @@
 
 **Date:** 2026-08-03
 **Status:** Approved. Not yet implemented.
-**Extends:** [`2026-08-03-rule-tables-and-port-logic-design.md`](2026-08-03-rule-tables-and-port-logic-design.md)
+**Extends:** [`rule-tables-and-port-logic.md`](rule-tables-and-port-logic.md)
 §6, which declares what a measurement *is*. This document says where its value comes from.
-**Constrained by:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+**Constrained by:** [`clinical-data-protection.md`](clinical-data-protection.md)
 §3 and invariant 15.
 
 Tier 3 resolves against measured data. Nothing in Mendel produces a measurement, and the

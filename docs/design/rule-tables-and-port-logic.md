@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-03
 **Status:** Approved. Not yet implemented.
-**Extends:** [`2026-08-02-mendel-design.md`](2026-08-02-mendel-design.md) §5.1, §6.1–6.3.
-**Related:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+**Extends:** [`mendel.md`](mendel.md) §5.1, §6.1–6.3.
+**Related:** [`clinical-data-protection.md`](clinical-data-protection.md)
 — rules and contracts are registry data, so everything here ships under CC-BY-4.0 and crosses no
 egress door.
 

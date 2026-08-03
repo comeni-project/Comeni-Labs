@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-03
 **Status:** Approved.
-**Extends:** [`2026-08-02-mendel-design.md`](2026-08-02-mendel-design.md) and
-[`2026-08-02-comeni-federation-design.md`](2026-08-02-comeni-federation-design.md). Read those
+**Extends:** [`mendel.md`](mendel.md) and
+[`federation.md`](federation.md). Read those
 first. Where this document differs from either, this one wins.
 
 Mendel was designed for researchers. This amendment asks what changes when a clinical
@@ -408,7 +408,7 @@ constraint: the dashboard must never accept a sample sheet.
 ## 10. Open questions
 
 - **Who profiles the data?** **Answered** by
-  [`2026-08-03-profiling-design.md`](2026-08-03-profiling-design.md): nobody, in the sense that
+  [`profiling.md`](profiling.md): nobody, in the sense that
   no Mendel component reads a file. A measurement is a type modules produce, so a profiling
   pipeline is emitted by the same router and run by the laboratory — which is what keeps §3.1's
   claim true rather than aspirational.

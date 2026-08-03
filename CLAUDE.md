@@ -24,17 +24,17 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 
 | Read this | For |
 |---|---|
-| `docs/superpowers/specs/2026-08-02-mendel-design.md` | the original design rationale. `ARCHITECTURE.md` is what the code does. |
-| `docs/superpowers/specs/2026-08-02-comeni-federation-design.md` | provider access, registry stacking, pipeline publication, licensing |
-| `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
+| `docs/design/mendel.md` | the original design rationale. `ARCHITECTURE.md` is what the code does. |
+| `docs/design/federation.md` | provider access, registry stacking, pipeline publication, licensing |
+| `docs/design/clinical-data-protection.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
-| `docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md` | tier-3 rule format, module pinning, port alternatives. **Implemented.** |
-| `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Implemented.** |
-| `docs/superpowers/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
-| `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
-| `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
-| `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
-| `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
+| `docs/design/rule-tables-and-port-logic.md` | tier-3 rule format, module pinning, port alternatives. **Implemented.** |
+| `docs/design/profiling.md` | where measurements come from. **Implemented.** |
+| `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
+| `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
+| `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
+| `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
+| `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
 
 ## How to start implementing — decided 2026-08-02, read this first
@@ -251,8 +251,9 @@ promise: the pure packages cannot import an HTTP client, so telemetry can only l
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
 
 **Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
-2026-08-03 and **still private**. Plan 1 runs green, so the remaining gate on going public is
-the checklist below, not the code.
+2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING`, `CODE_OF_CONDUCT`,
+`SECURITY` and `CHANGELOG` are in place, CI runs on every pull request, and the nightly
+workflow runs the stub gate.
 
 The org is the **umbrella**, not one of the products — `comeni-labs`, `comeni-code` and
 `comeni-registry` sit under it as equals. Naming `comeni-labs` as the org was considered and
@@ -263,14 +264,12 @@ Bare `comeni` is unavailable everywhere that matters — the GitHub user, and `c
 2026-08-03 and is the recommended umbrella domain: it keeps the bare brand, and the clinical
 positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
 
-**Two things to do before flipping it public**, neither of which is urgent while it is private:
-
-1. There is no `README`, `CONTRIBUTING` or `CODE_OF_CONDUCT`. An Apache-2.0 repo wants them.
-2. **Re-read how these docs describe pegi3s / auto-phylo.** The Mendel spec §13 says their
-   implementation "is not a model to follow", and the forge design says nearly every field
-   from their sources is inferred. Both are fair and diplomatically worded — but Rafael is
-   joining that lab, and going public means they can read it. His call, made with eyes open,
-   not discovered afterwards.
+**Because it is public now**, two things follow. Write for a stranger: `docs/` is split by
+audience — `guides/`, `reference/`, `concepts/`, `design/` — and `docs/internal/` holds the
+plans and audits, labelled as working notes rather than documentation. And **auto-phylo is
+not discussed**: it was removed from the prior-art section on 2026-08-04 by the operator's
+decision. `pegi3s` appears only as what is useful about it — a repository of ~190
+containerised tools with documentation, and a future forge ingestion source.
 
 ## Open issues
 
@@ -286,12 +285,14 @@ conversation is a loose end lost.
 
 ## Commands
 
+`make help` lists them. `make check` is exactly what CI runs on a pull request.
+
 ```bash
 uv sync                          # set up the workspace
+make check                       # lint + tests + stub freshness — the CI gate, ~1 min
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
-uv run ruff format .
-uv run pytest tests/test_purity.py tests/test_egress.py   # the invariant 1, 14 and 15 guards
+uv run pytest tests/test_purity.py tests/test_egress.py tests/test_construction.py  # the guards
 
 # vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
 uvx nf-core modules install --dir vendor samtools/sort
@@ -317,8 +318,11 @@ uv run forge pending
 uv run forge approve nf-core/samtools-sort.yml --by "$USER"
 ```
 
-`make test`, `make lint` and `make fmt` wrap the common ones. `make dev` and `make migrate`
-arrive with Plan 3, along with the API and its migrations.
+`make dev` and `make migrate` arrive with Plan 3, along with the API and its migrations.
+
+**`ruff format` is not a gate and CI does not check it.** 28 files are hand-wrapped in ways
+the formatter would undo; a formatting sweep belongs in its own reviewable commit rather than
+as noise across every future pull request.
 
 ## v1 success criterion
 
@@ -406,7 +410,10 @@ rhetorical.
   `.nf` out. No network, no model, milliseconds. A change in generated Nextflow shows up as a
   reviewable diff in CI.
 - `mendel-ai`: contract tests against recorded fixtures committed to the repo.
-- End-to-end: `-stub-run` on every commit; full `-profile test` nightly.
+- End-to-end: the `-stub-run` gate runs **nightly** in `.github/workflows/nightly.yml`, not
+  per commit — it needs Docker and up to ~900s cold, which is too slow to gate a pull
+  request and too important to run only before a release. `.github/workflows/ci.yml` is the
+  fast lane: ruff, pytest and the generated-stub check, on 3.12 and 3.13.
 
 ## Prior art
 
