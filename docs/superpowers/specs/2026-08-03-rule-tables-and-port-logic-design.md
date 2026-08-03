@@ -276,7 +276,8 @@ def get(self, id: Literal["strandedness"]) -> Literal["forward", "reverse", "uns
 ```
 
 The same generator emits a `.d.ts` for the frontend, and `mendel-api` serves the declarations so
-the dashboard renders profile forms from them — which means a laboratory's own measurements appear
+the dashboard renders profile forms from them — both Plan 3, tracked as
+[#3](https://github.com/comeni-project/Comeni-Labs/issues/3) — which means a laboratory's own measurements appear
 in the UI without a rebuild, better than the fixed struct it replaces.
 
 Three properties make this safe:

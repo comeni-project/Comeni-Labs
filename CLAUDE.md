@@ -267,6 +267,18 @@ positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
    joining that lab, and going public means they can read it. His call, made with eyes open,
    not discovered afterwards.
 
+## Open issues
+
+Tracked at `github.com/comeni-project/Comeni-Labs/issues`, because a loose end named only in a
+conversation is a loose end lost.
+
+| # | What | Blocked on |
+|---|---|---|
+| 1 | routing ties should ask a human; scoring should vary by purpose | nothing — needs design |
+| 2 | `sealed` must block tier-3 decisions on asserted measurements | Plan 2's `ProfilePolicy` |
+| 3 | generated `.d.ts` and a `/measurements` endpoint | Plan 3's `mendel-api` |
+| 4 | `DataProfile` belongs in `comeni-core` | nothing — mechanical |
+
 ## Commands
 
 ```bash

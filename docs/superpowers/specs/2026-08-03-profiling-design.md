@@ -157,7 +157,8 @@ decided, not how its input was obtained — but its `reason` says so, and it app
 ### 5.2 `sealed` requires measured values
 
 Under the `sealed` protection profile, a tier-3 decision driven by an asserted measurement
-**blocks the build**, as an unresolved tier 4 does. A clinical pipeline should not select an
+**blocks the build**, as an unresolved tier 4 does. Needs `ProfilePolicy` from Plan 2 — tracked as
+[#2](https://github.com/comeni-project/Comeni-Labs/issues/2). A clinical pipeline should not select an
 aligner because somebody typed a read length. `open` and `guarded` flag it and continue.
 
 This is the first time the protection profiles constrain *correctness* rather than *egress*, and

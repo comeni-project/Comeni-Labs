@@ -66,9 +66,11 @@ plan changes the rule format, the profile, ports and module tiering, which is mo
 document describes.
 
 **Out of scope, and why.** The `sealed` protection profile blocking a tier-3 decision driven by an
-asserted measurement (profiling spec §5.2) needs `ProfilePolicy`, which Plan 2 Task 1A builds. This
-plan records provenance so that check becomes possible; it does not enforce it. The `.d.ts` target
-and the `/measurements` endpoint need `mendel-api`, which is Plan 3.
+asserted measurement (profiling spec §5.2) needs `ProfilePolicy`, which Plan 2 Task 1A builds — this
+plan records provenance so that check becomes possible, and it is tracked as
+[#2](https://github.com/comeni-project/Comeni-Labs/issues/2). The `.d.ts` target and the
+`/measurements` endpoint need `mendel-api`, which is Plan 3, tracked as
+[#3](https://github.com/comeni-project/Comeni-Labs/issues/3).
 
 ---
 
@@ -1978,7 +1980,7 @@ git commit -m "docs: ARCHITECTURE.md, written against the types that exist"
 | profiling §3 measurements as types | 7 |
 | profiling §4 `mendel profile` | 8 |
 | profiling §5.1 provenance | 2, 10 |
-| profiling §5.2 `sealed` blocks asserted | **Plan 2** — needs `ProfilePolicy` |
+| profiling §5.2 `sealed` blocks asserted | **Plan 2** — needs `ProfilePolicy`. Tracked as [#2](https://github.com/comeni-project/Comeni-Labs/issues/2) |
 | profiling §6 the regress | 8 |
 | profiling §7 execution | nothing to build |
 
@@ -1994,9 +1996,11 @@ throughout; `profile.read_length` appears nowhere after Task 2.
 
 **Known debt, stated rather than hidden.** Task 2 puts `MeasurementRegistry.profile` in
 `comeni-core` with a function-local import of `mendel_resolver.goal`, because `comeni-core` must not
-depend on `mendel-resolver`. The clean fix is moving `DataProfile` into `comeni-core` beside the
-measurements it is made of. That is a bigger change than this plan should carry, and it is the one
-piece of debt knowingly left.
+depend on `mendel-resolver`. A function-local import to dodge a layering rule is the layering rule
+telling you something. The clean fix is moving `DataProfile` into `comeni-core` beside the
+measurements it is made of; it touches every import across three packages, which would obscure the
+measurement work it was bundled with. Tracked as
+[#4](https://github.com/comeni-project/Comeni-Labs/issues/4).
 
 ---
 
