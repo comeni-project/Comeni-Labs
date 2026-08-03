@@ -197,7 +197,12 @@ def test_a_routing_tie_is_surfaced_for_review(tied):
     ir = resolve(goal, registry, rules)
 
     assert len(ir.decisions) == 1
-    assert "producer:alignment.bam" in ir.needs_review()[0]
+    flagged = ir.needs_review()
+    # Twice over, on purpose: the DecisionRecord names the ambiguity, and now the node's
+    # own `selection` names the module. A reviewer asking "which modules need looking at"
+    # should not have to join those two lists.
+    assert any("producer:alignment.bam" in item for item in flagged)
+    assert any(item.endswith("(module)") for item in flagged)
 
 
 def test_review_list_covers_params_and_decisions_together(setup):

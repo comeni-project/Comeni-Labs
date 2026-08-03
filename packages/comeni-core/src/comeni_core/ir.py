@@ -60,6 +60,17 @@ class IRNode(BaseModel):
     id: NodeId
     contract_id: ContractId
     params: list[ParamBinding] = Field(default_factory=list)
+    selection: ResolvedValue = Field(
+        default_factory=lambda: ResolvedValue(
+            value=None, tier=Tier.STRUCTURAL, reason="only one contract can produce this"
+        )
+    )
+    """How this module was chosen, at which tier, and why.
+
+    Spec §6.1 has always said every module choice exits at exactly one tier; until this
+    field existed only parameters were tiered, so a module selected because it was the sole
+    producer was indistinguishable from one selected by priority.
+    """
 
     @model_validator(mode="before")
     @classmethod
@@ -117,6 +128,15 @@ class PipelineIR(BaseModel):
             for node in self.nodes
             for binding in node.params
             if binding.value.review_level is ReviewLevel.REQUIRED
+        ]
+        # A module choice carries a tier too, since `selection` landed. A tied producer
+        # also emits a DecisionRecord, so this would mostly be a duplicate — except the
+        # record is keyed on the ambiguity and this is keyed on the node, and a reviewer
+        # reading "which modules need looking at" should not have to join the two.
+        flagged += [
+            f"{node.id} (module)"
+            for node in self.nodes
+            if node.selection.review_level is ReviewLevel.REQUIRED
         ]
         flagged += [
             decision.key

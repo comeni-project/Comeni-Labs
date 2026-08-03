@@ -19,7 +19,7 @@ def resolve(
     resolver: AmbiguityResolver | None = None,
 ) -> PipelineIR:
     resolver = resolver or FlagOnlyResolver()
-    plan = route(goal, registry)
+    plan = route(goal, registry, rules)
     ir = PipelineIR()
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —
@@ -29,7 +29,13 @@ def resolve(
 
     for step in plan.steps:
         contract = registry.get(step.contract_id)
-        node = IRNode(id=step.node_id, contract_id=contract.id)
+        node = IRNode(
+            id=step.node_id,
+            contract_id=contract.id,
+            selection=ResolvedValue(
+                value=contract.id, tier=step.selection_tier, reason=step.selection_reason
+            ),
+        )
 
         for param in contract.params:
             node.set_param(param.name, _resolve_param(
