@@ -242,11 +242,18 @@ promise: the pure packages cannot import an HTTP client, so telemetry can only l
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
 
-**Repo status, decided 2026-08-02.** Pushed to `github.com/rafaelmdc/Comeni-Labs`, **private
-until Plan 1 runs green**, then public. It is meant to move to a GitHub **org** — deferred,
-not dropped, because `comeni` is taken by an existing GitHub *user* and users and orgs share
-one namespace, so the org needs a suffixed name (`comeni-project` was the leading candidate).
-**Transfer before publishing anything that hardcodes clone URLs.**
+**Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
+2026-08-03 and **still private**. Plan 1 runs green, so the remaining gate on going public is
+the checklist below, not the code.
+
+The org is the **umbrella**, not one of the products — `comeni-labs`, `comeni-code` and
+`comeni-registry` sit under it as equals. Naming `comeni-labs` as the org was considered and
+rejected for that reason: Comeni Code is not a Lab, so `comeni-labs/comeni-code` reads wrong.
+
+Bare `comeni` is unavailable everywhere that matters — the GitHub user, and `comeni.org`,
+`comeni.com` and `comeni.net` are all registered and parked. `comeni.eu` was free as of
+2026-08-03 and is the recommended umbrella domain: it keeps the bare brand, and the clinical
+positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
 
 **Two things to do before flipping it public**, neither of which is urgent while it is private:
 

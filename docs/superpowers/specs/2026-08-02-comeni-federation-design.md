@@ -314,9 +314,12 @@ display of data the IR already carries.
 - **Overlay conflict across two private layers.** Two overlays shadowing the same public
   contract resolves by stack order, which is correct but silent within the private stack. If
   labs routinely run more than two layers this may want its own warning.
-- **Registry hosting.** The registry is the `comeni-registry` repository. Whether it also gets
-  a vanity domain is open; `registry.comeni.org` appears in this document as a placeholder and
-  no domain has been registered or checked.
-- **GitHub namespace.** `comeni` is taken on GitHub by an existing user account, and users and
-  organisations share one namespace, so the organisation carries a suffixed name. Every clone
-  URL and `git pull` instruction in these docs inherits whatever is chosen.
+- **Registry hosting — resolved enough to act on.** The registry is the `comeni-registry`
+  repository under `github.com/comeni-project`, and needs no hostname at all: §3.4 already argues
+  that pulling is `git pull` and verification is a signed tag plus a content digest. The earlier
+  `registry.comeni.org` placeholder is **dead** — `comeni.org` was checked on 2026-08-03 and is
+  registered to someone else. If a vanity host is ever wanted it hangs off whatever umbrella
+  domain is bought; nothing depends on one existing.
+- **GitHub namespace — resolved.** The organisation is `comeni-project`, chosen because the org
+  must be the umbrella over `comeni-labs`, `comeni-code` and `comeni-registry` rather than one of
+  them. `Comeni-Labs` was transferred to it on 2026-08-03.
