@@ -28,6 +28,11 @@ touch routing.
 | Layer ceremony | **None.** A rule file says nothing about layers |
 | Port logic | Disjunctive normal form, one level: a list of alternatives, AND within each |
 | `state_preferred` | Renamed `prefer`, and finally used — the tiebreak within a matched alternative |
+| What a rule may reason about | Declared measurements, not hardcoded `DataProfile` fields |
+| Measurement kinds | `integer`, `number`, `boolean`, `enum`. **No `string`** |
+| Enum extension | Closed by default; a declaration may opt into `extensible` |
+| Measurement versioning | None. The id is the meaning; changes get a new id and `replaced_by` |
+| Static typing | Generated stubs — derived, never authoritative, safe when stale |
 
 ---
 
@@ -52,8 +57,8 @@ of this design and the syntax is downstream of it.
 Two further gaps close as a consequence:
 
 - **Module choices carry no tier.** Spec §6.1 says every module choice exits at exactly one tier;
-  `IRNode` has no tier field, so only parameters are tiered. §6 below fixes this.
-- **`state_preferred` is dead.** Declared on `InputPort`, validated at load, never read. §7 gives
+  `IRNode` has no tier field, so only parameters are tiered. §7 below fixes this.
+- **`state_preferred` is dead.** Declared on `InputPort`, validated at load, never read. §8 gives
   it a job.
 
 ---
@@ -76,6 +81,7 @@ decisions:
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
       - when: {read_length: ">= 70"}  then: nf-core/star/align@1.11.0
+      - when: {read_length: "< 70"}   then: nf-core/hisat2/align@2.2.2
 ```
 
 One block per decision, rows underneath. The three strandedness rules were one concept split
@@ -89,7 +95,7 @@ branch, which flat rules actively hide.
 
 ## 4. Matching
 
-**Conditions.** `when` maps a `DataProfile` field to either a bare value, meaning equality, or a
+**Conditions.** `when` maps a declared measurement (§6) to either a bare value, meaning equality, or a
 string beginning with a comparison operator:
 
 ```yaml
@@ -120,7 +126,8 @@ makes §2's bug structurally impossible rather than merely fixed.
 | `{param: X}` | no contract in the registry declares a parameter `X` |
 | `{producer_of: T}` | `T` is not a type in the vocabulary |
 | `then:` of a `producer_of` block | contract id absent from the registry, or does not produce `T` |
-| every field in a `when` | not a field of `DataProfile` |
+| every key in a `when` | not a declared measurement |
+| a comparison on an `enum` | operators other than `==`/`!=` on a non-ordered kind |
 | two blocks, one target, one layer | duplicate decision |
 
 **The error message is the feature.** A rule table that will not load must say what the author
@@ -137,15 +144,161 @@ The last line carries most of the value. Every validation class gets a message o
 a test asserting it names the offending thing.
 
 **A rule table is only valid against a registry that can satisfy it.** Rules and contracts are
-coupled data. The shipped example currently violates this — `nf-core/hisat2/align@2.2.1` is not
-in `examples/contracts` — and under this design the file refuses to load. Since v1 scope excludes
-alternative aligners, the HISAT2 row is dropped rather than the module vendored. The aligner
-decision then has a single row, which demonstrates fallthrough honestly: reads under 70bp match
-nothing and the choice lands at tier 2 by ranking instead of tier 3 by rule.
+coupled data, and the worked example proved it: the short-read row named a HISAT2 contract that
+did not exist, so under this design the file would refuse to load. `hisat2/align` and
+`hisat2/build` were vendored on 2026-08-03 rather than the row dropped, because a pinned producer
+that cannot route is a build failure by design — a short-read rule resolving to an aligner with no
+index builder would be a trap rather than a branch.
 
 ---
 
-## 6. Module pinning, and a tier for every choice
+## 6. Measurements are declared data
+
+### 6.1 The problem this solves
+
+`DataProfile` is a Python class with four fields, so `when` can only ever reason about read
+length, strandedness, sample count and paired-ness. Adding `organism` means editing `goal.py`:
+a change to a pure package, a version bump, a release — something a bioinformatician cannot do
+and a curator cannot approve through the forge queue.
+
+So the tier-3 promise is *"rules are data a domain expert adds"* and the reality is *"as long as
+they only reason about four things somebody hardcoded"*. The first real rule table written by a
+laboratory hits this immediately.
+
+### 6.2 The declaration
+
+`examples/measurements/`, one file per measurement, named by id — the convention `vocabularies/`
+already uses.
+
+```yaml
+# examples/measurements/strandedness.yml
+kind: enum
+values: [forward, reverse, unstranded]
+description: "Library strandedness determined by the prep protocol"
+cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
+edam: "http://edamontology.org/data_3125"      # optional, where a term exists
+```
+
+```yaml
+# examples/measurements/read_length.yml
+kind: integer
+minimum: 1
+unit: bp
+description: "Sequenced read length"
+```
+
+**`kind` is closed: `integer`, `number`, `boolean`, `enum`. There is deliberately no `string`.**
+This is the load-bearing decision. A free-text measurement is precisely the hole
+`tests/test_egress.py` exists to close — `organism: "patient 4471023's tumour"` is a valid string.
+A categorical measurement declares its values instead, so there is nowhere for prose to go, and a
+rule over an enum can be checked for exhaustiveness in a way free strings would prevent.
+
+### 6.3 Enum extension is per-measurement
+
+Whether an enum may grow is a property of the measurement, because the semantics genuinely
+differ. `strandedness` has exactly three values and a fourth is a bug. `organism` can never be
+enumerated and a registry that tries is wrong.
+
+Closed is the default. A declaration may opt in:
+
+```yaml
+kind: enum
+extensible: true
+values: [homo_sapiens, mus_musculus]
+```
+
+Only then may an overlay contribute `add_values: [ambystoma_mexicanum]`. The effective set is the
+union, and each added value records the layer that added it. A closed enum is changed the way
+everything else is — by shadowing the whole declaration.
+
+### 6.4 Measurements are not versioned; the id is the meaning
+
+A measurement whose meaning changes gets a **new id**. The old declaration remains forever,
+marked `deprecated` with `replaced_by` naming its successor:
+
+```yaml
+# examples/measurements/read_length.yml
+kind: integer
+deprecated: true
+replaced_by: read_length_median
+description: "Ambiguous between mean and median across samples. Use read_length_median."
+```
+
+A rule using a deprecated measurement still loads and warns, naming the replacement.
+
+This is [OBO practice](https://oboacademy.github.io/obook/howto/obsolete-term/) — never reuse an
+identifier, keep obsolete terms indefinitely, point at the successor — which the ontologies this
+registry already cites have used for two decades. Per-measurement `@version` was considered and
+rejected: every rule condition would grow a version, and omitting one would silently mean
+*latest*, which is the ambiguity versioning was supposed to remove.
+
+### 6.5 `DataProfile` becomes a validated map
+
+```python
+class DataProfile(BaseModel):
+    measurements: dict[MeasurementId, MeasurementValue] = {}
+```
+
+Keys must be declared; values must satisfy their declaration. A `model_validator(mode="before")`
+accepts the existing mapping form, so **no goal file and no existing call site changes**:
+
+```yaml
+profile: {read_length: 150, strandedness: reverse}   # unchanged
+```
+```python
+DataProfile(read_length=150, strandedness="reverse") # unchanged
+```
+
+Validation needs the measurement registry, which the model cannot hold, so it happens through
+Pydantic validation context at a single construction point.
+
+**That single point is enforced, not documented.** `DataProfile` is constructible only through
+`MeasurementRegistry.profile(...)`, and an AST test asserts nothing else calls `DataProfile(` or
+`model_validate` on it — the third instance of the pattern `tests/test_purity.py` and
+`tests/test_egress.py` already use. Without it, a second construction path skipping the context
+would produce an unvalidated profile that flows straight into routing, which is exactly the class
+of silent failure that left `subject: aligner` dead for months.
+
+### 6.6 Static typing is generated, derived, and safe when stale
+
+Losing `profile.read_length: int` is the real cost. It is recovered with a generated `.pyi` stub
+carrying `Literal` overloads, most-specific first:
+
+```python
+@overload
+def get(self, id: Literal["read_length"]) -> int | None: ...
+@overload
+def get(self, id: Literal["strandedness"]) -> Literal["forward", "reverse", "unstranded"] | None: ...
+```
+
+The same generator emits a `.d.ts` for the frontend, and `mendel-api` serves the declarations so
+the dashboard renders profile forms from them — which means a laboratory's own measurements appear
+in the UI without a rebuild, better than the fixed struct it replaces.
+
+Three properties make this safe:
+
+- **Generated artifacts are never authoritative.** Runtime validation against declarations is the
+  only truth. A stale stub costs autocomplete, never correctness.
+- **Nothing is required to run the generator.** A lab declaring `organism.yml` gets full
+  validation immediately and autocomplete whenever someone regenerates.
+- **CI fails if regenerating the curated stubs produces a diff**, so rot is loud rather than
+  silent.
+
+A mypy plugin was considered and rejected: it would never go stale, but
+[pyright does not support plugins by design](https://github.com/microsoft/pyright/blob/main/docs/mypy-comparison.md),
+and pyright is Pylance, so most users would get nothing. [PEP 728](https://peps.python.org/pep-0728/)
+closed `TypedDict` is a better output format than overloads and is Final for Python 3.15, but mypy
+does not implement it yet. It is a future emit target, not a different design — the generator's
+output shape is one commit to change because nobody hand-edits it.
+
+### 6.7 Vocabularies must become layered too
+
+`Registry.load` takes layers; `Vocabulary.load` takes a single path. A laboratory declaring a
+measurement in its own overlay needs measurements to layer, and by the same argument a laboratory
+adding a *state* needs vocabularies to layer. Both become layered, keyed on id, with shadowing
+recorded as contracts already do. Small now, awkward later.
+
+## 7. Module pinning, and a tier for every choice
 
 A matching `producer_of` row **pins** the contract that satisfies that type for this build. The
 router uses the pin instead of ranking candidates.
@@ -170,7 +323,7 @@ product exists to remove.
 
 ---
 
-## 7. Ports in disjunctive normal form
+## 8. Ports in disjunctive normal form
 
 Today `InputPort.state_required` is a `frozenset` matched by subset test, so a port can only
 express AND. Practitioners routinely mean OR — *"a coordinate-sorted BAM or CRAM"* — and have no
@@ -214,7 +367,7 @@ rather than a missing operator in the language.
 
 ---
 
-## 8. Layer composition
+## 9. Layer composition
 
 `RuleTable.load` takes an ordered list of layers, like `Registry.load`, with precedence from
 `--registry` order. A higher layer declaring the same `decides` target **replaces that whole
@@ -233,7 +386,7 @@ not receiving upstream improvements to the others — is real, visible, and reco
 
 ---
 
-## 9. Impact on code
+## 10. Impact on code
 
 | File | Change |
 |---|---|
@@ -242,35 +395,52 @@ not receiving upstream improvements to the others — is real, visible, and reco
 | `mendel_resolver/resolve.py` | tier-3 branch calls `value_for`; populates `IRNode.selection` |
 | `comeni_core/ir.py` | `IRNode.selection: ResolvedValue` |
 | `comeni_core/contract.py` | `InputPort.accepts` and `prefer`; existing form kept as sugar |
-| `examples/rules/rnaseq.yml` | five flat rules become two decision blocks; HISAT2 row dropped |
+| `examples/rules/rnaseq.yml` | five flat rules become two decision blocks, both rows live |
+| `comeni_core/measurement.py` | new — `Measurement`, `MeasurementRegistry`, layered `load`, `profile()` |
+| `comeni_core/vocabulary.py` | `load` takes layers, shadowing recorded (§6.7) |
+| `mendel_resolver/goal.py` | `DataProfile` becomes a validated map with a before-validator |
+| `examples/measurements/*.yml` | new — the four current fields, declared |
+| `tools/generate_types.py` | new — declarations to `.pyi` and `.d.ts`; output is golden-tested |
 
 No package gains a dependency. Nothing here touches an egress door, a model, or the network, and
 `tests/test_purity.py` and `tests/test_egress.py` must pass unchanged.
 
 ---
 
-## 10. Testing
+## 11. Testing
 
 - **Golden file** — rules YAML in, parsed table out, byte-identical
 - **One test per validation class**, each asserting the message names the offending thing and
   lists the valid alternatives
 - **Determinism** — same profile, same decision, across repeated calls
-- **Tier assignment** — one test per row of §6's table
+- **Tier assignment** — one test per row of §7's table
 - **Pin failure** — an unroutable pin raises and the error names the rule
 - **Alternatives** — a port accepting BAM-or-CRAM routes from either, and records which
 - **The shipped example rules load against the shipped example registry.** One line, and it is
   what makes a dead rule impossible to ship again
+- **AST guard** — nothing constructs `DataProfile` outside `MeasurementRegistry.profile`
+- **Measurement kinds** — a `string` kind is rejected; an enum rejects an undeclared value; a
+  closed enum rejects `add_values`; an extensible one accepts it and records the layer
+- **Deprecation** — a rule over a deprecated measurement loads, warns, and names the replacement
+- **Generated types** — regenerating the curated stubs produces no diff; a stale stub does not
+  affect validation
 
 ---
 
-## 11. Open questions
+## 12. Open questions
 
 - **Rule provenance.** Contracts carry `provenance` with `approved_by` and `approved_at`. Rules
   carry `cite` but no approval record, and the forge will need one. Deferred to Plan 2, where the
   approval queue exists to write it.
-- **Profile fields are fixed.** `DataProfile` has four measurements, so `when` can only reason
-  about four things. Adding a fifth is a code change to a pure package, which sits awkwardly
-  beside "rules are data". Whether the profile should itself be declared data is unresolved.
+- **If the profile ever crosses an egress door.** Tier-4 resolution plausibly *should* see the
+  measurements — "what strandedness is this?" is exactly what you would want a model to know — and
+  `AmbiguityRequest` would then carry a measurement map. `tests/test_egress.py` currently forbids
+  `Any`-typed and plain-`str` payload fields; it would need teaching that a declared-key,
+  declared-value map is acceptable where a free map is not. Nothing crosses today, so this is a
+  decision deferred to when it arises, not a gap.
+- **Extensible enums and generated types.** An extensible enum's `Literal` union is
+  registry-specific, so a laboratory that widens one sees a false type error on correct code until
+  regeneration. Acceptable, and the reason generated artifacts are never authoritative.
 - **Ranking policies.** Issue #1 proposes that candidate ordering vary by purpose. A named policy
   and a rule-pinned producer both decide the same thing, and the interaction needs settling before
   both exist.
