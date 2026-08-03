@@ -1,5 +1,5 @@
 import pytest
-from mendel_resolver.goal import DataProfile, Goal
+from mendel_resolver.goal import DataProfile, Goal, GoalInput
 from mendel_resolver.rules import RuleTable
 from pydantic import ValidationError
 
@@ -75,3 +75,29 @@ def test_goal_has_nowhere_to_put_a_sample_identifier():
 def test_profile_rejects_unknown_measurements():
     with pytest.raises(ValidationError):
         DataProfile(read_length=150, sample_name="SILVA_biopsy_01")
+
+
+def test_a_path_cannot_enter_through_constraints():
+    """Invariant 15, at the door an audit walked straight through.
+
+    `constraints` was `dict[str, Any]`, so a filesystem path validated, reached main.nf
+    labelled tier 1 review `none`, and suppressed the tier-4 flag it replaced. The build
+    reported "0 requiring review" while carrying a patient path.
+    """
+    with pytest.raises(ValidationError):
+        Goal(constraints={"seq_platform": "/data/patients/PT-4471023/S1_R1.fastq.gz"})
+
+
+def test_a_declared_override_still_works():
+    goal = Goal(constraints={"params": [{"name": "seq_platform", "value": "illumina"}]})
+    assert goal.constraints.params[0].value == "illumina"
+
+
+def test_an_override_cannot_hold_a_structured_value():
+    with pytest.raises(ValidationError):
+        Goal(constraints={"params": [{"name": "x", "value": {"path": "/data/pt.fastq"}}]})
+
+
+def test_goal_input_rejects_a_filename():
+    with pytest.raises(ValidationError):
+        GoalInput(type_id="fastq.reads", filename="PT-4471023_R1.fastq.gz")

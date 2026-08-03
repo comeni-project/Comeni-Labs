@@ -55,7 +55,7 @@ def _surplus(contract: ModuleContract, type_id: str, states: frozenset[str]) -> 
 def route(goal: Goal, registry: Registry, max_depth: int = 10) -> RoutePlan:
     plan = RoutePlan()
     emitted: set[str] = set()
-    required_states: dict[str, list[str]] = goal.constraints.get("required_states", {})
+    required_states = goal.constraints.required_states
 
     def satisfy(type_id: str, states: frozenset[str], depth: int, visiting: frozenset[str]) -> None:
         if depth > max_depth:

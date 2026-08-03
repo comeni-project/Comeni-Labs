@@ -1,3 +1,9 @@
+# NOTE: the two `aligner` rules below never fire. `subject` is matched against
+# contract parameter names, and no contract declares `aligner`; `then: {module: ...}`
+# is ignored because the resolver reads only `then.value`. Both are fixed by
+# docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md, which
+# replaces `subject` with a validated `decides` target that refuses to load if it
+# cannot fire. They are kept as the worked example that spec is written against.
 rules:
   - id: aligner-long-reads
     subject: aligner
@@ -7,7 +13,7 @@ rules:
   - id: aligner-short-reads
     subject: aligner
     when: {read_length: {"<": 70}}
-    then: {module: nf-core/hisat2/align@2.2.1}
+    then: {module: nf-core/hisat2/align@2.2.2}
     citation: "HISAT2 handles short reads with lower memory (Kim et al. 2019)"
   - id: strandedness-reverse
     subject: strandedness

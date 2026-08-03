@@ -22,7 +22,13 @@ def _render_literal(value: object) -> str:
         return "true" if value else "false"
     if isinstance(value, int | float):
         return str(value)
-    return f"'{value}'"
+    text = str(value)
+    if any(ord(c) < 32 for c in text):
+        raise ValueError(f"control character in parameter value: {text!r}")
+    # Single-quoted Groovy. Unescaped, "it's fine" is a syntax error and a crafted value
+    # closes the quote and runs code — and in Plan 2 these values come from a model.
+    escaped = text.replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"
 
 
 def _channel_name(type_id: str) -> str:

@@ -10,13 +10,28 @@ from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal
 from mendel_resolver.resolve import resolve
+from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleTable
+from pydantic import ValidationError
 
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point. Wraps `_build` so a user mistake is a message, not a traceback."""
+    try:
+        return _build(argv)
+    except UnroutableError as exc:
+        print(f"mendel: cannot route this goal — {exc}", file=sys.stderr)
+    except ValidationError as exc:
+        print(f"mendel: this goal is not valid —\n{exc}", file=sys.stderr)
+    except (OSError, KeyError) as exc:
+        print(f"mendel: {exc}", file=sys.stderr)
+    return 2
+
+
+def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
     parser.add_argument("command", choices=["build"])
     parser.add_argument("--goal", type=Path, required=True)

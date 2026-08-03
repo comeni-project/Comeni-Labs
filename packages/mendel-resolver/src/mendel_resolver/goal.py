@@ -12,8 +12,7 @@ Sample identity enters at run time, in the laboratory's own environment, through
 process. See the clinical data-protection spec, §3.
 """
 
-from typing import Any
-
+from comeni_core.marks import ParamValue, PortName, StateName, TypeId
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -29,14 +28,40 @@ class DataProfile(BaseModel):
 
 
 class GoalInput(BaseModel):
-    type_id: str
-    states: frozenset[str] = frozenset()
+    model_config = ConfigDict(extra="forbid")
+
+    type_id: TypeId
+    states: frozenset[StateName] = frozenset()
+
+
+class ParamOverride(BaseModel):
+    """A parameter the user pinned. Closed, so it cannot carry a path.
+
+    Previously these lived as arbitrary keys in an open `dict[str, Any]`, which meant
+    `constraints: {seq_platform: /data/patients/PT-4471023/S1_R1.fastq.gz}` validated,
+    reached `main.nf`, was labelled tier 1 with review `none`, and *suppressed* the
+    tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: PortName
+    value: ParamValue
+
+
+class Constraints(BaseModel):
+    """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    required_states: dict[TypeId, list[StateName]] = Field(default_factory=dict)
+    params: list[ParamOverride] = Field(default_factory=list)
 
 
 class Goal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     have: list[GoalInput] = Field(default_factory=list)
-    want: list[str] = Field(default_factory=list)
-    constraints: dict[str, Any] = Field(default_factory=dict)
+    want: list[TypeId] = Field(default_factory=list)
+    constraints: Constraints = Field(default_factory=Constraints)
     profile: DataProfile = Field(default_factory=DataProfile)

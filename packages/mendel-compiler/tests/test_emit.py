@@ -116,3 +116,25 @@ def test_config_declares_every_entry_parameter_as_null():
     for name in entry_params(_ir(), _registry(), _vocab()):
         assert f"{name} = null" in config
     assert "stub_data" in config
+
+
+def test_a_quote_in_a_value_does_not_break_or_escape_the_literal():
+    """Unescaped, "it's fine" is a Groovy syntax error and a crafted value runs code.
+
+    In Plan 2 these values come from a model reading a user's prompt, so this is the
+    boundary between goal text and executed Groovy.
+    """
+    from mendel_compiler.emit import _render_literal
+
+    assert _render_literal("it's fine") == r"'it\'s fine'"
+    assert _render_literal(r"a\b") == r"'a\\b'"
+    injected = _render_literal("x'; new File('/etc/passwd').text; //")
+    assert injected.count("'") == injected.count(r"\'") + 2
+
+
+def test_a_control_character_is_refused():
+    import pytest
+    from mendel_compiler.emit import _render_literal
+
+    with pytest.raises(ValueError, match="control character"):
+        _render_literal("bad\nvalue")

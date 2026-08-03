@@ -151,9 +151,10 @@ def _resolve_param(
     decisions: list[DecisionRecord],
 ) -> ResolvedValue:
     # Tier 1 — the goal states it outright. No choice exists.
-    if param_name in goal.constraints:
+    override = next((o for o in goal.constraints.params if o.name == param_name), None)
+    if override is not None:
         return ResolvedValue(
-            value=goal.constraints[param_name],
+            value=override.value,
             tier=Tier.STRUCTURAL,
             reason=f"specified in the goal as {param_name}",
         )
@@ -179,7 +180,10 @@ def _resolve_param(
     ambiguity = Ambiguity(
         node_id=node_id,
         subject=param_name,
-        candidates=[default] if default is not None else [None],
+        # Tier 2 already returned when a default existed, so there is exactly one
+        # candidate and it is None. Real alternatives arrive with the rule-tables
+        # spec, which gives a parameter a declared domain to draw them from.
+        candidates=[None],
         context={"tier_hint": tier_hint},
     )
     resolution = resolver.resolve(ambiguity)
