@@ -10,28 +10,29 @@ The product claim, which every design decision serves:
 
 ## Current state
 
-**Plan 1 is complete and merged** (2026-08-03). 86 tests green, `ruff check` clean, and
-`uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub` runs the RNA-seq
-spine end to end — five wired nf-core modules, every parameter carrying a tier, one tier-4 flag
-listed. `comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+**Plan 1 and the measurements/rules/profiling plan are both complete** (2026-08-03). 164 tests
+green, `ruff check` clean, and `uv run mendel build --goal examples/rnaseq-goal.yml --out build/
+--gate stub` runs the RNA-seq spine end to end with `gate stub: PASS`. `uv run mendel profile
+--have fastq.reads --out profile-build/` emits a pipeline that measures. `comeni-core`,
+`mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
 
-Two specs are **approved and unimplemented**, and both change types Plan 1 shipped — read them
-before touching `contract.py`, `rules.py`, `router.py` or `goal.py`.
+**Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
+and its load order, routing, both tier ladders, ports versus channels, and the three guards —
+written against the types that exist.
 
-An independent audit on 2026-08-03 defeated all three test-enforced invariants (1, 14, 15).
-**C1 and C4 are fixed; C2 and C3 are open and block Plan 2.** The audit document is the working
-list — read it before trusting an invariant.
+The 2026-08-03 audit's defects (C1–C4) are all closed.
 
 | Read this | For |
 |---|---|
-| `docs/superpowers/specs/2026-08-02-mendel-design.md` | the architecture. **Read before writing code.** |
+| `docs/superpowers/specs/2026-08-02-mendel-design.md` | the original design rationale. `ARCHITECTURE.md` is what the code does. |
 | `docs/superpowers/specs/2026-08-02-comeni-federation-design.md` | provider access, registry stacking, pipeline publication, licensing |
 | `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
-| `docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md` | tier-3 rule format, module pinning, port alternatives. **Approved, unimplemented.** |
-| `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Approved, unimplemented.** |
-| `docs/superpowers/audits/2026-08-03-plan-1-audit.md` | **open defects.** C2 and C3 block Plan 2. Read before touching egress or `Goal`. |
+| `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
+| `docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md` | tier-3 rule format, module pinning, port alternatives. **Implemented.** |
+| `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Implemented.** |
+| `docs/superpowers/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
-| `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` | **Next.** 11 tasks implementing both 2026-08-03 specs. Pure packages, zero AI. |
+| `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -49,31 +50,25 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
-- **Plan 1 is done and audited.** The next work is
-  `docs/superpowers/plans/2026-08-03-measurements-rules-and-profiling.md` — 11 tasks covering both
-  2026-08-03 specs in one plan, because measurements are types, rules validate against measurements,
-  and profiling produces them; splitting would make two plans each depending on half the other.
+- **Plan 1 and the measurements plan are done.** The next work is **Plan 2.5**, which is now
+  writable: it referenced types that existed only as text, and those types exist now.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
 reachable.
 
-**Task 11 ships a known defect on purpose.** `_calls` gives every node with no incoming edge
-the same `ch_reads` channel — right for `FASTQC` and `TRIMGALORE`, wrong for
-`STAR_GENOMEGENERATE`, which needs the GTF channel. Task 12's `-stub-run` gate is what
-surfaces it. Fix it *then*, test-first, by keying entry channels on the port's `type_id`.
-Do not pre-empt it; the failing gate is the point.
+**Plan 2.5 is now writable, and writing it is the next job.** It is designed (federation spec
+§8: lockfiles, `mendel publish`, `mendel upgrade`, the pipeline catalogue, the pipeline review
+screens, and the registry split out of `examples/`) and was deliberately left unwritten because
+its code steps referenced `PipelineIR.shadowed`, `DecisionRecord` fields and the lockfile shape
+— things that existed only as text. Those types exist now. Write it against them.
 
-**Do not write Plan 2.5 yet.** It is designed (federation spec §8: lockfiles, `mendel
-publish`, `mendel upgrade`, the pipeline catalogue, the pipeline review screens, and the
-registry split out of `examples/`) but deliberately unwritten, and its absence is not an
-oversight. Its code steps reference `PipelineIR.registry_layers`, `PipelineIR.shadowed`,
-`DecisionRecord` fields and the lockfile shape — all of which exist only as text inside Plan 1
-until Plan 1 builds them. Plans 2 and 3 were written ahead of Plan 1 in one sitting and the
-cross-plan review found three defects, two of them plans referencing things that had drifted;
-Task 5's own signature changed shape mid-implementation today. **Write Plan 2.5 after Plan 1
-runs green, against real types rather than predicted ones.**
+That rule earned itself again on 2026-08-03: the measurements plan predicted a YAML row syntax
+that does not parse, a producer pin that makes the spine unbuildable, a `mendel profile` whose
+`want` cannot route, and a `.pyi` that would have hidden three types from every type checker.
+All four were written in good faith against types that did not exist yet. **Write plans against
+code, and expect to correct a plan you are executing.**
 
 ## The three Labs
 
@@ -115,7 +110,9 @@ Violating any of these breaks the product claim, not just a test.
    survives having a model in the loop.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
 11. **The registry is a stack**: public curated base, then private overlays. A layer is a
-    **directory** holding `contracts/`, `rules/` and `vocabularies/`, and all three stack. A higher layer
+    **directory** holding `contracts/`, `rules/`, `vocabularies/` and `measurements/`, and all
+    four stack. Load them through `mendel_resolver.layers.load()`, never by hand: they are not
+    independent, and the wrong order fails inside a contract rather than at the caller. A higher layer
     sharing a **module key** (the contract ID minus `@version`) shadows every lower-layer
     contract for that module and writes a `ShadowRecord`. A different module key is an
     ordinary candidate and obeys invariant 8. Keying on the module key rather than the full ID
@@ -136,10 +133,15 @@ Violating any of these breaks the product claim, not just a test.
     so widening the boundary means editing a test that says these are all the ways data leaves.
     Publication is the door with no undo.
 15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or
-    path. `Goal` holds type IDs, states and four measurements — a shape, not data. Profiling
+    path. `Goal` holds type IDs, states and declared measurements — a shape, not data. Profiling
     happens where the data is; the emitted pipeline references `params.input` as a placeholder
-    the lab fills at run time. This is currently true by accident and is one plausible dashboard
-    feature away from being false.
+    the lab fills at run time, and `mendel profile` writes `value: null` because it has emitted
+    a pipeline and not run one.
+    Since measurements became declared data the model can no longer refuse an undeclared key, so
+    the guard moved rather than weakened: `MeasurementRegistry.profile()` is the only validating
+    constructor, `tests/test_construction.py` enforces that nothing else builds a `DataProfile`,
+    and `mendel build` re-routes every goal's profile through it. Delete that one call and
+    `profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
 
 ## The four tiers
 
@@ -154,6 +156,9 @@ Every module choice and parameter exits at exactly one tier and carries it forev
 
 Tier 3 is yellow rather than silent on purpose: a rule match is only as good as the
 measurement behind it. Yellow means "the machinery worked, check the premise."
+
+Module choices carry a tier too, in `IRNode.selection`, and `needs_review()` lists a tier-4 one
+by node rather than only as a `DecisionRecord` a reviewer would have to join by hand.
 
 ## The three protection profiles
 
@@ -197,13 +202,13 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-examples/      vocabularies/ rules/ contracts/ + rnaseq-goal.yml — TEST FIXTURES ONLY
+examples/      vocabularies/ measurements/ rules/ contracts/ + rnaseq-goal.yml — FIXTURES ONLY
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 frontend/      React + TS + Vite + Tailwind SPA
 ```
 
 **The registry is a separate repository.** `comeni-registry` holds the real `contracts/`,
-`rules/` and `vocabularies/` under CC-BY-4.0 with signed tags; this repo holds only enough
+`rules/`, `vocabularies/` and `measurements/` under CC-BY-4.0 with signed tags; this repo holds only enough
 hand-written data under `examples/` for tests to run. The split happens at Plan 2.5 — until
 then, do not treat `examples/` as a registry or add contracts there expecting them to ship.
 `Registry.load()` takes paths, which is what keeps the move cheap. It globs `*.yml` recursively
@@ -277,7 +282,7 @@ conversation is a loose end lost.
 | 1 | routing ties should ask a human; scoring should vary by purpose | nothing — needs design |
 | 2 | `sealed` must block tier-3 decisions on asserted measurements | Plan 2's `ProfilePolicy` |
 | 3 | generated `.d.ts` and a `/measurements` endpoint | Plan 3's `mendel-api` |
-| 4 | `DataProfile` belongs in `comeni-core` | nothing — mechanical |
+| ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
 
 ## Commands
 
@@ -294,8 +299,14 @@ uvx nf-core modules install --dir vendor samtools/sort
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
+# emit a pipeline that measures, plus profile.yml naming what measures what
+uv run mendel profile --have fastq.reads --out profile-build/
+
+# regenerate the measurement type stub; --check is what CI runs
+uv run python tools/generate_types.py
+
 # same build, with the lab's private contracts stacked over the public registry
-# a registry layer is a DIRECTORY holding contracts/, rules/ and vocabularies/
+# a layer is a DIRECTORY holding contracts/, rules/, vocabularies/ and measurements/
 uv run mendel build --goal examples/rnaseq-goal.yml \
   --registry examples/ --registry ./lab-registry --out build/
 
@@ -367,6 +378,19 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
 - **Guards must be watched failing.** `test_purity.py` and `test_egress.py` only mean something
   because someone broke them on purpose and saw the message. Doing that to the egress guard found
   a hole: a bare `user_note: str` passed every rule it had.
+- **A `.pyi` replaces its module rather than adding to it.** A stub covering half a module
+  makes the other half invisible to every type checker — a correctness cost, not an
+  autocomplete one. `tools/generate_types.py` emits the whole public surface of
+  `comeni_core.profile`, and a test asserts it stays complete and parses.
+- **A producer pin binds only where the pinned contract is a candidate.** featureCounts asks
+  for `alignment.bam[coordinate_sorted]`, whose only producer is the sorter; the aligner rule
+  applies one level down, on the sorter's own BAM input. Treating a pin as binding everywhere
+  makes the spine unroutable. `UnroutablePinError` is for the genuine contradiction — pin
+  selected, its own inputs unreachable.
+- **`build/` in `.gitignore` swallowed a vendored module.** It was meant for the CLI's default
+  output directory and also matched `vendor/modules/nf-core/hisat2/build/`, so the module every
+  short-read decision depends on was never committed and no test noticed — the main checkout had
+  the files untracked on disk. A worktree is what surfaced it. Anchor such patterns: `/build/`.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy

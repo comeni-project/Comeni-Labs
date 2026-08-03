@@ -32,26 +32,31 @@ require.
 
 **Mendel does not receive patient data.** Not "anonymises" — genetic data are not reliably
 anonymisable, and pseudonymised data remains personal data under GDPR Article 9. A `Goal` holds
-type identifiers, states and four measurements: a shape, not data. There is no field for a
+type identifiers, states and declared measurements: a shape, not data. There is no field for a
 filename, a path or a sample identifier, and a test asserts there is nowhere to put one.
 
 ---
 
 ## Status
 
-**Plan 1 is complete.** A typed goal becomes a runnable RNA-seq pipeline with no AI involved
-anywhere. 99 tests, and `-stub-run` executes the whole DAG green against real `nf-core` modules.
+**Plans 1 and 2 are complete.** A typed goal becomes a runnable RNA-seq pipeline with no AI
+involved anywhere. 165 tests, and `-stub-run` executes the whole DAG green against real `nf-core`
+modules.
 
 Built:
 
-- `comeni-core` — contracts, closed type vocabularies, the pipeline IR, the layered registry
-- `mendel-resolver` — the four-tier ladder, backward-chaining router, tier-3 rule tables
-- `mendel-compiler` — IR to Nextflow DSL2, validation gates, the `mendel` CLI
+- `comeni-core` — contracts, closed type vocabularies, declared measurements, the pipeline IR,
+  the layered registry
+- `mendel-resolver` — the four-tier ladder, backward-chaining router, validated tier-3 decision
+  tables, module pinning, ports that accept alternatives
+- `mendel-compiler` — IR to Nextflow DSL2, validation gates, `mendel build` and `mendel profile`
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) describes how those fit together, written against the types
+that exist rather than the ones a plan predicted.
 
 Not built yet, and named so nothing here reads as more finished than it is: the AI adapters and
-the contract forge (Plan 2), the FastAPI surface and React dashboard (Plan 3), pipeline
-publication and lockfiles (Plan 2.5), and the declared-measurement and rule-table work that two
-approved specs describe.
+the contract forge (Plan 2), the FastAPI surface and React dashboard (Plan 3), and pipeline
+publication and lockfiles (Plan 2.5).
 
 ---
 
@@ -81,8 +86,26 @@ time while containers pull:
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 ```
 
-A laboratory's own contracts, rules and types stack over the public ones. A registry layer is a
-directory holding `contracts/`, `rules/` and `vocabularies/`; later layers win:
+Rules reason about *measured* properties of the data, so there is a verb for measuring them.
+`mendel profile` emits a pipeline that measures what this registry knows how to measure, plus a
+`profile.yml` recording which module produces each value — with `value: null`, because the
+pipeline has been emitted and not run:
+
+```bash
+uv run mendel profile --have fastq.reads --out profile-build/
+```
+
+```
+profiling for: read_length
+  NOT MEASURED  n_samples, paired, strandedness — declared, but no contract in this registry produces them
+```
+
+The laboratory runs that pipeline, fills the values in, and the same file goes back into a goal's
+`profile:` block. Mendel never sees the data.
+
+A laboratory's own contracts, rules, types and measurements stack over the public ones. A
+registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` and
+`measurements/`; later layers win:
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml \
@@ -164,6 +187,7 @@ summarised away.
 | [`specs/…-mendel-design.md`](docs/superpowers/specs/2026-08-02-mendel-design.md) | the architecture |
 | [`specs/…-comeni-federation-design.md`](docs/superpowers/specs/2026-08-02-comeni-federation-design.md) | registry stacking, publication, licensing |
 | [`specs/…-clinical-data-protection-design.md`](docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md) | clinical use, the egress boundary, protection profiles |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | how the five stages fit together, against real types |
 | [`specs/…-rule-tables-and-port-logic-design.md`](docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md) | tier-3 rule format, declared measurements |
 | [`specs/…-profiling-design.md`](docs/superpowers/specs/2026-08-03-profiling-design.md) | where measurements come from |
 | [`audits/…-plan-1-audit.md`](docs/superpowers/audits/2026-08-03-plan-1-audit.md) | an independent audit that defeated all three test-enforced invariants, and the fixes |

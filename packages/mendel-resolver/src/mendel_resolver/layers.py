@@ -36,10 +36,16 @@ class Layers(BaseModel):
     rules: RuleTable
 
 
-def load(layers: Path | Sequence[Path]) -> Layers:
-    """Load a registry layer stack. Later layers win, as everywhere else."""
-    if isinstance(layers, Path):
+def load(layers: str | Path | Sequence[str | Path]) -> Layers:
+    """Load a registry layer stack. Later layers win, as everywhere else.
+
+    A bare `str` is accepted because a `str` is also a `Sequence`, so refusing it by type
+    is not something the signature can do: `load("examples")` would iterate the string
+    into single characters and fail somewhere unrecognisable.
+    """
+    if isinstance(layers, str | Path):
         layers = [layers]
+    layers = [Path(layer) for layer in layers]
     measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
