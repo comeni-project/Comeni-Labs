@@ -13,7 +13,7 @@ process. See the clinical data-protection spec, §3.
 """
 
 from comeni_core.marks import ParamValue, PortName, StateName, TypeId
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class DataProfile(BaseModel):
@@ -32,6 +32,10 @@ class GoalInput(BaseModel):
 
     type_id: TypeId
     states: frozenset[StateName] = frozenset()
+
+    @field_serializer("states")
+    def _sorted(self, states: frozenset[str]) -> list[str]:
+        return sorted(states)
 
 
 class ParamOverride(BaseModel):

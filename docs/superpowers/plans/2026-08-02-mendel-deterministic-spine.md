@@ -69,7 +69,7 @@ comeni-labs/
 │  ├─ rules/rnaseq.yml                     tier-3 rules
 │  ├─ contracts/nf-core/                   hand-written module contracts
 │  └─ rnaseq-goal.yml                      the example goal
-├─ modules/nf-core/                        vendored nf-core module code
+├─ vendor/modules/nf-core/                 vendored nf-core module code
 └─ tests/golden/                           goal → expected IR → expected .nf
 ```
 
@@ -77,8 +77,9 @@ Registry data lives under `examples/` rather than at the repository root because
 test fixtures, not a registry. The real `contracts/`, `rules/` and `vocabularies/` move to the
 `comeni-registry` repository at Plan 2.5 (federation spec §3.4); keeping them under `examples/`
 now makes that move a change to configuration rather than a relocation of the repository's
-top-level shape. `modules/` stays at the root — vendored nf-core code is not registry data and
-does not move.
+top-level shape. `vendor/` holds the vendored nf-core tree — module code, `modules.json`, `.nf-core.yml` and
+`conf/`. It is not registry data and does not move at Plan 2.5. `nf_include` is the path a module
+takes *inside the generated pipeline*, which is deliberately not where this repository keeps it.
 
 `Registry.load()` globs `*.yml` recursively under each layer directory, so `examples/contracts/`
 must hold contracts and nothing else. The goal file sits one level up, in `examples/`, for

@@ -36,9 +36,17 @@ class Registry(BaseModel):
         shadowed: list[ShadowRecord] = []
 
         for layer in layers:
-            incoming = {}
+            incoming: dict[str, ModuleContract] = {}
             for path in sorted(layer.rglob("*.yml")):
                 contract = ModuleContract.load(path, vocab)
+                if contract.id in incoming:
+                    # Shadowing *between* layers is a declaration and is recorded. Twice
+                    # in one layer is a copy-paste, and resolving it by glob order would
+                    # be the silent arbitrary pick invariant 8 exists to prevent.
+                    raise ValueError(
+                        f"{contract.id} is declared twice in {layer}: {path.name} "
+                        f"duplicates an earlier file"
+                    )
                 incoming[contract.id] = contract
 
             keys = {module_key(cid) for cid in incoming}

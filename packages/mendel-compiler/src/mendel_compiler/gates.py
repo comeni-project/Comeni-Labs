@@ -16,8 +16,13 @@ class Gate(StrEnum):
 
 _ARGS: dict[Gate, list[str]] = {
     Gate.LINT: ["nextflow", "lint", "main.nf"],
-    Gate.PREVIEW: ["nextflow", "run", "main.nf", "-preview", "-profile", "test"],
+    Gate.PREVIEW: ["nextflow", "run", "main.nf", "-preview", "-profile", "stub_data"],
     Gate.STUB: ["nextflow", "run", "main.nf", "-stub-run", "-profile", "stub_data,docker"],
+    # TEST alone keeps `-profile test`, which `emit_config` deliberately does not emit:
+    # a real test profile needs real reference data, and shipping fixtures as if they
+    # demonstrated biological correctness would be the dishonest kind of green. The
+    # laboratory supplies it. Until then this gate cannot pass, and the v1 criterion —
+    # stated in terms of `-profile test` — is not reachable from this repository alone.
     Gate.TEST: ["nextflow", "run", "main.nf", "-profile", "test"],
 }
 

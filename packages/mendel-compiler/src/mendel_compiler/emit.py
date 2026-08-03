@@ -1,6 +1,7 @@
 """IR to Nextflow DSL2. Deterministic: same IR, byte-identical output."""
 
 from pathlib import Path
+from typing import NamedTuple
 
 from comeni_core.contract import ModuleContract, NfInput
 from comeni_core.ir import PipelineIR
@@ -9,6 +10,19 @@ from comeni_core.vocabulary import Vocabulary
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 _TEMPLATES = Path(__file__).parent / "templates"
+
+
+class _ParamView(NamedTuple):
+    """What the template needs from a resolved parameter.
+
+    Was an anonymous `type("V", (), {...})()`, which the plan's own constraint — no
+    dicts-as-models — forbids in spirit: the same idea wearing a class.
+    """
+
+    tier: object
+    review_level: object
+    reason: str
+    rendered: str
 
 def _empty(width: int) -> str:
     """An empty tuple of the arity the process declares."""
@@ -120,16 +134,12 @@ def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) ->
             "params": [
                 (
                     name,
-                    type(
-                        "V",
-                        (),
-                        {
-                            "tier": value.tier,
-                            "review_level": value.review_level,
-                            "reason": value.reason,
-                            "rendered": _render_literal(value.value),
-                        },
-                    )(),
+                    _ParamView(
+                        tier=value.tier,
+                        review_level=value.review_level,
+                        reason=value.reason,
+                        rendered=_render_literal(value.value),
+                    ),
                 )
                 for name, value in sorted((b.name, b.value) for b in node.params)
             ],

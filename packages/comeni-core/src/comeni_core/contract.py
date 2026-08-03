@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from comeni_core.vocabulary import Vocabulary
 
@@ -16,11 +16,20 @@ class InputPort(BaseModel):
     state_preferred: frozenset[str] = frozenset()
     cardinality: str = "1"
 
+    @field_serializer("state_required", "state_preferred")
+    def _sorted(self, states: frozenset[str]) -> list[str]:
+        """Plan 2.5's lockfile pins a contract digest, which hashes exactly these."""
+        return sorted(states)
+
 
 class OutputPort(BaseModel):
     name: str
     type_id: str
     state: frozenset[str] = frozenset()
+
+    @field_serializer("state")
+    def _sorted(self, states: frozenset[str]) -> list[str]:
+        return sorted(states)
 
 
 class Param(BaseModel):

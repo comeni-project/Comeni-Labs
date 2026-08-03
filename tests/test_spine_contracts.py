@@ -139,3 +139,23 @@ def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
     }
     assert fed_by["subread_featurecounts"] == "samtools_sort"
     assert "samtools_index" in [n.id for n in ir.nodes]
+
+
+# Two shipped rules can never fire: `subject` is matched against contract parameter
+# names and no contract declares `aligner`. Documented in the rule-tables spec, which
+# replaces `subject` with a validated `decides` target and refuses to load a rule that
+# cannot fire. Until then this literal is the record — a *third* dead rule fails the day
+# it appears, and when the spec lands the set empties and this test deletes itself.
+KNOWN_DEAD_RULES = {"aligner-long-reads", "aligner-short-reads"}
+
+
+def test_no_new_dead_rules_are_shipped(registry):
+    from mendel_resolver.rules import RuleTable
+
+    rules = RuleTable.load(ROOT / "examples" / "rules")
+    declared = {p.name for c in registry.all() for p in c.params}
+    dead = {rule.id for rule in rules.rules if rule.subject not in declared}
+    assert dead == KNOWN_DEAD_RULES, (
+        f"dead rules changed — cannot fire: {sorted(dead)}; "
+        f"contract parameters that exist: {sorted(declared)}"
+    )

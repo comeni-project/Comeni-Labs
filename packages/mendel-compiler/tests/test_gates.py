@@ -4,6 +4,7 @@ import pytest
 from mendel_compiler.gates import Gate, GateResult, run_gate
 
 
+@pytest.mark.skipif(shutil.which("nextflow") is None, reason="nextflow not installed")
 def test_gate_result_reports_failure_with_output(tmp_path):
     """A failure must carry its diagnostics. Which stream they arrive on is Nextflow's business.
 
