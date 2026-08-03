@@ -5,8 +5,8 @@
 **Mockup:** [`forge-review.html`](forge-review.html) — self-contained, open in a browser.
 
 Design for the curator-facing screens described in
-[Plan 2](../superpowers/plans/2026-08-02-mendel-ai-and-forge.md), Tasks 8–10. Shares the
-token system in [the dashboard design](2026-08-02-mendel-dashboard-design.md); only the
+[Plan 2](../internal/plans/2026-08-02-mendel-ai-and-forge.md), Tasks 8–10. Shares the
+token system in [the dashboard design](dashboard.md); only the
 additions are recorded here.
 
 ---
@@ -65,8 +65,8 @@ it; clicking opens the code stage and highlights that line. An unjustifiable inf
 nowhere to hide.
 
 The queue shows the same encoding as a proportion bar per row, which makes scrutiny cost
-legible before you open anything: `nf-core/fastqc` is mostly copied and batch-approvable,
-`pegi3s/blast` is 12% copied and needs a careful read.
+legible before you open anything: `nf-core/fastqc` is mostly copied and batch-approvable, while a contract drafted from
+prose documentation is largely inferred and needs a careful read.
 
 ---
 
@@ -107,13 +107,15 @@ than showing an ambiguous blank.
 
 ## 8. Known gaps
 
-- **pegi3s ingestion needs its own layout.** Its sources are a `Dockerfile` and prose
-  `README.md`, so nearly every field is inferred and the evidence panel would be showing
-  English rather than declarations. The nf-core layout does not fit that case well.
+- **Ingesting prose documentation needs its own layout.** Where a source documents a tool
+  in a `README.md` rather than a structured schema — the `pegi3s` repository, most
+  in-house tools — the evidence panel would be showing English rather than declarations,
+  and more fields are inferred than copied. The nf-core layout does not fit that case, and
+  the review it calls for is a different kind of reading.
 - **Tier-3 rule proposals are designed for but not drafted.** The queue's `kind` filter
   includes rules; no drafter emits them yet (see Plan 2 self-review).
 - **Pipeline review is a separate screen set, not yet designed.** The
-  [federation spec](../superpowers/specs/2026-08-02-comeni-federation-design.md) adds
+  [federation spec](federation.md) adds
   `kind: pipeline` to the queue, but it asks a different question — *is this a defensible way
   to do this analysis?* rather than *does the source support this claim?* — so it needs its
   own stages and its own evidence panel. Plan 2.5.

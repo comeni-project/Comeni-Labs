@@ -1,0 +1,69 @@
+name: Registry proposal
+description: Propose a contract, rule, measurement or vocabulary state
+labels: [registry]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Registry data is the most valuable kind of contribution and needs no Python.
+
+        If you already have the YAML, open a pull request instead — this template is for
+        proposing something you would like to exist, or checking an approach before you
+        write it.
+
+        Guides: [writing a contract](../blob/main/docs/guides/writing-a-contract.md) ·
+        [writing a rule](../blob/main/docs/guides/writing-a-rule.md) ·
+        [measurements](../blob/main/docs/guides/measuring-your-data.md)
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind
+      options:
+        - Contract — a module Mendel should know about
+        - Rule — a choice that should depend on measured data
+        - Measurement — a property of the data that rules should be able to reason about
+        - Vocabulary state — a semantic state a type should be able to carry
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What, and why it belongs
+      description: |
+        For a contract: the tool, and what it consumes and produces *semantically* —
+        not the file types, but the states. "Takes a BAM in any state, gives back one
+        that is coordinate-sorted."
+
+        For a rule: the decision, and the branches you would write.
+    validations:
+      required: true
+
+  - type: textarea
+    id: citation
+    attributes:
+      label: Citation
+      description: |
+        For a rule this is close to mandatory — a tier-3 decision carries its citation
+        into the generated pipeline, and that is most of the value. A benchmark, a paper,
+        or a documented tool default all count. "It is what nf-core does" is acceptable
+        if you link to where.
+    validations:
+      required: true
+
+  - type: input
+    id: module
+    attributes:
+      label: Upstream module
+      description: For a contract — the nf-core module or container image, if one exists.
+      placeholder: nf-core/samtools/sort
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Please confirm
+      options:
+        - label: I checked that this is not already in `examples/`
+        - label: For a rule — every measurement it needs is declared, or I am proposing that too
+        - label: I understand nothing enters a registry automatically; a human approves it

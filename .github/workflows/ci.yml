@@ -1,0 +1,74 @@
+name: CI
+
+# The fast lane: no Docker, about a minute. This is what gates a pull request, so it
+# has to cover the three invariant guards and the determinism tests. The `-stub-run`
+# gate needs containers and lives in nightly.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync the workspace
+        run: uv sync --locked --python ${{ matrix.python-version }}
+
+      - name: Lint
+        run: uv run ruff check .
+        # `ruff check` and not `ruff format --check`: 28 files are hand-wrapped in ways
+        # the formatter would undo, and a formatting sweep belongs in its own reviewable
+        # commit rather than as a wall of noise across every future pull request.
+
+      - name: Tests
+        run: uv run pytest -v
+        # Includes tests/test_purity.py, tests/test_egress.py and
+        # tests/test_construction.py — the three guards — plus the determinism
+        # tests, which re-run the build under several PYTHONHASHSEED values.
+
+      - name: Generated type stubs are fresh
+        run: uv run python tools/generate_types.py --check
+        # A stale stub costs autocomplete and never correctness, which is exactly
+        # why nobody would notice it rotting.
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build every distribution
+        run: |
+          for package in comeni-core mendel-resolver mendel-compiler; do
+            uv build --package "$package" --out-dir dist
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+          retention-days: 7

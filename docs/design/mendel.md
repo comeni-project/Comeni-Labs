@@ -3,9 +3,9 @@
 **Date:** 2026-08-02
 **Status:** Design approved, ready for implementation planning
 **Scope:** Mendel only. Wiener, Nightingale and Comeni Code are separate specs.
-**Amended by:** [`2026-08-02-comeni-federation-design.md`](2026-08-02-comeni-federation-design.md)
+**Amended by:** [`federation.md`](federation.md)
 — provider access, registry stacking, pipeline publication, curation, licensing.
-**Amended by:** [`2026-08-03-clinical-data-protection-design.md`](2026-08-03-clinical-data-protection-design.md)
+**Amended by:** [`clinical-data-protection.md`](clinical-data-protection.md)
 — clinical use, the egress boundary, protection profiles, lockfile scope. Where these differ,
 the later amendment wins.
 
@@ -356,10 +356,10 @@ vocabulary state**, **new tier-3 rule** — with the same review UI, versioning 
 provenance stamp. That uniformity is worth real effort saved.
 
 **v1 ingestion:** `nf-core` `meta.yml`.
-**Later:** `pegi3s` Docker images. Their 190 tool directories carry `Dockerfile` +
-prose `README.md` only — no structured metadata — so ingesting them means parsing
-English, which is strictly harder and is a capability the tool should grow into rather
-than start with.
+**Later:** the `pegi3s` tool repository — ~190 containerised tools, each with a
+`Dockerfile` and a documented `README.md`. The documentation is prose rather than a
+structured schema, so ingesting it means reading English: a harder capability, and one
+the forge should grow into rather than start with. The breadth makes it worth doing.
 
 ---
 
@@ -408,7 +408,7 @@ comeni-labs/
 │  └─ contracts/            module contracts
 ├─ modules/nf-core/         vendored nf-core module code
 ├─ frontend/                React + TS + Vite + Tailwind SPA
-└─ docs/superpowers/specs/  this spec
+└─ docs/design/            this spec
 ```
 
 The registry data sits under `examples/` rather than at the root because this repository holds
@@ -460,6 +460,6 @@ Withdrawn rather than deferred:
   rather than raised as exceptions.
 - **nf-core/modules** — `meta.yml` as ingestion scaffold; stub blocks as a validation
   tier.
-- **auto-phylo / auto-phylo-pipeliner** (pegi3s) — an existing Docker-based pipeline
-  maker with a GUI from the host lab. Noted as prior art and as the comparison Mendel
-  will be measured against. Its implementation is not a model to follow.
+- **pegi3s tool repository** — ~190 containerised bioinformatics tools, each with a
+  `Dockerfile` and a documented `README.md`. A substantial curated body of tooling, and
+  the ingestion source the forge should grow into after `nf-core`.
