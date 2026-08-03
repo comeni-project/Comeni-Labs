@@ -1,6 +1,9 @@
 # Mendel — Deterministic Spine Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
+> plan task-by-task, sequentially, driving it yourself. Steps use checkbox (`- [ ]`) syntax for
+> tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
+> review and design only. This matches the execution decision recorded in `CLAUDE.md`.
 
 **Goal:** Build the deterministic core of Mendel — a typed goal in, runnable Nextflow out — with no AI anywhere in the path.
 
@@ -56,12 +59,25 @@ comeni-labs/
 │     │  ├─ gates.py                       lint / preview / stub-run
 │     │  └─ cli.py                         `mendel build`
 │     └─ tests/
-├─ vocabularies/                           <type>.yml — closed state lists
-├─ rules/rnaseq.yml                        tier-3 rules
-├─ contracts/nf-core/                      approved module contracts
+├─ examples/                               TEST FIXTURES ONLY — not a registry
+│  ├─ vocabularies/                        <type>.yml — closed state lists
+│  ├─ rules/rnaseq.yml                     tier-3 rules
+│  ├─ contracts/nf-core/                   hand-written module contracts
+│  └─ rnaseq-goal.yml                      the example goal
 ├─ modules/nf-core/                        vendored nf-core module code
 └─ tests/golden/                           goal → expected IR → expected .nf
 ```
+
+Registry data lives under `examples/` rather than at the repository root because it is a set of
+test fixtures, not a registry. The real `contracts/`, `rules/` and `vocabularies/` move to the
+`comeni-registry` repository at Plan 2.5 (federation spec §3.4); keeping them under `examples/`
+now makes that move a change to configuration rather than a relocation of the repository's
+top-level shape. `modules/` stays at the root — vendored nf-core code is not registry data and
+does not move.
+
+`Registry.load()` globs `*.yml` recursively under each layer directory, so `examples/contracts/`
+must hold contracts and nothing else. The goal file sits one level up, in `examples/`, for
+exactly that reason.
 
 ---
 
@@ -210,7 +226,7 @@ git commit -m "chore: uv workspace scaffold with core-purity guard"
 
 **Files:**
 - Create: `packages/comeni-core/src/comeni_core/vocabulary.py`
-- Create: `vocabularies/alignment.bam.yml`, `vocabularies/fastq.reads.yml`, `vocabularies/counts.matrix.yml`, `vocabularies/genome.index.star.yml`, `vocabularies/annotation.gtf.yml`, `vocabularies/qc.report.yml`
+- Create: `examples/vocabularies/alignment.bam.yml`, `examples/vocabularies/fastq.reads.yml`, `examples/vocabularies/counts.matrix.yml`, `examples/vocabularies/genome.index.star.yml`, `examples/vocabularies/annotation.gtf.yml`, `examples/vocabularies/qc.report.yml`
 - Test: `packages/comeni-core/tests/test_vocabulary.py`
 
 **Interfaces:**
@@ -311,27 +327,27 @@ class Vocabulary(BaseModel):
 - [ ] **Step 4: Create the spine vocabularies**
 
 ```yaml
-# vocabularies/fastq.reads.yml
+# examples/vocabularies/fastq.reads.yml
 states: [trimmed, deduplicated, subsampled]
 ```
 ```yaml
-# vocabularies/alignment.bam.yml
+# examples/vocabularies/alignment.bam.yml
 states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
 ```
 ```yaml
-# vocabularies/counts.matrix.yml
+# examples/vocabularies/counts.matrix.yml
 states: [gene_level, transcript_level, normalised]
 ```
 ```yaml
-# vocabularies/genome.index.star.yml
+# examples/vocabularies/genome.index.star.yml
 states: []
 ```
 ```yaml
-# vocabularies/annotation.gtf.yml
+# examples/vocabularies/annotation.gtf.yml
 states: []
 ```
 ```yaml
-# vocabularies/qc.report.yml
+# examples/vocabularies/qc.report.yml
 states: [aggregated]
 ```
 
@@ -343,7 +359,7 @@ Expected: PASS, 5 tests.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/comeni-core/src/comeni_core/vocabulary.py packages/comeni-core/tests/test_vocabulary.py vocabularies/
+git add packages/comeni-core/src/comeni_core/vocabulary.py packages/comeni-core/tests/test_vocabulary.py examples/vocabularies/
 git commit -m "feat(core): closed type vocabularies with state validation"
 ```
 
@@ -841,6 +857,26 @@ def test_shadowing_is_recorded(tmp_path, base, vocab):
     assert record.displaced_ids == ["nf-core/samtools/sort@1.21.0"]
 
 
+def test_shadow_record_names_the_contract_routing_prefers(tmp_path, base, vocab):
+    """A layer may hold two versions of one module. The record must not name a loser."""
+    overlay = _layer(
+        tmp_path,
+        "lab",
+        {
+            "sort.yml": NEWER_SORT,
+            "sort-old.yml": SORT.replace("priority: 0", "priority: 5"),
+        },
+    )
+    reg = Registry.load([base, overlay], vocab)
+
+    # @1.21.0 at priority 5 outranks @1.22.0 at priority 0 under (-priority, id) — so it is
+    # the winner named, even though it sorts later lexically.
+    assert reg.shadowed[0].winning_id == "nf-core/samtools/sort@1.21.0"
+    produced = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
+    sorts = [c.id for c in produced if module_key(c.id) == "nf-core/samtools/sort"]
+    assert sorts[0] == "nf-core/samtools/sort@1.21.0"
+
+
 def test_a_different_module_key_does_not_shadow(tmp_path, base, vocab):
     overlay = _layer(tmp_path, "lab", {"mine.yml": SORT.replace("nf-core/samtools/sort", "lab/mysort")})
     reg = Registry.load([base, overlay], vocab)
@@ -913,7 +949,13 @@ class Registry(BaseModel):
                 displaced = sorted(c for c in contracts if module_key(c) == key)
                 if not displaced:
                     continue
-                winner = sorted(cid for cid in incoming if module_key(cid) == key)[0]
+                # A layer may legitimately hold two versions of one module. Name the one
+                # routing would actually prefer, so the record does not contradict the build:
+                # the same (-priority, id) order producers_of returns.
+                winner = min(
+                    (c for cid, c in incoming.items() if module_key(cid) == key),
+                    key=lambda c: (-c.priority, c.id),
+                ).id
                 shadowed.append(
                     ShadowRecord(
                         module_key=key,
@@ -976,7 +1018,7 @@ __all__ = [
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest packages/comeni-core/tests/ -v && uv run ruff check .`
-Expected: PASS, 11 new tests, 23 total.
+Expected: PASS, 12 new tests, 24 total.
 
 - [ ] **Step 6: Commit**
 
@@ -991,7 +1033,7 @@ git commit -m "feat(core): layered registry with module-key shadowing"
 
 **Files:**
 - Create: `packages/mendel-resolver/pyproject.toml`, `packages/mendel-resolver/src/mendel_resolver/__init__.py`, `goal.py`, `rules.py`
-- Create: `rules/rnaseq.yml`
+- Create: `examples/rules/rnaseq.yml`
 - Test: `packages/mendel-resolver/tests/test_rules.py`
 
 **Interfaces:**
@@ -1189,7 +1231,7 @@ class RuleTable(BaseModel):
         return None
 ```
 
-- [ ] **Step 5: Create `rules/rnaseq.yml`**
+- [ ] **Step 5: Create `examples/rules/rnaseq.yml`**
 
 ```yaml
 rules:
@@ -1228,7 +1270,7 @@ Expected: PASS, 6 tests.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/mendel-resolver/ rules/
+git add packages/mendel-resolver/ examples/rules/
 git commit -m "feat(resolver): goal model, data profile and tier-3 rule tables"
 ```
 
@@ -1850,7 +1892,7 @@ git commit -m "feat(resolver): four-tier ladder producing pipeline IR"
 ### Task 10: The RNA-seq spine contracts
 
 **Files:**
-- Create: `contracts/nf-core/*.yml` — 8 contracts covering the spine
+- Create: `examples/contracts/nf-core/*.yml` — 8 contracts covering the spine
 - Create: `modules/nf-core/` — vendored module code, fetched with `nf-core`
 - Test: `tests/test_spine_contracts.py`
 
@@ -1874,7 +1916,9 @@ ROOT = pathlib.Path(__file__).parent.parent
 
 @pytest.fixture
 def registry():
-    return Registry.load(ROOT / "contracts", Vocabulary.load(ROOT / "vocabularies"))
+    return Registry.load(
+        ROOT / "examples" / "contracts", Vocabulary.load(ROOT / "examples" / "vocabularies")
+    )
 
 
 def test_all_spine_contracts_load(registry):
@@ -1906,7 +1950,7 @@ def test_qc_report_is_reachable_from_raw_reads(registry):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_spine_contracts.py -v`
-Expected: FAIL — `contracts/` is empty so `test_all_spine_contracts_load` fails on the count.
+Expected: FAIL — `examples/contracts/` is empty so `test_all_spine_contracts_load` fails on the count.
 
 - [ ] **Step 3: Vendor the nf-core modules**
 
@@ -1926,7 +1970,7 @@ Verify each landed: `ls modules/nf-core/*/main.nf modules/nf-core/*/*/main.nf`
 
 - [ ] **Step 4: Write the eight contracts**
 
-`contracts/nf-core/fastqc.yml`:
+`examples/contracts/nf-core/fastqc.yml`:
 
 ```yaml
 id: nf-core/fastqc@0.12.1
@@ -1939,7 +1983,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/trimgalore.yml`:
+`examples/contracts/nf-core/trimgalore.yml`:
 
 ```yaml
 id: nf-core/trimgalore@0.6.10
@@ -1952,7 +1996,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/star-genomegenerate.yml`:
+`examples/contracts/nf-core/star-genomegenerate.yml`:
 
 ```yaml
 id: nf-core/star/genomegenerate@1.11.0
@@ -1965,7 +2009,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/star-align.yml`:
+`examples/contracts/nf-core/star-align.yml`:
 
 ```yaml
 id: nf-core/star/align@1.11.0
@@ -1982,7 +2026,7 @@ priority: 10
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/samtools-sort.yml`:
+`examples/contracts/nf-core/samtools-sort.yml`:
 
 ```yaml
 id: nf-core/samtools/sort@1.21.0
@@ -1995,7 +2039,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/samtools-index.yml`:
+`examples/contracts/nf-core/samtools-index.yml`:
 
 ```yaml
 id: nf-core/samtools/index@1.21.0
@@ -2008,7 +2052,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/subread-featurecounts.yml`:
+`examples/contracts/nf-core/subread-featurecounts.yml`:
 
 ```yaml
 id: nf-core/subread/featurecounts@2.0.6
@@ -2025,7 +2069,7 @@ priority: 0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-02"}
 ```
 
-`contracts/nf-core/multiqc.yml`:
+`examples/contracts/nf-core/multiqc.yml`:
 
 ```yaml
 id: nf-core/multiqc@1.25.0
@@ -2046,7 +2090,7 @@ Expected: PASS, 4 tests.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add contracts/ modules/ tests/test_spine_contracts.py
+git add examples/contracts/ modules/ tests/test_spine_contracts.py
 git commit -m "feat(contracts): RNA-seq spine contracts with vendored nf-core modules"
 ```
 
@@ -2076,7 +2120,9 @@ ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 
 def _registry():
-    return Registry.load(ROOT / "contracts", Vocabulary.load(ROOT / "vocabularies"))
+    return Registry.load(
+        ROOT / "examples" / "contracts", Vocabulary.load(ROOT / "examples" / "vocabularies")
+    )
 
 
 def _ir():
@@ -2423,11 +2469,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--gate", type=Gate, default=None)
+    parser.add_argument(
+        "--registry",
+        type=Path,
+        action="append",
+        default=None,
+        help="a registry layer; repeat to stack overlays, later layers win",
+    )
     args = parser.parse_args(argv)
 
-    vocab = Vocabulary.load(args.root / "vocabularies")
-    registry = Registry.load(args.root / "contracts", vocab)
-    rules = RuleTable.load(args.root / "rules" / "rnaseq.yml")
+    data = args.root / "examples"
+    layers = args.registry or [data / "contracts"]
+
+    vocab = Vocabulary.load(data / "vocabularies")
+    registry = Registry.load(layers, vocab)
+    rules = RuleTable.load(data / "rules" / "rnaseq.yml")
     goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
 
     ir = resolve(goal, registry, rules)
@@ -2437,6 +2493,13 @@ def main(argv: list[str] | None = None) -> int:
     (args.out / "pipeline.ir.json").write_text(ir.model_dump_json(indent=2))
     if (args.root / "modules").exists():
         shutil.copytree(args.root / "modules", args.out / "modules", dirs_exist_ok=True)
+
+    for record in registry.shadowed:
+        print(
+            f"  SHADOW  {record.module_key}: {record.winning_id} from {record.winning_layer} "
+            f"displaced {', '.join(record.displaced_ids)}",
+            file=sys.stderr,
+        )
 
     flagged = ir.needs_review()
     print(f"{len(ir.nodes)} modules, {len(flagged)} requiring review", file=sys.stderr)
@@ -2481,6 +2544,7 @@ profile:
 `tests/test_end_to_end.py`:
 
 ```python
+import json
 import pathlib
 
 from mendel_compiler.cli import main
@@ -2503,7 +2567,6 @@ def test_builds_a_pipeline_from_the_example_goal(tmp_path):
 
 
 def test_strandedness_resolves_at_tier_3_from_the_profile(tmp_path):
-    import json
     main([
         "build",
         "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
@@ -2515,6 +2578,27 @@ def test_strandedness_resolves_at_tier_3_from_the_profile(tmp_path):
     assert node["params"]["strandedness"]["value"] == 2
     assert node["params"]["strandedness"]["tier"] == 3
     assert node["params"]["strandedness"]["review_level"] == "advisory"
+
+
+def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
+    """--registry stacks layers, and a build on a modified registry announces it."""
+    overlay = tmp_path / "lab"
+    overlay.mkdir()
+    base = ROOT / "examples" / "contracts" / "nf-core" / "samtools-sort.yml"
+    (overlay / "sort.yml").write_text(base.read_text().replace("@1.21.0", "@1.99.0"))
+
+    exit_code = main([
+        "build",
+        "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
+        "--out", str(tmp_path / "pipeline"),
+        "--root", str(ROOT),
+        "--registry", str(ROOT / "examples" / "contracts"),
+        "--registry", str(overlay),
+    ])
+    assert exit_code == 0
+    assert "SHADOW  nf-core/samtools/sort" in capsys.readouterr().err
+    ir = json.loads((tmp_path / "pipeline" / "pipeline.ir.json").read_text())
+    assert "nf-core/samtools/sort@1.99.0" in [n["contract_id"] for n in ir["nodes"]]
 
 
 def test_two_builds_produce_identical_output(tmp_path):

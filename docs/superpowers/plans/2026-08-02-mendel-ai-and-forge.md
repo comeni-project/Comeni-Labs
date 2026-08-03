@@ -891,7 +891,10 @@ ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 
 def _registry():
-    return Registry.load(ROOT / "contracts", Vocabulary.load(ROOT / "vocabularies"))
+    return Registry.load(
+        ROOT / "examples" / "contracts",
+        Vocabulary.load(ROOT / "examples" / "vocabularies"),
+    )
 
 
 def _ir():
@@ -1097,7 +1100,10 @@ def _proposer(payload):
         completion.last = kwargs
         return {"choices": [{"message": {"content": json.dumps(payload)}}]}
 
-    registry = Registry.load(ROOT / "contracts", Vocabulary.load(ROOT / "vocabularies"))
+    registry = Registry.load(
+        ROOT / "examples" / "contracts",
+        Vocabulary.load(ROOT / "examples" / "vocabularies"),
+    )
     return LLMRepairProposer(ModelClient(ModelConfig(model="m"), completion_fn=completion), registry), completion
 
 
@@ -1947,7 +1953,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{proposal.target_path}  ({proposal.source_module})  {proposal.rationale}")
         return 0
 
-    destination = queue.approve(args.target, by=args.by, contracts_dir=args.root / "contracts")
+    destination = queue.approve(
+        args.target, by=args.by, contracts_dir=args.root / "examples" / "contracts"
+    )
     print(f"approved -> {destination}")
     return 0
 

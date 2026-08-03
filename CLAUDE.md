@@ -132,8 +132,8 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-examples/      hand-written vocabularies, rules and contracts — TEST FIXTURES ONLY
-modules/       vendored nf-core module code
+examples/      vocabularies/ rules/ contracts/ + rnaseq-goal.yml — TEST FIXTURES ONLY
+modules/       vendored nf-core module code — root-level, does not move at Plan 2.5
 frontend/      React + TS + Vite + Tailwind SPA
 ```
 
@@ -141,7 +141,9 @@ frontend/      React + TS + Vite + Tailwind SPA
 `rules/` and `vocabularies/` under CC-BY-4.0 with signed tags; this repo holds only enough
 hand-written data under `examples/` for tests to run. The split happens at Plan 2.5 — until
 then, do not treat `examples/` as a registry or add contracts there expecting them to ship.
-`Registry.load()` takes paths, which is what keeps the move cheap.
+`Registry.load()` takes paths, which is what keeps the move cheap. It globs `*.yml` recursively
+under each layer, so `examples/contracts/` holds contracts and nothing else — the goal file sits
+one level up for that reason.
 
 Ports and adapters: the pure packages declare `Protocol`s in
 `mendel_resolver/ports.py`; `mendel-ai` implements them. The dependency arrow points
@@ -157,7 +159,8 @@ Open source, self-hostable, public registry. Revenue is the hosted service only.
 **Model access — three lanes.** `--no-ai` (none; what CI runs), self-hosted (BYO API key, or
 a local model over an OpenAI-compatible endpoint — Ollama and vLLM both qualify), and
 Comeni-hosted (our keys). `mendel-ai` reaches all of them through one LiteLLM adapter behind
-the `mendel_resolver.ports` protocols.
+the `mendel_resolver.ports` protocols. **The `--no-ai` flag itself arrives with Plan 2** —
+through Plan 1 there is no AI path to switch off, so every build is already that lane.
 
 **Registry.** Public curated base — the `comeni-registry` repo, data files with signed tags —
 plus zero or more private overlays via repeated `--registry`. A lab that never publishes is
@@ -202,10 +205,11 @@ uv run ruff format .
 uv run pytest tests/test_purity.py   # the invariant-1 guard
 
 # build a pipeline from a typed goal, no AI involved
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --no-ai --gate stub
+uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
 # same build, with the lab's private contracts stacked over the public registry
-uv run mendel build --goal examples/rnaseq-goal.yml --registry ./lab-contracts --no-ai
+uv run mendel build --goal examples/rnaseq-goal.yml \
+  --registry examples/contracts --registry ./lab-contracts --out build/
 
 # the forge
 uv run forge ingest --modules modules/
@@ -235,8 +239,9 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
 - **`-stub-run` is the fast validation tier.** nf-core modules all define stub blocks, so the
   whole DAG executes with dummy outputs in seconds. Iterate the repair loop there; only the
   final candidate pays for `-profile test`.
-- **`--no-ai` must keep working forever.** It is how the deterministic guarantee stays
-  testable, and it is the mode CI runs in.
+- **`--no-ai` must keep working forever** once Plan 2 adds it. It is how the deterministic
+  guarantee stays testable, and it is the mode CI runs in. `--registry` is repeatable and
+  ships in Plan 1, since Task 5 builds the stacking it exposes.
 - **Import modules, not symbols, where tests monkeypatch.** `from x import f` binds past a
   later patch of `x.f`.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer

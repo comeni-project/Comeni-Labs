@@ -400,12 +400,19 @@ comeni-labs/
 │  ├─ mendel-ai/            model ports via LiteLLM
 │  ├─ mendel-forge/         ingestion, drafting, approval queue
 │  └─ mendel-api/           FastAPI surface
-├─ vocabularies/            data types and their closed state lists
-├─ rules/                   tier-3 rule tables, versioned, citable
-├─ contracts/               approved module contracts
+├─ examples/                TEST FIXTURES ONLY — hand-written data so tests can run
+│  ├─ vocabularies/         data types and their closed state lists
+│  ├─ rules/                tier-3 rule tables, versioned, citable
+│  └─ contracts/            module contracts
+├─ modules/nf-core/         vendored nf-core module code
 ├─ frontend/                React + TS + Vite + Tailwind SPA
 └─ docs/superpowers/specs/  this spec
 ```
+
+The registry data sits under `examples/` rather than at the root because this repository holds
+only enough of it for tests. The real `contracts/`, `rules/` and `vocabularies/` live in the
+`comeni-registry` repository, split out at Plan 2.5 — see the federation amendment §3.4.
+`Registry.load()` takes paths, so the move is configuration, not code.
 
 ---
 
