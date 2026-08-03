@@ -67,9 +67,24 @@ class PipelineIR(BaseModel):
     decisions: list[Any] = Field(default_factory=list)
 
     def needs_review(self) -> list[str]:
-        return [
+        """Everything a human must look at before this pipeline runs.
+
+        Covers decisions as well as parameters. A routing tie emits a DecisionRecord
+        at tier 4 — invariant 8 demotes it, invariant 6 says tier 4 is always flagged
+        — but for a while this method scanned only node params, so the CLI reported
+        "0 requiring review" while an aligner had been chosen alphabetically. A record
+        nobody is shown is not a flag.
+        """
+        flagged = [
             f"{node.id}.{name}"
             for node in self.nodes
             for name, value in node.params.items()
             if value.review_level is ReviewLevel.REQUIRED
         ]
+        flagged += [
+            decision.key
+            for decision in self.decisions
+            if review_level_for(decision.tier) is ReviewLevel.REQUIRED
+            and decision.key not in flagged
+        ]
+        return flagged

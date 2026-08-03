@@ -133,3 +133,58 @@ def test_resolution_is_deterministic(setup):
         resolve(goal, registry, rules).model_dump_json()
         == resolve(goal, registry, rules).model_dump_json()
     )
+
+
+ALIGN_A = """
+id: nf-core/star/align@1.11.0
+nf_process: STAR_ALIGN
+nf_include: modules/nf-core/star/align/main
+consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
+"""
+
+
+@pytest.fixture
+def tied(tmp_path):
+    vocab_dir = tmp_path / "vocab"
+    vocab_dir.mkdir()
+    (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
+    (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    (contracts / "a.yml").write_text(ALIGN_A)
+    (contracts / "b.yml").write_text(
+        ALIGN_A.replace("star/align@1.11.0", "hisat2/align@2.2.1").replace(
+            "STAR_ALIGN", "HISAT2_ALIGN"
+        )
+    )
+    (rules := tmp_path / "rules.yml").write_text("rules: []\n")
+    return Registry.load(contracts, Vocabulary.load(vocab_dir)), RuleTable.load(rules)
+
+
+def test_a_routing_tie_is_surfaced_for_review(tied):
+    """Invariant 8 demotes a tie to tier 4; invariant 6 says tier 4 is always flagged.
+
+    The DecisionRecord existed but needs_review() only scanned node params, so the
+    CLI printed "0 requiring review" and the user was never told their aligner had
+    been chosen alphabetically. A record nobody is shown is not a flag.
+    """
+    registry, rules = tied
+    goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["alignment.bam"])
+    ir = resolve(goal, registry, rules)
+
+    assert len(ir.decisions) == 1
+    assert "producer:alignment.bam" in ir.needs_review()[0]
+
+
+def test_review_list_covers_params_and_decisions_together(setup):
+    registry, rules = setup
+    goal = Goal(
+        have=[GoalInput(type_id="alignment.bam")],
+        want=["counts.matrix"],
+        profile=DataProfile(),
+    )
+    ir = resolve(goal, registry, rules)
+    assert "featurecounts.strandedness" in ir.needs_review()
