@@ -188,3 +188,51 @@ def test_review_list_covers_params_and_decisions_together(setup):
     )
     ir = resolve(goal, registry, rules)
     assert "featurecounts.strandedness" in ir.needs_review()
+
+
+INDEX = """
+id: nf-core/samtools/index@1.21.0
+nf_process: SAMTOOLS_INDEX
+nf_include: modules/nf-core/samtools/index/main
+consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
+produces: [{name: bai, type_id: alignment.bam, state: [coordinate_sorted, indexed]}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-03"}
+"""
+
+
+@pytest.fixture
+def with_index(tmp_path):
+    vocab_dir = tmp_path / "vocab"
+    vocab_dir.mkdir()
+    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted, indexed]\n")
+    (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    (contracts / "fc.yml").write_text(COUNTS)
+    (contracts / "sort.yml").write_text(SORT)
+    (contracts / "index.yml").write_text(INDEX)
+    (rules := tmp_path / "rules.yml").write_text("rules: []\n")
+    return Registry.load(contracts, Vocabulary.load(vocab_dir)), RuleTable.load(rules)
+
+
+def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_index):
+    """`produced` was keyed on type_id alone, so the last producer of a type won.
+
+    With both SAMTOOLS_SORT and SAMTOOLS_INDEX producing `alignment.bam`, featureCounts
+    was handed SAMTOOLS_INDEX's `.bai` output — an index file where a BAM belongs. It
+    emitted valid Nextflow, raised no flag, and passed `-stub-run`, because nf-core stubs
+    never read their inputs. Something was guessed, it was wrong, and it was silent.
+    """
+    registry, rules = with_index
+    goal = Goal(
+        have=[GoalInput(type_id="alignment.bam")],
+        want=["counts.matrix", "alignment.bam"],
+        constraints={"required_states": {"alignment.bam": ["coordinate_sorted", "indexed"]}},
+        profile=DataProfile(strandedness="reverse"),
+    )
+    ir = resolve(goal, registry, rules)
+    into_fc = [e for e in ir.edges if e.to_node == "featurecounts"]
+    assert [e.from_node for e in into_fc] == ["samtools_sort"], (
+        f"featurecounts fed from {[e.from_node for e in into_fc]}"
+    )

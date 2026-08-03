@@ -1,34 +1,70 @@
+"""Invariant 1: the pure packages import no web framework, HTTP client or LLM library.
+
+CLAUDE.md sells telemetry safety on this guard being *structural* — "the pure packages
+cannot import an HTTP client, so telemetry can only live in `mendel-api`". For that claim
+to hold, the guard has to cover the standard library, where the transports actually live,
+and the dynamic import forms, which name their target at runtime.
+
+An audit on 2026-08-03 defeated the first version with four lines:
+
+    import urllib.request, socket, http.client
+    importlib.import_module("httpx").post(...)
+    __import__("openai").OpenAI()
+
+All of it passed, because the banned list held only third-party names and the walk looked
+only at import statements.
+"""
+
 import ast
 import pathlib
 
 PURE_PACKAGES = ["comeni-core", "mendel-resolver", "mendel-compiler"]
+
 BANNED_PREFIXES = (
+    # web frameworks
     "fastapi", "starlette", "django", "flask",
+    # third-party clients
     "httpx", "requests", "aiohttp",
+    # model libraries
     "litellm", "openai", "anthropic",
+    # persistence and queueing
     "sqlalchemy", "arq",
+    # stdlib transports — a pure package has no business opening a socket, and
+    # urllib.request is every bit an HTTP client.
+    "urllib", "http", "socket", "ssl", "ftplib", "smtplib", "telnetlib", "asyncio",
+    "xmlrpc", "webbrowser",
 )
 
+# Naming a module at runtime defeats any import-statement check.
+DYNAMIC_IMPORTERS = ("__import__", "import_module")
 
-def _imports(path: pathlib.Path) -> set[str]:
+
+def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
     tree = ast.parse(path.read_text())
-    found = set()
+    where = path.relative_to(root)
+    found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            found.update(alias.name for alias in node.names)
+            names = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
-            found.add(node.module)
+            names = [node.module]
+        elif isinstance(node, ast.Call):
+            called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            if called in DYNAMIC_IMPORTERS:
+                found.append(f"{where} calls {called}() — imports must be statically visible")
+            continue
+        else:
+            continue
+        found += [f"{where} imports {n}" for n in names if n.split(".")[0] in BANNED_PREFIXES]
     return found
 
 
 def test_pure_packages_import_nothing_impure():
     root = pathlib.Path(__file__).parent.parent
-    violations = []
+    violations: list[str] = []
     for pkg in PURE_PACKAGES:
-        for py in (root / "packages" / pkg / "src").rglob("*.py"):
-            for imported in _imports(py):
-                if imported.split(".")[0] in BANNED_PREFIXES:
-                    violations.append(f"{py.relative_to(root)} imports {imported}")
+        for py in sorted((root / "packages" / pkg / "src").rglob("*.py")):
+            violations += _violations(py, root)
     assert violations == [], "Pure packages must not import I/O or model libraries:\n" + "\n".join(
         violations
     )
