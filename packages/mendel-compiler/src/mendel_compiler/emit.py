@@ -120,7 +120,7 @@ def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) ->
                         },
                     )(),
                 )
-                for name, value in sorted(node.params.items())
+                for name, value in sorted((b.name, b.value) for b in node.params)
             ],
         }
         for node in ir.nodes

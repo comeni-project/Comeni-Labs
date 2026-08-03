@@ -31,7 +31,7 @@ def resolve(
         node = IRNode(id=step.node_id, contract_id=contract.id)
 
         for param in contract.params:
-            node.params[param.name] = _resolve_param(
+            node.set_param(param.name, _resolve_param(
                 node_id=node.id,
                 param_name=param.name,
                 tier_hint=param.tier_hint,
@@ -40,7 +40,7 @@ def resolve(
                 rules=rules,
                 resolver=resolver,
                 decisions=ir.decisions,
-            )
+            ))
 
         for port in contract.consumes:
             source = _source_for(produced, port, node.id, ir.decisions, resolver)

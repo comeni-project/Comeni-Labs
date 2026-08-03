@@ -7,7 +7,7 @@ the moment a person should be thinking, and this test is what makes them.
 
 import typing
 
-from comeni_core import egress
+from comeni_core import egress, marks
 from pydantic import BaseModel
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
@@ -17,17 +17,51 @@ DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"
 FREE_TEXT_FIELDS = {
     ("PromptRequest", "prompt"),
     ("GateFailure", "tool_message"),
+    # Reachable through RepairRequest.ir and PublishBundle. Model- or resolver-written
+    # prose explaining a choice — genuinely free text, and named here rather than
+    # exempted, because an audit found these riding along unexamined inside a nested
+    # model the guard never opened.
+    ("ResolvedValue", "reason"),
+    ("DecisionRecord", "reason"),
 }
 
 
 def _payload_types() -> set[type[BaseModel]]:
-    return {
+    """Every model reachable from a declared payload, not just the payload itself.
+
+    The first version returned only `EgressPayload` subclasses, and every check walked
+    `typing.get_args`, which returns `()` at a nested `BaseModel`. So nothing ever looked
+    inside `RepairRequest.ir`, and a payload serialised a patient path and an SSN while
+    this file reported green. Transitive expansion is the fix; exempting nested models
+    would be the hole.
+    """
+    roots = {
         obj
         for obj in vars(egress).values()
         if isinstance(obj, type)
         and issubclass(obj, egress.EgressPayload)
         and obj is not egress.EgressPayload
     }
+    seen: set[type[BaseModel]] = set()
+    queue = list(roots)
+    while queue:
+        model = queue.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for annotation in typing.get_type_hints(model, include_extras=True).values():
+            queue += [n for n in _nested_models(annotation) if n not in seen]
+    return seen
+
+
+def _nested_models(annotation: object) -> list[type[BaseModel]]:
+    """Every BaseModel mentioned anywhere in an annotation, however deeply wrapped."""
+    found = []
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        found.append(annotation)
+    for arg in typing.get_args(annotation):
+        found += _nested_models(arg)
+    return found
 
 
 def _mentions(annotation: object, marker: object) -> bool:
@@ -82,7 +116,7 @@ def test_every_door_declares_an_egress_payload():
 def test_free_text_lives_only_where_declared():
     found: set[tuple[str, str]] = set()
     for payload in _payload_types():
-        found |= _fields(payload, egress.FreeText)
+        found |= _fields(payload, marks.FreeText)
     assert found == FREE_TEXT_FIELDS
 
 

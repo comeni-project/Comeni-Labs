@@ -1,40 +1,36 @@
 """The pipeline IR: resolver output, compiler input, and what tests assert on."""
 
-from enum import IntEnum, StrEnum
-from typing import Any
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_serializer,
+    model_validator,
+)
 
-from pydantic import BaseModel, Field, computed_field, field_serializer
-
-
-class Tier(IntEnum):
-    STRUCTURAL = 1
-    CONVENTION = 2
-    DATA_PROFILED = 3
-    AMBIGUOUS = 4
-
-
-class ReviewLevel(StrEnum):
-    NONE = "none"
-    ADVISORY = "advisory"
-    REQUIRED = "required"
-
-
-_REVIEW_BY_TIER = {
-    Tier.STRUCTURAL: ReviewLevel.NONE,
-    Tier.CONVENTION: ReviewLevel.NONE,
-    Tier.DATA_PROFILED: ReviewLevel.ADVISORY,
-    Tier.AMBIGUOUS: ReviewLevel.REQUIRED,
-}
-
-
-def review_level_for(tier: Tier) -> ReviewLevel:
-    return _REVIEW_BY_TIER[tier]
+from comeni_core.decision import DecisionRecord
+from comeni_core.marks import (
+    ContractId,
+    NodeId,
+    ParamValue,
+    PortName,
+    StateName,
+    Text,
+    TypeId,
+)
+from comeni_core.tiers import ReviewLevel, Tier, review_level_for
 
 
 class ResolvedValue(BaseModel):
-    value: Any
+    model_config = ConfigDict(extra="forbid")
+
+    value: ParamValue
     tier: Tier
-    reason: str
+    reason: Text
+    """Why this value was chosen. Prose, and declared as such — it reaches an egress
+    payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
+    rather than letting it ride along unexamined."""
 
     @computed_field
     @property
@@ -42,29 +38,69 @@ class ResolvedValue(BaseModel):
         return review_level_for(self.tier)
 
 
+class ParamBinding(BaseModel):
+    """One resolved parameter. A list rather than a dict on purpose.
+
+    `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
+    a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
+    perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
+    information and can be inspected field by field.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: PortName
+    value: ResolvedValue
+
+
 class IRNode(BaseModel):
-    id: str
-    contract_id: str
-    params: dict[str, ResolvedValue] = Field(default_factory=dict)
+    model_config = ConfigDict(extra="forbid")
+
+    id: NodeId
+    contract_id: ContractId
+    params: list[ParamBinding] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_mapping(cls, data: object) -> object:
+        """`params={"strandedness": ...}` still works; it is stored as bindings.
+
+        The list is what the egress guard requires, but a mapping is the natural way to
+        write one, so the ergonomic form survives the representation change.
+        """
+        if isinstance(data, dict) and isinstance(data.get("params"), dict):
+            data = dict(data)
+            data["params"] = [{"name": k, "value": v} for k, v in data["params"].items()]
+        return data
+
+    def param(self, name: str) -> ResolvedValue | None:
+        return next((b.value for b in self.params if b.name == name), None)
+
+    def set_param(self, name: str, value: ResolvedValue) -> None:
+        self.params.append(ParamBinding(name=name, value=value))
 
 
 class IREdge(BaseModel):
-    from_node: str
-    from_port: str
-    to_node: str
-    to_port: str
-    type_id: str
-    states: frozenset[str] = frozenset()
+    model_config = ConfigDict(extra="forbid")
+
+    from_node: NodeId
+    from_port: PortName
+    to_node: NodeId
+    to_port: PortName
+    type_id: TypeId
+    states: frozenset[StateName] = frozenset()
 
     @field_serializer("states")
-    def _sorted_states(self, states: frozenset[str]) -> list[str]:
+    def _sorted_states(self, states: frozenset[str]) -> list[StateName]:
         return sorted(states)
 
 
 class PipelineIR(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     nodes: list[IRNode] = Field(default_factory=list)
     edges: list[IREdge] = Field(default_factory=list)
-    decisions: list[Any] = Field(default_factory=list)
+    decisions: list[DecisionRecord] = Field(default_factory=list)
 
     def needs_review(self) -> list[str]:
         """Everything a human must look at before this pipeline runs.
@@ -76,10 +112,10 @@ class PipelineIR(BaseModel):
         nobody is shown is not a flag.
         """
         flagged = [
-            f"{node.id}.{name}"
+            f"{node.id}.{binding.name}"
             for node in self.nodes
-            for name, value in node.params.items()
-            if value.review_level is ReviewLevel.REQUIRED
+            for binding in node.params
+            if binding.value.review_level is ReviewLevel.REQUIRED
         ]
         flagged += [
             decision.key

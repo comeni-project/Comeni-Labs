@@ -61,10 +61,10 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
     )
     ir = resolve(goal, registry, rules)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
-    assert node.params["strandedness"].value == 2
-    assert node.params["strandedness"].tier is Tier.DATA_PROFILED
-    assert node.params["strandedness"].review_level is ReviewLevel.ADVISORY
-    assert "featureCounts -s 2" in node.params["strandedness"].reason
+    assert node.param("strandedness").value == 2
+    assert node.param("strandedness").tier is Tier.DATA_PROFILED
+    assert node.param("strandedness").review_level is ReviewLevel.ADVISORY
+    assert "featureCounts -s 2" in node.param("strandedness").reason
 
 
 def test_rule_miss_demotes_to_tier_4_and_flags(setup):
@@ -76,8 +76,8 @@ def test_rule_miss_demotes_to_tier_4_and_flags(setup):
     )
     ir = resolve(goal, registry, rules)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
-    assert node.params["strandedness"].tier is Tier.AMBIGUOUS
-    assert node.params["strandedness"].review_level is ReviewLevel.REQUIRED
+    assert node.param("strandedness").tier is Tier.AMBIGUOUS
+    assert node.param("strandedness").review_level is ReviewLevel.REQUIRED
     assert "featurecounts.strandedness" in ir.needs_review()
 
 
@@ -90,8 +90,8 @@ def test_param_with_default_and_no_rule_is_tier_2_convention(setup):
     )
     ir = resolve(goal, registry, rules)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
-    assert node.params["seq_platform"].value == "illumina"
-    assert node.params["seq_platform"].tier is Tier.CONVENTION
+    assert node.param("seq_platform").value == "illumina"
+    assert node.param("seq_platform").tier is Tier.CONVENTION
 
 
 def test_every_tier_4_resolution_emits_a_decision_record(setup):

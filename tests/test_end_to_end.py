@@ -29,9 +29,10 @@ def test_strandedness_resolves_at_tier_3_from_the_profile(tmp_path):
     ])
     ir = json.loads((tmp_path / "pipeline" / "pipeline.ir.json").read_text())
     node = next(n for n in ir["nodes"] if n["id"] == "subread_featurecounts")
-    assert node["params"]["strandedness"]["value"] == 2
-    assert node["params"]["strandedness"]["tier"] == 3
-    assert node["params"]["strandedness"]["review_level"] == "advisory"
+    strandedness = next(b["value"] for b in node["params"] if b["name"] == "strandedness")
+    assert strandedness["value"] == 2
+    assert strandedness["tier"] == 3
+    assert strandedness["review_level"] == "advisory"
 
 
 def test_an_overlay_shadows_and_says_so(tmp_path, capsys):

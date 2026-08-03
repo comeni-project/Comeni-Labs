@@ -2,16 +2,17 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.ir import Tier
+from comeni_core.marks import DecisionKey, NodeId, ParamValue, ResolverId, Subject, Text
+from comeni_core.tiers import Tier
 
 
 class Ambiguity(BaseModel):
     """A question the deterministic ladder could not answer."""
 
-    node_id: str
-    subject: str
+    node_id: NodeId
+    subject: Subject
     candidates: list[Any] = Field(default_factory=list)
     context: dict[str, Any] = Field(default_factory=dict)
 
@@ -20,19 +21,22 @@ class Ambiguity(BaseModel):
 
 
 class Resolution(BaseModel):
-    chosen: Any
-    reason: str
+    chosen: ParamValue
+    reason: Text
     confidence: float = 0.0
     resolved_by: str = "flag-only"
 
 
 class DecisionRecord(BaseModel):
-    key: str
-    subject: str
-    candidates: list[Any] = Field(default_factory=list)
-    chosen: Any
-    reason: str
+    model_config = ConfigDict(extra="forbid")
+
+    key: DecisionKey
+    subject: Subject
+    candidates: list[ParamValue] = Field(default_factory=list)
+    chosen: ParamValue
+    reason: Text
+    """Model- or resolver-written prose. Declared free text; see `ResolvedValue.reason`."""
     confidence: float = 0.0
-    resolved_by: str
+    resolved_by: ResolverId
     tier: Tier = Tier.AMBIGUOUS
-    human_override: Any = None
+    human_override: ParamValue = None

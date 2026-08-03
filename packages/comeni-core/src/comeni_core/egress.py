@@ -13,28 +13,18 @@ permanently, and git is built to make that hard to reverse.
 """
 
 from enum import StrEnum
-from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.decision import DecisionRecord
 from comeni_core.ir import PipelineIR
-
-
-class FreeText:
-    """Marker: this field may hold text a human typed or a tool printed.
-
-    Two fields carry it and `tests/test_egress.py` names both. A third means
-    editing that test, which is the point — the admission is forced rather than
-    made quietly.
-    """
-
-
-Text = Annotated[str, FreeText]
-ContractId = Annotated[str, "contract-id"]
-TypeId = Annotated[str, "type-id"]
-NodeId = Annotated[str, "node-id"]
-Subject = Annotated[str, "subject"]
+from comeni_core.marks import (
+    ContractId,
+    NodeId,
+    Subject,
+    Text,
+    TypeId,
+)
 
 
 class EgressPayload(BaseModel):
