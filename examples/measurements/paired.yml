@@ -1,0 +1,2 @@
+kind: boolean
+description: "Whether the library is paired-end"

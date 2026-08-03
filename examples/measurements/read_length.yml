@@ -1,0 +1,4 @@
+kind: integer
+minimum: 1
+unit: bp
+description: "Sequenced read length"
