@@ -10,7 +10,13 @@ The product claim, which every design decision serves:
 
 ## Current state
 
-**No code yet.** Documentation precedes implementation deliberately. Start from:
+**Plan 1 is complete and merged** (2026-08-03). 86 tests green, `ruff check` clean, and
+`uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub` runs the RNA-seq
+spine end to end — five wired nf-core modules, every parameter carrying a tier, one tier-4 flag
+listed. `comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+
+Two specs are **approved and unimplemented**, and both change types Plan 1 shipped — read them
+before touching `contract.py`, `rules.py`, `router.py` or `goal.py`.
 
 | Read this | For |
 |---|---|
@@ -19,7 +25,7 @@ The product claim, which every design decision serves:
 | `docs/superpowers/specs/2026-08-03-clinical-data-protection-design.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `docs/superpowers/specs/2026-08-03-rule-tables-and-port-logic-design.md` | tier-3 rule format, module pinning, port alternatives. **Approved, unimplemented.** |
 | `docs/superpowers/specs/2026-08-03-profiling-design.md` | where measurements come from. **Approved, unimplemented.** |
-| `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. Start here. |
+| `docs/superpowers/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/superpowers/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/superpowers/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -35,9 +41,10 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Subagents are for review and design only**, and only when the work calls for it — a
   second opinion on a design question, a review pass over something already written. Never
   as the default way to write code.
-- **Work in the worktree**, not the main checkout:
-  `.worktrees/plan-1-spine` on branch `plan-1-spine`. Fast-forward it onto `main` first.
-- **Start with Plan 1**, task 1 (the AST purity guard), and go in order.
+- **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
+  is merged and removed.
+- **Plan 1 is done.** The next work is a plan for the rule-tables and profiling specs — neither
+  has one yet, and both are approved designs waiting on `superpowers:writing-plans`.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
@@ -251,7 +258,10 @@ uv sync                          # set up the workspace
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
 uv run ruff format .
-uv run pytest tests/test_purity.py   # the invariant-1 guard
+uv run pytest tests/test_purity.py tests/test_egress.py   # the invariant 1, 14 and 15 guards
+
+# vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
+uvx nf-core modules install --dir vendor samtools/sort
 
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
@@ -261,7 +271,7 @@ uv run mendel build --goal examples/rnaseq-goal.yml \
   --registry examples/contracts --registry ./lab-contracts --out build/
 
 # the forge
-uv run forge ingest --modules modules/
+uv run forge ingest --modules vendor/modules/
 uv run forge pending
 uv run forge approve nf-core/samtools-sort.yml --by "$USER"
 ```
@@ -282,6 +292,14 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
   `bam_unsorted` are both `type: file, *.bam`. "Sorted" exists only in the English
   description. The semantic `state` overlay is the missing ~40% and is what routing depends
   on.
+- **Routing: a contract cannot satisfy its own input, and surplus ranks candidates.**
+  `SAMTOOLS_SORT` consumes and produces `alignment.bam`, so it is a candidate for its own
+  dependency and recurses forever without cycle exclusion. And `producers_of` matches on superset,
+  so an empty requirement matches every producer — ranking by `(surplus, -priority, id)` keeps
+  "get me a BAM" from silently meaning "get me a sorted BAM".
+- **Entry channels come from the vocabulary, not the compiler.** A type declares `entry_channel`;
+  `mendel-compiler` has no built-in idea what a FASTQ is. Same reason `nf_inputs` is declared
+  rather than parsed: it has to work for a pegi3s image or an in-house process too.
 - **`frozenset` has no stable order.** `IREdge.states` carries a `field_serializer` that
   sorts on output. Byte-identical emission is a hard requirement; anything new that
   serialises a set needs the same treatment.
@@ -293,6 +311,31 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
   ships in Plan 1, since Task 5 builds the stacking it exposes.
 - **Import modules, not symbols, where tests monkeypatch.** `from x import f` binds past a
   later patch of `x.f`.
+- **`uv sync` installs nothing you don't depend on.** `[tool.uv.sources]` says *where* a
+  workspace member comes from; the root project must also list it in `dependencies` or it is
+  never installed and imports fail.
+- **A contract port is not a process argument.** Only one of six spine processes matches its
+  port count — `featurecounts` takes one channel carrying two ports, `samtools/sort` takes three
+  of which two model nothing. `ModuleContract.nf_inputs` declares the real signature, and
+  `NfInput.empty` carries the **tuple width**, because Nextflow matches arity and a 2-tuple in a
+  3-tuple slot dies on "Path value cannot be null".
+- **Read process names and containers out of `vendor/modules/**/main.nf`, never out of a plan.**
+  It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`. nf-core 4.x mostly uses
+  `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
+  ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
+  guess fails in milliseconds instead of at pipeline launch.
+- **The stub gate needs Docker and ~900s on a cold cache.** nf-core 4.x captures versions with
+  `eval()`, which runs even under `-stub-run`, so the tool must exist — hence
+  `-profile stub_data,docker`. Without `docker.runOptions = '-u $(id -u):$(id -g)'` every work
+  directory is root-owned and undeletable by whoever made it.
+- **`nextflow lint` writes errors to stdout; `nextflow run` writes them to stderr.** Read
+  `GateResult.output`, which is both.
+- **Jinja: `{% endfor %}`, never `{%- endfor %}`.** With `trim_blocks` the dash eats the line
+  ending and every loop iteration collides onto one line. Read the golden file before committing
+  it — that is what caught it.
+- **Guards must be watched failing.** `test_purity.py` and `test_egress.py` only mean something
+  because someone broke them on purpose and saw the message. Doing that to the egress guard found
+  a hole: a bare `user_note: str` passed every rule it had.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy

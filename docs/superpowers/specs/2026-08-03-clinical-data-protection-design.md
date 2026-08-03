@@ -407,9 +407,11 @@ constraint: the dashboard must never accept a sample sheet.
 
 ## 10. Open questions
 
-- **Who profiles the data?** §3.1 assumes a profiler running beside the FASTQs, but that
-  component does not exist and is unassigned. It may belong to Wiener, to a small standalone
-  tool, or to a Nextflow job Mendel emits. It is the one piece of this design with no owner.
+- **Who profiles the data?** **Answered** by
+  [`2026-08-03-profiling-design.md`](2026-08-03-profiling-design.md): nobody, in the sense that
+  no Mendel component reads a file. A measurement is a type modules produce, so a profiling
+  pipeline is emitted by the same router and run by the laboratory — which is what keeps §3.1's
+  claim true rather than aspirational.
 - **Retention defaults.** "Bounded by default" needs a number per profile, and the number is a
   policy question a DPO should answer, not a developer.
 - **Template goals for `sealed`.** Closing the prompt door means goals are typed or chosen from
