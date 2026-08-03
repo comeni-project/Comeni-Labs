@@ -7,7 +7,10 @@ consumes:
 produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
   - {name: seq_platform, tier_hint: 4}
-priority: 0
+# STAR is the nf-core/rnaseq default aligner, so this registry prefers it by
+# convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
+# citation once the rule format lands.
+priority: 10
 nf_inputs: [{ports: [reads]}, {ports: [index]}, {empty: 2}, {literal: false}]
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}
