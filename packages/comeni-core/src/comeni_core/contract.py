@@ -157,6 +157,21 @@ class ModuleContract(BaseModel):
     nf_inputs: list[NfInput] = Field(default_factory=list)
     """The process call signature. Empty means one channel per consumed port, in order."""
 
+    ext_args: str = ""
+    """Flags this module always needs, regardless of any decision.
+
+    Sits beside `nf_inputs` because both answer the same question — *how is this module
+    called?* — rather than *what should be decided?*. `--readFilesCommand zcat` is not a
+    judgement anybody makes; it is forced by TrimGalore emitting `.fq.gz`.
+
+    **Carries no tier, deliberately.** A tier is for a decision. Labelling this tier 1
+    would be defensible and would dilute what a tier means, which is the one thing this
+    project sells.
+
+    Emitted into `process { withName: <nf_process> { ext.args = ... } }`, which is where
+    every nf-core module reads its arguments from: `def args = task.ext.args ?: ''`.
+    """
+
     provenance: Provenance
 
     def input_signature(self) -> list[NfInput]:

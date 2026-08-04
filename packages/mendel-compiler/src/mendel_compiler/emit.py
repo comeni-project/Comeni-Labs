@@ -248,6 +248,30 @@ def _test_profile(
     ]
 
 
+def _process_scope(ir: PipelineIR, registry: Registry) -> list[str]:
+    """`ext.args` per process, for modules that declare flags they always need.
+
+    Every nf-core module opens its script with `def args = task.ext.args ?: ''`, so this
+    is the only channel by which a flag reaches a tool. Emitting nothing for a module with
+    no `ext_args` keeps the generated config readable; an empty block is noise, and noise
+    is how a generated file stops being read.
+    """
+    blocks = []
+    for node in ir.nodes:
+        contract = registry.get(node.contract_id)
+        if not contract.ext_args:
+            continue
+        blocks.append(
+            f"    withName: {contract.nf_process} "
+            f"{{ ext.args = {_render_literal(contract.ext_args)} }}"
+        )
+    if not blocks:
+        return []
+    # Sorted and deduplicated: a contract used twice must not emit its block twice, and
+    # byte-identical output is a hard requirement.
+    return ["process {", *sorted(set(blocks)), "}", ""]
+
+
 def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
     """`nextflow.config` for the generated pipeline.
 
@@ -266,7 +290,9 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
         "params {",
     ]
     lines += [f"    {name} = null" for name in params]
-    lines += ["}", "", "profiles {", "    stub_data {"]
+    lines += ["}", ""]
+    lines += _process_scope(ir, registry)
+    lines += ["profiles {", "    stub_data {"]
     for name in params:
         pattern = (
             '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'

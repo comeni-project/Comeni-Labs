@@ -14,5 +14,8 @@ params:
 priority: 10
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, gtf) | val ignore_sjdbgtf
 nf_inputs: [{ports: [reads]}, {ports: [index]}, {ports: [gtf]}, {literal: false}]
+# TrimGalore emits .fq.gz and STAR reads plain text unless told otherwise. Not a
+# decision — a fact about the upstream module's output format.
+ext_args: "--readFilesCommand zcat"
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

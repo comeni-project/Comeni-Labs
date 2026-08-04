@@ -138,3 +138,37 @@ def test_the_test_profile_is_labelled_as_a_smoke_test(spine, loaded):
     config = emit_config(spine, loaded.registry, loaded.vocabulary)
     assert "smoke test" in config.lower()
     assert "not" in config.lower() and "correct" in config.lower()
+
+
+def test_a_contract_can_declare_flags_its_module_always_needs(loaded):
+    """Not a decision, so it carries no tier. `nf_inputs` says which channels a module
+    takes; this says which flags it takes. Both are "how is this called", and neither is
+    "what should be decided" — giving it a tier would dilute what a tier means."""
+    star = loaded.registry.get("nf-core/star/align@1.11.0")
+    assert "--readFilesCommand zcat" in star.ext_args
+
+
+def test_ext_args_reaches_the_emitted_config(spine, loaded):
+    """STAR died on real data with 'wrong read ID line format' and a binary offending
+    line: TrimGalore emits .fq.gz and nothing told STAR to decompress."""
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    assert "process {" in config
+    assert "withName: STAR_ALIGN" in config
+    assert "ext.args = '--readFilesCommand zcat'" in config
+
+
+def test_a_module_with_no_ext_args_gets_no_withname_block(spine, loaded):
+    """An empty block is noise, and noise in generated config is how nobody reads it."""
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    assert "withName: TRIMGALORE" not in config
+
+
+def test_ext_args_is_escaped_like_any_other_literal():
+    """These reach Groovy. An unescaped quote is a syntax error and a crafted value runs."""
+    from mendel_compiler.emit import _render_literal
+
+    assert "\\'" in _render_literal("--x 'quoted'")
