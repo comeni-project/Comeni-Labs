@@ -2,3 +2,5 @@ kind: enum
 values: [forward, reverse, unstranded]
 description: "Library strandedness determined by the prep protocol"
 cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
+describes: fastq.reads
+meta_key: strandedness

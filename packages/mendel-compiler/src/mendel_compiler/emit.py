@@ -104,6 +104,23 @@ def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -
     return f"{head}{joined}"
 
 
+def _render_meta(entries: dict[str, object]) -> str:
+    """A Groovy map literal, keys sorted so emission stays byte-identical."""
+    rendered = ", ".join(f"{key}: {_render_literal(entries[key])}" for key in sorted(entries))
+    return "[" + rendered + "]"
+
+
+def _with_meta(expression: str, entries: dict[str, object]) -> str:
+    """Merge measured facts into the channel's meta map.
+
+    `meta + [...]` rather than replacing it: the entry channel already put an `id` there,
+    and losing it would break `tag "$meta.id"` in every module.
+    """
+    if not entries:
+        return expression
+    return f"({expression}).map {{ meta, files -> [ meta + {_render_meta(entries)}, files ] }}"
+
+
 def _entry_expressions(
     ir: PipelineIR, registry: Registry, vocab: Vocabulary
 ) -> dict[str, str]:
@@ -119,10 +136,21 @@ def _entry_expressions(
     return needed
 
 
-def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[tuple[str, str]]:
+def _entry_channels(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary, measurements=None
+) -> list[tuple[str, str]]:
     """Declarations for every type consumed but not produced inside the pipeline."""
     needed = _entry_expressions(ir, registry, vocab)
-    return [(_channel_name(type_id), needed[type_id]) for type_id in sorted(needed)]
+    return [
+        (
+            _channel_name(type_id),
+            _with_meta(
+                needed[type_id],
+                measurements.meta_for(type_id, ir.profile) if measurements else {},
+            ),
+        )
+        for type_id in sorted(needed)
+    ]
 
 
 def _calls(ir: PipelineIR, registry: Registry) -> list[str]:
@@ -134,7 +162,12 @@ def _calls(ir: PipelineIR, registry: Registry) -> list[str]:
     return calls
 
 
-def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) -> str:
+def emit(
+    ir: PipelineIR,
+    registry: Registry,
+    vocab: Vocabulary | None = None,
+    measurements=None,
+) -> str:
     vocab = vocab or Vocabulary(types={})
     env = Environment(
         loader=FileSystemLoader(_TEMPLATES),
@@ -165,7 +198,7 @@ def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) ->
     ]
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
-        entry_channels=_entry_channels(ir, registry, vocab),
+        entry_channels=_entry_channels(ir, registry, vocab, measurements),
         calls=_calls(ir, registry),
     )
 
@@ -179,7 +212,7 @@ def entry_params(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[
     import re
 
     found: set[str] = set()
-    for _, expression in _entry_channels(ir, registry, vocab):
+    for expression in _entry_expressions(ir, registry, vocab).values():
         found.update(re.findall(r"params\.(\w+)", expression))
     return sorted(found)
 

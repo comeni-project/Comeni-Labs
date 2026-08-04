@@ -87,7 +87,7 @@ def _build(argv: list[str] | None = None) -> int:
     ir = resolve(goal, registry, rules)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "main.nf").write_text(emit(ir, registry, vocab))
+    (args.out / "main.nf").write_text(emit(ir, registry, vocab, loaded.measurements))
     (args.out / "nextflow.config").write_text(emit_config(ir, registry, vocab))
     (args.out / "pipeline.ir.json").write_text(ir.model_dump_json(indent=2))
     # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is

@@ -38,6 +38,23 @@ def spine(loaded):
     return resolve(goal, loaded.registry, loaded.rules)
 
 
+@pytest.fixture
+def spine_with_profile(loaded):
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile(
+            {"read_length": 150, "strandedness": "reverse", "paired": True}
+        ),
+    )
+    return resolve(goal, loaded.registry, loaded.rules)
+
+
 def test_every_empty_placeholder_says_why_it_is_empty(loaded):
     """`NfInput.empty` was doing two different jobs, and nothing told them apart.
 
@@ -172,3 +189,62 @@ def test_ext_args_is_escaped_like_any_other_literal():
     from mendel_compiler.emit import _render_literal
 
     assert "\\'" in _render_literal("--x 'quoted'")
+
+
+def test_a_measurement_can_declare_how_it_appears_in_meta(loaded):
+    strandedness = loaded.measurements.get("strandedness")
+    assert strandedness.describes == "fastq.reads"
+    assert strandedness.meta_key == "strandedness"
+
+
+def test_a_measurement_can_declare_a_value_translation(loaded):
+    """We ask whether the library is paired; nf-core asks whether it is single-end.
+    The same fact, spelled inside out, and the translation is declared rather than known
+    by the compiler."""
+    paired = loaded.measurements.get("paired")
+    assert paired.meta_key == "single_end"
+    assert loaded.measurements.meta_for(
+        "fastq.reads", loaded.measurements.profile({"paired": True})
+    ) == {"single_end": False}
+
+
+def test_measurements_without_a_meta_key_are_not_carried(loaded):
+    """`n_samples` is a property of the study, not of a read. Opt-in, so nothing lands in
+    a meta map by accident."""
+    meta = loaded.measurements.meta_for(
+        "fastq.reads", loaded.measurements.profile({"n_samples": 12, "strandedness": "reverse"})
+    )
+    assert meta == {"strandedness": "reverse"}
+
+
+def test_meta_is_only_built_for_the_type_a_measurement_describes(loaded):
+    """Putting strandedness on the genome channel would be meaningless and would read as a
+    bug to anyone inspecting the emitted workflow."""
+    profile = loaded.measurements.profile({"strandedness": "reverse"})
+    assert loaded.measurements.meta_for("genome.fasta", profile) == {}
+
+
+def test_the_emitted_entry_channel_carries_the_meta(spine_with_profile, loaded):
+    from mendel_compiler.emit import emit
+
+    source = emit(
+        spine_with_profile, loaded.registry, loaded.vocabulary, loaded.measurements
+    )
+    line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    assert "strandedness: 'reverse'" in line, line
+    assert "single_end: false" in line, line
+
+
+def test_an_unmeasured_profile_emits_no_meta_wrapper(loaded):
+    """No profile, no `.map`. The pipeline should not gain a no-op that a reader has to
+    understand before dismissing."""
+    from mendel_compiler.emit import emit
+
+    goal = Goal(
+        have=[GoalInput(type_id="fastq.reads")],
+        want=["qc.report"],
+    )
+    ir = resolve(goal, loaded.registry, loaded.rules)
+    source = emit(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
+    line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    assert "meta +" not in line, line
