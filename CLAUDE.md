@@ -342,13 +342,14 @@ the nf-core test profile and produces a counts matrix. Target is the **RNA-seq s
 ~15–20 modules on the canonical path, *not* the full `nf-core/rnaseq` decision tree with its
 alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
 
-**None of those four clauses is met yet, and one of them is not currently reachable.**
-`Gate.TEST` runs `-profile test`, which `emit_config` deliberately does not emit — see the
-comment at `gates.py:21-25`. So the spine has never run on real data and has never produced
-a counts matrix; `gate stub: PASS` proves the DAG executes, not that the analysis is right.
-The spine is also 10 distinct processes, not 15–20. **Plan 1 is a verified compiler, not a
-verified pipeline.** Either close the gap or revise the criterion, but do not leave it
-stated in terms of a gate that cannot pass. See the journal.
+**Status after Plan 1.5** — a `test` profile is emitted, so `Gate.TEST` runs; the spine
+executes on the nf-core RNA-seq test dataset and produces a counts matrix, and
+`tests/test_counts.py` asserts featureCounts ran with the strandedness that was measured.
+What remains unmet is the plain-language prompt (Plan 2) and the module count: **10 distinct
+processes, not 15–20**. The remainder are QC breadth — `samtools stats`/`flagstat`/`idxstats`,
+duplicate marking, RNA-specific QC — not correctness. Revise that clause or close it, but do
+not treat breadth as the blocker: a pipeline with twenty modules that ignores every parameter
+is worse than one with ten that does not.
 
 ## Gotchas
 
@@ -414,6 +415,19 @@ stated in terms of a gate that cannot pass. See the journal.
   output directory and also matched `vendor/modules/nf-core/hisat2/build/`, so the module every
   short-read decision depends on was never committed and no test noticed — the main checkout had
   the files untracked on disk. A worktree is what surfaced it. Anchor such patterns: `/build/`.
+- **`-stub-run` cannot see a hollow input.** nf-core stubs never read their inputs, so a
+  process handed `Channel.value([[:], []])` where a genome belongs is exactly as green as one
+  handed a genome. Two shipped that way — STAR built an index from nothing and aligned against
+  no annotation. `NfInput.empty` now requires a `because`, and only `--gate test` catches the
+  rest.
+- **A resolved value needs somewhere to go.** nf-core modules read `task.ext.args` and `meta`;
+  a `params.<x>` in the emitted workflow is read by nothing. `ModuleContract.ext_args` carries
+  flags a module always needs. Measured facts go through `meta`, where the module does its own
+  translation — which is why the strandedness rule was deleted rather than wired: `-s 2` is
+  featureCounts' encoding of a fact, not a decision, and the module already contains it.
+- **Emptiness and deadness are different problems.** Few parameters and no defaults is
+  *emptiness*, and it is the forge's job — hand-authoring a registry was never the plan. A
+  resolved value reaching no tool is *deadness*, and no amount of forge output fixes it.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy

@@ -57,6 +57,12 @@ jobs:
           test "$rows" -gt 1 || { echo "counts matrix has no rows"; exit 1; }
           head -3 "$matrix"
 
+      - name: The spine counts correctly on the test dataset
+        run: uv run pytest -m slow -v
+        # `make check` excludes these; they need Docker and about ten minutes. This is the
+        # only gate that can catch a pipeline which runs and computes the wrong numbers —
+        # -stub-run cannot, because nf-core stubs never read their inputs.
+
       - name: Emit a profiling pipeline
         run: uv run mendel profile --have fastq.reads --out profile-build/
 

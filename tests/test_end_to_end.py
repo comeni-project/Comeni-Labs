@@ -20,19 +20,25 @@ def test_builds_a_pipeline_from_the_example_goal(tmp_path):
     assert (tmp_path / "pipeline" / "pipeline.ir.json").exists()
 
 
-def test_strandedness_resolves_at_tier_3_from_the_profile(tmp_path):
+def test_the_measured_strandedness_reaches_the_tool(tmp_path):
+    """This asserted a tier-3 param resolving to 2. That param reached no tool.
+
+    `params.subread_featurecounts_strandedness = 2` was emitted and read by nothing —
+    nf-core modules take configuration through `task.ext.args` and `meta`. featureCounts
+    contains the translation itself (`meta.strandedness == 'reverse'` -> `-s 2`), so the
+    rule was a translation wearing a tier-3 badge and is deleted. The guarantee is the
+    same and now lives where it can actually take effect. See Plan 1.5.
+    """
     main([
         "build",
         "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
     ])
-    ir = json.loads((tmp_path / "pipeline" / "pipeline.ir.json").read_text())
-    node = next(n for n in ir["nodes"] if n["id"] == "subread_featurecounts")
-    strandedness = next(b["value"] for b in node["params"] if b["name"] == "strandedness")
-    assert strandedness["value"] == 2
-    assert strandedness["tier"] == 3
-    assert strandedness["review_level"] == "advisory"
+    source = (tmp_path / "pipeline" / "main.nf").read_text()
+    reads = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    assert "strandedness: 'reverse'" in reads, reads
+    assert "single_end: false" in reads, reads
 
 
 def test_an_overlay_shadows_and_says_so(tmp_path, capsys):

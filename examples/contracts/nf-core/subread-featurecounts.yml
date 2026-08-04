@@ -5,8 +5,9 @@ consumes:
   - {name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}
   - {name: annotation, type_id: annotation.gtf, state_required: []}
 produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
-params:
-  - {name: strandedness, tier_hint: 3}
+# Strandedness arrives through `meta.strandedness`, which this module already translates
+# into `-s`. A Param here would resolve to a value that reaches nothing.
+params: []
 priority: 0
 nf_inputs: [{ports: [bam, annotation]}]
 container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0

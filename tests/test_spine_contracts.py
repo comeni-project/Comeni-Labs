@@ -152,7 +152,6 @@ def test_every_shipped_rule_can_fire(registry):
     a dead rule can no longer be shipped to be recorded.
     """
     table = layers.load(ROOT / "examples").rules
-    assert [d.decides.key() for d in table.decisions] == [
-        "param:strandedness",
-        "producer_of:alignment.bam",
-    ]
+    # One decision, and it is a real one. `param:strandedness` used to sit beside it and
+    # was a translation the module already performs — see Plan 1.5.
+    assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]

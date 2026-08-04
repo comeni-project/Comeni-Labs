@@ -18,12 +18,16 @@ _ARGS: dict[Gate, list[str]] = {
     Gate.LINT: ["nextflow", "lint", "main.nf"],
     Gate.PREVIEW: ["nextflow", "run", "main.nf", "-preview", "-profile", "stub_data"],
     Gate.STUB: ["nextflow", "run", "main.nf", "-stub-run", "-profile", "stub_data,docker"],
-    # TEST alone keeps `-profile test`, which `emit_config` deliberately does not emit:
-    # a real test profile needs real reference data, and shipping fixtures as if they
-    # demonstrated biological correctness would be the dishonest kind of green. The
-    # laboratory supplies it. Until then this gate cannot pass, and the v1 criterion —
-    # stated in terms of `-profile test` — is not reachable from this repository alone.
-    Gate.TEST: ["nextflow", "run", "main.nf", "-profile", "test"],
+    # `test,docker` for the same reason STUB uses `stub_data,docker`: without it Nextflow
+    # runs the tools on the host and every process dies with `command not found` (exit
+    # 127). This gate was defined without it and could therefore never have passed, which
+    # went unnoticed because nothing had ever run it.
+    #
+    # `emit_config` now emits a `test` profile from each type's `test_data`, pinned to a
+    # commit. It is a smoke test on a public dataset: it proves the pipeline runs and
+    # produces output on data somebody else curated. It does not demonstrate biological
+    # correctness, and the laboratory still supplies its own reference material.
+    Gate.TEST: ["nextflow", "run", "main.nf", "-profile", "test,docker"],
 }
 
 _TIMEOUTS: dict[Gate, int] = {
