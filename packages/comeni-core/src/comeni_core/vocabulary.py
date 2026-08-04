@@ -21,7 +21,7 @@ class UnknownStateError(ValueError):
 
 class Vocabulary(BaseModel):
     types: dict[str, frozenset[str]]
-    test_data: dict[str, str] = {}
+    test_data: dict[str, str | list[str]] = {}
     """Where a small public example of this type lives, for the `test` profile.
 
     Declared per type for the same reason `entry_channel` is: the compiler has no built-in
@@ -52,7 +52,7 @@ class Vocabulary(BaseModel):
         if isinstance(layers, Path):
             layers = [layers]
         types: dict[str, frozenset[str]] = {}
-        test_data: dict[str, str] = {}
+        test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
         for directory in layers:
             for path in sorted(directory.glob("*.yml")):

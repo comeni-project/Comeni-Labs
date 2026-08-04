@@ -1,0 +1,139 @@
+{
+  "nodes": [
+    {
+      "id": "trimgalore",
+      "contract_id": "nf-core/trimgalore@0.6.10",
+      "params": [],
+      "selection": {
+        "value": "nf-core/trimgalore@0.6.10",
+        "tier": 1,
+        "source": "resolver",
+        "reason": "the only contract that produces this",
+        "review_level": "none"
+      }
+    },
+    {
+      "id": "star_genomegenerate",
+      "contract_id": "nf-core/star/genomegenerate@1.11.0",
+      "params": [],
+      "selection": {
+        "value": "nf-core/star/genomegenerate@1.11.0",
+        "tier": 1,
+        "source": "resolver",
+        "reason": "the only contract that produces this",
+        "review_level": "none"
+      }
+    },
+    {
+      "id": "star_align",
+      "contract_id": "nf-core/star/align@1.11.0",
+      "params": [
+        {
+          "name": "seq_platform",
+          "value": {
+            "value": null,
+            "tier": 4,
+            "source": "resolver",
+            "reason": "no rule covered 'seq_platform'; selected the first of 1 candidates without judgement — please review",
+            "review_level": "required"
+          }
+        }
+      ],
+      "selection": {
+        "value": "nf-core/star/align@1.11.0",
+        "tier": 3,
+        "source": "resolver",
+        "reason": "rule producer_of:alignment.bam matched {'read_length': '>= 70'}: Dobin et al. 2013, doi:10.1093/bioinformatics/bts635",
+        "review_level": "advisory"
+      }
+    },
+    {
+      "id": "samtools_sort",
+      "contract_id": "nf-core/samtools/sort@1.21.0",
+      "params": [],
+      "selection": {
+        "value": "nf-core/samtools/sort@1.21.0",
+        "tier": 1,
+        "source": "resolver",
+        "reason": "the only contract that produces this",
+        "review_level": "none"
+      }
+    },
+    {
+      "id": "subread_featurecounts",
+      "contract_id": "nf-core/subread/featurecounts@2.0.6",
+      "params": [
+        {
+          "name": "strandedness",
+          "value": {
+            "value": 2,
+            "tier": 3,
+            "source": "resolver",
+            "reason": "rule param:strandedness: Liao et al. 2014, doi:10.1093/bioinformatics/btt656",
+            "review_level": "advisory"
+          }
+        }
+      ],
+      "selection": {
+        "value": "nf-core/subread/featurecounts@2.0.6",
+        "tier": 1,
+        "source": "resolver",
+        "reason": "the only contract that produces this",
+        "review_level": "none"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from_node": "trimgalore",
+      "from_port": "reads",
+      "to_node": "star_align",
+      "to_port": "reads",
+      "type_id": "fastq.reads",
+      "states": [
+        "trimmed"
+      ]
+    },
+    {
+      "from_node": "star_genomegenerate",
+      "from_port": "index",
+      "to_node": "star_align",
+      "to_port": "index",
+      "type_id": "genome.index.star",
+      "states": []
+    },
+    {
+      "from_node": "star_align",
+      "from_port": "bam",
+      "to_node": "samtools_sort",
+      "to_port": "bam",
+      "type_id": "alignment.bam",
+      "states": []
+    },
+    {
+      "from_node": "samtools_sort",
+      "from_port": "bam",
+      "to_node": "subread_featurecounts",
+      "to_port": "bam",
+      "type_id": "alignment.bam",
+      "states": [
+        "coordinate_sorted"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "key": "star_align.seq_platform",
+      "subject": "seq_platform",
+      "candidates": [
+        null
+      ],
+      "chosen": null,
+      "reason": "no rule covered 'seq_platform'; selected the first of 1 candidates without judgement — please review",
+      "confidence": 0.0,
+      "resolved_by": "flag-only",
+      "tier": 4,
+      "human_override": null
+    }
+  ]
+}

@@ -200,6 +200,18 @@ def _params_by_type(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> di
     return found
 
 
+def _render_test_data(value: str | list[str]) -> str:
+    """A single URL, or an explicit list of mates.
+
+    A list because Nextflow refuses a glob pattern over https — `fromFilePairs` cannot
+    brace-expand `SRR6357070_{1,2}.fastq.gz` when it is a URL, which is how the first
+    `test` profile failed. The entry channel takes a list as the mates themselves.
+    """
+    if isinstance(value, str):
+        return f'"{value}"'
+    return "[" + ", ".join(f'"{item}"' for item in value) + "]"
+
+
 def _test_profile(
     ir: PipelineIR, registry: Registry, vocab: Vocabulary, params: list[str]
 ) -> list[str]:
@@ -231,7 +243,7 @@ def _test_profile(
         "        // correct, and it is not a substitute for the laboratory validating it.",
         "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
         "        // result against next year.",
-        *[f'        params.{name} = "{values[name]}"' for name in params],
+        *[f"        params.{name} = {_render_test_data(values[name])}" for name in params],
         "    }",
     ]
 
