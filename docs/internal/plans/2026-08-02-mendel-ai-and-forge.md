@@ -1971,6 +1971,18 @@ git commit -m "feat(compiler): wire AI extraction and resolution into the CLI be
 
 ---
 
+> **Prerequisite: Plan 1.6, conformance checking.** Tasks 8–10 draft contracts for a human to
+> approve, and [`forge-review.md`](../../design/forge-review.md) §3 calls a `copied` field "zero
+> risk" — which is only true if something compared it to the module.
+> `mendel_compiler.conformance.check` is that something, and `ModuleSpec` is what these tasks
+> should draft *from* rather than re-parsing modules a second way. Two parsers for one file
+> format is the drift this project keeps being bitten by.
+>
+> Concretely, in Task 9: **a draft that fails conformance never reaches the queue.** The forge
+> runs `check()` on its own output and fixes or discards, so a human only ever reviews drafts
+> that are already true about their module. That is what turns approval into review rather than
+> rubber-stamping — see [`conformance.md`](../../design/conformance.md) §7.
+
 ### Task 8: nf-core meta.yml ingestion
 
 **Files:**

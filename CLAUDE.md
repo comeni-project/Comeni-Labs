@@ -41,6 +41,8 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
 | `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
+| `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
+| `docs/internal/plans/2026-08-05-conformance-checking.md` | **Plan 1.6 — do this next.** A contract must tell the truth about its module. |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
@@ -60,7 +62,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plan 1.5 is complete; **Plan 2.5 is next**.
+  a date. Plan 1.5 is complete; **Plan 1.6 is next**, then Plan 2.5.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
