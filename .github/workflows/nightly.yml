@@ -38,6 +38,31 @@ jobs:
       - name: Build the RNA-seq spine and run the stub gate
         run: uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
+      - name: Run the spine on the nf-core test dataset
+        run: uv run mendel build --goal examples/rnaseq-goal.yml --out test-build/ --gate test
+        # The gate that answers "does this produce a counts matrix", as opposed to
+        # `stub`, which answers "does the DAG execute". nf-core stubs never read their
+        # inputs, so only this one can catch a process wired to an empty tuple — which
+        # is how the missing reference genome survived a green suite (issue #8).
+        #
+        # The dataset is pinned to a commit in the vocabulary's `test_data`, so a result
+        # from today is comparable to a result from next year.
+
+      - name: The run produced a counts matrix with counts in it
+        run: |
+          matrix=$(find test-build/ -name '*.featureCounts.txt' | head -1)
+          test -n "$matrix" || { echo "no counts matrix was produced"; exit 1; }
+          rows=$(grep -vc '^#' "$matrix")
+          echo "counts matrix: $matrix ($rows rows)"
+          test "$rows" -gt 1 || { echo "counts matrix has no rows"; exit 1; }
+          head -3 "$matrix"
+
+      - name: The spine counts correctly on the test dataset
+        run: uv run pytest -m slow -v
+        # `make check` excludes these; they need Docker and about ten minutes. This is the
+        # only gate that can catch a pipeline which runs and computes the wrong numbers —
+        # -stub-run cannot, because nf-core stubs never read their inputs.
+
       - name: Emit a profiling pipeline
         run: uv run mendel profile --have fastq.reads --out profile-build/
 
@@ -53,6 +78,9 @@ jobs:
             build/main.nf
             build/nextflow.config
             build/pipeline.ir.json
+            test-build/main.nf
+            test-build/pipeline.ir.json
+            test-build/results/
             profile-build/
           retention-days: 14
 

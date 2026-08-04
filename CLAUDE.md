@@ -15,11 +15,12 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plan 1 and the measurements/rules/profiling plan are both complete** (2026-08-03). 164 tests
-green, `ruff check` clean, and `uv run mendel build --goal examples/rnaseq-goal.yml --out build/
---gate stub` runs the RNA-seq spine end to end with `gate stub: PASS`. `uv run mendel profile
---have fastq.reads --out profile-build/` emits a pipeline that measures. `comeni-core`,
-`mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+**Plans 1, the measurements plan, and Plan 1.5 are complete.** 189 fast tests green,
+`ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
+produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
+strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
+excludes it and stays a one-minute gate. `comeni-core`, `mendel-resolver` and `mendel-compiler`
+exist. Nothing AI-shaped is built.
 
 **Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
@@ -39,6 +40,9 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
+| `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
+| `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
+| `docs/internal/plans/2026-08-05-conformance-checking.md` | **Plan 1.6 — do this next.** A contract must tell the truth about its module. |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
@@ -57,8 +61,8 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
-- **Plan 1 and the measurements plan are done.** The next work is **Plan 2.5**, which is now
-  writable: it referenced types that existed only as text, and those types exist now.
+- **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
+  a date. Plan 1.5 is complete; **Plan 1.6 is next**, then Plan 2.5.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
@@ -340,13 +344,14 @@ the nf-core test profile and produces a counts matrix. Target is the **RNA-seq s
 ~15–20 modules on the canonical path, *not* the full `nf-core/rnaseq` decision tree with its
 alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
 
-**None of those four clauses is met yet, and one of them is not currently reachable.**
-`Gate.TEST` runs `-profile test`, which `emit_config` deliberately does not emit — see the
-comment at `gates.py:21-25`. So the spine has never run on real data and has never produced
-a counts matrix; `gate stub: PASS` proves the DAG executes, not that the analysis is right.
-The spine is also 10 distinct processes, not 15–20. **Plan 1 is a verified compiler, not a
-verified pipeline.** Either close the gap or revise the criterion, but do not leave it
-stated in terms of a gate that cannot pass. See the journal.
+**Status after Plan 1.5** — a `test` profile is emitted, so `Gate.TEST` runs; the spine
+executes on the nf-core RNA-seq test dataset and produces a counts matrix, and
+`tests/test_counts.py` asserts featureCounts ran with the strandedness that was measured.
+What remains unmet is the plain-language prompt (Plan 2) and the module count: **10 distinct
+processes, not 15–20**. The remainder are QC breadth — `samtools stats`/`flagstat`/`idxstats`,
+duplicate marking, RNA-specific QC — not correctness. Revise that clause or close it, but do
+not treat breadth as the blocker: a pipeline with twenty modules that ignores every parameter
+is worse than one with ten that does not.
 
 ## Gotchas
 
@@ -412,6 +417,19 @@ stated in terms of a gate that cannot pass. See the journal.
   output directory and also matched `vendor/modules/nf-core/hisat2/build/`, so the module every
   short-read decision depends on was never committed and no test noticed — the main checkout had
   the files untracked on disk. A worktree is what surfaced it. Anchor such patterns: `/build/`.
+- **`-stub-run` cannot see a hollow input.** nf-core stubs never read their inputs, so a
+  process handed `Channel.value([[:], []])` where a genome belongs is exactly as green as one
+  handed a genome. Two shipped that way — STAR built an index from nothing and aligned against
+  no annotation. `NfInput.empty` now requires a `because`, and only `--gate test` catches the
+  rest.
+- **A resolved value needs somewhere to go.** nf-core modules read `task.ext.args` and `meta`;
+  a `params.<x>` in the emitted workflow is read by nothing. `ModuleContract.ext_args` carries
+  flags a module always needs. Measured facts go through `meta`, where the module does its own
+  translation — which is why the strandedness rule was deleted rather than wired: `-s 2` is
+  featureCounts' encoding of a fact, not a decision, and the module already contains it.
+- **Emptiness and deadness are different problems.** Few parameters and no defaults is
+  *emptiness*, and it is the forge's job — hand-authoring a registry was never the plan. A
+  resolved value reaching no tool is *deadness*, and no amount of forge output fixes it.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy

@@ -1,2 +1,9 @@
 states: [trimmed, deduplicated, subsampled]
-entry_channel: "Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
+# Two forms, because a local run globs and a remote one cannot: Nextflow refuses a glob
+# pattern over https, so `fromFilePairs` works for `/data/*_R{1,2}.fastq.gz` and fails
+# for a URL. A list is taken as an explicit set of mates. The branch lives here rather
+# than in the compiler for the usual reason — mendel-compiler has no idea what a FASTQ is.
+entry_channel: "( params.input instanceof List ? Channel.of([ [id: 'test'], params.input.collect { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] } )"
+test_data:
+  - "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_1.fastq.gz"
+  - "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_2.fastq.gz"

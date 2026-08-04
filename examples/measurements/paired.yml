@@ -1,2 +1,9 @@
 kind: boolean
 description: "Whether the library is paired-end"
+describes: fastq.reads
+# We ask whether the library is paired; nf-core asks whether it is single-end. Same fact,
+# spelled inside out. featureCounts reads it as `meta.single_end ? '' : '-p'`.
+meta_key: single_end
+meta_values:
+  - {when: true, then: false}
+  - {when: false, then: true}

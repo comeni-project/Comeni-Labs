@@ -21,6 +21,16 @@ class UnknownStateError(ValueError):
 
 class Vocabulary(BaseModel):
     types: dict[str, frozenset[str]]
+    test_data: dict[str, str | list[str]] = {}
+    """Where a small public example of this type lives, for the `test` profile.
+
+    Declared per type for the same reason `entry_channel` is: the compiler has no built-in
+    idea what a FASTQ is, and a type a laboratory invents has to be able to bring its own.
+
+    Pin these to a commit, never a branch. A dataset that moves is one you cannot compare a
+    result against next year, which is the entire point of having one.
+    """
+
     entry_channels: dict[str, str] = {}
     """How a type enters a pipeline when nothing upstream produces it.
 
@@ -42,6 +52,7 @@ class Vocabulary(BaseModel):
         if isinstance(layers, Path):
             layers = [layers]
         types: dict[str, frozenset[str]] = {}
+        test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
         for directory in layers:
             for path in sorted(directory.glob("*.yml")):
@@ -50,7 +61,9 @@ class Vocabulary(BaseModel):
                 types[type_id] = frozenset(data.get("states", []))
                 if data.get("entry_channel"):
                     entry_channels[type_id] = data["entry_channel"]
-        return cls(types=types, entry_channels=entry_channels)
+                if data.get("test_data"):
+                    test_data[type_id] = data["test_data"]
+        return cls(types=types, entry_channels=entry_channels, test_data=test_data)
 
     def with_measurements(self, registry: "MeasurementRegistry") -> "Vocabulary":
         """Derive a stateless `measurement.<id>` type per declaration.
@@ -68,7 +81,11 @@ class Vocabulary(BaseModel):
         types = dict(self.types)
         for measurement_id in registry.ids():
             types[f"measurement.{measurement_id}"] = frozenset()
-        return Vocabulary(types=types, entry_channels=dict(self.entry_channels))
+        return Vocabulary(
+            types=types,
+            entry_channels=dict(self.entry_channels),
+            test_data=dict(self.test_data),
+        )
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:

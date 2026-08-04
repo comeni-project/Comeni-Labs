@@ -38,6 +38,20 @@ class MeasurementKind(StrEnum):
     ENUM = "enum"
 
 
+class MetaValue(BaseModel):
+    """One value translation between our vocabulary and a module's.
+
+    A list of records rather than a mapping, matching `ParamBinding` and `Measured`: a
+    typed key does not prove a declared key, and `Measurement` is one field away from
+    being reachable from a publish bundle.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    when: ParamValue
+    then: ParamValue
+
+
 class Measurement(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -57,6 +71,29 @@ class Measurement(BaseModel):
     description: str = ""
     cite: str | None = None
     edam: str | None = None
+    describes: MeasurementId | None = None
+    """Which type this is a property of, e.g. `fastq.reads`.
+
+    Only measurements that describe something can be carried into that thing's `meta` map.
+    `n_samples` describes the study rather than a read, so it has no `describes` and is
+    never carried.
+    """
+
+    meta_key: str | None = None
+    """How a module spells this in `meta`, if any. Absent means never carried.
+
+    Opt-in, so nothing lands in a meta map by accident. nf-core modules read
+    `meta.strandedness` and `meta.single_end` directly and do their own translation into
+    flags — which is why Mendel carries the *fact* and lets the module keep its encoding.
+    """
+
+    meta_values: list[MetaValue] = Field(default_factory=list)
+    """Value translations, when our vocabulary and the module's disagree.
+
+    We ask whether a library is `paired`; nf-core asks whether it is `single_end`. The same
+    fact spelled inside out. Declared here rather than known by the compiler, for the same
+    reason `entry_channel` is declared: this has to work for a module nobody has seen.
+    """
     deprecated: bool = False
     replaced_by: MeasurementId | None = None
     """A meaning change gets a *new id*; this one stays forever, pointing at its successor.
@@ -180,6 +217,30 @@ class MeasurementRegistry(BaseModel):
                 for k, v in sorted(by_contract.items())
             ]
         )
+
+
+    def meta_for(self, type_id: str, profile: DataProfile) -> dict[str, ParamValue]:
+        """The `meta` entries a channel of `type_id` should carry, from this profile.
+
+        Only measurements that declare both `describes` and `meta_key`, and that the
+        profile actually measured. Everything else is silence, which is the honest default:
+        a `meta` key with a made-up value is worse than an absent one, because the module
+        will use it.
+        """
+        found: dict[str, ParamValue] = {}
+        for measurement_id in self.ids():
+            measurement = self.get(measurement_id)
+            if measurement.describes != type_id or not measurement.meta_key:
+                continue
+            value = profile.get(measurement_id)
+            if value is None:
+                continue
+            for translation in measurement.meta_values:
+                if translation.when == value:
+                    value = translation.then
+                    break
+            found[measurement.meta_key] = value
+        return found
 
 
 def _extend(

@@ -104,8 +104,27 @@ def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -
     return f"{head}{joined}"
 
 
-def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[tuple[str, str]]:
-    """Declarations for every type consumed but not produced inside the pipeline."""
+def _render_meta(entries: dict[str, object]) -> str:
+    """A Groovy map literal, keys sorted so emission stays byte-identical."""
+    rendered = ", ".join(f"{key}: {_render_literal(entries[key])}" for key in sorted(entries))
+    return "[" + rendered + "]"
+
+
+def _with_meta(expression: str, entries: dict[str, object]) -> str:
+    """Merge measured facts into the channel's meta map.
+
+    `meta + [...]` rather than replacing it: the entry channel already put an `id` there,
+    and losing it would break `tag "$meta.id"` in every module.
+    """
+    if not entries:
+        return expression
+    return f"({expression}).map {{ meta, files -> [ meta + {_render_meta(entries)}, files ] }}"
+
+
+def _entry_expressions(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary
+) -> dict[str, str]:
+    """Every type consumed but not produced inside the pipeline, and how it arrives."""
     fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
     needed: dict[str, str] = {}
     for node in ir.nodes:
@@ -114,7 +133,24 @@ def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> li
                 continue
             type_id = _entry_type(port)
             needed[type_id] = vocab.entry_channels.get(type_id, _default_entry(type_id))
-    return [(_channel_name(type_id), needed[type_id]) for type_id in sorted(needed)]
+    return needed
+
+
+def _entry_channels(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary, measurements=None
+) -> list[tuple[str, str]]:
+    """Declarations for every type consumed but not produced inside the pipeline."""
+    needed = _entry_expressions(ir, registry, vocab)
+    return [
+        (
+            _channel_name(type_id),
+            _with_meta(
+                needed[type_id],
+                measurements.meta_for(type_id, ir.profile) if measurements else {},
+            ),
+        )
+        for type_id in sorted(needed)
+    ]
 
 
 def _calls(ir: PipelineIR, registry: Registry) -> list[str]:
@@ -126,7 +162,12 @@ def _calls(ir: PipelineIR, registry: Registry) -> list[str]:
     return calls
 
 
-def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) -> str:
+def emit(
+    ir: PipelineIR,
+    registry: Registry,
+    vocab: Vocabulary | None = None,
+    measurements=None,
+) -> str:
     vocab = vocab or Vocabulary(types={})
     env = Environment(
         loader=FileSystemLoader(_TEMPLATES),
@@ -157,7 +198,7 @@ def emit(ir: PipelineIR, registry: Registry, vocab: Vocabulary | None = None) ->
     ]
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
-        entry_channels=_entry_channels(ir, registry, vocab),
+        entry_channels=_entry_channels(ir, registry, vocab, measurements),
         calls=_calls(ir, registry),
     )
 
@@ -171,9 +212,97 @@ def entry_params(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[
     import re
 
     found: set[str] = set()
-    for _, expression in _entry_channels(ir, registry, vocab):
+    for expression in _entry_expressions(ir, registry, vocab).values():
         found.update(re.findall(r"params\.(\w+)", expression))
     return sorted(found)
+
+
+def _params_by_type(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> dict[str, str]:
+    """Which `params.<name>` each entry type supplies, as `{param: type_id}`.
+
+    Read back out of the entry-channel expressions rather than assumed, for the same
+    reason `entry_params` is: a type that declares its own channel declares its own
+    parameter, and the compiler must not have an opinion about what it is called.
+    """
+    import re
+
+    found: dict[str, str] = {}
+    for type_id, expression in _entry_expressions(ir, registry, vocab).items():
+        for name in re.findall(r"params\.(\w+)", expression):
+            found[name] = type_id
+    return found
+
+
+def _render_test_data(value: str | list[str]) -> str:
+    """A single URL, or an explicit list of mates.
+
+    A list because Nextflow refuses a glob pattern over https — `fromFilePairs` cannot
+    brace-expand `SRR6357070_{1,2}.fastq.gz` when it is a URL, which is how the first
+    `test` profile failed. The entry channel takes a list as the mates themselves.
+    """
+    if isinstance(value, str):
+        return f'"{value}"'
+    return "[" + ", ".join(f'"{item}"' for item in value) + "]"
+
+
+def _test_profile(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary, params: list[str]
+) -> list[str]:
+    """A `test` profile, when every entry type declares where a public example lives.
+
+    `Gate.TEST` runs `-profile test`, and until this existed nothing emitted one, so the
+    gate could not pass and the v1 criterion was stated in terms of something unreachable.
+
+    The URLs come from the vocabulary's `test_data`, not from here — same reason
+    `entry_channel` does. Nextflow stages a remote path itself, so no fetching happens in
+    this package, which is just as well: `mendel-compiler` is on the purity banlist and
+    may not open a socket.
+
+    All or nothing. A partial `test` profile would fail at run time with a null parameter,
+    which looks like a pipeline bug rather than a missing declaration.
+    """
+    by_type = _params_by_type(ir, registry, vocab)
+    values = {name: vocab.test_data.get(by_type.get(name, "")) for name in params}
+    missing = sorted(name for name, value in values.items() if not value)
+    if missing:
+        return [
+            "    // No `test` profile: these inputs declare no `test_data` in the",
+            f"    // vocabulary — {', '.join(missing)}. Add one to make `--gate test` runnable.",
+        ]
+    return [
+        "    test {",
+        "        // A smoke test on a small public dataset. It proves this pipeline runs",
+        "        // end to end and produces output; it does not prove the analysis is",
+        "        // correct, and it is not a substitute for the laboratory validating it.",
+        "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
+        "        // result against next year.",
+        *[f"        params.{name} = {_render_test_data(values[name])}" for name in params],
+        "    }",
+    ]
+
+
+def _process_scope(ir: PipelineIR, registry: Registry) -> list[str]:
+    """`ext.args` per process, for modules that declare flags they always need.
+
+    Every nf-core module opens its script with `def args = task.ext.args ?: ''`, so this
+    is the only channel by which a flag reaches a tool. Emitting nothing for a module with
+    no `ext_args` keeps the generated config readable; an empty block is noise, and noise
+    is how a generated file stops being read.
+    """
+    blocks = []
+    for node in ir.nodes:
+        contract = registry.get(node.contract_id)
+        if not contract.ext_args:
+            continue
+        blocks.append(
+            f"    withName: {contract.nf_process} "
+            f"{{ ext.args = {_render_literal(contract.ext_args)} }}"
+        )
+    if not blocks:
+        return []
+    # Sorted and deduplicated: a contract used twice must not emit its block twice, and
+    # byte-identical output is a hard requirement.
+    return ["process {", *sorted(set(blocks)), "}", ""]
 
 
 def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
@@ -194,7 +323,9 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
         "params {",
     ]
     lines += [f"    {name} = null" for name in params]
-    lines += ["}", "", "profiles {", "    stub_data {"]
+    lines += ["}", ""]
+    lines += _process_scope(ir, registry)
+    lines += ["profiles {", "    stub_data {"]
     for name in params:
         pattern = (
             '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'
@@ -202,8 +333,9 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
             else f'"${{projectDir}}/stub-data/{name}.txt"'
         )
         lines.append(f"        params.{name} = {pattern}")
+    lines += ["    }"]
+    lines += _test_profile(ir, registry, vocab, params)
     lines += [
-        "    }",
         "    docker {",
         "        docker.enabled = true",
         "        // Without this, containers write as root and the work directory",

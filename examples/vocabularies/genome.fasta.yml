@@ -1,0 +1,8 @@
+# The reference genome. Both aligner index builders need one, and until 2026-08-04
+# neither could get one: the type did not exist and STAR_GENOMEGENERATE was called
+# with an empty tuple in the slot. See issue #8.
+# `test_data` is pinned to a commit, not a branch. A branch moves; a pinned
+# dataset is the only kind you can compare a result against next year.
+states: []
+entry_channel: "Channel.fromPath(params.fasta, checkIfExists: true).map { f -> [ [id: f.baseName], f ] }"
+test_data: "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genome.fasta"

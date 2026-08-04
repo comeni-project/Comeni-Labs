@@ -1971,6 +1971,18 @@ git commit -m "feat(compiler): wire AI extraction and resolution into the CLI be
 
 ---
 
+> **Prerequisite: Plan 1.6, conformance checking.** Tasks 8–10 draft contracts for a human to
+> approve, and [`forge-review.md`](../../design/forge-review.md) §3 calls a `copied` field "zero
+> risk" — which is only true if something compared it to the module.
+> `mendel_compiler.conformance.check` is that something, and `ModuleSpec` is what these tasks
+> should draft *from* rather than re-parsing modules a second way. Two parsers for one file
+> format is the drift this project keeps being bitten by.
+>
+> Concretely, in Task 9: **a draft that fails conformance never reaches the queue.** The forge
+> runs `check()` on its own output and fixes or discards, so a human only ever reviews drafts
+> that are already true about their module. That is what turns approval into review rather than
+> rubber-stamping — see [`conformance.md`](../../design/conformance.md) §7.
+
 ### Task 8: nf-core meta.yml ingestion
 
 **Files:**
@@ -2711,6 +2723,50 @@ Expected: PASS, everything including all Plan 1 tests.
 git add packages/mendel-forge/
 git commit -m "feat(forge): vocabulary state proposals through the same approval queue"
 ```
+
+---
+
+### Task 11: Parameters, drafted from the corpus
+
+> **Added 2026-08-04**, after `mendel build` was found to emit resolved parameters that reach no
+> tool, and the registry was found to hold three parameters and no defaults. Plan 1.5 fixed the
+> *mechanism* — flags reach `ext.args`, measured facts reach `meta`. This is the *coverage*.
+
+`nf-core/rnaseq` 3.14.0's `conf/modules.config` is 1167 lines, 78 `withName` blocks and 44
+`ext.args`. Many are Groovy closures rather than strings:
+
+```groovy
+withName: 'SALMON_INDEX' {
+    ext.args = { [ params.gencode ? '--gencode' : '',
+                   params.pseudo_aligner_kmer_size ? "-k ${params.pseudo_aligner_kmer_size}" : ''
+                 ].join(' ').trim() }
+}
+```
+
+Read what that is: `params.gencode ? '--gencode' : ''` is a **decision table that has been
+compiled into Groovy and lost its provenance**. Across nf-core's pipelines it is thousands of
+parameter decisions, made by domain experts, reviewed in pull requests, released under DOIs. That
+is the tier-2 corpus, and it is sitting in public repositories.
+
+`meta.yml` is a schema and gives you a scaffold. `modules.config` is a record of *decisions* and
+gives you defaults with attribution.
+
+**The task:** ingest `conf/modules.config` from pipelines named in the layer's configuration;
+classify each `ext.args` as static, conditional or computed; recover the conditionals as
+`DecisionRow`s; and draft `Param` declarations carrying a domain and a citation of the form
+"nf-core/rnaseq 3.14.0 uses this". A human approves them, as with every other forge output —
+invariant 2 is unchanged.
+
+**Design `Param`'s domain and expression here, against that corpus.** Plan 1.5 deliberately left
+`Param` untouched for exactly this reason: the registry contains one genuinely chosen parameter,
+and designing a model from a sample size of one is how three plans in a row produced steps that
+did not survive contact with the code.
+
+**Out of scope, and worth saying:** a *runtime* model resolving parameters buys almost nothing.
+Invariant 6 flags tier 4 even at high confidence, so a model guessing `--outFilterMultimapNmax 20`
+at build time produces a flagged guess — the review queue does not shrink, it fills with plausible
+text. An approved forge draft becomes tier 2 with a source and never needs reviewing again.
+Offline authoring reduces the queue; runtime guessing decorates it.
 
 ---
 

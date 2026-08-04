@@ -107,6 +107,25 @@ than showing an ambiguous blank.
 
 ## 8. Known gaps
 
+- **`copied` is currently an assertion, not a verification.** §3 calls a copied field "zero
+  risk", which is only true if something compared it to the source. That something is
+  conformance checking — see [conformance.md](conformance.md), Plan 1.6 — and until it
+  exists the proportion bar measures the drafter's confidence rather than evidence. The
+  origin taxonomy in §3 is right; it just needs a checker underneath it.
+
+- **`Provenance` is per-contract and needs to be per-field.** §3 requires every field to
+  carry its origin as a stripe and bind to the line that justifies it. The model does not
+  support that: `Provenance` has `source`, `drafted_by`, `approved_by`, `approved_at` for
+  the whole contract, so a contract that is 90% copied is indistinguishable from one that
+  was entirely guessed. The screen cannot be built before the data model changes.
+
+- **A drafted contract should have to *run* before a human sees it.** §5 gates batch
+  approval on "cleared every automatic check" without saying what those are. One is missing
+  and is worth naming: synthesise a minimal goal from the draft (`have` = its inputs,
+  `want` = its outputs), resolve, emit, and put it through `preview` and `stub`. A binding
+  that cannot execute is not a review problem, and the machinery already exists. Stage 4's
+  routing-consequence check is the other one, and it is designed.
+
 - **Ingesting prose documentation needs its own layout.** Where a source documents a tool
   in a `README.md` rather than a structured schema — the `pegi3s` repository, most
   in-house tools — the evidence panel would be showing English rather than declarations,
