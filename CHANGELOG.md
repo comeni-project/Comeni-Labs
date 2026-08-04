@@ -11,12 +11,49 @@ fixtures rather than as a shipped registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The emitted spine could not run, and once it could it counted wrongly.** Three defects,
+  none of which `-stub-run` could see, because nf-core stubs never read their inputs:
+  - `genome.fasta` was not a declared type. Both aligner index builders were called with an
+    empty tuple where the reference belongs — you cannot build an index without a genome.
+  - `STAR_ALIGN` was handed an empty GTF while the annotation channel sat in the same
+    workflow feeding featureCounts.
+  - A resolved parameter reached no tool at all. nf-core modules read `task.ext.args` and
+    `meta`; Mendel emitted a workflow-level `params.<x>` that nothing referenced. The
+    consequence was not a crash: featureCounts fell back to `-s 0`, so the spine would have
+    produced a counts matrix computed with the wrong strandedness, silently.
+- `Gate.TEST` ran `-profile test` without `docker`, so every process died with
+  `command not found`. It had never been run.
+- `PipelineIR` did not deserialise: `review_level` is a computed field, written on dump and
+  refused on load by `extra="forbid"`. Nothing had read an IR back yet.
+- `.gitignore`'s bare `build/` excluded the vendored `hisat2/build` module from git.
+
 ### Added
 
+- `ModuleContract.ext_args` — flags a module always needs, emitted into
+  `process { withName: … { ext.args = … } }`. Carries no tier, because it is not a decision.
+- `Measurement.describes` / `meta_key` / `meta_values` — measured facts travel in the channel's
+  `meta` map, where nf-core modules already translate them into flags.
+- `PipelineIR.profile` — the IR records what was measured about the data it was built for.
+- `NfInput.because` — an empty placeholder must say why the type system does not model that
+  input, so the next hollow slot is something a reviewer reads rather than a real run finds.
+- `Vocabulary.test_data` and an emitted `test` profile, pinned to a commit of
+  `nf-core/test-datasets` rather than a branch.
 - Public-repository documentation: `docs/` split into guides, reference, concepts, design
   and internal working notes, with `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`
   and this file.
-- CI: fast checks on every push and pull request, the `-stub-run` gate nightly.
+- CI: fast checks on every push and pull request, the `-stub-run` gate nightly, and the
+  counts-matrix assertions nightly — the only gate that can catch a pipeline which runs and
+  computes the wrong numbers.
+
+### Removed
+
+- The `param: strandedness` rule and featureCounts' `strandedness` parameter. `-s 2` is
+  featureCounts' encoding of a measured fact, not a decision — the module already contains
+  that translation, and the rule's "citation" was the tool's own manual. It was a translation
+  wearing a tier-3 badge. One rule remains in `examples/rules/rnaseq.yml`, and it is a genuine
+  decision between two defensible aligners.
 
 ## [0.1.0] — 2026-08-03
 
