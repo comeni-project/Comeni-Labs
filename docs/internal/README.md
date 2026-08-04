@@ -19,15 +19,23 @@ They contain code that was proposed, not necessarily code that shipped — sever
 every plan were corrected during execution, and the corrections are recorded in the commit
 messages rather than back-ported here.
 
-| Plan | Status |
-|---|---|
-| `2026-08-02-mendel-deterministic-spine.md` | complete |
-| `2026-08-03-measurements-rules-and-profiling.md` | complete |
-| `2026-08-02-mendel-ai-and-forge.md` | not started — predates the types it references |
-| `2026-08-02-mendel-api-and-dashboard.md` | not started — predates the types it references |
+**Filenames are a log, not an order** — two plans share the date `2026-08-04`. This table is
+the order.
 
-The last two were written ahead of the code they build on, and say things that are no
-longer true. That is the reason this directory is labelled the way it is.
+| Order | Plan | Status |
+|---|---|---|
+| 1 | `2026-08-02-mendel-deterministic-spine.md` | Plan 1 — complete |
+| 2 | `2026-08-03-measurements-rules-and-profiling.md` | complete |
+| 3 | `2026-08-04-the-runnable-spine.md` | **Plan 1.5 — next.** Finishes Plan 1's business |
+| 4 | `2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — written, unimplemented |
+| 5 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references |
+| 6 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+
+**Plan 1.5 comes before Plan 2.5** because publishing a bundle built on an unverified spine
+would push a wrong pipeline through the door with no undo.
+
+Plans 2 and 3 were written ahead of the code they build on, and say things that are no longer
+true. That is the reason this directory is labelled the way it is.
 
 ## audits/
 
