@@ -1,2 +1,3 @@
 states: [trimmed, deduplicated, subsampled]
 entry_channel: "Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
+test_data: "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_{1,2}.fastq.gz"

@@ -106,6 +106,20 @@ class NfInput(BaseModel):
     literal: Any = None
     """A plain value for a `val` input that carries no data dependency."""
 
+    because: str = ""
+    """Why `empty` is empty. Required whenever it is set.
+
+    `empty` was doing two different jobs — "the type system does not model this input" and
+    "we have not wired this yet" — and nothing told them apart. They look identical in YAML
+    and identical in the emitted Groovy, and `-stub-run` cannot tell them apart either,
+    because nf-core stubs never read their inputs. Two of them shipped: STAR_GENOMEGENERATE
+    was called with no genome and STAR_ALIGN with no annotation, through a green test suite
+    and a passing stub gate. Issue #8.
+
+    Making it a sentence someone has to write turns the next one into something a reviewer
+    reads rather than something a real run discovers. `tests/test_runnable.py` enforces it.
+    """
+
     empty: int = 0
     """Width of an empty tuple standing in for an input the type system does not model.
 

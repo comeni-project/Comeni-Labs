@@ -4,6 +4,7 @@ nf_include: modules/nf-core/star/align/main
 consumes:
   - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
   - {name: index, type_id: genome.index.star, state_required: []}
+  - {name: gtf, type_id: annotation.gtf, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
   - {name: seq_platform, tier_hint: 4}
@@ -11,6 +12,7 @@ params:
 # convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
 # citation once the rule format lands.
 priority: 10
-nf_inputs: [{ports: [reads]}, {ports: [index]}, {empty: 2}, {literal: false}]
+# tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, gtf) | val ignore_sjdbgtf
+nf_inputs: [{ports: [reads]}, {ports: [index]}, {ports: [gtf]}, {literal: false}]
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

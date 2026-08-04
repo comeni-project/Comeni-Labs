@@ -25,7 +25,11 @@ def test_every_contract_points_at_vendored_module_code(registry):
 
 def test_counts_matrix_is_reachable_from_raw_reads(registry):
     goal = Goal(
-        have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="annotation.gtf")],
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
         want=["counts.matrix"],
     )
     steps = [s.contract_id for s in route(goal, registry).steps]
@@ -123,7 +127,11 @@ def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
 
     loaded = layers.load(ROOT / "examples")
     goal = Goal(
-        have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="annotation.gtf")],
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
         want=["counts.matrix", "alignment.bai"],
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
     )

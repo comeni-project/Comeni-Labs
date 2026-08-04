@@ -1,6 +1,7 @@
 have:
   - type_id: fastq.reads
   - type_id: annotation.gtf
+  - type_id: genome.fasta
 want:
   - counts.matrix
 constraints:

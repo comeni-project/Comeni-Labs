@@ -104,8 +104,10 @@ def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -
     return f"{head}{joined}"
 
 
-def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[tuple[str, str]]:
-    """Declarations for every type consumed but not produced inside the pipeline."""
+def _entry_expressions(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary
+) -> dict[str, str]:
+    """Every type consumed but not produced inside the pipeline, and how it arrives."""
     fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
     needed: dict[str, str] = {}
     for node in ir.nodes:
@@ -114,6 +116,12 @@ def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> li
                 continue
             type_id = _entry_type(port)
             needed[type_id] = vocab.entry_channels.get(type_id, _default_entry(type_id))
+    return needed
+
+
+def _entry_channels(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[tuple[str, str]]:
+    """Declarations for every type consumed but not produced inside the pipeline."""
+    needed = _entry_expressions(ir, registry, vocab)
     return [(_channel_name(type_id), needed[type_id]) for type_id in sorted(needed)]
 
 
@@ -176,6 +184,58 @@ def entry_params(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[
     return sorted(found)
 
 
+def _params_by_type(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> dict[str, str]:
+    """Which `params.<name>` each entry type supplies, as `{param: type_id}`.
+
+    Read back out of the entry-channel expressions rather than assumed, for the same
+    reason `entry_params` is: a type that declares its own channel declares its own
+    parameter, and the compiler must not have an opinion about what it is called.
+    """
+    import re
+
+    found: dict[str, str] = {}
+    for type_id, expression in _entry_expressions(ir, registry, vocab).items():
+        for name in re.findall(r"params\.(\w+)", expression):
+            found[name] = type_id
+    return found
+
+
+def _test_profile(
+    ir: PipelineIR, registry: Registry, vocab: Vocabulary, params: list[str]
+) -> list[str]:
+    """A `test` profile, when every entry type declares where a public example lives.
+
+    `Gate.TEST` runs `-profile test`, and until this existed nothing emitted one, so the
+    gate could not pass and the v1 criterion was stated in terms of something unreachable.
+
+    The URLs come from the vocabulary's `test_data`, not from here — same reason
+    `entry_channel` does. Nextflow stages a remote path itself, so no fetching happens in
+    this package, which is just as well: `mendel-compiler` is on the purity banlist and
+    may not open a socket.
+
+    All or nothing. A partial `test` profile would fail at run time with a null parameter,
+    which looks like a pipeline bug rather than a missing declaration.
+    """
+    by_type = _params_by_type(ir, registry, vocab)
+    values = {name: vocab.test_data.get(by_type.get(name, "")) for name in params}
+    missing = sorted(name for name, value in values.items() if not value)
+    if missing:
+        return [
+            "    // No `test` profile: these inputs declare no `test_data` in the",
+            f"    // vocabulary — {', '.join(missing)}. Add one to make `--gate test` runnable.",
+        ]
+    return [
+        "    test {",
+        "        // A smoke test on a small public dataset. It proves this pipeline runs",
+        "        // end to end and produces output; it does not prove the analysis is",
+        "        // correct, and it is not a substitute for the laboratory validating it.",
+        "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
+        "        // result against next year.",
+        *[f'        params.{name} = "{values[name]}"' for name in params],
+        "    }",
+    ]
+
+
 def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
     """`nextflow.config` for the generated pipeline.
 
@@ -202,8 +262,9 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
             else f'"${{projectDir}}/stub-data/{name}.txt"'
         )
         lines.append(f"        params.{name} = {pattern}")
+    lines += ["    }"]
+    lines += _test_profile(ir, registry, vocab, params)
     lines += [
-        "    }",
         "    docker {",
         "        docker.enabled = true",
         "        // Without this, containers write as root and the work directory",

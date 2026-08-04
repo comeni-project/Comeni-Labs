@@ -14,7 +14,7 @@ def _spine(layer: pathlib.Path):
     """A resolver over a registry layer — `examples/`, or a doctored copy of it."""
     loaded = layers.load(layer)
 
-    def build(*, want, profile=None, have=("fastq.reads", "annotation.gtf")):
+    def build(*, want, profile=None, have=("fastq.reads", "annotation.gtf", "genome.fasta")):
         goal = Goal(
             have=[GoalInput(type_id=t) for t in have],
             want=want,

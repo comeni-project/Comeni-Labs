@@ -80,14 +80,18 @@ def test_matches_the_golden_file():
 def test_call_arity_follows_the_declared_signature():
     """One contract port is not one process argument, and assuming so emits bad Nextflow.
 
-    star/align declares four inputs for two ports; the two it does not model are an
-    empty tuple and a plain value.
+    star/align declares four inputs for three ports; the one it does not model is a plain
+    value.
+
+    The third argument used to be `Channel.value([[:], []])` — an empty tuple where the
+    annotation belongs, while `ch_annotation_gtf` sat in the same workflow feeding
+    featureCounts. Issue #8. `-stub-run` could never catch it, because nf-core stubs do
+    not read their inputs, so the call was as green as a correct one.
     """
     source = emit(_ir(), _registry(), _vocab())
     call = next(line for line in source.splitlines() if "STAR_ALIGN(" in line).strip()
     assert call == (
-        "STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, "
-        "Channel.value([[:], []]), false)"
+        "STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, ch_annotation_gtf, false)"
     ), call
 
 
