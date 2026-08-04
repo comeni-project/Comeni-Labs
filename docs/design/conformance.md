@@ -217,48 +217,34 @@ case rather than an error.
 
 ---
 
-## 7. What this means for the forge
+## 7. Why this comes before the forge
 
-The same design seen from the other end, and the reason it is worth building before Plan 2.
+The forge drafts contracts; a human approves them. That approval is only meaningful if the
+human is reading the part a machine cannot decide.
 
-A human approving two hundred machine-drafted contracts cannot meaningfully review each one.
-Approval without mechanical checks is rubber-stamping with extra steps. But every field in a
-draft has an origin, and the origin decides who is responsible for it:
+[`forge-review.md`](forge-review.md) §3 already divides a contract's fields by origin —
+`copied`, `inferred`, `unsure`, `invalid` — and calls `copied` "zero risk". **Conformance is
+what makes that true.** Without it, "literally present in the source" is an assertion by
+whoever drafted the field, and the queue's proportion bar is measuring confidence rather
+than evidence.
 
-| Origin | Example | Machine-verifiable? | Human reads it? |
-|---|---|---|---|
-| copied | `nf_process`, `container`, arity | yes | no |
-| derived | `emit:` names, meta keys, slot shapes | yes | no |
-| **inferred** | `type_id`, **`state`**, port→type mapping | **no — not in the source** | **yes** |
+So the split conformance creates is:
 
-**Conformance turns "inferred" into "verified" for everything except the semantic overlay.**
-A reviewer looking at `samtools/sort` reads one line — *"produces `alignment.bam[coordinate_sorted]`,
-inferred from the description 'Sorted BAM file'"* — instead of eighteen fields. That is what
-makes two hundred modules reviewable rather than nodded through.
+- **`copied`, and everything computable from the module** — process name, slot shapes,
+  `emit:` labels, container, meta keys — is *verified*, and needs no human at all.
+- **`inferred`** — `type_id`, `state`, the port-to-type mapping — is not in the source, and
+  is exactly what a human must read.
 
-### Four gates a draft clears before a human sees it
+That is the ~20% from §4. A reviewer opening `samtools/sort` reads one claim, not eighteen
+fields, and 200 modules becomes reviewable rather than nodded through.
 
-1. **Conformance** — `M0101`–`M0106`. A draft that disagrees with its module is not a review
-   problem.
-2. **It routes** — a contract producing a type nothing consumes, or consuming one nothing
-   produces, is dead weight. Graph reachability, free.
-3. **It runs** — synthesise a minimal goal (`have` = its inputs, `want` = its outputs),
-   resolve, emit, `preview` and `stub` it. Uses machinery that already exists.
-4. **It changes nothing** — resolve every example goal before and after and diff the IR.
-   *"Adding this contract reroutes 2 existing pipelines"* is invariant 11's concern, and it
-   belongs at approval rather than in someone's next build.
+**Everything derivable from the module is machine-verified. Everything requiring judgement is
+human-reviewed. Nothing is merely asserted.** That is invariant 2 with a sharper edge than
+"AI drafts, humans approve" — it says precisely which parts a human owns, and that set
+shrinks with every check added.
 
-The module's own `tests/main.nf.test` verifies the *module* upstream, so the only open
-question is whether our *call* is correct — which is what conformance answers.
-
-### The consequence for `provenance`
-
-`Provenance` is currently per-contract: `source`, `drafted_by`, `approved_by`, `approved_at`.
-For the queue to tell a reviewer where to look, origin has to be **per field**. Otherwise a
-contract that is 90% copied and 10% inferred is indistinguishable from one that is entirely
-guessed. That change belongs with the forge, and is named here so it is not discovered then.
-
----
+Two things the forge needs that it does not have yet are recorded in
+[`forge-review.md`](forge-review.md) §8, where they belong.
 
 ## 8. The honest ceiling
 
