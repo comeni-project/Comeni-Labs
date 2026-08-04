@@ -28,6 +28,7 @@ At the end of a session that changed anything a future session needs to know:
 
 ```
 docs/internal/journal/YYYY-MM-DD.md
+docs/internal/journal/YYYY-MM-DD-evening.md    # a second session the same day
 ```
 
 Cover, in this order:
@@ -47,5 +48,5 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
-| [2026-08-05](2026-08-05.md) | Plan 1.5 — the spine runs and counts correctly; five defects stubs could not see |
+| [2026-08-04 evening](2026-08-04-evening.md) | Plan 1.5 — the spine runs and counts correctly; conformance researched, Plan 1.6 written |
 | [2026-08-04](2026-08-04.md) | measurements plan merged; repo made public; v1 scope questioned |

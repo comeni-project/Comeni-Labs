@@ -295,6 +295,10 @@ conversation is a loose end lost.
 | 2 | `sealed` must block tier-3 decisions on asserted measurements | Plan 2's `ProfilePolicy` |
 | 3 | generated `.d.ts` and a `/measurements` endpoint | Plan 3's `mendel-api` |
 | ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
+| 7 | goal extraction: what crosses door 1, per protection profile | v1 answer decided — run the agent locally |
+| ~~8~~ | ~~the emitted spine is not runnable~~ | **done** — Plan 1.5 |
+| 10 | answering a tier-4 parameter clears the flag without changing the pipeline | Plan 2's Task 11, or a decision now |
+| 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 
 ## Commands
 
@@ -349,9 +353,13 @@ executes on the nf-core RNA-seq test dataset and produces a counts matrix, and
 `tests/test_counts.py` asserts featureCounts ran with the strandedness that was measured.
 What remains unmet is the plain-language prompt (Plan 2) and the module count: **10 distinct
 processes, not 15–20**. The remainder are QC breadth — `samtools stats`/`flagstat`/`idxstats`,
-duplicate marking, RNA-specific QC — not correctness. Revise that clause or close it, but do
-not treat breadth as the blocker: a pipeline with twenty modules that ignores every parameter
-is worse than one with ten that does not.
+duplicate marking, RNA-specific QC — not correctness.
+
+**Whether that clause survives is [#11](https://github.com/comeni-project/Comeni-Labs/issues/11),
+and it is undecided.** The argument there is that a module count measures surface area, and a
+pipeline with twenty modules that ignores every parameter is worse than one with ten that does
+not. Do not quietly build toward the number, and do not quietly drop it — this criterion has
+already been wrong once, when it named a gate that could not pass.
 
 ## Gotchas
 
