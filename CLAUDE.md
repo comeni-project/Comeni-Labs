@@ -15,11 +15,12 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plan 1 and the measurements/rules/profiling plan are both complete** (2026-08-03). 164 tests
-green, `ruff check` clean, and `uv run mendel build --goal examples/rnaseq-goal.yml --out build/
---gate stub` runs the RNA-seq spine end to end with `gate stub: PASS`. `uv run mendel profile
---have fastq.reads --out profile-build/` emits a pipeline that measures. `comeni-core`,
-`mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+**Plans 1, the measurements plan, and Plan 1.5 are complete.** 189 fast tests green,
+`ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
+produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
+strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
+excludes it and stays a one-minute gate. `comeni-core`, `mendel-resolver` and `mendel-compiler`
+exist. Nothing AI-shaped is built.
 
 **Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
@@ -39,7 +40,7 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
-| `docs/internal/plans/2026-08-04-the-runnable-spine.md` | **Plan 1.5 — do this next.** ext_args, the meta map, and why the spine counted wrong. |
+| `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
@@ -59,8 +60,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. The next one is **Plan 1.5, the runnable spine**, which finishes what Plan 1 left:
-  the emitted pipeline could not run, and once it could it counted with the wrong strandedness.
+  a date. Plan 1.5 is complete; **Plan 2.5 is next**.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not

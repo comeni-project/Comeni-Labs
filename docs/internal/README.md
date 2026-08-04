@@ -26,8 +26,8 @@ the order.
 |---|---|---|
 | 1 | `2026-08-02-mendel-deterministic-spine.md` | Plan 1 — complete |
 | 2 | `2026-08-03-measurements-rules-and-profiling.md` | complete |
-| 3 | `2026-08-04-the-runnable-spine.md` | **Plan 1.5 — next.** Finishes Plan 1's business |
-| 4 | `2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — written, unimplemented |
+| 3 | `2026-08-04-the-runnable-spine.md` | Plan 1.5 — **complete** |
+| 4 | `2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — **next.** Written, unimplemented |
 | 5 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references |
 | 6 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
