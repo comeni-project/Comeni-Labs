@@ -911,6 +911,14 @@ Then:
 _ALWAYS_SET = {"id"}
 
 
+# KNOWN AND DELIBERATE: this parses every module a second time, after the per-contract
+# loop in `check` already parsed each one. On twelve modules it is free. At two hundred it
+# will not be, and the fix is a `dict[Path, ModuleSpec]` cache threaded through both.
+#
+# Left unoptimised on purpose. A cache now is premature and unmeasured; whoever notices
+# this being slow will have a real number to optimise against instead of a guess. Do not
+# "fix" it while implementing this task — if you want it fixed, measure first and make it
+# its own commit, so the before and after are visible.
 def _meta_keys(
     registry: Registry, module_root: Path, measurements: MeasurementRegistry
 ) -> list[Diagnostic]:
