@@ -19,11 +19,32 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
+from comeni_core.profile import DataProfile
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 
 class ResolvedValue(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_computed(cls, data: object) -> object:
+        """Ignore `review_level` on the way in. It is derived, not stored.
+
+        `computed_field` serialises it on dump, and `extra="forbid"` then refuses it on
+        load — so the IR did not round-trip at all: `PipelineIR.model_validate_json(
+        ir.model_dump_json())` raised. Nothing noticed, because nothing read an IR back
+        until now.
+
+        That matters beyond this file. `mendel upgrade` reads a `PublishBundle` off disk
+        (Plan 2.5) and the repair loop reads back an IR it sent (Plan 2); both would have
+        failed on a field this class computes for itself. Dropping it is right rather than
+        merely convenient — the stored value would be a duplicate of `review_level_for(tier)`
+        and could disagree with it.
+        """
+        if isinstance(data, dict) and "review_level" in data:
+            data = {k: v for k, v in data.items() if k != "review_level"}
+        return data
 
     value: ParamValue
     tier: Tier
@@ -113,6 +134,14 @@ class PipelineIR(BaseModel):
     nodes: list[IRNode] = Field(default_factory=list)
     edges: list[IREdge] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
+    profile: DataProfile = Field(default_factory=DataProfile)
+    """What was measured about the data this pipeline was built for.
+
+    On the IR rather than passed to the emitter separately, because it is part of what the
+    pipeline was built *from* — the same reason Plan 2.5 puts `registry_layers` here. The
+    emitter needs it to populate the `meta` map, and a reviewer reading `pipeline.ir.json`
+    needs it to know which measurement a tier-3 decision rested on.
+    """
 
     def needs_review(self) -> list[str]:
         """Everything a human must look at before this pipeline runs.

@@ -20,7 +20,7 @@ def resolve(
 ) -> PipelineIR:
     resolver = resolver or FlagOnlyResolver()
     plan = route(goal, registry, rules)
-    ir = PipelineIR()
+    ir = PipelineIR(profile=goal.profile)
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —
     # valid Nextflow, no flag, and `-stub-run` cannot catch it because nf-core stubs never
