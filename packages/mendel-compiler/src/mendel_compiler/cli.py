@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 import yaml
+from comeni_core.egress import PublishBundle
+from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
@@ -38,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
-    parser.add_argument("command", choices=["build", "profile", "explain"])
+    parser.add_argument("command", choices=["build", "profile", "publish", "explain"])
     parser.add_argument(
         "code", nargs="?", default=None, help="a diagnostic code, for `explain`"
     )
@@ -110,7 +112,7 @@ def _build(argv: list[str] | None = None) -> int:
         goal = _profiling_goal(args, loaded)
     else:
         if args.goal is None:
-            parser.error("build needs --goal")
+            parser.error(f"{args.command} needs --goal")
         goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
         # Re-build the goal's profile through the one constructor that validates it. The
         # mapping shorthand in the goal file cannot check itself — measurements are
@@ -152,6 +154,23 @@ def _build(argv: list[str] | None = None) -> int:
                 loaded.measurements.to_measure(produced).model_dump(mode="json"),
                 sort_keys=True,
             )
+        )
+
+    if args.command == "publish":
+        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
+        # to, why each choice was made, and against exactly which registry. All four, or
+        # the recipient can neither reproduce it nor audit it.
+        #
+        # This writes files and sends nothing. Transmitting them is a later, separate act,
+        # which is the right shape for the door with no undo: a person can read what they
+        # are about to publish.
+        lockfile = Lockfile.of(ir, registry, loaded.paths)
+        bundle = PublishBundle(
+            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile
+        )
+        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
+        (args.out / "mendel.lock.yml").write_text(
+            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
         )
 
     for record in registry.shadowed:
