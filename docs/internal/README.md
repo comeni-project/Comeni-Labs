@@ -29,8 +29,9 @@ the order.
 | 3 | `2026-08-04-the-runnable-spine.md` | Plan 1.5 — **complete** |
 | 4 | `2026-08-05-conformance-checking.md` | Plan 1.6 — **complete** |
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
-| 6 | `2026-08-02-mendel-ai-and-forge.md` | **Plan 2 — next.** Predates the types it references; rewrite before executing |
-| 7 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 6 | `2026-08-06-closing-the-audit.md` | **Plan 1.8 — next.** Closes A1–A13 |
+| 7 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 8 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 
@@ -56,6 +57,22 @@ output channels that do not exist.
 success criterion, whose one unmet clause is the plain-language prompt — that is Plan 2 Task
 3. And `mendel publish` is the door with no undo, built for pipelines drawn from a registry
 the forge has not filled yet. If v1 becomes the priority, this order is the thing to revisit.
+
+**Plan 1.8 comes before Plan 2** for one reason, and it is a deadline rather than a preference.
+Audit finding A8 is that a resolved routing decision never reaches the pipeline: `_choose`
+picks by id order and the resolver is consulted afterwards, only to fill in a record. Plan 2
+plugs a model into that exact port. Fixing it first means fixing a signature; fixing it second
+means fixing it with a model in the loop and an adapter already written against the broken
+shape. The other twelve findings are ordinary technical debt and would not, on their own,
+justify inserting a plan here.
+
+**The argument against Plan 1.8, recorded because it is real:** it moves the v1 criterion no
+further than Plan 1.7 did, and thirteen fixes is a lot of new code to write immediately before
+an audit said fresh code is where the sharpest defects live. The counter is that this is
+exactly why round two exists, and why Plan 1.8 Task 12 sets it up rather than declaring victory.
+**The exit criterion for that loop was decided on 2026-08-06: no critical findings survive.**
+Not "an empty audit" — no audit in this repository has ever come back empty, and important and
+minor findings are filed and carried rather than blocking Plan 2 indefinitely.
 
 **Known overlap, not yet resolved:** Plan 1.7 Task 5 builds `replay.py` in `mendel-resolver`
 and Plan 2 Task 4 builds `ReplayingResolver` in `mendel-ai`. They are not the same — one

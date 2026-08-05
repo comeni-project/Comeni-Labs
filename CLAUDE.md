@@ -59,6 +59,7 @@ wrong output today, but three guards and two Plan 1.7 mechanisms do not do what 
 | `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
 | `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
+| `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closes A1–A13. **Next.** Task 6 must land before Plan 2. |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -77,7 +78,9 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5, 1.6 and 1.7 are complete; **Plan 2 is next**, then Plan 3. That file now also
+  a date. Plans 1.5, 1.6 and 1.7 are complete; **Plan 1.8 is next**, then Plan 2, then Plan 3.
+  Plan 1.8 closes the 2026-08-06 audit and is sequenced there because its Task 6 fixes the
+  `AmbiguityResolver` port that Plan 2 plugs a model into. That file now also
   says *why* that order, including the argument against it — the sequence was asserted and
   believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that
