@@ -48,6 +48,7 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
+| [2026-08-06](2026-08-06.md) | Plan 1.7 — publish, upgrade, replay, the registry split; a forgeable layer digest and seven other defects |
 | [2026-08-05 evening](2026-08-05-evening.md) | Plan 1.6 merged; "Plan 2.5" renamed to Plan 1.7 and the running order finally justified |
 | [2026-08-05](2026-08-05.md) | Plan 1.6 — conformance checking; three contracts were lying about their modules |
 | [2026-08-04 evening](2026-08-04-evening.md) | Plan 1.5 — the spine runs and counts correctly; conformance researched, Plan 1.6 written |

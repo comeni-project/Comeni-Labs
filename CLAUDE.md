@@ -15,7 +15,7 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, Plan 1.5 and Plan 1.6 are complete.** 230 fast tests green,
+**Plans 1, the measurements plan, Plan 1.5, Plan 1.6 and Plan 1.7 are complete.** 300 fast tests green,
 `ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
 produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
 strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
@@ -25,6 +25,14 @@ exist. Nothing AI-shaped is built.
 **`mendel build` now refuses a contract that disagrees with its module** — seven diagnostics
 against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
 `make static` (lint + preview, no Docker) in the pull-request lane.
+
+**A pipeline is a shareable artifact.** `mendel publish` writes a `PublishBundle` (goal, IR,
+decisions, lockfile) and a `mendel.lock.yml` pinning every contract by content digest and
+every layer by name and digest — no paths, no timestamps. `mendel upgrade` re-resolves a
+bundle against the current registry, replays every recorded decision, and reports drift and
+changes separately. The registry lives in
+[`comeni-registry`](https://github.com/comeni-project/comeni-registry), and `registry/` here
+is that layer.
 
 **Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
@@ -47,7 +55,7 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
 | `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
 | `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
-| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | **Plan 1.7 — do this next.** Lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
+| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -66,7 +74,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5 and 1.6 are complete; **Plan 1.7 is next**, then Plan 2. That file now also
+  a date. Plans 1.5, 1.6 and 1.7 are complete; **Plan 2 is next**, then Plan 3. That file now also
   says *why* that order, including the argument against it — the sequence was asserted and
   believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that
