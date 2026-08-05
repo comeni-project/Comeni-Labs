@@ -36,7 +36,7 @@ def resolve(
         measurements.check(measured.measurement, measured.value)
 
     resolver = resolver or FlagOnlyResolver()
-    plan = route(goal, registry, rules)
+    plan = route(goal, registry, rules, resolver)
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -96,19 +96,12 @@ def resolve(
 
         ir.nodes.append(node)
 
-    for ambiguity in plan.ambiguities:
-        resolution = resolver.resolve(ambiguity)
-        ir.decisions.append(
-            DecisionRecord(
-                key=ambiguity.key(),
-                subject=ambiguity.subject,
-                candidates=ambiguity.candidates,
-                chosen=resolution.chosen,
-                reason=resolution.reason,
-                confidence=resolution.confidence,
-                resolved_by=resolution.resolved_by,
-            )
-        )
+    # Already resolved and recorded, by `route()`, where the answer could still change the
+    # selection. This loop used to call `resolver.resolve()` itself — after `ir.nodes` and
+    # `ir.edges` were built — so the answer went into a record and nowhere else, and asking
+    # a second time is a second chance to disagree with the pipeline that exists. With a
+    # model behind the port it is also a second charge. Audit 2026-08-06, A8.
+    ir.decisions.extend(plan.decisions)
 
     return ir
 
@@ -172,11 +165,23 @@ def _source_for(
             context={"type_id": chosen[2], "required": sorted(required)},
         )
         resolution = resolver.resolve(ambiguity)
+        # The answer selects. This used to compute `equally_good[-1]`, call the resolver,
+        # and then record `chosen=f"{chosen[0]}.{chosen[1]}"` — overwriting the resolver's
+        # answer in the very statement that recorded it, so a published bundle could
+        # contradict its own pipeline with no mutation at all. Audit 2026-08-06, A8.
+        #
+        # A non-candidate answer falls back rather than being trusted, exactly as
+        # `router._choose` and `ReplayResolver._still_applies` do.
+        chosen = next(
+            (s for s in equally_good if f"{s[0]}.{s[1]}" == resolution.chosen),
+            equally_good[-1],
+        )
         decisions.append(
             DecisionRecord(
                 key=ambiguity.key(),
                 subject=ambiguity.subject,
                 candidates=ambiguity.candidates,
+                # What was wired, not what was asked for.
                 chosen=f"{chosen[0]}.{chosen[1]}",
                 reason=resolution.reason,
                 confidence=resolution.confidence,
