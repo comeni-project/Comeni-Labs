@@ -143,6 +143,14 @@ class PipelineIR(BaseModel):
     needs it to know which measurement a tier-3 decision rested on.
     """
 
+    unverified: list[ContractId] = Field(default_factory=list)
+    """Contracts whose module source was not present, so nothing checked them.
+
+    Carried on the artifact rather than only printed, because it reaches a publish bundle:
+    a curator may refuse to curate an unverified contract. A claim about a module, with no
+    module to check it against, is a claim without evidence.
+    """
+
     def needs_review(self) -> list[str]:
         """Everything a human must look at before this pipeline runs.
 

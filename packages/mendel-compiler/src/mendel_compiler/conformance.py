@@ -283,9 +283,11 @@ def _meta_keys(
         if measurements.get(m).meta_key
     }
     read: dict[str, str] = {}
+    every_module_was_readable = True
     for contract in registry.all():
         path = module_path(contract, module_root)
         if not path.exists():
+            every_module_was_readable = False
             continue
         for entry in ModuleSpec.parse(path).meta_reads:
             if entry.variable == "meta" and entry.key not in _ALWAYS_SET:
@@ -302,14 +304,20 @@ def _meta_keys(
         for key, contract_id in sorted(read.items())
         if key not in declared
     ]
-    found += [
-        Diagnostic(
-            code="M0106",
-            contract_id=f"measurements/{declared[key]}",
-            summary=f"meta_key {key!r} is declared and no module in this registry reads it",
-            detail="    the value would be set on the channel and never consulted",
-            fix=f"remove `meta_key: {key}`, or add a module that reads it",
-        )
-        for key in sorted(set(declared) - set(read))
-    ]
+    # The unused direction is a claim about *every* module, so it needs every module. With
+    # any source missing, "nothing reads this" is unfounded — and it fires on a correct
+    # registry: a lab wrapping bare containers has no module source at all, so every
+    # declared meta_key would look dead and the build would be refused over it. Evidence
+    # before assertion, which is the same rule M0100 exists to state.
+    if every_module_was_readable:
+        found += [
+            Diagnostic(
+                code="M0106",
+                contract_id=f"measurements/{declared[key]}",
+                summary=f"meta_key {key!r} is declared and no module in this registry reads it",
+                detail="    the value would be set on the channel and never consulted",
+                fix=f"remove `meta_key: {key}`, or add a module that reads it",
+            )
+            for key in sorted(set(declared) - set(read))
+        ]
     return found

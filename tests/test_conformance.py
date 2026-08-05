@@ -191,6 +191,16 @@ def test_M0106_the_other_direction_a_meta_key_nobody_reads(registry, tmp_path):
     assert "no module in this registry reads" in dead[0].summary
 
 
+def test_M0106_claims_nothing_dead_when_the_modules_could_not_be_read(registry, tmp_path):
+    """"No module reads this meta_key" is a claim about every module, so it needs every
+    module. A lab wrapping bare containers has no module source at all — every declared
+    key would look dead, and since M0106 blocks, the build would be refused over an
+    inference drawn from nothing."""
+    measurements = layers.load(ROOT / "examples").measurements
+    diagnostics = check(registry, tmp_path, measurements=measurements)
+    assert codes(diagnostics) == {"M0100"}
+
+
 def test_M0106_does_not_fire_without_a_measurement_registry(registry):
     """`check` is called from places that have no measurements. Silence beats a wrong
     answer."""
