@@ -29,6 +29,7 @@ from mendel_resolver.goal import (
 )
 from mendel_resolver.layers import Layers
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver, NoCandidatesError
+from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import (
     RoutePlan,
@@ -61,6 +62,7 @@ __all__ = [
     "Measured",
     "NoCandidatesError",
     "ParamOverride",
+    "ReplayResolver",
     "RoutePlan",
     "RouteStep",
     "RuleTable",
