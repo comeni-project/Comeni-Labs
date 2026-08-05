@@ -38,7 +38,9 @@ is that layer.
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
 written against the types that exist.
 
-The 2026-08-03 audit's defects (C1–C4) are all closed.
+The 2026-08-03 audit's defects (C1–C4) are all closed. **The 2026-08-06 audit's thirteen (A1–A13)
+are all open** — see `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`. Nothing produces
+wrong output today, but three guards and two Plan 1.7 mechanisms do not do what they claim.
 
 | Read this | For |
 |---|---|
@@ -50,6 +52,7 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
 | `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
+| `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **13 findings through Plan 1.7, none fixed. Read A8 and A9 before Plan 2.** |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
 | `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |

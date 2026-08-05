@@ -80,3 +80,10 @@ true. That is the reason this directory is labelled the way it is.
 test-enforced invariants, using four lines of Python for one of them. All four defects are
 closed, and the guards in `tests/` are the shape they are because of it. Worth reading
 before trusting any guard in this repository.
+
+`2026-08-06-plan-1-to-1.7-audit.md` — the same exercise over everything through Plan 1.7.
+Thirteen findings, all reproduced by execution, **none fixed yet**. All three guards fell again,
+by shapes they were never written against rather than by shapes they missed. Two findings are
+in mechanisms Plan 1.7 shipped and are the reason to read it before starting Plan 2: a resolved
+routing decision never reaches the pipeline (A8), and a layer digest does not cover the bytes
+the registry loads (A9).
