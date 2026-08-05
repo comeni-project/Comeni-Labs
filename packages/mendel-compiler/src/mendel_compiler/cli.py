@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 from comeni_core.egress import PublishBundle
+from comeni_core.layer import layer_name
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
@@ -147,7 +148,7 @@ def _build(argv: list[str] | None = None) -> int:
         rules,
         loaded.measurements,
         resolver=resolver,
-        layer_names=[p.name for p in loaded.paths],
+        layer_names=[layer_name(p) for p in loaded.paths],
     )
     ir.unverified = unverified
 

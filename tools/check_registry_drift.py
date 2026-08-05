@@ -22,6 +22,8 @@ import hashlib
 import pathlib
 import sys
 
+from comeni_core.layer import LayerManifest
+
 # Only the four declared kinds. A README or a licence differing between the two is
 # expected — they are different repositories with different audiences — and failing on
 # those would train everyone to ignore this check.
@@ -42,6 +44,29 @@ def _files(layer: pathlib.Path) -> dict[str, str]:
     return found
 
 
+def _manifest_drift(here: pathlib.Path, there: pathlib.Path) -> list[str]:
+    """Fields of `registry.yml` that disagree between the two layers.
+
+    This file was loaded only to check the target *was* a layer, never compared — so
+    `name`, `version` and especially `licence` could diverge undetected. `licence` is the
+    one that matters: the registry ships CC-BY-4.0 because contracts cite papers, and two
+    repositories disagreeing about the licence of the same data is a licensing problem
+    rather than a drift problem. Audit 2026-08-06, A7.
+
+    `description` is compared too. It is prose, and prose is where a stale claim hides
+    longest.
+    """
+    ours = LayerManifest.of(here)
+    theirs = LayerManifest.of(there)
+    if ours is None or theirs is None:
+        return ["registry.yml (missing on one side)"]
+    return [
+        f"registry.yml:{field} ({getattr(ours, field)!r} here, {getattr(theirs, field)!r} there)"
+        for field in LayerManifest.model_fields
+        if getattr(ours, field) != getattr(theirs, field)
+    ]
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
         print(
@@ -59,6 +84,7 @@ def main(argv: list[str]) -> int:
     ours, theirs = _files(here), _files(there)
 
     diverged = sorted(name for name in ours.keys() & theirs.keys() if ours[name] != theirs[name])
+    diverged += _manifest_drift(here, there)
     only_here = sorted(ours.keys() - theirs.keys())
     only_there = sorted(theirs.keys() - ours.keys())
 

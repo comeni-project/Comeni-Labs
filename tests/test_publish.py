@@ -44,8 +44,15 @@ def test_the_lockfile_pins_every_module_used(tmp_path):
 
 
 def test_the_bundle_records_which_layers_built_it(tmp_path):
+    """The name the layer declares, not the directory it was checked out into.
+
+    This said `["registry"]` until audit A12. A recipient reading the bundle needs a name
+    that means the same thing on their machine, and a basename does not: whoever cloned
+    the public layer as `comeni-registry` produced a bundle that disagreed with this one
+    about a registry neither of them had changed.
+    """
     bundle = json.loads((_publish(tmp_path) / "pipeline.bundle.json").read_text())
-    assert bundle["ir"]["registry_layers"] == ["registry"]
+    assert bundle["ir"]["registry_layers"] == ["comeni-registry-examples"]
 
 
 def test_publishing_twice_produces_identical_bytes(tmp_path):

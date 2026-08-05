@@ -17,6 +17,7 @@ One function, so the order is a fact rather than a convention.
 from collections.abc import Sequence
 from pathlib import Path
 
+from comeni_core.layer import layer_name
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
@@ -39,8 +40,9 @@ class Layers(BaseModel):
     """The layer directories this was loaded from, in order.
 
     Carried so a build can lock itself: a build cannot pin what it does not know it loaded.
-    `Lockfile.of` reduces these to basenames — a lockfile never stores a filesystem path,
-    because a path is meaningless on the machine that reads it.
+    `Lockfile.of` reduces these to *names* — never a filesystem path, which is meaningless
+    on the machine that reads it. The name comes from each layer's `registry.yml`, falling
+    back to its basename; it was the basename alone until audit A12.
     """
 
 
@@ -79,7 +81,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
         # record reaches a publish bundle, so this is the same identifier the lockfile
         # uses — and a path there would be both meaningless elsewhere and a leak.
-        names=[layer.name for layer in with_contracts],
+        #
+        # Read from `registry.yml` when the layer declares one, because a basename is not
+        # an identity: `--registry .` produced `''`. Audit 2026-08-06, A12.
+        names=[layer_name(layer) for layer in with_contracts],
     )
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],

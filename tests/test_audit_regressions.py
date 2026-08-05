@@ -100,6 +100,65 @@ def test_a10_two_contract_files_cannot_share_a_digest():
     assert digest_of(plain).startswith("sha256:")
 
 
+def test_a12_a_layer_is_named_by_its_manifest():
+    """A12 — the basename is not an identity.
+
+    `registry.yml` was added in Plan 1.7 for exactly this reason: "a layer that moves to
+    its own repository cannot rely on the directory it happened to be checked out into."
+    Nothing read it.
+    """
+    from comeni_core.layer import layer_name
+
+    assert layer_name(Path("registry")) == "comeni-registry-examples"
+
+
+def test_a12_a_layer_without_a_manifest_falls_back_to_its_basename(tmp_path):
+    """An overlay a lab made by hand is ordinary, not broken."""
+    from comeni_core.layer import layer_name
+
+    (tmp_path / "lab-overlay" / "contracts").mkdir(parents=True)
+    assert layer_name(tmp_path / "lab-overlay") == "lab-overlay"
+
+
+def test_a12_a_renamed_checkout_is_not_drift(tmp_path):
+    """The property: a `mv` must not read as a changed registry.
+
+    A recipient who clones the public layer as `comeni-registry` rather than `registry`
+    could not get a clean reproduction report, and a drift detector that cries wolf on a
+    rename is one people learn to ignore.
+    """
+    import shutil
+
+    from comeni_core.ir import PipelineIR
+    from comeni_core.lockfile import Lockfile
+    from comeni_core.registry import Registry
+
+    original = tmp_path / "registry"
+    shutil.copytree("registry", original)
+    empty = Registry(contracts={})
+    locked = Lockfile.of(PipelineIR(), empty, [original])
+
+    renamed = tmp_path / "cloned-under-another-name"
+    original.rename(renamed)
+    assert locked.drift_against(PipelineIR(), empty, [renamed]) == []
+
+
+def test_a12_a_layer_never_records_an_empty_name(tmp_path):
+    """`--registry .` recorded name: '' into a bundle and every ShadowRecord in it."""
+    import os
+    import shutil
+
+    from comeni_core.layer import layer_name
+
+    shutil.copytree("registry", tmp_path / "here")
+    cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path / "here")
+        assert layer_name(Path(".")) == "comeni-registry-examples"
+    finally:
+        os.chdir(cwd)
+
+
 def test_a2_resolve_refuses_an_unvalidated_profile():
     """A2 — invariant 15 lived in one CLI branch, and `upgrade` did not pass through it.
 

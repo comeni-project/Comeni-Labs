@@ -8,6 +8,7 @@ to break later, which is what makes them tests.
 import pathlib
 
 import pytest
+import yaml
 from comeni_core.lockfile import Lockfile
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
@@ -154,20 +155,32 @@ def test_reordering_the_layer_stack_is_drift(built, tmp_path):
     assert any("layer stack changed" in line for line in drift), drift
 
 
-def test_two_layers_sharing_a_basename_do_not_collapse(built, tmp_path):
-    """Not exotic: Task 8 names the public layer `registry/`, so a laboratory stacking it
-    over their own `registry/` produces two entries with one name on day one."""
+def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
+    """Two layers can still share a name, so the comparison stays positional.
+
+    Written for the day-one case: Task 8 named the public layer `registry/`, so a
+    laboratory stacking it over their own `registry/` got two entries with one name. Audit
+    A12 removed *that* collision — the public layer declares `comeni-registry-examples` in
+    its manifest and a hand-made overlay falls back to its basename, so the two no longer
+    match. It did not remove the class. Two manifest-less overlays with the same basename
+    collide exactly as before, and so would two layers declaring the same name, which is
+    what this now builds.
+    """
     import shutil
 
     ir, _ = built
-    first = _empty_layer(tmp_path / "one" / "registry").parent / "registry"
-    shutil.rmtree(first)
+    # One layer declares the name, the other falls back to its basename — so this
+    # exercises both halves of `layer_name` colliding on the same string.
+    first = tmp_path / "one" / "somewhere-else"
     shutil.copytree(ROOT / "registry", first)
-    second = _empty_layer(tmp_path / "two" / "registry")
+    manifest = yaml.safe_load((first / "registry.yml").read_text())
+    manifest["name"] = "lab"
+    (first / "registry.yml").write_text(yaml.safe_dump(manifest))
+    second = _empty_layer(tmp_path / "two" / "lab")
 
     loaded = layers.load([first, second])
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
-    assert [layer.name for layer in lock.layers] == ["registry", "registry"]
+    assert [layer.name for layer in lock.layers] == ["lab", "lab"]
     assert lock.layers[0].digest != lock.layers[1].digest, "distinct layers, distinct digests"
 
     # The *first* layer, specifically. A name-keyed mapping is last-wins, so a change to
@@ -177,7 +190,7 @@ def test_two_layers_sharing_a_basename_do_not_collapse(built, tmp_path):
     (first / "rules" / "extra.yml").write_text("decisions: []\n")
     changed = layers.load([first, second])
     drift = lock.drift_against(ir, changed.registry, changed.paths)
-    assert any("registry" in line for line in drift), drift
+    assert any("lab" in line for line in drift), drift
 
 
 def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
