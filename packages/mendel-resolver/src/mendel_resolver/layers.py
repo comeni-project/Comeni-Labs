@@ -54,6 +54,20 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     if isinstance(layers, str | Path):
         layers = [layers]
     layers = [Path(layer) for layer in layers]
+    for layer in layers:
+        for entry in sorted(layer.rglob("*")):
+            if entry.is_symlink():
+                # `digest_of_directory` refuses this too, but that is publish time and
+                # publication is the door with no undo — by then the reroute has already
+                # been emitted. A layer is a unit that gets distributed: a link out of it
+                # is meaningless to whoever receives it, and a link inside it is a copy
+                # with extra steps. Audit 2026-08-06, A9.
+                raise ValueError(
+                    f"registry layer {layer} contains a symlink at "
+                    f"{entry.relative_to(layer)}. A layer may not contain one: the loader "
+                    "follows it and the layer digest cannot, so the bytes routed on would "
+                    "not be the bytes pinned."
+                )
     measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]

@@ -170,45 +170,48 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
     assert digest_of_directory(honest) != digest_of_directory(forged)
 
 
-def test_a_symlink_is_hashed_by_target_not_followed(tmp_path):
-    """Following a symlink makes the digest depend on bytes outside the layer, so the same
-    directory digests differently on two machines — exactly what a lockfile rules out.
-    Git stores a symlink as its target path; layers are distributed by git."""
+def test_a_layer_may_not_contain_a_symlink(tmp_path):
+    """A layer with a link in it is refused rather than hashed. Audit 2026-08-06, A9.
+
+    Three tests used to live here, and all three asserted a design that was wrong. They
+    checked that a link was hashed as its *target path* and never followed — reasoning
+    that following one would make the digest depend on bytes outside the layer, so the
+    same directory would digest differently on two machines. That reasoning is sound and
+    the conclusion did not follow, because `Registry.load` opens the same path with
+    `read_text()`, which *does* follow it. The bytes routed on were not the bytes pinned.
+
+    The third of those tests came closest and still missed: it asserted that repointing a
+    link changes the digest, "otherwise every symlink would be invisible to the digest" —
+    the right worry, checked against the target's *path* and never against the target's
+    *contents*. Rewriting the target's contents rerouted a whole pipeline to `priority: 999`
+    with a byte-identical layer digest and zero drift.
+
+    So the file-versus-symlink domain separation those tests also covered is gone with the
+    branch it protected. `_FILE` stays; there is no longer a second kind to be confused with.
+    """
     layer = tmp_path / "layer"
     layer.mkdir()
     outside = tmp_path / "outside.yml"
     outside.write_text("v1")
     (layer / "link.yml").symlink_to(outside)
 
-    before = digest_of_directory(layer)
-    outside.write_text("v2-changed-entirely-outside-the-layer")
-    assert digest_of_directory(layer) == before, "digest followed the symlink out of the layer"
+    with pytest.raises(ValueError, match="symlink"):
+        digest_of_directory(layer)
 
 
-def test_a_file_cannot_impersonate_a_symlink(tmp_path):
-    """The filename forgery, one layer down.
+def test_a_symlinked_directory_is_refused_too(tmp_path):
+    """Never exploitable — `rglob` does not descend into one — but refused anyway.
 
-    Hashing a link as `"symlink:" + target` and a file as its raw bytes meant a regular
-    file containing the text `symlink:/etc/passwd` digested identically to a symlink
-    pointing there — so a layer could swap one for the other and keep its digest. A hash
-    over concatenated fields means nothing unless each field can be read only one way.
+    "The layer contains a link" is a simpler rule to state, and to check, than "the layer
+    contains a link to a file". A rule with an exception is a rule someone will find the
+    exception in.
     """
-    linked, plain = tmp_path / "linked", tmp_path / "plain"
-    linked.mkdir()
-    plain.mkdir()
-    (linked / "a.yml").symlink_to("/etc/passwd")
-    (plain / "a.yml").write_text("symlink:/etc/passwd")
-
-    assert digest_of_directory(linked) != digest_of_directory(plain)
-
-
-def test_a_symlink_pointing_somewhere_else_changes_the_digest(tmp_path):
-    """Hashing the target rather than following it must still notice the target changing —
-    otherwise every symlink would be invisible to the digest."""
     layer = tmp_path / "layer"
     layer.mkdir()
-    (layer / "link.yml").symlink_to(tmp_path / "one.yml")
-    before = digest_of_directory(layer)
-    (layer / "link.yml").unlink()
-    (layer / "link.yml").symlink_to(tmp_path / "two.yml")
-    assert digest_of_directory(layer) != before
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "a.yml").write_text("hello")
+    (layer / "contracts").symlink_to(elsewhere, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlink"):
+        digest_of_directory(layer)

@@ -8,6 +8,8 @@ The audit is `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; every fin
 there records how it was reproduced, which is what these tests are the standing version of.
 """
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -96,6 +98,53 @@ def test_a10_two_contract_files_cannot_share_a_digest():
     with pytest.raises(ValidationError):
         ModuleContract.model_validate({**CONTRACT, "validated_by": "Dr Nobody, 2019"})
     assert digest_of(plain).startswith("sha256:")
+
+
+def test_a9_a_symlinked_contract_is_refused_by_the_digest(tmp_path):
+    """A9 — the registry read through it; the digest hashed its target path."""
+    from comeni_core.digest import digest_of_directory
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "real.yml").write_text("id: alpha\n")
+    contracts = tmp_path / "layer" / "contracts"
+    contracts.mkdir(parents=True)
+    (contracts / "c.yml").symlink_to(outside / "real.yml")
+
+    with pytest.raises(ValueError, match="symlink"):
+        digest_of_directory(tmp_path / "layer")
+
+
+def test_a9_a_symlinked_layer_is_refused_at_load(tmp_path):
+    """The message must arrive at load, not at publish.
+
+    A digest that raises is a publish-time error, and publication is the door with no
+    undo — by then the reroute has already happened and been emitted.
+    """
+    import shutil
+
+    from mendel_resolver import layers as layers_mod
+
+    layer = tmp_path / "lab"
+    shutil.copytree("registry", layer)
+    victim = next((layer / "contracts").rglob("*.yml"))
+    (tmp_path / "elsewhere.yml").write_text(victim.read_text())
+    victim.unlink()
+    victim.symlink_to(tmp_path / "elsewhere.yml")
+
+    with pytest.raises(ValueError, match="symlink"):
+        layers_mod.load(layer)
+
+
+def test_a9_an_ordinary_layer_still_digests(tmp_path):
+    """The refusal must not cost the normal case."""
+    import shutil
+
+    from comeni_core.digest import digest_of_directory
+
+    layer = tmp_path / "plain"
+    shutil.copytree("registry", layer)
+    assert digest_of_directory(layer) == digest_of_directory(Path("registry"))
 
 
 def test_a11_the_emitter_never_compares_two_resolved_values():
