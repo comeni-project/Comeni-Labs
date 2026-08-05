@@ -174,6 +174,25 @@ class ModuleContract(BaseModel):
 
     provenance: Provenance
 
+    @model_validator(mode="after")
+    def _one_binding_per_param(self) -> "ModuleContract":
+        """`IRNode.set_param` appends, so a duplicate here became two bindings there.
+
+        The emitter then sorted `(name, value)` pairs and fell through to comparing two
+        `ResolvedValue`s, which are not orderable — a traceback from the middle of the
+        compiler rather than the diagnostic `mendel explain` exists to give. Audit
+        2026-08-06, A11.
+
+        `Registry.load` already refuses a contract ID declared twice in one layer, because
+        resolving it by glob order would be the silent arbitrary pick invariant 8 exists to
+        prevent. Same argument, one level down; it was not made here.
+        """
+        names = [p.name for p in self.params]
+        repeated = sorted({n for n in names if names.count(n) > 1})
+        if repeated:
+            raise ValueError(f"{self.id} declares {', '.join(repeated)} more than once")
+        return self
+
     def input_signature(self) -> list[NfInput]:
         """What the process is actually called with.
 
