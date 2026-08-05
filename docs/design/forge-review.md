@@ -137,7 +137,7 @@ than showing an ambiguous blank.
   [federation spec](federation.md) adds
   `kind: pipeline` to the queue, but it asks a different question — *is this a defensible way
   to do this analysis?* rather than *does the source support this claim?* — so it needs its
-  own stages and its own evidence panel. Plan 2.5.
+  own stages and its own evidence panel. Plan 1.7.
 - **Keyboard shortcuts are advertised, partly wired.** Only `.` (next stage) works in the
   mockup; J/K/A/R are shown in the hints but not implemented.
 - **No diff view for re-drafts.** When a rejected proposal is redrafted, a curator will want

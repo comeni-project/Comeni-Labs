@@ -46,7 +46,7 @@ class InputPort(BaseModel):
 
     @field_serializer("state_required", "state_preferred", "prefer")
     def _sorted(self, states: frozenset[str]) -> list[str]:
-        """Plan 2.5's lockfile pins a contract digest, which hashes exactly these."""
+        """Plan 1.7's lockfile pins a contract digest, which hashes exactly these."""
         return sorted(states)
 
     @model_validator(mode="after")

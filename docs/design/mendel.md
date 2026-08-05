@@ -413,7 +413,7 @@ comeni-labs/
 
 The registry data sits under `examples/` rather than at the root because this repository holds
 only enough of it for tests. The real `contracts/`, `rules/` and `vocabularies/` live in the
-`comeni-registry` repository, split out at Plan 2.5 — see the federation amendment §3.4.
+`comeni-registry` repository, split out at Plan 1.7 — see the federation amendment §3.4.
 `Registry.load()` takes paths, so the move is configuration, not code.
 
 ---
@@ -441,7 +441,7 @@ than rhetorical.
 - Agent-authored *new* modules (as opposed to contracts for existing ones)
 - Gamification, auth beyond a single-tenant deployment, billing
 - Pipeline publication, lockfiles and the curated catalogue — designed in the federation
-  amendment, built in Plan 2.5, after the IR and decision records exist
+  amendment, built in Plan 1.7, after the IR and decision records exist
 
 Withdrawn rather than deferred:
 

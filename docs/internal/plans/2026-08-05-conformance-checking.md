@@ -1,6 +1,6 @@
 # Conformance Checking Implementation Plan
 
-> **Plan 1.6.** Execute after Plan 1.5 (complete) and **before** Plan 2.5 — see the execution
+> **Plan 1.6.** Execute after Plan 1.5 (complete) and **before** Plan 1.7 — see the execution
 > order in [`docs/internal/README.md`](../README.md). Implements
 > [`docs/design/conformance.md`](../../design/conformance.md).
 
@@ -991,8 +991,8 @@ git commit -m "feat(compiler): M0104 and M0106 — the two checks the defects ea
   other than `M0100`; `mendel explain <code>`
 
 > **The design record says `unverified` sits "beside `shadowed`" on the IR. `PipelineIR.shadowed`
-> does not exist** — it arrives in Plan 2.5 Task 4. They are independent fields; add `unverified`
-> here and let 2.5 add its neighbour.
+> does not exist** — it arrives in Plan 1.7 Task 4. They are independent fields; add `unverified`
+> here and let Plan 1.7 add its neighbour.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1278,7 +1278,7 @@ ever reviews drafts that are already true about their module.
 
 - [ ] **Step 3: Update the indexes**
 
-`docs/internal/README.md` — Plan 1.6 becomes complete, Plan 2.5 becomes next.
+`docs/internal/README.md` — Plan 1.6 becomes complete, Plan 1.7 becomes next.
 `CLAUDE.md` — the reading table gains the plan and the spec; add a gotcha:
 
 ```markdown
@@ -1328,7 +1328,7 @@ git commit -m "docs: conformance checking, and the forge's dependency on it"
 checks; seven ship, because the container match already existed as a test and belongs with its
 siblings — plus `M0100` for unverified, which is a diagnostic even though it is not a failure.
 And the spec says `unverified` sits "beside `shadowed`" on the IR; **`PipelineIR.shadowed` does
-not exist yet** — it arrives in Plan 2.5 Task 4. The fields are independent.
+not exist yet** — it arrives in Plan 1.7 Task 4. The fields are independent.
 
 **Placeholder scan.** No TBDs. Every code step contains runnable code. Task 3 shows the two new
 blocks in place rather than repeating `_against` whole, and names the loop each belongs in.

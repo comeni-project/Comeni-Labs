@@ -61,7 +61,7 @@ ARCHITECTURE.md            NEW — final task, written against real types
 **Ordering rationale.** Measurements come first because rules validate against them and profiling
 produces them. Ports and pinning are independent of measurements and could go anywhere; they sit
 mid-plan so the rule rewrite has pinning available. `ARCHITECTURE.md` is last, deliberately — the
-same reason `CLAUDE.md` defers Plan 2.5: a document written against predicted types drifts, and this
+same reason `CLAUDE.md` defers Plan 1.7: a document written against predicted types drifts, and this
 plan changes the rule format, the profile, ports and module tiering, which is most of what such a
 document describes.
 
@@ -1905,7 +1905,7 @@ git commit -m "feat(compiler): profile.yml carries provenance per measurement"
 
 ### Task 11: `ARCHITECTURE.md`, written against real types
 
-Last on purpose. `CLAUDE.md` defers Plan 2.5 for the same reason — a document written against
+Last on purpose. `CLAUDE.md` defers Plan 1.7 for the same reason — a document written against
 predicted types drifts, and this plan changed the rule format, the profile, ports and module tiering,
 which is most of what an architecture document describes.
 

@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Registry data — contracts, rules, vocabularies, measurements — moves to its own repository
-at Plan 2.5 and will version separately. Until then it lives in `examples/` as test
+at Plan 1.7 and will version separately. Until then it lives in `examples/` as test
 fixtures rather than as a shipped registry.
 
 ## [Unreleased]

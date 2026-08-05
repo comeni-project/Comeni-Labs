@@ -159,7 +159,7 @@ CC-BY-4.0), and one repository with two licences invites exactly the confusion t
 files exist to prevent; and a lab forking the registry to build an overlay should not fork the
 compiler.
 
-**The split happens at Plan 2.5, not now.** Through Plan 1 the repository keeps a handful of
+**The split happens at Plan 1.7, not now.** Through Plan 1 the repository keeps a handful of
 hand-written contracts under `examples/` purely as test fixtures, because the tests need data
 before a registry exists. `Registry.load()` takes paths, so relocating them later is a change
 to configuration rather than to code — but only because the split is decided in advance.
@@ -292,9 +292,9 @@ now against surgery on a core type later. Task 5 becomes `Registry.load(layers, 
 shadowing; the single-directory form remains as the one-layer case.
 
 **Plan 2 unchanged.** `Proposal.kind` is already a free string, so `kind: pipeline` needs no
-code there. Drafting and the pipeline review screens are Plan 2.5's work.
+code there. Drafting and the pipeline review screens are Plan 1.7's work.
 
-**New Plan 2.5 — publication and curation.** Lockfiles, `mendel publish`, `mendel upgrade`,
+**New Plan 1.7 — publication and curation.** Lockfiles, `mendel publish`, `mendel upgrade`,
 the pipeline catalogue and the pipeline review screens. Also the registry split: moving
 `contracts/`, `rules/` and `vocabularies/` out of `examples/` and into the `comeni-registry`
 repository, with signed tags. It depends on the IR and decision records, so it lands after

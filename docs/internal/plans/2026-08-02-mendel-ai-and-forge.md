@@ -2802,7 +2802,7 @@ Offline authoring reduces the queue; runtime guessing decorates it.
 | §5.5 `EgressRecord`, `Actor` | **Task 1A** |
 | §5.6 prompt store, `mendel forget` | **Task 1A** (store), Task 7 (the CLI verb) |
 | §4.1 doors wired to real calls | Tasks 3, 5, 6 — amended below |
-| §6.1 lockfile, §6.2 curation | **Plan 2.5** |
+| §6.1 lockfile, §6.2 curation | **Plan 1.7** |
 
 **Amendments to tasks already written, to be applied while implementing them.** These were
 written before the clinical spec existed, and each now has a constraint it did not have. None
