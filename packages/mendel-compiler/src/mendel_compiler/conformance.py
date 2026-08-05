@@ -14,6 +14,7 @@ follows it.
 from pathlib import Path
 
 from comeni_core.contract import ModuleContract
+from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from pydantic import BaseModel, ConfigDict
 
@@ -107,10 +108,17 @@ def module_path(contract: ModuleContract, module_root: Path) -> Path:
     return module_root / f"{contract.nf_include}.nf"
 
 
-def check(registry: Registry, module_root: Path) -> list[Diagnostic]:
+def check(
+    registry: Registry,
+    module_root: Path,
+    measurements: MeasurementRegistry | None = None,
+) -> list[Diagnostic]:
     """Every way a contract disagrees with the module it claims to describe.
 
     Sorted, because these are printed and byte-identical output is a hard requirement.
+
+    `measurements` is optional because `check` is called from places that have none, and
+    M0106 cannot be evaluated without one. Silence beats a wrong answer.
     """
     found: list[Diagnostic] = []
     for contract in registry.all():
@@ -127,6 +135,8 @@ def check(registry: Registry, module_root: Path) -> list[Diagnostic]:
             )
             continue
         found += _against(contract, ModuleSpec.parse(path), path)
+    if measurements is not None:
+        found += _meta_keys(registry, module_root, measurements)
     return sorted(found, key=lambda d: (d.contract_id, d.code, d.detail))
 
 
@@ -180,6 +190,42 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
                 )
             )
 
+        if entry.empty and slot.needs_a_file and not entry.because:
+            # The *file* element, never the `val(meta)` beside it. meta.yml documents both
+            # and documents `meta` first, so a plain "name in slot.names" lookup reports
+            # "path(meta)" with a Groovy-map description — sending the reader to look for a
+            # sample map where a genome is missing.
+            file_names = [
+                name
+                for kind, name in zip(slot.kinds, slot.names, strict=True)
+                if kind == "path" and name
+            ]
+            documented = next((d for d in spec.documented if d.name in file_names), None)
+            wanted = documented.name if documented else (file_names[-1] if file_names else "?")
+            described = (
+                f'\n    meta.yml   {documented.name}: "{documented.description}"'
+                if documented
+                else ""
+            )
+            found.append(
+                Diagnostic(
+                    code="M0104",
+                    contract_id=contract.id,
+                    summary=(
+                        f"slot {slot.position} declares path({wanted}) "
+                        f"and the contract supplies a placeholder"
+                    ),
+                    detail=(
+                        f"    {path}   {' '.join(slot.kinds)}"
+                        f"  ({', '.join(n for n in slot.names if n)}){described}"
+                    ),
+                    fix=(
+                        "declare a port with a type_id for it, or say why the type system "
+                        "does not model it with `because`"
+                    ),
+                )
+            )
+
     emitted = set(spec.emits)
     for port in contract.produces:
         if port.name not in emitted:
@@ -204,4 +250,66 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
             )
         )
 
+    return found
+
+
+# `meta.id` is set by every entry channel the compiler emits, so it is never missing.
+# Secondary maps — `meta2`, `meta3` — belong to reference channels built from a plain
+# `[id: ...]`, not to the reads, and demanding a measurement for them would be noise. A
+# check that cries wolf is a check people switch off.
+_ALWAYS_SET = {"id"}
+
+
+# KNOWN AND DELIBERATE: this parses every module a second time, after the per-contract
+# loop in `check` already parsed each one. On twelve modules it is free. At two hundred it
+# will not be, and the fix is a `dict[Path, ModuleSpec]` cache threaded through both.
+#
+# Left unoptimised on purpose. A cache now is premature and unmeasured; whoever notices
+# this being slow will have a real number to optimise against instead of a guess. Do not
+# "fix" it while implementing this task — if you want it fixed, measure first and make it
+# its own commit, so the before and after are visible.
+def _meta_keys(
+    registry: Registry, module_root: Path, measurements: MeasurementRegistry
+) -> list[Diagnostic]:
+    """Undefined- and unused-symbol analysis, over the meta map.
+
+    A module reading a key nothing sets uses its default silently — that is exactly how
+    featureCounts computed `-s 0` for a reverse-stranded library. A declared `meta_key` no
+    module reads is a declaration with no effect.
+    """
+    declared = {
+        measurements.get(m).meta_key: m
+        for m in measurements.ids()
+        if measurements.get(m).meta_key
+    }
+    read: dict[str, str] = {}
+    for contract in registry.all():
+        path = module_path(contract, module_root)
+        if not path.exists():
+            continue
+        for entry in ModuleSpec.parse(path).meta_reads:
+            if entry.variable == "meta" and entry.key not in _ALWAYS_SET:
+                read.setdefault(entry.key, contract.id)
+
+    found = [
+        Diagnostic(
+            code="M0106",
+            contract_id=contract_id,
+            summary=f"the module reads meta.{key!r} and no declared measurement sets it",
+            detail="    it will silently use the module's own default",
+            fix=f"declare a measurement with `meta_key: {key}`, or accept the default knowingly",
+        )
+        for key, contract_id in sorted(read.items())
+        if key not in declared
+    ]
+    found += [
+        Diagnostic(
+            code="M0106",
+            contract_id=f"measurements/{declared[key]}",
+            summary=f"meta_key {key!r} is declared and no module in this registry reads it",
+            detail="    the value would be set on the channel and never consulted",
+            fix=f"remove `meta_key: {key}`, or add a module that reads it",
+        )
+        for key in sorted(set(declared) - set(read))
+    ]
     return found
