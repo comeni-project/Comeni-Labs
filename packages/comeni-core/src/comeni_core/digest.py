@@ -35,7 +35,7 @@ def digest_of(model: BaseModel) -> Digest:
 
 
 def digest_of_directory(path: Path) -> Digest:
-    """Content digest of every file under `path`, name and bytes alike.
+    """Content digest of every entry under `path`, name and bytes alike.
 
     Names are included because renaming a contract file changes which layer it belongs to
     and can change load order, even when no byte of content moved.
@@ -43,14 +43,31 @@ def digest_of_directory(path: Path) -> Digest:
     Sorted by relative path so two copies of the same layer digest identically regardless
     of the order the filesystem happened to hand them over. A missing directory digests to
     the digest of nothing, because a layer with no `rules/` is ordinary rather than broken.
+
+    **The name is hashed, not embedded.** An earlier version joined `f"{name}:{hash}"` with
+    newlines, which let a filename forge an entry boundary: a single file named
+    `a.yml:<sha of alpha>\\nb.yml` containing "beta" digests identically to a two-file layer
+    holding `a.yml`/"alpha" and `b.yml`/"beta". Measured, not theorised. A forgeable digest
+    is not a digest, and Task 8 makes layers a thing strangers distribute. Hashing both
+    halves makes every field fixed-width hex, so no content can span a delimiter.
+
+    **A symlink is hashed as its target path, never followed.** Following one makes the
+    digest depend on bytes outside the layer, so the same directory digests differently on
+    two machines — which is precisely what a lockfile exists to rule out. This is what git
+    does with symlinks, and layers are distributed by git.
     """
     parts: list[str] = []
     if path.exists():
-        for file in sorted(p for p in path.rglob("*") if p.is_file()):
-            hasher = hashlib.sha256()
-            with file.open("rb") as handle:
-                while chunk := handle.read(_CHUNK):
-                    hasher.update(chunk)
-            parts.append(f"{file.relative_to(path).as_posix()}:{hasher.hexdigest()}")
+        for entry in sorted(p for p in path.rglob("*") if p.is_symlink() or p.is_file()):
+            name = entry.relative_to(path).as_posix()
+            if entry.is_symlink():
+                content = _hex(f"symlink:{entry.readlink().as_posix()}".encode())
+            else:
+                hasher = hashlib.sha256()
+                with entry.open("rb") as handle:
+                    while chunk := handle.read(_CHUNK):
+                        hasher.update(chunk)
+                content = hasher.hexdigest()
+            parts.append(f"{_hex(name.encode())}:{content}")
     joined = "\n".join(parts)
     return f"{_ALGORITHM}:{_hex(joined.encode())}"

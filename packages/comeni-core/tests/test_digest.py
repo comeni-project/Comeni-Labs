@@ -5,6 +5,7 @@ happens to hand files over. A digest that varied on any of those would make ever
 spuriously dirty and the reproducibility claim worthless.
 """
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -146,3 +147,51 @@ def test_a_directory_digest_ignores_traversal_order(tmp_path):
 def test_a_missing_directory_digests_to_the_empty_digest(tmp_path):
     """A layer may legitimately have no `rules/`. That is not an error."""
     assert digest_of_directory(tmp_path / "nope").startswith("sha256:")
+
+
+def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
+    """A forgeable digest is not a digest.
+
+    The first version joined `f"{name}:{content_hash}"` with newlines, so a filename
+    containing a colon and a newline could impersonate a second entry: one file named
+    `a.yml:<sha of "alpha">\\nb.yml` holding "beta" digested identically to a two-file layer
+    holding a.yml/"alpha" and b.yml/"beta". Task 8 makes layers something strangers
+    distribute and a lockfile pins them by digest, so this is the whole guarantee.
+    """
+    honest, forged = tmp_path / "honest", tmp_path / "forged"
+    honest.mkdir()
+    forged.mkdir()
+    (honest / "a.yml").write_text("alpha")
+    (honest / "b.yml").write_text("beta")
+
+    alpha_hash = hashlib.sha256(b"alpha").hexdigest()
+    (forged / f"a.yml:{alpha_hash}\nb.yml").write_text("beta")
+
+    assert digest_of_directory(honest) != digest_of_directory(forged)
+
+
+def test_a_symlink_is_hashed_by_target_not_followed(tmp_path):
+    """Following a symlink makes the digest depend on bytes outside the layer, so the same
+    directory digests differently on two machines — exactly what a lockfile rules out.
+    Git stores a symlink as its target path; layers are distributed by git."""
+    layer = tmp_path / "layer"
+    layer.mkdir()
+    outside = tmp_path / "outside.yml"
+    outside.write_text("v1")
+    (layer / "link.yml").symlink_to(outside)
+
+    before = digest_of_directory(layer)
+    outside.write_text("v2-changed-entirely-outside-the-layer")
+    assert digest_of_directory(layer) == before, "digest followed the symlink out of the layer"
+
+
+def test_a_symlink_pointing_somewhere_else_changes_the_digest(tmp_path):
+    """Hashing the target rather than following it must still notice the target changing —
+    otherwise every symlink would be invisible to the digest."""
+    layer = tmp_path / "layer"
+    layer.mkdir()
+    (layer / "link.yml").symlink_to(tmp_path / "one.yml")
+    before = digest_of_directory(layer)
+    (layer / "link.yml").unlink()
+    (layer / "link.yml").symlink_to(tmp_path / "two.yml")
+    assert digest_of_directory(layer) != before
