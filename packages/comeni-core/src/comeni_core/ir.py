@@ -12,6 +12,7 @@ from pydantic import (
 from comeni_core.decision import DecisionRecord
 from comeni_core.marks import (
     ContractId,
+    LayerName,
     NodeId,
     ParamValue,
     PortName,
@@ -19,6 +20,7 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
+from comeni_core.registry import ShadowRecord
 from comeni_core.profile import DataProfile
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
@@ -142,6 +144,17 @@ class PipelineIR(BaseModel):
     emitter needs it to populate the `meta` map, and a reviewer reading `pipeline.ir.json`
     needs it to know which measurement a tier-3 decision rested on.
     """
+
+    registry_layers: list[LayerName] = Field(default_factory=list)
+    """Which layers built this, in stacking order. A list because order is meaning:
+    later layers win, and a set would lose that."""
+
+    shadowed: list[ShadowRecord] = Field(default_factory=list)
+    """Contracts an overlay displaced.
+
+    Carried on the artifact rather than only printed at build time. A published pipeline
+    whose registry quietly rerouted it would be unauditable by the person who downloaded
+    it, which is the failure invariant 11 exists to prevent."""
 
     unverified: list[ContractId] = Field(default_factory=list)
     """Contracts whose module source was not present, so nothing checked them.

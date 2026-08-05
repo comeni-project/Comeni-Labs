@@ -124,7 +124,7 @@ def _build(argv: list[str] | None = None) -> int:
             }
         )
 
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, layer_names=[p.name for p in loaded.paths])
     ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)

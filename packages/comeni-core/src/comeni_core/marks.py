@@ -62,3 +62,7 @@ A declared ID rather than `FreeText`: this is registry data with a shape — a r
 a path, a tag — not prose a person wrote. It must never join `FREE_TEXT_FIELDS`, because
 the two lists mean different things and the egress guard reads both literally.
 """
+
+ModuleKey = Annotated[str, "module-key"]
+"""A contract ID minus its `@version`. Shadowing is decided on this, not the full ID —
+a lab pinning `@1.22.0` over `@1.21.0` is a version bump, not an ambiguity."""

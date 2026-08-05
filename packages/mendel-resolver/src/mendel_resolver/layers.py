@@ -58,8 +58,14 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
     ).with_measurements(measurements)
+    with_contracts = [layer for layer in layers if (layer / "contracts").exists()]
     registry = Registry.load(
-        [layer / "contracts" for layer in layers if (layer / "contracts").exists()], vocabulary
+        [layer / "contracts" for layer in with_contracts],
+        vocabulary,
+        # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
+        # record reaches a publish bundle, so this is the same identifier the lockfile
+        # uses — and a path there would be both meaningless elsewhere and a leak.
+        names=[layer.name for layer in with_contracts],
     )
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],
