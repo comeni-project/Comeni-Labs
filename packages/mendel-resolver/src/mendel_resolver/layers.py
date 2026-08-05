@@ -20,7 +20,7 @@ from pathlib import Path
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules import RuleTable
 
@@ -34,6 +34,14 @@ class Layers(BaseModel):
     vocabulary: Vocabulary
     registry: Registry
     rules: RuleTable
+
+    paths: list[Path] = Field(default_factory=list)
+    """The layer directories this was loaded from, in order.
+
+    Carried so a build can lock itself: a build cannot pin what it does not know it loaded.
+    `Lockfile.of` reduces these to basenames — a lockfile never stores a filesystem path,
+    because a path is meaningless on the machine that reads it.
+    """
 
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
@@ -60,5 +68,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         measurements=measurements,
     )
     return Layers(
-        measurements=measurements, vocabulary=vocabulary, registry=registry, rules=rules
+        measurements=measurements,
+        vocabulary=vocabulary,
+        registry=registry,
+        rules=rules,
+        paths=list(layers),
     )

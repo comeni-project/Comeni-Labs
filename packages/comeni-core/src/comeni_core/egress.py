@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 from comeni_core.decision import DecisionRecord
 from comeni_core.goal import Goal
 from comeni_core.ir import PipelineIR
+from comeni_core.lockfile import Lockfile
 from comeni_core.marks import (
     ContractId,
     NodeId,
@@ -104,6 +105,7 @@ class PublishBundle(EgressPayload):
     goal: Goal
     ir: PipelineIR
     decisions: list[DecisionRecord] = []
+    lockfile: Lockfile = Lockfile()
 
 
 DOORS: dict[str, type[EgressPayload]] = {

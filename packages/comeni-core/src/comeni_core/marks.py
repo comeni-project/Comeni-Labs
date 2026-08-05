@@ -54,3 +54,11 @@ its `@version` moving, and in a private overlay it routinely is."""
 LayerName = Annotated[str, "layer-name"]
 """A registry layer's declared name. Never a filesystem path — a path is meaningless on
 another machine and is exactly what invariant 15 keeps out of a shareable artifact."""
+
+ContainerRef = Annotated[str, "container-ref"]
+"""A container image reference as a contract declares it, tag and all.
+
+A declared ID rather than `FreeText`: this is registry data with a shape — a registry host,
+a path, a tag — not prose a person wrote. It must never join `FREE_TEXT_FIELDS`, because
+the two lists mean different things and the egress guard reads both literally.
+"""
