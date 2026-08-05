@@ -109,7 +109,7 @@ registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` an
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml \
-  --registry examples/ --registry ./lab-registry --out build/
+  --registry registry/ --registry ./lab-registry --out build/
 ```
 
 ---
@@ -162,8 +162,11 @@ resolver, byte-identical output. Tiers 1 to 3 need no model at all, so a Mendel 
 configured still ingests a goal, routes it, resolves it and emits Nextflow; tier 4 flags instead
 of guessing, which is behaviour the product promises anyway.
 
-The public registry lives in its own repository under CC-BY-4.0. What ships here under
-`examples/` is hand-written test data, not a registry.
+The public registry lives in its own repository under CC-BY-4.0:
+[comeni-registry](https://github.com/comeni-project/comeni-registry). The copy under
+`registry/` here is that same layer — hand-written data sufficient to build and test the
+RNA-seq spine, and explicitly **not** a curated registry: every contract in it is a test
+fixture that happens to be true. `examples/` holds an example goal and nothing else.
 
 ---
 

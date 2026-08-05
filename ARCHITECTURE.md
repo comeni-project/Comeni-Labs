@@ -116,7 +116,7 @@ a pinned contract not in the registry, a comparison against an enum, or a `when`
 undeclared measurement: each refuses to load, and the error says what the author *can* write.
 
 This is the load-bearing part. `subject` used to be an unvalidated free string, and two of
-the five rules shipped in `examples/` had never once executed. Nothing said so, and a
+the five rules shipped in the example layer had never once executed. Nothing said so, and a
 constant named `KNOWN_DEAD_RULES` recorded them instead. Validation replaced both.
 
 A layer replaces a decision **block**, not a row — a reviewer should read one block and see

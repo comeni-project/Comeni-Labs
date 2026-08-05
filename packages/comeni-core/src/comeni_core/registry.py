@@ -3,9 +3,10 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from comeni_core.contract import ModuleContract
+from comeni_core.marks import ContractId, LayerName, ModuleKey
 from comeni_core.vocabulary import Vocabulary
 
 
@@ -15,12 +16,23 @@ def module_key(contract_id: str) -> str:
 
 
 class ShadowRecord(BaseModel):
-    """A higher layer displaced every lower-layer contract for one module key."""
+    """A higher layer displaced every lower-layer contract for one module key.
 
-    module_key: str
-    winning_id: str
-    winning_layer: str
-    displaced_ids: list[str]
+    Every field is a declared ID and `extra` is forbidden, because this became reachable
+    from `PublishBundle` when `PipelineIR.shadowed` landed. Until then nothing had walked
+    it, and it was carrying `winning_layer` as an absolute filesystem path — straight into
+    a publishable artifact, past the rule the lockfile has an explicit test for.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    module_key: ModuleKey
+    winning_id: ContractId
+    winning_layer: LayerName
+    """The layer's *name*, never where it sat. A path is meaningless on the machine that
+    reads a published bundle, and says more about the machine that wrote it than anyone
+    intended."""
+    displaced_ids: list[ContractId]
 
 
 class Registry(BaseModel):
@@ -28,14 +40,27 @@ class Registry(BaseModel):
     shadowed: list[ShadowRecord] = []
 
     @classmethod
-    def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
+    def load(
+        cls,
+        layers: Path | Sequence[Path],
+        vocab: Vocabulary,
+        names: Sequence[str] | None = None,
+    ) -> "Registry":
+        """`names[i]` is what layer `i` is called in a shadow record.
+
+        Passed in rather than derived, because this method is handed `<layer>/contracts`
+        directories and the layer's name lives one level up — knowledge the caller has and
+        this does not. Defaulting to the directory's own name keeps every existing caller
+        working and, crucially, keeps a *name* in that field rather than a path.
+        """
         if isinstance(layers, Path):
             layers = [layers]
+        layer_names = list(names) if names is not None else [layer.name for layer in layers]
 
         contracts: dict[str, ModuleContract] = {}
         shadowed: list[ShadowRecord] = []
 
-        for layer in layers:
+        for layer, layer_name in zip(layers, layer_names, strict=True):
             incoming: dict[str, ModuleContract] = {}
             for path in sorted(layer.rglob("*.yml")):
                 contract = ModuleContract.load(path, vocab)
@@ -65,7 +90,7 @@ class Registry(BaseModel):
                     ShadowRecord(
                         module_key=key,
                         winning_id=winner,
-                        winning_layer=str(layer),
+                        winning_layer=layer_name,
                         displaced_ids=displaced,
                     )
                 )

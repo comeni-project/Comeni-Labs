@@ -49,7 +49,7 @@ def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
     (overlay / "contracts").mkdir(parents=True)
     (overlay / "rules").mkdir()
     (overlay / "vocabularies").mkdir()
-    base = ROOT / "examples" / "contracts" / "nf-core" / "samtools-sort.yml"
+    base = ROOT / "registry" / "contracts" / "nf-core" / "samtools-sort.yml"
     (overlay / "contracts" / "sort.yml").write_text(
         base.read_text().replace("@1.21.0", "@1.99.0")
     )
@@ -59,7 +59,7 @@ def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
         "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
         "--out", str(tmp_path / "pipeline"),
         "--root", str(ROOT),
-        "--registry", str(ROOT / "examples"),
+        "--registry", str(ROOT / "registry"),
         "--registry", str(overlay),
     ])
     assert exit_code == 0

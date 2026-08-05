@@ -1,5 +1,7 @@
 """The four-tier ladder. Every value exits at exactly one tier and carries it."""
 
+from collections.abc import Sequence
+
 from comeni_core.contract import InputPort
 from comeni_core.decision import Ambiguity, DecisionRecord
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
@@ -17,10 +19,18 @@ def resolve(
     registry: Registry,
     rules: RuleTable,
     resolver: AmbiguityResolver | None = None,
+    layer_names: Sequence[str] = (),
 ) -> PipelineIR:
     resolver = resolver or FlagOnlyResolver()
     plan = route(goal, registry, rules)
-    ir = PipelineIR(profile=goal.profile)
+    ir = PipelineIR(
+        profile=goal.profile,
+        registry_layers=list(layer_names),
+        # Read off the registry rather than passed in: a shadow is a fact the registry
+        # discovered while loading, and asking the caller to forward it is asking them to
+        # forget. A published pipeline whose overlay quietly rerouted it is unauditable.
+        shadowed=list(registry.shadowed),
+    )
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —
     # valid Nextflow, no flag, and `-stub-run` cannot catch it because nf-core stubs never

@@ -4,7 +4,7 @@
 mendel <command> [options]
 ```
 
-Three commands: `build`, `profile` and `explain`. Exit codes: `0` success, `1` a gate
+Five commands: `build`, `profile`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
 failed, `2` your input was rejected — which includes a contract that disagrees with its
 module.
 
@@ -117,6 +117,60 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 `M0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
 directory, which is legitimate — the contract is marked `unverified` on the IR so a publish
 bundle carries which claims went unchecked, and a curator may decline to curate one.
+
+## `mendel publish`
+
+```bash
+uv run mendel publish --goal examples/rnaseq-goal.yml --out build/
+```
+
+Everything `build` writes, plus two files that make the pipeline shareable:
+
+| File | Contents |
+|---|---|
+| `pipeline.bundle.json` | `goal` + `ir` + `decisions` + `lockfile` — federation §4.1. Fewer than four and the recipient can neither reproduce it nor audit it. |
+| `mendel.lock.yml` | every contract used, pinned by content digest, with its container; every layer, by name and digest |
+
+**It writes files and sends nothing.** Transmitting them is a later, separate act, which is
+deliberate: publication is the door with no undo, so a person can read what they are about
+to publish before any of it leaves.
+
+The lockfile holds **no filesystem paths and no timestamps**. A path is meaningless on the
+machine that reads it; a timestamp would make every lockfile differ from every other one and
+turn the determinism tests into noise. Publishing the same goal twice produces byte-identical
+files, and a test asserts it.
+
+Contracts are pinned by *digest*, not version — a contract can be edited without its
+`@version` moving, and in a private overlay it routinely is.
+
+## `mendel upgrade`
+
+```bash
+uv run mendel upgrade --bundle build/pipeline.bundle.json --out upgraded/
+```
+
+Re-resolves a published bundle against the current registry and reports what moved. The goal
+comes from the bundle, never from a file — re-resolving a *different* goal and calling the
+result an upgrade is how "only what you touched moved" quietly becomes false.
+
+Two kinds of report, because they answer different questions:
+
+| Prefix | Means |
+|---|---|
+| `DRIFT` | the registry moved underneath the lockfile — a contract was edited, deleted, or a layer changed |
+| `CHANGED` | that actually changed *this* pipeline: a module or parameter resolved differently, with its tier and reason |
+
+Both are printed, because a contract can be edited in ways that change nothing here and the
+lockfile no longer describing what is on disk is still worth knowing.
+
+Every recorded decision **replays** rather than being asked again — federation §4.3, and what
+makes editing a curated pipeline safe. A record stops applying if the candidate set moved or
+its choice is gone from the registry; either way replaying would assert a decision between
+options that no longer exist. `upgrade` prints how many replayed and how many were newly
+asked. Against an unchanged registry it reports `no changes` and reproduces byte-identical
+Nextflow.
+
+Nothing upgrades implicitly: the bundle you read is never written over.
 
 ## `mendel explain`
 

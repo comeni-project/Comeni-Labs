@@ -20,7 +20,7 @@ from pathlib import Path
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules import RuleTable
 
@@ -35,12 +35,20 @@ class Layers(BaseModel):
     registry: Registry
     rules: RuleTable
 
+    paths: list[Path] = Field(default_factory=list)
+    """The layer directories this was loaded from, in order.
+
+    Carried so a build can lock itself: a build cannot pin what it does not know it loaded.
+    `Lockfile.of` reduces these to basenames — a lockfile never stores a filesystem path,
+    because a path is meaningless on the machine that reads it.
+    """
+
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     """Load a registry layer stack. Later layers win, as everywhere else.
 
     A bare `str` is accepted because a `str` is also a `Sequence`, so refusing it by type
-    is not something the signature can do: `load("examples")` would iterate the string
+    is not something the signature can do: `load("registry")` would iterate the string
     into single characters and fail somewhere unrecognisable.
     """
     if isinstance(layers, str | Path):
@@ -50,8 +58,14 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
     ).with_measurements(measurements)
+    with_contracts = [layer for layer in layers if (layer / "contracts").exists()]
     registry = Registry.load(
-        [layer / "contracts" for layer in layers if (layer / "contracts").exists()], vocabulary
+        [layer / "contracts" for layer in with_contracts],
+        vocabulary,
+        # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
+        # record reaches a publish bundle, so this is the same identifier the lockfile
+        # uses — and a path there would be both meaningless elsewhere and a leak.
+        names=[layer.name for layer in with_contracts],
     )
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],
@@ -60,5 +74,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         measurements=measurements,
     )
     return Layers(
-        measurements=measurements, vocabulary=vocabulary, registry=registry, rules=rules
+        measurements=measurements,
+        vocabulary=vocabulary,
+        registry=registry,
+        rules=rules,
+        paths=list(layers),
     )

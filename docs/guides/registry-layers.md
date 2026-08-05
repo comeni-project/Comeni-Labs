@@ -21,7 +21,7 @@ else from below.
 
 ```bash
 uv run mendel build --goal my-goal.yml \
-  --registry examples/ \
+  --registry registry/ \
   --registry ./lab-registry \
   --out build/
 ```

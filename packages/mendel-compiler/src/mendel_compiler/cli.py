@@ -6,9 +6,13 @@ import sys
 from pathlib import Path
 
 import yaml
+from comeni_core.egress import PublishBundle
+from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
+from mendel_resolver.diff import diff_ir
 from mendel_resolver.goal import Goal, GoalInput
+from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
@@ -38,11 +42,19 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
-    parser.add_argument("command", choices=["build", "profile", "explain"])
+    parser.add_argument(
+        "command", choices=["build", "profile", "publish", "upgrade", "explain"]
+    )
     parser.add_argument(
         "code", nargs="?", default=None, help="a diagnostic code, for `explain`"
     )
     parser.add_argument("--goal", type=Path, default=None)
+    parser.add_argument(
+        "--bundle",
+        type=Path,
+        default=None,
+        help="a published pipeline.bundle.json to re-resolve. `upgrade` only.",
+    )
     parser.add_argument(
         "--have",
         action="append",
@@ -80,7 +92,7 @@ def _build(argv: list[str] | None = None) -> int:
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
     # modules. Only contracts stacked before the 2026-08-03 audit.
-    loaded = layers.load(args.registry or [args.root / "examples"])
+    loaded = layers.load(args.registry or [args.root / "registry"])
     vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
 
     # Conformance: does each contract tell the truth about its module? `-stub-run` cannot
@@ -106,11 +118,22 @@ def _build(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    if args.command == "profile":
+    previous: PublishBundle | None = None
+    resolver = None
+    if args.command == "upgrade":
+        # An upgrade reads its goal from the bundle rather than from a file: re-resolving
+        # a *different* goal and calling the result an upgrade is how "only what you
+        # touched moved" would quietly become false.
+        if args.bundle is None:
+            parser.error("upgrade needs --bundle")
+        previous = PublishBundle.model_validate_json(args.bundle.read_text())
+        goal = previous.goal
+        resolver = ReplayResolver(previous.decisions)
+    elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:
         if args.goal is None:
-            parser.error("build needs --goal")
+            parser.error(f"{args.command} needs --goal")
         goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
         # Re-build the goal's profile through the one constructor that validates it. The
         # mapping shorthand in the goal file cannot check itself — measurements are
@@ -124,7 +147,13 @@ def _build(argv: list[str] | None = None) -> int:
             }
         )
 
-    ir = resolve(goal, registry, rules)
+    ir = resolve(
+        goal,
+        registry,
+        rules,
+        resolver=resolver,
+        layer_names=[p.name for p in loaded.paths],
+    )
     ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -153,6 +182,42 @@ def _build(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+
+    if args.command == "publish":
+        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
+        # to, why each choice was made, and against exactly which registry. All four, or
+        # the recipient can neither reproduce it nor audit it.
+        #
+        # This writes files and sends nothing. Transmitting them is a later, separate act,
+        # which is the right shape for the door with no undo: a person can read what they
+        # are about to publish.
+        lockfile = Lockfile.of(ir, registry, loaded.paths)
+        bundle = PublishBundle(
+            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile
+        )
+        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
+        (args.out / "mendel.lock.yml").write_text(
+            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
+        )
+
+    if previous is not None:
+        # Nothing upgrades implicitly. Drift is what the registry did underneath the
+        # lockfile; changes are what that did to *this* pipeline. Both, because a contract
+        # can be edited in ways that change nothing here — and the lockfile no longer
+        # describing what is on disk is still worth knowing.
+        for line in previous.lockfile.drift_against(ir, registry, loaded.paths):
+            print(f"  DRIFT   {line}", file=sys.stderr)
+        changes = diff_ir(previous.ir, ir)
+        if not changes:
+            print("no changes: this pipeline re-resolves identically", file=sys.stderr)
+        for change in changes:
+            print(f"  CHANGED {change}", file=sys.stderr)
+        if resolver is not None:
+            print(
+                f"{len(resolver.replayed)} decisions replayed, "
+                f"{len(resolver.fresh)} newly asked",
+                file=sys.stderr,
+            )
 
     for record in registry.shadowed:
         print(

@@ -13,6 +13,47 @@ fixtures rather than as a shipped registry.
 
 ### Added
 
+- **A pipeline is a shareable artifact.** `mendel publish` writes a `PublishBundle` — goal,
+  IR, decision records and a lockfile — plus `mendel.lock.yml` pinning every contract used
+  by content digest and every layer by name and digest. No filesystem paths and no
+  timestamps, both tested: a path is meaningless on the machine that reads it, and a
+  timestamp would turn the determinism tests into noise. It writes files and sends nothing;
+  transmitting them is a later, separate act.
+- **`mendel upgrade`** re-resolves a published bundle against the current registry, replays
+  every recorded decision rather than asking again, and reports drift (the registry moved)
+  separately from changes (that moved *this* pipeline), each with its tier and reason.
+  Against an unchanged registry it reproduces byte-identical Nextflow.
+- `ReplayResolver` — federation §4.3: load a curated pipeline, change one thing, and every
+  untouched decision replays from its record. One more `AmbiguityResolver`, which is the
+  payoff for Plan 1 having declared the port.
+- Content addressing: `digest_of` for models and `digest_of_directory` for layers.
+- `PipelineIR.registry_layers` and `PipelineIR.shadowed`, so the artifact records which
+  registry built it and what an overlay displaced.
+- `Goal` moved to `comeni-core` so a bundle can carry one; `mendel_resolver.goal` re-exports.
+- **The registry is its own layer**, in `registry/`, with a `registry.yml` manifest, and is
+  published at [comeni-registry](https://github.com/comeni-project/comeni-registry) under
+  CC-BY-4.0. `examples/` now holds the example goal and nothing else.
+
+### Fixed
+
+- **A layer digest was forgeable.** It joined `name:hash` with newlines and escaped nothing,
+  so a single file named `a.yml:<sha of "alpha">\nb.yml` digested identically to a two-file
+  layer. Names are now hashed rather than embedded, and file and symlink contents are
+  domain-separated so neither can impersonate the other.
+- **A layer digest followed symlinks out of the layer**, making it depend on bytes the layer
+  does not contain. A symlink is now hashed as its target path, as git does.
+- **`Vocabulary` digested differently in every process.** Its frozensets are `dict` values
+  rather than fields, so the codebase-wide "sets must sort on serialisation" rule had never
+  been applied to them, and nothing had serialised a `Vocabulary` before.
+- **`ShadowRecord.winning_layer` was an absolute filesystem path**, and it reaches a publish
+  bundle. It now carries the layer's name.
+- `Lockfile.drift_against` raised `KeyError` in two cases it exists to report: a contract
+  deleted from the registry, and a contract still present but no longer used by the
+  re-resolved pipeline.
+- Layers compared by name rather than position, so **inverting the registry stack reported no
+  drift at all** — although order decides which layer shadows which — and two layers sharing
+  a basename silently collapsed into one.
+
 - **Conformance checking: `mendel build` refuses a contract that disagrees with its
   module.** A `ModuleContract` is a hand-written binding to a foreign, dynamically-typed
   unit, and until now nothing compared the two. `ModuleSpec` parses the vendored `main.nf`
@@ -77,7 +118,7 @@ fixtures rather than as a shipped registry.
 - The `param: strandedness` rule and featureCounts' `strandedness` parameter. `-s 2` is
   featureCounts' encoding of a measured fact, not a decision — the module already contains
   that translation, and the rule's "citation" was the tool's own manual. It was a translation
-  wearing a tier-3 badge. One rule remains in `examples/rules/rnaseq.yml`, and it is a genuine
+  wearing a tier-3 badge. One rule remains in `registry/rules/rnaseq.yml`, and it is a genuine
   decision between two defensible aligners.
 
 ## [0.1.0] — 2026-08-03

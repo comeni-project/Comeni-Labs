@@ -69,10 +69,10 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     from mendel_resolver.resolve import resolve
     from mendel_resolver.rules import RuleTable
 
-    examples = pathlib.Path(__file__).parents[3] / "examples"
+    layer = pathlib.Path(__file__).parents[3] / "registry"
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    original = (examples / "contracts" / "nf-core" / "trimgalore.yml").read_text()
+    original = (layer / "contracts" / "nf-core" / "trimgalore.yml").read_text()
     (contracts / "trimgalore.yml").write_text(original)
     # Same priority, same output, different module key: nothing distinguishes them.
     (contracts / "fastp.yml").write_text(
@@ -80,7 +80,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
             "TRIMGALORE", "FASTP"
         )
     )
-    vocabulary = Vocabulary.load(examples / "vocabularies")
+    vocabulary = Vocabulary.load(layer / "vocabularies")
     registry = Registry.load(contracts, vocabulary)
     ir = resolve(
         Goal(have=[GoalInput(type_id="fastq.reads")], want=["fastq.reads"],

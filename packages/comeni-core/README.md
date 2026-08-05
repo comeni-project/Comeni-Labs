@@ -12,9 +12,9 @@ rather than by promise.
 ```python
 from comeni_core import MeasurementRegistry, Registry, Vocabulary
 
-measurements = MeasurementRegistry.load("examples/measurements")
-vocabulary = Vocabulary.load("examples/vocabularies").with_measurements(measurements)
-registry = Registry.load("examples/contracts", vocabulary)
+measurements = MeasurementRegistry.load("registry/measurements")
+vocabulary = Vocabulary.load("registry/vocabularies").with_measurements(measurements)
+registry = Registry.load("registry/contracts", vocabulary)
 ```
 
 Load order matters — a measurement derives a `measurement.<id>` type that contracts are
