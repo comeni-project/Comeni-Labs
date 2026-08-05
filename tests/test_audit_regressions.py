@@ -65,6 +65,39 @@ def test_a11_a_contract_rejects_a_duplicate_param_name():
         )
 
 
+def test_a10_an_unknown_contract_key_is_refused():
+    """A10 — dropped keys meant two different files pinned to one digest."""
+    from comeni_core.contract import ModuleContract
+
+    with pytest.raises(ValidationError, match="clinical_use"):
+        ModuleContract.model_validate({**CONTRACT, "clinical_use": "approved"})
+    with pytest.raises(ValidationError, match="ext_arg"):
+        ModuleContract.model_validate({**CONTRACT, "ext_arg": "--misspelled"})
+
+
+def test_a10_every_model_a_contract_is_built_from_forbids_extras():
+    """The nested models too: a smuggled key on a Param is as invisible as one on the top."""
+    from comeni_core import contract as contract_module
+
+    for name in ("ModuleContract", "InputPort", "OutputPort", "Param", "NfInput", "Provenance"):
+        model = getattr(contract_module, name)
+        assert model.model_config.get("extra") == "forbid", (
+            f"{name} ignores unknown keys, so `digest_of` pins what survived parsing "
+            "rather than the file it came from (audit A10)"
+        )
+
+
+def test_a10_two_contract_files_cannot_share_a_digest():
+    """The property the lockfile actually sells: 'built against exactly this contract'."""
+    from comeni_core.contract import ModuleContract
+    from comeni_core.digest import digest_of
+
+    plain = ModuleContract.model_validate(CONTRACT)
+    with pytest.raises(ValidationError):
+        ModuleContract.model_validate({**CONTRACT, "validated_by": "Dr Nobody, 2019"})
+    assert digest_of(plain).startswith("sha256:")
+
+
 def test_a11_the_emitter_never_compares_two_resolved_values():
     """Belt and braces: the sort key is the name, so a tie cannot reach the value.
 
