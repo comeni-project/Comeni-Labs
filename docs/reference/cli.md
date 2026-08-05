@@ -4,17 +4,22 @@
 mendel <command> [options]
 ```
 
-Two commands: `build` and `profile`. Exit codes: `0` success, `1` a gate failed, `2` your
-input was rejected.
+Three commands: `build`, `profile` and `explain`. Exit codes: `0` success, `1` a gate
+failed, `2` your input was rejected — which includes a contract that disagrees with its
+module.
 
 ## Shared options
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--out PATH` | *required* | output directory, created if absent |
+| `--out PATH` | *required for `build` and `profile`* | output directory, created if absent |
 | `--root PATH` | current directory | repository root — used to find `examples/` and `vendor/` |
 | `--registry PATH` | `<root>/examples` | a registry layer; **repeatable**, later layers win |
-| `--gate {lint,stub,test}` | none | run a validation gate after emitting |
+| `--gate {lint,preview,stub,test}` | none | run a validation gate after emitting |
+
+`--root` and `--registry` are different things and are frequently confused. `--registry` is
+where *contracts* live; `--root` is where *module source* lives, at `<root>/vendor`. A
+laboratory wrapping bare containers has the first without the second.
 
 A registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` and
 `measurements/`. See [guides/registry-layers.md](../guides/registry-layers.md).
@@ -79,16 +84,66 @@ profiling for: read_length
 A registry that can measure nothing at all exits `2`. See
 [guides/measuring-your-data.md](../guides/measuring-your-data.md).
 
+## Conformance
+
+Before anything is resolved, `build` and `profile` check every contract in the loaded
+registry against the module it claims to describe — the vendored `main.nf` and `meta.yml`
+under `<root>/vendor`. A contract is a hand-written binding to a foreign, dynamically-typed
+unit, and nothing else compares the two.
+
+Any disagreement exits `2` and emits nothing at all:
+
+```
+M0101  nf-core/star/align@1.11.0
+  process 'STAR_ALIGNN' is not what this module declares
+    vendor/modules/nf-core/star/align/main.nf   process STAR_ALIGN {
+  → nf_process: STAR_ALIGN
+
+mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
+`mendel explain M0101` for the long form.
+```
+
+| Code | Says |
+|---|---|
+| `M0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified` |
+| `M0101` | `nf_process` is not the process the module declares |
+| `M0102` | `nf_inputs` declares a different number of channels than the process takes |
+| `M0103` | an `{empty: N}` placeholder is the wrong tuple width |
+| `M0104` | a placeholder sits where the module declares `path(...)`, with no `because` |
+| `M0105` | a `produces[].name` is not one of the module's `emit:` labels |
+| `M0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
+| `M0107` | `container` has drifted from the module's directive |
+
+`M0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
+directory, which is legitimate — the contract is marked `unverified` on the IR so a publish
+bundle carries which claims went unchecked, and a curator may decline to curate one.
+
+## `mendel explain`
+
+```bash
+uv run mendel explain M0104
+```
+
+The long form of a diagnostic, after `rustc --explain`: what the check means, and which
+real defect earned it. Loads nothing, so it answers even when the registry will not load.
+An unknown code lists the ones that exist.
+
 ## Gates
 
 | Gate | Needs | Time | Proves |
 |---|---|---|---|
 | `lint` | Nextflow | seconds | the emitted Groovy parses |
+| `preview` | Nextflow | seconds | names resolve and the dataflow connects, without executing |
 | `stub` | Nextflow + Docker | ~1 min warm, ~15 min cold | the whole DAG executes end to end |
 | `test` | Nextflow + Docker + data | minutes | the nf-core test profile runs |
 
-`stub` is the one to use. nf-core modules all define stub blocks, so the entire graph runs
-with dummy outputs in seconds — it proves the wiring, never that the analysis is right.
+`lint` and `preview` need no Docker and together take about six seconds, so they run on
+every pull request — `make static`. They are not redundant: `nextflow lint` accepts
+`STAR_ALIGN.out.NOSUCHCHANNEL` and exits `0`, while `-preview` rejects it and exits `1`.
+
+`stub` is the one to use for wiring. nf-core modules all define stub blocks, so the entire
+graph runs with dummy outputs in seconds — it proves the wiring, never that the analysis is
+right, and it cannot see a hollow input at all, because nf-core stubs never read theirs.
 
 It runs under `-profile stub_data,docker`. Docker is genuinely required even for stubs,
 because nf-core 4.x captures tool versions with `eval()`, which executes regardless.
@@ -104,6 +159,7 @@ Every failure is a message rather than a traceback.
 | `this goal is not valid` | the goal file does not match the schema |
 | `this goal's profile is not valid` | an undeclared measurement, or a value outside its declaration |
 | `a rule table will not load` | a rule cannot fire against this registry; the message says what you can write |
+| `N contract(s) disagree with their modules` | conformance refused the build; each diagnostic says what to write instead |
 
 ## Other commands
 

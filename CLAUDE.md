@@ -15,12 +15,16 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, and Plan 1.5 are complete.** 189 fast tests green,
+**Plans 1, the measurements plan, Plan 1.5 and Plan 1.6 are complete.** 231 fast tests green,
 `ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
 produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
 strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
 excludes it and stays a one-minute gate. `comeni-core`, `mendel-resolver` and `mendel-compiler`
 exist. Nothing AI-shaped is built.
+
+**`mendel build` now refuses a contract that disagrees with its module** — seven diagnostics
+against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
+`make static` (lint + preview, no Docker) in the pull-request lane.
 
 **Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
@@ -42,8 +46,8 @@ The 2026-08-03 audit's defects (C1–C4) are all closed.
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
 | `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
 | `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
-| `docs/internal/plans/2026-08-05-conformance-checking.md` | **Plan 1.6 — do this next.** A contract must tell the truth about its module. |
-| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
+| `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
+| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | **Plan 2.5 — do this next.** Lockfiles, publish, upgrade, replay, registry split. **Written, unimplemented.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -62,7 +66,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plan 1.5 is complete; **Plan 1.6 is next**, then Plan 2.5.
+  a date. Plans 1.5 and 1.6 are complete; **Plan 2.5 is next**, then Plan 2.
 
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
@@ -307,9 +311,13 @@ conversation is a loose end lost.
 ```bash
 uv sync                          # set up the workspace
 make check                       # lint + tests + stub freshness — the CI gate, ~1 min
+make static                      # conformance + nextflow lint + preview; no Docker, ~6s
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_egress.py tests/test_construction.py  # the guards
+
+# why a contract was refused, at length. Codes M0100–M0107.
+uv run mendel explain M0104
 
 # vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
 uvx nf-core modules install --dir vendor samtools/sort
@@ -438,6 +446,15 @@ already been wrong once, when it named a gate that could not pass.
 - **Emptiness and deadness are different problems.** Few parameters and no defaults is
   *emptiness*, and it is the forge's job — hand-authoring a registry was never the plan. A
   resolved value reaching no tool is *deadness*, and no amount of forge output fixes it.
+- **A contract is a hand-written FFI binding.** `mendel build` checks every contract against
+  the vendored module and refuses to emit if they disagree — `mendel explain M0104` for any
+  code. Where module source is absent the contract is marked `unverified` on the IR rather
+  than trusted. Never assert a conformance property over modules that were not readable: the
+  first version reported every declared `meta_key` dead when no module source existed at all.
+- **The port name is the emit label.** `produces[].name` is what the compiler reads as
+  `PROCESS.out.<name>` — it is not a name for the semantic thing, which is what `type_id`
+  carries. Three contracts got this wrong and M0105 found all three; each was latent only
+  because no goal had yet routed to that port.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy

@@ -11,7 +11,32 @@ fixtures rather than as a shipped registry.
 
 ## [Unreleased]
 
+### Added
+
+- **Conformance checking: `mendel build` refuses a contract that disagrees with its
+  module.** A `ModuleContract` is a hand-written binding to a foreign, dynamically-typed
+  unit, and until now nothing compared the two. `ModuleSpec` parses the vendored `main.nf`
+  and `meta.yml`; seven diagnostics (`M0100`–`M0107`) check a contract against it; any
+  disagreement exits `2` and emits nothing. Every diagnostic says what to write instead.
+- `mendel explain <code>` — the long form of a diagnostic, after `rustc --explain`. Loads
+  nothing, so it answers even when the registry will not.
+- `PipelineIR.unverified` — contracts whose module source was absent, so nothing could
+  check them. A lab wrapping a bare container is legitimate; the claim still reaches a
+  publish bundle marked as unevidenced.
+- `make static` — conformance, `nextflow lint` and `nextflow -preview`, no Docker, about
+  six seconds. Both gates now run on every pull request. They are not redundant:
+  `nextflow lint` accepts a reference to a channel that does not exist and exits `0`;
+  `-preview` rejects it.
+
 ### Fixed
+
+- **Three contracts declared output ports that their modules never emit.** The port name is
+  what the compiler reads as `PROCESS.out.<name>`, so each would have failed at launch
+  against a channel that does not exist. All three were latent — no goal had yet routed to
+  one — and all three were found by running the new checker for the first time:
+  `nf-core/samtools/index` said `bai` where `SAMTOOLS_INDEX` emits `index`;
+  `comeni/profile/fastqc` said `read_length` against FastQC's `html`/`zip`;
+  `comeni/profile/collect` said `profile` against MultiQC's `report`/`data`/`plots`.
 
 - **The emitted spine could not run, and once it could it counted wrongly.** Three defects,
   none of which `-stub-run` could see, because nf-core stubs never read their inputs:
