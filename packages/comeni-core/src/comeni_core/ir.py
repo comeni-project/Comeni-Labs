@@ -20,8 +20,8 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
-from comeni_core.registry import ShadowRecord
 from comeni_core.profile import DataProfile
+from comeni_core.registry import ShadowRecord
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 

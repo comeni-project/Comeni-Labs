@@ -16,9 +16,10 @@ measurements and measurements are declared there — and re-exported here becaus
 where most code meets one.
 """
 
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+
 from comeni_core.marks import ParamValue, PortName, StateName, TypeId
 from comeni_core.profile import DataProfile, Measured  # noqa: F401  (re-exported)
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
 

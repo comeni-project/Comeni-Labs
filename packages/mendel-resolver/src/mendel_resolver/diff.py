@@ -6,10 +6,9 @@ is the easy half; this is the half a person reads. Every line has to say *what* 
 demand completely different amounts of attention, and a diff that flattens them is noise.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from comeni_core.ir import PipelineIR
 from comeni_core.tiers import Tier
+from pydantic import BaseModel, ConfigDict
 
 
 class Change(BaseModel):
