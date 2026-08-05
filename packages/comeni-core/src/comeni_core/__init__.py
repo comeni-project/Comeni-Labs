@@ -29,6 +29,7 @@ from comeni_core.egress import (
     PublishBundle,
     RepairRequest,
 )
+from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
 from comeni_core.marks import FreeText, ParamLiteral, ParamValue
 from comeni_core.measurement import (
@@ -51,12 +52,15 @@ __all__ = [
     "Ambiguity",
     "AmbiguityRequest",
     "BadMeasurementValueError",
+    "Constraints",
     "DataProfile",
     "DecisionRecord",
     "EgressPayload",
     "ErrorCategory",
     "FreeText",
     "GateFailure",
+    "Goal",
+    "GoalInput",
     "IREdge",
     "IRNode",
     "InputPort",
@@ -70,6 +74,7 @@ __all__ = [
     "Param",
     "ParamBinding",
     "ParamLiteral",
+    "ParamOverride",
     "ParamValue",
     "PipelineIR",
     "PromptRequest",

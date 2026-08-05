@@ -1,67 +1,14 @@
-"""What the user has, what they want, and what the data actually looks like.
+"""Re-export of the goal types, which live in `comeni_core.goal`.
 
-Invariant 15: Mendel does not receive patient data. A `Goal` describes a *shape* —
-type ids, states, and declared measurements. "Paired, 150bp, reverse-stranded, twelve
-samples" is true of thousands of studies and identifies nobody. There is no filename
-field, no sample identifier field and no path, and `extra="forbid"` on every model
-here is what stops one being added by accident: an unrecognised key is a loud error
-rather than a quietly carried payload.
+They moved there so `PublishBundle` could carry a `Goal` — a shareable pipeline is
+`Goal` + `PipelineIR` + `DecisionRecord[]` + lockfile, and `comeni-core` must not depend
+on `mendel-resolver`. Same move `DataProfile` made, for the same reason.
 
-Sample identity enters at run time, in the laboratory's own environment, through the
-`params.input` placeholder the emitted pipeline declares. It never reaches Mendel's
-process. See the clinical data-protection spec, §3.
-
-`DataProfile` and `Measured` are defined in `comeni_core.profile` — a profile is made of
-measurements and measurements are declared there — and re-exported here because a goal is
-where most code meets one.
+This shim stays because a goal is what most resolver code actually meets, and rewriting
+every import to relocate a type is churn nobody reviews carefully.
 """
 
-from comeni_core.marks import ParamValue, PortName, StateName, TypeId
+from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.profile import DataProfile, Measured
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
-
-
-class GoalInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    type_id: TypeId
-    states: frozenset[StateName] = frozenset()
-
-    @field_serializer("states")
-    def _sorted(self, states: frozenset[str]) -> list[str]:
-        return sorted(states)
-
-
-class ParamOverride(BaseModel):
-    """A parameter the user pinned. Closed, so it cannot carry a path.
-
-    Previously these lived as arbitrary keys in an open `dict[str, Any]`, which meant
-    `constraints: {seq_platform: /data/patients/PT-4471023/S1_R1.fastq.gz}` validated,
-    reached `main.nf`, was labelled tier 1 with review `none`, and *suppressed* the
-    tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: PortName
-    value: ParamValue
-
-
-class Constraints(BaseModel):
-    """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    required_states: dict[TypeId, list[StateName]] = Field(default_factory=dict)
-    params: list[ParamOverride] = Field(default_factory=list)
-
-
-class Goal(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    have: list[GoalInput] = Field(default_factory=list)
-    want: list[TypeId] = Field(default_factory=list)
-    constraints: Constraints = Field(default_factory=Constraints)
-    profile: DataProfile = Field(default_factory=DataProfile)

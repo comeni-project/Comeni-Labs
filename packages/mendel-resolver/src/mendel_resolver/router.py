@@ -82,7 +82,6 @@ def route(
 ) -> RoutePlan:
     plan = RoutePlan()
     emitted: set[str] = set()
-    required_states = goal.constraints.required_states
 
     def satisfy(type_id: str, states: frozenset[str], depth: int, visiting: frozenset[str]) -> None:
         if depth > max_depth:
@@ -123,7 +122,7 @@ def route(
             )
 
     for wanted in goal.want:
-        satisfy(wanted, frozenset(required_states.get(wanted, [])), 0, frozenset())
+        satisfy(wanted, goal.constraints.states_for(wanted), 0, frozenset())
     return plan
 
 

@@ -17,6 +17,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.decision import DecisionRecord
+from comeni_core.goal import Goal
 from comeni_core.ir import PipelineIR
 from comeni_core.marks import (
     ContractId,
@@ -93,14 +94,14 @@ class RepairRequest(EgressPayload):
 
 
 class PublishBundle(EgressPayload):
-    """Door 4 — publication.
+    """Door 4 — publication. The door with no undo.
 
-    Carries the IR and its decision records. The `Goal` is absent because it lives
-    in `mendel-resolver` and `comeni-core` must not depend on it, and the lockfile
-    is absent because it does not exist until Plan 1.7. Both are additions to this
-    type, made where those questions are settled, not predicted here.
+    A shareable pipeline is what a human asked for, what it resolved to, why each choice
+    was made, and against exactly which registry — federation spec §4.1. All four, or the
+    recipient cannot reproduce it and cannot audit it.
     """
 
+    goal: Goal
     ir: PipelineIR
     decisions: list[DecisionRecord] = []
 
