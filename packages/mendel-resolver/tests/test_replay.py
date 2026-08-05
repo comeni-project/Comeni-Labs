@@ -136,12 +136,12 @@ def test_replay_drops_into_resolve_in_place_of_the_default():
     )
 
     replayer = ReplayResolver([])
-    ir = resolve(goal, loaded.registry, loaded.rules, resolver=replayer)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements, resolver=replayer)
     assert ir.nodes, "a ReplayResolver with no records must still build"
 
     # Everything it could not replay is recorded as fresh, and the pipeline that came out
     # is the same one FlagOnlyResolver produces — replay changes provenance, not routing.
-    baseline = resolve(goal, loaded.registry, loaded.rules)
+    baseline = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     assert [n.contract_id for n in ir.nodes] == [n.contract_id for n in baseline.nodes]
     assert replayer.replayed == []
 
@@ -163,11 +163,11 @@ def test_replaying_a_previous_run_reproduces_its_choices():
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
         profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
     )
-    first = resolve(goal, loaded.registry, loaded.rules)
+    first = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     assert first.decisions, "the spine must make at least one flagged decision to replay"
 
     replayer = ReplayResolver(first.decisions)
-    second = resolve(goal, loaded.registry, loaded.rules, resolver=replayer)
+    second = resolve(goal, loaded.registry, loaded.rules, loaded.measurements, resolver=replayer)
 
     assert sorted(replayer.replayed) == sorted(d.key for d in first.decisions)
     assert replayer.fresh == []

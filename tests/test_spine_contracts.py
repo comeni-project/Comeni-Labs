@@ -112,7 +112,7 @@ def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
         want=["counts.matrix", "alignment.bai"],
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
     )
-    ir = resolve(goal, loaded.registry, loaded.rules)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     fed_by = {
         e.to_node: e.from_node for e in ir.edges if e.to_node == "subread_featurecounts"
     }

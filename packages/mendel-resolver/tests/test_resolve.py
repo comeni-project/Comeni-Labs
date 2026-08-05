@@ -42,18 +42,26 @@ MEASUREMENTS = {
 }
 
 
-def _rule_table(tmp_path, registry, vocabulary, body):
+def _rules_and_measurements(tmp_path, registry, vocabulary, body):
+    """Both, because `resolve()` now needs the measurement registry too.
+
+    It used to build one here and throw it away. `resolve()` validates the goal's profile
+    against declared measurements — the check used to live in `mendel build` alone, so
+    `mendel upgrade` skipped it entirely (audit A2) — and a test that constructed a second
+    registry would be testing against a different set of declarations than it routes with.
+    """
     measurements = tmp_path / "measurements"
     measurements.mkdir(exist_ok=True)
     for name, declaration in MEASUREMENTS.items():
         (measurements / name).write_text(declaration)
+    declared = MeasurementRegistry.load(measurements)
     rules = tmp_path / "rules.yml"
     rules.write_text(body)
-    return RuleTable.load(
-        rules,
-        registry=registry,
-        vocabulary=vocabulary,
-        measurements=MeasurementRegistry.load(measurements),
+    return (
+        RuleTable.load(
+            rules, registry=registry, vocabulary=vocabulary, measurements=declared
+        ),
+        declared,
     )
 
 
@@ -69,17 +77,17 @@ def setup(tmp_path):
     (contracts / "sort.yml").write_text(SORT)
     vocabulary = Vocabulary.load(vocab_dir)
     registry = Registry.load(contracts, vocabulary)
-    return registry, _rule_table(tmp_path, registry, vocabulary, RULES)
+    return registry, *_rules_and_measurements(tmp_path, registry, vocabulary, RULES)
 
 
 def test_tier_3_rule_sets_value_and_marks_advisory(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(strandedness="reverse"),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
     assert node.param("strandedness").value == 2
     assert node.param("strandedness").tier is Tier.DATA_PROFILED
@@ -88,13 +96,13 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
 
 
 def test_rule_miss_demotes_to_tier_4_and_flags(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
     assert node.param("strandedness").tier is Tier.AMBIGUOUS
     assert node.param("strandedness").review_level is ReviewLevel.REQUIRED
@@ -102,39 +110,39 @@ def test_rule_miss_demotes_to_tier_4_and_flags(setup):
 
 
 def test_param_with_default_and_no_rule_is_tier_2_convention(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(strandedness="reverse"),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     node = next(n for n in ir.nodes if n.id == "featurecounts")
     assert node.param("seq_platform").value == "illumina"
     assert node.param("seq_platform").tier is Tier.CONVENTION
 
 
 def test_every_tier_4_resolution_emits_a_decision_record(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     keys = [d.key for d in ir.decisions]
     assert "featurecounts.strandedness" in keys
     assert ir.decisions[0].resolved_by == "flag-only"
 
 
 def test_gap_insertion_appears_as_nodes_and_edges(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(strandedness="reverse"),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     assert [n.id for n in ir.nodes] == ["samtools_sort", "featurecounts"]
     assert len(ir.edges) == 1
     assert ir.edges[0].from_node == "samtools_sort"
@@ -143,15 +151,15 @@ def test_gap_insertion_appears_as_nodes_and_edges(setup):
 
 
 def test_resolution_is_deterministic(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(strandedness="reverse"),
     )
     assert (
-        resolve(goal, registry, rules).model_dump_json()
-        == resolve(goal, registry, rules).model_dump_json()
+        resolve(goal, registry, rules, measurements).model_dump_json()
+        == resolve(goal, registry, rules, measurements).model_dump_json()
     )
 
 
@@ -182,7 +190,9 @@ def tied(tmp_path):
     )
     vocabulary = Vocabulary.load(vocab_dir)
     registry = Registry.load(contracts, vocabulary)
-    return registry, _rule_table(tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n")
+    return registry, *_rules_and_measurements(
+        tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"
+    )
 
 
 def test_a_routing_tie_is_surfaced_for_review(tied):
@@ -192,9 +202,9 @@ def test_a_routing_tie_is_surfaced_for_review(tied):
     CLI printed "0 requiring review" and the user was never told their aligner had
     been chosen alphabetically. A record nobody is shown is not a flag.
     """
-    registry, rules = tied
+    registry, rules, measurements = tied
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["alignment.bam"])
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
 
     assert len(ir.decisions) == 1
     flagged = ir.needs_review()
@@ -206,13 +216,13 @@ def test_a_routing_tie_is_surfaced_for_review(tied):
 
 
 def test_review_list_covers_params_and_decisions_together(setup):
-    registry, rules = setup
+    registry, rules, measurements = setup
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix"],
         profile=DataProfile(),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     assert "featurecounts.strandedness" in ir.needs_review()
 
 
@@ -240,7 +250,9 @@ def with_index(tmp_path):
     (contracts / "index.yml").write_text(INDEX)
     vocabulary = Vocabulary.load(vocab_dir)
     registry = Registry.load(contracts, vocabulary)
-    return registry, _rule_table(tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n")
+    return registry, *_rules_and_measurements(
+        tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"
+    )
 
 
 def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_index):
@@ -251,14 +263,14 @@ def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_inde
     emitted valid Nextflow, raised no flag, and passed `-stub-run`, because nf-core stubs
     never read their inputs. Something was guessed, it was wrong, and it was silent.
     """
-    registry, rules = with_index
+    registry, rules, measurements = with_index
     goal = Goal(
         have=[GoalInput(type_id="alignment.bam")],
         want=["counts.matrix", "alignment.bam"],
         constraints={"required_states": {"alignment.bam": ["coordinate_sorted", "indexed"]}},
         profile=DataProfile(strandedness="reverse"),
     )
-    ir = resolve(goal, registry, rules)
+    ir = resolve(goal, registry, rules, measurements)
     into_fc = [e for e in ir.edges if e.to_node == "featurecounts"]
     assert [e.from_node for e in into_fc] == ["samtools_sort"], (
         f"featurecounts fed from {[e.from_node for e in into_fc]}"

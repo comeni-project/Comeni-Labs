@@ -13,7 +13,7 @@ from mendel_resolver import Goal, GoalInput, layers, resolve
 
 loaded = layers.load("examples")
 goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"])
-ir = resolve(goal, loaded.registry, loaded.rules)
+ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
 
 print(ir.needs_review())
 ```

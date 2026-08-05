@@ -1,6 +1,7 @@
 """Routing and wiring over a port that accepts more than one shape."""
 
 import pytest
+from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal, GoalInput
@@ -81,7 +82,7 @@ def test_a_port_no_alternative_satisfies_says_so(tmp_path):
 def test_the_edge_records_the_alternative_that_actually_matched(tmp_path):
     """`IREdge.type_id` used to be copied off the port, which an `accepts` port lacks."""
     registry = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER})
-    ir = resolve(_goal(), registry, RuleTable())
+    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry())
     edge = next(e for e in ir.edges if e.to_node == "caller")
     assert edge.type_id == "alignment.cram"
     assert edge.states == frozenset({"coordinate_sorted"})
@@ -93,7 +94,7 @@ def test_prefer_breaks_a_tie_within_one_alternative(tmp_path):
         "nf_process: SORT", "nf_process: DEDUP"
     )
     registry = _world(tmp_path, {"c.yml": CALLER, "sort.yml": SORT, "dedup.yml": deduped})
-    ir = resolve(_goal(), registry, RuleTable())
+    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry())
     # Two identical producers of a coordinate-sorted BAM: a genuine tie, so it is recorded
     # rather than taken silently.
     assert any(d.subject == "producer:alignment.bam" for d in ir.decisions)

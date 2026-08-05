@@ -100,6 +100,78 @@ def test_a10_two_contract_files_cannot_share_a_digest():
     assert digest_of(plain).startswith("sha256:")
 
 
+def test_a2_resolve_refuses_an_unvalidated_profile():
+    """A2 — invariant 15 lived in one CLI branch, and `upgrade` did not pass through it.
+
+    `Goal.model_validate` builds a `DataProfile` without a registry, so it cannot check
+    what is declared. `MeasurementRegistry.profile()` is the only validating constructor,
+    and `resolve()` never routed through it — the check lived in `mendel build`'s own
+    re-route, which `mendel upgrade` skips because it takes its goal from a bundle.
+    """
+    from comeni_core.goal import Goal
+    from comeni_core.measurement import UnknownMeasurementError
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers_mod.load("registry")
+    goal = Goal.model_validate(
+        {
+            "have": [{"type_id": "fastq.reads"}],
+            "want": ["counts.matrix"],
+            "profile": {"measurements": [{"measurement": "sample_name", "value": "PT-4471023"}]},
+        }
+    )
+    # `UnknownMeasurementError` is a KeyError, not a ValueError — the same distinction
+    # `mendel build` already catches on, so the CLI's error handling needs no change.
+    with pytest.raises(UnknownMeasurementError, match="sample_name"):
+        resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+
+
+def test_a2_upgrade_refuses_a_bundle_carrying_an_undeclared_measurement(tmp_path):
+    """The reachable route, end to end: a bundle is a *downloaded* artifact.
+
+    `mendel upgrade` reads its goal from the bundle rather than from a file, so it was the
+    one verb reading something a stranger wrote and the one verb with no check. Reproduced
+    in the audit as exit 0 with `sample_name: PATIENT-00417` in the emitted IR, and
+    re-published verbatim by any following `mendel publish`.
+    """
+    import json
+
+    from mendel_compiler.cli import main
+
+    root = Path(__file__).parent.parent
+    published = tmp_path / "published"
+    assert main(
+        ["publish", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
+         "--out", str(published), "--root", str(root)]
+    ) == 0
+
+    bundle_path = published / "pipeline.bundle.json"
+    bundle = json.loads(bundle_path.read_text())
+    bundle["goal"]["profile"]["measurements"].append(
+        {"measurement": "sample_name", "value": "PATIENT-00417", "source": "goal", "by": None}
+    )
+    tainted = tmp_path / "tainted.bundle.json"
+    tainted.write_text(json.dumps(bundle))
+
+    out = tmp_path / "upgraded"
+    assert main(["upgrade", "--bundle", str(tainted), "--out", str(out), "--root", str(root)]) != 0
+    assert not (out / "pipeline.ir.json").exists(), "a refused upgrade must emit nothing"
+
+
+def test_a2_a_declared_profile_still_resolves():
+    """The refusal must not cost the normal case."""
+    import yaml
+    from comeni_core.goal import Goal
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers_mod.load("registry")
+    goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+    assert ir.nodes
+
+
 def test_a9_a_symlinked_contract_is_refused_by_the_digest(tmp_path):
     """A9 — the registry read through it; the digest hashed its target path."""
     from comeni_core.digest import digest_of_directory

@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from comeni_core.contract import InputPort
 from comeni_core.decision import Ambiguity, DecisionRecord
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.tiers import ValueSource
 
@@ -18,9 +19,22 @@ def resolve(
     goal: Goal,
     registry: Registry,
     rules: RuleTable,
+    measurements: MeasurementRegistry,
     resolver: AmbiguityResolver | None = None,
     layer_names: Sequence[str] = (),
 ) -> PipelineIR:
+    # Invariant 15 was enforced in `mendel build`'s own re-route through
+    # `MeasurementRegistry.profile()` — an application-layer step, which is not a property
+    # of anything. `mendel upgrade` takes its goal from a bundle rather than a file, so the
+    # one verb that reads something a stranger wrote was the one verb with no check, and a
+    # bundle carrying `sample_name: PATIENT-00417` upgraded to exit 0 with the string in
+    # the new IR. A guard in a caller is a guard the next caller forgets.
+    #
+    # Required rather than defaulted, deliberately: an optional guard is the same guard
+    # one keyword away from being forgotten again. Audit 2026-08-06, A2.
+    for measured in goal.profile.measurements:
+        measurements.check(measured.measurement, measured.value)
+
     resolver = resolver or FlagOnlyResolver()
     plan = route(goal, registry, rules)
     ir = PipelineIR(

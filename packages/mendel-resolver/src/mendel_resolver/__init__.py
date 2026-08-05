@@ -12,7 +12,7 @@ works, then `resolve()`::
 
     loaded = layers.load("registry")
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"])
-    ir = resolve(goal, loaded.registry, loaded.rules)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
 
 This package is **pure** — see `comeni_core`. AI plugs in through the `Protocol`s in
 `mendel_resolver.ports`, and the dependency arrow points at this package, never out of it.

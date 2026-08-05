@@ -19,7 +19,7 @@ def test_a_resolved_ir_carries_the_profile_it_was_built_from():
         want=["qc.report"],
         profile=loaded.measurements.profile({"strandedness": "reverse", "paired": True}),
     )
-    ir = resolve(goal, loaded.registry, loaded.rules)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     assert ir.profile.get("strandedness") == "reverse"
     assert ir.profile.get("paired") is True
 
@@ -32,6 +32,6 @@ def test_the_profile_survives_serialisation():
         want=["qc.report"],
         profile=loaded.measurements.profile({"strandedness": "reverse"}),
     )
-    ir = resolve(goal, loaded.registry, loaded.rules)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     round_tripped = PipelineIR.model_validate_json(ir.model_dump_json())
     assert round_tripped.profile.get("strandedness") == "reverse"

@@ -33,7 +33,7 @@ def built():
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
         profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
     )
-    return resolve(goal, loaded.registry, loaded.rules), loaded
+    return resolve(goal, loaded.registry, loaded.rules, loaded.measurements), loaded
 
 
 def test_a_lockfile_pins_every_contract_the_pipeline_uses(built):

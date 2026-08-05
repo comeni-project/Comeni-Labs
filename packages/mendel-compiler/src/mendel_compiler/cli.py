@@ -135,22 +135,17 @@ def _build(argv: list[str] | None = None) -> int:
         if args.goal is None:
             parser.error(f"{args.command} needs --goal")
         goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
-        # Re-build the goal's profile through the one constructor that validates it. The
-        # mapping shorthand in the goal file cannot check itself — measurements are
-        # declared data, so the model has no idea what is declared — and
-        # `profile: {sample_name: ...}` is exactly the shape invariant 15 refuses.
-        goal = goal.model_copy(
-            update={
-                "profile": loaded.measurements.profile(
-                    {m.measurement: m.value for m in goal.profile.measurements}
-                )
-            }
-        )
+        # The profile used to be rebuilt here through `MeasurementRegistry.profile()`,
+        # the one validating constructor — belt and braces over a check that did not
+        # exist anywhere else. It exists now, in `resolve()`, which is the only way past
+        # this point for any verb. Doing it here as well would mean `build` was checked
+        # twice and `upgrade` once, which is how the gap opened. Audit 2026-08-06, A2.
 
     ir = resolve(
         goal,
         registry,
         rules,
+        loaded.measurements,
         resolver=resolver,
         layer_names=[p.name for p in loaded.paths],
     )
