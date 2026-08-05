@@ -5,7 +5,10 @@ id: comeni/profile/collect@0.1.0
 nf_process: MULTIQC
 nf_include: modules/nf-core/multiqc/main
 consumes: [{name: measurements, type_id: measurement.read_length, state_required: []}]
-produces: [{name: profile, type_id: profile.yml, state: []}]
+# `data` is MultiQC's `*_data` directory, where the parsed per-tool values land. The
+# port name is the emit label the compiler reads as `MULTIQC.out.<name>`; `profile`
+# was neither a channel MultiQC declares nor one it could be made to declare.
+produces: [{name: data, type_id: profile.yml, state: []}]
 params: []
 priority: 0
 nf_inputs: [{ports: [measurements]}]

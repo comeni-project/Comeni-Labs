@@ -60,54 +60,31 @@ def test_no_contract_uses_a_floating_container_tag(registry):
     assert floating == []
 
 
-def test_contract_input_signatures_match_the_vendored_modules(registry):
-    """nf_inputs must have one entry per channel the process declares.
+def test_contracts_agree_with_the_vendored_modules(registry):
+    """Arity and containers, now asked of the conformance checker rather than re-parsed.
 
-    Written after guessing wrong twice: multiqc takes one tuple of six paths rather
-    than six channels, and samtools/index takes one rather than two. A signature
-    invented by a person reading a plan produces Nextflow that fails at launch with
-    "declares N inputs but was called with M arguments", which is a slow way to learn
-    something a test can say instantly.
+    Both properties were tested here first, each with its own regex over `main.nf`, and
+    both are earned: `nf_inputs` must have one entry per channel the process declares —
+    written after guessing wrong twice, since multiqc takes one tuple of six paths rather
+    than six channels and samtools/index takes one rather than two — and a container
+    reference invented by a planner is the failure this project exists to stop.
+
+    They moved into `M0102`/`M0103` and `M0107` because two parsers for one file format is
+    the drift this project keeps being bitten by, and the copy that lived here had already
+    drifted: it terminated the input block on `output:` alone, where a module ending in
+    `script:` or `stub:` would have parsed as having no inputs, and it took `[-1]` of the
+    quoted container alternatives, which raises IndexError on a module that names its image
+    directly rather than through nf-core's singularity/docker ternary.
+
+    The checker also runs inside `mendel build` on whatever registry the user loaded, which
+    a test over `examples/` never could.
     """
-    import re
+    from mendel_compiler.conformance import check
 
-    mismatched = []
-    for contract in registry.all():
-        block = re.search(
-            r"^    input:\n(.*?)^    output:",
-            (VENDOR / f"{contract.nf_include}.nf").read_text(),
-            re.S | re.M,
-        )
-        declared = [
-            line
-            for line in block.group(1).splitlines()
-            if line.strip() and not line.strip().startswith("//")
-        ]
-        if len(declared) != len(contract.input_signature()):
-            mismatched.append(
-                f"{contract.id}: contract declares {len(contract.input_signature())} "
-                f"inputs, module declares {len(declared)}"
-            )
-    assert mismatched == [], "\n".join(mismatched)
-
-
-def test_contract_containers_match_the_vendored_modules(registry):
-    """A container reference invented by a planner is the failure this project exists to stop.
-
-    The contract must agree with the module actually on disk. If nf-core bumps a
-    container upstream, this is what says the contract has gone stale rather than
-    letting a build claim a reproducibility it does not have.
-    """
-    import re
-
-    mismatched = []
-    for contract in registry.all():
-        main_nf = VENDOR / f"{contract.nf_include}.nf"
-        directive = re.search(r"container\s+\"(.*?)\"", main_nf.read_text(), re.S)
-        declared = re.findall(r"'([^']+)'", directive.group(1))[-1]
-        if declared != contract.container:
-            mismatched.append(f"{contract.id}: contract={contract.container} module={declared}")
-    assert mismatched == [], "\n".join(mismatched)
+    disagreements = [
+        d.render() for d in check(registry, VENDOR) if d.code in {"M0102", "M0103", "M0107"}
+    ]
+    assert disagreements == [], "\n".join(disagreements)
 
 
 def test_an_index_is_not_a_bam(registry):

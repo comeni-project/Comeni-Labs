@@ -1971,12 +1971,19 @@ git commit -m "feat(compiler): wire AI extraction and resolution into the CLI be
 
 ---
 
-> **Prerequisite: Plan 1.6, conformance checking.** Tasks 8–10 draft contracts for a human to
-> approve, and [`forge-review.md`](../../design/forge-review.md) §3 calls a `copied` field "zero
-> risk" — which is only true if something compared it to the module.
-> `mendel_compiler.conformance.check` is that something, and `ModuleSpec` is what these tasks
-> should draft *from* rather than re-parsing modules a second way. Two parsers for one file
-> format is the drift this project keeps being bitten by.
+> **Prerequisite: Plan 1.6, conformance checking — now implemented.** Tasks 8–10 draft
+> contracts for a human to approve, and [`forge-review.md`](../../design/forge-review.md) §3
+> calls a `copied` field "zero risk" — which is only true if something compared it to the
+> module. `mendel_compiler.conformance.check` is that something, and
+> `mendel_compiler.modulespec.ModuleSpec` is what these tasks must draft *from* rather than
+> re-parsing modules a second way. Two parsers for one file format is the drift this project
+> keeps being bitten by.
+>
+> `ModuleSpec` already yields everything Task 8's `RawModule` was going to re-derive: the
+> process name, the input slots with their tuple widths and element names, the emit labels,
+> the container, the meta keys the script reads, whether it reads `task.ext.args`, and
+> `meta.yml`'s input documentation. Task 8 should be rewritten against it rather than beside
+> it.
 >
 > Concretely, in Task 9: **a draft that fails conformance never reaches the queue.** The forge
 > runs `check()` on its own output and fixes or discards, so a human only ever reviews drafts

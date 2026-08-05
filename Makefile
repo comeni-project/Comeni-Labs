@@ -1,4 +1,4 @@
-.PHONY: help check test lint fmt types stub profile clean
+.PHONY: help check test lint fmt types static stub profile clean
 
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
@@ -16,6 +16,10 @@ fmt:            ## format in place
 
 types:          ## fail if the generated measurement stub is stale
 	uv run python tools/generate_types.py --check
+
+static:         ## conformance + lint + preview — everything checkable without Docker
+	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
+	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
 
 stub:           ## build the RNA-seq spine and run the stub gate (needs Docker + Nextflow)
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub

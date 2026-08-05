@@ -53,6 +53,20 @@ jobs:
         # A stale stub costs autocomplete and never correctness, which is exactly
         # why nobody would notice it rotting.
 
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+
+      - name: Emit the spine and check it statically
+        run: |
+          uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
+          uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate preview
+        # `lint` is syntax; `preview` is name resolution and dataflow. Neither needs Docker
+        # and together they take about 25 seconds. `nextflow lint` alone accepts
+        # `STAR_ALIGN.out.NOSUCHCHANNEL`; `-preview` rejects it — measured 2026-08-05.
+        #
+        # Both invocations also run conformance, so a contract that disagrees with its
+        # module fails the pull request before either gate is reached.
+
   build:
     runs-on: ubuntu-latest
     steps:

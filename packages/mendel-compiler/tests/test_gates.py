@@ -29,3 +29,29 @@ def test_lint_passes_on_a_trivial_valid_pipeline(tmp_path):
 
 def test_gates_are_ordered_cheapest_first():
     assert list(Gate) == [Gate.LINT, Gate.PREVIEW, Gate.STUB, Gate.TEST]
+
+
+def test_every_gate_that_executes_processes_names_a_container_engine():
+    """Gate.TEST ran `-profile test` with no docker for its whole existence and could
+    never have passed. It had never been run, so nothing noticed."""
+    from mendel_compiler.gates import _ARGS, Gate
+
+    for gate in (Gate.STUB, Gate.TEST):
+        profile = _ARGS[gate][_ARGS[gate].index("-profile") + 1]
+        # `gate.name`, not `gate`: Gate is a StrEnum, so the bare value renders as
+        # "test" — indistinguishable from the profile it is complaining about. Watched
+        # failing, which is the only way that was visible.
+        assert "docker" in profile or "singularity" in profile, (
+            f"Gate.{gate.name} executes processes under `-profile {profile}`, "
+            f"which names no container engine, so every process dies with "
+            f"`command not found`"
+        )
+
+
+def test_preview_needs_no_container_engine():
+    """It does dataflow analysis without executing, which is why it can sit in the fast
+    lane. Adding docker here would cost minutes and buy nothing."""
+    from mendel_compiler.gates import _ARGS, Gate
+
+    profile = _ARGS[Gate.PREVIEW][_ARGS[Gate.PREVIEW].index("-profile") + 1]
+    assert "docker" not in profile

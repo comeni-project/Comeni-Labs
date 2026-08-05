@@ -14,6 +14,7 @@ from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
 from pydantic import ValidationError
 
+from mendel_compiler import conformance
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
 
@@ -37,7 +38,10 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
-    parser.add_argument("command", choices=["build", "profile"])
+    parser.add_argument("command", choices=["build", "profile", "explain"])
+    parser.add_argument(
+        "code", nargs="?", default=None, help="a diagnostic code, for `explain`"
+    )
     parser.add_argument("--goal", type=Path, default=None)
     parser.add_argument(
         "--have",
@@ -45,7 +49,9 @@ def _build(argv: list[str] | None = None) -> int:
         default=None,
         help="a type id the laboratory holds; repeat. `profile` only.",
     )
-    parser.add_argument("--out", type=Path, required=True)
+    # Not `required=True`: `mendel explain M0104` writes nothing and loads nothing, so
+    # demanding an output directory for it would be argparse describing the wrong verb.
+    parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--gate", type=Gate, default=None)
     parser.add_argument(
@@ -60,11 +66,45 @@ def _build(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # Before anything loads: `explain` is documentation, and asking it for a code while a
+    # registry will not load would answer the wrong question.
+    if args.command == "explain":
+        if not args.code:
+            parser.error("explain needs a code, e.g. `mendel explain M0104`")
+        print(conformance.explain(args.code))
+        return 0
+
+    if args.out is None:
+        parser.error(f"{args.command} needs --out")
+
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
     # modules. Only contracts stacked before the 2026-08-03 audit.
     loaded = layers.load(args.registry or [args.root / "examples"])
     vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
+
+    # Conformance: does each contract tell the truth about its module? `-stub-run` cannot
+    # answer this — nf-core stubs never read their inputs, so a process handed an empty
+    # tuple where a genome belongs is exactly as green as one handed a genome.
+    #
+    # `args.root / "vendor"` is the module *source*, not `nf_include`'s prefix. `nf_include`
+    # says where a module lands in the generated pipeline; these are deliberately not the
+    # same path.
+    diagnostics = conformance.check(
+        registry, args.root / "vendor", measurements=loaded.measurements
+    )
+    unverified = [d.contract_id for d in diagnostics if d.code == "M0100"]
+    blocking = [d for d in diagnostics if d.code != "M0100"]
+    for diagnostic in diagnostics:
+        print(diagnostic.render(), file=sys.stderr)
+    if blocking:
+        print(
+            f"\nmendel: {len(blocking)} contract(s) disagree with their modules. "
+            f"Nothing was emitted.\n"
+            f"`mendel explain {blocking[0].code}` for the long form.",
+            file=sys.stderr,
+        )
+        return 2
 
     if args.command == "profile":
         goal = _profiling_goal(args, loaded)
@@ -85,6 +125,7 @@ def _build(argv: list[str] | None = None) -> int:
         )
 
     ir = resolve(goal, registry, rules)
+    ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "main.nf").write_text(emit(ir, registry, vocab, loaded.measurements))
