@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
     from comeni_core.measurement import MeasurementRegistry
@@ -39,6 +39,19 @@ class Vocabulary(BaseModel):
     arrives without a code change. Absent means the default in
     `mendel_compiler.emit`.
     """
+
+    @field_serializer("types")
+    def _sorted(self, types: dict[str, frozenset[str]]) -> dict[str, list[str]]:
+        """Sorted states, and sorted keys.
+
+        The frozensets here are nested inside a `dict` value rather than being fields of
+        their own, so they had no serialiser while every other frozenset in the codebase
+        did — and nothing had ever serialised a `Vocabulary`, so nothing noticed. The
+        moment `digest_of` existed, the same vocabulary produced three different digests
+        under three `PYTHONHASHSEED` values, which would have made every lockfile
+        spuriously dirty while looking perfectly stable inside any one process.
+        """
+        return {type_id: sorted(types[type_id]) for type_id in sorted(types)}
 
     @classmethod
     def load(cls, layers: "Path | Sequence[Path]") -> "Vocabulary":

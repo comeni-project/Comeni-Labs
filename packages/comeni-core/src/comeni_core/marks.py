@@ -45,3 +45,12 @@ Replaces `Any`. Nextflow parameters are scalars — there is no shape a pipeline
 takes that this does not cover — and `Any` in a type reachable from an egress payload means
 the payload can carry anything at all, which was true until 2026-08-03.
 """
+
+
+Digest = Annotated[str, "digest"]
+"""A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
+its `@version` moving, and in a private overlay it routinely is."""
+
+LayerName = Annotated[str, "layer-name"]
+"""A registry layer's declared name. Never a filesystem path — a path is meaningless on
+another machine and is exactly what invariant 15 keeps out of a shareable artifact."""
