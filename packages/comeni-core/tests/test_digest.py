@@ -185,6 +185,23 @@ def test_a_symlink_is_hashed_by_target_not_followed(tmp_path):
     assert digest_of_directory(layer) == before, "digest followed the symlink out of the layer"
 
 
+def test_a_file_cannot_impersonate_a_symlink(tmp_path):
+    """The filename forgery, one layer down.
+
+    Hashing a link as `"symlink:" + target` and a file as its raw bytes meant a regular
+    file containing the text `symlink:/etc/passwd` digested identically to a symlink
+    pointing there — so a layer could swap one for the other and keep its digest. A hash
+    over concatenated fields means nothing unless each field can be read only one way.
+    """
+    linked, plain = tmp_path / "linked", tmp_path / "plain"
+    linked.mkdir()
+    plain.mkdir()
+    (linked / "a.yml").symlink_to("/etc/passwd")
+    (plain / "a.yml").write_text("symlink:/etc/passwd")
+
+    assert digest_of_directory(linked) != digest_of_directory(plain)
+
+
 def test_a_symlink_pointing_somewhere_else_changes_the_digest(tmp_path):
     """Hashing the target rather than following it must still notice the target changing —
     otherwise every symlink would be invisible to the digest."""

@@ -18,6 +18,12 @@ from comeni_core.marks import Digest
 _ALGORITHM = "sha256"
 _CHUNK = 65536
 
+# Domain separation tags. A regular file and a symlink are different things and must not be
+# able to hash alike, however either one is spelled. NUL because no path or YAML document
+# contains one, so neither tag can be produced by the data it prefixes.
+_FILE = b"file\x00"
+_LINK = b"link\x00"
+
 
 def _hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -55,15 +61,22 @@ def digest_of_directory(path: Path) -> Digest:
     digest depend on bytes outside the layer, so the same directory digests differently on
     two machines — which is precisely what a lockfile exists to rule out. This is what git
     does with symlinks, and layers are distributed by git.
+
+    **The two kinds are domain-separated.** Hashing a link as `"symlink:" + target` and a
+    file as its raw bytes let a regular file impersonate a link: `a.yml` containing the text
+    `symlink:/etc/passwd` digested identically to `a.yml` symlinked to `/etc/passwd`. That
+    is the same defect as the filename forgery above, one layer down — a hash over
+    concatenated fields means nothing unless each field can only be read one way.
     """
     parts: list[str] = []
     if path.exists():
         for entry in sorted(p for p in path.rglob("*") if p.is_symlink() or p.is_file()):
             name = entry.relative_to(path).as_posix()
             if entry.is_symlink():
-                content = _hex(f"symlink:{entry.readlink().as_posix()}".encode())
+                content = _hex(_LINK + entry.readlink().as_posix().encode())
             else:
                 hasher = hashlib.sha256()
+                hasher.update(_FILE)
                 with entry.open("rb") as handle:
                     while chunk := handle.read(_CHUNK):
                         hasher.update(chunk)
