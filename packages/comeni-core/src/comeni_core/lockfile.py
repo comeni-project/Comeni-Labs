@@ -93,23 +93,26 @@ class Lockfile(BaseModel):
         # Deliberately not `Lockfile.of`. A contract deleted from the registry is one of
         # the things this method exists to report, and `of` calls `registry.get`, which
         # raises `KeyError` on exactly that contract — so routing the comparison through
-        # `of` made the missing-contract case crash instead of report it. Digesting only
-        # what is still present, and letting the loop below name what is not, is the
-        # difference between a drift report and a traceback.
-        now = {
-            contract_id: digest_of(registry.get(contract_id))
-            for contract_id in sorted({node.contract_id for node in ir.nodes})
-            if contract_id in registry.contracts
-        }
+        # `of` made the missing-contract case crash instead of report it.
+        #
+        # Each locked contract is then re-digested on its own terms, *not* by looking it up
+        # among the ones the new pipeline happens to use. Drift asks "has anything I pinned
+        # moved?", which is a question about the registry and has nothing to do with what
+        # this re-resolve chose; whether a module dropped out of the pipeline is
+        # `diff_ir`'s to report, and reporting it here as well would be noise. Deriving the
+        # comparison from the new IR's nodes instead made `mendel upgrade` raise KeyError
+        # the moment a rule change routed away from a locked contract — which is the one
+        # thing upgrade exists to do.
         locked = {c.id: c for c in self.contracts}
 
         for contract_id, pinned in sorted(locked.items()):
             if contract_id not in registry.contracts:
                 found.append(f"{contract_id} is no longer in the registry")
-            elif now[contract_id] != pinned.digest:
+            elif digest_of(registry.get(contract_id)) != pinned.digest:
                 found.append(f"{contract_id} has been edited since it was locked")
 
-        for added in sorted(set(now) - set(locked)):
+        used_now = {node.contract_id for node in ir.nodes} & set(registry.contracts)
+        for added in sorted(used_now - set(locked)):
             found.append(f"{added} is used now but was not locked")
 
         # Layers compare **positionally**, not by name, because a registry is a stack and

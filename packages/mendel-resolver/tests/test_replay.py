@@ -46,7 +46,21 @@ def test_a_replayed_resolution_says_it_was_replayed():
     ambiguity = _ambiguity()
     resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
     assert resolution.resolved_by == "replay"
-    assert "replay" in resolution.reason.lower()
+
+
+def test_a_replayed_reason_is_the_recorded_one_verbatim():
+    """`reason` is emitted into `main.nf` as the comment above the parameter, so anything
+    added to it here makes an upgraded pipeline differ from the published one — and
+    federation §4.1 says loading a locked pipeline reproduces byte-identical Nextflow.
+
+    The plan asked for a "replayed from a recorded decision:" prefix and also for
+    byte-identical emission. Those cannot both hold. The reason explains why the value is
+    what it is, which replaying did not change; that this run replayed lives in
+    `resolved_by`. `tests/test_upgrade.py` is the other half of this pair.
+    """
+    ambiguity = _ambiguity()
+    resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
+    assert resolution.reason == "recorded earlier"
 
 
 def test_an_unrecorded_decision_falls_through_to_the_fallback():

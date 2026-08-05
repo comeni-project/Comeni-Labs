@@ -43,7 +43,18 @@ class ReplayResolver:
             self.replayed.append(ambiguity.key())
             return Resolution(
                 chosen=_chosen(record),
-                reason=f"replayed from a recorded decision: {record.reason}",
+                # The recorded reason, verbatim. Prefixing it with "replayed from a
+                # recorded decision" was the plan's wording, and it cannot survive:
+                # `reason` is emitted into `main.nf` as the comment above the parameter,
+                # so prefixing it makes an upgraded pipeline differ from the published one
+                # by exactly that string — and federation §4.1 says loading a locked
+                # pipeline reproduces *byte-identical* Nextflow.
+                #
+                # Nothing is lost. The comment answers "why is this value what it is",
+                # which replaying did not change. That this run replayed rather than
+                # decided is a fact about the run, and it lives in `resolved_by`, in the
+                # decision record, and in the count `mendel upgrade` prints.
+                reason=record.reason,
                 confidence=record.confidence,
                 resolved_by="replay",
             )

@@ -10,7 +10,9 @@ from comeni_core.egress import PublishBundle
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
+from mendel_resolver.diff import diff_ir
 from mendel_resolver.goal import Goal, GoalInput
+from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
@@ -40,11 +42,19 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
-    parser.add_argument("command", choices=["build", "profile", "publish", "explain"])
+    parser.add_argument(
+        "command", choices=["build", "profile", "publish", "upgrade", "explain"]
+    )
     parser.add_argument(
         "code", nargs="?", default=None, help="a diagnostic code, for `explain`"
     )
     parser.add_argument("--goal", type=Path, default=None)
+    parser.add_argument(
+        "--bundle",
+        type=Path,
+        default=None,
+        help="a published pipeline.bundle.json to re-resolve. `upgrade` only.",
+    )
     parser.add_argument(
         "--have",
         action="append",
@@ -108,7 +118,18 @@ def _build(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    if args.command == "profile":
+    previous: PublishBundle | None = None
+    resolver = None
+    if args.command == "upgrade":
+        # An upgrade reads its goal from the bundle rather than from a file: re-resolving
+        # a *different* goal and calling the result an upgrade is how "only what you
+        # touched moved" would quietly become false.
+        if args.bundle is None:
+            parser.error("upgrade needs --bundle")
+        previous = PublishBundle.model_validate_json(args.bundle.read_text())
+        goal = previous.goal
+        resolver = ReplayResolver(previous.decisions)
+    elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:
         if args.goal is None:
@@ -126,7 +147,13 @@ def _build(argv: list[str] | None = None) -> int:
             }
         )
 
-    ir = resolve(goal, registry, rules, layer_names=[p.name for p in loaded.paths])
+    ir = resolve(
+        goal,
+        registry,
+        rules,
+        resolver=resolver,
+        layer_names=[p.name for p in loaded.paths],
+    )
     ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -172,6 +199,25 @@ def _build(argv: list[str] | None = None) -> int:
         (args.out / "mendel.lock.yml").write_text(
             yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
         )
+
+    if previous is not None:
+        # Nothing upgrades implicitly. Drift is what the registry did underneath the
+        # lockfile; changes are what that did to *this* pipeline. Both, because a contract
+        # can be edited in ways that change nothing here — and the lockfile no longer
+        # describing what is on disk is still worth knowing.
+        for line in previous.lockfile.drift_against(ir, registry, loaded.paths):
+            print(f"  DRIFT   {line}", file=sys.stderr)
+        changes = diff_ir(previous.ir, ir)
+        if not changes:
+            print("no changes: this pipeline re-resolves identically", file=sys.stderr)
+        for change in changes:
+            print(f"  CHANGED {change}", file=sys.stderr)
+        if resolver is not None:
+            print(
+                f"{len(resolver.replayed)} decisions replayed, "
+                f"{len(resolver.fresh)} newly asked",
+                file=sys.stderr,
+            )
 
     for record in registry.shadowed:
         print(
