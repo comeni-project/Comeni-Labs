@@ -10,6 +10,12 @@
 > tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
 > review and design only. This matches the execution decision recorded in `CLAUDE.md`.
 
+> **Execution status, 2026-08-06 evening — Tasks 1–6 are complete; Task 7 is next.**
+> Branch `plan-1.8-closing-the-audit`. Per-task commits and what a returning reader will trip
+> over are in [the journal entry](../journal/2026-08-06-evening.md), which is the handoff.
+> Three corrections to this plan and to the audit were found while executing and are listed
+> there — including a fourteenth finding for Task 12 to write up.
+
 **Goal:** Close A1–A13. When this plan is done, a guard that says "cannot" either can or does
 not say it; a lockfile pins the bytes that were loaded; and a decision that was resolved is a
 decision the pipeline made.
