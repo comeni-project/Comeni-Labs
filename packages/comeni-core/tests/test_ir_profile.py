@@ -13,7 +13,7 @@ def test_an_ir_defaults_to_an_empty_profile():
 
 
 def test_a_resolved_ir_carries_the_profile_it_was_built_from():
-    loaded = layers.load(ROOT / "examples")
+    loaded = layers.load(ROOT / "registry")
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads")],
         want=["qc.report"],
@@ -26,7 +26,7 @@ def test_a_resolved_ir_carries_the_profile_it_was_built_from():
 
 def test_the_profile_survives_serialisation():
     """It reaches the emitter through pipeline.ir.json in the CLI, not through memory."""
-    loaded = layers.load(ROOT / "examples")
+    loaded = layers.load(ROOT / "registry")
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads")],
         want=["qc.report"],

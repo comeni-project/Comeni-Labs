@@ -7,11 +7,11 @@ from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
 
 ROOT = pathlib.Path(__file__).parents[3]
-EXAMPLES = ROOT / "examples"
+EXAMPLES = ROOT / "registry"
 
 
 def _spine(layer: pathlib.Path):
-    """A resolver over a registry layer — `examples/`, or a doctored copy of it."""
+    """A resolver over a registry layer — `registry/`, or a doctored copy of it."""
     loaded = layers.load(layer)
 
     def build(*, want, profile=None, have=("fastq.reads", "annotation.gtf", "genome.fasta")):

@@ -48,7 +48,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     """Load a registry layer stack. Later layers win, as everywhere else.
 
     A bare `str` is accepted because a `str` is also a `Sequence`, so refusing it by type
-    is not something the signature can do: `load("examples")` would iterate the string
+    is not something the signature can do: `load("registry")` would iterate the string
     into single characters and fail somewhere unrecognisable.
     """
     if isinstance(layers, str | Path):

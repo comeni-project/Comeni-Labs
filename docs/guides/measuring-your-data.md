@@ -12,7 +12,7 @@ A measurement is declared data, so adding one is a file rather than a release. T
 in `<layer>/measurements/<id>.yml`, and the filename is the id:
 
 ```yaml
-# examples/measurements/read_length.yml
+# registry/measurements/read_length.yml
 kind: integer
 minimum: 1
 unit: bp
@@ -20,7 +20,7 @@ description: "Sequenced read length"
 ```
 
 ```yaml
-# examples/measurements/strandedness.yml
+# registry/measurements/strandedness.yml
 kind: enum
 values: [forward, reverse, unstranded]
 description: "Library strandedness determined by the prep protocol"
@@ -140,7 +140,7 @@ Write a contract that produces `measurement.<id>` and put it in your layer. Noth
 changes — the router already knows how to reach a type.
 
 ```bash
-uv run mendel profile --have fastq.reads --registry examples/ --registry ./lab-registry \
+uv run mendel profile --have fastq.reads --registry registry/ --registry ./lab-registry \
   --out profile-build/
 ```
 

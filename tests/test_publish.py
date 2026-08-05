@@ -45,7 +45,7 @@ def test_the_lockfile_pins_every_module_used(tmp_path):
 
 def test_the_bundle_records_which_layers_built_it(tmp_path):
     bundle = json.loads((_publish(tmp_path) / "pipeline.bundle.json").read_text())
-    assert bundle["ir"]["registry_layers"] == ["examples"]
+    assert bundle["ir"]["registry_layers"] == ["registry"]
 
 
 def test_publishing_twice_produces_identical_bytes(tmp_path):
@@ -78,8 +78,8 @@ def test_publish_refuses_a_nonconformant_contract(tmp_path):
     """
     import shutil
 
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     star = next(layer.rglob("star-align.yml"))
     star.write_text(star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN"))
 

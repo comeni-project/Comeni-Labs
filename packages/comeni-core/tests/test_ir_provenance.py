@@ -24,20 +24,20 @@ def test_an_ir_defaults_to_no_layers():
 
 
 def test_a_resolved_ir_records_the_layers_it_was_built_from():
-    loaded = layers.load(ROOT / "examples")
+    loaded = layers.load(ROOT / "registry")
     ir = resolve(
         Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"]),
         loaded.registry,
         loaded.rules,
         layer_names=[p.name for p in loaded.paths],
     )
-    assert ir.registry_layers == ["examples"]
+    assert ir.registry_layers == ["registry"]
 
 
 def test_a_resolved_ir_carries_the_shadow_records(tmp_path):
     """An overlay that displaced a contract must be visible in the artifact, not only
     on stderr at build time. A published pipeline that hid it would be unauditable."""
-    base = ROOT / "examples"
+    base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
     sort = next(base.rglob("samtools-sort.yml"))
@@ -55,7 +55,7 @@ def test_a_resolved_ir_carries_the_shadow_records(tmp_path):
         loaded.rules,
         layer_names=[p.name for p in loaded.paths],
     )
-    assert ir.registry_layers == ["examples", "lab"]
+    assert ir.registry_layers == ["registry", "lab"]
     assert [s.module_key for s in ir.shadowed] == ["nf-core/samtools/sort"]
 
 
@@ -68,7 +68,7 @@ def test_a_shadow_record_names_the_layer_and_never_its_path(tmp_path):
     more about the machine that wrote it than anyone intended. The lockfile has a dedicated
     test for exactly this rule; this record was going straight past it.
     """
-    base = ROOT / "examples"
+    base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
     sort = next(base.rglob("samtools-sort.yml"))
@@ -102,7 +102,7 @@ def test_layers_are_recorded_in_stacking_order():
 def test_the_ir_round_trips_with_its_provenance(tmp_path):
     """`mendel upgrade` reads a bundle back off disk. A field written on dump and refused
     on load is exactly the defect Plan 1.5 found in `review_level`."""
-    base = ROOT / "examples"
+    base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
     sort = next(base.rglob("samtools-sort.yml"))

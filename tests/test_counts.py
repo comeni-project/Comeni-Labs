@@ -18,14 +18,14 @@ ROOT = pathlib.Path(__file__).parent.parent
 def test_the_registry_has_one_tier_three_rule_and_it_is_the_aligner():
     """The strandedness block was a translation the module already performs. What remains
     is a genuine decision between two defensible aligners, with a real citation."""
-    table = layers.load(ROOT / "examples").rules
+    table = layers.load(ROOT / "registry").rules
     assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]
 
 
 def test_featurecounts_declares_no_parameters():
     """Strandedness arrives through meta now. A `Param` for it would resolve to a value
     that reaches nothing, which is what this whole plan is about removing."""
-    registry = layers.load(ROOT / "examples").registry
+    registry = layers.load(ROOT / "registry").registry
     assert registry.get("nf-core/subread/featurecounts@2.0.6").params == []
 
 

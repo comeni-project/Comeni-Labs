@@ -17,7 +17,7 @@ VENDOR = ROOT / "vendor"
 
 @pytest.fixture
 def registry():
-    return layers.load(ROOT / "examples").registry
+    return layers.load(ROOT / "registry").registry
 
 
 def _doctored(registry: Registry, contract_id: str, **changes) -> Registry:
@@ -165,7 +165,7 @@ def test_M0106_a_meta_key_the_module_reads_that_nothing_sets(registry, tmp_path)
 
 def test_M0106_is_satisfied_by_the_shipped_measurements(registry):
     """strandedness declares meta_key: strandedness, and paired declares single_end."""
-    measurements = layers.load(ROOT / "examples").measurements
+    measurements = layers.load(ROOT / "registry").measurements
     assert "M0106" not in codes(check(registry, VENDOR, measurements=measurements))
 
 
@@ -196,7 +196,7 @@ def test_M0106_claims_nothing_dead_when_the_modules_could_not_be_read(registry, 
     module. A lab wrapping bare containers has no module source at all — every declared
     key would look dead, and since M0106 blocks, the build would be refused over an
     inference drawn from nothing."""
-    measurements = layers.load(ROOT / "examples").measurements
+    measurements = layers.load(ROOT / "registry").measurements
     diagnostics = check(registry, tmp_path, measurements=measurements)
     assert codes(diagnostics) == {"M0100"}
 
@@ -211,7 +211,7 @@ def test_M0106_ignores_meta_id_and_secondary_meta_variables(registry):
     """`meta.id` is set by every entry channel, and `meta2.id` belongs to a reference
     channel rather than the reads. Demanding a measurement for either would be noise, and
     a check that cries wolf is a check people switch off."""
-    measurements = layers.load(ROOT / "examples").measurements
+    measurements = layers.load(ROOT / "registry").measurements
     diagnostics = [
         d for d in check(registry, VENDOR, measurements=measurements) if d.code == "M0106"
     ]

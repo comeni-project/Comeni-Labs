@@ -223,18 +223,22 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-examples/      vocabularies/ measurements/ rules/ contracts/ + rnaseq-goal.yml — FIXTURES ONLY
+registry/      contracts/ rules/ vocabularies/ measurements/ + registry.yml — THE LAYER
+examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 frontend/      React + TS + Vite + Tailwind SPA
 ```
 
-**The registry is a separate repository.** `comeni-registry` holds the real `contracts/`,
-`rules/`, `vocabularies/` and `measurements/` under CC-BY-4.0 with signed tags; this repo holds only enough
-hand-written data under `examples/` for tests to run. The split happens at Plan 1.7 — until
-then, do not treat `examples/` as a registry or add contracts there expecting them to ship.
-`Registry.load()` takes paths, which is what keeps the move cheap. It globs `*.yml` recursively
-under each layer, so `examples/contracts/` holds contracts and nothing else — the goal file sits
-one level up for that reason.
+**The registry is its own layer, in `registry/`, ready to extract.** It holds `contracts/`,
+`rules/`, `vocabularies/` and `measurements/` under CC-BY-4.0, plus a `registry.yml` manifest
+naming itself — because a layer that moves to its own repository cannot rely on the directory
+it happened to be checked out into. `comeni-registry` is where it lives publicly, with signed
+tags. Loading it from anywhere is a test, so the move is a path change and nothing else.
+
+It is **not a curated registry**: every contract in it is a test fixture that happens to be
+true. `Registry.load()` globs `*.yml` recursively under each layer, so `registry/contracts/`
+holds contracts and nothing else — `registry.yml` sits at the layer root beside them, and the
+goal file stayed in `examples/`, both for that reason.
 
 Ports and adapters: the pure packages declare `Protocol`s in
 `mendel_resolver/ports.py`; `mendel-ai` implements them. The dependency arrow points
@@ -338,7 +342,7 @@ uv run python tools/generate_types.py
 # same build, with the lab's private contracts stacked over the public registry
 # a layer is a DIRECTORY holding contracts/, rules/, vocabularies/ and measurements/
 uv run mendel build --goal examples/rnaseq-goal.yml \
-  --registry examples/ --registry ./lab-registry --out build/
+  --registry registry/ --registry ./lab-registry --out build/
 
 # the forge
 # --- arrives with Plan 2; these do not exist yet ---

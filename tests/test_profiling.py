@@ -101,7 +101,7 @@ def test_the_emitted_profile_is_a_profile_mendel_will_accept_back(tmp_path):
         measurement["value"] = 150
     profile = DataProfile.model_validate(raw)
     assert profile.get("read_length") == 150
-    MeasurementRegistry.load(ROOT / "examples" / "measurements").profile(
+    MeasurementRegistry.load(ROOT / "registry" / "measurements").profile(
         {m.measurement: m.value for m in profile.measurements}
     )
 

@@ -92,7 +92,7 @@ def _build(argv: list[str] | None = None) -> int:
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
     # modules. Only contracts stacked before the 2026-08-03 audit.
-    loaded = layers.load(args.registry or [args.root / "examples"])
+    loaded = layers.load(args.registry or [args.root / "registry"])
     vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
 
     # Conformance: does each contract tell the truth about its module? `-stub-run` cannot

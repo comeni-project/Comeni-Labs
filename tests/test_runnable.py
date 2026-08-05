@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).parent.parent
 
 @pytest.fixture
 def loaded():
-    return layers.load(ROOT / "examples")
+    return layers.load(ROOT / "registry")
 
 
 @pytest.fixture

@@ -77,7 +77,7 @@ fixtures rather than as a shipped registry.
 - The `param: strandedness` rule and featureCounts' `strandedness` parameter. `-s 2` is
   featureCounts' encoding of a measured fact, not a decision — the module already contains
   that translation, and the rule's "citation" was the tool's own manual. It was a translation
-  wearing a tier-3 badge. One rule remains in `examples/rules/rnaseq.yml`, and it is a genuine
+  wearing a tier-3 badge. One rule remains in `registry/rules/rnaseq.yml`, and it is a genuine
   decision between two defensible aligners.
 
 ## [0.1.0] — 2026-08-03

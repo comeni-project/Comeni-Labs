@@ -38,7 +38,7 @@ touch routing.
 
 ## 2. Why this exists
 
-Five rules ship in `examples/rules/rnaseq.yml`. **Two of them have never once executed**, and
+Five rules ship in `registry/rules/rnaseq.yml`. **Two of them have never once executed**, and
 nothing said so:
 
 - `subject: aligner` — `RuleTable.match` is called with parameter names taken from contracts, and
@@ -134,9 +134,9 @@ makes §2's bug structurally impossible rather than merely fixed.
 can write, not that a lookup failed:
 
 ```
-examples/rules/rnaseq.yml, decision 2 — {param: aligner}
+registry/rules/rnaseq.yml, decision 2 — {param: aligner}
   No contract in the registry declares a parameter named 'aligner'.
-  Registry layers searched: examples/contracts
+  Registry layers searched: registry/contracts
   Parameters that do exist:  seq_platform, strandedness
 ```
 
@@ -167,11 +167,11 @@ laboratory hits this immediately.
 
 ### 6.2 The declaration
 
-`examples/measurements/`, one file per measurement, named by id — the convention `vocabularies/`
+`registry/measurements/`, one file per measurement, named by id — the convention `vocabularies/`
 already uses.
 
 ```yaml
-# examples/measurements/strandedness.yml
+# registry/measurements/strandedness.yml
 kind: enum
 values: [forward, reverse, unstranded]
 description: "Library strandedness determined by the prep protocol"
@@ -180,7 +180,7 @@ edam: "http://edamontology.org/data_3125"      # optional, where a term exists
 ```
 
 ```yaml
-# examples/measurements/read_length.yml
+# registry/measurements/read_length.yml
 kind: integer
 minimum: 1
 unit: bp
@@ -217,7 +217,7 @@ A measurement whose meaning changes gets a **new id**. The old declaration remai
 marked `deprecated` with `replaced_by` naming its successor:
 
 ```yaml
-# examples/measurements/read_length.yml
+# registry/measurements/read_length.yml
 kind: integer
 deprecated: true
 replaced_by: read_length_median
@@ -412,11 +412,11 @@ not receiving upstream improvements to the others — is real, visible, and reco
 | `mendel_resolver/resolve.py` | tier-3 branch calls `value_for`; populates `IRNode.selection` |
 | `comeni_core/ir.py` | `IRNode.selection: ResolvedValue` |
 | `comeni_core/contract.py` | `InputPort.accepts` and `prefer`; existing form kept as sugar |
-| `examples/rules/rnaseq.yml` | five flat rules become two decision blocks, both rows live |
+| `registry/rules/rnaseq.yml` | five flat rules become two decision blocks, both rows live |
 | `comeni_core/measurement.py` | new — `Measurement`, `MeasurementRegistry`, layered `load`, `profile()` |
 | `comeni_core/vocabulary.py` | `load` takes layers, shadowing recorded (§6.7) |
 | `mendel_resolver/goal.py` | `DataProfile` becomes a validated map with a before-validator |
-| `examples/measurements/*.yml` | new — the four current fields, declared |
+| `registry/measurements/*.yml` | new — the four current fields, declared |
 | `tools/generate_types.py` | new — declarations to `.pyi` and `.d.ts`; output is golden-tested |
 
 No package gains a dependency. Nothing here touches an egress door, a model, or the network, and

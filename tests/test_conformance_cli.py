@@ -30,8 +30,8 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
     """The whole point: `mendel build` succeeding must mean something."""
     import shutil
 
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     star = next(layer.rglob("star-align.yml"))
     star.write_text(star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN"))
 
@@ -70,7 +70,7 @@ def _build_with_no_module_source(tmp_path) -> int:
             "--out",
             str(tmp_path / "p"),
             "--registry",
-            str(ROOT / "examples"),
+            str(ROOT / "registry"),
             "--root",
             str(tmp_path),
         ]

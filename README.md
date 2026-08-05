@@ -109,7 +109,7 @@ registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` an
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml \
-  --registry examples/ --registry ./lab-registry --out build/
+  --registry registry/ --registry ./lab-registry --out build/
 ```
 
 ---

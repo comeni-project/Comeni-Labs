@@ -127,7 +127,7 @@ def test_replay_drops_into_resolve_in_place_of_the_default():
     from mendel_resolver.resolve import resolve
 
     root = pathlib.Path(__file__).parents[3]
-    loaded = layers.load(root / "examples")
+    loaded = layers.load(root / "registry")
     goal = Goal(
         have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
         want=["counts.matrix"],
@@ -156,7 +156,7 @@ def test_replaying_a_previous_run_reproduces_its_choices():
     from mendel_resolver.resolve import resolve
 
     root = pathlib.Path(__file__).parents[3]
-    loaded = layers.load(root / "examples")
+    loaded = layers.load(root / "registry")
     goal = Goal(
         have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
         want=["counts.matrix"],

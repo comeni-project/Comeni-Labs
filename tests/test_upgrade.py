@@ -21,8 +21,8 @@ def _published(tmp_path):
 
 
 def _registry_with(tmp_path, edit):
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     edit(layer)
     return layer
 

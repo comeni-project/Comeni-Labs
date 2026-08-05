@@ -18,7 +18,7 @@ ROOT = pathlib.Path(__file__).parent.parent
 
 @pytest.fixture
 def built():
-    loaded = layers.load(ROOT / "examples")
+    loaded = layers.load(ROOT / "registry")
     goal = Goal(
         # `genome.fasta` is not optional: Plan 1.5 made the reference a declared type
         # precisely because the aligner index builders were being handed an empty tuple
@@ -71,7 +71,7 @@ def test_a_lockfile_holds_no_filesystem_path(built):
     ir, loaded = built
     text = Lockfile.of(ir, loaded.registry, loaded.paths).model_dump_json()
     assert "/home" not in text and str(ROOT) not in text
-    assert "examples" in text
+    assert "registry" in text
 
 
 def test_a_lockfile_has_no_timestamp(built):
@@ -101,8 +101,8 @@ def test_an_edited_contract_is_reported_as_drift(built, tmp_path):
     ir, loaded = built
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
 
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     sort = next(layer.rglob("samtools-sort.yml"))
     sort.write_text(sort.read_text().replace("priority: 0", "priority: 7"))
     changed = layers.load(layer)
@@ -117,8 +117,8 @@ def test_a_missing_contract_is_reported_as_drift(built, tmp_path):
     ir, loaded = built
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
 
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     next(layer.rglob("samtools-sort.yml")).unlink()
     changed = layers.load(layer)
 
@@ -142,8 +142,8 @@ def test_reordering_the_layer_stack_is_drift(built, tmp_path):
     import shutil
 
     ir, _ = built
-    base = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", base)
+    base = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", base)
     overlay = _empty_layer(tmp_path / "lab")
 
     forward = layers.load([base, overlay])
@@ -162,7 +162,7 @@ def test_two_layers_sharing_a_basename_do_not_collapse(built, tmp_path):
     ir, _ = built
     first = _empty_layer(tmp_path / "one" / "registry").parent / "registry"
     shutil.rmtree(first)
-    shutil.copytree(ROOT / "examples", first)
+    shutil.copytree(ROOT / "registry", first)
     second = _empty_layer(tmp_path / "two" / "registry")
 
     loaded = layers.load([first, second])
@@ -187,11 +187,11 @@ def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
     ir, loaded = built
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
 
-    layer = tmp_path / "examples"
-    shutil.copytree(ROOT / "examples", layer)
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
     rules = layer / "rules" / "rnaseq.yml"
     rules.write_text(rules.read_text().replace('">= 70"', '">= 60"'))
     changed = layers.load(layer)
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)
-    assert any("layer" in line and "examples" in line for line in drift)
+    assert any("layer" in line and "registry" in line for line in drift)

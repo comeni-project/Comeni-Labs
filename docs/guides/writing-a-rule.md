@@ -79,7 +79,7 @@ declarations. A table that cannot fire **refuses to load**, and the error says w
 *can* write:
 
 ```
-examples/rules/rnaseq.yml, decision param:aligner
+registry/rules/rnaseq.yml, decision param:aligner
   No contract in the registry declares a parameter named 'aligner'.
   Parameters that do exist: seq_platform, strandedness
 ```

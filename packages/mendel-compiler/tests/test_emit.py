@@ -8,11 +8,11 @@ ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 
 def _vocab():
-    return layers.load(ROOT / "examples").vocabulary
+    return layers.load(ROOT / "registry").vocabulary
 
 
 def _registry():
-    return layers.load(ROOT / "examples").registry
+    return layers.load(ROOT / "registry").registry
 
 
 def _ir():

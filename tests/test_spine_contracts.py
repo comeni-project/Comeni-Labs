@@ -11,7 +11,7 @@ VENDOR = ROOT / "vendor"
 
 @pytest.fixture
 def registry():
-    return layers.load(ROOT / "examples").registry
+    return layers.load(ROOT / "registry").registry
 
 
 def test_all_spine_contracts_load(registry):
@@ -102,7 +102,7 @@ def test_a_multi_want_goal_wires_each_consumer_correctly(registry):
     """Every pre-audit test used a single `want`, which is why last-writer-wins survived."""
     from mendel_resolver.resolve import resolve
 
-    loaded = layers.load(ROOT / "examples")
+    loaded = layers.load(ROOT / "registry")
     goal = Goal(
         have=[
             GoalInput(type_id="fastq.reads"),
@@ -128,7 +128,7 @@ def test_every_shipped_rule_can_fire(registry):
     table it cannot satisfy. So the assertion is simply that the shipped table loads —
     a dead rule can no longer be shipped to be recorded.
     """
-    table = layers.load(ROOT / "examples").rules
+    table = layers.load(ROOT / "registry").rules
     # One decision, and it is a real one. `param:strandedness` used to sit beside it and
     # was a translation the module already performs — see Plan 1.5.
     assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]
