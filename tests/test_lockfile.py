@@ -183,14 +183,36 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
     assert [layer.name for layer in lock.layers] == ["lab", "lab"]
     assert lock.layers[0].digest != lock.layers[1].digest, "distinct layers, distinct digests"
 
-    # The *first* layer, specifically. A name-keyed mapping is last-wins, so a change to
-    # the second stays visible by luck and only the first disappears — which is why this
-    # test changes the first. It is also the one that matters: the lower layer is the
-    # public registry, and the overlay above it is the small local thing.
+    # **Each layer separately, and exactly one line each.** Both halves are load-bearing
+    # and neither is enough alone — established by reverting `drift_against` to two
+    # different wrong implementations and watching which tests noticed:
+    #
+    #   fully name-keyed ({name: digest} both sides)  — caught only by changing the FIRST
+    #     layer. The mapping is last-wins, so the pinned and current entries both collapse
+    #     to the second layer, which did not change, and no drift is reported at all.
+    #   positional names, name-keyed digests          — caught only by changing the SECOND
+    #     layer. Both current layers are compared against one pinned digest, so the
+    #     unchanged first layer reports a spurious line beside the real one.
+    #
+    # Until 2026-08-06 this changed the first layer and asserted merely that *some* line
+    # mentioned the layer. That passed against both wrong implementations, because both do
+    # report drift here — just for the wrong reason, or one time too many. A guard that
+    # cannot fail is not a guard; it took reverting the code to find that out.
+    # Only the first layer.
     (first / "rules" / "extra.yml").write_text("decisions: []\n")
     changed = layers.load([first, second])
-    drift = lock.drift_against(ir, changed.registry, changed.paths)
-    assert any("lab" in line for line in drift), drift
+    assert lock.drift_against(ir, changed.registry, changed.paths) == [
+        "layer lab has changed since it was locked"
+    ]
+
+    # Only the second. Changing *both* would report two lines under either implementation
+    # and prove nothing, which is the trap the first attempt at this fell into.
+    (first / "rules" / "extra.yml").unlink()
+    (second / "rules" / "extra.yml").write_text("decisions: []\n")
+    changed = layers.load([first, second])
+    assert lock.drift_against(ir, changed.registry, changed.paths) == [
+        "layer lab has changed since it was locked"
+    ], "the unchanged first layer must not report a line of its own"
 
 
 def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
