@@ -97,7 +97,7 @@ class PublishBundle(EgressPayload):
 
     Carries the IR and its decision records. The `Goal` is absent because it lives
     in `mendel-resolver` and `comeni-core` must not depend on it, and the lockfile
-    is absent because it does not exist until Plan 2.5. Both are additions to this
+    is absent because it does not exist until Plan 1.7. Both are additions to this
     type, made where those questions are settled, not predicted here.
     """
 

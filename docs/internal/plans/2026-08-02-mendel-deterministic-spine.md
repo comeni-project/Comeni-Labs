@@ -75,10 +75,10 @@ comeni-labs/
 
 Registry data lives under `examples/` rather than at the repository root because it is a set of
 test fixtures, not a registry. The real `contracts/`, `rules/` and `vocabularies/` move to the
-`comeni-registry` repository at Plan 2.5 (federation spec §3.4); keeping them under `examples/`
+`comeni-registry` repository at Plan 1.7 (federation spec §3.4); keeping them under `examples/`
 now makes that move a change to configuration rather than a relocation of the repository's
 top-level shape. `vendor/` holds the vendored nf-core tree — module code, `modules.json`, `.nf-core.yml` and
-`conf/`. It is not registry data and does not move at Plan 2.5. `nf_include` is the path a module
+`conf/`. It is not registry data and does not move at Plan 1.7. `nf_include` is the path a module
 takes *inside the generated pipeline*, which is deliberately not where this repository keeps it.
 
 `Registry.load()` globs `*.yml` recursively under each layer directory, so `examples/contracts/`
@@ -1706,7 +1706,7 @@ class PublishBundle(EgressPayload):
 
     Carries the IR and its decision records. The `Goal` is absent because it lives
     in `mendel-resolver` and `comeni-core` must not depend on it, and the lockfile
-    is absent because it does not exist until Plan 2.5. Both are additions to this
+    is absent because it does not exist until Plan 1.7. Both are additions to this
     type, made where those questions are settled, not predicted here.
     """
 
@@ -3206,7 +3206,7 @@ fourth moved here during planning:
 | §4 the four doors (invariant 14) | **Task 7B** |
 | §6.1 container reference | Task 3 (`ModuleContract.container`), Task 10 (the eight contracts) |
 | §5 profiles, §5.5 `EgressRecord`, §5.6 prompt store | **Plan 2** — nothing to protect until a door opens |
-| §6.1 lockfile, §6.2 curation evidence | **Plan 2.5** |
+| §6.1 lockfile, §6.2 curation evidence | **Plan 1.7** |
 
 Task 7B was moved from Plan 2 to Plan 1 deliberately. It is pure `comeni-core` work needing no
 model, and a guard belongs in place before the code it constrains — the same reasoning that puts

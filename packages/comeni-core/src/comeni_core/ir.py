@@ -37,7 +37,7 @@ class ResolvedValue(BaseModel):
         until now.
 
         That matters beyond this file. `mendel upgrade` reads a `PublishBundle` off disk
-        (Plan 2.5) and the repair loop reads back an IR it sent (Plan 2); both would have
+        (Plan 1.7) and the repair loop reads back an IR it sent (Plan 2); both would have
         failed on a field this class computes for itself. Dropping it is right rather than
         merely convenient — the stored value would be a duplicate of `review_level_for(tier)`
         and could disagree with it.
@@ -138,7 +138,7 @@ class PipelineIR(BaseModel):
     """What was measured about the data this pipeline was built for.
 
     On the IR rather than passed to the emitter separately, because it is part of what the
-    pipeline was built *from* — the same reason Plan 2.5 puts `registry_layers` here. The
+    pipeline was built *from* — the same reason Plan 1.7 puts `registry_layers` here. The
     emitter needs it to populate the `meta` map, and a reviewer reading `pipeline.ir.json`
     needs it to know which measurement a tier-3 decision rested on.
     """

@@ -1,5 +1,15 @@
 # Publication and the Registry Split Implementation Plan
 
+> **Plan 1.7.** Execute after Plan 1.6 (complete) and **before** Plan 2 — see the execution
+> order in [`docs/internal/README.md`](../README.md), which is also where the reason for that
+> order is written down.
+>
+> **This plan was called "Plan 2.5" until 2026-08-05.** The number recorded when it was
+> *written* — after Plan 2 existed — and was read by everyone, reasonably, as when it should
+> *run*. It is pure-package work in the same family as Plans 1.5 and 1.6: no AI, no network,
+> no new dependency. Journal entries dated on or before 2026-08-05 still say "Plan 2.5"; they
+> are append-only and correct about the day they were written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
 > plan task-by-task, sequentially, driving it yourself. Steps use checkbox (`- [ ]`) syntax for
 > tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
@@ -70,7 +80,7 @@ them. Replay comes before `upgrade`, which is replay plus a diff. The registry s
 the code tasks because it moves the files every earlier test reads.
 
 **Out of scope, and why.** The **pipeline catalogue and the pipeline review screens**
-(federation §5) are named in §8 as Plan 2.5's work, but they need `mendel-api` and the frontend,
+(federation §5) are named in §8 as Plan 1.7's work, but they need `mendel-api` and the frontend,
 which are Plan 3. Building a catalogue before there is a service to serve it would be predicting
 types again — the exact mistake this plan exists downstream of. They move to Plan 3, and this
 plan produces the artifact they will display. **Resolving container tags to digests** (clinical

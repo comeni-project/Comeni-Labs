@@ -397,7 +397,7 @@ accident (Task 6).
 `EgressRecord`, the prompt store and `mendel forget`. `tests/test_egress.py` lands with the
 first port implementation.
 
-**Plan 2.5** — lockfile contents (§6.1), `PublishBundle`, curation evidence and the curated-tier
+**Plan 1.7** — lockfile contents (§6.1), `PublishBundle`, curation evidence and the curated-tier
 labelling (§6.2). Still not to be written until Plan 1 runs green.
 
 **Plan 3** — the `guarded` confirmation screen, profile display, actor plumbing. And a standing

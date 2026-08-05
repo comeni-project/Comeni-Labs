@@ -56,7 +56,7 @@ that exist rather than the ones a plan predicted.
 
 Not built yet, and named so nothing here reads as more finished than it is: the AI adapters and
 the contract forge (Plan 2), the FastAPI surface and React dashboard (Plan 3), and pipeline
-publication and lockfiles (Plan 2.5).
+publication and lockfiles (Plan 1.7).
 
 ---
 

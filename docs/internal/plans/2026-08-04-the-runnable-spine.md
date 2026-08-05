@@ -1,6 +1,6 @@
 # The Runnable Spine Implementation Plan
 
-> **Plan 1.5.** Execute **before** Plan 2, Plan 2.5 and Plan 3 — see the execution order in
+> **Plan 1.5.** Execute **before** Plan 2, Plan 1.7 and Plan 3 — see the execution order in
 > [`docs/internal/README.md`](../README.md). This finishes what Plan 1 started: Plan 1 shipped a
 > verified *compiler* and left a pipeline that could not run.
 
@@ -307,7 +307,7 @@ git commit -m "feat(core): a contract may declare flags its module always needs"
 
 The emitter needs the measured profile to put it in `meta`, and cannot see it — `emit(ir, registry,
 vocab)` takes no goal. It belongs on the IR regardless: the profile is part of what this pipeline
-was built from, the same reason Plan 2.5 puts `registry_layers` there.
+was built from, the same reason Plan 1.7 puts `registry_layers` there.
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/ir.py`
@@ -378,7 +378,7 @@ from comeni_core.profile import DataProfile
     """What was measured about the data this pipeline was built for.
 
     On the IR rather than passed to the emitter separately, because it is part of what the
-    pipeline was built *from* — the same reason Plan 2.5 puts `registry_layers` here. The
+    pipeline was built *from* — the same reason Plan 1.7 puts `registry_layers` here. The
     emitter needs it to populate the `meta` map, and a reviewer reading
     `pipeline.ir.json` needs it to know which measurement a tier-3 decision rested on.
     """
@@ -867,11 +867,11 @@ Filenames are a log, not an order — two plans share the date `2026-08-04`. In
 | 1 | `2026-08-02-mendel-deterministic-spine.md` | complete |
 | 2 | `2026-08-03-measurements-rules-and-profiling.md` | complete |
 | 3 | `2026-08-04-the-runnable-spine.md` | **next** — Plan 1.5, finishes Plan 1's business |
-| 4 | `2026-08-04-publication-and-the-registry-split.md` | Plan 2.5 — written, unimplemented |
+| 4 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — written, unimplemented |
 | 5 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references |
 | 6 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
-**Execute in this order.** Plan 1.5 comes before 2.5 because publishing a bundle built on an
+**Execute in this order.** Plan 1.5 comes before Plan 1.7 because publishing a bundle built on an
 unverified spine would push a wrong pipeline through the door with no undo.
 ```
 
