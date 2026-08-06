@@ -15,7 +15,8 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, 1.5, 1.6, 1.7 and 1.8 are complete.** 362 fast tests green,
+**Plans 1, the measurements plan, 1.5, 1.6, 1.7 and 1.8 are complete, and Plan 1.9 is in
+progress** — Part A and Part B Task B1 are done. 378 fast tests green,
 `ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
 produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
 strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
