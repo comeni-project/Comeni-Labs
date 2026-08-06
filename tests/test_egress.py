@@ -6,11 +6,16 @@ the moment a person should be thinking, and this test is what makes them.
 """
 
 import typing
+from collections import abc
 
 from comeni_core import egress, marks
 from pydantic import BaseModel
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
+
+_BINARY = (bytes, bytearray, memoryview)
+"""No payload may carry a blob. A signature field on a lockfile is the obvious way this
+arrives, and it is still a blob — sign the artifact beside the bundle, not inside it."""
 
 # Free text is the taint source. Exactly two fields may carry it, and both are
 # named here. A third requires editing this line.
@@ -87,12 +92,37 @@ def _has_bare_str(annotation: object) -> bool:
 
 
 def _mentions_mapping(annotation: object) -> bool:
+    """Any mapping, not just the concrete `dict`.
+
+    This tested `issubclass(origin, dict)`, and `collections.abc.Mapping` is a
+    *superclass* of `dict` rather than a subclass — so `Mapping[MeasurementId,
+    ParamValue]` walked straight through a rule whose own docstring forbids it, while
+    being an ordinary dict at runtime with arbitrary keys. Audit A6.
+
+    Testing against `Mapping` catches `dict`, `MutableMapping`, `OrderedDict`, `Counter`
+    and `defaultdict` in one, because all of them are subclasses of it and that is the
+    direction the check has to run.
+    """
     origin = typing.get_origin(annotation)
-    if origin is not None and isinstance(origin, type) and issubclass(origin, dict):
+    if origin is not None and isinstance(origin, type) and issubclass(origin, abc.Mapping):
         return True
     if getattr(annotation, "__metadata__", None):
         return any(_mentions_mapping(arg) for arg in typing.get_args(annotation)[:1])
     return any(_mentions_mapping(arg) for arg in typing.get_args(annotation))
+
+
+def _mentions_binary(annotation: object) -> bool:
+    """`bytes` is not `str`, not a mapping, not `Any`, and carried no marker.
+
+    So it was invisible to every rule in this file while being an unbounded channel for
+    exactly the free text the boundary exists to contain — a prompt, a path and a
+    diagnosis all fit in one, and none of them is inspectable by anything here. Banned
+    outright rather than annotated, because there is no declared-ID version of a blob:
+    an `Annotated[bytes, ...]` is a blob with a label on it. Audit A6.
+    """
+    if isinstance(annotation, type) and issubclass(annotation, _BINARY):
+        return True
+    return any(_mentions_binary(arg) for arg in typing.get_args(annotation))
 
 
 def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
@@ -163,6 +193,24 @@ def test_no_payload_carries_a_mapping():
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are mappings; use a list of declared records instead: "
+        + ", ".join(sorted(offenders))
+    )
+
+
+def test_no_payload_carries_raw_bytes():
+    """A blob is an unbounded channel, and no rule in this file can see inside one.
+
+    Nothing carries one today, which is why this is the easy time to forbid it. A
+    `signature: bytes` on the lockfile is the plausible next field and would have been
+    accepted by every other rule here.
+    """
+    offenders = []
+    for payload in _payload_types():
+        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
+            if name in payload.model_fields and _mentions_binary(annotation):
+                offenders.append(f"{payload.__name__}.{name}")
+    assert offenders == [], (
+        "these fields are binary blobs, which no rule in this file can inspect: "
         + ", ".join(sorted(offenders))
     )
 

@@ -463,3 +463,35 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     assert node.selection.from_layer == "lab-registry"
     assert node.selection.displaced_layer is None
     assert ir.overlay_reroutes() == []
+
+
+def test_a6_the_egress_guard_knows_mapping_and_bytes():
+    """A6 — `Mapping` is a superclass of `dict`, so `issubclass(origin, dict)` missed it.
+
+    The standing version of the reproduction. With those two shapes on the real
+    `PublishBundle` the guard reported 7 passed: `Mapping[MeasurementId, ParamValue]` is
+    an ordinary dict at runtime with arbitrary keys — the `{"patient_id": ...}` case the
+    mapping rule's own docstring forbids — and `bytes` is not `str`, not a mapping, not
+    `Any` and carries no marker, so nothing in the file could see it.
+
+    Asserted against the helpers rather than by adding fields to a shipped payload,
+    because a break-test that lives in the tree is a break-test somebody eventually
+    commits.
+    """
+    from collections.abc import Mapping, MutableMapping
+    from typing import Annotated
+
+    from comeni_core.marks import MeasurementId, ParamValue
+    from test_egress import _mentions_binary, _mentions_mapping
+
+    assert _mentions_mapping(Mapping[MeasurementId, ParamValue])
+    assert _mentions_mapping(MutableMapping[str, str])
+    assert _mentions_mapping(dict[str, str]), "the original case must not regress"
+    assert not _mentions_mapping(list[str])
+
+    assert _mentions_binary(bytes)
+    assert _mentions_binary(bytes | None)
+    assert _mentions_binary(Annotated[bytes, "signature"]), "a label on a blob is a blob"
+    assert _mentions_binary(bytearray)
+    assert _mentions_binary(memoryview)
+    assert not _mentions_binary(str)
