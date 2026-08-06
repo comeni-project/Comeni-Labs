@@ -1,0 +1,239 @@
+"""A layer is a value, and stacking is one mechanism.
+
+Invariant 11 talks about layers. Until this module the code had no such thing: `layers.load`
+hand-assembled four loaders and passed `Path` around, so a layer had no identity (a name
+recomputed by `layer_name(path)` at three call sites), no position (implicit in list order and
+lost before provenance was recorded), and no contents (each loader discovered its own slice).
+
+Four independent implementations disagreed on six axes — how to find files, how to key an
+entry, what a missing directory means, what stacking means, whether displacement is recorded,
+and whether the loader even knows its layer's name. Every finding in audit root B is a cell in
+that table: A22, A23, A24, A25, A26, A35.
+
+**Identity is `Layer.index`, never `Layer.name`.** Names are not unique — the lockfile's own
+docstring says a lab stacking the public `registry/` over their own `registry/` hits it on day
+one — and keying displacement on a name is A25.
+
+`dataclasses` is not on `comeni-core`'s purity allowlist, so `Kind` and `Stacked` are plain
+classes. That is a constraint worth keeping rather than working around: the allowlist has no
+unknown unknowns.
+"""
+
+from collections.abc import Callable, Iterable, Sequence
+from enum import StrEnum
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
+
+from comeni_core.marks import ContractId, LayerName, Subject
+
+
+class DeclaredKind(StrEnum):
+    """The four kinds of declared data. Invariant 11 says all four stack."""
+
+    CONTRACTS = "contracts"
+    RULES = "rules"
+    VOCABULARIES = "vocabularies"
+    MEASUREMENTS = "measurements"
+
+
+class Policy(StrEnum):
+    """What a higher layer does to an entry a lower layer already supplied."""
+
+    REPLACE = "replace"
+    """The whole entry is replaced. The default, and what a reader expects."""
+
+    MERGE = "merge"
+    """The entries are combined by the kind's `merge`. Opt-in and explicit in the file —
+    `add_values` for a measurement, `add_states` for a vocabulary type. A35 is what happens
+    when a loader merges some fields and replaces others without saying which."""
+
+    DELETE_GROUP = "delete_group"
+    """Every lower-layer entry sharing a *group* key is removed, not merely overwritten.
+    Contracts: a higher layer supplying `nf-core/star/align@2.0.0` displaces
+    `@1.11.0` even though the storage keys differ, because the module key is the same."""
+
+
+class Layer(BaseModel):
+    """Where a layer is, what it calls itself, and where it sits in the stack."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: Path
+    name: LayerName
+    """From `registry.yml`, falling back to the basename. **For rendering only.**"""
+    index: int
+    """Position in the stack, lowest first. **This is identity.** Two layers may share a
+    name; they cannot share an index."""
+
+
+class Displacement(BaseModel):
+    """A higher layer replaced something a lower layer declared.
+
+    One shape for all four kinds, so measurements and vocabularies — which have no `IRNode`
+    to hang off — finally have somewhere to be reported. Every field is a `StrEnum` or a
+    marked string, so this satisfies the egress leaf allowlist and may cross a door.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: DeclaredKind
+    key: Subject
+    winning_layer: LayerName
+    displaced_layer: LayerName
+    """Which layer lost.
+
+    Under `REPLACE` each arriving layer records against the layer immediately below it, so a
+    three-deep stack produces two records rather than one. Under `DELETE_GROUP` a single
+    record can cover victims from several layers at once, and it names the **lowest** — the
+    one a reader is most surprised to have lost."""
+    displaced_keys: list[ContractId] = []
+    """Contracts only: the full ids removed, when the group key is not the storage key."""
+    winning_key: Subject | None = None
+    """Which incoming entry won, when the group key is not the storage key.
+
+    A layer may legitimately hold two versions of one module, so naming the group is not
+    enough — the record has to name the one routing will actually prefer, or it can
+    contradict the build it describes. `ShadowRecord.winning_id` carried this and the
+    property is preserved rather than dropped. `None` when the key *is* the winner, which is
+    every kind except contracts."""
+
+
+class Kind[K, T]:
+    """How one sort of declared data is found, parsed, keyed and merged.
+
+    Everything a kind does *not* declare — recursion, `*.yml` and `*.yaml`, a missing
+    subdirectory, stack order, recording what displaced what — belongs to `stack()` and is
+    therefore identical for all four. That is the whole point.
+    """
+
+    def __init__(
+        self,
+        which: DeclaredKind,
+        parse: Callable[[Path], Iterable[T]],
+        key: Callable[[T], K],
+        group: Callable[[T], K] | None = None,
+        policy: Policy = Policy.REPLACE,
+        merge: Callable[[T, T], T] | None = None,
+        prefer: Callable[[Sequence[T]], T] | None = None,
+    ) -> None:
+        self.which = which
+        self.parse = parse
+        self.key = key
+        self.group = group or key
+        self.policy = policy
+        self.merge = merge
+        self.prefer = prefer
+        if policy is Policy.MERGE and merge is None:
+            raise ValueError(f"{which}: Policy.MERGE needs a merge function")
+
+
+class Stacked[K, T]:
+    """The result of stacking one kind across a layer stack."""
+
+    def __init__(
+        self,
+        entries: dict[K, T],
+        origin: dict[K, int],
+        displaced: list[Displacement],
+        claimed: set[Path],
+    ) -> None:
+        self.entries = entries
+        self.origin = origin
+        """Key -> the **index** of the layer that supplied it. An index, not a name (A25)."""
+        self.displaced = displaced
+        self.claimed = claimed
+        """Every file `stack()` read. `layers.load` unions these and raises on the residue,
+        so a file in a layer that nothing reads is an error rather than silence (A26)."""
+
+
+def _files(directory: Path) -> list[Path]:
+    """Every declared-data file under a subdirectory, recursively, in a stable order.
+
+    **Recursive, and both extensions.** Three of the four loaders globbed one level and all
+    four matched `*.yml` only, so a nested vocabulary and a contract named `.yaml` were both
+    invisible while still being hashed into the layer digest — an overlay that did nothing
+    looked exactly like one that worked (A26).
+    """
+    return sorted({*directory.rglob("*.yml"), *directory.rglob("*.yaml")})
+
+
+def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
+    """Load one kind across a layer stack. Later layers win, and say so."""
+    entries: dict[K, T] = {}
+    origin: dict[K, int] = {}
+    displaced: list[Displacement] = []
+    claimed: set[Path] = set()
+    name_of = {layer.index: layer.name for layer in layers}
+
+    for layer in layers:
+        directory = layer.path / kind.which.value
+        if not directory.exists():
+            continue
+
+        incoming: dict[K, T] = {}
+        for path in _files(directory):
+            claimed.add(path)
+            for entry in kind.parse(path):
+                key = kind.key(entry)
+                if key in incoming:
+                    # Between layers this is a declaration and is recorded. Twice inside one
+                    # layer is a copy-paste, and resolving it by glob order would be the
+                    # silent arbitrary pick invariant 8 exists to prevent.
+                    raise ValueError(
+                        f"{key} is declared twice in {layer.path}: {path.name} duplicates "
+                        "an earlier file"
+                    )
+                incoming[key] = entry
+        if not incoming:
+            continue
+
+        if kind.policy is Policy.DELETE_GROUP:
+            for group in sorted({str(kind.group(e)) for e in incoming.values()}):
+                victims = sorted(
+                    (k for k, e in entries.items() if str(kind.group(e)) == group), key=str
+                )
+                if not victims:
+                    continue
+                arrivals = [e for e in incoming.values() if str(kind.group(e)) == group]
+                winner = kind.prefer(arrivals) if kind.prefer else arrivals[0]
+                # Every victim of a group shares one origin: an arriving layer deletes the
+                # whole group before adding its own, so a group's survivors can only ever
+                # come from the layer that last supplied it. This was `min(origin[k] ...)`
+                # until a revert of `min` -> `max` changed nothing in any test, which is how
+                # a line that cannot be wrong looks exactly like a line that is untested.
+                losing = {origin[k] for k in victims}
+                assert len(losing) == 1, f"victims of {group} span layers {sorted(losing)}"
+                displaced.append(
+                    Displacement(
+                        kind=kind.which,
+                        key=group,
+                        winning_layer=layer.name,
+                        displaced_layer=name_of[losing.pop()],
+                        displaced_keys=[str(k) for k in victims],
+                        winning_key=str(kind.key(winner)),
+                    )
+                )
+                for victim in victims:
+                    del entries[victim]
+                    origin.pop(victim, None)
+        else:
+            for key in sorted(incoming, key=str):
+                if key in entries and origin[key] != layer.index:
+                    displaced.append(
+                        Displacement(
+                            kind=kind.which,
+                            key=str(key),
+                            winning_layer=layer.name,
+                            displaced_layer=name_of[origin[key]],
+                        )
+                    )
+
+        for key, entry in incoming.items():
+            if kind.policy is Policy.MERGE and key in entries and kind.merge is not None:
+                entries[key] = kind.merge(entries[key], entry)
+            else:
+                entries[key] = entry
+            origin[key] = layer.index
+
+    return Stacked(entries, origin, displaced, claimed)
