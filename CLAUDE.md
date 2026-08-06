@@ -346,9 +346,21 @@ conversation is a loose end lost.
 
 `make help` lists them. `make check` is exactly what CI runs on a pull request.
 
+**`make check` is not verification of a change to `resolve.py`, `router.py`, `rules.py` or
+`mendel_compiler/cli.py`.** It deselects `tests/test_counts.py` — the two tests that run
+`--gate test` on the nf-core dataset and assert the counts matrix is right, which is the only
+check that exercises the v1 criterion. Touch any of those four files and run **`make verify`**,
+which is `check` + those two + the guards + registry drift, and takes about two minutes.
+
+The files are named rather than left to judgement on purpose: Plan 1.8 changed all four and
+reported each task verified on `make check` alone. Nothing was broken and the omitted tests
+took 44 seconds, so the cost was never the reason — there was a habit, and no command that
+made the full set the easy thing to type. See A14.
+
 ```bash
 uv sync                          # set up the workspace
 make check                       # lint + tests + stub freshness — the CI gate, ~1 min
+make verify                      # check + counts matrix + guards + drift; Docker, ~2 min
 make static                      # conformance + nextflow lint + preview; no Docker, ~6s
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
