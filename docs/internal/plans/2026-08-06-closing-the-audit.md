@@ -855,7 +855,7 @@ Expected: 305+ pass, `-m slow` still produces 124 genes with `-s 2 -p`.
 
 ---
 
-### Task 7: A5 — an overlay that changes a selection says so
+### Task 7: A5 + A15 — an overlay that changes a pipeline says so
 
 Invariant 11 ends *"never let an installed overlay reroute a pipeline silently"*. An overlay
 contract with a **different module key** is by definition not a shadow, so no `ShadowRecord` is
@@ -866,9 +866,51 @@ normal. Reproduced with a rival sorter at priority 99.
 The gap is between two documented rules: invariant 11 says never silently, invariant 8 covers
 ties, and a priority win is neither. The aligner escaped only because a rule pins it — luck.
 
+> **Rewritten 2026-08-06, during execution.** The task as first written could not be
+> implemented, and finding out why turned up a second route the audit missed. Both corrections
+> are below. Do not restore the original steps.
+
+**A15, found while writing this task.** Invariant 11 says *all four* kinds of declared data
+stack. `RuleTable.load` does `by_target[key] = decision`, so **a higher layer replaces a whole
+rule block and records nothing at all** — `Decision` has no layer field. A tier-3 parameter
+decided by a lab's overlay rule is indistinguishable from one decided by the public registry.
+This is worse than A5: contract shadowing at least writes a `ShadowRecord`. It gets a finding
+number in Task 12 and is closed by this task's commit.
+
+**Why the original Steps 1 and 4 were impossible.** Step 4 asked for `ReviewLevel.ADVISORY`
+while *"tier stays 2"*. `ResolvedValue.review_level` is a `computed_field` over
+`review_level_for(tier)`, and tier 2 maps to `NONE`; `_drop_computed` exists precisely so a
+stored review level can never disagree with the tier. Step 1 then asked the test to find the
+node in `needs_review()`, which lists `REQUIRED` only — and
+`packages/comeni-core/tests/test_ir.py:24` is named `test_needs_review_lists_only_required_items`,
+so that is a guarantee with a test named after it, not an accident. The two steps contradicted
+each other and both contradicted the types.
+
+**The design, decided 2026-08-06.** Report **displacement, not origin**, and record provenance
+always. They are two different questions and a flag is the wrong shape for the first:
+
+- *"Where did this module come from?"* — every node, always. A curator reading a published
+  bundle needs it without asking, so it is a field, not a flag.
+- *"What did my overlay change?"* — only when a lower layer offered something that lost. That
+  is the invariant-11 event and it is rare enough to read.
+
+Origin-as-flag is the failure Step 4 warned about in its own reasoning: a lab that installs an
+overlay gets an advisory on every module that layer supplies, nineteen of them saying "your
+layer supplied your module", and the one that actually rerouted the pipeline buried among them.
+A layer supplying something new is a lab using the system as designed; a layer *replacing* what
+a lower layer said is the silent reroute.
+
+**Nothing about the tier ladder moves.** Tier stays 2 for a priority win, review stays `none`,
+`review_level` stays computed, and `test_needs_review_lists_only_required_items` keeps its
+guarantee. This is a third axis beside `tier` (how well) and `ValueSource` (who) — an argument
+`ValueSource`'s own docstring already makes: *"A tier says how something was settled; it should
+not also have to say who."*
+
 **Files:**
-- Modify: `packages/comeni-core/src/comeni_core/registry.py` (a contract records its layer)
-- Modify: `packages/comeni-core/src/comeni_core/ir.py` (`needs_review` lists it)
+- Modify: `packages/comeni-core/src/comeni_core/registry.py` (`layer_of`)
+- Modify: `packages/comeni-core/src/comeni_core/ir.py` (`ResolvedValue` fields, `overlay_reroutes`)
+- Modify: `packages/mendel-resolver/src/mendel_resolver/rules.py` (a `Decision` records its layer)
+- Modify: `packages/mendel-resolver/src/mendel_resolver/router.py`, `resolve.py` (set the fields)
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py` (stderr)
 - Test: `tests/test_audit_regressions.py`
 
@@ -877,18 +919,42 @@ missing is *which layer a chosen contract came from*, which `Registry.load` know
 Carry it as a `dict[ContractId, LayerName]` on `Registry` rather than a field on
 `ModuleContract` — a contract is content-addressed by Task 2 and must not gain a field that
 depends on where it was found, or its digest becomes location-dependent and A10 reopens sideways.
+`Registry` is not reachable from `PublishBundle`, so a mapping is legal there; on the IR it may
+not be, which is why the provenance rides on `ResolvedValue` and the list is derived.
 
-- [ ] **Step 1: Write the failing test** — build with a rival sorter at priority 99 in an
-      overlay; assert `ir.needs_review()` names the node and that the reason says which layer.
+- [ ] **Step 1: Reproduce both, and watch the original assertion fail.** In
+      `tests/test_audit_regressions.py`, build with (a) a rival sorter at priority 99 in an
+      overlay and (b) an overlay rule block replacing a base one. Assert the *end state*: the
+      selection carries `from_layer` and `displaced_layer`, the param carries the same, and
+      `ir.overlay_reroutes()` names both. **Also assert `ir.needs_review()` does not name
+      them** — that is the plan's original claim, pinned as false on purpose so nobody restores
+      it.
 - [ ] **Step 2: Run to verify it fails** — expect `needs_review()` to list only
-      `star_align.seq_platform`, exactly as the audit recorded.
+      `star_align.seq_platform`, exactly as the audit recorded, and `AttributeError` on the new
+      fields.
 - [ ] **Step 3:** `Registry` gains `layer_of: dict[ContractId, LayerName]`, populated in `load()`.
-- [ ] **Step 4:** `resolve()` marks a selection from a non-base layer `ReviewLevel.ADVISORY` with
-      a reason naming the layer. **Advisory, not required** — an overlay winning is the normal
-      case for a lab that installed one, and making it block would train people to ignore it.
-      Tier stays 2: the selection genuinely was a documented default. What changes is visibility.
-- [ ] **Step 5:** `mendel build` prints the overlay-sourced selections on stderr.
-- [ ] **Step 6:** Run the gate; commit `fix(resolver): an overlay-sourced selection is visible — A5`
+      A contract deleted by shadowing loses its entry with it.
+- [ ] **Step 4:** `ResolvedValue` gains `from_layer: LayerName | None = None` and
+      `displaced_layer: LayerName | None = None`. Both are declared ID aliases, so
+      `tests/test_egress.py` accepts them — run it in this step rather than at the end, because
+      these fields reach a bundle through `RepairRequest.ir` and a new field on an egress payload
+      is exactly what that guard is for.
+- [ ] **Step 5: Contracts.** In `router.py`, where `producers_of` ranks candidates: set
+      `from_layer` to the winner's layer, and `displaced_layer` to the lowest layer that offered
+      a losing candidate, if any. Displacement is *the winner came from a higher layer than a
+      rival it beat* — not merely "came from an overlay".
+- [ ] **Step 6: Rules.** `Decision` gains a `from_layer`, set after validation in
+      `RuleTable.load`. Where `by_target[key]` is already populated by a lower layer, the
+      incoming block records the displaced layer. Carry both onto the `ResolvedValue` a tier-3
+      match produces. This closes A15.
+- [ ] **Step 7:** `PipelineIR.overlay_reroutes()` — derived, scanning nodes and params for
+      `displaced_layer is not None`. **Derived rather than stored**, so it cannot drift from the
+      fields it reads, and `needs_review()` is not touched.
+- [ ] **Step 8:** `mendel build` prints them on stderr as their own section, separate from the
+      review list — two different questions, two different lists.
+- [ ] **Step 9:** Run the gate. Confirm the single-layer case emits nothing at all: a lab with
+      no overlay must see no change whatsoever. Commit
+      `fix(resolver): an overlay that changes a pipeline says so — A5, A15`
 
 ---
 
@@ -1046,7 +1112,11 @@ packages cannot import an HTTP client" is false as written.
 - [ ] **Step 1:** Mark A1–A13 ✅ in the audit document, each with the commit that closed it.
       **Do not renumber and do not delete** — the document's own header says findings keep their
       numbers permanently, and a closed finding with its reproduction intact is the only record
-      of why the code looks the way it does.
+      of why the code looks the way it does. **Add A15 and mark it ✅ in the same pass**: an
+      overlay rule block replaces a lower layer's whole block and records nothing, found while
+      writing Task 7 and closed by it. Write it as a finding rather than only a commit message —
+      an audit that only records what the audit happened to look at understates what the code
+      was doing, and A15 is the one A5 should have caught.
 - [ ] **Step 2: Write A14 — a guard that has never been watched failing may be inert, not
       merely weak.** A1–A13 were found by reading. This one was found three times in a single
       day by *reverting code and watching*, and it is a defect in the guards rather than in the
@@ -1117,7 +1187,7 @@ uv run pytest tests/test_audit_regressions.py -v   # one test per finding
 uv run python tools/check_registry_drift.py        # now compares the manifest
 ```
 
-**Done when:** thirteen findings are ✅ with the commit that closed each, **A14 is written and
+**Done when:** A1–A13 and A15 are ✅ with the commit that closed each, **A14 is written and
 ⬜ open with its closure condition stated**, `tests/test_audit_regressions.py` holds a test per
 finding that was watched failing, and `CLAUDE.md` makes no claim this plan did not enforce.
 
