@@ -18,7 +18,7 @@ where most code meets one.
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
-from comeni_core.marks import ParamValue, PortName, StateName, TypeId
+from comeni_core.marks import HumanParamValue, PortName, StateName, TypeId
 from comeni_core.profile import DataProfile, Measured  # noqa: F401  (re-exported)
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
@@ -47,7 +47,8 @@ class ParamOverride(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: PortName
-    value: ParamValue
+    value: HumanParamValue
+    """Guarded: this is what a person types into a goal file. Audit A3."""
 
 
 class RequiredStates(BaseModel):

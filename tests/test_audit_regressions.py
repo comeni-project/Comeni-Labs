@@ -495,3 +495,105 @@ def test_a6_the_egress_guard_knows_mapping_and_bytes():
     assert _mentions_binary(bytearray)
     assert _mentions_binary(memoryview)
     assert not _mentions_binary(str)
+
+
+A3_PATHS = [
+    "/data/patients/PT-4471023/S1_R1.fastq.gz",
+    "~/samples/PT-4471023.bam",
+    "../../etc/passwd",
+    "cohort/2026/PT-4471023_R1.fq.gz",
+    "run.cram",
+    "calls.vcf",
+]
+
+A3_LEGITIMATE = [
+    "nf-core/star/align@2.7.11b",  # a contract ID has slashes and must survive
+    "GRCh38",
+    "reverse",
+    "ILLUMINA",
+    "--readFilesCommand zcat",
+    "sha256:" + "0" * 64,
+    None,
+    2,
+    True,
+]
+
+
+@pytest.mark.parametrize("value", A3_PATHS)
+def test_a3_a_path_shaped_parameter_is_refused(value):
+    """A3 — `human_override` is the slot for a human's answer and was an open string.
+
+    Reproduced on the unmodified tree with no monkeypatching: a patient path validated
+    into a `DecisionRecord` and from there into a `PublishBundle`, the door with no undo.
+    """
+    from comeni_core.decision import DecisionRecord
+
+    with pytest.raises(ValidationError):
+        DecisionRecord(
+            key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+            human_override=value,
+        )
+
+
+@pytest.mark.parametrize("value", A3_LEGITIMATE)
+def test_a3_a_registry_shaped_parameter_still_validates(value):
+    """The refusal must not cost the normal case.
+
+    A contract ID is the sharp one: it carries slashes and an `@version`, and a rule's
+    `then:` is exactly that. A blocklist that rejected it would make the registry
+    unloadable.
+    """
+    from comeni_core.decision import DecisionRecord
+
+    record = DecisionRecord(
+        key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+        human_override=value,
+    )
+    assert record.human_override == value
+
+
+def test_a3_a_path_cannot_enter_through_a_goal_param_override():
+    """The same value, through the door a person actually types into."""
+    from comeni_core.goal import Goal
+
+    with pytest.raises(ValidationError):
+        Goal.model_validate(
+            {
+                "constraints": {
+                    "params": [
+                        {"name": "seq_platform", "value": "/data/patients/PT-4471023/S1.fastq.gz"}
+                    ]
+                }
+            }
+        )
+
+
+def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
+    """Why the blocklist is scoped to human-typed fields, pinned so it is not widened.
+
+    `"dual.bam"` means port `bam` on node `dual` — an internal pointer the resolver writes
+    when two upstream outputs could feed one input. Ports in the registry really are named
+    `bam`, so `"star_align.bam"` is an ordinary value. It is character-for-character a
+    filename and no text rule separates the two, so applying the blocklist to `chosen`
+    would either reject real pipelines or force dropping `.bam` from the list and let
+    `PT-4471023.fastq.gz` through.
+
+    Neither is necessary: a pointer is built by this code from registry data, and both
+    routing paths rebuild it from their candidate list rather than trusting a resolver's
+    answer (audit A8). Nothing human reaches it. Guard by who writes a field, not by what
+    the value looks like.
+    """
+    from comeni_core.decision import DecisionRecord
+
+    record = DecisionRecord(
+        key="dual.source:bam", subject="source:bam", candidates=["dual.bam", "solo.bam"],
+        chosen="dual.bam", reason="r", resolved_by="flag-only",
+    )
+    assert record.chosen == "dual.bam"
+
+    # The same string typed by a person is still refused, which is the whole scoping.
+    with pytest.raises(ValidationError):
+        DecisionRecord(
+            key="k", subject="s", chosen=None, reason="r", resolved_by="human",
+            human_override="/data/patients/PT-4471023/S1_R1.fastq.gz",
+        )
