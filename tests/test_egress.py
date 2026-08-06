@@ -5,6 +5,8 @@ whose contents say "these are all the ways data leaves this building" — which 
 the moment a person should be thinking, and this test is what makes them.
 """
 
+import enum
+import types
 import typing
 from collections import abc
 
@@ -118,6 +120,19 @@ def _mentions_mapping(annotation: object) -> bool:
     return any(_mentions_mapping(arg) for arg in typing.get_args(annotation))
 
 
+def _mentions_any(annotation: object) -> bool:
+    """`Any` is the annotation, never metadata — which is why the old rule could not fire.
+
+    `test_no_payload_carries_an_untyped_container` called `_mentions(annotation, typing.Any)`,
+    and `_mentions` searches `__metadata__` for a marker object. `typing.Any` is never an
+    `Annotated` metadata element, so the predicate was `False` for every annotation that has
+    ever existed and the rule had never been able to fail. Audit A20.
+    """
+    if annotation is typing.Any:
+        return True
+    return any(_mentions_any(arg) for arg in typing.get_args(annotation))
+
+
 def _mentions_binary(annotation: object) -> bool:
     """`bytes` is not `str`, not a mapping, not `Any`, and carried no marker.
 
@@ -139,6 +154,76 @@ def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
         for name, annotation in hints.items()
         if name in model.model_fields and _mentions(annotation, marker)
     }
+
+
+_PERMITTED_TERMINALS = (int, float, bool, type(None))
+_PERMITTED_CONTAINERS = (list, frozenset)
+
+
+def _leaf_problems(
+    annotation: object, where: str, models: set[type[BaseModel]], marked: bool = False
+) -> list[str]:
+    """Every leaf of an annotation that is not a declared shape. **An allowlist.**
+
+    The four rules below this one enumerate forbidden shapes, which is why each audit finds
+    the next one — `Mapping` and `bytes` in round one, then `object`, `Path` and `Any` in
+    round two. The space of Python annotations is open and a blocklist can only forbid what
+    somebody named.
+
+    This asks the opposite question. The permitted set is a transcription of what the payload
+    graph already holds: 22 models, `list` and `frozenset` and nothing else, eight terminal
+    kinds. Anything outside it fails and the person adding it edits this function.
+
+    `marked` tracks whether an enclosing `Annotated` carried a `Mark`, because that is what
+    makes a `str` declared. It is *some* metadata element, never all — `HumanParamValue`
+    legitimately carries an `AfterValidator` alongside, and requiring all would break A3's fix.
+    """
+    metadata = getattr(annotation, "__metadata__", ())
+    if metadata:
+        inner = typing.get_args(annotation)[0]
+        seen = marked or any(isinstance(meta, Mark) for meta in metadata)
+        return _leaf_problems(inner, where, models, seen)
+
+    origin = typing.get_origin(annotation)
+    if origin in (typing.Union, types.UnionType) or origin in _PERMITTED_CONTAINERS:
+        return [
+            problem
+            for arg in typing.get_args(annotation)
+            for problem in _leaf_problems(arg, where, models, marked)
+        ]
+    if origin is not None:
+        name = getattr(origin, "__name__", repr(origin))
+        return [f"{where}: `{name}` is not a declared container (only list and frozenset are)"]
+
+    if annotation is str:
+        if marked:
+            return []
+        return [f"{where}: a bare `str` — annotate it with a `Mark`"]
+    if annotation in _PERMITTED_TERMINALS:
+        return []
+    if isinstance(annotation, type):
+        if issubclass(annotation, enum.Enum):
+            return []
+        if issubclass(annotation, BaseModel) and annotation in models:
+            return []
+    return [f"{where}: `{annotation}` is not a declared shape"]
+
+
+def test_every_payload_field_is_a_declared_shape():
+    """Invariant 14, asked as an allowlist rather than as four prohibitions.
+
+    Audit A19 (`object`), A20 (`Any`) and A30 (`Path`) are all the same defect: a shape the
+    guard was not written against is silence. This closes them together with everything
+    round three would otherwise find.
+    """
+    models = _payload_types()
+    offenders: list[str] = []
+    for payload in sorted(models, key=lambda m: m.__name__):
+        hints = typing.get_type_hints(payload, include_extras=True)
+        for name, annotation in hints.items():
+            if name in payload.model_fields:
+                offenders += _leaf_problems(annotation, f"{payload.__name__}.{name}", models)
+    assert offenders == [], "these payload fields are not declared shapes:\n" + "\n".join(offenders)
 
 
 def test_the_doors_are_exactly_four():
@@ -227,6 +312,9 @@ def test_no_payload_carries_an_untyped_container():
     offenders = []
     for payload in _payload_types():
         for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
-            if name in payload.model_fields and _mentions(annotation, typing.Any):
+            if name in payload.model_fields and _mentions_any(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
-    assert offenders == []
+    assert offenders == [], (
+        "these fields are `Any`, which defeats every other rule here: "
+        + ", ".join(sorted(offenders))
+    )
