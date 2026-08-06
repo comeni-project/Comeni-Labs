@@ -325,6 +325,7 @@ conversation is a loose end lost.
 | ~~8~~ | ~~the emitted spine is not runnable~~ | **done** — Plan 1.5 |
 | 10 | answering a tier-4 parameter clears the flag without changing the pipeline | Plan 2's Task 11, or a decision now |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
+| 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
 
 ## Commands
 
