@@ -8,6 +8,7 @@ The audit is `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; every fin
 there records how it was reproduced, which is what these tests are the standing version of.
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -597,3 +598,78 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
             key="k", subject="s", chosen=None, reason="r", resolved_by="human",
             human_override="/data/patients/PT-4471023/S1_R1.fastq.gz",
         )
+
+
+def test_a4_gate_is_one_class_in_two_places():
+    """`Gate` moves to comeni-core so `PublishBundle` can name one. Not a copy.
+
+    Same move `Goal` and `DataProfile` made, with the same shim: `comeni-core` must not
+    depend on the compiler, and the *command lines* stay in the compiler because those are
+    how a gate is run and the core has no business knowing.
+    """
+    from comeni_core.gates import Gate as CoreGate
+    from mendel_compiler.gates import Gate as CompilerGate
+
+    assert CoreGate is CompilerGate
+    assert [g.value for g in CoreGate] == ["lint", "preview", "stub", "test"]
+
+
+def test_a4_a_bundle_records_which_gate_it_passed():
+    """A4 — only `--gate test` sees a contract pointing channels at the wrong inputs.
+
+    nf-core stubs never read their inputs, so conformance, `nextflow lint` and `-stub-run`
+    all pass a mis-wired pipeline. Requiring `--gate test` to publish was rejected as a
+    floor (minutes, Docker and network per publish); recording what ran lets a curator
+    refuse a bundle that never ran the only gate that checks wiring. `PipelineIR.unverified`
+    set the precedent.
+    """
+    from comeni_core.egress import PublishBundle
+    from comeni_core.gates import Gate
+    from comeni_core.goal import Goal
+    from comeni_core.ir import PipelineIR
+
+    assert PublishBundle(goal=Goal(), ir=PipelineIR()).gate is None
+    passed = PublishBundle(goal=Goal(), ir=PipelineIR(), gate=Gate.TEST)
+    assert passed.gate is Gate.TEST
+    # `None` must be distinguishable from "passed lint" — an absent gate is not a weak
+    # gate, it is no evidence at all, and a curator reads the two differently.
+    assert json.loads(passed.model_dump_json())["gate"] == "test"
+    assert json.loads(PublishBundle(goal=Goal(), ir=PipelineIR()).model_dump_json())["gate"] is None
+
+
+def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
+    from mendel_compiler import cli
+    from mendel_compiler.gates import GateResult
+
+    monkeypatch.setattr(
+        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
+    )
+    out = tmp_path / "p"
+    assert cli.main([
+        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".", "--gate", "lint",
+    ]) == 0
+    assert json.loads((out / "pipeline.bundle.json").read_text())["gate"] == "lint"
+
+
+def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
+    """Publication is the door with no undo, so a bundle must not survive a failed gate.
+
+    The bundle was written *before* the gate ran, so `publish --gate test` left a bundle on
+    disk and returned 1 — an artifact claiming to be a pipeline that had just failed the
+    only gate that checks wiring. Same posture `mendel upgrade` already takes: a refused
+    run emits nothing.
+    """
+    from mendel_compiler import cli
+    from mendel_compiler.gates import GateResult
+
+    monkeypatch.setattr(
+        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=False, stdout="no")
+    )
+    out = tmp_path / "p"
+    assert cli.main([
+        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".", "--gate", "lint",
+    ]) == 1
+    assert not (out / "pipeline.bundle.json").exists()
+    assert not (out / "mendel.lock.yml").exists()

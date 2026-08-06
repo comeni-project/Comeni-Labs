@@ -179,23 +179,6 @@ def _build(argv: list[str] | None = None) -> int:
             )
         )
 
-    if args.command == "publish":
-        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
-        # to, why each choice was made, and against exactly which registry. All four, or
-        # the recipient can neither reproduce it nor audit it.
-        #
-        # This writes files and sends nothing. Transmitting them is a later, separate act,
-        # which is the right shape for the door with no undo: a person can read what they
-        # are about to publish.
-        lockfile = Lockfile.of(ir, registry, loaded.paths)
-        bundle = PublishBundle(
-            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile
-        )
-        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
-        (args.out / "mendel.lock.yml").write_text(
-            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
-        )
-
     if previous is not None:
         # Nothing upgrades implicitly. Drift is what the registry did underneath the
         # lockfile; changes are what that did to *this* pipeline. Both, because a contract
@@ -240,6 +223,7 @@ def _build(argv: list[str] | None = None) -> int:
     for item in flagged:
         print(f"  REVIEW  {item}", file=sys.stderr)
 
+    passed: Gate | None = None
     if args.gate is not None:
         if args.gate is Gate.STUB:
             materialise_stub_data(args.out, entry_params(ir, registry, vocab))
@@ -248,6 +232,30 @@ def _build(argv: list[str] | None = None) -> int:
         if not result.passed:
             print(result.output, file=sys.stderr)
             return 1
+        passed = result.gate
+
+    if args.command == "publish":
+        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
+        # to, why each choice was made, and against exactly which registry. All four, or
+        # the recipient can neither reproduce it nor audit it.
+        #
+        # This writes files and sends nothing. Transmitting them is a later, separate act,
+        # which is the right shape for the door with no undo: a person can read what they
+        # are about to publish.
+        #
+        # **After the gate, not before.** It used to run above, so `publish --gate test`
+        # wrote the bundle, ran the gate, and returned 1 — leaving an artifact on disk
+        # that had just failed the only gate which checks wiring. `mendel upgrade` already
+        # took the opposite posture, and a refused publish must emit nothing for the same
+        # reason, more so: this is the door with no undo. Audit A4.
+        lockfile = Lockfile.of(ir, registry, loaded.paths)
+        bundle = PublishBundle(
+            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile, gate=passed
+        )
+        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
+        (args.out / "mendel.lock.yml").write_text(
+            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
+        )
     return 0
 
 

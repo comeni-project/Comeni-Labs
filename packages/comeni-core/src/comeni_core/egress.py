@@ -17,6 +17,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.decision import DecisionRecord
+from comeni_core.gates import Gate
 from comeni_core.goal import Goal
 from comeni_core.ir import PipelineIR
 from comeni_core.lockfile import Lockfile
@@ -106,6 +107,20 @@ class PublishBundle(EgressPayload):
     ir: PipelineIR
     decisions: list[DecisionRecord] = []
     lockfile: Lockfile = Lockfile()
+    gate: Gate | None = None
+    """The strongest gate this pipeline actually passed, or `None` if none ran. Audit A4.
+
+    A contract can point channels at the wrong inputs and pass conformance, `nextflow
+    lint`, `-preview` and `-stub-run`, because nf-core stubs never read their inputs. Only
+    `--gate test` runs the tools on data. Requiring it to publish was considered and
+    rejected — minutes, Docker and network per publish is too high a floor — so the bundle
+    carries the evidence instead and a curator may refuse one that never ran the gate that
+    checks wiring. `PipelineIR.unverified` set that precedent: state what was not checked
+    rather than pretend it was.
+
+    `None` is not a weak gate. It is no evidence at all, and must read differently from
+    `lint`.
+    """
 
 
 DOORS: dict[str, type[EgressPayload]] = {
