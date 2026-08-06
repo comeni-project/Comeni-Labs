@@ -1107,6 +1107,48 @@ packages cannot import an HTTP client" is false as written.
 
 ---
 
+### Task 11B: `make check` is not verification, and nothing said so
+
+**Found during execution, 2026-08-06.** Tasks 7, 9 and 10 changed `router.py`, `resolve.py`,
+`rules.py`, `marks.py` and `cli.py`, and each was reported verified on `make -j1 check` alone.
+That target is `lint test types`, and `test` inherits `addopts = "-m 'not slow'"` from
+`pyproject.toml` — so it silently deselects `tests/test_counts.py`, the two tests that run
+`--gate test` on the nf-core dataset and assert the counts matrix is right. **The one check
+that proves the v1 criterion is the one the habitual command omits.**
+
+The operator asked whether they had been run. They had not. They passed — 2 passed in 44s on
+a warm cache — so nothing was broken, and that is the point: the cost of running them was
+never the reason for skipping them. There was no reason. There was a habit, and no command
+that made the full set the easy thing to type.
+
+**This is A14's class, not a new one.** A14 says a guard that has never been watched failing
+may be inert. Its fourth instance is the same shape one level up: *a check that is never run
+is not a check*, and reasoning about why it would have passed is not evidence that it did.
+Both failures look identical from outside — green, and green for the wrong reason.
+
+**Files:**
+- Modify: `Makefile`
+- Modify: `CLAUDE.md` (the Commands section)
+
+- [ ] **Step 1:** `make verify` — `check`, then `pytest -m slow`, then the three guards, then
+      `tools/check_registry_drift.py`. Cheapest first, the same ladder principle the gates use.
+- [ ] **Step 2:** The drift checker takes a path to a `comeni-registry` checkout and not every
+      developer has one. **Skip with a message rather than fail** when it is absent: a target
+      that fails for a missing optional checkout is a target people stop running, which is the
+      failure being fixed.
+- [ ] **Step 3:** `make help` must say it needs Docker and takes minutes, so nobody reaches for
+      it expecting the one-minute gate.
+- [ ] **Step 4:** In `CLAUDE.md`'s Commands section, write down **when it is required**: any
+      change touching `resolve.py`, `router.py`, `rules.py` or `mendel_compiler/cli.py`.
+      `make check` stays exactly what it is — the pull-request gate — and the sentence to add
+      is that it is *not* verification of those files. Naming the files is the point; "use
+      judgement" is what produced this.
+- [ ] **Step 5:** Run `make verify` end to end and paste the real numbers into the commit
+      message, not a summary of them.
+- [ ] **Step 6:** Commit `build: make verify runs what a routing change actually needs`
+
+---
+
 ### Task 12: Documentation, and the next audit
 
 - [ ] **Step 1:** Mark A1–A13 ✅ in the audit document, each with the commit that closed it.
@@ -1131,6 +1173,12 @@ packages cannot import an HTTP client" is false as written.
          code.
       3. That same edge test asserted over an empty loop: two aligner *contracts* route only
          one, so no source ambiguity ever arose.
+      4. **A check that is never run is not a check.** Tasks 7, 9 and 10 were each reported
+         verified on `make check`, which deselects the two tests that prove the v1 criterion.
+         Nothing was broken, and the cost of running them was 44 seconds — so the omission
+         had no reason behind it, only a habit and a missing command. Task 11B is the fix;
+         the instance belongs here because from outside it is indistinguishable from (1)–(3):
+         green, for the wrong reason.
 
       File it **critical**. A1, A2 and A6 are each an instance of it — a guard reasoning about
       the surface it was written against — and the product claim rests on guards that mean
@@ -1179,6 +1227,7 @@ packages cannot import an HTTP client" is false as written.
 ## Verification
 
 ```bash
+make verify                       # everything below, in one command — Task 11B
 make -j1 check                    # unfiltered; MAKEFLAGS carries -j12 and has hidden a lint failure
 uv run pytest -m slow             # the counts matrix — Task 6 changes module selection
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
