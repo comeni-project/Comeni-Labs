@@ -12,17 +12,19 @@ inference rather than execution it says so.
 > bugs; they are the third instance of one design decision, and fixing them individually
 > guarantees a fourth instance in round three. The unit of work has to be the decision.
 
-| Root | The design problem | Findings | Verified by |
+Specs are in [`../specs/`](../specs/), one per root, all written 2026-08-07.
+
+| Root | The design problem | Findings | Spec |
 |---|---|---|---|
-| **A** | the egress boundary enumerates forbidden shapes | A19, A20, A30 | execution |
-| **B** | four kinds of declared data, four hand-rolled loaders | A22, A23, A24, A25, A26 | inspection + execution |
-| **C** | generated artifacts are assembled by raw interpolation | A27, A34 | execution |
-| **D** | "did it change?" is asked of the IR, not the artifact | A28 | inspection + execution |
-| **E** | declared IDs are labels, not domains | A18, A29, A32, *(A16)* | execution |
-| **F** | a guard that reimplements its subject | A21 | execution |
-| **G** | a file is not readable in only one way | A31, A26 | execution |
-| **H** | the AI seam is untyped, and Plan 2 lands on it | A32, A33 | inspection |
-| **I** | a guard nobody watched fail may be inert | *(A14)* | four instances |
+| **A** | the egress boundary enumerates forbidden shapes | A19, A20, A30 | [A](../specs/2026-08-07-root-a-egress-allowlist.md) |
+| **B** | four kinds of declared data, four hand-rolled loaders | A22, A23, A24, A25, A26 | [B](../specs/2026-08-07-root-b-a-layer-is-one-thing.md) |
+| **C** | generated artifacts are assembled by raw interpolation | A27, A34 | [C](../specs/2026-08-07-root-c-nothing-is-interpolated.md) |
+| **D** | "did it change?" is asked of the IR, not the artifact | A28 | [D](../specs/2026-08-07-root-d-the-verdict-comes-from-the-artifact.md) |
+| **E** | declared IDs are labels, not domains | A18, A29, A32, *(A16)* | [E](../specs/2026-08-07-root-e-a-declared-id-names-something.md) |
+| **F** | a guard that reimplements its subject | A21 | [F](../specs/2026-08-07-root-f-a-guard-calls-its-subject.md) |
+| **G** | a file is not readable in only one way | A31, A26 | [G](../specs/2026-08-07-root-g-a-file-reads-one-way.md) |
+| **H** | the AI seam is untyped, and Plan 2 lands on it | A32, A33 | [H](../specs/2026-08-07-root-h-the-seam-is-a-door.md) |
+| **I** | a guard nobody watched fail may be inert | *(A14)* | [I](../specs/2026-08-07-root-i-every-guard-is-watched-failing.md) |
 | — | A17 is deliberately unclustered — see the last section | A17 | execution |
 
 ---
