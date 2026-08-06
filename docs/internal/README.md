@@ -30,8 +30,9 @@ the order.
 | 4 | `2026-08-05-conformance-checking.md` | Plan 1.6 — **complete** |
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
 | 6 | `2026-08-06-closing-the-audit.md` | Plan 1.8 — **complete.** Closed A1–A13 and A15; A14 and A16 stay open |
-| 7 | `2026-08-02-mendel-ai-and-forge.md` | **Plan 2 — next.** Predates the types it references; rewrite before executing |
-| 8 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **next.** Nine parts, one per root cause of A17–A35 |
+| 8 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 9 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 
