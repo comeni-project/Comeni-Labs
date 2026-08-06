@@ -121,9 +121,17 @@ Rosalind from Franklin.
 
 Violating any of these breaks the product claim, not just a test.
 
-1. **`comeni-core`, `mendel-resolver` and `mendel-compiler` import no web framework, no HTTP
-   client, and no LLM library.** Enforced by an AST test in `tests/test_purity.py`. If a
-   change to those packages seems to need such an import, the design is wrong.
+1. **`comeni-core`, `mendel-resolver` and `mendel-compiler` do not reach the network.** Two
+   partial guards, and the claim is their union — say *do not*, never *cannot*. A static AST
+   scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
+   `exec`/`eval`/`compile`, and a module reached as an attribute of an allowed one; a runtime
+   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and
+   fails if any socket or process event comes from a frame in those packages. Neither is
+   complete: the scan cannot see a two-link attribute chain or a `getattr`, and the hook only
+   covers code a build reaches. **Audit A1 defeated the scan alone** — a file importing only
+   `pathlib` and `typing` reached `os.system` via `pathlib.os` and delivered a serialised
+   `Goal` over TCP while the guard reported green. If a change to those packages seems to need
+   such an import, the design is wrong.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** The forge drafts
    contracts, rules and vocabulary states — a person approves them into `contracts/`,
    `rules/`, `vocabularies/`. Nothing writes there automatically.
@@ -281,10 +289,17 @@ lockfile pinning contract digests and module versions. Three tiers — private, 
 never mechanical). Editing a curated pipeline replays every untouched decision from its
 record, so only what you touched can move. See the federation spec.
 
-**Telemetry is opt-in and off by default.** Invariant 1 makes this structural rather than a
-promise: the pure packages cannot import an HTTP client, so telemetry can only live in
-`mendel-api`. Anything that would put a network call in `comeni-core`, `mendel-resolver` or
-`mendel-compiler` fails `tests/test_purity.py`, which is the intended outcome.
+**Telemetry is opt-in and off by default.** Invariant 1 is what enforces it: telemetry lives
+in `mendel-api`, and a network call added to `comeni-core`, `mendel-resolver` or
+`mendel-compiler` fails `tests/test_purity.py` or `tests/test_purity_runtime.py`.
+
+This used to be sold as *structural* — "the pure packages **cannot** import an HTTP client" —
+and that was false as written. Audit A1 built a `comeni_core/telemetry.py` importing only
+allowlisted names that opened a TCP socket and shipped a `Goal` down it, with the guard green.
+The guards are now stronger and the claim is now weaker, which is the right direction for
+both: **cost-raising, not a proof.** A determined author of code in this repository can still
+reach the network from a pure package. What they cannot do is reach it *by accident*, or
+reach it and have the tests say nothing.
 
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
@@ -337,7 +352,8 @@ make check                       # lint + tests + stub freshness — the CI gate
 make static                      # conformance + nextflow lint + preview; no Docker, ~6s
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
-uv run pytest tests/test_purity.py tests/test_egress.py tests/test_construction.py  # the guards
+uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
+  tests/test_egress.py tests/test_construction.py               # the guards
 
 # why a contract was refused, at length. Codes M0100–M0107.
 uv run mendel explain M0104
