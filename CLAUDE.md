@@ -143,8 +143,12 @@ Violating any of these breaks the product claim, not just a test.
    complete: the scan cannot see a two-link attribute chain or a `getattr`, and the hook only
    covers code a build reaches. **Audit A1 defeated the scan alone** — a file importing only
    `pathlib` and `typing` reached `os.system` via `pathlib.os` and delivered a serialised
-   `Goal` over TCP while the guard reported green. If a change to those packages seems to need
-   such an import, the design is wrong.
+   `Goal` over TCP while the guard reported green. **Audit A17 then defeated both**, with a
+   libc socket obtained through `ctypes`: FFI raises `ctypes.dlopen`/`dlsym` rather than any
+   `socket.*` event, so it was outside the union rather than a gap in either half. `ctypes` is
+   now banned statically and watched at runtime — a pure package has no legitimate FFI need,
+   which is what makes that entry costless in a way `subprocess` never could be. If a change
+   to those packages seems to need such an import, the design is wrong.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** The forge drafts
    contracts, rules and vocabulary states — a person approves them into `contracts/`,
    `rules/`, `vocabularies/`. Nothing writes there automatically.

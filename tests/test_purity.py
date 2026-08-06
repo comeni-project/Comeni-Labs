@@ -53,6 +53,12 @@ BANNED_PREFIXES = (
     # urllib.request is every bit an HTTP client.
     "urllib", "http", "socket", "ssl", "ftplib", "smtplib", "telnetlib", "asyncio",
     "xmlrpc", "webbrowser",
+    # Foreign function interface. `ctypes.CDLL("libc.so.6")` reaches `socket`, `connect` and
+    # `send` without touching Python's socket module, so no Python-level audit event fires
+    # and the runtime guard sees nothing either. A pure package has no legitimate FFI need —
+    # unlike `subprocess`, which `mendel-compiler` genuinely requires — so unlike the rest of
+    # this banlist there is no counter-case. Audit A17.
+    "ctypes",
 )
 
 # Naming a module at runtime defeats any import-statement check.

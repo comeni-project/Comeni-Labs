@@ -44,6 +44,9 @@ WATCHED = frozenset(
         "urllib.Request", "ftplib.connect", "smtplib.connect", "smtplib.send",
         # process execution
         "subprocess.Popen", "os.system", "os.exec", "os.posix_spawn", "os.fork", "os.forkpty",
+        # foreign function interface — the shape outside the union. A libc socket obtained
+        # through ctypes raises these and none of the events above. Audit A17.
+        "ctypes.dlopen", "ctypes.dlsym", "ctypes.call_function", "ctypes.cdata",
     }
 )
 """Unambiguous events: a pure package has no business doing any of these.
