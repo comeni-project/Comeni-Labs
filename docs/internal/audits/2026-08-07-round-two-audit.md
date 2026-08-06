@@ -99,6 +99,20 @@ include { lab_sort (module) = lab/evil/sorter@1.0.0: from 'lab', displacing 'com
 
 A guard added to report untrusted data was itself corrupted by that data.
 
+**And there is a second output surface.** `nextflow.config` is assembled by Python f-strings
+rather than by the template, and `withName: {contract.nf_process}` is raw. The same contract
+injects there too, so a fix confined to `main.nf.j2` would have closed half of it:
+
+```
+process {
+    withName: LAB_SORT { ext.args = '' }
+println 'CONFIG SURFACE ALSO INJECTABLE'
+withName: OTHER { ext.args = '--flag' }
+```
+
+`ext_args` on the same line *is* escaped through `_render_literal`. Two disciplines, one line
+apart.
+
 **Why this is not A27 with a different field.** A27 is prose reaching a comment. This is an
 *identifier* reaching a declaration, and identifiers are the load-bearing text in the emitted
 file. Fixing `reason` alone leaves five interpolation points open. The root is that the emitter
