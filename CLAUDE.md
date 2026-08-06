@@ -60,7 +60,9 @@ that was watched failing. **Round two is the next thing to run**, before Plan 2.
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
 | `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
-| `docs/internal/audits/2026-08-07-round-two-brief.md` | **how to run round two. Revert and watch, not read.** |
+| `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
+| `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A34. Seven critical, all open.** |
+| `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are written per root, not per finding.** |
 | `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
