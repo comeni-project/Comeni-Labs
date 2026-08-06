@@ -37,6 +37,7 @@ and holds A1–A16.
 | A32 | the `AmbiguityResolver` seam is untyped — the object Plan 2 hands a model | important | E/H | reviewer 2 |
 | A33 | four smaller observations at the AI seam | minor | H | reviewer 2 |
 | A34 | `nf_process` injects Groovy through an unverified contract; every emitted identifier is unescaped registry data | critical | **C** | coordinator |
+| A35 | a vocabulary overlay *replaces* a type's states instead of extending them | important | **B** | coordinator |
 
 Roots are the clusters in [`2026-08-07-root-causes.md`](2026-08-07-root-causes.md). A17 is
 deliberately unclustered — see there.
@@ -295,6 +296,35 @@ union is the claim." FFI is outside the union, and the wording did not anticipat
 ---
 
 ## Important
+
+### ⬜ A35. A vocabulary overlay replaces a type's states instead of extending them
+
+`comeni_core/vocabulary.py:74`
+
+Found while writing root B's spec. `Vocabulary.load` does
+`types[type_id] = frozenset(data.get("states", []))` — an unconditional replace — while
+`entry_channel` and `test_data` two lines below replace *only when present*. So merge behaviour
+differs **within a single loader**, and the unconditional one is the destructive direction.
+
+The method's own docstring promises the opposite: *"A laboratory adding a state … needs types to
+stack the way contracts already do."*
+
+```
+base states : ['deduplicated', 'subsampled', 'trimmed']
+overlay     : states: [phix_removed]
+stacked     : ['phix_removed']              ← the other three are gone
+entry_channel survived: True                ← because the overlay did not declare one
+```
+
+End to end it is loud but misdirected — exit 1 with an unhandled traceback,
+`UnknownStateError: 'trimmed' is not a declared state for 'fastq.reads'`, naming the base
+contract that used the state rather than the overlay that removed it. Same presentation class as
+A33's symlink case.
+
+Closed by root B's explicit merge policy: default replace, `add_states` to extend, matching the
+`add_values` convention measurements already have.
+
+---
 
 ### ⬜ A24. A vocabulary overlay silently replaces a type's entry channel
 
