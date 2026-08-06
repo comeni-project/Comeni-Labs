@@ -11,7 +11,37 @@ fixtures rather than as a shipped registry.
 
 ## [Unreleased]
 
+### Security
+
+- **The 2026-08-06 audit's thirteen findings are closed** (A1–A13), plus A15, found while
+  fixing A5. See `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; **A14 and A16 remain
+  open**, deliberately, and are described there.
+- **Invariant 1 is enforced at runtime, and its claim is now accurate.** A file in
+  `comeni-core` importing only allowlisted names reached `os.system` via `pathlib.os` and
+  delivered a serialised `Goal` over TCP while the purity guard reported green.
+  `tests/test_purity_runtime.py` installs an audit hook over a real build and fails on any
+  socket or process event from a pure package; the static scan gained bare
+  `exec`/`eval`/`compile` and module-attribute chains. `CLAUDE.md` no longer says the pure
+  packages *cannot* reach the network — they *do not*, which is what two partial guards
+  support.
+- **An installed overlay can no longer reroute a pipeline silently** (invariant 11).
+  `ResolvedValue` records which layer supplied a contract or a rule block, and flags the case
+  where a lower layer offered something that lost. Contracts and rule tables both, the second
+  of which recorded nothing at all.
+- **`mendel publish` no longer writes a bundle when its gate fails**, and a bundle records
+  which gate it passed. `Gate` moved to `comeni_core.gates` with a shim at the old location.
+- **A path can no longer be typed into a parameter.** `DecisionRecord.human_override` and a
+  goal's `ParamOverride.value` reject path-shaped values. A blocklist and a stopgap; closed
+  parameter vocabulary in Plan 2 Task 11 is the real fix.
+- The egress guard learned `Mapping` and `bytes`; a registry layer may not contain a symlink;
+  a contract is pinned by its file rather than by what survived parsing; `resolve()` validates
+  the profile it was handed rather than trusting `mendel build` to have done it.
+
 ### Added
+
+- **`make verify`** — `check` + the counts-matrix tests + the guards + registry drift, in
+  order, with `-j1` where it matters. `make check` deselects the only tests that exercise the
+  v1 criterion, and naming that in a Makefile target beats remembering it.
 
 - **A pipeline is a shareable artifact.** `mendel publish` writes a `PublishBundle` — goal,
   IR, decision records and a lockfile — plus `mendel.lock.yml` pinning every contract used

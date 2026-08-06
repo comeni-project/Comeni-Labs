@@ -15,12 +15,13 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, Plan 1.5, Plan 1.6 and Plan 1.7 are complete.** 300 fast tests green,
+**Plans 1, the measurements plan, 1.5, 1.6, 1.7 and 1.8 are complete.** 362 fast tests green,
 `ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
 produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
 strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
-excludes it and stays a one-minute gate. `comeni-core`, `mendel-resolver` and `mendel-compiler`
-exist. Nothing AI-shaped is built.
+excludes it and stays a one-minute gate, and **`make verify` is the one that runs both** —
+see Commands, because `make check` alone is not verification of a routing change.
+`comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
 
 **`mendel build` now refuses a contract that disagrees with its module** — seven diagnostics
 against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
@@ -38,9 +39,16 @@ is that layer.
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
 written against the types that exist.
 
-The 2026-08-03 audit's defects (C1–C4) are all closed. **The 2026-08-06 audit's thirteen (A1–A13)
-are all open** — see `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`. Nothing produces
-wrong output today, but three guards and two Plan 1.7 mechanisms do not do what they claim.
+The 2026-08-03 audit's defects (C1–C4) are all closed. **The 2026-08-06 audit's A1–A13 are
+closed too**, plus A15, which Plan 1.8 found while fixing A5 — an overlay rule block replaced a
+lower layer's and recorded nothing. **A14 and A16 are open.**
+
+**A14 is critical and open on purpose**, so the fix-then-re-audit loop has *not* exited: its
+criterion is that no critical finding survives. A14 is that a guard never watched failing may be
+inert rather than merely weak — four instances in one day, each a test that passed against
+deliberately broken code — and it closes only when every guard in `tests/` has a recorded revert
+that was watched failing. **Round two is the next thing to run**, before Plan 2. A16 is the
+`DecisionRecord.chosen` type conflation, deferred to Plan 2 Task 11.
 
 | Read this | For |
 |---|---|
@@ -52,14 +60,14 @@ wrong output today, but three guards and two Plan 1.7 mechanisms do not do what 
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
 | `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
-| `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **13 findings through Plan 1.7, none fixed. Read A8 and A9 before Plan 2.** |
+| `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
 | `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
 | `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
 | `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
-| `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closes A1–A13. **Next.** Task 6 must land before Plan 2. |
+| `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -78,9 +86,9 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5, 1.6 and 1.7 are complete; **Plan 1.8 is next**, then Plan 2, then Plan 3.
-  Plan 1.8 closes the 2026-08-06 audit and is sequenced there because its Task 6 fixes the
-  `AmbiguityResolver` port that Plan 2 plugs a model into. That file now also
+  a date. Plans 1.5–1.8 are complete; **audit round two is next**, then Plan 2, then Plan 3.
+  Round two comes first because A14 is critical and open, and the loop's exit criterion is
+  that no critical finding survives. That file now also
   says *why* that order, including the argument against it — the sequence was asserted and
   believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that

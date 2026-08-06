@@ -522,7 +522,14 @@ checked.
 **Verified before writing this task:** `resolve()` has eight call sites — `cli.py:150`,
 `mendel_resolver/__init__.py:15`, `tests/test_runnable.py` ×3, `tests/test_spine_contracts.py`,
 `tests/test_lockfile.py`, `packages/comeni-core/tests/test_ir_profile.py` ×2. Every one already
-holds a `Layers`, so every one has `loaded.measurements` to hand. **Make it required, not
+holds a `Layers`, so every one has `loaded.measurements` to hand.
+
+> **Corrected during execution.** Eight was wrong: the task found **twelve, plus
+> `packages/mendel-resolver/README.md`**, because the grep behind the number was too narrow.
+> The figure is left above rather than overwritten, and the correction recorded here, because
+> a pre-flight count that the task then contradicts is how a plan silently becomes fiction.
+> The number has since moved again — Tasks 6 and 7 add call sites of their own — which is the
+> reason not to keep a running total: a plan is a record of what was true on its date. **Make it required, not
 optional with a default of `None`** — an optional guard is a guard the next verb forgets, which
 is the finding.
 
@@ -582,7 +589,7 @@ def resolve(
 Required rather than defaulted, and placed before `route()` so nothing is built from a profile
 that has not been checked.
 
-- [ ] **Step 4: Update all eight call sites**
+- [ ] **Step 4: Update all call sites** (eight predicted; twelve plus a README found)
 
 Each already has a `Layers`; pass `loaded.measurements`. No call site needs new plumbing —
 that is why this is the right place for the check.
