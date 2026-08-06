@@ -62,6 +62,29 @@ class DataProfile(BaseModel):
             }
         return data
 
+    @model_validator(mode="after")
+    def _one_entry_per_measurement(self) -> "DataProfile":
+        """Reject a repeated measurement, and sort.
+
+        `MeasurementRegistry.profile()` takes a `dict` and sorts it, so the validated path
+        was always normalised and the deserialised path never was. `get` returns the first
+        match, so two profiles asserting the same facts in a different order resolved to
+        different pipelines — invariant 10 held literally (same `Goal`, same bytes) and
+        failed in the sense anyone would rely on. Audit 2026-08-06, A13.
+
+        In the validator rather than in one constructor, because a profile arrives from a
+        published bundle as often as it is built, and a normalisation only one of two
+        entry points performs is the shape of half this audit's findings.
+        """
+        names = [m.measurement for m in self.measurements]
+        repeated = sorted({n for n in names if names.count(n) > 1})
+        if repeated:
+            raise ValueError(
+                f"a profile may state each measurement once; repeated: {', '.join(repeated)}"
+            )
+        self.measurements.sort(key=lambda m: m.measurement)
+        return self
+
     def get(self, measurement_id: str) -> ParamValue:
         return next(
             (m.value for m in self.measurements if m.measurement == measurement_id), None

@@ -8,11 +8,25 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 
 from comeni_core.vocabulary import Vocabulary
 
+_NO_EXTRAS = ConfigDict(extra="forbid")
+"""Every model a contract is built from forbids unknown keys.
+
+Pydantic ignores them by default, which cost two different things. `digest_of` hashes
+`model_dump_json()`, so a key that never survived parsing never reached the digest and two
+materially different files pinned identically — the lockfile promising "built against
+exactly this contract" and not keeping it. And a misspelled key loaded clean: `ext_arg:`
+for `ext_args:`, `state:` for `states:`, accepted, behaving differently from what it says,
+invisible to conformance checking because conformance compares a contract to its *module*
+and this is a contract disagreeing with itself.
+
+Audit 2026-08-06, A10. Verified when applied: this rejects nothing in the shipped registry.
+"""
+
 
 class Alternative(BaseModel):
     """One acceptable shape for a port: a type, and states that must all hold."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = _NO_EXTRAS
 
     type_id: str
     states: frozenset[str] = frozenset()
@@ -23,6 +37,8 @@ class Alternative(BaseModel):
 
 
 class InputPort(BaseModel):
+    model_config = _NO_EXTRAS
+
     name: str
     type_id: str = ""
     state_required: frozenset[str] = frozenset()
@@ -66,6 +82,8 @@ class InputPort(BaseModel):
 
 
 class OutputPort(BaseModel):
+    model_config = _NO_EXTRAS
+
     name: str
     type_id: str
     state: frozenset[str] = frozenset()
@@ -76,6 +94,8 @@ class OutputPort(BaseModel):
 
 
 class Param(BaseModel):
+    model_config = _NO_EXTRAS
+
     name: str
     tier_hint: int | None = None
     default: Any = None
@@ -99,6 +119,8 @@ class NfInput(BaseModel):
     lets the compiler emit a call for *any* module — a pegi3s image, an in-house
     process — not only for nf-core ones. Exactly one field is meaningful per entry.
     """
+
+    model_config = _NO_EXTRAS
 
     ports: list[str] = Field(default_factory=list)
     """Contract port names filling this channel, in tuple order."""
@@ -131,6 +153,8 @@ class NfInput(BaseModel):
 
 
 class Provenance(BaseModel):
+    model_config = _NO_EXTRAS
+
     source: str
     drafted_by: str
     approved_by: str
@@ -138,6 +162,8 @@ class Provenance(BaseModel):
 
 
 class ModuleContract(BaseModel):
+    model_config = _NO_EXTRAS
+
     id: str
     nf_process: str
     nf_include: str
@@ -173,6 +199,25 @@ class ModuleContract(BaseModel):
     """
 
     provenance: Provenance
+
+    @model_validator(mode="after")
+    def _one_binding_per_param(self) -> "ModuleContract":
+        """`IRNode.set_param` appends, so a duplicate here became two bindings there.
+
+        The emitter then sorted `(name, value)` pairs and fell through to comparing two
+        `ResolvedValue`s, which are not orderable — a traceback from the middle of the
+        compiler rather than the diagnostic `mendel explain` exists to give. Audit
+        2026-08-06, A11.
+
+        `Registry.load` already refuses a contract ID declared twice in one layer, because
+        resolving it by glob order would be the silent arbitrary pick invariant 8 exists to
+        prevent. Same argument, one level down; it was not made here.
+        """
+        names = [p.name for p in self.params]
+        repeated = sorted({n for n in names if names.count(n) > 1})
+        if repeated:
+            raise ValueError(f"{self.id} declares {', '.join(repeated)} more than once")
+        return self
 
     def input_signature(self) -> list[NfInput]:
         """What the process is actually called with.

@@ -17,6 +17,7 @@ only at import statements.
 
 import ast
 import pathlib
+import sys
 
 # Two shapes, because the packages genuinely differ. `comeni-core` and `mendel-resolver`
 # import almost nothing, so their permitted set can be *closed* — an allowlist has no
@@ -57,10 +58,37 @@ BANNED_PREFIXES = (
 # Naming a module at runtime defeats any import-statement check.
 DYNAMIC_IMPORTERS = ("__import__", "import_module")
 
+# `exec` and `eval` need no import at all, and `compile` builds what they run. A pure
+# package writing one of these is obtaining a module this file cannot see.
+CODE_EXECUTORS = ("exec", "eval", "compile")
+
+# Reaching a module as an *attribute* of an allowed one. `pathlib.os` is the `os` module,
+# and `os.system` is process execution; `typing.sys.modules["socket"]` is a socket. Both
+# were demonstrated by the 2026-08-06 audit against an unmodified tree, from a file
+# importing only `pathlib` and `typing`.
+#
+# Legitimate submodule access, which is a dotted *name* rather than a way of reaching a
+# module nobody imported.
+DOTTED_ALLOWED = frozenset({"collections.abc", "os.path", "importlib.metadata"})
+
+
+def _imported_names(tree: ast.AST) -> set[str]:
+    """Every name bound to a module by an `import` in this file."""
+    bound = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name)
+    return bound
+
 
 def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
     tree = ast.parse(path.read_text())
     where = path.relative_to(root)
+    bound = _imported_names(tree)
     found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -71,6 +99,31 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
             called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
             if called in DYNAMIC_IMPORTERS:
                 found.append(f"{where} calls {called}() — imports must be statically visible")
+            elif called in CODE_EXECUTORS and isinstance(node.func, ast.Name):
+                # `ast.Name` only: the *builtin*. `re.compile` is an `ast.Attribute` and is
+                # an ordinary method call on a module that is already allowlisted — four of
+                # them in `modulespec.py`, which is how this distinction got made.
+                found.append(
+                    f"{where} calls {called}() — it can obtain any module without an import, "
+                    "which is what this file is meant to be able to see"
+                )
+            continue
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            # `pathlib.os`, `typing.sys`: a module reached through another module. Raising
+            # the cost, **not closing the class** — an attribute chain two links long
+            # (`a.b.c`) or one built with `getattr` still walks past this. The runtime
+            # assertion in `test_purity_runtime.py` is the check that does not care how
+            # the callee was spelled.
+            dotted = f"{node.value.id}.{node.attr}"
+            if (
+                node.value.id in bound
+                and node.attr in sys.stdlib_module_names
+                and dotted not in DOTTED_ALLOWED
+            ):
+                found.append(
+                    f"{where} reaches `{dotted}` — that is the `{node.attr}` module as an "
+                    "attribute of an imported one, which no import statement declares"
+                )
             continue
         else:
             continue

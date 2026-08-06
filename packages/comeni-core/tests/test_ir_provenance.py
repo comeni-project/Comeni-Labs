@@ -29,6 +29,7 @@ def test_a_resolved_ir_records_the_layers_it_was_built_from():
         Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"]),
         loaded.registry,
         loaded.rules,
+        loaded.measurements,
         layer_names=[p.name for p in loaded.paths],
     )
     assert ir.registry_layers == ["registry"]
@@ -53,6 +54,7 @@ def test_a_resolved_ir_carries_the_shadow_records(tmp_path):
         ),
         loaded.registry,
         loaded.rules,
+        loaded.measurements,
         layer_names=[p.name for p in loaded.paths],
     )
     assert ir.registry_layers == ["registry", "lab"]
@@ -84,6 +86,7 @@ def test_a_shadow_record_names_the_layer_and_never_its_path(tmp_path):
         ),
         loaded.registry,
         loaded.rules,
+        loaded.measurements,
         layer_names=[p.name for p in loaded.paths],
     )
     assert [s.winning_layer for s in ir.shadowed] == ["lab"]
@@ -118,6 +121,7 @@ def test_the_ir_round_trips_with_its_provenance(tmp_path):
         ),
         loaded.registry,
         loaded.rules,
+        loaded.measurements,
         layer_names=[p.name for p in loaded.paths],
     )
     again = PipelineIR.model_validate_json(ir.model_dump_json())

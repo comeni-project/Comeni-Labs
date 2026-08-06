@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.digest import digest_of, digest_of_directory
 from comeni_core.ir import PipelineIR
+from comeni_core.layer import layer_name
 from comeni_core.marks import ContainerRef, ContractId, Digest, LayerName
 from comeni_core.registry import Registry
 
@@ -74,7 +75,11 @@ class Lockfile(BaseModel):
                 for contract_id in used
             ],
             layers=[
-                LockedLayer(name=path.name, digest=digest_of_directory(path))
+                # The manifest's name, not the directory's. A basename is not an identity:
+                # `--registry .` wrote `name: ''` into a published bundle, and a recipient
+                # who cloned the layer under a different directory name could not get a
+                # clean reproduction report. Audit 2026-08-06, A12.
+                LockedLayer(name=layer_name(path), digest=digest_of_directory(path))
                 for path in layers
             ],
         )
@@ -123,7 +128,7 @@ class Lockfile(BaseModel):
         # Task 8 names the public layer `registry/`, so a lab stacking it over their own
         # `registry/` hits it on day one.
         locked_names = [layer.name for layer in self.layers]
-        current = [(path.name, digest_of_directory(path)) for path in layers]
+        current = [(layer_name(path), digest_of_directory(path)) for path in layers]
         current_names = [name for name, _ in current]
 
         if locked_names != current_names:

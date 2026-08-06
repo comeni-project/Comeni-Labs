@@ -17,13 +17,14 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 from collections.abc import Callable
 
 from comeni_core.contract import InputPort, ModuleContract
-from comeni_core.decision import Ambiguity
+from comeni_core.decision import Ambiguity, DecisionRecord
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
 from comeni_core.registry import Registry
 from pydantic import BaseModel, Field
 
 from mendel_resolver.goal import Goal
+from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.rules import RuleTable
 
 
@@ -45,11 +46,22 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
+    from_layer: str | None = None
+    displaced_layer: str | None = None
+    """Which layer supplied the winner, and which lower layer it beat. Audit A5."""
 
 
 class RoutePlan(BaseModel):
     steps: list[RouteStep] = Field(default_factory=list)
-    ambiguities: list[Ambiguity] = Field(default_factory=list)
+    decisions: list[DecisionRecord] = Field(default_factory=list)
+    """Ambiguities met while routing, already resolved and recorded.
+
+    Records rather than bare `Ambiguity`s, because the resolver is now asked *here* — at
+    the point the choice is made and can still affect it. It used to be asked afterwards,
+    in `resolve()`, once `ir.nodes` and `ir.edges` were built, so its answer could only be
+    written down. A record made anywhere but where the decision is taken can disagree with
+    the decision. Audit 2026-08-06, A8.
+    """
 
 
 def _node_id(contract: ModuleContract) -> str:
@@ -77,10 +89,45 @@ def _surplus(contract: ModuleContract, type_id: str, states: frozenset[str]) -> 
     )
 
 
+def _displaced_layer(
+    registry: Registry, chosen: ModuleContract, candidates: list[ModuleContract]
+) -> str | None:
+    """The lowest layer that offered a candidate this winner beat, if any.
+
+    **Displacement, not origin.** A layer supplying a module no lower layer had is a lab
+    using the system as designed, and reporting it would put a notice beside every module
+    an overlay contributes — burying the one that rerouted the pipeline. Invariant 11 is
+    about an overlay *changing* what the base registry would have done.
+
+    Reads `candidates` after the cycle filter, so a contract excluded from contention did
+    not lose to anything and is not counted as displaced.
+    """
+    order = registry.layer_order
+    winning_layer = registry.layer_of.get(chosen.id)
+    if winning_layer is None or winning_layer not in order:
+        return None
+    winner_at = order.index(winning_layer)
+
+    beaten = [
+        order.index(layer)
+        for candidate in candidates
+        if candidate.id != chosen.id
+        and (layer := registry.layer_of.get(candidate.id)) is not None
+        and layer in order
+        and order.index(layer) < winner_at
+    ]
+    return order[min(beaten)] if beaten else None
+
+
 def route(
-    goal: Goal, registry: Registry, rules: RuleTable | None = None, max_depth: int = 10
+    goal: Goal,
+    registry: Registry,
+    rules: RuleTable | None = None,
+    resolver: AmbiguityResolver | None = None,
+    max_depth: int = 10,
 ) -> RoutePlan:
     plan = RoutePlan()
+    resolver = resolver or FlagOnlyResolver()
     emitted: set[str] = set()
 
     def satisfy(type_id: str, states: frozenset[str], depth: int, visiting: frozenset[str]) -> None:
@@ -95,7 +142,9 @@ def route(
         if not candidates:
             raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
 
-        chosen, tier, reason, pinned_by = _choose(type_id, states, candidates, goal, rules, plan)
+        chosen, tier, reason, pinned_by = _choose(
+            type_id, states, candidates, goal, rules, resolver, plan
+        )
 
         for port in chosen.consumes:
             try:
@@ -118,6 +167,8 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
+                    from_layer=registry.layer_of.get(chosen.id),
+                    displaced_layer=_displaced_layer(registry, chosen, candidates),
                 )
             )
 
@@ -162,6 +213,7 @@ def _choose(
     candidates: list[ModuleContract],
     goal: Goal,
     rules: RuleTable | None,
+    resolver: AmbiguityResolver,
     plan: RoutePlan,
 ) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None]:
     """Which contract produces `type_id` here, at which tier, and why."""
@@ -208,16 +260,40 @@ def _choose(
             None,
         )
 
-    plan.ambiguities.append(
-        Ambiguity(
-            node_id=_node_id(ordered[0]),
-            subject=f"producer:{type_id}",
-            candidates=sorted(c.id for c in ordered),
-            context={"states": sorted(states)},
+    ambiguity = Ambiguity(
+        node_id=_node_id(ordered[0]),
+        subject=f"producer:{type_id}",
+        candidates=sorted(c.id for c in ordered),
+        context={"states": sorted(states)},
+    )
+    resolution = resolver.resolve(ambiguity)
+    # The answer must *select*, not merely be recorded. Until 2026-08-06 this returned
+    # `ordered[0]` and the resolver was consulted afterwards, at the bottom of `resolve()`,
+    # purely to fill in a DecisionRecord — so a replayed or human-overridden module choice
+    # was accepted, written into the published bundle, and discarded. Nothing was wrong in
+    # output, because the only shipped resolver returns the candidate this code already
+    # picked; that agreement is exactly what hid it. Audit A8.
+    #
+    # Falling back to `ordered[0]` when the answer is not a candidate keeps the same
+    # posture `ReplayResolver._still_applies` already takes towards a record whose options
+    # have moved: a forged or stale answer is not trusted, it is ignored.
+    chosen = next((c for c in ordered if c.id == resolution.chosen), ordered[0])
+    plan.decisions.append(
+        DecisionRecord(
+            key=ambiguity.key(),
+            subject=ambiguity.subject,
+            candidates=ambiguity.candidates,
+            # What was built, not what was asked for. Recording `resolution.chosen` here
+            # would let the record drift from the pipeline again the moment the fallback
+            # above fires, which is the defect one level down.
+            chosen=chosen.id,
+            reason=resolution.reason,
+            confidence=resolution.confidence,
+            resolved_by=resolution.resolved_by,
         )
     )
     return (
-        ordered[0],
+        chosen,
         Tier.AMBIGUOUS,
         f"nothing distinguishes {', '.join(c.id for c in ordered)}; chosen by id order",
         None,

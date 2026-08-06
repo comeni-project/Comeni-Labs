@@ -191,7 +191,14 @@ def emit(
                         rendered=_render_literal(value.value),
                     ),
                 )
-                for name, value in sorted((b.name, b.value) for b in node.params)
+                # Sorted on the name alone. A tuple sort falls through to the second
+                # element when names tie, and `ResolvedValue` is not orderable — a
+                # duplicate binding died here with an uncaught TypeError. A contract can
+                # no longer declare one, but an IR deserialised from a bundle can still
+                # carry one, and this must not be where that is discovered. Audit A11.
+                for name, value in sorted(
+                    ((b.name, b.value) for b in node.params), key=lambda pair: pair[0]
+                )
             ],
         }
         for node in ir.nodes

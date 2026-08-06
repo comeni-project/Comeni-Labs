@@ -17,6 +17,7 @@ One function, so the order is a fact rather than a convention.
 from collections.abc import Sequence
 from pathlib import Path
 
+from comeni_core.layer import layer_name
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
@@ -39,8 +40,9 @@ class Layers(BaseModel):
     """The layer directories this was loaded from, in order.
 
     Carried so a build can lock itself: a build cannot pin what it does not know it loaded.
-    `Lockfile.of` reduces these to basenames — a lockfile never stores a filesystem path,
-    because a path is meaningless on the machine that reads it.
+    `Lockfile.of` reduces these to *names* — never a filesystem path, which is meaningless
+    on the machine that reads it. The name comes from each layer's `registry.yml`, falling
+    back to its basename; it was the basename alone until audit A12.
     """
 
 
@@ -54,6 +56,20 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     if isinstance(layers, str | Path):
         layers = [layers]
     layers = [Path(layer) for layer in layers]
+    for layer in layers:
+        for entry in sorted(layer.rglob("*")):
+            if entry.is_symlink():
+                # `digest_of_directory` refuses this too, but that is publish time and
+                # publication is the door with no undo — by then the reroute has already
+                # been emitted. A layer is a unit that gets distributed: a link out of it
+                # is meaningless to whoever receives it, and a link inside it is a copy
+                # with extra steps. Audit 2026-08-06, A9.
+                raise ValueError(
+                    f"registry layer {layer} contains a symlink at "
+                    f"{entry.relative_to(layer)}. A layer may not contain one: the loader "
+                    "follows it and the layer digest cannot, so the bytes routed on would "
+                    "not be the bytes pinned."
+                )
     measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
@@ -65,13 +81,20 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
         # record reaches a publish bundle, so this is the same identifier the lockfile
         # uses — and a path there would be both meaningless elsewhere and a leak.
-        names=[layer.name for layer in with_contracts],
+        #
+        # Read from `registry.yml` when the layer declares one, because a basename is not
+        # an identity: `--registry .` produced `''`. Audit 2026-08-06, A12.
+        names=[layer_name(layer) for layer in with_contracts],
     )
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],
         registry=registry,
         vocabulary=vocabulary,
         measurements=measurements,
+        # The layer's name, for the same reason contracts get one: a rule block replacing
+        # a lower layer's must say which layer it came from, and `rules/`'s basename is
+        # "rules" everywhere. Audit A15.
+        names=[layer_name(layer) for layer in layers],
     )
     return Layers(
         measurements=measurements,

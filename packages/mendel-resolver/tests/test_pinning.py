@@ -1,5 +1,6 @@
 import pytest
 from comeni_core.ir import Tier
+from comeni_core.measurement import MeasurementRegistry
 from mendel_resolver.router import UnroutablePinError
 
 
@@ -87,6 +88,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
              constraints={"required_states": {"fastq.reads": ["trimmed"]}}),
         registry,
         RuleTable(),
+        MeasurementRegistry(),
     )
     chosen = ir.nodes[0]
     assert chosen.selection.tier is Tier.AMBIGUOUS

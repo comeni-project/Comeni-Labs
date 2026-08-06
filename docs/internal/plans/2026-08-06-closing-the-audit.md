@@ -10,6 +10,12 @@
 > tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for
 > review and design only. This matches the execution decision recorded in `CLAUDE.md`.
 
+> **Execution status, 2026-08-06 evening — Tasks 1–6 are complete; Task 7 is next.**
+> Branch `plan-1.8-closing-the-audit`. Per-task commits and what a returning reader will trip
+> over are in [the journal entry](../journal/2026-08-06-evening.md), which is the handoff.
+> Three corrections to this plan and to the audit were found while executing and are listed
+> there — including a fourteenth finding for Task 12 to write up.
+
 **Goal:** Close A1–A13. When this plan is done, a guard that says "cannot" either can or does
 not say it; a lockfile pins the bytes that were loaded; and a decision that was resolved is a
 decision the pipeline made.
@@ -516,7 +522,14 @@ checked.
 **Verified before writing this task:** `resolve()` has eight call sites — `cli.py:150`,
 `mendel_resolver/__init__.py:15`, `tests/test_runnable.py` ×3, `tests/test_spine_contracts.py`,
 `tests/test_lockfile.py`, `packages/comeni-core/tests/test_ir_profile.py` ×2. Every one already
-holds a `Layers`, so every one has `loaded.measurements` to hand. **Make it required, not
+holds a `Layers`, so every one has `loaded.measurements` to hand.
+
+> **Corrected during execution.** Eight was wrong: the task found **twelve, plus
+> `packages/mendel-resolver/README.md`**, because the grep behind the number was too narrow.
+> The figure is left above rather than overwritten, and the correction recorded here, because
+> a pre-flight count that the task then contradicts is how a plan silently becomes fiction.
+> The number has since moved again — Tasks 6 and 7 add call sites of their own — which is the
+> reason not to keep a running total: a plan is a record of what was true on its date. **Make it required, not
 optional with a default of `None`** — an optional guard is a guard the next verb forgets, which
 is the finding.
 
@@ -576,7 +589,7 @@ def resolve(
 Required rather than defaulted, and placed before `route()` so nothing is built from a profile
 that has not been checked.
 
-- [ ] **Step 4: Update all eight call sites**
+- [ ] **Step 4: Update all call sites** (eight predicted; twelve plus a README found)
 
 Each already has a `Layers`; pass `loaded.measurements`. No call site needs new plumbing —
 that is why this is the right place for the check.
@@ -849,7 +862,7 @@ Expected: 305+ pass, `-m slow` still produces 124 genes with `-s 2 -p`.
 
 ---
 
-### Task 7: A5 — an overlay that changes a selection says so
+### Task 7: A5 + A15 — an overlay that changes a pipeline says so
 
 Invariant 11 ends *"never let an installed overlay reroute a pipeline silently"*. An overlay
 contract with a **different module key** is by definition not a shadow, so no `ShadowRecord` is
@@ -860,9 +873,51 @@ normal. Reproduced with a rival sorter at priority 99.
 The gap is between two documented rules: invariant 11 says never silently, invariant 8 covers
 ties, and a priority win is neither. The aligner escaped only because a rule pins it — luck.
 
+> **Rewritten 2026-08-06, during execution.** The task as first written could not be
+> implemented, and finding out why turned up a second route the audit missed. Both corrections
+> are below. Do not restore the original steps.
+
+**A15, found while writing this task.** Invariant 11 says *all four* kinds of declared data
+stack. `RuleTable.load` does `by_target[key] = decision`, so **a higher layer replaces a whole
+rule block and records nothing at all** — `Decision` has no layer field. A tier-3 parameter
+decided by a lab's overlay rule is indistinguishable from one decided by the public registry.
+This is worse than A5: contract shadowing at least writes a `ShadowRecord`. It gets a finding
+number in Task 12 and is closed by this task's commit.
+
+**Why the original Steps 1 and 4 were impossible.** Step 4 asked for `ReviewLevel.ADVISORY`
+while *"tier stays 2"*. `ResolvedValue.review_level` is a `computed_field` over
+`review_level_for(tier)`, and tier 2 maps to `NONE`; `_drop_computed` exists precisely so a
+stored review level can never disagree with the tier. Step 1 then asked the test to find the
+node in `needs_review()`, which lists `REQUIRED` only — and
+`packages/comeni-core/tests/test_ir.py:24` is named `test_needs_review_lists_only_required_items`,
+so that is a guarantee with a test named after it, not an accident. The two steps contradicted
+each other and both contradicted the types.
+
+**The design, decided 2026-08-06.** Report **displacement, not origin**, and record provenance
+always. They are two different questions and a flag is the wrong shape for the first:
+
+- *"Where did this module come from?"* — every node, always. A curator reading a published
+  bundle needs it without asking, so it is a field, not a flag.
+- *"What did my overlay change?"* — only when a lower layer offered something that lost. That
+  is the invariant-11 event and it is rare enough to read.
+
+Origin-as-flag is the failure Step 4 warned about in its own reasoning: a lab that installs an
+overlay gets an advisory on every module that layer supplies, nineteen of them saying "your
+layer supplied your module", and the one that actually rerouted the pipeline buried among them.
+A layer supplying something new is a lab using the system as designed; a layer *replacing* what
+a lower layer said is the silent reroute.
+
+**Nothing about the tier ladder moves.** Tier stays 2 for a priority win, review stays `none`,
+`review_level` stays computed, and `test_needs_review_lists_only_required_items` keeps its
+guarantee. This is a third axis beside `tier` (how well) and `ValueSource` (who) — an argument
+`ValueSource`'s own docstring already makes: *"A tier says how something was settled; it should
+not also have to say who."*
+
 **Files:**
-- Modify: `packages/comeni-core/src/comeni_core/registry.py` (a contract records its layer)
-- Modify: `packages/comeni-core/src/comeni_core/ir.py` (`needs_review` lists it)
+- Modify: `packages/comeni-core/src/comeni_core/registry.py` (`layer_of`)
+- Modify: `packages/comeni-core/src/comeni_core/ir.py` (`ResolvedValue` fields, `overlay_reroutes`)
+- Modify: `packages/mendel-resolver/src/mendel_resolver/rules.py` (a `Decision` records its layer)
+- Modify: `packages/mendel-resolver/src/mendel_resolver/router.py`, `resolve.py` (set the fields)
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py` (stderr)
 - Test: `tests/test_audit_regressions.py`
 
@@ -871,18 +926,42 @@ missing is *which layer a chosen contract came from*, which `Registry.load` know
 Carry it as a `dict[ContractId, LayerName]` on `Registry` rather than a field on
 `ModuleContract` — a contract is content-addressed by Task 2 and must not gain a field that
 depends on where it was found, or its digest becomes location-dependent and A10 reopens sideways.
+`Registry` is not reachable from `PublishBundle`, so a mapping is legal there; on the IR it may
+not be, which is why the provenance rides on `ResolvedValue` and the list is derived.
 
-- [ ] **Step 1: Write the failing test** — build with a rival sorter at priority 99 in an
-      overlay; assert `ir.needs_review()` names the node and that the reason says which layer.
+- [ ] **Step 1: Reproduce both, and watch the original assertion fail.** In
+      `tests/test_audit_regressions.py`, build with (a) a rival sorter at priority 99 in an
+      overlay and (b) an overlay rule block replacing a base one. Assert the *end state*: the
+      selection carries `from_layer` and `displaced_layer`, the param carries the same, and
+      `ir.overlay_reroutes()` names both. **Also assert `ir.needs_review()` does not name
+      them** — that is the plan's original claim, pinned as false on purpose so nobody restores
+      it.
 - [ ] **Step 2: Run to verify it fails** — expect `needs_review()` to list only
-      `star_align.seq_platform`, exactly as the audit recorded.
+      `star_align.seq_platform`, exactly as the audit recorded, and `AttributeError` on the new
+      fields.
 - [ ] **Step 3:** `Registry` gains `layer_of: dict[ContractId, LayerName]`, populated in `load()`.
-- [ ] **Step 4:** `resolve()` marks a selection from a non-base layer `ReviewLevel.ADVISORY` with
-      a reason naming the layer. **Advisory, not required** — an overlay winning is the normal
-      case for a lab that installed one, and making it block would train people to ignore it.
-      Tier stays 2: the selection genuinely was a documented default. What changes is visibility.
-- [ ] **Step 5:** `mendel build` prints the overlay-sourced selections on stderr.
-- [ ] **Step 6:** Run the gate; commit `fix(resolver): an overlay-sourced selection is visible — A5`
+      A contract deleted by shadowing loses its entry with it.
+- [ ] **Step 4:** `ResolvedValue` gains `from_layer: LayerName | None = None` and
+      `displaced_layer: LayerName | None = None`. Both are declared ID aliases, so
+      `tests/test_egress.py` accepts them — run it in this step rather than at the end, because
+      these fields reach a bundle through `RepairRequest.ir` and a new field on an egress payload
+      is exactly what that guard is for.
+- [ ] **Step 5: Contracts.** In `router.py`, where `producers_of` ranks candidates: set
+      `from_layer` to the winner's layer, and `displaced_layer` to the lowest layer that offered
+      a losing candidate, if any. Displacement is *the winner came from a higher layer than a
+      rival it beat* — not merely "came from an overlay".
+- [ ] **Step 6: Rules.** `Decision` gains a `from_layer`, set after validation in
+      `RuleTable.load`. Where `by_target[key]` is already populated by a lower layer, the
+      incoming block records the displaced layer. Carry both onto the `ResolvedValue` a tier-3
+      match produces. This closes A15.
+- [ ] **Step 7:** `PipelineIR.overlay_reroutes()` — derived, scanning nodes and params for
+      `displaced_layer is not None`. **Derived rather than stored**, so it cannot drift from the
+      fields it reads, and `needs_review()` is not touched.
+- [ ] **Step 8:** `mendel build` prints them on stderr as their own section, separate from the
+      review list — two different questions, two different lists.
+- [ ] **Step 9:** Run the gate. Confirm the single-layer case emits nothing at all: a lab with
+      no overlay must see no change whatsoever. Commit
+      `fix(resolver): an overlay that changes a pipeline says so — A5, A15`
 
 ---
 
@@ -1035,29 +1114,127 @@ packages cannot import an HTTP client" is false as written.
 
 ---
 
+### Task 11B: `make check` is not verification, and nothing said so
+
+**Found during execution, 2026-08-06.** Tasks 7, 9 and 10 changed `router.py`, `resolve.py`,
+`rules.py`, `marks.py` and `cli.py`, and each was reported verified on `make -j1 check` alone.
+That target is `lint test types`, and `test` inherits `addopts = "-m 'not slow'"` from
+`pyproject.toml` — so it silently deselects `tests/test_counts.py`, the two tests that run
+`--gate test` on the nf-core dataset and assert the counts matrix is right. **The one check
+that proves the v1 criterion is the one the habitual command omits.**
+
+The operator asked whether they had been run. They had not. They passed — 2 passed in 44s on
+a warm cache — so nothing was broken, and that is the point: the cost of running them was
+never the reason for skipping them. There was no reason. There was a habit, and no command
+that made the full set the easy thing to type.
+
+**This is A14's class, not a new one.** A14 says a guard that has never been watched failing
+may be inert. Its fourth instance is the same shape one level up: *a check that is never run
+is not a check*, and reasoning about why it would have passed is not evidence that it did.
+Both failures look identical from outside — green, and green for the wrong reason.
+
+**Files:**
+- Modify: `Makefile`
+- Modify: `CLAUDE.md` (the Commands section)
+
+- [ ] **Step 1:** `make verify` — `check`, then `pytest -m slow`, then the three guards, then
+      `tools/check_registry_drift.py`. Cheapest first, the same ladder principle the gates use.
+- [ ] **Step 2:** The drift checker takes a path to a `comeni-registry` checkout and not every
+      developer has one. **Skip with a message rather than fail** when it is absent: a target
+      that fails for a missing optional checkout is a target people stop running, which is the
+      failure being fixed.
+- [ ] **Step 3:** `make help` must say it needs Docker and takes minutes, so nobody reaches for
+      it expecting the one-minute gate.
+- [ ] **Step 4:** In `CLAUDE.md`'s Commands section, write down **when it is required**: any
+      change touching `resolve.py`, `router.py`, `rules.py` or `mendel_compiler/cli.py`.
+      `make check` stays exactly what it is — the pull-request gate — and the sentence to add
+      is that it is *not* verification of those files. Naming the files is the point; "use
+      judgement" is what produced this.
+- [ ] **Step 5:** Run `make verify` end to end and paste the real numbers into the commit
+      message, not a summary of them.
+- [ ] **Step 6:** Commit `build: make verify runs what a routing change actually needs`
+
+---
+
 ### Task 12: Documentation, and the next audit
 
 - [ ] **Step 1:** Mark A1–A13 ✅ in the audit document, each with the commit that closed it.
       **Do not renumber and do not delete** — the document's own header says findings keep their
       numbers permanently, and a closed finding with its reproduction intact is the only record
-      of why the code looks the way it does.
-- [ ] **Step 2:** `CHANGELOG.md`, `docs/internal/README.md` (Plan 1.8 complete, Plan 2 next),
-      and `CLAUDE.md`'s current-state section.
-- [ ] **Step 3:** Journal entry. It must carry the finding behind the findings: **nine of
+      of why the code looks the way it does. **Add A15 and mark it ✅ in the same pass**: an
+      overlay rule block replaces a lower layer's whole block and records nothing, found while
+      writing Task 7 and closed by it. Write it as a finding rather than only a commit message —
+      an audit that only records what the audit happened to look at understates what the code
+      was doing, and A15 is the one A5 should have caught.
+- [ ] **Step 2: Write A14 — a guard that has never been watched failing may be inert, not
+      merely weak.** A1–A13 were found by reading. This one was found three times in a single
+      day by *reverting code and watching*, and it is a defect in the guards rather than in the
+      code they guard. Give it the same shape as the other findings — mechanism, reproduction,
+      fix designed — with all three instances:
+      1. `test_two_layers_sharing_a_basename_do_not_collapse` asserted that *some* drift line
+         mentioned the layer. Both the broken and the fixed `drift_against` emit such a line, so
+         the test had been unable to fail since Plan 1.7. Closed by `8dbde51`.
+      2. Task 6's first fixture used one resolver for both ambiguity sites — but `_choose`
+         defaulted to `ordered[0]` and `_source_for` to `equally_good[-1]`, so a resolver
+         disagreeing with one agreed with the other, and the edge tests passed against unfixed
+         code.
+      3. That same edge test asserted over an empty loop: two aligner *contracts* route only
+         one, so no source ambiguity ever arose.
+      4. **A check that is never run is not a check.** Tasks 7, 9 and 10 were each reported
+         verified on `make check`, which deselects the two tests that prove the v1 criterion.
+         Nothing was broken, and the cost of running them was 44 seconds — so the omission
+         had no reason behind it, only a habit and a missing command. Task 11B is the fix;
+         the instance belongs here because from outside it is indistinguishable from (1)–(3):
+         green, for the wrong reason.
+
+      File it **critical**. A1, A2 and A6 are each an instance of it — a guard reasoning about
+      the surface it was written against — and the product claim rests on guards that mean
+      something. **State its closure condition in the finding, because it is not a code
+      change:** A14 closes when every guard in `tests/` has a recorded revert that was watched
+      failing, and Step 8's protocol is how that gets done. It therefore stays ⬜ open at the
+      end of this plan, deliberately, and the loop's exit criterion — no critical findings
+      survive — is not met by Plan 1.8 alone. Say so rather than filing it minor to make the
+      arithmetic work.
+- [ ] **Step 3: Amend A8 — its account of `_source_for` is half wrong.** A8 claims the published
+      bundle "self-contradicts with no mutation at all". Verified by reverting: pre-A8
+      `_source_for` recorded what it built, so record and edge *agreed*. The mismatch was between
+      `reason` ("selected the first of 2 candidates") and `chosen` (the last). The
+      record-versus-pipeline contradiction of A8's third consequence was real on the **producer**
+      side only. **Write it as a dated amendment beneath the finding, not as an edit to the
+      body** — the same discipline that forbids renumbering forbids rewriting: a reader must be
+      able to see what was believed and what corrected it. The conclusion stands and the fix
+      stands; only the mechanism was overstated, and an audit that quietly tidies its own
+      reasoning is worth less than one that shows it.
+- [ ] **Step 4: Correct the call-site count, in the place that actually holds it.** The journal
+      files this under corrections to the audit document, but the wrong number is in **this
+      plan**: Task 4's pre-flight note and its Step 4 both say `resolve()` has *eight* call
+      sites. Task 4 found **twelve, plus `packages/mendel-resolver/README.md`**; the grep behind
+      the eight was too narrow. Fix both places and add one line saying why it matters — a
+      pre-flight count that the task then contradicts is how a plan silently becomes fiction.
+      **Do not re-derive a fresh number**: Tasks 6 and 7 add call sites of their own, so the
+      figure has moved again, and a plan is a record of what was true on its date rather than a
+      running total. This is not the same kind of correction as Step 3 and must not read as one —
+      Step 3 amends a finding, this fixes a fact in a plan.
+- [ ] **Step 5:** `CHANGELOG.md`, `docs/internal/README.md` (Plan 1.8 complete, Plan 2 next),
+      and `CLAUDE.md`'s current-state section — which still says 300 fast tests.
+- [ ] **Step 6:** Journal entry. It must carry the finding behind the findings: **nine of
       thirteen fixes moved a check out of a caller and into a type.** A guard in a caller is a
       guard the next caller forgets, and that sentence is worth more to the next session than
-      any individual fix.
-- [ ] **Step 4:** Open the pull request. `make -j1 check` and `uv run pytest -m slow` both green.
-- [ ] **Step 5:** Set up round two — a fresh worktree, the same five adversarial passes, and at
+      any individual fix. It must also carry A14, and that A14 is open.
+- [ ] **Step 7:** Open the pull request. `make -j1 check` and `uv run pytest -m slow` both green.
+- [ ] **Step 8:** Set up round two — a fresh worktree, the same five adversarial passes, and at
       least two independent reviewers with no session context. **Audit the fixes hardest**: three
       audits running, the sharpest defect has been in the freshest code every time, and A9 was a
-      fix that opened the hole it closed.
+      fix that opened the hole it closed. **Revert and watch, not read** — that is A14's closure
+      protocol and the reason this step is no longer only a repeat of the last audit's method:
+      reading found A1–A13 over an audit; reverting found three inert guards in a day.
 
 ---
 
 ## Verification
 
 ```bash
+make verify                       # everything below, in one command — Task 11B
 make -j1 check                    # unfiltered; MAKEFLAGS carries -j12 and has hidden a lint failure
 uv run pytest -m slow             # the counts matrix — Task 6 changes module selection
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
@@ -1066,6 +1243,10 @@ uv run pytest tests/test_audit_regressions.py -v   # one test per finding
 uv run python tools/check_registry_drift.py        # now compares the manifest
 ```
 
-**Done when:** thirteen findings are ✅ with the commit that closed each, `tests/test_audit_regressions.py`
-holds a test per finding that was watched failing, and `CLAUDE.md` makes no claim this plan did
-not enforce.
+**Done when:** A1–A13 and A15 are ✅ with the commit that closed each, **A14 is written and
+⬜ open with its closure condition stated**, `tests/test_audit_regressions.py` holds a test per
+finding that was watched failing, and `CLAUDE.md` makes no claim this plan did not enforce.
+
+**Not done when this plan merges:** the fix-then-re-audit loop's exit criterion is *no critical
+findings survive*, and A14 is critical and open by design. Plan 1.8 closes a round; round two
+closes the loop, or finds the next thing.

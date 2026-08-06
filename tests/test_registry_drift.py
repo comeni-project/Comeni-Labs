@@ -44,6 +44,42 @@ def test_a_changed_shared_file_is_drift(tmp_path):
     assert "DRIFT" in result.stderr
 
 
+def test_a_diverged_licence_is_drift(tmp_path):
+    """A7 — `registry.yml` was loaded to prove the target was a layer, never compared.
+
+    `licence` is the field that matters most: the registry ships CC-BY-4.0 because
+    contracts cite papers, and two repositories disagreeing about the licence of the same
+    data is a licensing problem wearing a drift problem's clothes.
+    """
+    import yaml
+
+    other = tmp_path / "comeni-registry"
+    shutil.copytree(ROOT / "registry", other)
+    manifest = yaml.safe_load((other / "registry.yml").read_text())
+    manifest["licence"] = "MIT"
+    (other / "registry.yml").write_text(yaml.safe_dump(manifest))
+
+    result = _run(other)
+    assert result.returncode == 1
+    assert "licence" in result.stderr
+    assert "CC-BY-4.0" in result.stderr and "MIT" in result.stderr
+
+
+def test_a_diverged_manifest_name_is_drift(tmp_path):
+    """The name is what every lockfile and shadow record now records (A12)."""
+    import yaml
+
+    other = tmp_path / "comeni-registry"
+    shutil.copytree(ROOT / "registry", other)
+    manifest = yaml.safe_load((other / "registry.yml").read_text())
+    manifest["name"] = "something-else"
+    (other / "registry.yml").write_text(yaml.safe_dump(manifest))
+
+    result = _run(other)
+    assert result.returncode == 1
+    assert "registry.yml:name" in result.stderr
+
+
 def test_a_file_only_one_side_has_is_reported_but_not_a_failure(tmp_path):
     """The two are *meant* to diverge — the published registry grows into a real one while
     this repo keeps fixtures. Failing on growth would train everyone to ignore this."""

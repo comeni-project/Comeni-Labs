@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 from comeni_core.egress import PublishBundle
+from comeni_core.layer import layer_name
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
@@ -135,24 +136,19 @@ def _build(argv: list[str] | None = None) -> int:
         if args.goal is None:
             parser.error(f"{args.command} needs --goal")
         goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
-        # Re-build the goal's profile through the one constructor that validates it. The
-        # mapping shorthand in the goal file cannot check itself — measurements are
-        # declared data, so the model has no idea what is declared — and
-        # `profile: {sample_name: ...}` is exactly the shape invariant 15 refuses.
-        goal = goal.model_copy(
-            update={
-                "profile": loaded.measurements.profile(
-                    {m.measurement: m.value for m in goal.profile.measurements}
-                )
-            }
-        )
+        # The profile used to be rebuilt here through `MeasurementRegistry.profile()`,
+        # the one validating constructor — belt and braces over a check that did not
+        # exist anywhere else. It exists now, in `resolve()`, which is the only way past
+        # this point for any verb. Doing it here as well would mean `build` was checked
+        # twice and `upgrade` once, which is how the gap opened. Audit 2026-08-06, A2.
 
     ir = resolve(
         goal,
         registry,
         rules,
+        loaded.measurements,
         resolver=resolver,
-        layer_names=[p.name for p in loaded.paths],
+        layer_names=[layer_name(p) for p in loaded.paths],
     )
     ir.unverified = unverified
 
@@ -183,23 +179,6 @@ def _build(argv: list[str] | None = None) -> int:
             )
         )
 
-    if args.command == "publish":
-        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
-        # to, why each choice was made, and against exactly which registry. All four, or
-        # the recipient can neither reproduce it nor audit it.
-        #
-        # This writes files and sends nothing. Transmitting them is a later, separate act,
-        # which is the right shape for the door with no undo: a person can read what they
-        # are about to publish.
-        lockfile = Lockfile.of(ir, registry, loaded.paths)
-        bundle = PublishBundle(
-            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile
-        )
-        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
-        (args.out / "mendel.lock.yml").write_text(
-            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
-        )
-
     if previous is not None:
         # Nothing upgrades implicitly. Drift is what the registry did underneath the
         # lockfile; changes are what that did to *this* pipeline. Both, because a contract
@@ -226,11 +205,25 @@ def _build(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    # Its own section, above the review list rather than inside it. "What did my overlay
+    # change" and "what must I decide" are different questions, and folding the first into
+    # the second is how a reviewer learns to skim both. Audit A5, A15.
+    reroutes = ir.overlay_reroutes()
+    if reroutes:
+        print(
+            f"{len(reroutes)} overlay reroute(s) — an installed layer changed what the "
+            f"layers below it would do:",
+            file=sys.stderr,
+        )
+        for item in reroutes:
+            print(f"  OVERLAY  {item}", file=sys.stderr)
+
     flagged = ir.needs_review()
     print(f"{len(ir.nodes)} modules, {len(flagged)} requiring review", file=sys.stderr)
     for item in flagged:
         print(f"  REVIEW  {item}", file=sys.stderr)
 
+    passed: Gate | None = None
     if args.gate is not None:
         if args.gate is Gate.STUB:
             materialise_stub_data(args.out, entry_params(ir, registry, vocab))
@@ -239,6 +232,30 @@ def _build(argv: list[str] | None = None) -> int:
         if not result.passed:
             print(result.output, file=sys.stderr)
             return 1
+        passed = result.gate
+
+    if args.command == "publish":
+        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
+        # to, why each choice was made, and against exactly which registry. All four, or
+        # the recipient can neither reproduce it nor audit it.
+        #
+        # This writes files and sends nothing. Transmitting them is a later, separate act,
+        # which is the right shape for the door with no undo: a person can read what they
+        # are about to publish.
+        #
+        # **After the gate, not before.** It used to run above, so `publish --gate test`
+        # wrote the bundle, ran the gate, and returned 1 — leaving an artifact on disk
+        # that had just failed the only gate which checks wiring. `mendel upgrade` already
+        # took the opposite posture, and a refused publish must emit nothing for the same
+        # reason, more so: this is the door with no undo. Audit A4.
+        lockfile = Lockfile.of(ir, registry, loaded.paths)
+        bundle = PublishBundle(
+            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile, gate=passed
+        )
+        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
+        (args.out / "mendel.lock.yml").write_text(
+            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
+        )
     return 0
 
 

@@ -113,7 +113,7 @@ def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
     )
     plan = route(goal, registry)
     assert [s.contract_id for s in plan.steps] == ["nf-core/star/align@1.11.0"]
-    assert plan.ambiguities == []
+    assert plan.decisions == []
 
 
 def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
@@ -133,9 +133,16 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
     )
     registry = Registry.load(contracts, Vocabulary.load(vocab_dir))
     plan = route(Goal(have=[GoalInput(type_id="fastq.reads")], want=["alignment.bam"]), registry)
-    assert len(plan.ambiguities) == 1
-    assert plan.ambiguities[0].subject == "producer:alignment.bam"
-    assert sorted(plan.ambiguities[0].candidates) == [
+    # `RoutePlan.ambiguities` became `RoutePlan.decisions` with audit A8: the resolver is
+    # now asked here, where its answer can still change the selection, so what the plan
+    # carries out is a resolved record rather than an open question. The tie itself, its
+    # subject and its candidates are unchanged.
+    assert len(plan.decisions) == 1
+    assert plan.decisions[0].subject == "producer:alignment.bam"
+    assert sorted(plan.decisions[0].candidates) == [
         "nf-core/hisat2/align@2.2.1",
         "nf-core/star/align@1.11.0",
     ]
+    assert plan.decisions[0].chosen == plan.steps[0].contract_id, (
+        "the record must name the contract the plan actually stepped to"
+    )

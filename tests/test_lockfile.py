@@ -8,6 +8,7 @@ to break later, which is what makes them tests.
 import pathlib
 
 import pytest
+import yaml
 from comeni_core.lockfile import Lockfile
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
@@ -33,7 +34,7 @@ def built():
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
         profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
     )
-    return resolve(goal, loaded.registry, loaded.rules), loaded
+    return resolve(goal, loaded.registry, loaded.rules, loaded.measurements), loaded
 
 
 def test_a_lockfile_pins_every_contract_the_pipeline_uses(built):
@@ -154,30 +155,64 @@ def test_reordering_the_layer_stack_is_drift(built, tmp_path):
     assert any("layer stack changed" in line for line in drift), drift
 
 
-def test_two_layers_sharing_a_basename_do_not_collapse(built, tmp_path):
-    """Not exotic: Task 8 names the public layer `registry/`, so a laboratory stacking it
-    over their own `registry/` produces two entries with one name on day one."""
+def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
+    """Two layers can still share a name, so the comparison stays positional.
+
+    Written for the day-one case: Task 8 named the public layer `registry/`, so a
+    laboratory stacking it over their own `registry/` got two entries with one name. Audit
+    A12 removed *that* collision — the public layer declares `comeni-registry-examples` in
+    its manifest and a hand-made overlay falls back to its basename, so the two no longer
+    match. It did not remove the class. Two manifest-less overlays with the same basename
+    collide exactly as before, and so would two layers declaring the same name, which is
+    what this now builds.
+    """
     import shutil
 
     ir, _ = built
-    first = _empty_layer(tmp_path / "one" / "registry").parent / "registry"
-    shutil.rmtree(first)
+    # One layer declares the name, the other falls back to its basename — so this
+    # exercises both halves of `layer_name` colliding on the same string.
+    first = tmp_path / "one" / "somewhere-else"
     shutil.copytree(ROOT / "registry", first)
-    second = _empty_layer(tmp_path / "two" / "registry")
+    manifest = yaml.safe_load((first / "registry.yml").read_text())
+    manifest["name"] = "lab"
+    (first / "registry.yml").write_text(yaml.safe_dump(manifest))
+    second = _empty_layer(tmp_path / "two" / "lab")
 
     loaded = layers.load([first, second])
     lock = Lockfile.of(ir, loaded.registry, loaded.paths)
-    assert [layer.name for layer in lock.layers] == ["registry", "registry"]
+    assert [layer.name for layer in lock.layers] == ["lab", "lab"]
     assert lock.layers[0].digest != lock.layers[1].digest, "distinct layers, distinct digests"
 
-    # The *first* layer, specifically. A name-keyed mapping is last-wins, so a change to
-    # the second stays visible by luck and only the first disappears — which is why this
-    # test changes the first. It is also the one that matters: the lower layer is the
-    # public registry, and the overlay above it is the small local thing.
+    # **Each layer separately, and exactly one line each.** Both halves are load-bearing
+    # and neither is enough alone — established by reverting `drift_against` to two
+    # different wrong implementations and watching which tests noticed:
+    #
+    #   fully name-keyed ({name: digest} both sides)  — caught only by changing the FIRST
+    #     layer. The mapping is last-wins, so the pinned and current entries both collapse
+    #     to the second layer, which did not change, and no drift is reported at all.
+    #   positional names, name-keyed digests          — caught only by changing the SECOND
+    #     layer. Both current layers are compared against one pinned digest, so the
+    #     unchanged first layer reports a spurious line beside the real one.
+    #
+    # Until 2026-08-06 this changed the first layer and asserted merely that *some* line
+    # mentioned the layer. That passed against both wrong implementations, because both do
+    # report drift here — just for the wrong reason, or one time too many. A guard that
+    # cannot fail is not a guard; it took reverting the code to find that out.
+    # Only the first layer.
     (first / "rules" / "extra.yml").write_text("decisions: []\n")
     changed = layers.load([first, second])
-    drift = lock.drift_against(ir, changed.registry, changed.paths)
-    assert any("registry" in line for line in drift), drift
+    assert lock.drift_against(ir, changed.registry, changed.paths) == [
+        "layer lab has changed since it was locked"
+    ]
+
+    # Only the second. Changing *both* would report two lines under either implementation
+    # and prove nothing, which is the trap the first attempt at this fell into.
+    (first / "rules" / "extra.yml").unlink()
+    (second / "rules" / "extra.yml").write_text("decisions: []\n")
+    changed = layers.load([first, second])
+    assert lock.drift_against(ir, changed.registry, changed.paths) == [
+        "layer lab has changed since it was locked"
+    ], "the unchanged first layer must not report a line of its own"
 
 
 def test_a_changed_layer_is_reported_as_drift(built, tmp_path):

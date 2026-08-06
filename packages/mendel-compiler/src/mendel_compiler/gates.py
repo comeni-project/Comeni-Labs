@@ -1,17 +1,19 @@
 """Validation gates, cheapest first. Each is a subprocess call to nextflow."""
 
 import subprocess
-from enum import StrEnum
 from pathlib import Path
 
+from comeni_core.gates import Gate
 from pydantic import BaseModel
 
+__all__ = ["Gate", "GateResult", "materialise_stub_data", "run_gate"]
 
-class Gate(StrEnum):
-    LINT = "lint"
-    PREVIEW = "preview"
-    STUB = "stub"
-    TEST = "test"
+# `Gate` is re-exported, not redefined. It moved to `comeni_core.gates` so a
+# `PublishBundle` could record which gate it passed (audit A4) without the core depending
+# on this package. The shim stays because a gate is something the *compiler* runs, and
+# rewriting every import to relocate an enum is churn nobody reviews carefully — the same
+# call made for `Goal` and `DataProfile`. `tests/test_audit_regressions.py` asserts the two
+# import paths are one class.
 
 
 _ARGS: dict[Gate, list[str]] = {

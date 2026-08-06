@@ -29,11 +29,19 @@ def test_publish_writes_a_bundle_and_a_lockfile(tmp_path):
 
 
 def test_the_bundle_carries_all_four_parts(tmp_path):
-    """Federation 4.1: goal, IR, decisions, lockfile. Fewer than four is not reproducible."""
+    """Federation 4.1: goal, IR, decisions, lockfile. Fewer than four is not reproducible.
+
+    Plus `gate`, which audit A4 added: which validation gate this pipeline actually
+    passed, or `None` when none ran. Still an exact set rather than a subset — a field
+    appearing in the door with no undo should fail this test and be argued for, which is
+    what happened here.
+    """
     bundle = json.loads((_publish(tmp_path) / "pipeline.bundle.json").read_text())
-    assert set(bundle) == {"goal", "ir", "decisions", "lockfile"}
+    assert set(bundle) == {"goal", "ir", "decisions", "lockfile", "gate"}
     assert bundle["goal"]["want"] == ["counts.matrix"]
     assert len(bundle["ir"]["nodes"]) == 5
+    # `_publish` runs no gate, so the honest record is "no evidence", not a weak gate.
+    assert bundle["gate"] is None
 
 
 def test_the_lockfile_pins_every_module_used(tmp_path):
@@ -44,8 +52,15 @@ def test_the_lockfile_pins_every_module_used(tmp_path):
 
 
 def test_the_bundle_records_which_layers_built_it(tmp_path):
+    """The name the layer declares, not the directory it was checked out into.
+
+    This said `["registry"]` until audit A12. A recipient reading the bundle needs a name
+    that means the same thing on their machine, and a basename does not: whoever cloned
+    the public layer as `comeni-registry` produced a bundle that disagreed with this one
+    about a registry neither of them had changed.
+    """
     bundle = json.loads((_publish(tmp_path) / "pipeline.bundle.json").read_text())
-    assert bundle["ir"]["registry_layers"] == ["registry"]
+    assert bundle["ir"]["registry_layers"] == ["comeni-registry-examples"]
 
 
 def test_publishing_twice_produces_identical_bytes(tmp_path):

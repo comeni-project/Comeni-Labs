@@ -4,7 +4,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.marks import DecisionKey, NodeId, ParamValue, ResolverId, Subject, Text
+from comeni_core.marks import (
+    DecisionKey,
+    HumanParamValue,
+    NodeId,
+    ParamValue,
+    ResolverId,
+    Subject,
+    Text,
+)
 from comeni_core.tiers import Tier
 
 
@@ -39,4 +47,5 @@ class DecisionRecord(BaseModel):
     confidence: float = 0.0
     resolved_by: ResolverId
     tier: Tier = Tier.AMBIGUOUS
-    human_override: ParamValue = None
+    human_override: HumanParamValue = None
+    """A reviewer's answer, so it is guarded against path-shaped values. Audit A3."""

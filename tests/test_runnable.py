@@ -35,7 +35,7 @@ def spine(loaded):
         constraints={"required_states": {"counts.matrix": ["gene_level"]}},
         profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
     )
-    return resolve(goal, loaded.registry, loaded.rules)
+    return resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
 
 
 @pytest.fixture
@@ -52,7 +52,7 @@ def spine_with_profile(loaded):
             {"read_length": 150, "strandedness": "reverse", "paired": True}
         ),
     )
-    return resolve(goal, loaded.registry, loaded.rules)
+    return resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
 
 
 def test_every_empty_placeholder_says_why_it_is_empty(loaded):
@@ -244,7 +244,7 @@ def test_an_unmeasured_profile_emits_no_meta_wrapper(loaded):
         have=[GoalInput(type_id="fastq.reads")],
         want=["qc.report"],
     )
-    ir = resolve(goal, loaded.registry, loaded.rules)
+    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
     source = emit(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
     line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
     assert "meta +" not in line, line

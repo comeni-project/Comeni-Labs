@@ -18,11 +18,12 @@ from comeni_core.marks import Digest
 _ALGORITHM = "sha256"
 _CHUNK = 65536
 
-# Domain separation tags. A regular file and a symlink are different things and must not be
-# able to hash alike, however either one is spelled. NUL because no path or YAML document
-# contains one, so neither tag can be produced by the data it prefixes.
+# Domain separation tag. Its sibling `_LINK` is gone with the symlink branch it tagged —
+# a layer may no longer contain one (A9) — but this stays: it is in every digest ever
+# written, and the moment a second entry kind is added it is what keeps the two from
+# hashing alike. NUL because no path or YAML document contains one, so the tag cannot be
+# produced by the data it prefixes.
 _FILE = b"file\x00"
-_LINK = b"link\x00"
 
 
 def _hex(data: bytes) -> str:
@@ -57,30 +58,40 @@ def digest_of_directory(path: Path) -> Digest:
     is not a digest, and Task 8 makes layers a thing strangers distribute. Hashing both
     halves makes every field fixed-width hex, so no content can span a delimiter.
 
-    **A symlink is hashed as its target path, never followed.** Following one makes the
-    digest depend on bytes outside the layer, so the same directory digests differently on
-    two machines — which is precisely what a lockfile exists to rule out. This is what git
-    does with symlinks, and layers are distributed by git.
+    **A layer may not contain a symlink at all, and this raises on one.** An earlier
+    version hashed a link as its target path and never followed it — correct about the
+    hazard of following one (the digest would depend on bytes outside the layer, so the
+    same directory would digest differently on two machines) and wrong about the remedy.
+    `Registry.load` opens the same path with `read_text()`, which *does* follow it, so the
+    bytes routed on were not the bytes pinned: a symlinked contract whose target was
+    rewritten to `priority: 999` rerouted the pipeline with a byte-identical layer digest
+    and no drift. That is invariant 11's closing sentence — never let an installed overlay
+    reroute a pipeline silently — defeated by the mechanism written to uphold it.
 
-    **The two kinds are domain-separated.** Hashing a link as `"symlink:" + target` and a
-    file as its raw bytes let a regular file impersonate a link: `a.yml` containing the text
-    `symlink:/etc/passwd` digested identically to `a.yml` symlinked to `/etc/passwd`. That
-    is the same defect as the filename forgery above, one layer down — a hash over
-    concatenated fields means nothing unless each field can only be read one way.
+    Refusing is smaller than resolving and it is honest: a layer is a unit strangers
+    distribute, so a link out of it is already meaningless to whoever receives it, and a
+    link inside it is a copy with extra steps. Audit 2026-08-06, A9.
+
+    A symlinked *directory* was never exploitable — `rglob` does not descend into one, so
+    neither this nor `Registry.load` saw anything inside it — but it is refused too,
+    because "the layer contains a link" is a simpler rule to state and to check than "the
+    layer contains a link to a file".
     """
     parts: list[str] = []
     if path.exists():
         for entry in sorted(p for p in path.rglob("*") if p.is_symlink() or p.is_file()):
             name = entry.relative_to(path).as_posix()
             if entry.is_symlink():
-                content = _hex(_LINK + entry.readlink().as_posix().encode())
-            else:
-                hasher = hashlib.sha256()
-                hasher.update(_FILE)
-                with entry.open("rb") as handle:
-                    while chunk := handle.read(_CHUNK):
-                        hasher.update(chunk)
-                content = hasher.hexdigest()
-            parts.append(f"{_hex(name.encode())}:{content}")
+                raise ValueError(
+                    f"{name} is a symlink; a registry layer may not contain one. The "
+                    "loader follows it and this digest cannot, so the bytes routed on "
+                    "would not be the bytes pinned (audit 2026-08-06, A9)."
+                )
+            hasher = hashlib.sha256()
+            hasher.update(_FILE)
+            with entry.open("rb") as handle:
+                while chunk := handle.read(_CHUNK):
+                    hasher.update(chunk)
+            parts.append(f"{_hex(name.encode())}:{hasher.hexdigest()}")
     joined = "\n".join(parts)
     return f"{_ALGORITHM}:{_hex(joined.encode())}"

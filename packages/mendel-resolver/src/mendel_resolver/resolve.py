@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from comeni_core.contract import InputPort
 from comeni_core.decision import Ambiguity, DecisionRecord
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.tiers import ValueSource
 
@@ -18,11 +19,24 @@ def resolve(
     goal: Goal,
     registry: Registry,
     rules: RuleTable,
+    measurements: MeasurementRegistry,
     resolver: AmbiguityResolver | None = None,
     layer_names: Sequence[str] = (),
 ) -> PipelineIR:
+    # Invariant 15 was enforced in `mendel build`'s own re-route through
+    # `MeasurementRegistry.profile()` — an application-layer step, which is not a property
+    # of anything. `mendel upgrade` takes its goal from a bundle rather than a file, so the
+    # one verb that reads something a stranger wrote was the one verb with no check, and a
+    # bundle carrying `sample_name: PATIENT-00417` upgraded to exit 0 with the string in
+    # the new IR. A guard in a caller is a guard the next caller forgets.
+    #
+    # Required rather than defaulted, deliberately: an optional guard is the same guard
+    # one keyword away from being forgotten again. Audit 2026-08-06, A2.
+    for measured in goal.profile.measurements:
+        measurements.check(measured.measurement, measured.value)
+
     resolver = resolver or FlagOnlyResolver()
-    plan = route(goal, registry, rules)
+    plan = route(goal, registry, rules, resolver)
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -43,7 +57,11 @@ def resolve(
             id=step.node_id,
             contract_id=contract.id,
             selection=ResolvedValue(
-                value=contract.id, tier=step.selection_tier, reason=step.selection_reason
+                value=contract.id,
+                tier=step.selection_tier,
+                reason=step.selection_reason,
+                from_layer=step.from_layer,
+                displaced_layer=step.displaced_layer,
             ),
         )
 
@@ -82,19 +100,12 @@ def resolve(
 
         ir.nodes.append(node)
 
-    for ambiguity in plan.ambiguities:
-        resolution = resolver.resolve(ambiguity)
-        ir.decisions.append(
-            DecisionRecord(
-                key=ambiguity.key(),
-                subject=ambiguity.subject,
-                candidates=ambiguity.candidates,
-                chosen=resolution.chosen,
-                reason=resolution.reason,
-                confidence=resolution.confidence,
-                resolved_by=resolution.resolved_by,
-            )
-        )
+    # Already resolved and recorded, by `route()`, where the answer could still change the
+    # selection. This loop used to call `resolver.resolve()` itself — after `ir.nodes` and
+    # `ir.edges` were built — so the answer went into a record and nowhere else, and asking
+    # a second time is a second chance to disagree with the pipeline that exists. With a
+    # model behind the port it is also a second charge. Audit 2026-08-06, A8.
+    ir.decisions.extend(plan.decisions)
 
     return ir
 
@@ -158,11 +169,23 @@ def _source_for(
             context={"type_id": chosen[2], "required": sorted(required)},
         )
         resolution = resolver.resolve(ambiguity)
+        # The answer selects. This used to compute `equally_good[-1]`, call the resolver,
+        # and then record `chosen=f"{chosen[0]}.{chosen[1]}"` — overwriting the resolver's
+        # answer in the very statement that recorded it, so a published bundle could
+        # contradict its own pipeline with no mutation at all. Audit 2026-08-06, A8.
+        #
+        # A non-candidate answer falls back rather than being trusted, exactly as
+        # `router._choose` and `ReplayResolver._still_applies` do.
+        chosen = next(
+            (s for s in equally_good if f"{s[0]}.{s[1]}" == resolution.chosen),
+            equally_good[-1],
+        )
         decisions.append(
             DecisionRecord(
                 key=ambiguity.key(),
                 subject=ambiguity.subject,
                 candidates=ambiguity.candidates,
+                # What was wired, not what was asked for.
                 chosen=f"{chosen[0]}.{chosen[1]}",
                 reason=resolution.reason,
                 confidence=resolution.confidence,
@@ -197,10 +220,16 @@ def _resolve_param(
     matched = rules.value_for(param_name, goal.profile)
     if matched is not None:
         value, decision, row = matched
+        key = decision.decides.key()
         return ResolvedValue(
             value=value,
             tier=Tier.DATA_PROFILED,
-            reason=f"rule {decision.decides.key()}: {row.cite or decision.cite or ''}",
+            reason=f"rule {key}: {row.cite or decision.cite or ''}",
+            # Which layer's rule block decided this, and which lower one it replaced.
+            # Read off the table rather than the decision, because a layer must not be
+            # able to write its own provenance. Audit A15.
+            from_layer=rules.layer_of.get(key),
+            displaced_layer=rules.displaced_layer.get(key),
         )
 
     # Tier 2 — a documented default exists for this context.

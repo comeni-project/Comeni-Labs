@@ -108,6 +108,26 @@ class RuleTable(BaseModel):
 
     decisions: list[Decision] = Field(default_factory=list)
 
+    layer_of: dict[str, str] = Field(default_factory=dict)
+    """Decision key -> the layer whose block is in force. Audit A15.
+
+    Deliberately *not* a field on `Decision`. A `Decision` is parsed straight out of a
+    layer's YAML, so a provenance field there would be a provenance field a layer can
+    write for itself — a rule file claiming `from_layer: comeni-registry-examples` while
+    sitting in an overlay. Provenance must be recorded by the loader, which knows, rather
+    than by the file, which can lie. Same reasoning that keeps `layer_of` off
+    `ModuleContract`.
+    """
+
+    displaced_layer: dict[str, str] = Field(default_factory=dict)
+    """Decision key -> the *lowest* layer whose block this one replaced, if any.
+
+    `by_target[key] = decision` replaced a whole block and recorded nothing, so a tier-3
+    parameter decided by a lab's overlay was indistinguishable from one decided by the
+    public registry. Invariant 11 says all four kinds of declared data stack; only
+    contracts were being watched. Audit A15.
+    """
+
     @classmethod
     def load(
         cls,
@@ -116,11 +136,18 @@ class RuleTable(BaseModel):
         registry: Registry,
         vocabulary: Vocabulary,
         measurements: MeasurementRegistry,
+        names: Sequence[str] | None = None,
     ) -> "RuleTable":
         if isinstance(layers, Path):
             layers = [layers]
+        # A rules directory is `<layer>/rules`, so the layer's name lives one level up —
+        # the same knowledge the caller has and this does not, and the same reason
+        # `Registry.load` takes `names`. Audit A12.
+        layer_names = list(names) if names is not None else [layer.parent.name for layer in layers]
         by_target: dict[str, Decision] = {}
-        for layer in layers:
+        layer_of: dict[str, str] = {}
+        displaced_layer: dict[str, str] = {}
+        for layer, layer_name in zip(layers, layer_names, strict=True):
             if not layer.exists():
                 continue
             seen_here: set[str] = set()
@@ -139,8 +166,20 @@ class RuleTable(BaseModel):
                     _validate(decision, path, registry, vocabulary, measurements)
                     # A higher layer replaces the whole block, not row by row: a reviewer
                     # should read one block and see the entire effective decision.
+                    #
+                    # Replacing one is a silent reroute unless somebody writes it down.
+                    # `setdefault` keeps the *lowest* displaced layer across a three-deep
+                    # stack, which is the one a reader is surprised to have lost.
+                    prior = layer_of.get(key)
+                    if prior is not None and prior != layer_name:
+                        displaced_layer.setdefault(key, prior)
                     by_target[key] = decision
-        return cls(decisions=[by_target[k] for k in sorted(by_target)])
+                    layer_of[key] = layer_name
+        return cls(
+            decisions=[by_target[k] for k in sorted(by_target)],
+            layer_of=layer_of,
+            displaced_layer=displaced_layer,
+        )
 
     def _for(
         self, key: str, profile: DataProfile
