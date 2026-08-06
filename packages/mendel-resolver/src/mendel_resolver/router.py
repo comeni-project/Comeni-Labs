@@ -46,6 +46,9 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
+    from_layer: str | None = None
+    displaced_layer: str | None = None
+    """Which layer supplied the winner, and which lower layer it beat. Audit A5."""
 
 
 class RoutePlan(BaseModel):
@@ -84,6 +87,36 @@ def _surplus(contract: ModuleContract, type_id: str, states: frozenset[str]) -> 
         for port in contract.produces
         if port.type_id == type_id and states <= port.state
     )
+
+
+def _displaced_layer(
+    registry: Registry, chosen: ModuleContract, candidates: list[ModuleContract]
+) -> str | None:
+    """The lowest layer that offered a candidate this winner beat, if any.
+
+    **Displacement, not origin.** A layer supplying a module no lower layer had is a lab
+    using the system as designed, and reporting it would put a notice beside every module
+    an overlay contributes — burying the one that rerouted the pipeline. Invariant 11 is
+    about an overlay *changing* what the base registry would have done.
+
+    Reads `candidates` after the cycle filter, so a contract excluded from contention did
+    not lose to anything and is not counted as displaced.
+    """
+    order = registry.layer_order
+    winning_layer = registry.layer_of.get(chosen.id)
+    if winning_layer is None or winning_layer not in order:
+        return None
+    winner_at = order.index(winning_layer)
+
+    beaten = [
+        order.index(layer)
+        for candidate in candidates
+        if candidate.id != chosen.id
+        and (layer := registry.layer_of.get(candidate.id)) is not None
+        and layer in order
+        and order.index(layer) < winner_at
+    ]
+    return order[min(beaten)] if beaten else None
 
 
 def route(
@@ -134,6 +167,8 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
+                    from_layer=registry.layer_of.get(chosen.id),
+                    displaced_layer=_displaced_layer(registry, chosen, candidates),
                 )
             )
 

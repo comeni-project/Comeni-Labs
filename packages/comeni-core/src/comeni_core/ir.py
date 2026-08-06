@@ -56,6 +56,34 @@ class ResolvedValue(BaseModel):
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""
 
+    from_layer: LayerName | None = None
+    """Which registry layer supplied the thing this value came from.
+
+    A contract, for a selection; a rule block, for a parameter. Provenance, recorded
+    always and for every node, because a curator reading a published bundle needs to know
+    where a pipeline was routed from without having to ask — a flag is the wrong shape
+    for a question with an answer on every node.
+
+    A third axis beside `tier` (how well it was settled) and `source` (who settled it),
+    for the reason `ValueSource`'s own docstring gives: a tier should not also have to say
+    who. `None` in a single-layer build, which is the normal case.
+    """
+
+    displaced_layer: LayerName | None = None
+    """Set when a *lower* layer offered something this one beat. Audit A5, A15.
+
+    Invariant 11 ends "never let an installed overlay reroute a pipeline silently", and
+    two routes did. An overlay contract with a different module key is not a shadow, so
+    `ShadowRecord` misses it; a priority win is not a tie, so invariant 8 misses it too.
+    An overlay rule block overwrote a lower layer's whole block and recorded nothing at
+    all, which is worse — nothing was watching rules.
+
+    **Displacement, not origin.** A layer supplying something new is a lab using the
+    system as designed and is not reported. A layer replacing what a lower layer said is
+    the silent reroute. Flagging origin would put a notice on every module an overlay
+    supplies and bury the one that mattered — the failure the fix was meant to prevent.
+    """
+
     @computed_field
     @property
     def review_level(self) -> ReviewLevel:
@@ -195,3 +223,36 @@ class PipelineIR(BaseModel):
             and decision.key not in flagged
         ]
         return flagged
+
+    def overlay_reroutes(self) -> list[str]:
+        """Where an installed overlay changed what the layers below it would have done.
+
+        Invariant 11 ends "never let an installed overlay reroute a pipeline silently",
+        and two routes did it silently: an overlay contract with a different module key is
+        not a shadow, and an overlay rule block replaced a lower block without a record.
+        Audit A5 and A15.
+
+        **A separate list from `needs_review()`, deliberately.** That method answers "what
+        must a human decide before this runs" and lists `REQUIRED` only, under a test named
+        for the guarantee. This answers a different question — "what did my overlay
+        change" — and the two do not belong in one list: an overlay winning on priority is
+        a documented default, correctly tier 2 and correctly review `none`. What was
+        missing was visibility, not severity.
+
+        Derived rather than stored, so it cannot drift from the fields it reads, and empty
+        for the single-layer build that is the normal case.
+        """
+        lines = [
+            f"{node.id} (module) = {node.contract_id}: from "
+            f"{node.selection.from_layer!r}, displacing {node.selection.displaced_layer!r}"
+            for node in self.nodes
+            if node.selection.displaced_layer is not None
+        ]
+        lines += [
+            f"{node.id}.{binding.name} = {binding.value.value!r}: from "
+            f"{binding.value.from_layer!r}, displacing {binding.value.displaced_layer!r}"
+            for node in self.nodes
+            for binding in node.params
+            if binding.value.displaced_layer is not None
+        ]
+        return lines

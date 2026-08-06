@@ -38,6 +38,21 @@ class ShadowRecord(BaseModel):
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
     shadowed: list[ShadowRecord] = []
+    layer_of: dict[str, LayerName] = {}
+    """Which layer each surviving contract came from.
+
+    Here rather than on `ModuleContract` on purpose: a contract is content-addressed
+    (audit A10), and a field recording where it was found would make its digest depend on
+    the machine that read it — reopening A10 sideways. A `Registry` is never reachable
+    from `PublishBundle`, so a mapping is legal here in a way it is not on the IR.
+
+    Routing reads this to answer A5: not *which* layer won, which is rarely interesting,
+    but whether the winner beat a candidate a lower layer offered.
+    """
+
+    layer_order: list[LayerName] = []
+    """The stack, lowest first. Without it `layer_of` cannot answer "was this layer above
+    that one", which is the whole of the displacement test."""
 
     @classmethod
     def load(
@@ -59,6 +74,7 @@ class Registry(BaseModel):
 
         contracts: dict[str, ModuleContract] = {}
         shadowed: list[ShadowRecord] = []
+        layer_of: dict[str, LayerName] = {}
 
         for layer, layer_name in zip(layers, layer_names, strict=True):
             incoming: dict[str, ModuleContract] = {}
@@ -96,10 +112,20 @@ class Registry(BaseModel):
                 )
                 for cid in displaced:
                     del contracts[cid]
+                    # A contract that is gone has no layer. Leaving the entry behind would
+                    # let routing report a displacement against a candidate that is not in
+                    # the registry any more.
+                    layer_of.pop(cid, None)
 
             contracts.update(incoming)
+            layer_of.update(dict.fromkeys(incoming, layer_name))
 
-        return cls(contracts=contracts, shadowed=shadowed)
+        return cls(
+            contracts=contracts,
+            shadowed=shadowed,
+            layer_of=layer_of,
+            layer_order=list(layer_names),
+        )
 
     def get(self, contract_id: str) -> ModuleContract:
         if contract_id not in self.contracts:

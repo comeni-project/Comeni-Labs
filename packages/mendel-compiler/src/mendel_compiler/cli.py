@@ -222,6 +222,19 @@ def _build(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    # Its own section, above the review list rather than inside it. "What did my overlay
+    # change" and "what must I decide" are different questions, and folding the first into
+    # the second is how a reviewer learns to skim both. Audit A5, A15.
+    reroutes = ir.overlay_reroutes()
+    if reroutes:
+        print(
+            f"{len(reroutes)} overlay reroute(s) — an installed layer changed what the "
+            f"layers below it would do:",
+            file=sys.stderr,
+        )
+        for item in reroutes:
+            print(f"  OVERLAY  {item}", file=sys.stderr)
+
     flagged = ir.needs_review()
     print(f"{len(ir.nodes)} modules, {len(flagged)} requiring review", file=sys.stderr)
     for item in flagged:

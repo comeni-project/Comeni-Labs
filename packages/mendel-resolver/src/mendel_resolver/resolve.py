@@ -57,7 +57,11 @@ def resolve(
             id=step.node_id,
             contract_id=contract.id,
             selection=ResolvedValue(
-                value=contract.id, tier=step.selection_tier, reason=step.selection_reason
+                value=contract.id,
+                tier=step.selection_tier,
+                reason=step.selection_reason,
+                from_layer=step.from_layer,
+                displaced_layer=step.displaced_layer,
             ),
         )
 
@@ -216,10 +220,16 @@ def _resolve_param(
     matched = rules.value_for(param_name, goal.profile)
     if matched is not None:
         value, decision, row = matched
+        key = decision.decides.key()
         return ResolvedValue(
             value=value,
             tier=Tier.DATA_PROFILED,
-            reason=f"rule {decision.decides.key()}: {row.cite or decision.cite or ''}",
+            reason=f"rule {key}: {row.cite or decision.cite or ''}",
+            # Which layer's rule block decided this, and which lower one it replaced.
+            # Read off the table rather than the decision, because a layer must not be
+            # able to write its own provenance. Audit A15.
+            from_layer=rules.layer_of.get(key),
+            displaced_layer=rules.displaced_layer.get(key),
         )
 
     # Tier 2 — a documented default exists for this context.

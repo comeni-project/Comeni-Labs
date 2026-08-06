@@ -91,6 +91,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         registry=registry,
         vocabulary=vocabulary,
         measurements=measurements,
+        # The layer's name, for the same reason contracts get one: a rule block replacing
+        # a lower layer's must say which layer it came from, and `rules/`'s basename is
+        # "rules" everywhere. Audit A15.
+        names=[layer_name(layer) for layer in layers],
     )
     return Layers(
         measurements=measurements,
