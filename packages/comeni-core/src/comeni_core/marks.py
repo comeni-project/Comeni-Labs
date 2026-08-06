@@ -5,28 +5,62 @@ and any two of those importing each other would be a cycle. They are also the vo
 `tests/test_egress.py` reasons about, so keeping them in one small file makes the guard's
 subject matter readable in one screen.
 
-The distinction that matters:
+Every marker is a member of `Mark`, which is closed. That is what lets the egress guard ask
+"is this a declared identifier?" rather than "does this carry any metadata?" — the second
+question was the one it used to ask, and `Annotated[str, "clinical-notes"]` answered yes.
 
-- `FreeText` — text a human typed or a tool printed. Unbounded, and the thing the egress
-  boundary exists to contain. Exactly the fields named in the guard's allowlist may carry it.
-- `ParamLiteral` — a value that came from curated registry data: a contract default, a rule's
-  `then`, or a resolver decision over those. It can be a string, but not an arbitrary one.
-
-A bare `str` is neither, which is why the guard rejects it: a field with nothing said about
-it is a field where anything fits.
+A bare `str` carries no marker at all, which is why the guard rejects it: a field with
+nothing said about it is a field where anything fits.
 """
 
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import AfterValidator
 
 
-class FreeText:
-    """Marker: this field may hold text a human typed or a tool printed."""
+class Mark(StrEnum):
+    """Every kind of thing a declared string may be. **Closed, on purpose.**
 
+    Markers used to be bare strings — `Annotated[str, "contract-id"]` — and the egress
+    guard exempted a field from the bare-`str` rule if it carried *any* metadata at all. So
+    "declared identifier" meant "somebody wrote a string here", and
+    `Annotated[str, "clinical-notes"]` was as declared as `ContractId`. You could mint a new
+    identifier kind by typing one.
 
-class ParamLiteral:
-    """Marker: a scalar drawn from curated registry data rather than from a person."""
+    An enum makes `isinstance(meta, Mark)` a question with an answer, which is what lets the
+    egress guard's leaf rule be an allowlist rather than another blocklist. Inverting that
+    rule without closing this set first would have rebuilt the same hole one level up.
+
+    A `StrEnum` rather than a plain `Enum` so the metadata still reads as itself in a repr;
+    the `isinstance` check discriminates either way, and a bare `"contract-id"` string is
+    *not* an instance of `Mark` even though it compares equal to one.
+
+    Audit A20, and the unnumbered hole found while writing root A's spec.
+    """
+
+    CONTRACT_ID = "contract-id"
+    TYPE_ID = "type-id"
+    NODE_ID = "node-id"
+    SUBJECT = "subject"
+    PORT_NAME = "port-name"
+    STATE_NAME = "state-name"
+    DECISION_KEY = "decision-key"
+    RESOLVER_ID = "resolver-id"
+    MEASUREMENT_ID = "measurement-id"
+    DIGEST = "digest"
+    LAYER_NAME = "layer-name"
+    CONTAINER_REF = "container-ref"
+    MODULE_KEY = "module-key"
+
+    FREE_TEXT = "free-text"
+    """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
+    exists to contain. Only the fields named in the guard's allowlist may carry it."""
+
+    PARAM_LITERAL = "param-literal"
+    """A scalar drawn from curated registry data rather than from a person. It can be a
+    string, but not an arbitrary one — see `_reject_path_shaped` for how little that
+    currently guarantees."""
 
 
 _SEQUENCING_SUFFIXES = (".fastq", ".fq", ".bam", ".cram", ".vcf")
@@ -57,7 +91,8 @@ def _reject_path_shaped(value: object) -> object:
 
     The 2026-08-03 audit's C3 reported this and it was recorded fixed. It was fixed in
     *shape* — the open `dict[str, Any]` is gone, so arbitrary keys are impossible — and
-    not in *substance*, because `ParamLiteral` is a marker with no closed domain and the
+    not in *substance*, because `Mark.PARAM_LITERAL` is a marker with no closed
+    domain and the
     egress guard treats "has a label" as "has a domain". Do not record A3 as closed on the
     strength of this function.
 
@@ -84,28 +119,28 @@ def _reject_path_shaped(value: object) -> object:
     return value
 
 
-Text = Annotated[str, FreeText]
-ContractId = Annotated[str, "contract-id"]
-TypeId = Annotated[str, "type-id"]
-NodeId = Annotated[str, "node-id"]
-Subject = Annotated[str, "subject"]
-PortName = Annotated[str, "port-name"]
-StateName = Annotated[str, "state-name"]
-DecisionKey = Annotated[str, "decision-key"]
-ResolverId = Annotated[str, "resolver-id"]
-MeasurementId = Annotated[str, "measurement-id"]
+Text = Annotated[str, Mark.FREE_TEXT]
+ContractId = Annotated[str, Mark.CONTRACT_ID]
+TypeId = Annotated[str, Mark.TYPE_ID]
+NodeId = Annotated[str, Mark.NODE_ID]
+Subject = Annotated[str, Mark.SUBJECT]
+PortName = Annotated[str, Mark.PORT_NAME]
+StateName = Annotated[str, Mark.STATE_NAME]
+DecisionKey = Annotated[str, Mark.DECISION_KEY]
+ResolverId = Annotated[str, Mark.RESOLVER_ID]
+MeasurementId = Annotated[str, Mark.MEASUREMENT_ID]
 
-ParamValue = int | float | bool | Annotated[str, ParamLiteral] | None
+ParamValue = int | float | bool | Annotated[str, Mark.PARAM_LITERAL] | None
 """What a resolved parameter or a decision may hold.
 
 Replaces `Any`. Nextflow parameters are scalars — there is no shape a pipeline parameter
 takes that this does not cover — and `Any` in a type reachable from an egress payload means
 the payload can carry anything at all, which was true until 2026-08-03.
 
-Note what this does *not* say: `ParamLiteral` is a marker, not a domain, and the egress guard
-treats "has a label" as "has a domain". That is audit A3, and closing it properly is Plan 2
-Task 11, where a parameter gets a declared set of legal values. `HumanParamValue` below is
-the stopgap for the fields a person can reach in the meantime.
+Note what this does *not* say: `Mark.PARAM_LITERAL` is a marker, not a domain, and the
+egress guard treats "has a label" as "has a domain". That is audit A3, and closing it
+properly is Plan 2 Task 11, where a parameter gets a declared set of legal values.
+`HumanParamValue` below is the stopgap for the fields a person can reach meanwhile.
 """
 
 HumanParamValue = Annotated[ParamValue, AfterValidator(_reject_path_shaped)]
@@ -128,15 +163,15 @@ this alias.
 """
 
 
-Digest = Annotated[str, "digest"]
+Digest = Annotated[str, Mark.DIGEST]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
 
-LayerName = Annotated[str, "layer-name"]
+LayerName = Annotated[str, Mark.LAYER_NAME]
 """A registry layer's declared name. Never a filesystem path — a path is meaningless on
 another machine and is exactly what invariant 15 keeps out of a shareable artifact."""
 
-ContainerRef = Annotated[str, "container-ref"]
+ContainerRef = Annotated[str, Mark.CONTAINER_REF]
 """A container image reference as a contract declares it, tag and all.
 
 A declared ID rather than `FreeText`: this is registry data with a shape — a registry host,
@@ -144,6 +179,6 @@ a path, a tag — not prose a person wrote. It must never join `FREE_TEXT_FIELDS
 the two lists mean different things and the egress guard reads both literally.
 """
 
-ModuleKey = Annotated[str, "module-key"]
+ModuleKey = Annotated[str, Mark.MODULE_KEY]
 """A contract ID minus its `@version`. Shadowing is decided on this, not the full ID —
 a lab pinning `@1.22.0` over `@1.21.0` is a version bump, not an ambiguity."""

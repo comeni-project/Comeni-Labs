@@ -673,3 +673,24 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     ]) == 1
     assert not (out / "pipeline.bundle.json").exists()
     assert not (out / "mendel.lock.yml").exists()
+
+
+def test_a20_marker_metadata_is_a_closed_vocabulary():
+    """The marker set was open, so "declared identifier" meant "a string exists here".
+
+    `_has_bare_str` exempts anything carrying *any* metadata, so `Annotated[str,
+    "clinical-notes"]` and even `Annotated[str, 42]` passed as declared identifiers. That is
+    why inverting the egress blocklist is not enough on its own: an allowlist reading "a leaf
+    may be `Annotated[str, <a declared marker>]`" rebuilds the same hole unless the markers
+    themselves are enumerable. Found while writing root A's spec.
+    """
+    import typing
+
+    from comeni_core.marks import ContractId, Mark
+
+    assert all(isinstance(m, Mark) for m in ContractId.__metadata__)
+
+    for invented in (typing.Annotated[str, "clinical-notes"], typing.Annotated[str, 42]):
+        assert not any(isinstance(m, Mark) for m in invented.__metadata__), (
+            f"{invented} must not read as declared"
+        )

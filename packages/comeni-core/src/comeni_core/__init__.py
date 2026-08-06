@@ -31,7 +31,7 @@ from comeni_core.egress import (
 )
 from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
-from comeni_core.marks import FreeText, ParamLiteral, ParamValue
+from comeni_core.marks import Mark, ParamValue
 from comeni_core.measurement import (
     BadMeasurementValueError,
     Measurement,
@@ -57,7 +57,7 @@ __all__ = [
     "DecisionRecord",
     "EgressPayload",
     "ErrorCategory",
-    "FreeText",
+    "Mark",
     "GateFailure",
     "Goal",
     "GoalInput",
@@ -73,7 +73,6 @@ __all__ = [
     "OutputPort",
     "Param",
     "ParamBinding",
-    "ParamLiteral",
     "ParamOverride",
     "ParamValue",
     "PipelineIR",

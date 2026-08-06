@@ -8,7 +8,8 @@ the moment a person should be thinking, and this test is what makes them.
 import typing
 from collections import abc
 
-from comeni_core import egress, marks
+from comeni_core import egress
+from comeni_core.marks import Mark
 from pydantic import BaseModel
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
@@ -70,7 +71,13 @@ def _nested_models(annotation: object) -> list[type[BaseModel]]:
 
 
 def _mentions(annotation: object, marker: object) -> bool:
-    """Walk an annotation tree. `Text | None` hides its metadata one level down."""
+    """Walk an annotation tree. `Text | None` hides its metadata one level down.
+
+    `marker` is a `Mark` member or `typing.Any`. Identity rather than equality: a `Mark` is a
+    `StrEnum`, so `"free-text" == Mark.FREE_TEXT` is true while `"free-text" is Mark.FREE_TEXT`
+    is not — and the whole point of closing the vocabulary (A20) is that a bare string must not
+    read as a declared marker.
+    """
     metadata = getattr(annotation, "__metadata__", ())
     if any(meta is marker for meta in metadata):
         return True
@@ -146,7 +153,7 @@ def test_every_door_declares_an_egress_payload():
 def test_free_text_lives_only_where_declared():
     found: set[tuple[str, str]] = set()
     for payload in _payload_types():
-        found |= _fields(payload, marks.FreeText)
+        found |= _fields(payload, Mark.FREE_TEXT)
     assert found == FREE_TEXT_FIELDS
 
 
@@ -156,10 +163,10 @@ def test_payloads_forbid_unknown_fields():
 
 
 def test_no_payload_carries_an_undeclared_string():
-    """Every string is either a declared ID alias or explicitly marked FreeText.
+    """Every string is either a declared ID alias or explicitly marked `Mark.FREE_TEXT`.
 
     Without this, `user_note: str` sails through every other test in this file — it
-    carries no FreeText marker to catch and no `Any` to forbid — and a prompt fits in
+    carries no `Mark` to catch and no `Any` to forbid — and a prompt fits in
     it perfectly. Found by running the plan's own break-the-guard step, which is what
     that step is for.
     """
@@ -169,7 +176,7 @@ def test_no_payload_carries_an_undeclared_string():
             if name in payload.model_fields and _has_bare_str(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
-        "these fields are plain `str`; annotate them as an ID type or as FreeText: "
+        "these fields are plain `str`; annotate them as an ID type or as free text: "
         + ", ".join(sorted(offenders))
     )
 
