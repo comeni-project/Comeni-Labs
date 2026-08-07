@@ -51,7 +51,7 @@ def _world(tmp_path, contracts: dict[str, str]):
     contract_dir.mkdir()
     for name, body in contracts.items():
         (contract_dir / name).write_text(body)
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     return Registry.load(contract_dir, vocabulary)
 
 

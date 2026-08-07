@@ -2,6 +2,13 @@ import pytest
 from comeni_core.contract import ModuleContract
 from comeni_core.vocabulary import UnknownStateError, Vocabulary
 
+
+def _v(root):
+    """The layer's `vocabularies/` directory. `Vocabulary.load` takes the layer root."""
+    directory = root / "vocabularies"
+    directory.mkdir(exist_ok=True)
+    return directory
+
 CONTRACT_YAML = """
 id: nf-core/samtools/sort@1.21.0
 nf_process: SAMTOOLS_SORT
@@ -27,7 +34,7 @@ provenance:
 
 @pytest.fixture
 def vocab(tmp_path):
-    (tmp_path / "alignment.bam.yml").write_text("states: [coordinate_sorted, name_sorted]\n")
+    (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted, name_sorted]\n")
     return Vocabulary.load(tmp_path)
 
 

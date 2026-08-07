@@ -10,7 +10,7 @@ def test_every_declared_measurement_becomes_a_type(tmp_path):
     (v := tmp_path / "vocabularies").mkdir()
     (v / "fastq.reads.yml").write_text("states: []\n")
 
-    vocab = Vocabulary.load(v).with_measurements(MeasurementRegistry.load(tmp_path))
+    vocab = Vocabulary.load(tmp_path).with_measurements(MeasurementRegistry.load(tmp_path))
     assert vocab.states_for("measurement.read_length") == frozenset()
     assert vocab.states_for("fastq.reads") == frozenset()
 
@@ -30,7 +30,7 @@ def test_the_base_vocabulary_is_not_mutated(tmp_path):
     (v := tmp_path / "vocabularies").mkdir()
     (v / "fastq.reads.yml").write_text("states: [trimmed]\nentry_channel: 'Channel.of()'\n")
 
-    base = Vocabulary.load(v)
+    base = Vocabulary.load(tmp_path)
     derived = base.with_measurements(MeasurementRegistry.load(tmp_path))
     assert "measurement.read_length" not in base.types
     assert derived.entry_channels == base.entry_channels

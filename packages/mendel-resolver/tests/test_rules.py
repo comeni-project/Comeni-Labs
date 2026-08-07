@@ -45,7 +45,7 @@ def world(tmp_path):
         "kind: enum\nvalues: [forward, reverse, unstranded]\n"
     )
     (measurements / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     return {
         "vocabulary": vocabulary,
         "registry": Registry.load(contracts, vocabulary),

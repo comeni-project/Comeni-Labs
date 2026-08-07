@@ -67,7 +67,7 @@ def _rules_and_measurements(tmp_path, registry, vocabulary, body):
 
 @pytest.fixture
 def setup(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
     (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
@@ -75,7 +75,7 @@ def setup(tmp_path):
     contracts.mkdir()
     (contracts / "fc.yml").write_text(COUNTS)
     (contracts / "sort.yml").write_text(SORT)
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(contracts, vocabulary)
     return registry, *_rules_and_measurements(tmp_path, registry, vocabulary, RULES)
 
@@ -176,7 +176,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 
 @pytest.fixture
 def tied(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
     (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
@@ -188,7 +188,7 @@ def tied(tmp_path):
             "STAR_ALIGN", "HISAT2_ALIGN"
         )
     )
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(contracts, vocabulary)
     return registry, *_rules_and_measurements(
         tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"
@@ -239,7 +239,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 
 @pytest.fixture
 def with_index(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted, indexed]\n")
     (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
@@ -248,7 +248,7 @@ def with_index(tmp_path):
     (contracts / "fc.yml").write_text(COUNTS)
     (contracts / "sort.yml").write_text(SORT)
     (contracts / "index.yml").write_text(INDEX)
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(contracts, vocabulary)
     return registry, *_rules_and_measurements(
         tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"

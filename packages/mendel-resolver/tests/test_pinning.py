@@ -81,7 +81,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
             "TRIMGALORE", "FASTP"
         )
     )
-    vocabulary = Vocabulary.load(layer / "vocabularies")
+    vocabulary = Vocabulary.load(layer)
     registry = Registry.load(contracts, vocabulary)
     ir = resolve(
         Goal(have=[GoalInput(type_id="fastq.reads")], want=["fastq.reads"],

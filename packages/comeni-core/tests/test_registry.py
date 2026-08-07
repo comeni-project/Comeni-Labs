@@ -30,10 +30,10 @@ def _layer(root, name, files):
 
 @pytest.fixture
 def vocab(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    return Vocabulary.load(vocab_dir)
+    return Vocabulary.load(tmp_path)
 
 
 @pytest.fixture

@@ -725,6 +725,82 @@ def test_a23_the_shipped_registry_displaces_nothing():
     assert layers_mod.load("registry").displaced == []
 
 
+def test_a24_an_overlay_vocabulary_says_so(tmp_path):
+    """A24 — an overlay replaced `entry_channel` and nothing said so.
+
+    `entry_channel` is unbounded Groovy emitted verbatim, deliberately, so a lab can bring
+    its own type. That makes replacing it the most consequential thing an overlay can do to
+    a pipeline: the reviewed one reads `params.input`, and the replacement read hardcoded
+    laboratory paths. The refusal is not to forbid it — it is to say it happened.
+    """
+    from comeni_core.layered import DeclaredKind
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
+    (lab / "vocabularies" / "fastq.reads.yml").write_text(
+        "states: [trimmed, deduplicated, subsampled]\n"
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n"
+    )
+
+    loaded = layers_mod.load([base, lab])
+
+    assert "/mnt/lab/run7" in loaded.vocabulary.entry_channels["fastq.reads"]
+    displaced = [d for d in loaded.displaced if d.kind is DeclaredKind.VOCABULARIES]
+    assert [(d.key, d.winning_layer, d.displaced_layer) for d in displaced] == [
+        ("fastq.reads", "lab-registry", "comeni-registry-examples")
+    ]
+
+
+def test_a35_an_overlay_replacing_states_names_itself(tmp_path):
+    """A35 — `states:` replaced the set, and the error named the wrong file.
+
+    The loader replaced `types[type_id]` unconditionally while replacing `entry_channel`
+    only when present, so one file was governed by two policies. An overlay declaring
+    `states: [phix_removed]` deleted `trimmed`, and the build died with
+    `UnknownStateError: 'trimmed' is not a declared state` pointing at `star-align.yml` —
+    a base contract that had not changed, in a layer the lab does not own.
+
+    Replacement stays legal. What changes is that the loader, which knows both facts,
+    joins them: the message now names the layer that removed the state.
+    """
+    from comeni_core.vocabulary import UnknownStateError
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
+    (lab / "vocabularies" / "fastq.reads.yml").write_text("states: [phix_removed]\n")
+
+    with pytest.raises(UnknownStateError) as raised:
+        layers_mod.load([base, lab])
+
+    message = str(raised.value)
+    assert "lab-registry" in message, "the layer that removed the state must be named"
+    assert "fastq.reads" in message and "trimmed" in message
+
+
+def test_a35_add_states_extends_and_the_base_survives(tmp_path):
+    """A35's other half — the extension a lab actually wants, spelled explicitly.
+
+    `add_values` already existed for measurements; a vocabulary type had no such thing, so
+    "add one state" was only expressible as "restate every state and hope". One convention
+    across kinds, and the base's `entry_channel` survives an extension untouched.
+    """
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
+    (lab / "vocabularies" / "fastq.reads.yml").write_text("add_states: [phix_removed]\n")
+
+    loaded = layers_mod.load([base, lab])
+
+    assert loaded.vocabulary.states_for("fastq.reads") == frozenset(
+        {"trimmed", "deduplicated", "subsampled", "phix_removed"}
+    )
+    assert "params.input" in loaded.vocabulary.entry_channels["fastq.reads"]
+    assert loaded.vocabulary.test_data["fastq.reads"], "the base's test data survives too"
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 

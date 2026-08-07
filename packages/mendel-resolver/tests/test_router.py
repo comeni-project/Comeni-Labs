@@ -35,7 +35,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 
 @pytest.fixture
 def registry(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "fastq.reads.yml").write_text("states: [trimmed]\n")
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
@@ -43,7 +43,7 @@ def registry(tmp_path):
     contracts.mkdir()
     for name, body in [("align", ALIGN), ("trim", TRIM), ("sort", SORT)]:
         (contracts / f"{name}.yml").write_text(body)
-    return Registry.load(contracts, Vocabulary.load(vocab_dir))
+    return Registry.load(contracts, Vocabulary.load(tmp_path))
 
 
 def test_inserts_the_gap_filling_step(registry):
@@ -117,7 +117,7 @@ def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
 
 
 def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
     (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
@@ -131,7 +131,7 @@ def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
         .replace("nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.1")
         .replace("STAR_ALIGN", "HISAT2_ALIGN")
     )
-    registry = Registry.load(contracts, Vocabulary.load(vocab_dir))
+    registry = Registry.load(contracts, Vocabulary.load(tmp_path))
     plan = route(Goal(have=[GoalInput(type_id="fastq.reads")], want=["alignment.bam"]), registry)
     # `RoutePlan.ambiguities` became `RoutePlan.decisions` with audit A8: the resolver is
     # now asked here, where its answer can still change the selection, so what the plan

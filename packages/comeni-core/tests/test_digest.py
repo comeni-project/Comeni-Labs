@@ -28,12 +28,12 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 
 @pytest.fixture
 def contract(tmp_path):
-    vocab_dir = tmp_path / "v"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted, indexed]\n")
     path = tmp_path / "c.yml"
     path.write_text(CONTRACT)
-    return ModuleContract.load(path, Vocabulary.load(vocab_dir))
+    return ModuleContract.load(path, Vocabulary.load(tmp_path))
 
 
 def test_a_digest_is_prefixed_and_hex(contract):

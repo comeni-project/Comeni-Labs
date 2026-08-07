@@ -74,7 +74,7 @@ class _PicksFirst:
 @pytest.fixture
 def tied(tmp_path):
     """Two aligners nothing distinguishes: a genuine tie, so tier 4 and a record."""
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
     (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
@@ -82,7 +82,7 @@ def tied(tmp_path):
     contracts.mkdir()
     (contracts / "a.yml").write_text(ALIGNER.format(tag="a", upper="A"))
     (contracts / "b.yml").write_text(ALIGNER.format(tag="b", upper="B"))
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     return Registry.load(contracts, vocabulary), RuleTable(), MeasurementRegistry()
 
 
@@ -232,7 +232,7 @@ def two_equally_good_sources(tmp_path):
     passed against the bug — it asserted over an empty loop. Real: STAR emits a genomic
     and a transcriptomic BAM, and which one a counter should read is a genuine question.
     """
-    vocab_dir = tmp_path / "vocab"
+    vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     for type_id in ("fastq.reads", "alignment.bam", "counts.matrix"):
         (vocab_dir / f"{type_id}.yml").write_text("states: []\n")
@@ -240,7 +240,7 @@ def two_equally_good_sources(tmp_path):
     contracts.mkdir()
     (contracts / "dual.yml").write_text(DUAL)
     (contracts / "counter.yml").write_text(COUNTER)
-    vocabulary = Vocabulary.load(vocab_dir)
+    vocabulary = Vocabulary.load(tmp_path)
     return Registry.load(contracts, vocabulary)
 
 

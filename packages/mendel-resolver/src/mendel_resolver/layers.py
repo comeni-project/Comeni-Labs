@@ -21,7 +21,7 @@ from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement, layers_of, stack
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.vocabulary import UnknownStateError, Vocabulary
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules import RuleTable
@@ -83,21 +83,13 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     stacked = layers_of(layers)
     measured = stack(stacked, MeasurementRegistry.kind())
     measurements = MeasurementRegistry.of(measured)
-    vocabulary = Vocabulary.load(
-        [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
-    ).with_measurements(measurements)
+    declared_types = stack(stacked, Vocabulary.kind())
+    vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
     with_contracts = [layer for layer in layers if (layer / "contracts").exists()]
-    registry = Registry.load(
-        [layer / "contracts" for layer in with_contracts],
-        vocabulary,
-        # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
-        # record reaches a publish bundle, so this is the same identifier the lockfile
-        # uses — and a path there would be both meaningless elsewhere and a leak.
-        #
-        # Read from `registry.yml` when the layer declares one, because a basename is not
-        # an identity: `--registry .` produced `''`. Audit 2026-08-06, A12.
-        names=[layer_name(layer) for layer in with_contracts],
-    )
+    try:
+        registry = _load_contracts(with_contracts, vocabulary)
+    except UnknownStateError as error:
+        raise _blame_the_overlay(error, declared_types.displaced) from error
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],
         registry=registry,
@@ -114,5 +106,43 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         registry=registry,
         rules=rules,
         paths=list(layers),
-        displaced=[*measured.displaced],
+        displaced=[*measured.displaced, *declared_types.displaced],
+    )
+
+
+def _load_contracts(with_contracts: list[Path], vocabulary: Vocabulary) -> Registry:
+    return Registry.load(
+        [layer / "contracts" for layer in with_contracts],
+        vocabulary,
+        # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
+        # record reaches a publish bundle, so this is the same identifier the lockfile
+        # uses — and a path there would be both meaningless elsewhere and a leak.
+        #
+        # Read from `registry.yml` when the layer declares one, because a basename is not
+        # an identity: `--registry .` produced `''`. Audit 2026-08-06, A12.
+        names=[layer_name(layer) for layer in with_contracts],
+    )
+
+
+def _blame_the_overlay(
+    error: UnknownStateError, displaced: list[Displacement]
+) -> UnknownStateError:
+    """A35 — join the state that is missing to the layer that removed it.
+
+    A contract cannot know why a state it has always required stopped existing; the loader
+    can, because it stacked the vocabulary a moment earlier. Without the join the build
+    dies naming a base contract in a layer the laboratory does not own, which is the most
+    expensive kind of correct error message.
+    """
+    culprit = next((d for d in displaced if d.key == error.type_id), None)
+    if culprit is None:
+        return error
+    return UnknownStateError(
+        f"{error}\n"
+        f"  layer {culprit.winning_layer!r} replaced the declared states of "
+        f"{culprit.key!r}, which layer {culprit.displaced_layer!r} declared.\n"
+        f"  `states:` replaces the set. An overlay meaning to *add* a state declares "
+        f"`add_states:` instead.",
+        type_id=error.type_id,
+        state=error.state,
     )

@@ -3,6 +3,13 @@ from comeni_core.contract import Alternative, InputPort
 from comeni_core.vocabulary import Vocabulary
 
 
+def _v(root):
+    """The layer's `vocabularies/` directory. `Vocabulary.load` takes the layer root."""
+    directory = root / "vocabularies"
+    directory.mkdir(exist_ok=True)
+    return directory
+
+
 def test_the_single_form_is_one_alternative():
     """Existing contracts must not change. `type_id` + `state_required` is sugar."""
     port = InputPort(name="bam", type_id="alignment.bam", state_required=frozenset({"sorted"}))
@@ -33,7 +40,7 @@ def test_a_port_declaring_neither_form_is_refused():
 
 
 def test_alternatives_are_validated_against_the_vocabulary(tmp_path):
-    (tmp_path / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
     vocab = Vocabulary.load(tmp_path)
     port = InputPort(
         name="bam", accepts=[{"type_id": "alignment.bam", "states": ["sorted_by_coord"]}]
@@ -48,9 +55,9 @@ def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
     import yaml
     from comeni_core.contract import ModuleContract
 
-    (tmp_path / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    (tmp_path / "alignment.cram.yml").write_text("states: []\n")
-    (tmp_path / "counts.matrix.yml").write_text("states: []\n")
+    (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (_v(tmp_path) / "alignment.cram.yml").write_text("states: []\n")
+    (_v(tmp_path) / "counts.matrix.yml").write_text("states: []\n")
     vocab = Vocabulary.load(tmp_path)
     contract = tmp_path / "c.yml"
     contract.write_text(yaml.safe_dump({
