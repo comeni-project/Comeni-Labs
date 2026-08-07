@@ -3,7 +3,13 @@
 from collections.abc import Sequence
 
 from comeni_core.contract import InputPort
-from comeni_core.decision import Ambiguity, DecisionRecord, ParamDecision, SourceDecision
+from comeni_core.decision import (
+    DecisionRecord,
+    ParamAsked,
+    ParamDecision,
+    SourceAsked,
+    SourceDecision,
+)
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
@@ -180,11 +186,12 @@ def _source_for(
         equally_good = preferred or equally_good
     chosen = equally_good[-1]
     if len(equally_good) > 1:
-        ambiguity = Ambiguity(
+        ambiguity = SourceAsked(
             node_id=node_id,
             subject=f"source:{port.name}",
             candidates=sorted(f"{n}.{p}" for n, p, _, _ in equally_good),
-            context={"type_id": chosen[2], "required": sorted(required)},
+            type_id=chosen[2],
+            required=sorted(required),
         )
         resolution = resolver.resolve(ambiguity)
         # The answer selects. This used to compute `equally_good[-1]`, call the resolver,
@@ -257,16 +264,24 @@ def _resolve_param(
         )
 
     # Tier 4 — nothing decided it. Ask the port, record it, flag it.
-    ambiguity = Ambiguity(
+    ambiguity = ParamAsked(
         node_id=node_id,
         subject=param_name,
         # Tier 2 already returned when a default existed, so there is exactly one
         # candidate and it is None. Real alternatives arrive with the rule-tables
         # spec, which gives a parameter a declared domain to draw them from.
         candidates=[None],
-        context={"tier_hint": tier_hint},
+        tier_hint=tier_hint,
     )
     resolution = resolver.resolve(ambiguity)
+    # **This site trusts the answer; the other two do not, and the asymmetry is deliberate.**
+    # `router._choose` and `_source_for` fall back when a resolver names something that is
+    # not a candidate, because there the candidates are a closed set drawn from the registry
+    # — a non-candidate answer is either forged or stale, and neither is worth acting on.
+    # A parameter has no declared domain yet: its candidate list is literally `[None]`, so
+    # "not a candidate" would mean "any answer at all", and falling back would make tier 4
+    # unable to answer anything. Plan 2 Task 11 gives a `Param` its legal values, and this
+    # site becomes symmetric with the other two on the day it does. A33.
     decisions.append(
         ParamDecision(
             key=ambiguity.key(),

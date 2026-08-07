@@ -29,6 +29,7 @@ from comeni_core.marks import (
     Digest,
     NfPath,
     NodeId,
+    StateName,
     Subject,
     Text,
     TypeId,
@@ -84,13 +85,22 @@ class AmbiguityRequest(EgressPayload):
     Deliberately not a free-form context dict. `dict[str, Any]` would carry
     anything, which is why the guard forbids it — the fields a tier-4 call
     actually needs are these.
+
+    **The union of what the three `*Asked` types carry**, asserted by
+    `tests/test_egress.py`: a field added to an ambiguity that has nowhere to land here is a
+    field a model would silently not be told, which is the quiet half of A32. `type_id` and
+    `required` were exactly that — `SourceAsked` carries them and the door had no slot.
     """
 
     node_id: NodeId
     subject: Subject
     candidates: list[ContractId] = []
-    states: list[TypeId] = []
+    states: list[StateName] = []
+    """States required of the thing being chosen. Was `list[TypeId]`, which is a different
+    vocabulary — nothing had ever put a value in it, so nothing disagreed."""
     tier_hint: int | None = None
+    type_id: TypeId = ""
+    required: list[StateName] = []
 
 
 class RepairRequest(EgressPayload):

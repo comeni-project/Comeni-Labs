@@ -305,7 +305,10 @@ Subject = Annotated[str, Mark.SUBJECT]
 PortName = Annotated[str, Mark.PORT_NAME]
 StateName = Annotated[str, Mark.STATE_NAME]
 DecisionKey = Annotated[str, Mark.DECISION_KEY]
-ResolverId = Annotated[str, Mark.RESOLVER_ID]
+ResolverId = Annotated[str, Mark.RESOLVER_ID, AfterValidator(_single_line)]
+"""Who answered a tier-4 question — `flag-only`, `replay`, `human`, or a model adapter's
+own name. Single-line, because it is supplied by whatever implements the port (an impure
+package, in Plan 2) and lands in a publish bundle and in `mendel build`'s output."""
 MeasurementId = Annotated[str, Mark.MEASUREMENT_ID]
 
 ParamValue = int | float | bool | Annotated[str, Mark.PARAM_LITERAL] | None

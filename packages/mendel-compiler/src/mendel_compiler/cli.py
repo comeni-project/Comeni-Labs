@@ -44,7 +44,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mendel: a rule table will not load —\n{exc}", file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:
         print(f"mendel: this goal's profile is not valid — {exc}", file=sys.stderr)
-    except (OSError, KeyError) as exc:
+    except (OSError, KeyError, ValueError) as exc:
+        # `ValueError` last, and it catches a lot on purpose: a symlink in a layer, a
+        # duplicate YAML key, an `add_states` for a type nothing declares, A35's joined
+        # `UnknownStateError`. Every one of them is a refusal this code chose to make, and
+        # every one of them reached the user as a traceback. `ValidationError` is caught
+        # above and `RuleValidationError` above that, so the specific messages still win.
         print(f"mendel: {exc}", file=sys.stderr)
     return 2
 

@@ -6,12 +6,12 @@ are replayed rather than re-asked; this is the class that does it.
 """
 
 import pytest
-from comeni_core.decision import Ambiguity, ParamDecision
+from comeni_core.decision import ParamAsked, ParamDecision
 from mendel_resolver.replay import ReplayResolver
 
 
 def _ambiguity(subject="aligner", node="star_align"):
-    return Ambiguity(node_id=node, subject=subject, candidates=["a", "b"], context={})
+    return ParamAsked(node_id=node, subject=subject, candidates=["a", "b"])
 
 
 def _record(ambiguity, chosen="b", **kwargs):
@@ -76,8 +76,8 @@ def test_a_record_whose_candidates_changed_is_not_replayed():
     ambiguity = _ambiguity()
     stale = _record(ambiguity)
     resolver = ReplayResolver([stale])
-    widened = Ambiguity(
-        node_id="star_align", subject="aligner", candidates=["a", "b", "c"], context={}
+    widened = ParamAsked(
+        node_id="star_align", subject="aligner", candidates=["a", "b", "c"]
     )
     assert resolver.resolve(widened).resolved_by == "flag-only"
     assert widened.key() in resolver.fresh
@@ -107,7 +107,7 @@ def test_replay_is_deterministic_over_duplicate_keys():
 def test_no_candidates_still_raises():
     from mendel_resolver.ports import NoCandidatesError
 
-    empty = Ambiguity(node_id="n", subject="s", candidates=[], context={})
+    empty = ParamAsked(node_id="n", subject="s", candidates=[])
     with pytest.raises(NoCandidatesError):
         ReplayResolver([]).resolve(empty)
 

@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
+from comeni_core.tiers import Tier
 from pydantic import ValidationError
 
 CONTRACT = {
@@ -1336,6 +1337,87 @@ def test_a31_every_file_this_project_owns_reads_one_way():
     assert len(owned) > 20, "this test is only meaningful if it reads something"
     for path in owned:
         yaml_strict.load(path)
+
+
+def test_a32_the_seam_a_model_sits_behind_is_a_declared_type():
+    """A32 — `Ambiguity` was the one door with no type discipline.
+
+    `candidates: list[Any]`, `context: dict[str, Any]`, and **no `model_config` at all**, so
+    `extra` defaulted to *ignore*: a field misspelled at the call site vanished silently. It
+    projects to `AmbiguityRequest`, which is a closed payload — the closed half was
+    downstream of the open half, which is no boundary at all.
+    """
+    from comeni_core.decision import ParamAsked, Resolution
+
+    with pytest.raises(ValidationError):
+        ParamAsked(node_id="n", subject="s", candidates=[], extra=1)
+
+    # `context` is gone: its three uses are declared fields on the kinds that have them.
+    with pytest.raises(ValidationError):
+        ParamAsked(node_id="n", subject="s", context={"anything": object()})
+
+    # And the answer coming back is a boundary too — `resolved_by` reaches every decision
+    # record and therefore a publish bundle.
+    with pytest.raises(ValidationError):
+        Resolution(chosen=None, reason="r", resolved_by="a\nb")
+
+
+def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
+    """A33 — `router._choose`'s tier-4 reason always read "chosen by id order".
+
+    True when a tie is broken alphabetically and false when a resolver answered, which is
+    the case a reviewer most needs described accurately: the record said the machine
+    shrugged when a human had in fact decided.
+
+    The first version of this test ran a goal with no tie in it and asserted over an empty
+    loop — the same shape as the `_source_for` test the 2026-08-06 audit caught. The tie is
+    built here, and asserted to exist before anything is asserted about it.
+    """
+    import shutil
+
+    from comeni_core.decision import Resolution
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    class _PicksLast:
+        def resolve(self, ambiguity):
+            return Resolution(
+                chosen=sorted(ambiguity.candidates)[-1],
+                reason="a person read both modules and chose",
+                resolved_by="human",
+            )
+
+    layer = tmp_path / "registry"
+    shutil.copytree("registry", layer)
+    original = (layer / "contracts" / "nf-core" / "trimgalore.yml").read_text()
+    # Same priority, same output, different module key: nothing distinguishes them.
+    (layer / "contracts" / "nf-core" / "fastp.yml").write_text(
+        original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
+            "TRIMGALORE", "FASTP"
+        )
+    )
+
+    loaded = layers_mod.load(layer)
+    goal = Goal(
+        have=[GoalInput(type_id="fastq.reads")],
+        want=["fastq.reads"],
+        constraints={"required_states": {"fastq.reads": ["trimmed"]}},
+    )
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+        resolver=_PicksLast(),
+    )
+
+    ambiguous = [n for n in ir.nodes if n.selection.tier is Tier.AMBIGUOUS]
+    assert ambiguous, "the tie must actually happen, or this asserts over an empty loop"
+    for node in ambiguous:
+        assert "chosen by id order" not in node.selection.reason, node.selection.reason
+        assert "human" in node.selection.reason, node.selection.reason
 
 
 def test_a20_marker_metadata_is_a_closed_vocabulary():

@@ -197,13 +197,19 @@ Violating any of these breaks the product claim, not just a test.
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
-    exactly two fields across the whole surface may hold free text: `PromptRequest.prompt` and
-    `GateFailure.tool_message`. Everything else is closed vocabulary; no payload may carry an
-    `Any`-typed field, and none may carry a plain `str` — every string is a declared ID alias or
-    marked `FreeText`, because a bare `str` bypasses the marker in one line and a prompt fits in
-    it perfectly. Enforced by `tests/test_egress.py`, which holds both lists literally,
-    so widening the boundary means editing a test that says these are all the ways data leaves.
-    Publication is the door with no undo.
+    **six** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    `GateFailure.tool_message`, `ResolvedValue.reason`, and one `reason` per decision kind.
+    This said "exactly two" for a plan and a half while the guard held four, then six; the
+    guard is the honest count and this sentence is the one that drifts (A33). Everything
+    else is closed vocabulary; no payload may carry an `Any`-typed field, and none may carry
+    a plain `str` — every string is a declared ID alias or marked `Mark.FREE_TEXT`, because a
+    bare `str` bypasses the marker in one line and a prompt fits in it perfectly. The rule is
+    now an **allowlist**: `test_every_payload_field_is_a_declared_shape` enumerates what a
+    leaf may be rather than what it may not, because a blocklist can only forbid what
+    somebody named — which is how `object`, `Path` and `Any` each arrived one audit apart.
+    Enforced by `tests/test_egress.py`, which holds both lists literally, so widening the
+    boundary means editing a test that says these are all the ways data leaves. Publication
+    is the door with no undo.
 15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or
     path. `Goal` holds type IDs, states and declared measurements — a shape, not data. Profiling
     happens where the data is; the emitted pipeline references `params.input` as a placeholder

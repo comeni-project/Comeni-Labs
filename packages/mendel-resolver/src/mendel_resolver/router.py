@@ -17,7 +17,7 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 from collections.abc import Callable
 
 from comeni_core.contract import InputPort, ModuleContract
-from comeni_core.decision import Ambiguity, DecisionRecord, ProducerDecision
+from comeni_core.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
 from comeni_core.registry import Registry
@@ -289,11 +289,11 @@ def _choose(
             None,
         )
 
-    ambiguity = Ambiguity(
+    ambiguity = ProducerAsked(
         node_id=_node_id(ordered[0]),
         subject=f"producer:{type_id}",
         candidates=sorted(c.id for c in ordered),
-        context={"states": sorted(states)},
+        states=sorted(states),
     )
     resolution = resolver.resolve(ambiguity)
     # The answer must *select*, not merely be recorded. Until 2026-08-06 this returned
@@ -321,10 +321,19 @@ def _choose(
             resolved_by=resolution.resolved_by,
         )
     )
+    # What actually happened, not what happens by default. It read "chosen by id order"
+    # unconditionally — true when the fallback fires, and false when a resolver answered,
+    # which is the case a reviewer most needs described correctly: the record said the
+    # machine shrugged when a person had decided. A33.
+    how = (
+        f"chosen by id order ({resolution.resolved_by} did not name a candidate)"
+        if chosen.id != resolution.chosen
+        else f"chosen by {resolution.resolved_by}: {resolution.reason}"
+    )
     return (
         chosen,
         Tier.AMBIGUOUS,
-        f"nothing distinguishes {', '.join(c.id for c in ordered)}; chosen by id order",
+        f"nothing distinguishes {', '.join(c.id for c in ordered)}; {how}",
         None,
         None,
     )

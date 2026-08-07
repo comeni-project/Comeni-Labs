@@ -332,3 +332,28 @@ def test_no_payload_carries_an_untyped_container():
         "these fields are `Any`, which defeats every other rule here: "
         + ", ".join(sorted(offenders))
     )
+
+
+def test_every_ambiguity_field_can_cross_the_door():
+    """A32 — a field a model is never told is as much a boundary defect as one it should
+    not be told.
+
+    `Ambiguity` projects to `AmbiguityRequest` at door 2. The projection is written in Plan
+    2, so nothing builds one yet — which is exactly when this is worth asserting, because a
+    field added to an ambiguity between now and then would land nowhere and nobody would
+    see it fail. `type_id` and `required` were already in that state when this was written.
+    """
+
+    from comeni_core.decision import Ambiguity, AmbiguityKinds
+    from comeni_core.egress import AmbiguityRequest
+
+    crossable = set(AmbiguityRequest.model_fields)
+    for asked in AmbiguityKinds:
+        for name in asked.model_fields:
+            if name == "kind":
+                continue  # the discriminator picks the projection; it is not projected
+            assert name in crossable, (
+                f"{asked.__name__}.{name} has nowhere to go in AmbiguityRequest, so a "
+                f"model behind door 2 would never be told it"
+            )
+    assert Ambiguity.model_config.get("extra") == "forbid"
