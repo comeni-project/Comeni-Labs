@@ -440,10 +440,18 @@ value at substitution time, in its own commit, with the golden-file churn that i
 size of change, and the plan should not record them as one.
 
 **Where this is documented is the point.** A note in a spec is not read by the person who hits the
-wall. `M0111`'s `fix:` text and `mendel explain M0111` must both say that the restriction is
-deliberate, that the value in hand may be a legitimate case, and where to raise it — because that
-reader is standing exactly where the counterexample is, and they are the only one who can tell us the
-assumption was wrong.
+wall. The message goes in **three places**, and the third is public:
+
+1. **`Diagnostic.fix`** for `M0111` — what to do, at the moment of refusal.
+2. **`EXPLANATIONS["M0111"]`** — the long form behind `mendel explain M0111`.
+3. **`docs/reference/cli.md`** — the diagnostics table, which is where `M0100`–`M0107` already live
+   and is **public documentation**, not a working note. Written for a stranger, therefore: state that
+   the limit is deliberate, that a value needing a space or a slash may be a legitimate case nobody
+   has hit yet, and where to report one.
+
+All three say the same thing because the reader arrives at whichever one they arrive at. And the
+first genuine counterexample is a finding rather than a bug report: it means a boundary drawn on
+reasoning was drawn in the wrong place, and §5's table already says what allowing each class costs.
 
 **`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
 `args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
@@ -721,6 +729,22 @@ M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
 the reader grep for it. `Diagnostic.render()` already lays out summary/detail/fix in that order and
 needs no change beyond the field.
 
+**The codes are also public documentation, and the spec had forgotten it.**
+`docs/reference/cli.md` carries the `M0100`–`M0107` table, a rendered example and the `mendel
+explain` usage — it is the document a stranger reads, public since 2026-08-04, and it appeared
+nowhere in this spec's blast radius. Two consequences:
+
+- **All fourteen new codes must land there**, or the public table documents eight of twenty-two.
+- **One existing row goes stale.** `M0100`'s entry says the contract is *"recorded in
+  `pipeline.ir.json` as `unverified`"*. That file retires under this spec; the fact moves to
+  `registry.unverified` in `pipeline.yml`. Nothing would have caught that — it is prose in a
+  reference doc, and no test reads it.
+
+So: **a test asserts every code the compiler can emit appears in `docs/reference/cli.md`**, not only
+in `EXPLANATIONS`. `make check` already gates generated-stub freshness for the same reason — a
+generated artifact that drifts from its source is a lie with a timestamp — and a public diagnostics
+table is that, with a wider audience.
+
 A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Fourteen new codes is
 where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
 
@@ -898,6 +922,13 @@ breaks `entry_channel`, has gone too far.
   they were read against. Not registry data; see `M0119`.
 - `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
   setting on the spine for the counts assertion.
+- **Public documentation, which the first draft of this radius omitted entirely.**
+  `docs/reference/cli.md` — fourteen new codes into the diagnostics table, and `M0100`'s row
+  corrected: it cites `pipeline.ir.json`, which retires. `docs/reference/goal-schema.md` keeps its
+  meaning (`Goal` is unchanged) but gains a line on `goal:` being inert to `emit`. A new
+  `docs/reference/pipeline-schema.md` alongside the other five schema references, because
+  `pipeline.yml` is now the file a stranger is most likely to open. `docs/README.md`'s index and
+  `ARCHITECTURE.md`'s five stages both describe the four-route settings surface this supersedes.
 - **Tests, and one of them comes first.** A golden `tests/golden/spine/nextflow.config` is a
   **prerequisite commit** — that file has no coverage at all today and is where this mechanism
   emits. Then: `tests/golden/spine/main.nf` moves; `tests/test_egress.py` is edited for the new
