@@ -1286,9 +1286,17 @@ in the header are a claim about a moment, and that moment will have passed.
     route is reported within a day. That workflow already exists and already runs the stub gate.
 
   Neither needs write permission, and a failure names the file and the command that fixes it.
-- **Whether `ExtKey` should carry `args2` and `args3` at all.** Included on nf-core convention with
-  no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
-  nf-core rather than on code here.
+- ~~Whether `ExtKey` should carry `args2` and `args3`.~~ **Settled 2026-08-07: keep them.** An unused
+  enum value costs nothing and a missing one costs a `version:` bump for every archived file, while
+  `MD0108` refuses a contract naming a key its module does not read — so a wrong inclusion fails loudly
+  at build and a wrong omission is a migration. Still the one judgement in this spec resting on
+  knowledge of nf-core rather than on code here, and §4 says so at the enum.
+- **Whether the resolver's and loaders' errors become `MD03xx` diagnostics.** **Deferred to the next
+  audit round on 2026-08-07**, not dropped: 41 raise sites, of which 32 are bare `ValueError`, and
+  deciding which are user-facing is judgement per site. Band `MD0300`–`MD0399` is reserved and the item
+  is carried in
+  [`../audits/2026-08-07-round-two-brief.md`](../audits/2026-08-07-round-two-brief.md) under *Carried
+  forward*, because a deferral recorded only in a commit message is a deferral lost.
 - **Whether any real tool setting needs a space or a slash.** Assumed not, deliberately, and the
   assumption is stated in §5 with the cost of each class of counterexample. `MD0201` is instrumented to
   surface one if it exists. **The first genuine counterexample is a finding, not a bug report** — it
