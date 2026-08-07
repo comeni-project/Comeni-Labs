@@ -416,6 +416,35 @@ injection surface, and it takes root C's own stance on identifiers: validated, o
 Every real case fits (`illumina`, `10`, `true`), and it composes with the declared-legal-values
 work `marks.py` already anticipates for Plan 2 Task 11.
 
+#### The assumption behind the character class, and how to revisit it
+
+**Decided 2026-08-07: start strict, on the stated assumption that almost no tool setting needs a
+space or a slash in its value.** Written down because it is an assumption and not a fact.
+
+The asymmetry is what makes strict the safe direction: **loosening later is backward-compatible** —
+every file that validated still validates — while tightening later invalidates files already sitting
+on labs' disks. So the cost of being wrong in this direction is one release; the cost of being wrong
+in the other is unreadable archives.
+
+But the three excluded character classes are not equally cheap to admit later, and treating them as
+one thing would make a future fix look smaller than it is:
+
+| | why it is excluded | cost to allow later |
+|---|---|---|
+| `/` | nothing — it is inert in this position | **trivial.** Widen the class. |
+| space | `ext.args` is space-joined into one command line, so `--flag a b` becomes a flag plus a stray argument *unless the template quotes* — and whether a template quotes is not reliably checkable | **moderate.** Needs the substituted value shell-quoted at emit time, which moves every `ext.args` string and every golden file. |
+| `'` `"` `$` `` ` `` `;` newline | shell injection. `'PL:{value}'` is escapable in one character | **should stay excluded.** This is root C's subject, and the reason the mechanism is refuse-not-escape. |
+
+So the honest future path is: allow `/` by widening the class; allow spaces by shell-quoting the
+value at substitution time, in its own commit, with the golden-file churn that implies. Not the same
+size of change, and the plan should not record them as one.
+
+**Where this is documented is the point.** A note in a spec is not read by the person who hits the
+wall. `M0111`'s `fix:` text and `mendel explain M0111` must both say that the restriction is
+deliberate, that the value in hand may be a legitimate case, and where to raise it — because that
+reader is standing exactly where the counterexample is, and they are the only one who can tell us the
+assumption was wrong.
+
 **`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
 `args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
 template there has nothing to compose into, and `cpus = "--cpus 12"` is not a thing. `M0114`
@@ -604,7 +633,7 @@ verbs a code fires on, and *any load* means all four.
 |---|---|---|
 | `M0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
 | `M0110` | any load | a setting with no `via:` |
-| `M0111` | any load | `{value}` outside the closed character class |
+| `M0111` | any load | `{value}` outside the closed character class — **its message must say the limit is an assumption and invite the counterexample** |
 | `M0112` | `upgrade` (incl. `--dry-run`) — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
 | `M0113` | `upgrade` | an orphaned override. Only re-resolution can know, so no other verb can raise it |
 | `M0114` | any load | a `template:` with no `{value}`, **or** a template on a route that takes none |
@@ -922,6 +951,10 @@ stable order — arriving in a new type that was designed after the lesson and c
 - **Whether `ExtKey` should carry `args2` and `args3` at all.** Included on nf-core convention with
   no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
   nf-core rather than on code here.
+- **Whether any real tool setting needs a space or a slash.** Assumed not, deliberately, and the
+  assumption is stated in §5 with the cost of each class of counterexample. `M0111` is instrumented to
+  surface one if it exists. **The first genuine counterexample is a finding, not a bug report** — it
+  tells us a boundary drawn on reasoning rather than evidence was drawn in the wrong place.
 - **Issue [#2](https://github.com/comeni-project/Comeni-Labs/issues/2)** — `sealed` blocking
   tier-3 decisions on asserted measurements. Untouched. `ProfilePolicy` is still Plan 2.
 - **Issue [#16](https://github.com/comeni-project/Comeni-Labs/issues/16)** — signed bundles. One
