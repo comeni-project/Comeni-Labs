@@ -57,8 +57,11 @@ the spec.
 - **Every payload field must be a declared shape.** `tests/test_egress.py`'s
   `test_every_payload_field_is_a_declared_shape` walks recursively. No `Any`, no `object`, no `Path`,
   no bare `str`, no `abc.Mapping`, no `bytes`.
-- **Exactly two fields may hold free text** across the whole egress surface: `PromptRequest.prompt`
-  and `GateFailure.tool_message`. That count must not change.
+- **Six fields may hold free text**, and `tests/test_egress.py`'s `FREE_TEXT_FIELDS` names all six
+  literally: `PromptRequest.prompt`, `GateFailure.tool_message`, and `reason` on `ResolvedValue`,
+  `ParamDecision`, `ProducerDecision` and `SourceDecision`. **`CLAUDE.md`'s invariant 14 still says
+  "exactly two" and is stale** — 1.9's A16 split took it from four to six, and that file's own comment
+  says so. Task 12 corrects the invariant. The count must not change *from six* in this plan.
 - **Mappings are written, lists are stored.** A `model_validator(mode="before")` normalises the
   ergonomic mapping form to a list, following `Constraints._accept_mapping`.
 - **A code may never be renumbered.** A full band overflows into a new band.
@@ -85,6 +88,8 @@ the spec.
 | `packages/comeni-core/src/comeni_core/pipeline.py` | `Pipeline`, `Step`, `Setting`, `Channel`, `CallArg`, `RegistryProvenance`, `Via`, `ExtKey`, `Pipeline.of()` |
 | `tools/generate_diagnostics_doc.py` | render the `cli.md` table; `--check` for CI |
 | `tests/test_diagnostics_registry.py` | the registry's own guards |
+| `tests/_walk.py` | the annotation walkers, extracted from `test_egress.py` so both use one |
+| `comeni_core/directives.py` | the process directives Nextflow accepts, and the version read |
 | `tests/test_pipeline_totality.py` | every replaced field has a home |
 | `docs/reference/pipeline-schema.md` | `pipeline.yml` for a stranger |
 
@@ -677,6 +682,91 @@ class Param(BaseModel):
 `missing`-error message check to the test by matching on `via` as well if pydantic's message
 does not carry the code.
 
+- [ ] **Step 5b: the legal directive names, and `MD0209`**
+
+`MD0209` cannot ship without this list, and the list is why. An unknown directive inside a
+`withName` block is **silently ignored by Nextflow** — verified by experiment on 25.10.4: a config
+containing `process { withName: FOO { cpuz = 4 } }` ran to exit 0 with no error and no warning.
+That is the exact failure this plan exists to remove, so `via: directive` without a name check
+would install it.
+
+It lives in `mendel-compiler` as code, not in the registry as data. `Vocabulary` is strictly
+per-type and a directive list is not a type; putting it in a layer would mean a fifth member
+beside `contracts/`, `rules/`, `vocabularies/` and `measurements/`, which collides with root B.
+And the invariant-7 analogy does not hold: vocabularies are closed because a contract using an
+undeclared *biological* state must fail, while Nextflow's directive set is toolchain fact that
+changes on Nextflow's release cycle. No laboratory should be able to approve `cpuz` into it.
+
+```python
+# packages/mendel-compiler/src/mendel_compiler/directives.py
+"""The process directives Nextflow accepts, and the version they were read against.
+
+An unknown directive in a `withName` block is silently ignored — `withName: FOO { cpuz = 4 }`
+runs to exit 0 with no diagnostic on 25.10.4. So this list is the only thing standing between a
+typo and a resource setting that does nothing.
+
+Code rather than registry data: this is a fact about the toolchain, not about biology, and it
+moves when Nextflow moves. `modulespec.py` encodes toolchain facts the same way.
+"""
+
+NEXTFLOW_VERSION = "25.10.4"
+"""The version this list was read against. A newer Nextflow may accept more; adding one is a
+release of this package, which is the cost of the check."""
+
+LEGAL_DIRECTIVES: frozenset[str] = frozenset({
+    # READ THESE FROM THE NEXTFLOW DOCUMENTATION FOR NEXTFLOW_VERSION BEFORE COMMITTING.
+    # The starter set below is from memory and MUST be verified against
+    # https://www.nextflow.io/docs/latest/process.html#directives — the same discipline as
+    # reading a process name out of `main.nf` rather than out of a plan.
+    "accelerator", "afterScript", "arch", "array", "beforeScript", "cache",
+    "clusterOptions", "conda", "container", "containerOptions", "cpus", "debug",
+    "disk", "errorStrategy", "executor", "fair", "label", "machineType",
+    "maxErrors", "maxForks", "maxRetries", "maxSubmitAwait", "memory", "module",
+    "penv", "pod", "publishDir", "queue", "resourceLabels", "resourceLimits",
+    "scratch", "secret", "shell", "spack", "stageInMode", "stageOutMode",
+    "storeDir", "tag", "time",
+})
+"""`ext` is deliberately absent: `via: ext` handles that scope and a setting must not reach it
+twice by two routes. Deprecated directives (`echo`, `validExitStatus`) are absent too — a
+diagnostic that permits what Nextflow warns about is not doing its job."""
+```
+
+Add to `Param._route_is_complete`:
+
+```python
+        if self.via is Via.DIRECTIVE and self.name not in LEGAL_DIRECTIVES:
+            raise ValueError(
+                f"MD0209: {self.name} is not a process directive Nextflow {NEXTFLOW_VERSION} "
+                "accepts. An unknown directive in a `withName` block is silently ignored, so "
+                "this would be a setting that does nothing."
+            )
+```
+
+That import points from `comeni-core` into `mendel-compiler`, which is the wrong direction.
+**Put `directives.py` in `comeni_core` instead** — `Param` lives there and is what validates. The
+docstring's argument is unaffected: it is still code rather than registry data.
+
+- [ ] **Step 5c: write the failing test for it**
+
+```python
+def test_an_unknown_directive_is_refused():
+    """Verified by experiment: `withName: FOO { cpuz = 4 }` runs to exit 0 with no diagnostic on
+    Nextflow 25.10.4. Nothing else would catch this."""
+    with pytest.raises(ValidationError, match="MD0209"):
+        Param(name="cpuz", via=Via.DIRECTIVE)
+
+
+def test_a_real_directive_validates():
+    assert Param(name="cpus", via=Via.DIRECTIVE).via is Via.DIRECTIVE
+
+
+def test_ext_is_not_reachable_as_a_directive():
+    """Two routes to one scope is two writers for one destination, which MD0208 forbids
+    downstream. Forbid it at the source instead."""
+    with pytest.raises(ValidationError, match="MD0209"):
+        Param(name="ext", via=Via.DIRECTIVE)
+```
+
 - [ ] **Step 6: add the four codes to `diagnostics.yml`**
 
 | code | `says` |
@@ -685,11 +775,60 @@ does not carry the code.
 | `MD0201` | a resolved value is outside the substitutable character class |
 | `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
+| `MD0209` | `via: directive` names something Nextflow silently ignores |
 
 Each with `concern: pipeline-file`, `emitted_by: compiler`, `fires_on: [build, emit, upgrade]`,
-`refuses: true`, and a `fix` and `explanation`. `MD0201`'s `fix` **must** say the limit is
-deliberate, that the value in hand may be a legitimate case nobody has hit, and where to report
-one — that reader is the only person who can tell us the boundary was drawn wrong.
+`refuses: true`, and a `fix` and `explanation`.
+
+**`MD0201`'s text, as a literal.** Not paraphrased: this is the one diagnostic whose reader is the
+only person who can tell us a boundary was drawn wrong, and a message that merely forbids loses
+that information forever.
+
+```yaml
+MD0201:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a resolved value is outside the substitutable character class"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use letters, digits and `_ . : + -` only, or a number, or true/false.
+
+    If your value legitimately needs a space or a slash, that is a case we assumed did not
+    exist rather than one we decided to forbid. Please report it, with the tool and the flag:
+    https://github.com/comeni-project/Comeni-Labs/issues
+  explanation: |
+    A template substitutes {value} into a string that becomes part of a shell command line.
+    Rather than escape dangerous characters, Mendel refuses them: escaping-for-context is
+    where injection bugs live, and a value that cannot contain a quote cannot close one.
+
+    The class is deliberately narrow, on the stated assumption that almost no tool setting
+    needs a space or a slash. That assumption has not been tested against a real
+    counterexample, which is why this message asks for one.
+
+    Loosening the class later is backward-compatible — every file that validated still
+    validates. Tightening it is not, because files already on disk would stop loading. So it
+    starts strict, and the three excluded classes are not equally cheap to admit later: a
+    slash is inert here and needs only a wider pattern; a space needs the substituted value
+    shell-quoted at emit time, which moves every ext.args string and every golden file; and a
+    quote, dollar, backtick, semicolon or newline should stay excluded, because those are the
+    reason the mechanism refuses rather than escapes.
+```
+
+**`MD0202`'s report line, as a literal.** It does not refuse — `upgrade` prints it and continues,
+which is why the wording has to make the two digests distinguishable at a glance:
+
+```python
+# in cli.py's drift reporting
+f"MD0202  {step.module}\n"
+f"  the contract has changed since this pipeline froze its values\n"
+f"    frozen:   {step.digest}\n"
+f"    registry: {current_digest}\n"
+f"  → `mendel upgrade` to adopt it, or keep the frozen values deliberately\n"
+```
+
+`drift` and `changes` stay separate categories, because a digest moving is not the same event as
+a decision moving — Plan 1.7 established that distinction and it earns its keep here.
 
 - [ ] **Step 7: route both real params**
 
@@ -848,6 +987,7 @@ from comeni_core import (
     ResolvedValue, SourceDecision,
 )
 from comeni_core.pipeline import Pipeline
+from tests._walk import reachable
 
 REPLACED = [
     PipelineIR, IRNode, ResolvedValue, ParamDecision, ProducerDecision, SourceDecision,
@@ -861,22 +1001,17 @@ NOT_CARRIED = {
 }
 
 
-def _homes(model, seen=None) -> set[str]:
+def _homes() -> set[str]:
     """Every field name reachable from `Pipeline`, at any depth."""
-    seen = seen if seen is not None else set()
-    if model in seen:
-        return set()
-    seen.add(model)
-    found = set()
-    for name, field in model.model_fields.items():
-        found.add(name)
-        for inner in _nested_models(field.annotation):
-            found |= _homes(inner, seen)
-    return found
+    return {
+        name
+        for model in reachable(Pipeline)
+        for name in model.model_fields
+    }
 
 
 def test_every_replaced_field_has_a_home():
-    homes = _homes(Pipeline)
+    homes = _homes()
     missing = [
         f"{m.__name__}.{name}"
         for m in REPLACED
@@ -892,16 +1027,73 @@ def test_no_field_of_pipeline_is_a_frozenset():
     made with them. `Pipeline` is what publish ships."""
     offenders = [
         f"{model.__name__}.{name}"
-        for model in _reachable(Pipeline)
+        for model in reachable(Pipeline)
         for name, field in model.model_fields.items()
         if "frozenset" in str(field.annotation)
     ]
     assert offenders == []
 ```
 
-Write `_nested_models` and `_reachable` as small helpers walking `typing.get_args`; they are
-the same shape as `tests/test_egress.py`'s `_leaf_problems` walker — read that first and reuse
-its approach rather than inventing a second one.
+**The walkers are extracted, not rewritten.** `tests/test_egress.py` already contains
+`_nested_models` and the breadth-first expansion inside `_payload_types`, and they exist because
+the first version of that guard *"never looked inside `RepairRequest.ir`, and a payload serialised
+a patient path and an SSN while this file reported green"*. A second copy that drifts from it
+would reintroduce exactly that. So move both into `tests/_walk.py` and import them in both places:
+
+```python
+# tests/_walk.py
+"""Annotation walkers shared by the egress guard and the totality test.
+
+Extracted rather than duplicated. `_nested_models` is why `tests/test_egress.py` can see inside
+`RepairRequest.ir` at all — its first version could not, and a payload serialised a patient path
+while the guard reported green. Two copies of that logic, drifting, is the same defect waiting.
+"""
+
+import typing
+
+from pydantic import BaseModel
+
+
+def nested_models(annotation: object) -> list[type[BaseModel]]:
+    """Every BaseModel mentioned anywhere in an annotation, however deeply wrapped."""
+    found = []
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        found.append(annotation)
+    for arg in typing.get_args(annotation):
+        found += nested_models(arg)
+    return found
+
+
+def reachable(*roots: type[BaseModel]) -> set[type[BaseModel]]:
+    """Transitive closure over model fields, breadth-first.
+
+    Same expansion `_payload_types` does. Exempting nested models would be the hole.
+    """
+    seen: set[type[BaseModel]] = set()
+    queue = list(roots)
+    while queue:
+        model = queue.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for annotation in typing.get_type_hints(model, include_extras=True).values():
+            queue += [n for n in nested_models(annotation) if n not in seen]
+    return seen
+```
+
+Then in `tests/test_egress.py`, delete the local `_nested_models` and the inline BFS, and import:
+
+```python
+from tests._walk import nested_models as _nested_models, reachable
+```
+
+`_payload_types()` becomes `reachable(*roots)`. **Run the egress guard immediately after this
+extraction and before touching anything else** — it must still pass with the same count. An
+extraction that changes what a guard can see is a weakened guard wearing a refactor's clothes.
+
+`tests/` needs an `__init__.py` for `from tests._walk import …` to resolve, or use a
+`conftest.py`-level `sys.path` insert if the repo's pytest layout prefers that. Check how
+`tests/test_counts.py` imports its helpers and follow the same pattern.
 
 - [ ] **Step 2: run and watch it fail**
 
@@ -1361,11 +1553,23 @@ def test_publication_carries_a_pipeline():
 
 
 def test_the_free_text_count_is_unchanged():
-    """The two permitted fields stay PromptRequest.prompt and GateFailure.tool_message."""
-    found = set()
-    for payload in _payload_types():
-        found |= _fields(payload, marks.FreeText)
-    assert found == {"PromptRequest.prompt", "GateFailure.tool_message"}
+    """Six fields, not two. `FREE_TEXT_FIELDS` in tests/test_egress.py names them all, and
+    1.9's A16 split took it from four to six by a refactor rather than by a new field crossing
+    the boundary — which is exactly what that literal list exists to make someone notice.
+
+    `Pipeline` becoming the payload must not add a seventh. `Why.reason` is `Line`, which is
+    `FREE_TEXT` with a single-line validator, so it reaches this set through the same door the
+    four existing `reason` fields do — expect the tuple, not a new name.
+    """
+    assert FREE_TEXT_FIELDS == {
+        ("PromptRequest", "prompt"),
+        ("GateFailure", "tool_message"),
+        ("ResolvedValue", "reason"),
+        ("ParamDecision", "reason"),
+        ("ProducerDecision", "reason"),
+        ("SourceDecision", "reason"),
+        ("Why", "reason"),
+    }, "a seventh free-text field arrived — is it declared, or did it ride along?"
 
 
 def test_pipeline_holds_no_registry():
@@ -1421,19 +1625,27 @@ Run: `uv run python tools/generate_diagnostics_doc.py`
 `MD0100`'s prose says the contract is *"recorded in `pipeline.ir.json` as `unverified`"*. That
 file no longer exists; the fact moves to `registry.unverified` in `pipeline.yml`.
 
-- [ ] **Step 3: add `emit.py` to CLAUDE.md's `make verify` list**
+- [ ] **Step 3: correct `CLAUDE.md`'s invariant 14**
+
+It says *"exactly two fields across the whole surface may hold free text"*. There are six, and
+1.9's A16 split is why — `reason` on `ResolvedValue` and on each of the three decision variants.
+The invariant's *argument* is unchanged and still right; only the count is wrong. Say six, name
+them, and note that the number is held literally in `tests/test_egress.py` so widening it means
+editing a file that says these are all the ways data leaves.
+
+- [ ] **Step 4: add `emit.py` to CLAUDE.md's `make verify` list**
 
 The list names the files whose breakage `make check` cannot see. `tests/test_counts.py` is the
 only check that a setting reaches a tool, and rewriting `emit()`'s signature and its `ext.args`
 composition is precisely a change `make check` waves through.
 
-- [ ] **Step 4: update `ARCHITECTURE.md`'s settings surface**
+- [ ] **Step 5: update `ARCHITECTURE.md`'s settings surface**
 
 The four-route description is superseded. One artifact, three emission sites, `via:` mandatory.
 
-- [ ] **Step 5: `make verify` and `make static`**
+- [ ] **Step 6: `make verify` and `make static`**
 
-- [ ] **Step 6: commit**
+- [ ] **Step 7: commit**
 
 ```bash
 git add docs/ ARCHITECTURE.md CLAUDE.md CHANGELOG.md
@@ -1450,16 +1662,29 @@ git commit -m "docs: pipeline.yml is the artifact a reader opens"
 `meta_key` routes nothing *and must not be flagged*, which is a constraint on Task 3's
 `MD0200` rather than work of its own. Verification table → distributed. Blast radius → all tasks.
 
-**Known gaps, stated rather than hidden.**
+**Three gaps closed on 2026-08-07, before execution.** They are recorded because each was found
+by reading the plan against the code rather than by executing it.
 
-- **Task 4's `_nested_models`/`_reachable` helpers are described, not written.** They are a
-  twenty-line walk over `typing.get_args`, and `tests/test_egress.py`'s existing walker is the
-  model to copy. Writing a second one blind would produce a subtly different one.
-- **The `via: directive` legal-name list is not in any task.** `MD0209` needs it, and where in
-  `mendel-compiler` it lives is left open by the spec. Fold it into Task 5 or defer `MD0209`
-  and its code with it — do not ship the code without the list.
-- **`MD0201`'s exact `fix` text and `MD0202`'s digest-drift reporting** are specified in prose
-  and not as literal strings. Write them from the spec's §5 and §7.
+- **The annotation walkers are extracted, not rewritten.** Task 4 originally said to write
+  `_nested_models` and `_reachable` "in the same shape as" `tests/test_egress.py`'s. That is the
+  instruction that produces a second, subtly different walker — and that walker's first version
+  could not see inside `RepairRequest.ir`, so a payload serialised a patient path while the guard
+  reported green. Both now move to `tests/_walk.py` and both callers import them, with the egress
+  guard re-run immediately after the extraction and before anything else.
+- **The directive list is written, and `MD0209` ships with it** — Task 3 Steps 5b and 5c, in
+  `comeni_core/directives.py` with `NEXTFLOW_VERSION` recorded beside it. The starter set is
+  marked as needing verification against the Nextflow docs before commit, which is the same
+  discipline as reading a process name out of `main.nf`.
+- **`MD0201`'s `fix`/`explanation` and `MD0202`'s report line are literals** in Task 3 Step 6 and
+  Task 10. `MD0201`'s especially: its reader is the only person who can tell us the character
+  class was drawn wrong, and a message that merely forbids loses that.
+
+**One error the fixing found.** The Global Constraints said *"exactly two fields may hold free
+text"*, quoting `CLAUDE.md`'s invariant 14. `tests/test_egress.py`'s `FREE_TEXT_FIELDS` holds
+**six**, and its own comment explains why: 1.9's A16 split `DecisionRecord` into three, so four
+`reason` entries became six *"by a refactor rather than by a new field crossing the boundary —
+which is exactly the sort of change this literal list exists to make someone notice"*. The
+constraint and Task 11's test are corrected, and **Task 12 corrects `CLAUDE.md`**.
 
 **Type consistency.** `Via`/`ExtKey` live in `routes.py` (Task 3) and are re-exported from
 `pipeline.py` (Task 4) — the circular import is real and this is how it is avoided.
