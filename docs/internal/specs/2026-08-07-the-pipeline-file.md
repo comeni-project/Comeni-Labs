@@ -112,7 +112,8 @@ build/
 # pipeline.yml — the pipeline. Edit it; `mendel emit` rebuilds the Nextflow.
 version: 1
 
-goal:                          # what was asked for. `upgrade` re-resolves from here.
+goal:                          # what was asked for. EDITING THIS TAKES EFFECT ON
+                               # `mendel upgrade`, NOT on `mendel emit`.
   have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
   want: [counts.matrix]
   constraints: {required_states: {counts.matrix: [gene_level]}}
@@ -182,6 +183,16 @@ Four properties are load-bearing:
 
 **`why:` on every step and every setting.** Tier, who settled it, which layer, and the citation,
 in one place. This is the legibility the four-file split cannot provide.
+
+**`goal:` is inert to `emit`, and the file says so in a comment.** It is input to *resolution*, and
+`emit` reads none of it — the facts emission needs are already materialised into `channels[].meta`.
+So editing `profile:` or `want:` changes nothing until `mendel upgrade`. Two reasons to state it
+rather than leave it implicit. A reader who finds `profile: {strandedness: reverse}` in a file they
+were told to edit will reasonably expect changing it to matter. And `emit` *cannot* honour it even in
+principle: validating a profile requires the measurement registry —
+`test_a2_upgrade_refuses_a_bundle_carrying_an_undeclared_measurement` is that guard on the upgrade
+path — and `emit` has no registry by design. Better an inert section with a comment explaining it
+than a section that silently means something on Tuesdays.
 
 **`call:` materialises `nf_inputs`**, including the tier-1 literal that appears in no artifact
 today. It carries a full `why:` rather than `NfInput`'s bare `because:` — a positional literal is
@@ -570,6 +581,7 @@ verbs a code fires on, and *any load* means all four.
 | `M0119` | any load | `via: directive` names something Nextflow will silently ignore |
 | `M0120` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
 | `M0121` | any load | `channels[].params` disagrees with what `expression` actually references |
+| `M0122` | any load | two settings on one step share a name, or two steps share an `id` |
 
 `M0108` is build-only because it needs module source, which `emit` does not read. `M0120` is
 emit-only because that is the verb that would otherwise write an unrunnable `main.nf`.
@@ -587,6 +599,13 @@ setting that looks wired, renders real flags, and discards the value. Deadness w
 is *harder* to spot than today's honest no-op.
 
 **`M0116`** is what makes the round trip load-bearing rather than decorative.
+
+**`M0122`** is A11 arriving in a new type. `ModuleContract` already rejects a duplicate `Param`
+name, because `IRNode.set_param` appends and a duplicate there *"died here with an uncaught
+TypeError"* when the emitter's sort fell through to comparing two `ResolvedValue`s. The mapping form
+of `settings:` makes this easier to hit, not harder: `yaml.safe_load` keeps the last of two
+duplicate keys silently, which is root G's finding, so a duplicate would be *collapsed* rather than
+caught. Written as a list it must be rejected explicitly.
 
 **`M0118`** exists because `via: meta` and a `Measurement.meta_key` write to the same map. The
 collision is a **Python** one before it is a Groovy one: `meta_for()` returns `dict[str,
@@ -639,7 +658,7 @@ M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
 the reader grep for it. `Diagnostic.render()` already lays out summary/detail/fix in that order and
 needs no change beyond the field.
 
-A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Thirteen new codes is
+A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Fourteen new codes is
 where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
 
 ### 10. What measurements do, so nobody "fixes" it
@@ -806,7 +825,7 @@ breaks `entry_channel`, has gone too far.
   perform. `_chosen()` and the verbatim-`reason` rule stay exactly as they are.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
-- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0121`.
+- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0122`.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips. **And
   `mendel profile`, which the first draft of this radius missed**: it shares `build`'s emitter path,
   so it moves with the signature. It writes `pipeline.yml` *and* `profile.yml` — two files, correctly,
@@ -821,6 +840,19 @@ breaks `entry_channel`, has gone too far.
   emits. Then: `tests/golden/spine/main.nf` moves; `tests/test_egress.py` is edited for the new
   payload type; `tests/test_construction.py` gains `Pipeline`; `tests/test_counts.py` gains the
   reaches-a-tool assertion for a resolved param, which nothing covers now.
+
+### Two things checked and found safe, recorded so nobody re-derives them
+
+**Materialising `include:` does not break the no-path rule.** `test_publish_holds_no_filesystem_path`
+asserts `str(ROOT) not in text` — an *absolute repo path*, not a slash. `modules/nf-core/star/align/main`
+is a relative fragment, which is root C's `NfPath` kind, and it passes. The test does need
+re-pointing: it names `pipeline.bundle.json` and `mendel.lock.yml` literally, and both retire.
+
+**`Pipeline.of()`-only does not block A11's pathological-input test.**
+`test_construction.py` walks `packages/*/src` and nothing else, so tests may hand-build a `Pipeline`
+freely. That matters because `test_a11_the_emitter_never_compares_two_resolved_values` deliberately
+constructs a node with duplicate params to prove the emitter survives one, and a sole-constructor
+rule that covered `tests/` would have made that test unwritable. It does not.
 
 Unlike root C, **the registry does change** — two contracts gain `via:`/`template:`, and the
 spine gains a setting. So "byte-identical output" is a check on the *unchanged* parts only, and
