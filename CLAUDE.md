@@ -407,8 +407,8 @@ uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
-# why a contract was refused, at length. Codes M0100–M0107.
-uv run mendel explain M0104
+# why a contract was refused, at length. Codes MD0100–MD0107.
+uv run mendel explain MD0104
 
 # vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
 uvx nf-core modules install --dir vendor samtools/sort
@@ -538,13 +538,13 @@ already been wrong once, when it named a gate that could not pass.
   *emptiness*, and it is the forge's job — hand-authoring a registry was never the plan. A
   resolved value reaching no tool is *deadness*, and no amount of forge output fixes it.
 - **A contract is a hand-written FFI binding.** `mendel build` checks every contract against
-  the vendored module and refuses to emit if they disagree — `mendel explain M0104` for any
+  the vendored module and refuses to emit if they disagree — `mendel explain MD0104` for any
   code. Where module source is absent the contract is marked `unverified` on the IR rather
   than trusted. Never assert a conformance property over modules that were not readable: the
   first version reported every declared `meta_key` dead when no module source existed at all.
 - **The port name is the emit label.** `produces[].name` is what the compiler reads as
   `PROCESS.out.<name>` — it is not a name for the semantic thing, which is what `type_id`
-  carries. Three contracts got this wrong and M0105 found all three; each was latent only
+  carries. Three contracts got this wrong and MD0105 found all three; each was latent only
   because no goal had yet routed to that port.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,

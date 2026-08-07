@@ -87,7 +87,7 @@ fixtures rather than as a shipped registry.
 - **Conformance checking: `mendel build` refuses a contract that disagrees with its
   module.** A `ModuleContract` is a hand-written binding to a foreign, dynamically-typed
   unit, and until now nothing compared the two. `ModuleSpec` parses the vendored `main.nf`
-  and `meta.yml`; seven diagnostics (`M0100`–`M0107`) check a contract against it; any
+  and `meta.yml`; seven diagnostics (`MD0100`–`MD0107`) check a contract against it; any
   disagreement exits `2` and emits nothing. Every diagnostic says what to write instead.
 - `mendel explain <code>` — the long form of a diagnostic, after `rustc --explain`. Loads
   nothing, so it answers even when the registry will not.

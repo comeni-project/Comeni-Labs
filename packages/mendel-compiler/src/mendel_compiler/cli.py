@@ -75,7 +75,7 @@ def _build(argv: list[str] | None = None) -> int:
         default=None,
         help="a type id the laboratory holds; repeat. `profile` only.",
     )
-    # Not `required=True`: `mendel explain M0104` writes nothing and loads nothing, so
+    # Not `required=True`: `mendel explain MD0104` writes nothing and loads nothing, so
     # demanding an output directory for it would be argparse describing the wrong verb.
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -96,7 +96,7 @@ def _build(argv: list[str] | None = None) -> int:
     # registry will not load would answer the wrong question.
     if args.command == "explain":
         if not args.code:
-            parser.error("explain needs a code, e.g. `mendel explain M0104`")
+            parser.error("explain needs a code, e.g. `mendel explain MD0104`")
         print(conformance.explain(args.code))
         return 0
 
@@ -119,8 +119,8 @@ def _build(argv: list[str] | None = None) -> int:
     diagnostics = conformance.check(
         registry, args.root / "vendor", measurements=loaded.measurements
     )
-    unverified = [d.contract_id for d in diagnostics if d.code == "M0100"]
-    blocking = [d for d in diagnostics if d.code != "M0100"]
+    unverified = [d.contract_id for d in diagnostics if d.code == "MD0100"]
+    blocking = [d for d in diagnostics if d.code != "MD0100"]
     for diagnostic in diagnostics:
         print(diagnostic.render(), file=sys.stderr)
     if blocking:

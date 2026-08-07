@@ -21,49 +21,49 @@ from pydantic import BaseModel, ConfigDict
 from mendel_compiler.modulespec import ModuleSpec
 
 EXPLANATIONS: dict[str, str] = {
-    "M0100": (
+    "MD0100": (
         "The contract names a module whose source is not present, so nothing could check\n"
         "it. The build continues and the contract is marked unverified, which is recorded\n"
         "on the IR and reaches a publish bundle. A curator may refuse to curate an\n"
         "unverified contract: a claim about a module, with no module to check it against,\n"
         "is a claim without evidence."
     ),
-    "M0101": (
+    "MD0101": (
         "`nf_process` must be the process name as written in the module's main.nf. The\n"
         "emitted workflow calls it by that name, so a mismatch fails at launch with\n"
         "'process not found' — after the containers have been pulled."
     ),
-    "M0102": (
+    "MD0102": (
         "`nf_inputs` declares one entry per channel the process takes. A contract port is\n"
         "not a process argument: featurecounts takes one channel carrying two ports, and\n"
         "samtools/sort takes three of which two model nothing. Nextflow matches arity, so\n"
         "a mismatch fails at launch."
     ),
-    "M0103": (
+    "MD0103": (
         "`NfInput.empty` is a tuple *width*, not a count of channels. Nextflow matches\n"
         "arity: a 2-tuple handed to a slot declared `tuple val(meta), path(fasta),\n"
         "path(fai)` dies with 'Path value cannot be null'."
     ),
-    "M0104": (
+    "MD0104": (
         "This slot declares `path(...)`, so the module expects a real file, and the\n"
         "contract supplies an empty placeholder. Sometimes that is correct — samtools/sort\n"
         "only needs a reference to write CRAM — and sometimes it is a hole: STAR was called\n"
         "with no genome for weeks, through a green test suite and a passing stub gate.\n"
         "Saying which, in `because`, is the whole check."
     ),
-    "M0105": (
+    "MD0105": (
         "The emitted workflow reads `PROCESS.out.<name>` for each produced port, so every\n"
         "`produces[].name` must appear in the module's `emit:` labels. A mismatch fails at\n"
         "runtime against a channel that does not exist."
     ),
-    "M0106": (
+    "MD0106": (
         "Measured facts reach nf-core modules through the `meta` map, and a module reading\n"
         "a key nothing sets silently uses its default. That is how featureCounts computed\n"
         "-s 0 for a reverse-stranded library and produced a matrix of wrong numbers while\n"
         "every gate stayed green. The reverse also matters: a `meta_key` no module reads is\n"
         "a declaration with no effect."
     ),
-    "M0107": (
+    "MD0107": (
         "The container must match the module's `container` directive exactly. A contract\n"
         "claiming a container the module does not use is claiming a reproducibility it does\n"
         "not have. Take the *last* quoted string in the ternary: nf-core 4.x puts\n"
@@ -118,7 +118,7 @@ def check(
     Sorted, because these are printed and byte-identical output is a hard requirement.
 
     `measurements` is optional because `check` is called from places that have none, and
-    M0106 cannot be evaluated without one. Silence beats a wrong answer.
+    MD0106 cannot be evaluated without one. Silence beats a wrong answer.
     """
     found: list[Diagnostic] = []
     for contract in registry.all():
@@ -126,7 +126,7 @@ def check(
         if not path.exists():
             found.append(
                 Diagnostic(
-                    code="M0100",
+                    code="MD0100",
                     contract_id=contract.id,
                     summary="unverified: no module source to check this contract against",
                     detail=f"    looked for {path}",
@@ -146,7 +146,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
     if contract.nf_process != spec.process:
         found.append(
             Diagnostic(
-                code="M0101",
+                code="MD0101",
                 contract_id=contract.id,
                 summary=f"process {contract.nf_process!r} is not what this module declares",
                 detail=f"    {path}   process {spec.process} {{",
@@ -158,7 +158,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
     if len(signature) != len(spec.inputs):
         found.append(
             Diagnostic(
-                code="M0102",
+                code="MD0102",
                 contract_id=contract.id,
                 summary=(
                     f"the contract declares {len(signature)} channels; "
@@ -177,7 +177,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
         if entry.empty and entry.empty != slot.width:
             found.append(
                 Diagnostic(
-                    code="M0103",
+                    code="MD0103",
                     contract_id=contract.id,
                     summary=(
                         f"slot {slot.position} placeholder is width {entry.empty}, "
@@ -209,7 +209,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
             )
             found.append(
                 Diagnostic(
-                    code="M0104",
+                    code="MD0104",
                     contract_id=contract.id,
                     summary=(
                         f"slot {slot.position} declares path({wanted}) "
@@ -231,7 +231,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
         if port.name not in emitted:
             found.append(
                 Diagnostic(
-                    code="M0105",
+                    code="MD0105",
                     contract_id=contract.id,
                     summary=f"the module emits no channel named {port.name!r}",
                     detail=f"    {path}   emit: {', '.join(sorted(emitted)) or '(none)'}",
@@ -242,7 +242,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
     if contract.container and spec.container and contract.container != spec.container:
         found.append(
             Diagnostic(
-                code="M0107",
+                code="MD0107",
                 contract_id=contract.id,
                 summary="the container has drifted from the module",
                 detail=f"    module   {spec.container}\n    contract {contract.container}",
@@ -295,7 +295,7 @@ def _meta_keys(
 
     found = [
         Diagnostic(
-            code="M0106",
+            code="MD0106",
             contract_id=contract_id,
             summary=f"the module reads meta.{key!r} and no declared measurement sets it",
             detail="    it will silently use the module's own default",
@@ -308,11 +308,11 @@ def _meta_keys(
     # any source missing, "nothing reads this" is unfounded — and it fires on a correct
     # registry: a lab wrapping bare containers has no module source at all, so every
     # declared meta_key would look dead and the build would be refused over it. Evidence
-    # before assertion, which is the same rule M0100 exists to state.
+    # before assertion, which is the same rule MD0100 exists to state.
     if every_module_was_readable:
         found += [
             Diagnostic(
-                code="M0106",
+                code="MD0106",
                 contract_id=f"measurements/{declared[key]}",
                 summary=f"meta_key {key!r} is declared and no module in this registry reads it",
                 detail="    the value would be set on the channel and never consulted",

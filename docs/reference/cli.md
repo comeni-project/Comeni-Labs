@@ -94,27 +94,36 @@ unit, and nothing else compares the two.
 Any disagreement exits `2` and emits nothing at all:
 
 ```
-M0101  nf-core/star/align@1.11.0
+MD0101  nf-core/star/align@1.11.0
   process 'STAR_ALIGNN' is not what this module declares
     vendor/modules/nf-core/star/align/main.nf   process STAR_ALIGN {
   → nf_process: STAR_ALIGN
 
 mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
-`mendel explain M0101` for the long form.
+`mendel explain MD0101` for the long form.
 ```
 
 | Code | Says |
 |---|---|
-| `M0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified` |
-| `M0101` | `nf_process` is not the process the module declares |
-| `M0102` | `nf_inputs` declares a different number of channels than the process takes |
-| `M0103` | an `{empty: N}` placeholder is the wrong tuple width |
-| `M0104` | a placeholder sits where the module declares `path(...)`, with no `because` |
-| `M0105` | a `produces[].name` is not one of the module's `emit:` labels |
-| `M0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
-| `M0107` | `container` has drifted from the module's directive |
+| `MD0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified` |
+| `MD0101` | `nf_process` is not the process the module declares |
+| `MD0102` | `nf_inputs` declares a different number of channels than the process takes |
+| `MD0103` | an `{empty: N}` placeholder is the wrong tuple width |
+| `MD0104` | a placeholder sits where the module declares `path(...)`, with no `because` |
+| `MD0105` | a `produces[].name` is not one of the module's `emit:` labels |
+| `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
+| `MD0107` | `container` has drifted from the module's directive |
 
-`M0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
+Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's
+deterministic core** — the resolver, the compiler, contracts and the pipeline file. Bands of one
+hundred group by concern: `MD01xx` is conformance. A code is never renumbered once published, so a
+full band overflows into a new one rather than shifting.
+
+**The prefix arrived on 2026-08-07**; these eight were `M0100`–`M0107` before that. Working notes
+under `docs/internal/` are append-only and were correct on their date, so entries written earlier
+still use the old spelling.
+
+`MD0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
 directory, which is legitimate — the contract is marked `unverified` on the IR so a publish
 bundle carries which claims went unchecked, and a curator may decline to curate one.
 
@@ -175,7 +184,7 @@ Nothing upgrades implicitly: the bundle you read is never written over.
 ## `mendel explain`
 
 ```bash
-uv run mendel explain M0104
+uv run mendel explain MD0104
 ```
 
 The long form of a diagnostic, after `rustc --explain`: what the check means, and which

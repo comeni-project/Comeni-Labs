@@ -95,7 +95,7 @@ class OutputPort(BaseModel):
     name: PortName
     """The **emit label**: the compiler reads it as `PROCESS.out.<name>`. Not a name for
     the semantic thing, which is what `type_id` carries — three contracts got that wrong and
-    M0105 found all three."""
+    MD0105 found all three."""
     type_id: TypeId
     state: frozenset[str] = frozenset()
 

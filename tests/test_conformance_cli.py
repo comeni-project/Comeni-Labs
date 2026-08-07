@@ -50,7 +50,7 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
     )
     assert code == 2
     err = capsys.readouterr().err
-    assert "M0101" in err
+    assert "MD0101" in err
     assert "nf_process: STAR_ALIGN" in err, "the diagnostic must say what to write"
     assert not (tmp_path / "p" / "main.nf").exists(), "a refused build emits nothing"
 
@@ -112,7 +112,7 @@ def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
 
 def test_mendel_explain_prints_the_long_form():
     result = subprocess.run(
-        [sys.executable, "-m", "mendel_compiler.cli", "explain", "M0104"],
+        [sys.executable, "-m", "mendel_compiler.cli", "explain", "MD0104"],
         capture_output=True,
         text=True,
         check=False,
@@ -131,4 +131,4 @@ def test_mendel_explain_on_an_unknown_code_lists_the_known_ones():
         check=False,
         cwd=ROOT,
     )
-    assert "M0104" in result.stdout
+    assert "MD0104" in result.stdout

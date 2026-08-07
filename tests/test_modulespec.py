@@ -81,7 +81,7 @@ def test_it_reads_which_meta_keys_the_script_uses():
 
 def test_it_distinguishes_meta_from_meta2():
     """`meta2.id` belongs to a reference channel, not the reads channel. Conflating them
-    would make M0106 demand a measurement for the genome's id."""
+    would make MD0106 demand a measurement for the genome's id."""
     star = spec("star/align")
     variables = {r.variable for r in star.meta_reads}
     assert "meta" in variables

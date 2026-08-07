@@ -164,25 +164,25 @@ for checking first means nothing is thrown away.
 
 ### 6.2 Seven checks
 
-> **This section said *six* until Plan 1.6 shipped seven.** `M0107` and `M0100` were folded
+> **This section said *six* until Plan 1.6 shipped seven.** `MD0107` and `MD0100` were folded
 > in during execution. The container match already existed as
 > `test_contract_containers_match_the_vendored_modules`; it is conformance by any
 > definition, and leaving it in a test file while its siblings lived in a checker would be
-> filing by accident of history. `M0100` is a diagnostic that is not a failure, which the
+> filing by accident of history. `MD0100` is a diagnostic that is not a failure, which the
 > six-check framing had no room for.
 
 | Code | Check | Catches |
 |---|---|---|
-| `M0100` | the module source is present at all | a claim with no evidence — **warns, never blocks** |
-| `M0101` | `nf_process` matches the module | typo → "process not found" at launch |
-| `M0102` | `nf_inputs` count matches slot count | already enforced |
-| `M0103` | `{empty: N}` width matches the slot's element count | "Path value cannot be null" |
-| `M0104` | an `{empty}` in a slot declaring `path(...)` requires `because` | **the missing genome, the empty GTF** |
-| `M0105` | every `produces[].name` appears in the module's `emit:` | `.out.bams` → crash |
-| `M0106` | meta keys, **both directions** | **the silent `-s 0`** |
-| `M0107` | `container` matches the module's directive | a claimed reproducibility the module does not have |
+| `MD0100` | the module source is present at all | a claim with no evidence — **warns, never blocks** |
+| `MD0101` | `nf_process` matches the module | typo → "process not found" at launch |
+| `MD0102` | `nf_inputs` count matches slot count | already enforced |
+| `MD0103` | `{empty: N}` width matches the slot's element count | "Path value cannot be null" |
+| `MD0104` | an `{empty}` in a slot declaring `path(...)` requires `because` | **the missing genome, the empty GTF** |
+| `MD0105` | every `produces[].name` appears in the module's `emit:` | `.out.bams` → crash |
+| `MD0106` | meta keys, **both directions** | **the silent `-s 0`** |
+| `MD0107` | `container` matches the module's directive | a claimed reproducibility the module does not have |
 
-`M0106` is the load-bearing one. Both directions are computable: a key a module reads that
+`MD0106` is the load-bearing one. Both directions are computable: a key a module reads that
 nothing sets is a silent default, and a `meta_key` declared that no module reads is dead.
 That is ordinary undefined- and unused-symbol analysis, and it is exactly the class that
 produced a counts matrix full of wrong numbers while every gate stayed green.
@@ -190,11 +190,11 @@ produced a counts matrix full of wrong numbers while every gate stayed green.
 **The unused direction needs every module.** "No module in this registry reads this
 `meta_key`" is a claim about all of them, so it is withheld when any module source is
 missing. Without that, a laboratory wrapping bare containers — no module directories at all
-— has every declared `meta_key` reported dead, and since `M0106` blocks, the build is
+— has every declared `meta_key` reported dead, and since `MD0106` blocks, the build is
 refused over an inference drawn from nothing. Evidence before assertion, which is what
-`M0100` exists to say.
+`MD0100` exists to say.
 
-**`M0105` found three on its first run.** `nf-core/samtools/index` declared a port named
+**`MD0105` found three on its first run.** `nf-core/samtools/index` declared a port named
 `bai` where `SAMTOOLS_INDEX` emits `index`; `comeni/profile/fastqc` declared `read_length`
 against FastQC's `html`/`zip`; `comeni/profile/collect` declared `profile` against MultiQC's
 `report`/`data`/`plots`. All three were latent — no goal had yet routed to one, so the
@@ -208,7 +208,7 @@ A diagnostic names the code, the contract, **the module fact it contradicts**, w
 written, and what to write instead:
 
 ```
-M0104  nf-core/star/genomegenerate@1.11.0
+MD0104  nf-core/star/genomegenerate@1.11.0
   slot 0 of STAR_GENOMEGENERATE is declared `path(fasta)`
     main.nf:12   tuple val(meta), path(fasta)
     meta.yml     fasta: "Fasta file of the reference genome"
@@ -216,7 +216,7 @@ M0104  nf-core/star/genomegenerate@1.11.0
   → declare a port with a type_id for it, or say why with `because`
 ```
 
-Plus `mendel explain M0104` for the long form, after `rustc --explain`.
+Plus `mendel explain MD0104` for the long form, after `rustc --explain`.
 
 **A diagnostic that does not say what to write instead is half a diagnostic.** The rule
 validator already works this way — "parameters that do exist: …" — and it is the single most
@@ -308,17 +308,17 @@ will find something else, and that becomes the next code. A verification ladder 
 way is the only kind that stays honest, because every rung was earned by a failure somebody
 actually had.
 
-**It compounded on the first turn.** `M0105`'s first run found three contracts declaring
+**It compounded on the first turn.** `MD0105`'s first run found three contracts declaring
 output ports their modules never emit — `bai` for `SAMTOOLS_INDEX`'s `index`, `read_length`
 for FastQC's `zip`, `profile` for MultiQC's `data`. All latent, none reachable by any test
-that existed. Wiring `M0106` to the CLI then found a defect in `M0106` itself: it asserted
+that existed. Wiring `MD0106` to the CLI then found a defect in `MD0106` itself: it asserted
 "no module reads this `meta_key`" over a registry where no module could be read, and refused
 correct builds. That generalises into the rule this section is really about — **a check must
 not assert a property over modules it could not open** — and it is the shape the next code
 should be tested against before it ships.
 
 Of Plan 1.5's five defects, two (the missing genome, the empty GTF) are now caught at build
-time on any registry by `M0104`; one (the container-less `Gate.TEST`) by a unit test; one
+time on any registry by `MD0104`; one (the container-less `Gate.TEST`) by a unit test; one
 (`PipelineIR` deserialisation) was already covered. The fifth — a test profile cannot glob
 over https — is **not catchable here and probably not anywhere static**. Comparing a
 contract to a module cannot know that `fromFilePairs` brace-expands by listing a directory.

@@ -77,6 +77,22 @@ def test_matches_the_golden_file():
     assert emit(_ir(), _registry(), _vocab()) == golden.read_text()
 
 
+def test_the_config_matches_its_golden_file():
+    """`nextflow.config` is the second output surface and it had no golden.
+
+    `main.nf` goes through Jinja and looks like output; this file is assembled by f-strings and
+    looks like plumbing, which is the same reason root C found it "also injectable" as the
+    surface nobody was guarding. A28's `emitted:` digests catch that it *changed*, against what
+    a build itself produced. Only a golden catches that it changed *to something wrong*, as a
+    diff a person reads before merge — and `ext.args` is where a wrong flag would appear, which
+    reaches the tool while every digest stays happy.
+    """
+    from mendel_compiler.emit import emit_config
+
+    golden = ROOT / "tests" / "golden" / "spine" / "nextflow.config"
+    assert emit_config(_ir(), _registry(), _vocab()) == golden.read_text()
+
+
 def test_call_arity_follows_the_declared_signature():
     """One contract port is not one process argument, and assuming so emits bad Nextflow.
 
