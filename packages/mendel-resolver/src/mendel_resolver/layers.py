@@ -17,7 +17,7 @@ One function, so the order is a fact rather than a convention.
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.layered import Displacement, layers_of, stack
+from comeni_core.layered import Displacement, Layer, layers_of, stack
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import UnknownStateError, Vocabulary
@@ -91,6 +91,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     registry = Registry.of(contracts, stacked)
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements))
     rules = RuleTable.of(decided, stacked)
+    _every_file_is_claimed(
+        stacked,
+        measured.claimed | declared_types.claimed | contracts.claimed | decided.claimed,
+    )
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
@@ -104,6 +108,34 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             *decided.displaced,
         ],
     )
+
+
+def _every_file_is_claimed(layer_values: list[Layer], claimed: set[Path]) -> None:
+    """A26 — a declared-data file no kind read is an error, named.
+
+    An overlay contract saved as `.yaml` was invisible to every loader, so the build routed
+    on the base layer and exited 0 while the *layer digest* hashed the file: the lockfile
+    said the overlay was there and the pipeline said it was not. Recursion and both
+    extensions fix the specific case; this fixes the class, which is that a layer could
+    contain a file nothing looked at and say nothing about it.
+
+    A misspelled subdirectory is the realistic version — `contract/` for `contracts/`, a
+    file dropped at the layer root. `registry.yml` is the one exception: it is the layer's
+    own manifest, read by `layer_name` before any kind runs.
+    """
+    for layer in layer_values:
+        for path in sorted({*layer.path.rglob("*.yml"), *layer.path.rglob("*.yaml")}):
+            if path in claimed or path == layer.path / "registry.yml":
+                continue
+            where = path.relative_to(layer.path)
+            raise ValueError(
+                f"registry layer {layer.path} contains {where}, which nothing reads.\n"
+                f"  Declared data lives in contracts/, rules/, vocabularies/ or "
+                f"measurements/ — nested as deeply as you like, `.yml` or `.yaml`.\n"
+                f"  A file outside those is hashed into the layer digest and changes "
+                f"nothing, which is how an overlay that did nothing looked like one that "
+                f"worked."
+            )
 
 
 def _blame_the_overlay(

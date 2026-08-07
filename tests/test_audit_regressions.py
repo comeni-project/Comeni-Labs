@@ -905,6 +905,59 @@ def test_a22_a_route_step_cannot_omit_where_it_came_from():
     ).from_layer is None
 
 
+def test_a26_a_yaml_contract_is_loaded_like_any_other(tmp_path):
+    """A26 — every loader matched `*.yml` only, so an overlay named `.yaml` vanished.
+
+    The build then routed on the base layer and exited 0. An overlay that does nothing
+    must not look exactly like an overlay that worked — and the layer digest hashed the
+    file either way, so the lockfile said the overlay was there.
+    """
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "contracts" / "rival-sorter.yml").rename(lab / "contracts" / "rival-sorter.yaml")
+
+    loaded = layers_mod.load([base, lab])
+
+    assert "lab/rival/sorter@9.9.9" in loaded.registry.contracts
+
+
+def test_a26_a_nested_vocabulary_is_loaded(tmp_path):
+    """Three of the four loaders globbed one level. Contracts nested; nothing else did."""
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "vocabularies" / "lab-types").mkdir(parents=True)
+    (lab / "vocabularies" / "lab-types" / "assay.panel.yml").write_text("states: [validated]\n")
+
+    loaded = layers_mod.load([base, lab])
+
+    assert loaded.vocabulary.states_for("assay.panel") == frozenset({"validated"})
+
+
+def test_a26_a_file_nothing_reads_is_an_error(tmp_path):
+    """The load-bearing half: silence is what made the `.yaml` case expensive.
+
+    A misspelled directory is the realistic mistake — `contract/`, `rule/`, a file dropped
+    at the layer root. Every one of them used to load cleanly and change nothing.
+    """
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "contract").mkdir()
+    (lab / "contract" / "misplaced.yml").write_text("id: lab/x@1.0.0\n")
+
+    with pytest.raises(ValueError, match="contract/misplaced.yml"):
+        layers_mod.load([base, lab])
+
+
+def test_a26_the_manifest_is_not_an_unread_file(tmp_path):
+    """`registry.yml` is the one file at a layer root that is read by something else."""
+    from mendel_resolver import layers as layers_mod
+
+    assert layers_mod.load("registry").registry.all()
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 
