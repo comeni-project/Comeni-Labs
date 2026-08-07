@@ -623,14 +623,16 @@ kind pointing at a different sort of thing, and reusing one mark for both is exa
 exists to stop — the failure there was never that a string was unvalidated, it was that nobody had
 written down which kind it was.
 
-| band | what it covers |
+| codes | what they cover |
 |---|---|
 | `M0100`–`M0107` | conformance — a contract disagrees with its module (**exists**) |
-| `M0108`–`M0109` | reserved for conformance |
-| `M0110`–`M0129` | the pipeline file — a setting, an override, or the format |
+| `M0108`–`M0109` | conformance, continued |
+| `M0110`–`M0122` | the pipeline file — a setting, an override, or the format |
 
-The pipeline band is twenty wide rather than ten. Reviewing this spec's own claims produced two
-new codes before a line was written; a band sized to the first draft would already be full.
+`M` is Mendel's deterministic core; the forge and the API get their own letters rather than a
+numeric band (§10). Grouping *within* `M` is a readability convention with nothing depending on it —
+an earlier draft sized a band and it was full before a line of code was written, which is the
+argument for letters.
 
 An earlier draft's column said *"refuses: build"* on almost every row. That is wrong now that four
 verbs read `pipeline.yml`: **a load-time check must fire wherever the file is loaded**, or `mendel
@@ -772,19 +774,39 @@ gets a *second* registry, and `mendel explain M0201` cannot answer because the c
 heard of it. `comeni-core` is the one package everything already depends on, so one registry stays one
 registry and every `explain` in the system reads it.
 
-Bands are reserved by subsystem now, while it costs nothing:
+**The prefix is a letter per emitting tool, not a numeric band.** Decided 2026-08-07, replacing an
+earlier draft that reserved `M0200`–`M0299` for the forge and `M0300`–`M0399` for the API.
 
-| band | subsystem |
+| prefix | emitted by |
 |---|---|
-| `M0100`–`M0199` | compiler — contracts, conformance, the pipeline file |
-| `M0200`–`M0299` | forge — ingestion, drafting, the approval queue |
-| `M0300`–`M0399` | API |
+| `M` | Mendel's deterministic core — resolver, compiler, contracts, the pipeline file |
+| `F` | the forge — ingestion, drafting, the approval queue |
+| `A` | `mendel-api` |
+| `N` | Nightingale, if it ever emits diagnostics |
+| `W` | Wiener, likewise |
 
-Reserving them now rather than at Plan 2 is the cheap half of a decision that gets expensive once
-codes are published and a lab has a runbook citing one. **Open question for the plan:** whether the
-resolver's typed exceptions join the scheme. `UnroutablePinError` is user-facing — a genuine
-contradiction between a pin and its inputs — and reads like a diagnostic; the others are closer to
-programming errors. Not decided here.
+Letters are better than bands for one decisive reason: **they remove the reservation problem
+entirely.** A band has to be sized in advance by someone guessing how many codes a subsystem will
+need, and a band that fills is a migration or an ugly discontinuity. `F0001` onwards has no ceiling.
+They are also self-documenting — `F0007` says which tool to look at, where `M0207` requires knowing
+the table.
+
+**One category mix, recorded so nobody later reasons from a false premise.** `M`, `F` and `A` name
+*subsystems of Mendel*; `N` and `W` name *different Labs*. The letter therefore means **"the tool that
+emitted this"**, not "the product it belongs to" — a `F0007` is as much a Mendel diagnostic as an
+`M0110` is. Two consequences worth writing down. Nothing may assume `M`- and `F`-codes cannot appear
+in one run, because `mendel build` invoking the forge would produce both. And if Nightingale ever
+grows an API, it must not take `A` — that letter is spoken for by Mendel's, which is the one collision
+this scheme can suffer and the one to remember.
+
+Existing codes keep their spellings: `M0100`–`M0107` are in public documentation, and a published code
+is a thing a laboratory runbook can cite. The intra-`M` grouping (conformance around `M010x`, the
+pipeline file from `M0110`) survives as a **soft convention** rather than a reservation — with letters
+doing the real separation, it is now a readability nicety and nothing depends on it.
+
+**Open question for the plan:** whether the resolver's typed exceptions join the scheme as `M`-codes.
+`UnroutablePinError` is user-facing — a genuine contradiction between a pin and its inputs — and reads
+like a diagnostic; the others are closer to programming errors. Not decided here.
 
 **What stays in code, and why the boundary is there.** `summary` and `detail` interpolate the actual
 mismatch — *this* contract, *this* declared value versus *that* module's. They stay at the check
@@ -1004,8 +1026,9 @@ breaks `entry_channel`, has gone too far.
 - **New:** `comeni_core/diagnostics.yml` — the code registry, in `comeni-core` because the forge and
   the API will emit codes too. Shipped as package data so `mendel explain` works from an installed
   wheel; packaging entry required.
-- **New:** `tools/generate_diagnostics_doc.py` — renders the `cli.md` table; `--check` in `make check`,
-  mirroring `tools/generate_types.py`.
+- **New:** `tools/generate_diagnostics_doc.py` — renders the `cli.md` table; `--check` in **both**
+  `make check` (PRs) and `.github/workflows/nightly.yml` (`main`), mirroring `tools/generate_types.py`.
+  No Action commits anything.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips. **And
   `mendel profile`, which the first draft of this radius missed**: it shares `build`'s emitter path,
   so it moves with the signature. It writes `pipeline.yml` *and* `profile.yml` — two files, correctly,
@@ -1090,9 +1113,15 @@ stable order — arriving in a new type that was designed after the lesson and c
   generated. A failing check teaches; a silent fix does not.
 
   The genuine gap it would close is drift arriving by a route that skips PR CI — a direct push, or a
-  merge that bypassed checks. That is real and cheap to cover: **add the `--check` to
-  `.github/workflows/nightly.yml`**, which already exists and already runs the stub gate. It fails
-  loudly, changes nothing, and needs no write permission.
+  merge that bypassed checks. **Decided 2026-08-07: cover it with a check, not a commit.** Two places,
+  both read-only:
+
+  - `make check` → `--check` on every pull request, so drift cannot merge. This is the existing
+    `make types` pattern and needs no new machinery.
+  - `.github/workflows/nightly.yml` → the same `--check` on `main`, so drift that arrived by another
+    route is reported within a day. That workflow already exists and already runs the stub gate.
+
+  Neither needs write permission, and a failure names the file and the command that fixes it.
 - **Whether `ExtKey` should carry `args2` and `args3` at all.** Included on nf-core convention with
   no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
   nf-core rather than on code here.
