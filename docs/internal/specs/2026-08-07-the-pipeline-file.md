@@ -125,8 +125,10 @@ registry:                      # provenance. NOT a dependency of `emit`.
 
 steps:
   - id: star_align
-    module:  {id: nf-core/star/align@1.11.0, digest: sha256:9f2c…}
+    module:  {id: nf-core/star/align@1.11.0, digest: sha256:9f2c…,
+              container: "community.wave.seqera.io/library/…:ae438e9a604351a4"}
     why:     {tier: 3, source: resolver, from_layer: comeni-registry-examples,
+              displaced_layer: null,
               reason: "rule producer_of:alignment.bam matched read_length >= 70:
                        doi:10.1093/bioinformatics/bts635"}
     process: STAR_ALIGN
@@ -164,10 +166,14 @@ channels:                      # what the lab supplies, and the measured facts
 
 decisions:                     # the review queue: tier 4, ties, overrides
   - key: star_align.seq_platform
+    subject: seq_platform
     tier: 4
+    candidates: [null]         # what was on the table
+    chosen: null               # what the resolver took
+    confidence: 0.0
     resolved_by: flag-only
     reason: "no rule covered 'seq_platform'"
-    human_override: illumina
+    human_override: illumina   # replayed by `upgrade`
 
 gate: test                     # the strongest gate this pipeline actually passed
 ```
@@ -217,6 +223,28 @@ class Pipeline(BaseModel):
 def emit(pipeline: Pipeline) -> str: ...
 def emit_config(pipeline: Pipeline) -> str: ...
 ```
+
+**The mapping must be total, and a test must say so.** The YAML above is illustrative, and the
+first three drafts of it silently dropped five fields that exist today:
+
+| dropped | why it mattered |
+|---|---|
+| `LockedContract.container` | its own docstring says *"the `sealed` profile's digests-required rule depends on it"* |
+| `ResolvedValue.displaced_layer` | A5 and A15 — what a lower layer offered and this one beat |
+| `DecisionRecord.candidates` | what was on the table, which is what a tier-4 reviewer needs first |
+| `DecisionRecord.chosen` | what the resolver actually took, as distinct from the override |
+| `DecisionRecord.confidence` | the model's own number, once Plan 2 supplies one |
+
+Losing `container` is the serious one: a consolidation meant to *strengthen* reproducibility would
+have quietly dropped the field the clinical protection profile depends on.
+
+So the requirement is not a longer example. **A test asserts that every field of `PipelineIR`,
+`IRNode`, `ResolvedValue`, `DecisionRecord`, `Lockfile`, `LockedContract`, `LockedLayer`, `Goal` and
+`DataProfile` has a declared home in `Pipeline`** — mechanically, over `model_fields`, with an
+explicit allowlist for anything deliberately not carried. This is root D's finding applied to
+consolidation rather than to diffing: `diff_ir` enumerated the fields it knew about, so every field
+added to the IR became a silent blind spot, and Plan 1.8 added four. A hand-written mapping between
+three types and one has exactly that shape, and reviewing it by eye already failed five times.
 
 `Pipeline.of()` is **the only validating constructor**, enforced the way
 `MeasurementRegistry.profile()` already is — by `tests/test_construction.py`, which exists
@@ -515,9 +543,26 @@ and `M0110` must not be extended to cover it.
 
 - **Root A (egress allowlist).** `Pipeline` becomes door 4's payload, replacing `PublishBundle`'s
   shape, so the guard walks it: no `Any`, no bare `str`, no mappings, every string a declared
-  alias or `FreeText`. The free-text count must not change — the two permitted fields stay
-  `PromptRequest.prompt` and `GateFailure.tool_message`. `tests/test_egress.py` holds its lists
-  literally on purpose, so editing it is the intended friction.
+  alias or `FreeText`. The mapping rule is stricter than it looks — `test_no_payload_carries_a_mapping`
+  tests against `abc.Mapping`, not `dict`, because A6 found `Mapping[MeasurementId, …]` is a
+  *superclass* of dict and slipped through. The free-text count must not change: the two permitted
+  fields stay `PromptRequest.prompt` and `GateFailure.tool_message`. `tests/test_egress.py` holds its
+  lists literally on purpose, so editing it is the intended friction.
+
+  **One premise this change could invalidate silently.** `registry.py` carries a mapping and says
+  it is legal *because* `Registry` is not reachable from a payload — *"a mapping is legal here in a
+  way it is not on the IR."* Materialisation must therefore **copy values into `Step`** and never
+  hold a `Registry`, a `ModuleContract` or a `Vocabulary` on `Pipeline`. If it did, that mapping
+  becomes an egress violation and the guard would be reporting on a premise that no longer holds.
+  `Pipeline.of()` takes a registry as an *argument*; `Pipeline` must not have a field for one.
+
+- **Retiring `PublishBundle` is not one line.** The name appears in eight docstrings across
+  `marks.py`, `ir.py`, `goal.py`, `registry.py`, `gates.py` and `mendel_resolver/goal.py`, and in
+  every case it is *load-bearing rationale* — why `Goal` lives where it does, why `RequiredStates`
+  is a record, why `comeni-core` owns `Gate`, why a mapping is legal on `Registry`. Those
+  explanations must be rewritten to name `Pipeline`, not left pointing at a type that no longer
+  exists. A rationale that cites a deleted type is worse than no rationale: it reads as authoritative
+  and cannot be checked.
 - **Root C (nothing is interpolated).** `template` is a **new string kind**, and it renders into
   Groovy — so it takes `entry_channel`'s discipline, not `reason`'s. Root C's table gains a sixth
   row. In exchange, `channels[].expression` becomes the *only* unbounded-Groovy field in the only
@@ -577,6 +622,8 @@ Root I applies. Each probe added, watched failing, reverted.
 | `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `M0120` — never a `main.nf` that cannot run |
 | the emitted `nextflow.config`, against a golden file | **byte-identical** — a file with no coverage today |
 | a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
+| a field added to `PipelineIR` or `DecisionRecord` with no home in `Pipeline` | the totality test fails, naming the field |
+| a `Registry` or `ModuleContract` field added to `Pipeline` | refused — `registry.py`'s mapping premise must hold |
 | `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
 | `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
 
@@ -616,7 +663,8 @@ breaks `entry_channel`, has gone too far.
 - `comeni_core/contract.py` — `Param` gains `via` (required), `key`, and `template`.
 - `comeni_core/tiers.py` — `ValueSource.HUMAN`, beside `GOAL` and with its own rationale.
 - `comeni_core/ir.py` — `overrides()` beside `needs_review()`.
-- `comeni_core/egress.py` — door 4's payload becomes `Pipeline`; `PublishBundle` retires.
+- `comeni_core/egress.py` — door 4's payload becomes `Pipeline`; `PublishBundle` retires, and the
+  eight docstrings that cite it by name are rewritten rather than orphaned.
 - `comeni_core/marks.py` — the `NfTemplate` kind and its validator.
 - `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
