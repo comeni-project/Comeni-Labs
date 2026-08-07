@@ -407,15 +407,34 @@ So this spec adds a member rather than relabelling one, and invents no fifth tie
   `source: human`. An override answers an ambiguity; it does not abolish it.
 - `needs_review()` gains a sibling **`overrides()`**, keyed on `source is ValueSource.HUMAN`, so
   "what did a person change" and "what still needs looking at" are separate questions with
-  separate answers. Invariant 6 — tier 4 is always flagged — then holds without an exception for
-  answered ones.
+  separate answers.
+- **`needs_review()` excludes a setting that carries an override**, and `overrides()` lists it
+  instead. Otherwise the count never reaches zero: you answer the question, the pipeline changes, and
+  the CLI still says `REVIEW star_align.seq_platform` forever. `lockfile.py` makes this argument
+  about a different list — *"a lockfile that cries wolf gets ignored"* — and it applies exactly.
+  Invariant 6 still holds: the tier stays 4, the value is still flagged, and it is flagged in the
+  list that describes what actually happened to it. Answered and unanswered are different states,
+  and one list cannot mean both.
+
+This is what closes [#10](https://github.com/comeni-project/Comeni-Labs/issues/10) properly. That
+issue is *"answering a tier-4 parameter clears the flag without changing the pipeline"* — both
+halves wrong in the same direction. Here, answering **changes the pipeline** (via `template:`) and
+**moves the flag** rather than clearing it.
+
+**And it decides an open question about `sealed`.** CLAUDE.md's protection-profile table says
+`sealed` makes tier 4 *block the build*. With overrides keeping tier 4, a `sealed` lab could never
+build a pipeline containing an answered tier-4 setting — it would be blocked permanently by a
+question someone had already answered. So **`sealed` blocks on `needs_review()`, not on tier**: an
+unanswered tier-4 value blocks, an answered one does not. That is what `sealed` is for — nothing
+ambiguous goes unreviewed — and an override *is* the review, recorded, attributable, and visible in
+`overrides()`. The `needs_review()`/`overrides()` split is what makes this expressible at all.
 
 This is adjacent to A3 but not the same finding. A3 was a path reaching `main.nf` through an open
 `dict`, and its fix (`HumanParamValue`, `PortName`) stands. What A3's docstring noted in passing
 — that the override *suppressed the tier-4 flag it replaced* — is the part this section addresses,
 and only for edits to the artifact.
 
-### 7. Replay reports four categories, and refuses on the fourth
+### 7. Replay reports five categories, and refuses on one
 
 `mendel upgrade` keeps `goal` plus every value with `source: human`, re-resolves against the new
 registry, materialises a fresh `Pipeline`, and reapplies them:
@@ -434,10 +453,49 @@ ORPHANED   1  your edit no longer applies to anything
               → refused. remove the override, or pin the module.
 ```
 
-**An orphaned override refuses the build.** An override that silently stops applying is the same
-failure as a guard that silently stops guarding — A14's shape, and not one to reintroduce in a
-new place. Drift and changes stay separate categories because Plan 1.7 established that
-distinction and it earns its keep: a digest moving is not the same event as a decision moving.
+**Most of this exists**, and an earlier draft of this section described it as new.
+`mendel_resolver/replay.py` has `ReplayingResolver`: `_chosen()` already prefers
+`record.human_override` over `record.chosen`, and it already tracks `replayed` and `fresh`. Two
+things follow that the draft got wrong.
+
+**Replay must keep the recorded `reason` verbatim.** `replay.py` carries a comment explaining that
+the plan's wording — prefixing "replayed from a recorded decision" — *cannot survive*, because
+`reason` is emitted as the comment above the parameter in `main.nf`, so prefixing it makes an
+upgraded pipeline differ from the published one by exactly that string, and federation §4.1 requires
+byte-identical Nextflow. That constraint applies unchanged here, and it is a trap this spec walks
+straight past: `why.reason` is still emitted as a comment.
+
+**`_still_applies` and `M0113` are two different cases, and the draft merged them.**
+
+- **Stale** — the candidate set moved, so the record answers a question nobody is asking.
+  `_still_applies` returns `False` and the existing code falls back to `FlagOnlyResolver`, which its
+  docstring defends: *"replaying would assert a decision between options that no longer exist —
+  worse than asking again, because it would look decided."* **That is right and stays.** What is
+  wrong is that it currently vanishes into a `fresh` count with no statement that an override was
+  discarded. It becomes its own reported category.
+- **Orphaned** — the step or setting is gone entirely. `ReplayingResolver.resolve()` is *never
+  called* for it, because there is no ambiguity to resolve, so no resolver hook can see it. It needs
+  a post-resolution sweep comparing every recorded `source: human` value against the fresh
+  `Pipeline`. **This is the genuinely new check**, and `M0113` is only about this case.
+
+So `upgrade` reports **five** categories, not four:
+
+```
+drift      2  digest changed, resolved value unchanged
+changes    1  the resolver now decides differently
+replayed   1  your edits, reapplied verbatim
+STALE      1  your edit no longer answers the question that is being asked
+              star_align.seq_platform — candidates moved; re-asked, flagged tier 4
+ORPHANED   1  your edit no longer applies to anything
+              hisat2_align.seq_platform — that step is gone
+              → refused, M0113
+```
+
+Stale re-asks and flags; orphaned refuses. The difference is whether there is still a question. An
+override that silently stops applying is the same failure as a guard that silently stops guarding —
+A14's shape — and today the stale half of it is silent. Drift and changes stay separate because Plan
+1.7 established that distinction and it earns its keep: a digest moving is not the same event as a
+decision moving.
 
 ### 8. Mappings are written, lists are stored
 
@@ -656,6 +714,9 @@ Root I applies. Each probe added, watched failing, reverted.
 | `seq_platform: "illumina'; println 'X'; //"` | refused at load, `M0111`. **Root C's own attack, on the new surface** |
 | `template: "--flag fixed"` with no `{value}` | refused, `M0114` |
 | an override for a step that re-resolution does not produce | refused, `M0113` — **not warned, not dropped** |
+| an override whose candidate set moved | re-asked and reported `STALE`; **not** refused, and **not** silent as it is today |
+| a setting answered by an override | absent from `needs_review()`, present in `overrides()`, still tier 4 |
+| `upgrade` replaying an override | the recorded `reason` emitted **verbatim** — byte-identical `main.nf`, federation §4.1 |
 | `via: meta` on `single_end` while `paired` is also measured | refused, `M0118` |
 | a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
 | a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `M0116` |
@@ -717,6 +778,10 @@ breaks `entry_channel`, has gone too far.
   eight docstrings that cite it by name are rewritten rather than orphaned.
 - `comeni_core/marks.py` — the `NfTemplate` kind and its validator.
 - `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
+- `mendel_resolver/replay.py` — **extended, not written.** `ReplayingResolver` already prefers
+  `human_override` and tracks `replayed`/`fresh`; it gains a reported `stale` list where
+  `_still_applies` returns `False`, and the post-resolution orphan sweep that no resolver hook can
+  perform. `_chosen()` and the verbatim-`reason` rule stay exactly as they are.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
 - `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0121`.
