@@ -372,7 +372,7 @@ for modules that pipe one tool into another, and they are included because addin
 later costs a `version:` bump for every archived file whereas an unused value costs nothing. That is a
 deliberate asymmetry, and it is the one judgement in this enum that rests on knowledge of nf-core
 rather than on this repository. **If a reviewer thinks it is wrong, this is the line to strike** —
-`M0108`'s check (does the module actually read this key?) will refuse a contract that names an unused
+`MD0108`'s check (does the module actually read this key?) will refuse a contract that names an unused
 key anyway, so a wrong inclusion here fails loudly at build rather than silently at run time.
 
 Three emission sites, because those are the three places the compiler writes into — the `ext`
@@ -380,7 +380,7 @@ scope, the channel's meta map, and the directive scope. That is verifiable again
 rather than being a prediction about Nextflow, which is why it is the claim worth making.
 
 `via: ext` requires `key:`. A `directive` requires a name from the compiler's directive list, which
-is code rather than registry data for reasons §9 sets out under `M0119`.
+is code rather than registry data for reasons §9 sets out under `MD0209`.
 
 **A setting without `via:` fails to load.** That makes a dead setting structurally impossible
 rather than merely detectable, and it closes #10 by removing the possibility rather than by
@@ -388,13 +388,13 @@ adding a warning.
 
 Composition is deterministic per key: for `ext.args`, the contract's static `ext_args` first, then
 each `via: ext` / `key: args` setting in **name-sorted** order. `prefix`, `meta` and `directive`
-take a single value and refuse a second writer (`M0118`).
+take a single value and refuse a second writer (`MD0208`).
 
 **`ext.when` is deliberately absent, and refused.** It is a boolean that skips a process
 entirely, so a setting could switch off a step while `steps:` and `inputs:` still describe it
 running. That is a second routing mechanism competing with resolution, and it would make the
 file's DAG a claim rather than a description. Whether a step exists is decided by resolving the
-goal. A `pipeline.yml` naming `key: when` is refused by `M0115`.
+goal. A `pipeline.yml` naming `key: when` is refused by `MD0205`.
 
 ### 5. `{value}` is validated, not escaped
 
@@ -442,9 +442,9 @@ size of change, and the plan should not record them as one.
 **Where this is documented is the point.** A note in a spec is not read by the person who hits the
 wall. The message goes in **three places**, and the third is public:
 
-1. **`Diagnostic.fix`** for `M0111` — what to do, at the moment of refusal.
-2. **`EXPLANATIONS["M0111"]`** — the long form behind `mendel explain M0111`.
-3. **`docs/reference/cli.md`** — the diagnostics table, which is where `M0100`–`M0107` already live
+1. **`Diagnostic.fix`** for `MD0201` — what to do, at the moment of refusal.
+2. **`EXPLANATIONS["MD0201"]`** — the long form behind `mendel explain MD0201`.
+3. **`docs/reference/cli.md`** — the diagnostics table, which is where `MD0100`–`MD0107` already live
    and is **public documentation**, not a working note. Written for a stranger, therefore: state that
    the limit is deliberate, that a value needing a space or a slash may be a legitimate case nobody
    has hit yet, and where to report one.
@@ -455,7 +455,7 @@ reasoning was drawn in the wrong place, and §5's table already says what allowi
 
 **`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
 `args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
-template there has nothing to compose into, and `cpus = "--cpus 12"` is not a thing. `M0114`
+template there has nothing to compose into, and `cpus = "--cpus 12"` is not a thing. `MD0204`
 therefore covers both halves of the same mistake: a template that never mentions `{value}`, and a
 template on a route that takes none.
 
@@ -555,7 +555,7 @@ upgraded pipeline differ from the published one by exactly that string, and fede
 byte-identical Nextflow. That constraint applies unchanged here, and it is a trap this spec walks
 straight past: `why.reason` is still emitted as a comment.
 
-**`_still_applies` and `M0113` are two different cases, and the draft merged them.**
+**`_still_applies` and `MD0203` are two different cases, and the draft merged them.**
 
 - **Stale** — the candidate set moved, so the record answers a question nobody is asking.
   `_still_applies` returns `False` and the existing code falls back to `FlagOnlyResolver`, which its
@@ -566,7 +566,7 @@ straight past: `why.reason` is still emitted as a comment.
 - **Orphaned** — the step or setting is gone entirely. `ReplayingResolver.resolve()` is *never
   called* for it, because there is no ambiguity to resolve, so no resolver hook can see it. It needs
   a post-resolution sweep comparing every recorded `source: human` value against the fresh
-  `Pipeline`. **This is the genuinely new check**, and `M0113` is only about this case.
+  `Pipeline`. **This is the genuinely new check**, and `MD0203` is only about this case.
 
 So `upgrade` reports **five** categories, not four:
 
@@ -578,7 +578,7 @@ STALE      1  your edit no longer answers the question that is being asked
               star_align.seq_platform — candidates moved; re-asked, flagged tier 4
 ORPHANED   1  your edit no longer applies to anything
               hisat2_align.seq_platform — that step is gone
-              → refused, M0113
+              → refused, MD0203
 ```
 
 Stale re-asks and flags; orphaned refuses. The difference is whether there is still a question. An
@@ -601,13 +601,13 @@ A `model_validator(mode="before")` normalises mapping → list for: `settings`, 
 Root G's rule is that a file can be read only one way, and `call:` is the field where a second
 reading produces a silently miswired pipeline rather than a parse error.
 
-**`channels[].params` is stored *and* derived, deliberately, and `M0121` is the price.** It is
+**`channels[].params` is stored *and* derived, deliberately, and `MD0211` is the price.** It is
 extractable from `expression` — that is what `entry_params` does today, with `re.findall(r"params\.
 (\w+)")` over Groovy. Storing it duplicates a fact, which root G is right to be suspicious of. It is
 stored anyway, because taking a regex over arbitrary Groovy *out* of the emitter is a large part of
 what materialisation buys, and `expression` is the one field this spec leaves unbounded. So the
 duplication is accepted and then checked: `Pipeline.of()` validates the list against the extraction,
-and `M0121` refuses a hand-edited file where the two have diverged. It is plural because
+and `MD0211` refuses a hand-edited file where the two have diverged. It is plural because
 `entry_params` returns a set — one expression may legitimately reference several params, and the
 shipped registry happening to be 1:1 today is not a schema guarantee.
 
@@ -625,14 +625,12 @@ written down which kind it was.
 
 | codes | what they cover |
 |---|---|
-| `M0100`–`M0107` | conformance — a contract disagrees with its module (**exists**) |
-| `M0108`–`M0109` | conformance, continued |
-| `M0110`–`M0122` | the pipeline file — a setting, an override, or the format |
+| `MD0100`–`MD0108` | conformance — a contract disagrees with its module (`MD0100`–`MD0107` **exist**) |
+| `MD0200`–`MD0212` | the pipeline file — a setting, an override, or the format |
 
-`M` is Mendel's deterministic core; the forge and the API get their own letters rather than a
-numeric band (§10). Grouping *within* `M` is a readability convention with nothing depending on it —
-an earlier draft sized a band and it was full before a line of code was written, which is the
-argument for letters.
+`MD` is Mendel's deterministic core — the three pure packages. The forge, the API and `mendel-ai` take
+`MF`, `MA` and `MI`; bands of one hundred group concerns inside each prefix, and a full band overflows
+rather than renumbering. §10 has the scheme and the reasoning, including the two drafts it replaced.
 
 An earlier draft's column said *"refuses: build"* on almost every row. That is wrong now that four
 verbs read `pipeline.yml`: **a load-time check must fire wherever the file is loaded**, or `mendel
@@ -641,25 +639,25 @@ verbs a code fires on, and *any load* means all four.
 
 | code | fires on | catches |
 |---|---|---|
-| `M0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
-| `M0110` | any load | a setting with no `via:` |
-| `M0111` | any load | `{value}` outside the closed character class — **its message must say the limit is an assumption and invite the counterexample** |
-| `M0112` | `upgrade` (incl. `--dry-run`) — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
-| `M0113` | `upgrade` | an orphaned override. Only re-resolution can know, so no other verb can raise it |
-| `M0114` | any load | a `template:` with no `{value}`, **or** a template on a route that takes none |
-| `M0115` | any load | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
-| `M0116` | build | the file `build` wrote does not parse back to the same object |
-| `M0117` | any load | `version:` is newer than this Mendel understands |
-| `M0118` | any load | two writers for one destination — a `meta` key, a `prefix`, or a directive |
-| `M0119` | any load | `via: directive` names something Nextflow will silently ignore |
-| `M0120` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
-| `M0121` | any load | `channels[].params` disagrees with what `expression` actually references |
-| `M0122` | any load | two settings on one step share a name, or two steps share an `id` |
+| `MD0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
+| `MD0200` | any load | a setting with no `via:` |
+| `MD0201` | any load | `{value}` outside the closed character class — **its message must say the limit is an assumption and invite the counterexample** |
+| `MD0202` | `upgrade` (incl. `--dry-run`) — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
+| `MD0203` | `upgrade` | an orphaned override. Only re-resolution can know, so no other verb can raise it |
+| `MD0204` | any load | a `template:` with no `{value}`, **or** a template on a route that takes none |
+| `MD0205` | any load | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
+| `MD0206` | build | the file `build` wrote does not parse back to the same object |
+| `MD0207` | any load | `version:` is newer than this Mendel understands |
+| `MD0208` | any load | two writers for one destination — a `meta` key, a `prefix`, or a directive |
+| `MD0209` | any load | `via: directive` names something Nextflow will silently ignore |
+| `MD0210` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
+| `MD0211` | any load | `channels[].params` disagrees with what `expression` actually references |
+| `MD0212` | any load | two settings on one step share a name, or two steps share an `id` |
 
-`M0108` is build-only because it needs module source, which `emit` does not read. `M0120` is
+`MD0108` is build-only because it needs module source, which `emit` does not read. `MD0210` is
 emit-only because that is the verb that would otherwise write an unrunnable `main.nf`.
 
-`M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
+`MD0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
 `"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
 checkable lie, and it lands in the reserved conformance band on day one. The same parse extends to
 `key: prefix` — `task.ext.prefix` is present in 8 of the 10 shipped modules and absent from
@@ -667,27 +665,27 @@ checkable lie, and it lands in the reserved conformance band on day one. The sam
 
 Four deserve their reasoning recorded:
 
-**`M0114`** is the subtle one. `key: args` with a template that forgets `{value}` produces a
+**`MD0204`** is the subtle one. `key: args` with a template that forgets `{value}` produces a
 setting that looks wired, renders real flags, and discards the value. Deadness wearing a bridge
 is *harder* to spot than today's honest no-op.
 
-**`M0116`** is what makes the round trip load-bearing rather than decorative.
+**`MD0206`** is what makes the round trip load-bearing rather than decorative.
 
-**`M0122`** is A11 arriving in a new type. `ModuleContract` already rejects a duplicate `Param`
+**`MD0212`** is A11 arriving in a new type. `ModuleContract` already rejects a duplicate `Param`
 name, because `IRNode.set_param` appends and a duplicate there *"died here with an uncaught
 TypeError"* when the emitter's sort fell through to comparing two `ResolvedValue`s. The mapping form
 of `settings:` makes this easier to hit, not harder: `yaml.safe_load` keeps the last of two
 duplicate keys silently, which is root G's finding, so a duplicate would be *collapsed* rather than
 caught. Written as a list it must be rejected explicitly.
 
-**`M0118`** exists because `via: meta` and a `Measurement.meta_key` write to the same map. The
+**`MD0208`** exists because `via: meta` and a `Measurement.meta_key` write to the same map. The
 collision is a **Python** one before it is a Groovy one: `meta_for()` returns `dict[str,
 ParamValue]` and `_render_meta` renders its sorted keys, so a setting and a measurement both
 claiming `single_end` collide in that dict and one is gone before any Groovy is written. `prefix`
 and each directive have the same property for the same reason. Two writers for one destination is
 a refusal, not a precedence rule nobody remembers.
 
-**`M0119`** is the one that costs something, and the premise was tested rather than assumed. A
+**`MD0209`** is the one that costs something, and the premise was tested rather than assumed. A
 pipeline whose config contained `process { withName: FOO { cpuz = 4 } }` ran to **exit 0 with no
 diagnostic** on Nextflow 25.10.4 — no error, no warning, nothing. An unknown directive is silently
 ignored, which is the exact failure this design exists to eliminate, so omitting the check would be
@@ -715,13 +713,13 @@ Rendered, with `where:` pointing into the file rather than at a contract id:
 ```
 $ mendel upgrade build/pipeline.yml --registry registry/ --out next/
 
-M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
+MD0203  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
   Your override no longer applies to anything.
   This file records `source: human` for hisat2_align.seq_platform, but
   re-resolving the goal no longer produces a step called hisat2_align.
   fix: remove the override, or pin the module under `steps[].module` so the
        step survives re-resolution.
-       `mendel explain M0113` for the long form.
+       `mendel explain MD0203` for the long form.
 
 1 diagnostic. Nothing emitted.
 ```
@@ -732,9 +730,9 @@ the reader grep for it. `Diagnostic.render()` already lays out summary/detail/fi
 needs no change beyond the field.
 
 **The codes are also public documentation, and an earlier draft had forgotten it.**
-`docs/reference/cli.md` carries the `M0100`–`M0107` table, a rendered example and the `mendel
+`docs/reference/cli.md` carries the `MD0100`–`MD0107` table, a rendered example and the `mendel
 explain` usage — it is the document a stranger reads, public since 2026-08-04. All fourteen new codes
-belong there, and one existing row goes stale: `M0100`'s entry says the contract is *"recorded in
+belong there, and one existing row goes stale: `MD0100`'s entry says the contract is *"recorded in
 `pipeline.ir.json` as `unverified`"*, and that file retires here — the fact moves to
 `registry.unverified`.
 
@@ -752,7 +750,7 @@ and §2's field mapping, wearing documentation's clothes. One source, two derive
 
 ```yaml
 # packages/comeni-core/src/comeni_core/diagnostics.yml   — see "why comeni-core" below
-M0111:
+MD0201:
   band: pipeline-file
   says: "`{value}` outside the closed character class"     # one line — it is a table row
   fires_on: [build, emit, upgrade]
@@ -774,35 +772,65 @@ gets a *second* registry, and `mendel explain M0201` cannot answer because the c
 heard of it. `comeni-core` is the one package everything already depends on, so one registry stays one
 registry and every `explain` in the system reads it.
 
-**The prefix is a letter per emitting tool, not a numeric band.** Decided 2026-08-07, replacing an
-earlier draft that reserved `M0200`–`M0299` for the forge and `M0300`–`M0399` for the API.
+**A two-letter prefix per subsystem, with 100-wide bands inside it.** Decided 2026-08-07, after two
+wrong drafts worth recording because both looked reasonable.
 
-| prefix | emitted by |
-|---|---|
-| `M` | Mendel's deterministic core — resolver, compiler, contracts, the pipeline file |
-| `F` | the forge — ingestion, drafting, the approval queue |
-| `A` | `mendel-api` |
-| `N` | Nightingale, if it ever emits diagnostics |
-| `W` | Wiener, likewise |
+The first put 100-wide numeric bands under a single `M`. The second gave each subsystem its own letter
+— `F` forge, `A` api — which fixed the band ceiling but split one product across three namespaces and
+forced a rule reserving `A` away from Nightingale's future API. Two letters keep both properties: `M`
+still means Mendel, and the second letter says which part.
 
-Letters are better than bands for one decisive reason: **they remove the reservation problem
-entirely.** A band has to be sized in advance by someone guessing how many codes a subsystem will
-need, and a band that fills is a migration or an ugly discontinuity. `F0001` onwards has no ceiling.
-They are also self-documenting — `F0007` says which tool to look at, where `M0207` requires knowing
-the table.
+| prefix | subsystem | purity |
+|---|---|---|
+| `MD` | the **deterministic core** — `comeni-core`, `mendel-resolver`, `mendel-compiler` | pure |
+| `MF` | the forge | impure |
+| `MA` | `mendel-api` | impure |
+| `MI` | `mendel-ai` | impure |
+| `N…` | Nightingale | — |
+| `W…` | Wiener | — |
 
-**One category mix, recorded so nobody later reasons from a false premise.** `M`, `F` and `A` name
-*subsystems of Mendel*; `N` and `W` name *different Labs*. The letter therefore means **"the tool that
-emitted this"**, not "the product it belongs to" — a `F0007` is as much a Mendel diagnostic as an
-`M0110` is. Two consequences worth writing down. Nothing may assume `M`- and `F`-codes cannot appear
-in one run, because `mendel build` invoking the forge would produce both. And if Nightingale ever
-grows an API, it must not take `A` — that letter is spoken for by Mendel's, which is the one collision
-this scheme can suffer and the one to remember.
+The prefix follows **the purity split `ARCHITECTURE.md` already uses**, rather than inventing a
+taxonomy: `MD` is exactly the set of packages that may not reach the network. And a future
+Nightingale API is `NA`, so the collision the one-letter scheme needed a rule for cannot arise.
 
-Existing codes keep their spellings: `M0100`–`M0107` are in public documentation, and a published code
-is a thing a laboratory runbook can cite. The intra-`M` grouping (conformance around `M010x`, the
-pipeline file from `M0110`) survives as a **soft convention** rather than a reservation — with letters
-doing the real separation, it is now a readability nicety and nothing depends on it.
+Inside `MD`, bands of one hundred group by concern:
+
+| band | concern | used |
+|---|---|---|
+| `MD0000`–`MD0099` | loading registry data — contracts, vocabularies, rules, measurements | none yet; today these are Pydantic errors |
+| `MD0100`–`MD0199` | **conformance** — a contract disagrees with its module | `MD0100`–`MD0108` |
+| `MD0200`–`MD0299` | **the pipeline file** — a setting, an override, or the format | `MD0200`–`MD0212` |
+| `MD0300`–`MD0399` | routing and resolution | none yet; `UnroutablePinError` if it joins |
+| `MD0400`–`MD0499` | gates and emission | none yet |
+
+**A band may overflow into a new band. A code may never be renumbered.** That is the rule that makes
+banding safe, and it is the answer to the objection that killed the twenty-wide version: if
+conformance ever exceeds a hundred codes, its hundred-and-first is `MD0900`, not a renumbering of
+`MD0100`. An ugly discontinuity in a table is a cosmetic cost paid once; a renamed code breaks every
+laboratory runbook, support thread and pinned URL that cites it. **Published codes are immutable.**
+
+**One rename happens now, and now is the last cheap moment.** `M0100`–`M0107` become
+`MD0100`–`MD0107`: one mechanical substitution across roughly 107 places in live code, tests and
+public documentation. The repository went public on 2026-08-04 and there is no released version, so
+nothing external cites these yet. That will not be true for long, and the rule above means it can
+never be done again.
+
+**History is not rewritten.** Roughly 120 further occurrences live in `docs/internal/journal/`,
+`docs/internal/audits/` and the 2026-08-05 conformance plan. Those are append-only and were correct on
+their date — the same convention that leaves journal entries saying "Plan 2.5" for what is now Plan
+1.7. A reader meeting `M0104` in a journal entry needs one line in `docs/reference/cli.md` saying the
+`MD` prefix arrived on 2026-08-07 and old entries predate it.
+
+**The thirteen pipeline-file codes move into their own band while they are still free.** They were
+drafted as `M0110`–`M0122`, wedged against conformance because that is where there was room. Nothing
+implements them, so they become `MD0200`–`MD0212` at no cost, and conformance keeps `MD01xx` whole —
+including `MD0108`, the `task.ext.args` check, which is conformance and belongs there rather than in
+the pipeline band.
+
+**Grouping still lives in the data as well as the number.** `diagnostics.yml` carries `emitted_by:` and
+`concern:`, and the generated `cli.md` renders sections from them. The band makes a code *readable*;
+the field makes the document *correct*. Neither alone is enough — a band tells you nothing if you have
+not memorised the table, and a field tells you nothing until you look it up.
 
 **Open question for the plan:** whether the resolver's typed exceptions join the scheme as `M`-codes.
 `UnroutablePinError` is user-facing — a genuine contradiction between a pin and its inputs — and reads
@@ -838,12 +866,12 @@ written: `--check` is that test, and it is the one that also fixes the file.
 Three things easy to get wrong here, all with precedent in this repository:
 
 - **Root G applies to this file.** `yaml.safe_load` silently keeps the last of two duplicate keys, so
-  a `diagnostics.yml` with `M0111` twice would load one and lose one. It takes the same loader
+  a `diagnostics.yml` with `MD0201` twice would load one and lose one. It takes the same loader
   discipline as a contract.
 - **`says` must be a single line.** It is rendered into a markdown table row; a newline breaks the
   table silently rather than loudly. Root C's `Line`/`Text` split, in a new place — `says` is `Line`,
   `fix` and `explanation` are `Text`.
-- **It must ship inside the wheel.** `mendel explain M0111` has to work from an installed package
+- **It must ship inside the wheel.** `mendel explain MD0201` has to work from an installed package
   with no repository checked out, so `diagnostics.yml` is package data and needs the packaging entry
   to match. This repo has been bitten twice by a file that existed locally and not where it was
   needed — `/build/` in `.gitignore` swallowing a vendored module, and `uv sync` installing nothing
@@ -863,7 +891,7 @@ A `Measurement` has two jobs and only one of them is a route. `strandedness` and
 `describes` + `meta_key` and reach the tool through the meta map. `read_length` and `n_samples`
 declare neither, and correctly reach no tool — they are inputs to **rules**, which route
 decisions rather than carrying values. A measurement with no `meta_key` is not a dead setting,
-and `M0110` must not be extended to cover it.
+and `MD0200` must not be extended to cover it.
 
 ---
 
@@ -946,25 +974,25 @@ Root I applies. Each probe added, watched failing, reverted.
 
 | probe | expected |
 |---|---|
-| a setting with `via:` removed | refused at load, `M0110`, naming the setting |
-| `seq_platform: "illumina'; println 'X'; //"` | refused at load, `M0111`. **Root C's own attack, on the new surface** |
-| `template: "--flag fixed"` with no `{value}` | refused, `M0114` |
-| an override for a step that re-resolution does not produce | refused, `M0113` — **not warned, not dropped** |
+| a setting with `via:` removed | refused at load, `MD0200`, naming the setting |
+| `seq_platform: "illumina'; println 'X'; //"` | refused at load, `MD0201`. **Root C's own attack, on the new surface** |
+| `template: "--flag fixed"` with no `{value}` | refused, `MD0204` |
+| an override for a step that re-resolution does not produce | refused, `MD0203` — **not warned, not dropped** |
 | an override whose candidate set moved | re-asked and reported `STALE`; **not** refused, and **not** silent as it is today |
 | a setting answered by an override | absent from `needs_review()`, present in `overrides()`, still tier 4 |
 | `upgrade` replaying an override | the recorded `reason` emitted **verbatim** — byte-identical `main.nf`, federation §4.1 |
 | `mendel upgrade --out` pointed at the input's own directory | refused — the existing never-overwrite test, with a second subject |
-| `via: meta` on `single_end` while `paired` is also measured | refused, `M0118` |
+| `via: meta` on `single_end` while `paired` is also measured | refused, `MD0208` |
 | a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
-| a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `M0116` |
-| `via: directive` naming `cpuz` | refused, `M0119` |
-| `version: 2` in a `pipeline.yml` | refused, `M0117` |
+| a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `MD0206` |
+| `via: directive` naming `cpuz` | refused, `MD0209` |
+| `version: 2` in a `pipeline.yml` | refused, `MD0207` |
 | **a step carrying two `key: args` settings, with the name-sort reverted** | **byte-identity must fail** |
-| `key: when` on any setting | refused, `M0115` — a step's existence is resolution's call |
-| `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `M0108` |
+| `key: when` on any setting | refused, `MD0205` — a step's existence is resolution's call |
+| `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `MD0108` |
 | the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
 | `mendel emit` with no `--registry` and no network, `modules/` present | **succeeds** |
-| `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `M0120` — never a `main.nf` that cannot run |
+| `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `MD0210` — never a `main.nf` that cannot run |
 | the emitted `nextflow.config`, against a golden file | **byte-identical** — a file with no coverage today |
 | a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
 | a field added to `PipelineIR` or `DecisionRecord` with no home in `Pipeline` | the totality test fails, naming the field |
@@ -992,7 +1020,7 @@ spine and the counts test fails. Real coverage, but incidental, and it covers th
 `ext_args` string rather than the new thing. **Nothing at all covers a resolved param composing
 into `ext.args`**, which is the mechanism this spec adds.
 
-And `M0114` catches a template that ignores `{value}`; *nothing* catches a template whose flag is
+And `MD0204` catches a template that ignores `{value}`; *nothing* catches a template whose flag is
 wrong, because the flag goes to the tool and not to the module — the same limit that makes
 `-stub-run` blind to a hollow input. So the spine must grow one real `key: args` setting whose
 effect is visible in output, and `test_counts.py` must assert it took effect. Without that row the
@@ -1021,7 +1049,12 @@ breaks `entry_channel`, has gone too far.
   perform. `_chosen()` and the verbatim-`reason` rule stay exactly as they are.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
-- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0122`.
+- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `MD0108`, `MD0200`–`MD0212`;
+  and `M0100`–`M0107` renamed to `MD0100`–`MD0107`, which also touches `tests/test_conformance.py`
+  (34 occurrences), `tests/test_spine_contracts.py`, `tests/test_conformance_cli.py`,
+  `tests/test_modulespec.py`, `mendel_compiler/cli.py`, `CLAUDE.md`, `CHANGELOG.md` and
+  `docs/design/conformance.md`. **`docs/internal/journal/`, `docs/internal/audits/` and the
+  2026-08-05 plan are not rewritten** — append-only, correct on their date.
   `EXPLANATIONS` retires into `diagnostics.yml`; `Diagnostic` validates `code` against it.
 - **New:** `comeni_core/diagnostics.yml` — the code registry, in `comeni-core` because the forge and
   the API will emit codes too. Shipped as package data so `mendel explain` works from an installed
@@ -1035,13 +1068,14 @@ breaks `entry_channel`, has gone too far.
   because `profile.yml` is an instruction sheet for the laboratory rather than a description of the
   pipeline. "One artifact" is a claim about what describes the pipeline, not a cap on output files.
 - `mendel_compiler/` — the legal Nextflow directive names, as code, carrying the Nextflow version
-  they were read against. Not registry data; see `M0119`. **Open question for the plan:** whether
+  they were read against. Not registry data; see `MD0209`. **Open question for the plan:** whether
   these belong in `diagnostics.yml`'s neighbourhood as compiler data rather than in a Python
   literal, now that §10 establishes the pattern.
 - `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
   setting on the spine for the counts assertion.
 - **Public documentation, which the first draft of this radius omitted entirely.**
-  `docs/reference/cli.md` — fourteen new codes into the diagnostics table, and `M0100`'s row
+  `docs/reference/cli.md` — fourteen new codes into the diagnostics table, the `M0100`→`MD0100`
+  rename across the existing eight, a line noting the prefix arrived 2026-08-07, and `MD0100`'s row
   corrected: it cites `pipeline.ir.json`, which retires. `docs/reference/goal-schema.md` keeps its
   meaning (`Goal` is unchanged) but gains a line on `goal:` being inert to `emit`. A new
   `docs/reference/pipeline-schema.md` alongside the other five schema references, because
@@ -1095,7 +1129,7 @@ stable order — arriving in a new type that was designed after the lesson and c
 ## What this spec does not cover
 
 - **Where in `mendel-compiler` the directive-name list lives, and how it records the Nextflow
-  version it was read against.** That it is code rather than registry data is decided (`M0119`); the
+  version it was read against.** That it is code rather than registry data is decided (`MD0209`); the
   module and shape are a plan question.
 - **An Action that regenerates `cli.md` on push to `main` was considered and rejected.** It was
   proposed on 2026-08-07 and the reasoning against is worth keeping, because the idea will recur.
@@ -1126,7 +1160,7 @@ stable order — arriving in a new type that was designed after the lesson and c
   no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
   nf-core rather than on code here.
 - **Whether any real tool setting needs a space or a slash.** Assumed not, deliberately, and the
-  assumption is stated in §5 with the cost of each class of counterexample. `M0111` is instrumented to
+  assumption is stated in §5 with the cost of each class of counterexample. `MD0201` is instrumented to
   surface one if it exists. **The first genuine counterexample is a finding, not a bug report** — it
   tells us a boundary drawn on reasoning rather than evidence was drawn in the wrong place.
 - **Issue [#2](https://github.com/comeni-project/Comeni-Labs/issues/2)** — `sealed` blocking
