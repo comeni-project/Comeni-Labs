@@ -181,6 +181,7 @@ decisions:                     # the review queue: tier 4, ties, overrides
     human_override: illumina   # replayed by `upgrade`
 
 emitted:                       # 1.9 added this: what was written, recorded not reconstructed
+  from_digest: sha256:c41a…    # of everything above, so staleness is detectable
   files:
     - {name: main.nf,         digest: sha256:7b31…}
     - {name: nextflow.config, digest: sha256:0ac9…}
@@ -216,6 +217,31 @@ string, because bare values were indistinguishable from filenames — A16. Lossl
 `IREdge` has exactly one consuming port, and it makes "where does this step's GTF come from"
 answerable without scanning a separate list. Root D's finding that `diff_ir` ignored `ir.edges`
 is the reason edges must be prominent rather than tucked away.
+
+**`emitted.from_digest` closes a gap consolidation opens.** Decided 2026-08-07. `Emitted` records the
+digests of the generated files, so a hand-edited `main.nf` is caught. It cannot catch the opposite and
+more likely mistake: **Nextflow runs `main.nf`, not `pipeline.yml`.** Edit the file you were told to edit,
+forget `mendel emit`, and the pipeline that runs is not the pipeline that is documented — with every
+digest matching, because the bytes on disk are exactly the bytes that were written. The artifact and the
+run diverge silently, which is the one failure this whole design exists to prevent, arriving through the
+door the design itself installs.
+
+So `emitted:` carries `from_digest`: the digest of the pipeline content those files were generated from,
+computed over the model **with `emitted:` excluded** — otherwise it would have to contain its own digest.
+That is the same exclusion `ResolvedValue._drop_computed` makes for `review_level`, and for the same
+reason: a derived field inside the thing it describes does not round-trip.
+
+Two failure modes, told apart:
+
+| what happened | detected by | code |
+|---|---|---|
+| `pipeline.yml` edited, not re-emitted | `from_digest` ≠ the file's current content | `MD0213` |
+| `main.nf` or `nextflow.config` hand-edited | `files[].digest` ≠ the bytes on disk | `MD0214` |
+
+Both are `any load`, so every verb that opens the directory reports them. And `MD0214`'s `fix:` must say
+**edit `pipeline.yml` and re-emit** rather than "revert your change" — a person who hand-edited `main.nf`
+was trying to change the pipeline, and the file that does that is the other one. A diagnostic that only
+forbids is half a diagnostic.
 
 **`gate:` lives inside the file.** Root D's title is *the verdict comes from the artifact*; this
 is that, structurally. The evidence and the pipeline are one document, so a bundle whose gate
@@ -669,7 +695,7 @@ written down which kind it was.
 | codes | what they cover |
 |---|---|
 | `MD0100`–`MD0108` | conformance — a contract disagrees with its module (`MD0100`–`MD0107` **exist**) |
-| `MD0200`–`MD0212` | the pipeline file — a setting, an override, or the format |
+| `MD0200`–`MD0214` | the pipeline file — a setting, an override, or the format |
 
 `MD` is Mendel's deterministic core — the three pure packages. The forge, the API and `mendel-ai` take
 `MF`, `MA` and `MI`; bands of one hundred group concerns inside each prefix, and a full band overflows
@@ -696,6 +722,8 @@ verbs a code fires on, and *any load* means all four.
 | `MD0210` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
 | `MD0211` | any load | `channels[].params` disagrees with what `expression` actually references |
 | `MD0212` | any load | two settings on one step share a name, or two steps share an `id` |
+| `MD0213` | any load | `pipeline.yml` has changed since the Nextflow was generated from it |
+| `MD0214` | any load | `main.nf` or `nextflow.config` was hand-edited since it was generated |
 
 `MD0108` is build-only because it needs module source, which `emit` does not read. `MD0210` is
 emit-only because that is the verb that would otherwise write an unrunnable `main.nf`.
@@ -774,7 +802,7 @@ needs no change beyond the field.
 
 **The codes are also public documentation, and an earlier draft had forgotten it.**
 `docs/reference/cli.md` carries the `MD0100`–`MD0107` table, a rendered example and the `mendel
-explain` usage — it is the document a stranger reads, public since 2026-08-04. All fourteen new codes
+explain` usage — it is the document a stranger reads, public since 2026-08-04. All sixteen new codes
 belong there, and one existing row goes stale: `MD0100`'s entry says the contract is *"recorded in
 `pipeline.ir.json` as `unverified`"*, and that file retires here — the fact moves to
 `registry.unverified`.
@@ -1033,12 +1061,82 @@ and `MD0200` must not be extended to cover it.
   `_still_applies()` survive unchanged, so §7 holds as written. The consequence for this spec is
   schema-shaped rather than behavioural: `decisions[]` carries `kind`, and the totality test names three
   types where it named one.
+## Verification
+
+Root I applies. Each probe added, watched failing, reverted.
+
+| probe | expected |
+|---|---|
+| a setting with `via:` removed | refused at load, `MD0200`, naming the setting |
+| `seq_platform: "illumina'; println 'X'; //"` | refused at load, `MD0201`. **Root C's own attack, on the new surface** |
+| `template: "--flag fixed"` with no `{value}` | refused, `MD0204` |
+| an override for a step that re-resolution does not produce | refused, `MD0203` — **not warned, not dropped** |
+| an override whose candidate set moved | re-asked and reported `STALE`; **not** refused, and **not** silent as it is today |
+| a setting answered by an override | absent from `needs_review()`, present in `overrides()`, still tier 4 |
+| `upgrade` replaying an override | the recorded `reason` emitted **verbatim** — byte-identical `main.nf`, federation §4.1 |
+| `mendel upgrade --out` pointed at the input's own directory | refused — the existing never-overwrite test, with a second subject |
+| `via: meta` on `single_end` while `paired` is also measured | refused, `MD0208` |
+| a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
+| a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `MD0206` |
+| `via: directive` naming `cpuz` | refused, `MD0209` |
+| `version: 2` in a `pipeline.yml` | refused, `MD0207` |
+| **a step carrying two `key: args` settings, with the name-sort reverted** | **byte-identity must fail** |
+| `key: when` on any setting | refused, `MD0205` — a step's existence is resolution's call |
+| `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `MD0108` |
+| the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
+| `mendel emit` with no `--registry` and no network, `modules/` present | **succeeds** |
+| `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `MD0210` — never a `main.nf` that cannot run |
+| `pipeline.yml` edited, then run without re-emitting | refused, `MD0213` — **the run and the artifact must not diverge silently** |
+| one byte changed in `main.nf` by hand | refused, `MD0214`, and the fix names `pipeline.yml` rather than forbidding the edit |
+| `emitted.from_digest` computed with `emitted:` included | fails to round-trip — the exclusion is load-bearing, as `review_level`'s is |
+| the emitted `nextflow.config`, against a golden file | **byte-identical** — digests catch *changed*, only a golden catches *changed to something wrong* |
+| a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
+| a field added to `PipelineIR` or `DecisionRecord` with no home in `Pipeline` | the totality test fails, naming the field |
+| a `Registry` or `ModuleContract` field added to `Pipeline` | refused — `registry.py`'s mapping premise must hold |
+| any `frozenset`-typed field on `Pipeline` | refused — `digest_of` is not stable over one |
+| a hand-edited `pipeline.yml` with a bad setting, run through `mendel emit` | refused — a load check fires on **every** verb, not only `build` |
+| `upgrade --dry-run` on a `pipeline.yml` built before `Param` gained `via` | reports drift on `star/align` and `hisat2/align` only — **expected, not a bug** |
+| `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
+| `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
+
+Three rows carry most of the weight.
+
+**The two-settings row is the one I expect to be got wrong.** With a single `key: args`
+setting the name-sort is unobservable, so a test that reverts the sort still passes — a guard
+that cannot see its own subject. This is the `frozenset`-has-no-stable-order trap in a new place.
+
+**The counts row is a hard requirement, not a nice-to-have**, and what it covers today is narrower
+than an earlier draft claimed. `test_counts.py` asserts `-s 2` and `-p`, and its own docstring says
+why: *"Strandedness arrives through meta now."* So it proves the **meta** route reaches a tool and
+says nothing about `ext.args`.
+
+The `ext.args` route is proven only *implicitly*: `star/align` carries `--readFilesCommand zcat`,
+TrimGalore emits `.fq.gz`, and STAR cannot read gzip without it — so dropping the route breaks the
+spine and the counts test fails. Real coverage, but incidental, and it covers the **static**
+`ext_args` string rather than the new thing. **Nothing at all covers a resolved param composing
+into `ext.args`**, which is the mechanism this spec adds.
+
+And `MD0204` catches a template that ignores `{value}`; *nothing* catches a template whose flag is
+wrong, because the flag goes to the tool and not to the module — the same limit that makes
+`-stub-run` blind to a hollow input. So the spine must grow one real `key: args` setting whose
+effect is visible in output, and `test_counts.py` must assert it took effect. Without that row the
+routing mechanism is verified only by unit tests of its own machinery.
+
+**The last-two-rows pattern from root C applies here too**: the byte-identical row and the
+still-accepted rows are what catch over-correction. A fix that moves the spine's output, or that
+breaks `entry_channel`, has gone too far.
+
+---
+
+## Blast radius
+
 - **New:** `comeni_core/pipeline.py` — `Pipeline`, `Step`, `Setting`, `Channel`, `CallArg`,
   `RegistryProvenance`, `Via`, `ExtKey`, `Pipeline.of()`.
 - `comeni_core/contract.py` — `Param` gains `via` (required), `key`, and `template`.
 - `comeni_core/tiers.py` — `ValueSource.HUMAN`, beside `GOAL` and with its own rationale.
 - `comeni_core/ir.py` — `overrides()` beside `needs_review()`.
-- `comeni_core/egress.py` — door 4's payload becomes `Pipeline`; `PublishBundle` retires, and the
+- `comeni_core/egress.py` — door 4's payload becomes `Pipeline`, carrying 1.9's `Emitted`/`EmittedFile`
+  plus the new `from_digest`; `Displacement` and the three decision variants get homes; `PublishBundle` retires, and the
   eight docstrings that cite it by name are rewritten rather than orphaned.
 - `comeni_core/marks.py` — the `NfTemplate` kind and its validator.
 - `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
@@ -1048,7 +1146,7 @@ and `MD0200` must not be extended to cover it.
   perform. `_chosen()` and the verbatim-`reason` rule stay exactly as they are.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
-- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `MD0108`, `MD0200`–`MD0212`;
+- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `MD0108`, `MD0200`–`MD0214`;
   and `M0100`–`M0107` renamed to `MD0100`–`MD0107`, which also touches `tests/test_conformance.py`
   (34 occurrences), `tests/test_spine_contracts.py`, `tests/test_conformance_cli.py`,
   `tests/test_modulespec.py`, `mendel_compiler/cli.py`, `CLAUDE.md`, `CHANGELOG.md` and
@@ -1073,7 +1171,7 @@ and `MD0200` must not be extended to cover it.
 - `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
   setting on the spine for the counts assertion.
 - **Public documentation, which the first draft of this radius omitted entirely.**
-  `docs/reference/cli.md` — fourteen new codes into the diagnostics table, the `M0100`→`MD0100`
+  `docs/reference/cli.md` — sixteen new codes into the diagnostics table, the `M0100`→`MD0100`
   rename across the existing eight, a line noting the prefix arrived 2026-08-07, and `MD0100`'s row
   corrected: it cites `pipeline.ir.json`, which retires. `docs/reference/goal-schema.md` keeps its
   meaning (`Goal` is unchanged) but gains a line on `goal:` being inert to `emit`. A new
@@ -1081,8 +1179,8 @@ and `MD0200` must not be extended to cover it.
   `pipeline.yml` is now the file a stranger is most likely to open. `docs/README.md`'s index and
   `ARCHITECTURE.md`'s five stages both describe the four-route settings surface this supersedes.
 - **Tests, and one of them comes first.** A golden `tests/golden/spine/nextflow.config` is a
-  **prerequisite commit** — that file has no coverage at all today and is where this mechanism
-  emits. Then: `tests/golden/spine/main.nf` moves; `tests/test_egress.py` is edited for the new
+  **prerequisite commit.** 1.9 gave that file an injection guard (A27) and digest comparison (A28), but
+  still no golden — and it is where this mechanism emits. Then: `tests/golden/spine/main.nf` moves; `tests/test_egress.py` is edited for the new
   payload type; `tests/test_construction.py` gains `Pipeline`; `tests/test_counts.py` gains the
   reaches-a-tool assertion for a resolved param, which nothing covers now.
 
