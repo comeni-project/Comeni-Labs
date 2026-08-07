@@ -1284,6 +1284,60 @@ def test_a16_a_bundle_round_trips_through_the_union(tmp_path):
     assert all(record.kind for record in bundle.decisions)
 
 
+def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
+    """A31 — `yaml.safe_load` takes the last value for a repeated key, silently.
+
+    A contract with two `priority:` lines loaded at the second one. That is A10's argument
+    one level down: the digest pins what survived parsing rather than what the file says, so
+    a reviewer reading `priority: 0` at the top and a build routing on `priority: 999` from
+    the bottom are both looking at a correctly signed layer.
+    """
+    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.yaml_strict import DuplicateKeyError
+
+    (tmp_path / "vocabularies").mkdir()
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    contract = tmp_path / "two-ways.yml"
+    contract.write_text(
+        "id: lab/two-ways@1.0.0\n"
+        "nf_process: TWO_WAYS\n"
+        "nf_include: modules/lab/two/main\n"
+        "priority: 0\n"
+        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
+        "priority: 999\n"
+    )
+
+    from comeni_core.contract import ModuleContract
+
+    with pytest.raises(DuplicateKeyError) as raised:
+        ModuleContract.load(contract, Vocabulary.load(tmp_path))
+
+    message = str(raised.value)
+    assert "priority" in message
+    assert "two-ways.yml" in message, "name the file"
+    assert "line 4" in message and "line 7" in message, f"name both lines: {message}"
+
+
+def test_a31_every_file_this_project_owns_reads_one_way():
+    """Run it against the shipped registry, the examples, and every vendored `meta.yml`.
+
+    A vendored file that trips this is a finding about that module, recorded rather than
+    exempted — the point of a strict loader is not to be satisfiable.
+    """
+    from comeni_core import yaml_strict
+
+    owned = [
+        *Path("registry").rglob("*.yml"),
+        *Path("examples").rglob("*.yml"),
+        *Path("vendor").rglob("meta.yml"),
+        *Path("vendor").rglob("*.yaml"),
+    ]
+    assert len(owned) > 20, "this test is only meaningful if it reads something"
+    for path in owned:
+        yaml_strict.load(path)
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 

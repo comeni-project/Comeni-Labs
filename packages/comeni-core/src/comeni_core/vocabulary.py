@@ -4,9 +4,9 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
 from pydantic import BaseModel, ConfigDict, field_serializer
 
+from comeni_core import yaml_strict
 from comeni_core.layered import (
     DeclaredKind,
     Displacement,
@@ -78,7 +78,7 @@ class TypeExtension(BaseModel):
 
 def _parse_type(path: Path) -> list[TypeDeclaration | TypeExtension]:
     type_id = path.name.removesuffix(".yaml").removesuffix(".yml")
-    data = yaml.safe_load(path.read_text()) or {}
+    data = yaml_strict.load(path) or {}
     added = data.pop("add_states", None)
     if added is not None:
         if data:

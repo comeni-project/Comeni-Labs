@@ -12,9 +12,9 @@ changed"* against a pipeline that had not moved a byte. Audit 2026-08-06, A12 an
 
 from pathlib import Path
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from comeni_core import yaml_strict
 from comeni_core.marks import LayerName
 
 
@@ -45,7 +45,7 @@ class LayerManifest(BaseModel):
         path = Path(layer) / "registry.yml"
         if not path.exists():
             return None
-        return cls.model_validate(yaml.safe_load(path.read_text()))
+        return cls.model_validate(yaml_strict.load(path))
 
 
 def layer_name(layer: Path) -> LayerName:

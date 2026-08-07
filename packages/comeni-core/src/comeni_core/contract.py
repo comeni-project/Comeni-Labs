@@ -3,9 +3,9 @@
 from pathlib import Path
 from typing import Any
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
+from comeni_core import yaml_strict
 from comeni_core.marks import (
     ContainerRef,
     ContractId,
@@ -244,7 +244,7 @@ class ModuleContract(BaseModel):
 
     @classmethod
     def load(cls, path: Path, vocab: Vocabulary) -> "ModuleContract":
-        contract = cls.model_validate(yaml.safe_load(path.read_text()))
+        contract = cls.model_validate(yaml_strict.load(path))
         contract.check_against(vocab)
         return contract
 

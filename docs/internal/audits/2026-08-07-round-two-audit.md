@@ -600,3 +600,36 @@ Same shape as two other findings this plan turned up by reverting: `stack()`'s
 `origin[key] != layer.index`, which can never be false, and `min` versus `max` over a set
 that is always a singleton. A line that cannot be wrong reads exactly like a line that is
 untested.
+
+### The anchor hypothesis, measured — *not a finding*
+
+Round two listed YAML anchors and billion-laughs expansion under *Hypotheses, not findings*.
+Plan 1.9 Part G, Task G2 measured them before deciding whether `_StrictLoader` should refuse
+anchors. It should not, and here is why — recorded so nobody re-opens it from the armchair.
+
+**Merge keys are already refused.** The form that would actually let one file mean two
+things — `<<: *base`, which splices a mapping into another — dies in `SafeLoader` itself:
+
+    ConstructorError: could not determine a constructor for the tag 'tag:yaml.org,2002:merge'
+
+That is the anchor feature with A31's shape, and it has never been available.
+
+**Plain anchors and aliases work, and are ordinary.** `base: &b coordinate_sorted` /
+`state: [*b]` loads to the obvious thing. A file using one still reads exactly one way,
+which is the property root G is about.
+
+**The expansion bomb does not amplify here.** Nine levels of nine-fold aliasing loads in
+under 10ms with flat memory: PyYAML *shares* the aliased object rather than copying it, so
+the graph is small even when its notional expansion is not. Pointed at a real loader, a
+bomb landing in a `states:` list is refused by Pydantic in the same 10ms —
+`Input should be a valid string` — because the declared shape is `frozenset[str]` and a
+nested list is not one.
+
+**Conclusion: no new task.** Refusing anchors would cost a laboratory a legitimate way to
+write a repetitive contract, and buy nothing measurable. The protection that is actually
+doing the work is the one already there: every declared file parses into a model with
+`extra="forbid"` and typed fields, so a structure nobody expected fails at the boundary
+rather than deep inside a consumer.
+
+Recording an untested hypothesis as a fix is what Plan 1.9 exists to stop, and that cuts
+both ways: this one is recorded as measured and dismissed.

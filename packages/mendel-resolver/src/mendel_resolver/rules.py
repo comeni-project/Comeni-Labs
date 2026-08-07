@@ -16,7 +16,7 @@ import operator
 from collections.abc import Sequence
 from pathlib import Path
 
-import yaml
+from comeni_core import yaml_strict
 from comeni_core.layered import (
     DeclaredKind,
     Kind,
@@ -186,7 +186,7 @@ class RuleTable(BaseModel):
         """
 
         def parse(path: Path) -> list[Decision]:
-            data = yaml.safe_load(path.read_text()) or {}
+            data = yaml_strict.load(path) or {}
             found = []
             for raw in data.get("decisions", []):
                 decision = Decision.model_validate(raw)

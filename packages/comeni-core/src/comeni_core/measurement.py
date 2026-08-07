@@ -15,9 +15,9 @@ from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from comeni_core import yaml_strict
 from comeni_core.layered import (
     DeclaredKind,
     Displacement,
@@ -135,7 +135,7 @@ def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
     The filename is the id, so a measurement cannot disagree with what it is called.
     """
     measurement_id = path.name.removesuffix(".yaml").removesuffix(".yml")
-    data = yaml.safe_load(path.read_text()) or {}
+    data = yaml_strict.load(path) or {}
     added = data.pop("add_values", None)
     if added is not None:
         if data:

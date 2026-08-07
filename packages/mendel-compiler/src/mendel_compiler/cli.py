@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from comeni_core import yaml_strict
 from comeni_core.digest import digest_of_bytes
 from comeni_core.egress import Emitted, PublishBundle
 from comeni_core.layer import layer_name
@@ -142,7 +143,7 @@ def _build(argv: list[str] | None = None) -> int:
     else:
         if args.goal is None:
             parser.error(f"{args.command} needs --goal")
-        goal = Goal.model_validate(yaml.safe_load(args.goal.read_text()))
+        goal = Goal.model_validate(yaml_strict.load(args.goal))
         # The profile used to be rebuilt here through `MeasurementRegistry.profile()`,
         # the one validating constructor — belt and braces over a check that did not
         # exist anywhere else. It exists now, in `resolve()`, which is the only way past

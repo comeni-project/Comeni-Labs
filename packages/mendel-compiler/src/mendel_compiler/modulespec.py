@@ -20,7 +20,7 @@ the right response is to notice loudly — `parse` raises — not to guess.
 import re
 from pathlib import Path
 
-import yaml
+from comeni_core import yaml_strict
 from pydantic import BaseModel, ConfigDict, Field
 
 _PROCESS = re.compile(r"^process\s+(\w+)\s*\{", re.M)
@@ -164,7 +164,7 @@ def _documented(meta_yml: Path) -> list[DocumentedInput]:
     over documentation."""
     if not meta_yml.exists():
         return []
-    data = yaml.safe_load(meta_yml.read_text()) or {}
+    data = yaml_strict.load(meta_yml) or {}
     found: list[DocumentedInput] = []
 
     def visit(node: object) -> None:
