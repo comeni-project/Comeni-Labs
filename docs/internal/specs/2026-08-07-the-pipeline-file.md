@@ -1126,6 +1126,39 @@ stable order — arriving in a new type that was designed after the lesson and c
 
 ---
 
+## Before the plan is written
+
+**This spec merges after Plan 1.9, and Plan 1.10 is written after that** — decided 2026-08-07. Not a
+formality: `CLAUDE.md` records that every plan written ahead of its types has needed correction during
+execution, and names the damage. Plans 2 and 3 *"predate the types they reference"*. The measurements
+plan predicted a YAML row syntax that does not parse, a producer pin that makes the spine unbuildable,
+a `mendel profile` whose `want` cannot route, and a `.pyi` that would have hidden three types from
+every type checker — four things, all written in good faith, none of which existed. **Writing Plan 1.10
+before 1.9 lands would repeat that exactly**, because 1.9 is rewriting the code this spec cites.
+
+So, in order, once 1.9 is on `main`:
+
+1. **Rebase this branch.** It is based on `e9cab07` and touches three files. `CLAUDE.md` and
+   `docs/internal/README.md` will conflict — 1.9 marks roots closed and moves statuses in both — and
+   the conflicts are table rows. The spec file itself should not conflict at all.
+2. **Re-verify every citation and move the header's commit.** The header says *verified against
+   `e9cab07`*, and the precedence section says citations will drift. Both stay honest only if someone
+   re-reads them. The ones most likely to have moved:
+   - `diff_ir` — root D rewrites it, and §2 and the root-D note both depend on its shape.
+   - `Diagnostic` — root F is *"a guard calls its subject"*, which may already have renamed
+     `contract_id`. If it has, §9's `where:` is a smaller change than described, or already done.
+   - `marks.py` — root C adds the `Mark` enum entries this spec extends. `NfTemplate` must join
+     what root C built, not sit beside it.
+   - `replay.py`, `resolve.py`, `emit.py`, `conformance.py` — cited throughout.
+   - The `frozenset` and `Line`/`Text` rules — root C may already enforce what §5 and §10 ask for.
+3. **Re-run the two experiments.** The `cpuz` directive check (`MD0209`) was run on Nextflow 25.10.4;
+   confirm the toolchain has not moved. And re-count `params` across contracts — §"The problem" claims
+   the whole declared-param surface is two dead entries, and 1.9 touches contracts.
+4. **Then write the plan**, against what is there.
+
+**What must not happen** is the spec being treated as verified because it says so. The date and commit
+in the header are a claim about a moment, and that moment will have passed.
+
 ## What this spec does not cover
 
 - **Where in `mendel-compiler` the directive-name list lives, and how it records the Nextflow
