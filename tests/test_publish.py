@@ -32,16 +32,38 @@ def test_the_bundle_carries_all_four_parts(tmp_path):
     """Federation 4.1: goal, IR, decisions, lockfile. Fewer than four is not reproducible.
 
     Plus `gate`, which audit A4 added: which validation gate this pipeline actually
-    passed, or `None` when none ran. Still an exact set rather than a subset — a field
+    passed, or `None` when none ran. Plus `emitted`, which A28 added: the digests of the
+    files this bundle was published from. Still an exact set rather than a subset — a field
     appearing in the door with no undo should fail this test and be argued for, which is
-    what happened here.
+    what happened both times.
     """
     bundle = json.loads((_publish(tmp_path) / "pipeline.bundle.json").read_text())
-    assert set(bundle) == {"goal", "ir", "decisions", "lockfile", "gate"}
+    assert set(bundle) == {"goal", "ir", "decisions", "lockfile", "gate", "emitted"}
     assert bundle["goal"]["want"] == ["counts.matrix"]
     assert len(bundle["ir"]["nodes"]) == 5
     # `_publish` runs no gate, so the honest record is "no evidence", not a weak gate.
     assert bundle["gate"] is None
+
+
+def test_the_bundle_records_the_artifact_it_produced(tmp_path):
+    """A28 — a bundle carrying no artifact cannot say whether the artifact moved.
+
+    Recorded rather than reconstructed: re-emitting the bundle's own IR needs the registry
+    as it was, and a contract removed from the registry is one of the two cases upgrade
+    exists to report. It also makes the bundle self-verifying — a recipient can check that
+    the pipeline they were handed is the one it describes, which nothing allowed before.
+    """
+    from comeni_core.digest import digest_of_bytes
+
+    out = _publish(tmp_path)
+    bundle = json.loads((out / "pipeline.bundle.json").read_text())
+
+    files = bundle["emitted"]["files"]
+    assert [f["name"] for f in files] == ["main.nf", "nextflow.config"], "sorted, read one way"
+    for recorded in files:
+        assert recorded["digest"] == digest_of_bytes((out / recorded["name"]).read_bytes())
+    # Never the vendored tree: `modules/` is copied, not emitted.
+    assert not any("modules" in f["name"] for f in files)
 
 
 def test_the_lockfile_pins_every_module_used(tmp_path):

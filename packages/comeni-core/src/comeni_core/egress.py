@@ -12,17 +12,22 @@ incident; a leaked prompt in a signed public registry is in every clone's histor
 permanently, and git is built to make that hard to reverse.
 """
 
+from collections.abc import Sequence
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.decision import DecisionRecord
+from comeni_core.digest import digest_of_bytes
 from comeni_core.gates import Gate
 from comeni_core.goal import Goal
 from comeni_core.ir import PipelineIR
 from comeni_core.lockfile import Lockfile
 from comeni_core.marks import (
     ContractId,
+    Digest,
+    NfPath,
     NodeId,
     Subject,
     Text,
@@ -95,6 +100,52 @@ class RepairRequest(EgressPayload):
     failure: GateFailure
 
 
+class EmittedFile(BaseModel):
+    """One generated file, and the digest of what was written."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: NfPath
+    digest: Digest
+
+
+class Emitted(BaseModel):
+    """What `mendel publish` actually wrote, recorded rather than reconstructed.
+
+    A28: the verdict `mendel upgrade` printed came from `diff_ir`, which enumerates the
+    fields it knows about — so every field added to the IR was a new blind spot, silently,
+    and the tool said *"no changes: this pipeline re-resolves identically"* while `main.nf`
+    had demonstrably moved.
+
+    Comparing bytes is the right mechanism, but **do not reconstruct the past — record
+    it.** Re-emitting the bundle's own IR needs the registry as it was, and a contract
+    removed from the registry is one of the two cases upgrade exists to report: re-emitting
+    dies with `KeyError` on exactly it. `drift_against` had this same bug in Plan 1.7, for
+    the same reason.
+
+    Sorted by name, for Plan 1.7's rule: a hash over concatenated fields means nothing
+    unless each field can be read one way only. The generated files only — never the copied
+    `modules/` tree, which is vendored rather than emitted.
+
+    It also makes a bundle self-verifying independently of upgrade: a recipient can check
+    that the pipeline they were handed is the pipeline the bundle describes. That property
+    did not exist at all.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    files: list[EmittedFile] = []
+
+    @classmethod
+    def of(cls, directory: Path, names: Sequence[str]) -> "Emitted":
+        return cls(
+            files=[
+                EmittedFile(name=name, digest=digest_of_bytes((directory / name).read_bytes()))
+                for name in sorted(names)
+            ]
+        )
+
+
 class PublishBundle(EgressPayload):
     """Door 4 — publication. The door with no undo.
 
@@ -120,6 +171,13 @@ class PublishBundle(EgressPayload):
 
     `None` is not a weak gate. It is no evidence at all, and must read differently from
     `lint`.
+    """
+
+    emitted: Emitted | None = None
+    """The digests of the files this bundle was published from, recorded after the gate ran.
+
+    `None` means the bundle predates the field — no evidence, exactly as `gate: None` means
+    no gate ran. It must never read as "identical". Audit A28.
     """
 
 

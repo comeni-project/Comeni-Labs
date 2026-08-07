@@ -80,4 +80,54 @@ def diff_ir(before: PipelineIR, after: PipelineIR) -> list[Change]:
                         reason=binding.value.reason,
                     )
                 )
+            elif previous.tier is not binding.value.tier:
+                # Same value, different tier. A parameter that moves from a documented
+                # default to "nobody knows" is the same number and a completely different
+                # claim, and a reviewer has to see it. A28.
+                changes.append(
+                    Change(
+                        what=f"{node_id}.{binding.name}",
+                        before=f"{previous.value} (tier {previous.tier})",
+                        after=f"{binding.value.value} (tier {binding.value.tier})",
+                        tier=binding.value.tier,
+                        reason=binding.value.reason,
+                    )
+                )
+
+    changes += _edge_changes(before, after)
+    return sorted(changes, key=lambda change: (change.what, change.before, change.after))
+
+
+def _edge_changes(before: PipelineIR, after: PipelineIR) -> list[Change]:
+    """Which output now feeds each consumed port.
+
+    Keyed on the *destination*, because that is the question: what arrives here? `resolve.py`
+    records in its own comment that wiring `.bai` into featureCounts was "valid Nextflow, no
+    flag, and `-stub-run` cannot catch it" — nor could `mendel upgrade`, which compared
+    contracts and parameters and never looked at the wiring between them. A28.
+    """
+    was = {(edge.to_node, edge.to_port): edge for edge in before.edges}
+    now = {(edge.to_node, edge.to_port): edge for edge in after.edges}
+
+    def source(edge: object) -> str:
+        return "(nothing)" if edge is None else f"{edge.from_node}.{edge.from_port}"
+
+    changes = []
+    for key in sorted(set(was) | set(now)):
+        old, new = was.get(key), now.get(key)
+        if source(old) == source(new):
+            continue
+        node, port = key
+        changes.append(
+            Change(
+                what=f"{node} <- {port}",
+                before=source(old),
+                after=source(new),
+                # Structural: an edge is not resolved at a tier, it is what routing built.
+                # The tier that matters for a rewire is on the node whose selection moved,
+                # and that change is already its own line.
+                tier=Tier.STRUCTURAL,
+                reason="the wiring changed",
+            )
+        )
     return changes

@@ -30,6 +30,15 @@ def _hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def digest_of_bytes(data: bytes) -> Digest:
+    """Content digest of a generated file, as written.
+
+    Public because `Emitted` records what `mendel publish` wrote, and a bundle's own digests
+    have to be reproducible by whoever received it — with the file, not with our code.
+    """
+    return f"{_ALGORITHM}:{_hex(data)}"
+
+
 def digest_of(model: BaseModel) -> Digest:
     """Content digest of a Pydantic model, stable across processes.
 

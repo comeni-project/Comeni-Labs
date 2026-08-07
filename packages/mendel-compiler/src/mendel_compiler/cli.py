@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 import yaml
-from comeni_core.egress import PublishBundle
+from comeni_core.digest import digest_of_bytes
+from comeni_core.egress import Emitted, PublishBundle
 from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
@@ -23,6 +24,11 @@ from pydantic import ValidationError
 from mendel_compiler import conformance
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
+
+EMITTED_FILES = ("main.nf", "nextflow.config")
+"""What this compiler generates. Named once, because `publish` records their digests and
+`upgrade` compares against that record — two lists would be one drift away from a verdict
+about a file nobody looked at."""
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -188,8 +194,12 @@ def _build(argv: list[str] | None = None) -> int:
         for line in previous.lockfile.drift_against(ir, registry, loaded.paths):
             print(f"  DRIFT   {line}", file=sys.stderr)
         changes = diff_ir(previous.ir, ir)
-        if not changes:
-            print("no changes: this pipeline re-resolves identically", file=sys.stderr)
+        # The verdict comes from the artifact, and the diff explains it. It used to come
+        # *from* the diff, which enumerates the fields it knows about — so every field
+        # added to the IR was a new blind spot and upgrade said "re-resolves identically"
+        # while `main.nf` had demonstrably moved. Audit A28.
+        for line in _verdict(previous, args.out, changes):
+            print(line, file=sys.stderr)
         for change in changes:
             print(f"  CHANGED {change}", file=sys.stderr)
         if resolver is not None:
@@ -249,13 +259,56 @@ def _build(argv: list[str] | None = None) -> int:
         # reason, more so: this is the door with no undo. Audit A4.
         lockfile = Lockfile.of(ir, registry, loaded.paths)
         bundle = PublishBundle(
-            goal=goal, ir=ir, decisions=ir.decisions, lockfile=lockfile, gate=passed
+            goal=goal,
+            ir=ir,
+            decisions=ir.decisions,
+            lockfile=lockfile,
+            gate=passed,
+            # Digested here rather than above, so the record is of the files that passed
+            # the gate. The generated two only: `modules/` is vendored, not emitted.
+            emitted=Emitted.of(args.out, EMITTED_FILES),
         )
         (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
         (args.out / "mendel.lock.yml").write_text(
             yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
         )
     return 0
+
+
+def _verdict(previous: PublishBundle, out: Path, changes: list) -> list[str]:
+    """Did the emitted pipeline move, and does anything explain it?
+
+    Three separate statements, and they stay separate: `DRIFT` says the registry moved
+    underneath the lockfile, this says the *pipeline* moved, and `CHANGED` says why. Drift
+    with an identical artifact is ordinary — a contract edited in a way this pipeline does
+    not use — and that is why they were split in Plan 1.7.
+    """
+    if previous.emitted is None:
+        return [
+            "this bundle predates the emitted-artifact record, so whether the pipeline "
+            "moved cannot be checked — only what the diff below can see."
+        ]
+
+    recorded = {file.name: file.digest for file in previous.emitted.files}
+    moved = sorted(
+        name
+        for name in recorded
+        if (out / name).exists() and digest_of_bytes((out / name).read_bytes()) != recorded[name]
+    )
+    missing = sorted(name for name in recorded if not (out / name).exists())
+    if not moved and not missing:
+        return ["the generated pipeline is byte-identical to the bundle"]
+
+    lines = [f"the generated pipeline differs: {', '.join(moved + missing)}"]
+    if not changes:
+        # A guard that reports its own blind spot. Today a diff gap is silent by
+        # construction; naming both causes keeps a reader from assuming the likelier one.
+        lines.append(
+            "  but no IR change explains it. Either the compiler itself changed since "
+            "this bundle was published, or the diff has a blind spot. Both are worth "
+            "knowing."
+        )
+    return lines
 
 
 def _displacement_line(record: Displacement) -> str:

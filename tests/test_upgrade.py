@@ -28,6 +28,12 @@ def _registry_with(tmp_path, edit):
 
 
 def test_upgrading_against_an_unchanged_registry_reports_nothing(tmp_path, capsys):
+    """A28 — the verdict is about the artifact, so this is what "nothing changed" means.
+
+    It said "no changes: this pipeline re-resolves identically", which was a claim about
+    `diff_ir`'s field list rather than about the pipeline. The sentence is now about the
+    bytes, and `diff_ir` explains rather than decides.
+    """
     bundle = _published(tmp_path)
     code = main(
         [
@@ -41,7 +47,9 @@ def test_upgrading_against_an_unchanged_registry_reports_nothing(tmp_path, capsy
         ]
     )
     assert code == 0
-    assert "no changes" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "the generated pipeline is byte-identical to the bundle" in err
+    assert "CHANGED" not in err
 
 
 def test_upgrading_reproduces_byte_identical_nextflow(tmp_path):
@@ -145,3 +153,106 @@ def test_upgrade_says_how_many_decisions_replayed(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "decisions replayed" in err
     assert "0 newly asked" in err
+
+
+def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_path, capsys):
+    """A28 — the verdict used to be a claim about `diff_ir`'s field list.
+
+    `ext_args` is a contract field that reaches `nextflow.config` — it is how a flag gets
+    to a tool at all — and `diff_ir` compares contract ids, parameter values, tiers and now
+    edges. Not that. So editing it moves the artifact and leaves the diff with nothing to
+    say, which is exactly the shape that printed *"no changes: this pipeline re-resolves
+    identically"* over generated files that had visibly changed.
+
+    Both halves are asserted: the verdict is right, and the tool says out loud that nothing
+    explains it rather than leaving a reader to assume the diff is complete.
+    """
+    bundle = _published(tmp_path)
+    layer = _registry_with(
+        tmp_path,
+        lambda root: (root / "contracts" / "nf-core" / "star-align.yml").write_text(
+            (root / "contracts" / "nf-core" / "star-align.yml")
+            .read_text()
+            .replace(
+                'ext_args: "--readFilesCommand zcat"',
+                'ext_args: "--readFilesCommand zcat --outSAMattributes All"',
+            )
+        ),
+    )
+
+    code = main(
+        [
+            "upgrade",
+            "--bundle", str(bundle),
+            "--out", str(tmp_path / "up"),
+            "--root", str(ROOT),
+            "--registry", str(layer),
+        ]
+    )
+
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "the generated pipeline differs: nextflow.config" in err
+    assert "no IR change explains it" in err, err
+
+
+def test_a_bundle_predating_the_record_says_so_rather_than_claiming_identity(tmp_path, capsys):
+    """`None` is no evidence, not a clean bill of health — the distinction `gate` makes."""
+    import json
+
+    bundle = _published(tmp_path)
+    data = json.loads(bundle.read_text())
+    data["emitted"] = None
+    bundle.write_text(json.dumps(data))
+
+    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert "predates the emitted-artifact record" in err
+    assert "byte-identical" not in err
+
+
+def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes(tmp_path, capsys):
+    """Why the digest is *recorded* rather than the old IR re-emitted.
+
+    Re-emitting needs the registry as it was, and a contract that is no longer in the
+    registry is one of the two cases upgrade exists to report — so the obvious
+    implementation dies with `KeyError` on exactly the case it was written for.
+    `drift_against` had this bug in Plan 1.7, for the same reason: do not reconstruct the
+    past, record it.
+
+    Published against two layers, upgraded against one. The overlay's sorter is locked and
+    gone; the base's takes over, so the pipeline still routes and the report is a report
+    rather than a crash.
+    """
+    lab = tmp_path / "lab-registry"
+    (lab / "contracts").mkdir(parents=True)
+    (lab / "contracts" / "rival-sorter.yml").write_text(
+        (ROOT / "registry" / "contracts" / "nf-core" / "samtools-sort.yml")
+        .read_text()
+        .replace("nf-core/samtools/sort@1.21.0", "lab/rival/sorter@9.9.9")
+        # A different module as well as a different id: conformance reads `nf_include`,
+        # so pointing the process elsewhere makes it `unverified` rather than wrong.
+        .replace("nf_process: SAMTOOLS_SORT", "nf_process: RIVAL_SORT")
+        .replace(
+            "nf_include: modules/nf-core/samtools/sort/main",
+            "nf_include: modules/lab/rival/sort/main",
+        )
+        .replace("priority: 0", "priority: 99")
+    )
+    out = tmp_path / "published-with-overlay"
+    assert main([
+        "publish", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT),
+        "--registry", str(ROOT / "registry"), "--registry", str(lab),
+    ]) == 0
+
+    code = main([
+        "upgrade", "--bundle", str(out / "pipeline.bundle.json"),
+        "--out", str(tmp_path / "up"), "--root", str(ROOT),
+    ])
+
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "DRIFT" in err and "no longer in the registry" in err
+    assert "the generated pipeline differs" in err
+    assert "samtools_sort" in err, "and the diff names what changed"

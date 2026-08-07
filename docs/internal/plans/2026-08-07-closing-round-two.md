@@ -423,37 +423,51 @@ Closes A28.
 **Interfaces:** Produces `EmittedFile(name: NfPath, digest: Digest)`,
 `Emitted(files: list[EmittedFile])`, `PublishBundle.emitted: Emitted | None`.
 
-- [ ] **Step 1: Write the failing test** — a published bundle's `emitted.files` names `main.nf`
+- [x] **Step 1: Write the failing test** — a published bundle's `emitted.files` names `main.nf`
       and `nextflow.config`, sorted, with `sha256:` digests; publishing without a gate still
       records them.
-- [ ] **Step 2: Run to verify it fails.**
-- [ ] **Step 3: Implement**, filling it in `publish` **after** the gate, so the digest is of the
+- [x] **Step 2: Run to verify it fails.**
+- [x] **Step 3: Implement**, filling it in `publish` **after** the gate, so the digest is of the
       files that passed.
-- [ ] **Step 4: Run `tests/test_egress.py`** — a new payload field must satisfy part A's leaf
+- [x] **Step 4: Run `tests/test_egress.py`** — a new payload field must satisfy part A's leaf
       rule. Update `test_the_bundle_carries_all_four_parts`'s exact key set deliberately, as
       `gate` did.
-- [ ] **Step 5: Commit** `feat(core): a bundle records the artifact it produced`
+- [x] **Step 5: Commit** `feat(core): a bundle records the artifact it produced`
 
 ### Task D2: upgrade compares, and reports what it cannot explain
 
 **Files:** Modify `cli.py`, `diff.py`; test `tests/test_upgrade.py`.
 
-- [ ] **Step 1: Write four failing tests** — unchanged registry reports byte-identical; a
+- [x] **Step 1: Write four failing tests** — unchanged registry reports byte-identical; a
       hand-edited `reason` reports **differs** (today: "no changes"); an edge rewire is named by
       `diff_ir`; a digest difference with an empty `diff_ir` prints the **unexplained** message
       naming both causes.
-- [ ] **Step 2: Run to verify they fail.** Paste the current
+- [x] **Step 2: Run to verify they fail.** Paste the current
       `no changes: this pipeline re-resolves identically` beside a `diff` showing `main.nf` moved.
-- [ ] **Step 3:** Compare digests for the verdict; extend `diff_ir` to edges (keyed
+- [x] **Step 3:** Compare digests for the verdict; extend `diff_ir` to edges (keyed
       `(to_node, to_port)`) and tier. Do **not** add profile, shadowed or unverified.
-- [ ] **Step 4: Test the `emitted: None` case** — a bundle predating the field must say so, not
+- [x] **Step 4: Test the `emitted: None` case** — a bundle predating the field must say so, not
       claim identity.
-- [ ] **Step 5: Test the deleted-contract case** — upgrade after removing a contract reports
+- [x] **Step 5: Test the deleted-contract case** — upgrade after removing a contract reports
       drift and a verdict, **no `KeyError`**. This is why the digest is recorded rather than
       re-emitted.
-- [ ] **Step 6: Commit** `fix(compiler): the upgrade verdict comes from the artifact — A28`
+- [x] **Step 6: Commit** `fix(compiler): the upgrade verdict comes from the artifact — A28`
 
-- [ ] **Part D gate:** `make verify`.
+- [x] **Part D gate:** `make verify`. **Green, 2026-08-07:** check 429, slow 2, guards 13.
+
+> **Corrections made while executing Part D.**
+>
+> - **The "hand-edited `reason`" probe does not reproduce.** Editing the bundle's own IR
+>   changes neither the emitted files nor the recorded digests, so the artifact matches and
+>   the verdict is right to say so. The real blind spot is a *registry* field the diff does
+>   not compare: `ext_args` reaches `nextflow.config` and nothing in `diff_ir` looks at it.
+>   That is the probe now, and it exercises the unexplained message honestly rather than by
+>   forging a digest.
+> - **The deleted-contract probe is the two-layer case.** Deleting a contract the rule table
+>   names makes the *rules* invalid, and deleting the only producer of a type makes the goal
+>   unroutable — both are refusals, not verdicts. Publishing against two layers and upgrading
+>   against one removes a locked contract while leaving the pipeline routable, which is the
+>   case the spec was reaching for.
 
 ---
 
