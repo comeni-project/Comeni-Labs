@@ -382,6 +382,7 @@ conversation is a loose end lost.
 | 10 | answering a tier-4 parameter clears the flag without changing the pipeline | Plan 2's Task 11, or a decision now |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
+| 18 | the error surface is half-declared — 41 raise sites, 32 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
 
 ## Commands
 

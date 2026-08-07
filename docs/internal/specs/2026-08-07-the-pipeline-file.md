@@ -1291,8 +1291,8 @@ in the header are a claim about a moment, and that moment will have passed.
   `MD0108` refuses a contract naming a key its module does not read — so a wrong inclusion fails loudly
   at build and a wrong omission is a migration. Still the one judgement in this spec resting on
   knowledge of nf-core rather than on code here, and §4 says so at the enum.
-- **Whether the resolver's and loaders' errors become `MD03xx` diagnostics.** **Deferred to the next
-  audit round on 2026-08-07**, not dropped: 41 raise sites, of which 32 are bare `ValueError`, and
+- **Whether the resolver's and loaders' errors become `MD03xx` diagnostics** — [#18](https://github.com/comeni-project/Comeni-Labs/issues/18).
+  **Deferred to the next audit round on 2026-08-07**, not dropped: 41 raise sites, of which 32 are bare `ValueError`, and
   deciding which are user-facing is judgement per site. Band `MD0300`–`MD0399` is reserved and the item
   is carried in
   [`../audits/2026-08-07-round-two-brief.md`](../audits/2026-08-07-round-two-brief.md) under *Carried

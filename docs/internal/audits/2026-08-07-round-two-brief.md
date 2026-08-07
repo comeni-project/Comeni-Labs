@@ -94,7 +94,7 @@ a deferral lost.** Added 2026-08-07.
   serve. **Band `MD0300`–`MD0399` is reserved for this.** The question deliberately left open is *which*
   of the 41 deserve a code, and that is a judgement per site: an audit is a better instrument for it
   than a plan, because the test is whether a person could act on the message. Deferred out of Plan 1.10
-  on 2026-08-07 to keep that plan's surface from tripling.
+  on 2026-08-07 to keep that plan's surface from tripling. Tracked as [#18](https://github.com/comeni-project/Comeni-Labs/issues/18).
 
 - **Round three audits a surface Plan 1.10 will have moved.** 1.10 runs first, by decision on
   2026-08-07: it collapses three artifacts into one `pipeline.yml`, drops `emit()` from four arguments
