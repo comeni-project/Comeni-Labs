@@ -348,49 +348,66 @@ Closes A27, A34.
 **Interfaces:** Produces `NfIdentifier`, `NfPath`, `GroovyExpression`, `Line`; `Text` unchanged.
 `Mark` gains `NF_IDENTIFIER`, `NF_PATH`, `GROOVY_EXPRESSION`.
 
-- [ ] **Step 1: Write failing tests** — `NfIdentifier` accepts `STAR_ALIGN`, rejects
+- [x] **Step 1: Write failing tests** — `NfIdentifier` accepts `STAR_ALIGN`, rejects
       `"A }\nprintln 'x'"`, a space and an empty string. `NfPath` accepts
       `modules/nf-core/star/align/main`, rejects a leading `/`, a `..` segment and a newline.
       `Line` rejects `"a\nb"`; **`Text` still accepts it.**
-- [ ] **Step 2: Run to verify they fail.**
-- [ ] **Step 3: Implement.** `Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]`
+- [x] **Step 2: Run to verify they fail.**
+- [x] **Step 3: Implement.** `Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]`
       — **the same `Mark.FREE_TEXT`**, so part A's `FREE_TEXT_FIELDS` count does not change.
-- [ ] **Step 4: Run** `uv run pytest packages/comeni-core/tests/test_marks.py tests/test_egress.py -v`.
-- [ ] **Step 5: Commit** `feat(core): a string that reaches an artifact declares its kind`
+- [x] **Step 4: Run** `uv run pytest packages/comeni-core/tests/test_marks.py tests/test_egress.py -v`.
+- [x] **Step 5: Commit** `feat(core): a string that reaches an artifact declares its kind`
 
 ### Task C2: apply the kinds
 
 **Files:** Modify `contract.py`, `vocabulary.py`, `ir.py`, `decision.py`, `egress.py`, `goal.py`.
 
-- [ ] **Step 1: Write the failing A34 test** — a contract with a newline in `nf_process` is
+- [x] **Step 1: Write the failing A34 test** — a contract with a newline in `nf_process` is
       **refused at load**, naming the field.
-- [ ] **Step 2: Run to verify it fails.** Today it loads and injects; paste the emitted
+- [x] **Step 2: Run to verify it fails.** Today it loads and injects; paste the emitted
       `include { LAB_SORT }` / `println …` / `include { … }` block.
-- [ ] **Step 3: Retype** per the spec's table: `nf_process`→`NfIdentifier`,
+- [x] **Step 3: Retype** per the spec's table: `nf_process`→`NfIdentifier`,
       `nf_include`→`NfPath`, `id`→`ContractId`, `container`→`ContainerRef | None`, every
       `name`→`NfIdentifier`, every `type_id`→`TypeId`, `entry_channels` values→`GroovyExpression`,
       `reason`→`Line`. **`GateFailure.tool_message` stays `Text`.**
-- [ ] **Step 4:** Validate vocabulary type ids (filename stems) on load.
-- [ ] **Step 5: Run** the whole suite; the shipped registry must load unchanged.
-- [ ] **Step 6: Commit** `fix(core): an identifier is validated, not interpolated — A34`
+- [x] **Step 4:** Validate vocabulary type ids (filename stems) on load.
+- [x] **Step 5: Run** the whole suite; the shipped registry must load unchanged.
+- [x] **Step 6: Commit** `fix(core): an identifier is validated, not interpolated — A34`
 
 ### Task C3: the emitter renders by class, both surfaces
 
 **Files:** Modify `emit.py`; test `tests/test_audit_regressions.py`.
 
-- [ ] **Step 1: Write two failing tests** — a `reason` that reaches the emitter with a newline
+- [x] **Step 1: Write two failing tests** — a `reason` that reaches the emitter with a newline
       produces a comment that is still a comment; `withName:` in `nextflow.config` cannot be
       broken out of.
-- [ ] **Step 2: Run to verify they fail.** Paste the `process { … println … }` config block.
-- [ ] **Step 3:** Add `_render_comment()`; route every `emit_config` interpolation through a
+- [x] **Step 2: Run to verify they fail.** Paste the `process { … println … }` config block.
+- [x] **Step 3:** Add `_render_comment()`; route every `emit_config` interpolation through a
       renderer rather than an f-string.
-- [ ] **Step 4: Confirm the exceptions still work** — `entry_channel` emits arbitrary Groovy
+- [x] **Step 4: Confirm the exceptions still work** — `entry_channel` emits arbitrary Groovy
       verbatim, `ext_args` is still escaped by `_render_literal`.
-- [ ] **Step 5: Golden check** — `main.nf` and `nextflow.config` byte-identical for the shipped
+- [x] **Step 5: Golden check** — `main.nf` and `nextflow.config` byte-identical for the shipped
       registry.
-- [ ] **Step 6: Commit** `fix(compiler): prose and identifiers are rendered, not interpolated — A27`
+- [x] **Step 6: Commit** `fix(compiler): prose and identifiers are rendered, not interpolated — A27`
 
-- [ ] **Part C gate:** `make verify`.
+- [x] **Part C gate:** `make verify`. **Green, 2026-08-07:** check 425, slow 2, guards 13,
+      drift skipped. Golden files unmoved, so the shipped registry's identifiers were all
+      valid — which is what made that row a check rather than a formality.
+
+> **Corrections made while executing Part C.**
+>
+> - **No `re`.** It is not on `comeni-core`'s purity allowlist, and the spec's regexes would
+>   have needed it. `str.isidentifier()` plus `str.isascii()` is the same rule; the control
+>   character test is a comprehension. Widening the allowlist for a character class is the
+>   wrong trade — `test_purity.py` caught this on the first run.
+> - **`isascii()` is a narrowing, not a correction.** Groovy follows Java and *does* allow
+>   unicode identifiers. Reverting it failed no test, which is how an unjustified narrowing
+>   looks exactly like an untested one. Both fixed: two unicode cases in `test_marks.py`, and
+>   the reason written down — two process names that render identically and are not equal is
+>   a bad property for a reviewer's reading to have.
+> - **`TypeId` gained a shape validator**, which the spec's table implied ("itself validated
+>   identifier-safe") without saying what the rule is: letters, digits, dot, underscore,
+>   hyphen, starting with a letter. `profile.yml` is a shipped type id and stays legal.
 
 ---
 

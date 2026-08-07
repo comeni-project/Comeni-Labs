@@ -45,6 +45,39 @@ def _render_literal(value: object) -> str:
     return f"'{escaped}'"
 
 
+def _render_comment(text: str) -> str:
+    """Prose, rendered so that it stays prose.
+
+    A27: `reason` was interpolated into `// {{ value.reason }}` and a newline made the rest
+    of it Groovy. `Line` refuses one at the boundary — but an IR is deserialised from a
+    bundle a stranger wrote, and `model_construct` skips validation altogether, so the
+    emitter renders rather than trusts. Belt and braces, and the two halves fail
+    independently.
+
+    Continuation lines are re-prefixed rather than stripped: a reviewer reading the
+    generated file should see everything the record said, on lines that are all comments.
+    """
+    lines = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    cleaned = ["".join(c for c in line if ord(c) >= 32 or c == "\t") for line in lines]
+    return "\n// ".join(cleaned)
+
+
+def _render_process_name(name: str) -> str:
+    """A Groovy identifier, at the point it is written into a declaration.
+
+    `nf_process` is an `NfIdentifier` and validated at contract load. This is the second
+    half of the same argument as `_render_comment`: `nextflow.config` is assembled by
+    Python f-strings, `withName: {nf_process}` was raw, and an emitter that trusts its
+    input is one refactor away from being the only check.
+    """
+    if not (name.isascii() and name.isidentifier()):
+        raise ValueError(
+            f"{name!r} is not a Nextflow identifier and is about to be written into a "
+            f"declaration. A contract cannot carry one; something bypassed the type."
+        )
+    return name
+
+
 def _channel_name(type_id: str) -> str:
     """`fastq.reads` -> `ch_fastq_reads`.
 
@@ -179,7 +212,7 @@ def emit(
     nodes = [
         {
             "id": node.id,
-            "process": registry.get(node.contract_id).nf_process,
+            "process": _render_process_name(registry.get(node.contract_id).nf_process),
             "include": registry.get(node.contract_id).nf_include,
             "params": [
                 (
@@ -187,7 +220,7 @@ def emit(
                     _ParamView(
                         tier=value.tier,
                         review_level=value.review_level,
-                        reason=value.reason,
+                        reason=_render_comment(value.reason),
                         rendered=_render_literal(value.value),
                     ),
                 )
@@ -302,7 +335,7 @@ def _process_scope(ir: PipelineIR, registry: Registry) -> list[str]:
         if not contract.ext_args:
             continue
         blocks.append(
-            f"    withName: {contract.nf_process} "
+            f"    withName: {_render_process_name(contract.nf_process)} "
             f"{{ ext.args = {_render_literal(contract.ext_args)} }}"
         )
     if not blocks:

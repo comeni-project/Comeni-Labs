@@ -14,11 +14,11 @@ from comeni_core.layered import Displacement
 from comeni_core.marks import (
     ContractId,
     LayerName,
+    Line,
     NodeId,
     ParamValue,
     PortName,
     StateName,
-    Text,
     TypeId,
 )
 from comeni_core.profile import DataProfile
@@ -51,7 +51,7 @@ class ResolvedValue(BaseModel):
     value: ParamValue
     tier: Tier
     source: ValueSource = ValueSource.RESOLVER
-    reason: Text
+    reason: Line
     """Why this value was chosen. Prose, and declared as such — it reaches an egress
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""

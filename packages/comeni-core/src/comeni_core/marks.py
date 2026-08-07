@@ -206,6 +206,29 @@ def _single_line(value: str) -> str:
     return value
 
 
+def _type_id(value: str) -> str:
+    """A type id, shaped so it is safe to emit.
+
+    It feeds `_channel_name()`, which replaces `.` and `-` and nothing else — so a type id
+    carrying a brace or a newline reaches an assignment target in the generated workflow.
+    And a vocabulary type id is a *filename stem*: filenames on Linux may contain newlines,
+    so "it comes from a file we control" is not a shape argument.
+
+    Root E asks the other half of the question — whether the id names a type any layer
+    declares. Both are needed and neither implies the other.
+    """
+    if not value:
+        raise ValueError("a type id cannot be empty")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+    bad = sorted(set(value) - allowed)
+    if bad or not (value[0].isascii() and value[0].isalpha()):
+        raise ValueError(
+            f"{value!r} is not a type id. Letters, digits, dot, underscore and hyphen, "
+            f"starting with a letter — it is emitted as a channel name."
+        )
+    return value
+
+
 Text = Annotated[str, Mark.FREE_TEXT]
 """Free prose that crosses a door and is never emitted into an artifact.
 
@@ -226,7 +249,7 @@ the compiler has never seen and say how it arrives. Root B reports when an overl
 one (A24); root C makes it the only field of this kind."""
 
 ContractId = Annotated[str, Mark.CONTRACT_ID]
-TypeId = Annotated[str, Mark.TYPE_ID]
+TypeId = Annotated[str, Mark.TYPE_ID, AfterValidator(_type_id)]
 NodeId = Annotated[str, Mark.NODE_ID]
 Subject = Annotated[str, Mark.SUBJECT]
 PortName = Annotated[str, Mark.PORT_NAME]

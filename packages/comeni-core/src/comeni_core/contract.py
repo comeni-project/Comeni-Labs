@@ -6,6 +6,14 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
+from comeni_core.marks import (
+    ContainerRef,
+    ContractId,
+    NfIdentifier,
+    NfPath,
+    PortName,
+    TypeId,
+)
 from comeni_core.vocabulary import Vocabulary
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
@@ -28,7 +36,7 @@ class Alternative(BaseModel):
 
     model_config = _NO_EXTRAS
 
-    type_id: str
+    type_id: TypeId
     states: frozenset[str] = frozenset()
 
     @field_serializer("states")
@@ -39,8 +47,8 @@ class Alternative(BaseModel):
 class InputPort(BaseModel):
     model_config = _NO_EXTRAS
 
-    name: str
-    type_id: str = ""
+    name: PortName
+    type_id: TypeId = ""
     state_required: frozenset[str] = frozenset()
     state_preferred: frozenset[str] = frozenset()
     """Deprecated spelling of `prefer`, kept so no vendored contract breaks."""
@@ -84,8 +92,11 @@ class InputPort(BaseModel):
 class OutputPort(BaseModel):
     model_config = _NO_EXTRAS
 
-    name: str
-    type_id: str
+    name: PortName
+    """The **emit label**: the compiler reads it as `PROCESS.out.<name>`. Not a name for
+    the semantic thing, which is what `type_id` carries — three contracts got that wrong and
+    M0105 found all three."""
+    type_id: TypeId
     state: frozenset[str] = frozenset()
 
     @field_serializer("state")
@@ -96,7 +107,7 @@ class OutputPort(BaseModel):
 class Param(BaseModel):
     model_config = _NO_EXTRAS
 
-    name: str
+    name: NfIdentifier
     tier_hint: int | None = None
     default: Any = None
 
@@ -164,14 +175,16 @@ class Provenance(BaseModel):
 class ModuleContract(BaseModel):
     model_config = _NO_EXTRAS
 
-    id: str
-    nf_process: str
-    nf_include: str
+    id: ContractId
+    nf_process: NfIdentifier
+    """Emitted into `process <name> {` and `include { <name> }`, where nothing can escape
+    it. A34: this was a bare `str`, and a contract could add statements to `main.nf`."""
+    nf_include: NfPath
     consumes: list[InputPort] = Field(default_factory=list)
     produces: list[OutputPort] = Field(default_factory=list)
     params: list[Param] = Field(default_factory=list)
     priority: int = 0
-    container: str | None = None
+    container: ContainerRef | None = None
     """The container URI as the module declares it, tag and all.
 
     Optional because `nf-core` declares containers in `main.nf` rather than `meta.yml`,

@@ -16,6 +16,7 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
+from comeni_core.marks import GroovyExpression, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
     from comeni_core.measurement import MeasurementRegistry
@@ -51,9 +52,12 @@ class TypeDeclaration(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
+    id: TypeId
+    """The filename stem, validated. A vocabulary type id is whatever somebody named a
+    file, and it is emitted as a channel name — root C, A34."""
     states: frozenset[str] = frozenset()
-    entry_channel: str | None = None
+    entry_channel: GroovyExpression | None = None
+    """Unbounded Groovy, emitted verbatim — the designed exception, marked as such."""
     test_data: str | list[str] | None = None
 
 
@@ -68,7 +72,7 @@ class TypeExtension(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
+    id: TypeId
     add_states: list[str]
 
 

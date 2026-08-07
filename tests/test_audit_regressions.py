@@ -958,6 +958,145 @@ def test_a26_the_manifest_is_not_an_unread_file(tmp_path):
     assert layers_mod.load("registry").registry.all()
 
 
+def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
+    """A34 — `nf_process` was a bare `str`, and the emitter writes it into a declaration.
+
+    `nf_process: "LAB_SORT { ext.args = '' }\\nprintln 'x'"` loaded, and `main.nf` came out
+    carrying an extra statement in both the `include {}` and the `process` block. The
+    conformance check would have caught it, but only for a *vendored* module: a contract
+    whose source is absent is emitted marked `unverified`, which is the legitimate case for
+    a laboratory's own module. So the hole could not be closed by refusing unverified
+    contracts — it is closed by the field having a type, checked at load, before conformance
+    runs and before anything is emitted.
+    """
+    from comeni_core.contract import ModuleContract
+    from comeni_core.vocabulary import Vocabulary
+
+    (tmp_path / "vocabularies").mkdir()
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    vocab = Vocabulary.load(tmp_path)
+    bad = tmp_path / "evil.yml"
+    bad.write_text(
+        "id: lab/evil@1.0.0\n"
+        "nf_process: \"LAB_SORT }\\nprintln 'OWNED'\\nprocess X {\"\n"
+        "nf_include: modules/lab/evil/main\n"
+        "consumes: []\n"
+        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
+    )
+
+    with pytest.raises(ValidationError, match="nf_process"):
+        ModuleContract.load(bad, vocab)
+
+
+def test_a34_an_include_path_cannot_leave_the_pipeline(tmp_path):
+    """The same kind, never tried. `nf_include` becomes `from './<path>'`."""
+    from comeni_core.contract import ModuleContract
+    from comeni_core.vocabulary import Vocabulary
+
+    (tmp_path / "vocabularies").mkdir()
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    vocab = Vocabulary.load(tmp_path)
+    bad = tmp_path / "escape.yml"
+    bad.write_text(
+        "id: lab/escape@1.0.0\n"
+        "nf_process: LAB_ESCAPE\n"
+        "nf_include: ../../../etc/passwd\n"
+        "consumes: []\n"
+        "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
+        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
+    )
+
+    with pytest.raises(ValidationError, match="nf_include"):
+        ModuleContract.load(bad, vocab)
+
+
+def test_a34_a_vocabulary_type_id_is_a_filename_and_filenames_can_be_anything(tmp_path):
+    """A type id is a filename stem, and Linux filenames may contain newlines.
+
+    It feeds `_channel_name()`, which replaces `.` and `-` and nothing else, so the id
+    reaches an assignment target in the emitted workflow.
+    """
+    from comeni_core.vocabulary import Vocabulary
+
+    (tmp_path / "vocabularies").mkdir()
+    (tmp_path / "vocabularies" / "evil\nch_x = 1.yml").write_text("states: []\n")
+
+    with pytest.raises(ValueError, match="evil"):
+        Vocabulary.load(tmp_path)
+
+
+def test_a27_a_reason_that_reaches_a_generated_file_is_one_line():
+    """A27 — prose was interpolated into `// <reason>` and the second line was Groovy."""
+    from comeni_core.ir import ResolvedValue, Tier
+
+    with pytest.raises(ValidationError):
+        ResolvedValue(value=1, tier=Tier.CONVENTION, reason="fine\nprintln 'OWNED'")
+
+
+def test_a27_a_gate_message_may_still_be_many_lines():
+    """The regression guard for the split: Nextflow's stderr is inherently multi-line."""
+    from comeni_core.egress import GateFailure
+
+    failure = GateFailure(
+        process="star_align",
+        exit_code=1,
+        category="tool_error",
+        tool_message="ERROR ~ Cannot invoke method\n\n -- Check script\n",
+    )
+    assert "\n" in failure.tool_message
+
+
+def test_a27_the_emitter_still_produces_a_comment_when_the_type_is_bypassed():
+    """Defence in depth, and the reason it is not redundant with `Line`.
+
+    An IR is deserialised from a bundle a stranger wrote, and `model_construct` skips
+    validation entirely. The boundary must not depend on the emitter being careful and the
+    emitter must not depend on its input being clean — so a `reason` that reaches the
+    template with a newline in it comes out as a comment on every line, not as Groovy.
+
+    That argument does not apply to identifiers: there is no escaping option at a
+    declaration site, which is why `nf_process` is validated and this is rendered.
+    """
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_compiler.emit import emit
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    contract_id = "nf-core/samtools/sort@1.21.0"
+    smuggled = ResolvedValue.model_construct(
+        value=1,
+        tier=Tier.CONVENTION,
+        reason="looks fine\nprintln 'OWNED'",
+        source=ResolvedValue.model_fields["source"].default,
+    )
+    node = IRNode(
+        id="samtools_sort",
+        contract_id=contract_id,
+        selection=ResolvedValue(value=contract_id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[ParamBinding(name="threads", value=smuggled)],
+    )
+
+    text = emit(PipelineIR(nodes=[node]), loaded.registry, loaded.vocabulary, loaded.measurements)
+
+    smuggled_lines = [line for line in text.splitlines() if "println 'OWNED'" in line]
+    assert smuggled_lines == ["// println 'OWNED'"], text
+
+
+def test_a27_a_config_process_block_cannot_be_broken_out_of():
+    """`nextflow.config` is the second surface. It was assembled by f-strings.
+
+    `withName: {contract.nf_process}` was raw, so the same defect had a second route that
+    never went near Jinja. `nf_process` is an `NfIdentifier` now; this asserts the *render*
+    as well, so the config surface does not go back to trusting its input.
+    """
+    from mendel_compiler.emit import _render_process_name
+
+    with pytest.raises(ValueError, match="identifier"):
+        _render_process_name("LAB_SORT { ext.args = '' }\nprintln 'OWNED'")
+    assert _render_process_name("SAMTOOLS_SORT") == "SAMTOOLS_SORT"
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 

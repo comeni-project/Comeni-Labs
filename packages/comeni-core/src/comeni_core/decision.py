@@ -7,11 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from comeni_core.marks import (
     DecisionKey,
     HumanParamValue,
+    Line,
     NodeId,
     ParamValue,
     ResolverId,
     Subject,
-    Text,
 )
 from comeni_core.tiers import Tier
 
@@ -30,7 +30,7 @@ class Ambiguity(BaseModel):
 
 class Resolution(BaseModel):
     chosen: ParamValue
-    reason: Text
+    reason: Line
     confidence: float = 0.0
     resolved_by: str = "flag-only"
 
@@ -42,7 +42,7 @@ class DecisionRecord(BaseModel):
     subject: Subject
     candidates: list[ParamValue] = Field(default_factory=list)
     chosen: ParamValue
-    reason: Text
+    reason: Line
     """Model- or resolver-written prose. Declared free text; see `ResolvedValue.reason`."""
     confidence: float = 0.0
     resolved_by: ResolverId
