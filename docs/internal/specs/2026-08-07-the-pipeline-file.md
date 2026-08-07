@@ -3,7 +3,10 @@
 **Spec, 2026-08-07.** Closes [#10](https://github.com/comeni-project/Comeni-Labs/issues/10).
 Supersedes the four-route settings surface described in `ARCHITECTURE.md`.
 
-Verified against the code at `e9cab07`.
+Verified against the code at `e9cab07`, then **re-verified against `ae92002`** (Plan 1.9 complete,
+441 fast tests green) on 2026-08-07. Five citations were stale and are corrected inline, each marked
+*"1.9 changed this"*; every design decision survived. What changed and what held is in
+[the journal](../journal/).
 
 **This is a design spec, not an audit root.** The nine root specs
 (`2026-08-07-root-*.md`) close findings in code that exists. This one changes what the code
@@ -121,7 +124,7 @@ goal:                          # what was asked for. EDITING THIS TAKES EFFECT O
 
 registry:                      # provenance. NOT a dependency of `emit`.
   layers: [{name: comeni-registry-examples, digest: sha256:1a4f…}]
-  shadowed: []
+  displaced: []                # 1.9 changed this: was `shadowed`
   unverified: []
 
 steps:
@@ -166,7 +169,8 @@ channels:                      # what the lab supplies, and the measured facts
     meta: {single_end: false, strandedness: reverse}
 
 decisions:                     # the review queue: tier 4, ties, overrides
-  - key: star_align.seq_platform
+  - kind: param              # 1.9 changed this: param | producer | source
+    key: star_align.seq_platform
     subject: seq_platform
     tier: 4
     candidates: [null]         # what was on the table
@@ -175,6 +179,11 @@ decisions:                     # the review queue: tier 4, ties, overrides
     resolved_by: flag-only
     reason: "no rule covered 'seq_platform'"
     human_override: illumina   # replayed by `upgrade`
+
+emitted:                       # 1.9 added this: what was written, recorded not reconstructed
+  files:
+    - {name: main.nf,         digest: sha256:7b31…}
+    - {name: nextflow.config, digest: sha256:0ac9…}
 
 gate: test                     # the strongest gate this pipeline actually passed
 ```
@@ -201,8 +210,10 @@ exception for the one route with no artifact at all. The hollow-input lesson (`N
 requiring a reason, because `-stub-run` cannot see a hollow input) survives into the readable
 artifact instead of living only in the registry.
 
-**`inputs:` replaces the flat edge list**, keyed under the consuming step. Lossless — an
-`IREdge` has exactly one consuming port — and it makes "where does this step's GTF come from"
+**`inputs:` replaces the flat edge list**, keyed under the consuming step, and its `from:` values are
+already a declared kind: 1.9 added `EdgeRef` (`<node>.<port>`, both Groovy identifiers) for exactly this
+string, because bare values were indistinguishable from filenames — A16. Lossless, since an
+`IREdge` has exactly one consuming port, and it makes "where does this step's GTF come from"
 answerable without scanning a separate list. Root D's finding that `diff_ir` ignored `ir.edges`
 is the reason edges must be prominent rather than tucked away.
 
@@ -245,13 +256,17 @@ first three drafts of it silently dropped five fields that exist today:
 | `DecisionRecord.candidates` | what was on the table, which is what a tier-4 reviewer needs first |
 | `DecisionRecord.chosen` | what the resolver actually took, as distinct from the override |
 | `DecisionRecord.confidence` | the model's own number, once Plan 2 supplies one |
+| `DecisionRecord.kind` | **1.9 added it.** A record is now `ParamDecision`/`ProducerDecision`/`SourceDecision` discriminated on `kind`, whose docstring notes `kind` reaches the artifact |
+| `PublishBundle.emitted` | **1.9 added it.** Digests of what was written — see the root-D note |
+| `Displacement.*` | **1.9 replaced `shadowed`** with something wider: an overlay measurement or vocabulary previously reached the artifact as nothing at all |
 
 Losing `container` is the serious one: a consolidation meant to *strengthen* reproducibility would
 have quietly dropped the field the clinical protection profile depends on.
 
 So the requirement is not a longer example. **A test asserts that every field of `PipelineIR`,
-`IRNode`, `ResolvedValue`, `DecisionRecord`, `Lockfile`, `LockedContract`, `LockedLayer`, `Goal` and
-`DataProfile` has a declared home in `Pipeline`** — mechanically, over `model_fields`, with an
+`IRNode`, `ResolvedValue`, `ParamDecision`, `ProducerDecision`, `SourceDecision`, `Lockfile`,
+`LockedContract`, `LockedLayer`, `Displacement`, `Emitted`, `EmittedFile`, `Goal` and `DataProfile`
+has a declared home in `Pipeline`** — mechanically, over `model_fields`, with an
 explicit allowlist for anything deliberately not carried. This is root D's finding applied to
 consolidation rather than to diffing: `diff_ir` enumerated the fields it knew about, so every field
 added to the IR became a silent blind spot, and Plan 1.8 added four. A hand-written mapping between
@@ -452,6 +467,34 @@ wall. The message goes in **three places**, and the third is public:
 All three say the same thing because the reader arrives at whichever one they arrive at. And the
 first genuine counterexample is a finding rather than a bug report: it means a boundary drawn on
 reasoning was drawn in the wrong place, and §5's table already says what allowing each class costs.
+
+**`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
+`args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
+template there has nothing to compose into, and `cpus = "--cpus 12"` is not a thing. `MD0204`
+therefore covers both halves of the same mistake: a template that never mentions `{value}`, and a
+template on a route that takes none.
+
+One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
+interpolates, where `_render_literal` single-quotes it today.
+
+An earlier draft said *"every golden file moves, as a reviewable diff"*, and then that
+`nextflow.config` had *"no golden, no assertion, no coverage of any kind"*. **1.9 falsified the second
+half and the first is still true.** Precisely:
+
+- There is still exactly **one golden file**, `tests/golden/spine/main.nf`, and it is not the file this
+  change writes into.
+- `nextflow.config` now **does** have coverage, of two kinds. A27 added
+  `test_a27_a_config_process_block_cannot_be_broken_out_of` — the injection guard, on the surface root C
+  called "the second surface" because it was assembled by f-strings. And A28's `emitted:` digests mean
+  `mendel upgrade` reports *"the generated pipeline differs: nextflow.config"*.
+
+**A golden `nextflow.config` is still a prerequisite, for a narrower and better reason than the draft
+gave.** A recorded digest and a golden file answer different questions. The digest catches *it changed*
+— against what this build itself produced, after the fact. A golden catches *it changed to something
+wrong*, in review, before merge, as a diff a person reads. `ext.args` composition is where a wrong flag
+would appear, and a wrong flag reaches the tool while every digest check stays perfectly happy: the bytes
+match what was emitted, and what was emitted was wrong. That is the same gap `-stub-run` has against a
+hollow input.
 
 **`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
 `args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
@@ -897,13 +940,21 @@ and `MD0200` must not be extended to cover it.
 
 ## How this composes with the other roots
 
-- **Root A (egress allowlist).** `Pipeline` becomes door 4's payload, replacing `PublishBundle`'s
-  shape, so the guard walks it: no `Any`, no bare `str`, no mappings, every string a declared
-  alias or `FreeText`. The mapping rule is stricter than it looks — `test_no_payload_carries_a_mapping`
-  tests against `abc.Mapping`, not `dict`, because A6 found `Mapping[MeasurementId, …]` is a
-  *superclass* of dict and slipped through. The free-text count must not change: the two permitted
-  fields stay `PromptRequest.prompt` and `GateFailure.tool_message`. `tests/test_egress.py` holds its
-  lists literally on purpose, so editing it is the intended friction.
+- **Root A (egress allowlist).** **1.9 made this stricter than the spec described.** The guard is now a
+  positive allowlist — `test_every_payload_field_is_a_declared_shape` walks every payload field
+  recursively and requires a *declared shape*, closing A19 (`object`), A20 (`Any`) and A30 (`Path`)
+  together, "with everything round three would otherwise find". So it is no longer four prohibitions to
+  satisfy but one rule: **every leaf of `Pipeline`, `Step`, `Setting`, `Channel`, `CallArg` and
+  `RegistryProvenance` must be a declared shape.**
+
+  That is a gift rather than a cost: it *enforces* the productive rule in §2 mechanically. A field
+  embedded because it was convenient has to be given a declared type first, and giving it one is where
+  someone asks whether it belongs. `Displacement` already passes — its docstring says every field is a
+  `StrEnum` or a marked string so it "may cross a door" — which is the pattern the new types follow.
+
+  The free-text count must not change: the two permitted fields stay `PromptRequest.prompt` and
+  `GateFailure.tool_message`. `tests/test_egress.py` holds its lists literally on purpose, so editing it
+  is the intended friction.
 
   **One premise this change could invalidate silently.** `registry.py` carries a mapping and says
   it is legal *because* `Registry` is not reachable from a payload — *"a mapping is legal here in a
@@ -919,30 +970,44 @@ and `MD0200` must not be extended to cover it.
   explanations must be rewritten to name `Pipeline`, not left pointing at a type that no longer
   exists. A rationale that cites a deleted type is worse than no rationale: it reads as authoritative
   and cannot be checked.
-- **Root C (nothing is interpolated).** `template` is a **new string kind**, and it renders into
+- **Root C (nothing is interpolated).** **Landed in 1.9, and richer than this spec assumed.** `Mark` is
+  an eighteen-entry enum and four of this schema's fields already have their kind waiting:
+  `channels[].expression` is `GroovyExpression`, `include:` is `NfPath`, `process:` is `NfIdentifier`,
+  and `inputs[].from` is `EdgeRef`. `Line`/`Text` exist, so `why.reason` is `Line` and `fix`/`explanation`
+  are `Text`. `PARAM_LITERAL` exists for values.
+
+  What is still missing is the template kind. `template` is a **new string kind**, and it renders into
   Groovy — so it takes `entry_channel`'s discipline, not `reason`'s. Root C's table gains a sixth
   row. In exchange, `channels[].expression` becomes the *only* unbounded-Groovy field in the only
   emitted-from file, which is a better position than root C's current five kinds across two
   surfaces. If root C lands first, this spec's new markers must be added to its `Mark` enum, not
   invented beside it.
-- **Root D (the verdict comes from the artifact).** `gate:` moves inside `pipeline.yml`. The
-  sequencing here needs care, because root D is **actively rewriting `diff_ir(before: PipelineIR,
-  after: PipelineIR)`** and this spec changes what it compares.
+- **Root D (the verdict comes from the artifact).** **1.9 changed this, and solved it differently than
+  this spec predicted.** `diff_ir`'s signature is unchanged; instead `PublishBundle` gained
+  `emitted: Emitted | None` — `Emitted.of(directory, names)` digests the generated files, sorted, and
+  `mendel upgrade` now prints *"the generated pipeline differs: nextflow.config"*. So the verdict comes
+  from bytes rather than from a field list, which is the right mechanism and not the one predicted.
 
-  **Root D lands first, as specified, against `PipelineIR`.** It closes a critical finding and must
-  not wait. This spec then re-targets it to `Pipeline`, and root D's own tests are what verify the
-  replacement did not regress — its test suite is the acceptance criterion for the change, not
-  collateral.
+  Its docstring makes an argument that **this spec's premise removes**:
 
-  The prize is worth the ordering. Root D's finding is that `diff_ir` enumerates the fields it knows
-  about, so every field added to the IR is a silent blind spot — Plan 1.8 added four. A **total**
-  `Pipeline` makes the diff complete *by construction*: if every field of every replaced type has a
-  declared home (§2), then a recursive walk over `model_fields` cannot miss one, because there is
-  nowhere for a field to hide. Root D gets a guarantee it cannot reach by enumeration.
+  > Comparing bytes is the right mechanism, but **do not reconstruct the past — record it.**
+  > Re-emitting the bundle's own IR needs the registry as it was, and a contract removed from the
+  > registry is one of the two cases upgrade exists to report.
 
-  Which means **§2's totality test and root D's completeness fix are the same idea twice** — one
-  applied to construction, one to comparison. They should share a mechanism rather than each growing
-  a hand-maintained field list, since a hand-maintained list is the defect in both cases.
+  That limitation is exactly what a self-contained `pipeline.yml` lifts: emission no longer needs the
+  registry, so re-emitting a removed contract's pipeline does not die on a `KeyError` — the frozen
+  values are in the file. **Both mechanisms then hold and neither is redundant.** `emitted:` proves
+  *these bytes are what was published*; self-containment proves *and you can regenerate them*. A
+  recipient gets verification and reproduction; today they get only the first, which `Emitted`'s
+  docstring rightly calls a property that "did not exist at all".
+
+  `emitted:` therefore becomes a section of `pipeline.yml` rather than a sibling artifact, and it
+  covers the generated files only — never the copied `modules/` tree, which is vendored rather than
+  emitted, per `Emitted`'s own rule.
+
+  Root D's edge comparison (`_edge_changes`) stays as it is. Re-targeting `diff_ir` to `Pipeline` is
+  still the eventual shape, and root D's tests remain the acceptance criterion for that swap.
+
 - **Root B (a layer is one thing).** `registry.layers` and `registry.shadowed` are that
   provenance, carried on the artifact. Root B reports when an overlay replaces an
   `entry_channel`; this spec puts the resulting expression in the file, so the replacement is
@@ -961,79 +1026,13 @@ and `MD0200` must not be extended to cover it.
   only check that proves a setting reaches a tool. Rewriting `emit()`'s signature and its
   `ext.args` composition is precisely a change `make check` would wave through. **The plan should
   add `emit.py` to that list in CLAUDE.md**, rather than treating this spec as an exception to it.
-- **A16 / Plan 2 Task 11.** Override replay reads `DecisionRecord.human_override`, and A16 is the
-  `DecisionRecord.chosen` type conflation. This spec does not fix A16 and does not depend on it
-  being fixed, but the plan should sequence after it if both are in flight, since replay is the
-  code that would have to change twice.
-
----
-
-## Verification
-
-Root I applies. Each probe added, watched failing, reverted.
-
-| probe | expected |
-|---|---|
-| a setting with `via:` removed | refused at load, `MD0200`, naming the setting |
-| `seq_platform: "illumina'; println 'X'; //"` | refused at load, `MD0201`. **Root C's own attack, on the new surface** |
-| `template: "--flag fixed"` with no `{value}` | refused, `MD0204` |
-| an override for a step that re-resolution does not produce | refused, `MD0203` — **not warned, not dropped** |
-| an override whose candidate set moved | re-asked and reported `STALE`; **not** refused, and **not** silent as it is today |
-| a setting answered by an override | absent from `needs_review()`, present in `overrides()`, still tier 4 |
-| `upgrade` replaying an override | the recorded `reason` emitted **verbatim** — byte-identical `main.nf`, federation §4.1 |
-| `mendel upgrade --out` pointed at the input's own directory | refused — the existing never-overwrite test, with a second subject |
-| `via: meta` on `single_end` while `paired` is also measured | refused, `MD0208` |
-| a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
-| a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `MD0206` |
-| `via: directive` naming `cpuz` | refused, `MD0209` |
-| `version: 2` in a `pipeline.yml` | refused, `MD0207` |
-| **a step carrying two `key: args` settings, with the name-sort reverted** | **byte-identity must fail** |
-| `key: when` on any setting | refused, `MD0205` — a step's existence is resolution's call |
-| `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `MD0108` |
-| the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
-| `mendel emit` with no `--registry` and no network, `modules/` present | **succeeds** |
-| `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `MD0210` — never a `main.nf` that cannot run |
-| the emitted `nextflow.config`, against a golden file | **byte-identical** — a file with no coverage today |
-| a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
-| a field added to `PipelineIR` or `DecisionRecord` with no home in `Pipeline` | the totality test fails, naming the field |
-| a `Registry` or `ModuleContract` field added to `Pipeline` | refused — `registry.py`'s mapping premise must hold |
-| any `frozenset`-typed field on `Pipeline` | refused — `digest_of` is not stable over one |
-| a hand-edited `pipeline.yml` with a bad setting, run through `mendel emit` | refused — a load check fires on **every** verb, not only `build` |
-| `upgrade --dry-run` on a `pipeline.yml` built before `Param` gained `via` | reports drift on `star/align` and `hisat2/align` only — **expected, not a bug** |
-| `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
-| `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
-
-Three rows carry most of the weight.
-
-**The two-settings row is the one I expect to be got wrong.** With a single `key: args`
-setting the name-sort is unobservable, so a test that reverts the sort still passes — a guard
-that cannot see its own subject. This is the `frozenset`-has-no-stable-order trap in a new place.
-
-**The counts row is a hard requirement, not a nice-to-have**, and what it covers today is narrower
-than an earlier draft claimed. `test_counts.py` asserts `-s 2` and `-p`, and its own docstring says
-why: *"Strandedness arrives through meta now."* So it proves the **meta** route reaches a tool and
-says nothing about `ext.args`.
-
-The `ext.args` route is proven only *implicitly*: `star/align` carries `--readFilesCommand zcat`,
-TrimGalore emits `.fq.gz`, and STAR cannot read gzip without it — so dropping the route breaks the
-spine and the counts test fails. Real coverage, but incidental, and it covers the **static**
-`ext_args` string rather than the new thing. **Nothing at all covers a resolved param composing
-into `ext.args`**, which is the mechanism this spec adds.
-
-And `MD0204` catches a template that ignores `{value}`; *nothing* catches a template whose flag is
-wrong, because the flag goes to the tool and not to the module — the same limit that makes
-`-stub-run` blind to a hollow input. So the spine must grow one real `key: args` setting whose
-effect is visible in output, and `test_counts.py` must assert it took effect. Without that row the
-routing mechanism is verified only by unit tests of its own machinery.
-
-**The last-two-rows pattern from root C applies here too**: the byte-identical row and the
-still-accepted rows are what catch over-correction. A fix that moves the spine's output, or that
-breaks `entry_channel`, has gone too far.
-
----
-
-## Blast radius
-
+- **A16 — closed by 1.9, and the sequencing advice paid off.** This spec said it did not depend on A16
+  being fixed but that the plan should sequence after it, "since replay is the code that would have to
+  change twice". It was fixed: `chosen` is no longer one loosely-typed field but three — `ParamValue`,
+  `ContractId`, `EdgeRef` — on three variants discriminated by `kind`. Replay's `_chosen()` and
+  `_still_applies()` survive unchanged, so §7 holds as written. The consequence for this spec is
+  schema-shaped rather than behavioural: `decisions[]` carries `kind`, and the totality test names three
+  types where it named one.
 - **New:** `comeni_core/pipeline.py` — `Pipeline`, `Step`, `Setting`, `Channel`, `CallArg`,
   `RegistryProvenance`, `Via`, `ExtKey`, `Pipeline.of()`.
 - `comeni_core/contract.py` — `Param` gains `via` (required), `key`, and `template`.
