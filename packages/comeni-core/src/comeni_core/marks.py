@@ -53,6 +53,18 @@ class Mark(StrEnum):
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
 
+    NF_IDENTIFIER = "nf-identifier"
+    """A name emitted into a Nextflow or Groovy *declaration* — a process name, a channel,
+    a port. There is no escaping option for a declaration site, so an identifier is
+    validated or it is not one."""
+
+    NF_PATH = "nf-path"
+    """A relative path fragment under the emitted pipeline directory."""
+
+    GROOVY_EXPRESSION = "groovy-expression"
+    """Unbounded Groovy, emitted verbatim. The designed exception, marked so that it is
+    visibly the exception rather than merely being one."""
+
     FREE_TEXT = "free-text"
     """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
     exists to contain. Only the fields named in the guard's allowlist may carry it."""
@@ -119,7 +131,100 @@ def _reject_path_shaped(value: object) -> object:
     return value
 
 
+def _is_identifier(value: str) -> bool:
+    """`[A-Za-z_][A-Za-z0-9_]*`, without importing `re`.
+
+    `re` is not on `comeni-core`'s purity allowlist and widening it for a character class
+    would be the wrong trade — the allowlist is valuable precisely because it has no
+    unknown unknowns. `str.isidentifier` is the same rule plus Unicode.
+
+    **The ASCII test is a deliberate narrowing, not a correction.** Groovy follows Java, so
+    `STAR_ÄLIGN` is a legal identifier there; this refuses it anyway. A process name is
+    read by a reviewer deciding whether a pipeline does what it claims, and two names that
+    render identically and are not equal is a bad property for that reading to have. No
+    module in any registry needs it, so the cost is zero and the refusal is free.
+
+    Recorded because reverting `isascii()` failed no test on the first pass, which is how a
+    narrowing nobody has justified looks exactly like one nobody has tested.
+    """
+    return value.isascii() and value.isidentifier()
+
+
+def _has_control_character(value: str) -> bool:
+    return any(ord(character) < 32 or ord(character) == 127 for character in value)
+
+
+def _groovy_identifier(value: str) -> str:
+    """A Groovy identifier, and nothing else.
+
+    A34: `nf_process: "A }\nprintln 'x'"` loaded, and the emitter interpolated it into
+    `process <name> {` and `include { <name> }` — so a contract could add statements to the
+    generated pipeline. Conformance would have caught it, but only for a *vendored* module;
+    an unverified contract was emitted on trust, which is the legitimate case for a lab's
+    own module and therefore not a hole that can be closed by refusing unverified contracts.
+
+    Validated at load, which is before conformance runs and before anything is emitted.
+    """
+    if not _is_identifier(value):
+        raise ValueError(
+            f"{value!r} is not a Nextflow identifier. Letters, digits and underscore, not "
+            f"starting with a digit — it is emitted into a declaration, where there is "
+            f"nothing to escape it with."
+        )
+    return value
+
+
+def _relative_path(value: str) -> str:
+    """A path fragment that stays inside the emitted directory.
+
+    `nf_include` becomes `include { X } from './<path>'` in the generated `main.nf`. A
+    leading separator or a `..` segment reaches out of the pipeline directory into whatever
+    is around it on the machine that runs it.
+    """
+    if not value:
+        raise ValueError("a path fragment cannot be empty")
+    if value.startswith(("/", "~")) or _has_control_character(value):
+        raise ValueError(f"{value!r} must be a relative path fragment with no control characters")
+    if ".." in value.split("/"):
+        raise ValueError(f"{value!r} contains a `..` segment, so it can leave the pipeline")
+    return value
+
+
+def _single_line(value: str) -> str:
+    """Prose that reaches a generated file, on one line.
+
+    A27: a `reason` carrying a newline was interpolated into `// <reason>` and the second
+    line was Groovy. The emitter re-prefixes continuation lines as well — belt and braces,
+    because the boundary must not depend on the emitter being careful and the emitter must
+    not depend on its input being clean.
+    """
+    if _has_control_character(value):
+        raise ValueError(
+            f"{value!r} contains a control character. This text is written into a generated "
+            f"file; free-form prose belongs in a field marked `Text`."
+        )
+    return value
+
+
 Text = Annotated[str, Mark.FREE_TEXT]
+"""Free prose that crosses a door and is never emitted into an artifact.
+
+Multi-line on purpose: `GateFailure.tool_message` carries Nextflow's stderr."""
+
+Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]
+"""Free prose that reaches a generated file. **The same `Mark.FREE_TEXT`**, so root A's
+`FREE_TEXT_FIELDS` allowlist and its count are unaffected: the split is by destination, not
+by prose-ness."""
+
+NfIdentifier = Annotated[str, Mark.NF_IDENTIFIER, AfterValidator(_groovy_identifier)]
+NfPath = Annotated[str, Mark.NF_PATH, AfterValidator(_relative_path)]
+GroovyExpression = Annotated[str, Mark.GROOVY_EXPRESSION]
+"""Unbounded Groovy emitted verbatim — `entry_channel`, and nothing else.
+
+Marked rather than validated because the whole point is that a laboratory can bring a type
+the compiler has never seen and say how it arrives. Root B reports when an overlay replaces
+one (A24); root C makes it the only field of this kind."""
+
 ContractId = Annotated[str, Mark.CONTRACT_ID]
 TypeId = Annotated[str, Mark.TYPE_ID]
 NodeId = Annotated[str, Mark.NODE_ID]
