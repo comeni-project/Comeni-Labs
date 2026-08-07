@@ -257,6 +257,21 @@ consolidation rather than to diffing: `diff_ir` enumerated the fields it knew ab
 added to the IR became a silent blind spot, and Plan 1.8 added four. A hand-written mapping between
 three types and one has exactly that shape, and reviewing it by eye already failed five times.
 
+**And the converse rule: every embedded field must be productive.** Self-containment widens door 4 —
+`pipeline.yml` embeds contract-derived strings (`process`, `include`, `template`, `expression`) that
+`PublishBundle` only ever pinned by digest. That widening was accepted on 2026-08-07 **on the
+condition that nothing rides along**. So a field is embedded only if it is either:
+
+1. **read by `emit`** — without it the Nextflow cannot be regenerated; or
+2. **provenance that cannot be reconstructed** — `why.reason`, `displaced_layer`, `gate`: facts about
+   *this* build that no later registry lookup recovers.
+
+Anything that fails both tests is pinned by digest, not embedded. No whole contracts, no
+`provenance:` blocks, no `meta.yml` prose, no container tag *and* digest where one will do. Totality
+(above) says nothing is silently lost; this says nothing is silently added. A payload that grows
+because embedding is convenient is how a door with no undo gets wide, and the test that holds the
+egress lists literally is the wrong place to notice it.
+
 `Pipeline.of()` is **the only validating constructor**, enforced the way
 `MeasurementRegistry.profile()` already is — by `tests/test_construction.py`, which exists
 because deleting one call let `profile: {sample_name: ...}` build cleanly. Same reasoning:
@@ -273,7 +288,7 @@ contract-derived fields empty.
 ```bash
 mendel build --goal g.yml --registry registry/ --out build/   # resolve, then emit
 mendel emit  build/pipeline.yml --out build/                  # no registry, no network
-mendel verify build/pipeline.yml --registry registry/         # frozen values vs. digests
+mendel upgrade build/pipeline.yml --registry registry/ --dry-run   # = verify; writes nothing
 mendel upgrade build/pipeline.yml --registry registry/ --out next/   # never in place
 mendel publish build/pipeline.yml
 ```
@@ -289,6 +304,16 @@ until now."* Making the round trip load-bearing on every build retires that whol
 and always will. The file is the output of resolution that you may then edit; it is not an
 alternative front door. `mendel build --goal` (and, from Plan 2, the prompt door) remains the
 only way to make one.
+
+**`verify` is `upgrade --dry-run`, not a separate verb** — decided 2026-08-07. A digest-only compare
+was the alternative, and it answers a strictly weaker question: it can say a contract moved, but not
+whether the pipeline would resolve differently. A dry run reports all five categories — drift,
+changes, replayed, stale, orphaned — and writes nothing.
+
+That collapses two code paths into one, which matters more than the saved verb: a `verify` that
+compared digests while `upgrade` compared resolutions would be two answers to "is this pipeline still
+what it says it is", and root D's whole finding is what happens when a comparison is not the one that
+governs. One path, one answer, `--dry-run` deciding only whether bytes are written.
 
 **`upgrade` must never write over the file it read.** `tests/test_upgrade.py` already asserts this
 of a bundle — `test_upgrade_never_writes_over_the_bundle_it_read` — and consolidation makes the rule
@@ -335,11 +360,20 @@ class Via(StrEnum):
     DIRECTIVE = "directive"  # → process { withName: X { cpus = 12 } }
 
 class ExtKey(StrEnum):
-    ARGS   = "args"          # and args2, args3 — multi-tool modules
-    ARGS2  = "args2"
-    ARGS3  = "args3"
-    PREFIX = "prefix"        # names outputs; NOT appended to args
+    ARGS   = "args"          # evidence: 10 of 10 vendored modules
+    ARGS2  = "args2"         # nf-core CONVENTION only — see below
+    ARGS3  = "args3"         # nf-core CONVENTION only — see below
+    PREFIX = "prefix"        # evidence: 8 of 10 vendored modules
 ```
+
+**`args2` and `args3` are in this enum on convention, not on evidence.** `grep -rn "ext.args2\|ext.args3"
+over `vendor/` and `registry/` finds nothing: no vendored module reads them. They are standard nf-core
+for modules that pipe one tool into another, and they are included because adding an `ExtKey` value
+later costs a `version:` bump for every archived file whereas an unused value costs nothing. That is a
+deliberate asymmetry, and it is the one judgement in this enum that rests on knowledge of nf-core
+rather than on this repository. **If a reviewer thinks it is wrong, this is the line to strike** —
+`M0108`'s check (does the module actually read this key?) will refuse a contract that names an unused
+key anyway, so a wrong inclusion here fails loudly at build rather than silently at run time.
 
 Three emission sites, because those are the three places the compiler writes into — the `ext`
 scope, the channel's meta map, and the directive scope. That is verifiable against the emitter
@@ -571,7 +605,7 @@ verbs a code fires on, and *any load* means all four.
 | `M0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
 | `M0110` | any load | a setting with no `via:` |
 | `M0111` | any load | `{value}` outside the closed character class |
-| `M0112` | `verify` — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
+| `M0112` | `upgrade` (incl. `--dry-run`) — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
 | `M0113` | `upgrade` | an orphaned override. Only re-resolution can know, so no other verb can raise it |
 | `M0114` | any load | a `template:` with no `{value}`, **or** a template on a route that takes none |
 | `M0115` | any load | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
@@ -775,7 +809,7 @@ Root I applies. Each probe added, watched failing, reverted.
 | a `Registry` or `ModuleContract` field added to `Pipeline` | refused — `registry.py`'s mapping premise must hold |
 | any `frozenset`-typed field on `Pipeline` | refused — `digest_of` is not stable over one |
 | a hand-edited `pipeline.yml` with a bad setting, run through `mendel emit` | refused — a load check fires on **every** verb, not only `build` |
-| `mendel verify` on a `pipeline.yml` built before `Param` gained `via` | reports drift on `star/align` and `hisat2/align` only — **expected, not a bug** |
+| `upgrade --dry-run` on a `pipeline.yml` built before `Param` gained `via` | reports drift on `star/align` and `hisat2/align` only — **expected, not a bug** |
 | `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
 | `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
 
@@ -866,7 +900,7 @@ be used to wave through an unexpected one.
 **Adding `via`, `key` and `template` to `Param` moves the digest of every contract that has one.**
 That is exactly two — `star/align` and `hisat2/align`. The other eight declare `params: []`, hold no
 `Param` instance, and keep their digests. Narrow, but it invalidates any existing lockfile or bundle
-pinning those two, and `mendel verify` will correctly report drift on a file built before this
+pinning those two, and `upgrade --dry-run` will correctly report drift on a file built before this
 change. The plan needs a line about that being expected rather than a bug report.
 
 **`Pipeline` must respect the `frozenset` rule from birth.** `digest.py` states it outright:
@@ -882,11 +916,12 @@ stable order — arriving in a new type that was designed after the lesson and c
 
 ## What this spec does not cover
 
-- **The `via: directive` vocabulary's exact shape.** That it is registry data rather than
-  compiler code is decided; which file and what schema is a plan question.
-- **Whether `mendel verify` should also re-resolve**, or only compare digests. Digest comparison
-  is specified; a full re-resolve is what `upgrade` does, and whether `verify` should be a dry-run
-  of it is open.
+- **Where in `mendel-compiler` the directive-name list lives, and how it records the Nextflow
+  version it was read against.** That it is code rather than registry data is decided (`M0119`); the
+  module and shape are a plan question.
+- **Whether `ExtKey` should carry `args2` and `args3` at all.** Included on nf-core convention with
+  no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
+  nf-core rather than on code here.
 - **Issue [#2](https://github.com/comeni-project/Comeni-Labs/issues/2)** — `sealed` blocking
   tier-3 decisions on asserted measurements. Untouched. `ProfilePolicy` is still Plan 2.
 - **Issue [#16](https://github.com/comeni-project/Comeni-Labs/issues/16)** — signed bundles. One

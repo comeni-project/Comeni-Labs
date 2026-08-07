@@ -30,9 +30,11 @@ the order.
 | 4 | `2026-08-05-conformance-checking.md` | Plan 1.6 — **complete** |
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
 | 6 | `2026-08-06-closing-the-audit.md` | Plan 1.8 — **complete.** Closed A1–A13 and A15; A14 and A16 stay open |
-| 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **next.** Nine parts, one per root cause of A17–A35 |
-| 8 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
-| 9 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
+| 8 | *(no plan yet)* round three | **next.** A14 is critical and open; starts at A38 |
+| 9 | *(no plan yet)* `specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`.** Spec written. Ordering against round three **not settled** |
+| 10 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 11 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 
@@ -81,7 +83,7 @@ replays recorded decisions when a curated bundle is edited, the other caches mod
 across runs — but they are close enough that building both without noticing gives two ways to
 do one thing. Whichever runs second should absorb the first rather than duplicate it.
 
-### The tenth spec is not a root
+### Plan 1.10 — the pipeline file
 
 `specs/` holds nine specs written one per audit root, and one that is not:
 **`2026-08-07-the-pipeline-file.md`**. The nine describe fixes to code that exists; that one
@@ -93,10 +95,15 @@ carrying its tier, its route to the tool, and its reason.
 roots are being implemented concurrently, so its citations will drift, and where they disagree
 the spec wins. It may relocate a guard the roots install; it may never weaken one.
 
-**Its place in this table is not yet decided**, and no plan exists for it. The argument for
-running it before Plan 2 is that it changes door 4's payload type and the shape replay reads, both
-of which Plan 2 builds on. The argument against is that it moves the v1 criterion no further than
-1.7 or 1.8 did, and the criterion's one unmet clause is still the plain-language prompt.
+**It runs as Plan 1.10 — after Plan 1.9, before Plan 2**, decided 2026-08-07. It changes door 4's
+payload type and the shape `replay.py` reads, both of which Plan 2 builds on; doing it second would
+mean fixing them with a model already wired to the old shape, which is the same argument that put
+Plan 1.8 before Plan 2. **The argument against, recorded because it is real:** it moves the v1
+criterion no further than 1.7 or 1.8 did, and the criterion's one unmet clause is still the
+plain-language prompt — Plan 2 Task 3. Three plans in a row have now deferred it.
+
+It must not start before 1.9 finishes. Root D is rewriting `diff_ir` and this spec re-targets it;
+1.10 landing first would mean rewriting a critical-finding fix underneath its own author.
 
 ### On the numbering
 
