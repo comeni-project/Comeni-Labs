@@ -8,11 +8,17 @@ from comeni_core.measurement import (
 
 
 def _layer(root, name, files):
-    d = root / name
+    """A layer root holding a `measurements/` directory, which is what a layer is.
+
+    The loader takes layer roots rather than `measurements/` directories: a loader handed a
+    slice of a layer cannot know which layer it is reading, which is how A23's overlay went
+    unrecorded.
+    """
+    d = root / name / "measurements"
     d.mkdir(parents=True)
     for filename, body in files.items():
         (d / filename).write_text(body)
-    return d
+    return root / name
 
 
 READ_LENGTH = """

@@ -54,7 +54,7 @@ def _rules_and_measurements(tmp_path, registry, vocabulary, body):
     measurements.mkdir(exist_ok=True)
     for name, declaration in MEASUREMENTS.items():
         (measurements / name).write_text(declaration)
-    declared = MeasurementRegistry.load(measurements)
+    declared = MeasurementRegistry.load(tmp_path)
     rules = tmp_path / "rules.yml"
     rules.write_text(body)
     return (

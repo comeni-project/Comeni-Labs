@@ -12,7 +12,7 @@ rather than by promise.
 ```python
 from comeni_core import MeasurementRegistry, Registry, Vocabulary
 
-measurements = MeasurementRegistry.load("registry/measurements")
+measurements = MeasurementRegistry.load("registry")  # a layer root, not a slice of one
 vocabulary = Vocabulary.load("registry/vocabularies").with_measurements(measurements)
 registry = Registry.load("registry/contracts", vocabulary)
 ```

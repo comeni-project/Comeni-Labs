@@ -49,7 +49,7 @@ def world(tmp_path):
     return {
         "vocabulary": vocabulary,
         "registry": Registry.load(contracts, vocabulary),
-        "measurements": MeasurementRegistry.load(measurements),
+        "measurements": MeasurementRegistry.load(tmp_path),
         "rules": tmp_path / "rules",
     }
 
@@ -236,7 +236,8 @@ def test_profile_rejects_unknown_measurements(tmp_path):
     `tests/test_construction.py` enforces that, and `mendel build` re-builds every goal's
     profile through it. This asserts the door itself is shut.
     """
-    (tmp_path / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    (m := tmp_path / "measurements").mkdir()
+    (m / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
     registry = MeasurementRegistry.load(tmp_path)
     with pytest.raises(KeyError, match="sample_name"):
         registry.profile({"read_length": 150, "sample_name": "SILVA_biopsy_01"})

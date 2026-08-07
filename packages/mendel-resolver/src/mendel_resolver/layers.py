@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from comeni_core.layer import layer_name
+from comeni_core.layered import Displacement, layers_of, stack
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
@@ -45,6 +46,15 @@ class Layers(BaseModel):
     back to its basename; it was the basename alone until audit A12.
     """
 
+    displaced: list[Displacement] = Field(default_factory=list)
+    """What a higher layer replaced, across every kind that stacks.
+
+    Measurements and vocabularies had nowhere to report this — they have no `IRNode` to
+    hang a record off — so an overlay changing what a module is told about a library it
+    never saw was silent (A23, A24). One list, in load order, so the answer to "what did
+    my overlay change" is one field rather than four conventions.
+    """
+
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     """Load a registry layer stack. Later layers win, as everywhere else.
@@ -70,7 +80,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                     "follows it and the layer digest cannot, so the bytes routed on would "
                     "not be the bytes pinned."
                 )
-    measurements = MeasurementRegistry.load([layer / "measurements" for layer in layers])
+    stacked = layers_of(layers)
+    measured = stack(stacked, MeasurementRegistry.kind())
+    measurements = MeasurementRegistry.of(measured)
     vocabulary = Vocabulary.load(
         [layer / "vocabularies" for layer in layers if (layer / "vocabularies").exists()]
     ).with_measurements(measurements)
@@ -102,4 +114,5 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         registry=registry,
         rules=rules,
         paths=list(layers),
+        displaced=[*measured.displaced],
     )

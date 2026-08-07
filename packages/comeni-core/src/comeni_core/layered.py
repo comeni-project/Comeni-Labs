@@ -25,6 +25,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from comeni_core.layer import layer_name
 from comeni_core.marks import ContractId, LayerName, Subject
 
 
@@ -65,6 +66,24 @@ class Layer(BaseModel):
     index: int
     """Position in the stack, lowest first. **This is identity.** Two layers may share a
     name; they cannot share an index."""
+
+
+def layers_of(paths: "Path | Sequence[Path]") -> list[Layer]:
+    """Turn a stack of directories into `Layer` values, lowest first.
+
+    The one place `layer_name()` is called. It used to be called at three sites, each of
+    which could disagree about what a layer is called; a layer now carries its own name
+    from the moment it exists, and its index — which is its identity — from the same
+    moment.
+
+    A bare `Path` is accepted for the single-layer case, which is the common one.
+    """
+    if isinstance(paths, Path | str):
+        paths = [paths]
+    return [
+        Layer(path=Path(path), name=layer_name(Path(path)), index=index)
+        for index, path in enumerate(paths)
+    ]
 
 
 class Displacement(BaseModel):
@@ -219,7 +238,13 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
                     origin.pop(victim, None)
         else:
             for key in sorted(incoming, key=str):
-                if key in entries and origin[key] != layer.index:
+                if key in entries:
+                    # A key already here can only have come from a *lower* layer: a repeat
+                    # inside one layer raises above, so `origin[key] != layer.index` was a
+                    # condition that could never be false — the same shape as the `min`/`max`
+                    # this module already turned into an assertion. Reverting it changed no
+                    # test, which is how a guard on an impossible case reads as a guard.
+                    assert origin[key] != layer.index, f"{key} re-declared in one layer"
                     displaced.append(
                         Displacement(
                             kind=kind.which,

@@ -22,7 +22,7 @@ from comeni_core.measurement import MeasurementKind, MeasurementRegistry
 
 ROOT = Path(__file__).parent.parent
 STUB = ROOT / "packages/comeni-core/src/comeni_core/profile.pyi"
-MEASUREMENTS = ROOT / "registry" / "measurements"
+REGISTRY = ROOT / "registry"
 
 _RETURN = {
     MeasurementKind.INTEGER: "int | None",
@@ -86,7 +86,7 @@ def generate_stub(registry: MeasurementRegistry) -> str:
 
 
 def main() -> int:
-    generated = generate_stub(MeasurementRegistry.load(MEASUREMENTS))
+    generated = generate_stub(MeasurementRegistry.load(REGISTRY))
     if "--check" in sys.argv:
         current = STUB.read_text() if STUB.exists() else ""
         if current != generated:

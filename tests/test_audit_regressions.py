@@ -675,6 +675,56 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     assert not (out / "mendel.lock.yml").exists()
 
 
+def _overlay_measurement(lab: Path) -> None:
+    """A lab overlay replacing `strandedness` with an inverted `meta_values` translation.
+
+    Chosen because it is the measurement `tests/test_counts.py` asserts on: this file is
+    what puts `strandedness: reverse` into the emitted `meta` map, and an overlay flipping
+    the translation changes what featureCounts is told about a library it never saw.
+    """
+    (lab / "measurements").mkdir(parents=True, exist_ok=True)
+    (lab / "measurements" / "strandedness.yml").write_text(
+        "kind: enum\n"
+        "values: [forward, reverse, unstranded]\n"
+        "description: 'this lab calls reverse forward'\n"
+        "describes: fastq.reads\n"
+        "meta_key: strandedness\n"
+        "meta_values:\n"
+        "  - {when: reverse, then: forward}\n"
+    )
+
+
+def test_a23_an_overlay_measurement_says_so(tmp_path):
+    """A23 — a measurement overlay changed the emitted `meta` map and reported nothing.
+
+    `MeasurementRegistry.load` was last-wins on `found[measurement_id]` with no layer names
+    to record against, so the strandedness a module is handed could be flipped by an
+    installed overlay with nothing in the build output, the IR or the bundle to say a lower
+    layer had ever declared it. Invariant 11's last line is the one this breaks: *never let
+    an installed overlay reroute a pipeline silently.*
+    """
+    from comeni_core.layered import DeclaredKind
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    _overlay_measurement(lab)
+
+    loaded = layers_mod.load([base, lab])
+
+    assert loaded.measurements.get("strandedness").meta_values, "the overlay's file won"
+    displaced = [d for d in loaded.displaced if d.kind is DeclaredKind.MEASUREMENTS]
+    assert [(d.key, d.winning_layer, d.displaced_layer) for d in displaced] == [
+        ("strandedness", "lab-registry", "comeni-registry-examples")
+    ]
+
+
+def test_a23_the_shipped_registry_displaces_nothing():
+    """The regression that matters most: a lab with no overlay sees no change at all."""
+    from mendel_resolver import layers as layers_mod
+
+    assert layers_mod.load("registry").displaced == []
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 

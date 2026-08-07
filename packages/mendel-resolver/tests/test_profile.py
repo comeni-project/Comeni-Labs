@@ -11,7 +11,7 @@ def measurements(tmp_path):
     d.mkdir()
     (d / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
     (d / "strandedness.yml").write_text("kind: enum\nvalues: [forward, reverse, unstranded]\n")
-    return MeasurementRegistry.load(d)
+    return MeasurementRegistry.load(tmp_path)
 
 
 def test_the_mapping_form_still_works():

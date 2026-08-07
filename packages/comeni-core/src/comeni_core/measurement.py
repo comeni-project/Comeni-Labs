@@ -18,6 +18,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from comeni_core.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
 from comeni_core.marks import MeasurementId, ParamValue
 from comeni_core.profile import DataProfile, Measured
 from comeni_core.tiers import ValueSource
@@ -105,33 +106,106 @@ class Measurement(BaseModel):
     """
 
 
+class MeasurementDelta(BaseModel):
+    """An overlay extending a measurement's values rather than replacing it.
+
+    A separate type rather than an optional field on `Measurement`, because the two are
+    genuinely different declarations: this one is meaningless without a lower layer, and
+    `stack()` needs to be able to tell them apart in `merge` without inspecting whether a
+    field happens to be empty.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: MeasurementId
+    add_values: list[str]
+
+
+def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
+    """One measurement file — a declaration, or an extension of one.
+
+    The filename is the id, so a measurement cannot disagree with what it is called.
+    """
+    measurement_id = path.name.removesuffix(".yaml").removesuffix(".yml")
+    data = yaml.safe_load(path.read_text()) or {}
+    added = data.pop("add_values", None)
+    if added is not None:
+        if data:
+            # It used to be popped and the rest of the file ignored, so an overlay
+            # declaring `add_values` *and* a new `meta_key` silently got only the values.
+            raise ValueError(
+                f"{path}: `add_values` extends a declaration and cannot carry "
+                f"{', '.join(sorted(data))} as well. Shadow the whole file to change those."
+            )
+        return [MeasurementDelta(id=measurement_id, add_values=added)]
+    if data.get("kind") == "string":
+        raise ValueError(
+            f"{path}: kind 'string' does not exist. A categorical measurement "
+            f"declares its values as an enum; free text has nowhere safe to go."
+        )
+    return [Measurement(id=measurement_id, **data)]
+
+
+def _merge_measurement(
+    old: Measurement | MeasurementDelta, new: Measurement | MeasurementDelta
+) -> Measurement | MeasurementDelta:
+    """What a higher layer's file does to the one below it.
+
+    A whole declaration replaces; an `add_values` extends. One function, so the two are
+    a visible pair rather than two branches in a loop — which is A35's shape in the
+    vocabulary loader, where some fields replaced and others did not.
+    """
+    if not isinstance(new, MeasurementDelta):
+        return new
+    if isinstance(old, MeasurementDelta):
+        return MeasurementDelta(id=old.id, add_values=[*old.add_values, *new.add_values])
+    if not old.extensible:
+        raise ValueError(
+            f"{old.id!r} is not extensible. Shadow the whole declaration to change it, "
+            f"or set `extensible: true` where it is declared."
+        )
+    return old.model_copy(update={"values": [*old.values, *new.add_values]})
+
+
 class MeasurementRegistry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     measurements: dict[str, Measurement] = Field(default_factory=dict)
 
+    @staticmethod
+    def kind() -> Kind[str, Measurement | MeasurementDelta]:
+        """How measurements are found, keyed and stacked. Everything else is `stack()`."""
+        return Kind(
+            DeclaredKind.MEASUREMENTS,
+            parse=_parse_measurement,
+            key=lambda entry: entry.id,
+            policy=Policy.MERGE,
+            merge=_merge_measurement,
+        )
+
+    @classmethod
+    def of(cls, stacked: Stacked[str, "Measurement | MeasurementDelta"]) -> "MeasurementRegistry":
+        """Build a registry from a stacked result, refusing an extension of nothing."""
+        found: dict[str, Measurement] = {}
+        for measurement_id, entry in stacked.entries.items():
+            if isinstance(entry, MeasurementDelta):
+                raise ValueError(
+                    f"add_values for {measurement_id!r}, which no layer declares"
+                )
+            found[measurement_id] = entry
+        return cls(measurements=found)
+
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> "MeasurementRegistry":
-        if isinstance(layers, Path):
-            layers = [layers]
-        found: dict[str, Measurement] = {}
-        for layer in layers:
-            if not layer.exists():
-                continue
-            for path in sorted(layer.glob("*.yml")):
-                measurement_id = path.name.removesuffix(".yml")
-                data = yaml.safe_load(path.read_text()) or {}
-                added = data.pop("add_values", None)
-                if added is not None:
-                    found[measurement_id] = _extend(found, measurement_id, added, path)
-                    continue
-                if data.get("kind") == "string":
-                    raise ValueError(
-                        f"{path}: kind 'string' does not exist. A categorical measurement "
-                        f"declares its values as an enum; free text has nowhere safe to go."
-                    )
-                found[measurement_id] = Measurement(id=measurement_id, **data)
-        return cls(measurements=found)
+        """Load measurements across a layer stack.
+
+        **Takes layer roots, not `measurements/` directories.** A layer is one directory
+        holding all four kinds, and a loader that is handed a slice of one cannot know
+        which layer it is reading — which is exactly why displacement went unrecorded
+        (A23). Callers wanting the displacements use `stack()` and `of()` directly, as
+        `mendel_resolver.layers.load` does.
+        """
+        return cls.of(stack(layers_of(layers), cls.kind()))
 
     def get(self, measurement_id: str) -> Measurement:
         if measurement_id not in self.measurements:
@@ -241,17 +315,3 @@ class MeasurementRegistry(BaseModel):
                     break
             found[measurement.meta_key] = value
         return found
-
-
-def _extend(
-    found: dict[str, Measurement], measurement_id: str, added: list[str], path: Path
-) -> Measurement:
-    if measurement_id not in found:
-        raise ValueError(f"{path}: add_values for {measurement_id!r}, which no layer declares")
-    base = found[measurement_id]
-    if not base.extensible:
-        raise ValueError(
-            f"{path}: {measurement_id!r} is not extensible. Shadow the whole declaration to "
-            f"change it, or set `extensible: true` where it is declared."
-        )
-    return base.model_copy(update={"values": [*base.values, *added]})

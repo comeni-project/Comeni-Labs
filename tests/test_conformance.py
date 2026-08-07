@@ -155,7 +155,9 @@ def test_M0106_a_meta_key_the_module_reads_that_nothing_sets(registry, tmp_path)
     declared measurement carries it, the module silently uses its default."""
     from comeni_core.measurement import MeasurementRegistry
 
-    (tmp_path / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    measured = tmp_path / "measurements"
+    measured.mkdir()
+    (measured / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
     thin = MeasurementRegistry.load(tmp_path)
 
     diagnostics = check(registry, VENDOR, measurements=thin)
@@ -173,14 +175,16 @@ def test_M0106_the_other_direction_a_meta_key_nobody_reads(registry, tmp_path):
     """A declaration with no effect. Dead code, in data."""
     from comeni_core.measurement import MeasurementRegistry
 
-    (tmp_path / "strandedness.yml").write_text(
+    measured = tmp_path / "measurements"
+    measured.mkdir()
+    (measured / "strandedness.yml").write_text(
         "kind: enum\nvalues: [forward, reverse, unstranded]\n"
         "describes: fastq.reads\nmeta_key: strandedness\n"
     )
-    (tmp_path / "paired.yml").write_text(
+    (measured / "paired.yml").write_text(
         "kind: boolean\ndescribes: fastq.reads\nmeta_key: single_end\n"
     )
-    (tmp_path / "moon_phase.yml").write_text(
+    (measured / "moon_phase.yml").write_text(
         "kind: enum\nvalues: [waxing, waning]\ndescribes: fastq.reads\nmeta_key: moon_phase\n"
     )
     measurements = MeasurementRegistry.load(tmp_path)

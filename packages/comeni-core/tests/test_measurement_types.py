@@ -10,7 +10,7 @@ def test_every_declared_measurement_becomes_a_type(tmp_path):
     (v := tmp_path / "vocabularies").mkdir()
     (v / "fastq.reads.yml").write_text("states: []\n")
 
-    vocab = Vocabulary.load(v).with_measurements(MeasurementRegistry.load(m))
+    vocab = Vocabulary.load(v).with_measurements(MeasurementRegistry.load(tmp_path))
     assert vocab.states_for("measurement.read_length") == frozenset()
     assert vocab.states_for("fastq.reads") == frozenset()
 
@@ -18,7 +18,7 @@ def test_every_declared_measurement_becomes_a_type(tmp_path):
 def test_a_measurement_type_carries_no_states(tmp_path):
     (m := tmp_path / "measurements").mkdir()
     (m / "strandedness.yml").write_text("kind: enum\nvalues: [forward, reverse]\n")
-    vocab = Vocabulary.load([]).with_measurements(MeasurementRegistry.load(m))
+    vocab = Vocabulary.load([]).with_measurements(MeasurementRegistry.load(tmp_path))
     with pytest.raises(UnknownStateError):
         vocab.validate("measurement.strandedness", ["forward"])
 
@@ -31,6 +31,6 @@ def test_the_base_vocabulary_is_not_mutated(tmp_path):
     (v / "fastq.reads.yml").write_text("states: [trimmed]\nentry_channel: 'Channel.of()'\n")
 
     base = Vocabulary.load(v)
-    derived = base.with_measurements(MeasurementRegistry.load(m))
+    derived = base.with_measurements(MeasurementRegistry.load(tmp_path))
     assert "measurement.read_length" not in base.types
     assert derived.entry_channels == base.entry_channels
