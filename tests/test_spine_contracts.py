@@ -69,7 +69,7 @@ def test_contracts_agree_with_the_vendored_modules(registry):
     than six channels and samtools/index takes one rather than two — and a container
     reference invented by a planner is the failure this project exists to stop.
 
-    They moved into `M0102`/`M0103` and `M0107` because two parsers for one file format is
+    They moved into `MD0102`/`MD0103` and `MD0107` because two parsers for one file format is
     the drift this project keeps being bitten by, and the copy that lived here had already
     drifted: it terminated the input block on `output:` alone, where a module ending in
     `script:` or `stub:` would have parsed as having no inputs, and it took `[-1]` of the
@@ -82,7 +82,7 @@ def test_contracts_agree_with_the_vendored_modules(registry):
     from mendel_compiler.conformance import check
 
     disagreements = [
-        d.render() for d in check(registry, VENDOR) if d.code in {"M0102", "M0103", "M0107"}
+        d.render() for d in check(registry, VENDOR) if d.code in {"MD0102", "MD0103", "MD0107"}
     ]
     assert disagreements == [], "\n".join(disagreements)
 
