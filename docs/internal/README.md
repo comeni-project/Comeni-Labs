@@ -31,7 +31,7 @@ the order.
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
 | 6 | `2026-08-06-closing-the-audit.md` | Plan 1.8 — **complete.** Closed A1–A13 and A15; A14 and A16 stay open |
 | 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
-| 8 | *(no plan yet)* `specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** Spec written and re-verified against 1.9 |
+| 8 | `2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** 12 tasks, plus a prerequisite rename PR |
 | 9 | *(no plan yet)* round three | A14 is critical and open; starts at A38 |
 | 10 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
 | 11 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
