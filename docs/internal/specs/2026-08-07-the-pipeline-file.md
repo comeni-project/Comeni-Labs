@@ -160,7 +160,7 @@ steps:
 
 channels:                      # what the lab supplies, and the measured facts
   fastq.reads:
-    param: input
+    params: [input]            # plural: one expression may reference several
     expression: "Channel.fromFilePairs(params.input, checkIfExists: true)…"
     meta: {single_end: false, strandedness: reverse}
 
@@ -453,12 +453,29 @@ A `model_validator(mode="before")` normalises mapping → list for: `settings`, 
 Root G's rule is that a file can be read only one way, and `call:` is the field where a second
 reading produces a silently miswired pipeline rather than a parse error.
 
+**`channels[].params` is stored *and* derived, deliberately, and `M0121` is the price.** It is
+extractable from `expression` — that is what `entry_params` does today, with `re.findall(r"params\.
+(\w+)")` over Groovy. Storing it duplicates a fact, which root G is right to be suspicious of. It is
+stored anyway, because taking a regex over arbitrary Groovy *out* of the emitter is a large part of
+what materialisation buys, and `expression` is the one field this spec leaves unbounded. So the
+duplication is accepted and then checked: `Pipeline.of()` validates the list against the extraction,
+and `M0121` refuses a hand-edited file where the two have diverged. It is plural because
+`entry_params` returns a set — one expression may legitimately reference several params, and the
+shipped registry happening to be 1:1 today is not a schema guarantee.
+
 ### 9. Diagnostics
 
-`Diagnostic.contract_id` becomes **`subject`** — these point at a place in a file, not always at
-a contract. One type, one renderer, one flat `explain` namespace. `fix` stays required.
+`Diagnostic.contract_id` generalises, because these point at a place in a file rather than always at
+a contract. One type, one renderer, one flat `explain` namespace; `fix` stays required.
 
-| band | subject |
+**The new field is `where:`, not `subject:`.** An earlier draft said `subject`, which collides:
+`marks.py` already declares `Subject = Annotated[str, "subject"]` and `DecisionRecord.subject` uses
+it for *the thing being decided* (`seq_platform`). A diagnostic's location is a different string
+kind pointing at a different sort of thing, and reusing one mark for both is exactly what root C
+exists to stop — the failure there was never that a string was unvalidated, it was that nobody had
+written down which kind it was.
+
+| band | what it covers |
 |---|---|
 | `M0100`–`M0107` | conformance — a contract disagrees with its module (**exists**) |
 | `M0108`–`M0109` | reserved for conformance |
@@ -481,6 +498,7 @@ new codes before a line was written; a band sized to the first draft would alrea
 | `M0118` | build | two writers for one destination — a `meta` key, a `prefix`, or a directive |
 | `M0119` | build | `via: directive` names something Nextflow will silently ignore |
 | `M0120` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
+| `M0121` | build | `channels[].params` disagrees with what `expression` actually references |
 
 `M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
 `"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
@@ -526,7 +544,28 @@ facts in code for the same reason.
 against.** That is a genuine cost — a new Nextflow directive needs a release — and it is the right
 one.
 
-A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Eleven new codes is
+Rendered, with `where:` pointing into the file rather than at a contract id:
+
+```
+$ mendel build --from build/pipeline.yml
+
+M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
+  Your override no longer applies to anything.
+  This file records `source: human` for hisat2_align.seq_platform, but
+  re-resolving the goal no longer produces a step called hisat2_align.
+  fix: remove the override, or pin the module under `steps[].module` so the
+       step survives re-resolution.
+       `mendel explain M0113` for the long form.
+
+1 diagnostic. Nothing emitted.
+```
+
+`where:` is a path into the document — `steps[<id>].settings[<name>]`, `channels[<type_id>]`,
+`decisions[<key>]` — because a diagnostic about a file that does not say *where in the file* makes
+the reader grep for it. `Diagnostic.render()` already lays out summary/detail/fix in that order and
+needs no change beyond the field.
+
+A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Thirteen new codes is
 where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
 
 ### 10. What measurements do, so nobody "fixes" it
@@ -669,8 +708,12 @@ breaks `entry_channel`, has gone too far.
 - `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
-- `mendel_compiler/conformance.py` — `subject` replaces `contract_id`; `M0108`, `M0110`–`M0120`.
-- `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips.
+- `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0121`.
+- `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips. **And
+  `mendel profile`, which the first draft of this radius missed**: it shares `build`'s emitter path,
+  so it moves with the signature. It writes `pipeline.yml` *and* `profile.yml` — two files, correctly,
+  because `profile.yml` is an instruction sheet for the laboratory rather than a description of the
+  pipeline. "One artifact" is a claim about what describes the pipeline, not a cap on output files.
 - `mendel_compiler/` — the legal Nextflow directive names, as code, carrying the Nextflow version
   they were read against. Not registry data; see `M0119`.
 - `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
