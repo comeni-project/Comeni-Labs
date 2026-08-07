@@ -114,7 +114,13 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
 
     state["armed"] = True
     try:
-        ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+        ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
         emit(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
     finally:
         state["armed"] = False

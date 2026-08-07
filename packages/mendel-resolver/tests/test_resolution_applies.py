@@ -83,7 +83,7 @@ def tied(tmp_path):
     (contracts / "a.yml").write_text(ALIGNER.format(tag="a", upper="A"))
     (contracts / "b.yml").write_text(ALIGNER.format(tag="b", upper="B"))
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(tmp_path, vocabulary), RuleTable(), MeasurementRegistry()
+    return Registry.load(tmp_path, vocabulary), RuleTable(), MeasurementRegistry(), vocabulary
 
 
 def _goal():
@@ -92,8 +92,10 @@ def _goal():
 
 def test_a_resolver_that_disagrees_changes_which_module_is_selected(tied):
     """The capability itself. Plan 2 plugs a model into this port."""
-    registry, rules, measurements = tied
-    ir = resolve(_goal(), registry, rules, measurements, resolver=_PicksLast())
+    registry, rules, measurements, vocabulary = tied
+    ir = resolve(
+        _goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=_PicksLast()
+    )
 
     assert [n.contract_id for n in ir.nodes] == ["audit/aligner-b@1.0.0"], (
         "the resolver chose aligner-b; the pipeline must contain aligner-b"
@@ -106,8 +108,10 @@ def test_every_producer_record_names_the_contract_that_was_selected(tied):
     Nothing forced `record.chosen` to equal the contract in `IRNode.selection`, so a
     published bundle could be internally inconsistent with no way for a reader to tell.
     """
-    registry, rules, measurements = tied
-    ir = resolve(_goal(), registry, rules, measurements, resolver=_PicksLast())
+    registry, rules, measurements, vocabulary = tied
+    ir = resolve(
+        _goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=_PicksLast()
+    )
 
     selected = {node.selection.value for node in ir.nodes}
     producer_records = [d for d in ir.decisions if d.subject.startswith("producer:")]
@@ -122,8 +126,10 @@ def test_a_tie_is_still_tier_4_and_still_flagged(tied):
     """Invariant 6: resolving a tier-4 choice does not clear it. A8 must not weaken this."""
     from comeni_core.ir import ReviewLevel, Tier
 
-    registry, rules, measurements = tied
-    ir = resolve(_goal(), registry, rules, measurements, resolver=_PicksLast())
+    registry, rules, measurements, vocabulary = tied
+    ir = resolve(
+        _goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=_PicksLast()
+    )
 
     node = ir.nodes[0]
     assert node.selection.tier is Tier.AMBIGUOUS
@@ -138,14 +144,19 @@ def test_a_human_override_on_a_producer_reaches_the_pipeline(tied):
     move" was true for parameters and false here: the override was accepted, recorded,
     and discarded.
     """
-    registry, rules, measurements = tied
-    first = resolve(_goal(), registry, rules, measurements)
+    registry, rules, measurements, vocabulary = tied
+    first = resolve(_goal(), registry, rules, measurements, vocabulary=vocabulary)
     record = next(d for d in first.decisions if d.subject.startswith("producer:"))
     assert record.chosen == "audit/aligner-a@1.0.0", "baseline picks the first by id order"
 
     corrected = record.model_copy(update={"human_override": "audit/aligner-b@1.0.0"})
     ir = resolve(
-        _goal(), registry, rules, measurements, resolver=ReplayResolver([corrected])
+        _goal(),
+        registry,
+        rules,
+        measurements,
+        vocabulary=vocabulary,
+        resolver=ReplayResolver([corrected]),
     )
 
     assert [n.contract_id for n in ir.nodes] == ["audit/aligner-b@1.0.0"]
@@ -171,8 +182,8 @@ def test_a_resolver_naming_a_non_candidate_falls_back_rather_than_trusting(tied)
                 resolved_by="audit",
             )
 
-    registry, rules, measurements = tied
-    ir = resolve(_goal(), registry, rules, measurements, resolver=_Forges())
+    registry, rules, measurements, vocabulary = tied
+    ir = resolve(_goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=_Forges())
 
     assert [n.contract_id for n in ir.nodes] == ["audit/aligner-a@1.0.0"]
     record = next(d for d in ir.decisions if d.subject.startswith("producer:"))
@@ -195,9 +206,9 @@ def test_the_resolver_is_asked_once_per_ambiguity(tied):
                 resolved_by="audit",
             )
 
-    registry, rules, measurements = tied
+    registry, rules, measurements, vocabulary = tied
     counter = _Counts()
-    resolve(_goal(), registry, rules, measurements, resolver=counter)
+    resolve(_goal(), registry, rules, measurements, vocabulary=vocabulary, resolver=counter)
     assert len(counter.seen) == len(set(counter.seen)), counter.seen
 
 
@@ -241,7 +252,7 @@ def two_equally_good_sources(tmp_path):
     (contracts / "dual.yml").write_text(DUAL)
     (contracts / "counter.yml").write_text(COUNTER)
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(tmp_path, vocabulary)
+    return Registry.load(tmp_path, vocabulary), vocabulary
 
 
 def test_an_edge_record_names_the_edge_that_was_built(two_equally_good_sources):
@@ -259,11 +270,13 @@ def test_an_edge_record_names_the_edge_that_was_built(two_equally_good_sources):
     was on the producer side. It is a guard against the next version of this file.
     """
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"])
+    registry, vocabulary = two_equally_good_sources
     ir = resolve(
         goal,
-        two_equally_good_sources,
+        registry,
         RuleTable(),
         MeasurementRegistry(),
+        vocabulary=vocabulary,
         resolver=_PicksFirst(),
     )
 
@@ -279,11 +292,13 @@ def test_an_edge_record_names_the_edge_that_was_built(two_equally_good_sources):
 def test_a_resolver_picks_which_port_feeds_a_consumer(two_equally_good_sources):
     """And the choice reaches the graph, not only the record."""
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"])
+    registry, vocabulary = two_equally_good_sources
     ir = resolve(
         goal,
-        two_equally_good_sources,
+        registry,
         RuleTable(),
         MeasurementRegistry(),
+        vocabulary=vocabulary,
         resolver=_PicksFirst(),
     )
 
@@ -296,8 +311,8 @@ def test_a_resolver_picks_which_port_feeds_a_consumer(two_equally_good_sources):
 
 def test_a_replayed_record_is_not_needed_for_this_to_hold(tied):
     """The default path must stay exactly as it was: first candidate, flagged, recorded."""
-    registry, rules, measurements = tied
-    ir = resolve(_goal(), registry, rules, measurements)
+    registry, rules, measurements, vocabulary = tied
+    ir = resolve(_goal(), registry, rules, measurements, vocabulary=vocabulary)
 
     assert [n.contract_id for n in ir.nodes] == ["audit/aligner-a@1.0.0"]
     record = next(d for d in ir.decisions if d.subject.startswith("producer:"))

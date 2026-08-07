@@ -154,6 +154,7 @@ def _build(argv: list[str] | None = None) -> int:
         registry,
         rules,
         loaded.measurements,
+        vocabulary=vocab,
         resolver=resolver,
         layer_names=[layer_name(p) for p in loaded.paths],
     )

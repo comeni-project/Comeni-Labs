@@ -52,7 +52,7 @@ def _world(tmp_path, contracts: dict[str, str]):
     for name, body in contracts.items():
         (contract_dir / name).write_text(body)
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(tmp_path, vocabulary)
+    return Registry.load(tmp_path, vocabulary), vocabulary
 
 
 def _goal():
@@ -61,28 +61,30 @@ def _goal():
 
 def test_the_first_alternative_wins_when_both_can_be_routed(tmp_path):
     """Declaration order is the author saying which input they would rather have."""
-    registry = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER, "sort.yml": SORT})
+    registry, vocabulary = _world(
+        tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER, "sort.yml": SORT}
+    )
     steps = [s.contract_id for s in route(_goal(), registry).steps]
     assert "lab/sort@1.0.0" in steps
     assert "lab/cram@1.0.0" not in steps
 
 
 def test_the_second_alternative_routes_when_the_first_cannot(tmp_path):
-    registry = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER})
+    registry, vocabulary = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER})
     steps = [s.contract_id for s in route(_goal(), registry).steps]
     assert "lab/cram@1.0.0" in steps
 
 
 def test_a_port_no_alternative_satisfies_says_so(tmp_path):
-    registry = _world(tmp_path, {"c.yml": CALLER})
+    registry, vocabulary = _world(tmp_path, {"c.yml": CALLER})
     with pytest.raises(UnroutableError, match="no alternative for port 'reads'"):
         route(_goal(), registry)
 
 
 def test_the_edge_records_the_alternative_that_actually_matched(tmp_path):
     """`IREdge.type_id` used to be copied off the port, which an `accepts` port lacks."""
-    registry = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER})
-    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry())
+    registry, vocabulary = _world(tmp_path, {"c.yml": CALLER, "cram.yml": CRAM_MAKER})
+    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
     edge = next(e for e in ir.edges if e.to_node == "caller")
     assert edge.type_id == "alignment.cram"
     assert edge.states == frozenset({"coordinate_sorted"})
@@ -93,8 +95,10 @@ def test_prefer_breaks_a_tie_within_one_alternative(tmp_path):
     deduped = SORT.replace("lab/sort@1.0.0", "lab/dedup@1.0.0").replace(
         "nf_process: SORT", "nf_process: DEDUP"
     )
-    registry = _world(tmp_path, {"c.yml": CALLER, "sort.yml": SORT, "dedup.yml": deduped})
-    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry())
+    registry, vocabulary = _world(
+        tmp_path, {"c.yml": CALLER, "sort.yml": SORT, "dedup.yml": deduped}
+    )
+    ir = resolve(_goal(), registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
     # Two identical producers of a coordinate-sorted BAM: a genuine tie, so it is recorded
     # rather than taken silently.
     assert any(d.subject == "producer:alignment.bam" for d in ir.decisions)

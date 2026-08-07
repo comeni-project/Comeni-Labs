@@ -8,6 +8,7 @@ from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.tiers import ValueSource
+from comeni_core.vocabulary import UnknownTypeError, Vocabulary
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
@@ -20,9 +21,22 @@ def resolve(
     registry: Registry,
     rules: RuleTable,
     measurements: MeasurementRegistry,
+    *,
+    vocabulary: Vocabulary,
     resolver: AmbiguityResolver | None = None,
     layer_names: Sequence[str] = (),
 ) -> PipelineIR:
+    # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
+    # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry
+    # that satisfies nothing was never looked up and never rejected — and a patient name
+    # and a filesystem path reached a `PublishBundle` as `type_id`, with a sentence of
+    # clinical notes as a `required_states` key.
+    #
+    # Keyword and **required**, like `measurements` and for the same reason A2 gives: an
+    # optional guard is the guard the next verb forgets. `mendel upgrade` is the verb that
+    # matters here, because its goal comes from a stranger's bundle rather than from a file
+    # the operator wrote.
+    _declared_types(goal, vocabulary)
     # Invariant 15 was enforced in `mendel build`'s own re-route through
     # `MeasurementRegistry.profile()` — an application-layer step, which is not a property
     # of anything. `mendel upgrade` takes its goal from a bundle rather than a file, so the
@@ -265,3 +279,30 @@ def _resolve_param(
         )
     )
     return ResolvedValue(value=resolution.chosen, tier=Tier.AMBIGUOUS, reason=resolution.reason)
+
+
+def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
+    """Every type a goal names must be one some layer declared.
+
+    Closing A29 is a side effect of doing the obvious thing — a closed vocabulary rather
+    than another blocklist. An undeclared type in a goal was already a user error worth a
+    clear message; nothing had ever asked.
+    """
+    named = (
+        [held.type_id for held in goal.have]
+        + list(goal.want)
+        + [required.type_id for required in goal.constraints.required_states]
+    )
+    for type_id in named:
+        if type_id not in vocabulary.types:
+            raise UnknownTypeError(
+                f"{type_id!r} is not a declared type.\n"
+                f"  Declared: {', '.join(sorted(vocabulary.types)) or '(none)'}\n"
+                f"  A goal names types, not files: declare one in "
+                f"<layer>/vocabularies/<type_id>.yml, or correct the goal."
+            )
+    for required in goal.constraints.required_states:
+        # States too: `required_states` was where a sentence of clinical notes reached a
+        # bundle as a *key*, and a state that no type declares is a goal asking for
+        # something no contract can satisfy.
+        vocabulary.validate(required.type_id, required.states)

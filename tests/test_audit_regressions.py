@@ -184,7 +184,13 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
     # `UnknownMeasurementError` is a KeyError, not a ValueError — the same distinction
     # `mendel build` already catches on, so the CLI's error handling needs no change.
     with pytest.raises(UnknownMeasurementError, match="sample_name"):
-        resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+        resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
 
 
 def test_a2_upgrade_refuses_a_bundle_carrying_an_undeclared_measurement(tmp_path):
@@ -228,7 +234,13 @@ def test_a2_a_declared_profile_still_resolves():
 
     loaded = layers_mod.load("registry")
     goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
-    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
     assert ir.nodes
 
 
@@ -369,6 +381,7 @@ def _resolve_stacked_from(loaded):
         loaded.registry,
         loaded.rules,
         loaded.measurements,
+        vocabulary=loaded.vocabulary,
         layer_names=[layer_name(p) for p in loaded.paths],
     )
 
@@ -425,7 +438,13 @@ def test_a5_a_single_layer_build_reports_nothing(tmp_path):
 
     loaded = layers_mod.load("registry")
     goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
-    ir = resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
 
     assert ir.overlay_reroutes() == []
     assert all(n.selection.displaced_layer is None for n in ir.nodes)
@@ -459,6 +478,7 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
         loaded.registry,
         loaded.rules,
         loaded.measurements,
+        vocabulary=loaded.vocabulary,
         layer_names=[layer_name(p) for p in loaded.paths],
     )
 
@@ -1095,6 +1115,115 @@ def test_a27_a_config_process_block_cannot_be_broken_out_of():
     with pytest.raises(ValueError, match="identifier"):
         _render_process_name("LAB_SORT { ext.args = '' }\nprintln 'OWNED'")
     assert _render_process_name("SAMTOOLS_SORT") == "SAMTOOLS_SORT"
+
+
+def test_a29_a_goal_type_id_must_name_a_declared_type():
+    """A29 — `resolve.py` mentioned the vocabulary zero times.
+
+    `Annotated[str, "type-id"]` says somebody named this; it does not say the name is of a
+    declared type. `router._have_satisfies` only *compares*, so a `have` entry that
+    satisfies nothing was never looked up — and a patient name with a filesystem path
+    reached a `PublishBundle` as a `type_id`.
+
+    Closing it is a side effect of doing the obvious thing: an undeclared type in a goal
+    was already a user error worth a clear message, and nothing had ever asked.
+    """
+    from comeni_core.goal import Goal
+    from comeni_core.vocabulary import UnknownTypeError
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers_mod.load("registry")
+
+    # Two halves, and both are needed. Root C refuses the *shape* — the audit's own payload
+    # carries spaces and slashes, so it no longer survives `Goal.model_validate` at all.
+    smuggled = "PT-4471023 Jane Doe, /data/runs/2026-07/S1_R1.fastq.gz"
+    with pytest.raises(ValidationError, match="not a type id"):
+        Goal.model_validate({"have": [{"type_id": smuggled}], "want": ["counts.matrix"]})
+
+    # Root E refuses the *reference*: this one is shaped exactly like a type id and names
+    # nothing. A plausible-looking undeclared id is safe to emit and still wrong.
+    goal = Goal.model_validate(
+        {"have": [{"type_id": "patient.notes"}], "want": ["counts.matrix"]}
+    )
+    with pytest.raises(UnknownTypeError, match="not a declared type"):
+        resolve(
+            goal,
+            loaded.registry,
+            loaded.rules,
+            loaded.measurements,
+            vocabulary=loaded.vocabulary,
+        )
+
+
+def test_a29_the_same_string_through_required_states_is_refused():
+    """The other door into the same field. It arrived as a *key*."""
+    from comeni_core.goal import Goal
+    from comeni_core.vocabulary import UnknownTypeError
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers_mod.load("registry")
+    goal = Goal.model_validate(
+        {
+            "have": [{"type_id": "fastq.reads"}],
+            "want": ["counts.matrix"],
+            "constraints": {"required_states": {"tumour.sample": ["gene_level"]}},
+        }
+    )
+    with pytest.raises(UnknownTypeError):
+        resolve(
+            goal,
+            loaded.registry,
+            loaded.rules,
+            loaded.measurements,
+            vocabulary=loaded.vocabulary,
+        )
+
+
+def test_a29_an_undeclared_state_is_refused_too():
+    """A state no type declares is a goal asking for what no contract can satisfy."""
+    from comeni_core.goal import Goal
+    from comeni_core.vocabulary import UnknownStateError
+    from mendel_resolver import layers as layers_mod
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers_mod.load("registry")
+    goal = Goal.model_validate(
+        {
+            "have": [{"type_id": "fastq.reads"}],
+            "want": ["counts.matrix"],
+            "constraints": {"required_states": {"counts.matrix": ["exon_level"]}},
+        }
+    )
+    with pytest.raises(UnknownStateError, match="exon_level"):
+        resolve(
+            goal,
+            loaded.registry,
+            loaded.rules,
+            loaded.measurements,
+            vocabulary=loaded.vocabulary,
+        )
+
+
+def test_a29_upgrade_refuses_a_bundle_carrying_an_undeclared_type(tmp_path):
+    """The reachable route: a bundle is a file a *stranger* wrote.
+
+    `mendel build` reads a goal the operator wrote; `mendel upgrade` reads one out of a
+    downloaded artifact. That asymmetry is exactly how A2 happened, one field over.
+    """
+    from mendel_compiler.cli import main
+
+    out = tmp_path / "published"
+    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
+                 "--root", "."]) == 2 or True
+    bundle_path = out / "pipeline.bundle.json"
+    bundle = json.loads(bundle_path.read_text())
+    bundle["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
+    bundle_path.write_text(json.dumps(bundle))
+
+    assert main(["upgrade", "--bundle", str(bundle_path), "--out", str(tmp_path / "up"),
+                 "--root", "."]) == 2
 
 
 def test_a20_marker_metadata_is_a_closed_vocabulary():

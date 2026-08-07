@@ -20,7 +20,13 @@ def _spine(layer: pathlib.Path):
             want=want,
             profile=loaded.measurements.profile(profile or {}),
         )
-        return resolve(goal, loaded.registry, loaded.rules, loaded.measurements)
+        return resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
 
     return build
 

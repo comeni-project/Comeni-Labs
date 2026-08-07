@@ -89,6 +89,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
         registry,
         RuleTable(),
         MeasurementRegistry(),
+        vocabulary=vocabulary,
     )
     chosen = ir.nodes[0]
     assert chosen.selection.tier is Tier.AMBIGUOUS
