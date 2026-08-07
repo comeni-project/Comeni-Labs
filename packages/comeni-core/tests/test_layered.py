@@ -222,7 +222,7 @@ def test_one_key_declared_twice_in_one_layer_is_refused(tmp_path):
     _write(tmp_path, "base", "measurements", "m.yml", {"v": 1})
     _write(tmp_path, "base", "measurements/nested", "m.yml", {"v": 2})
 
-    with pytest.raises(ValueError, match="declared twice"):
+    with pytest.raises(ValueError, match="in measurements/nested/m.yml and in measurements/m.yml"):
         stack(_layers(tmp_path, "base"), _kind())
 
 

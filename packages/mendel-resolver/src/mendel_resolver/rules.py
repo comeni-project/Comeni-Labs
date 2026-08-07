@@ -17,7 +17,16 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
-from comeni_core.marks import ParamValue
+from comeni_core.layered import (
+    DeclaredKind,
+    Kind,
+    Layer,
+    Policy,
+    Stacked,
+    layers_of,
+    stack,
+)
+from comeni_core.marks import LayerName, ParamValue
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.profile import DataProfile
 from comeni_core.registry import Registry
@@ -103,6 +112,38 @@ class Decision(BaseModel):
     cite: str | None = None
 
 
+class Pin(BaseModel):
+    """A rule fired, and everything that follows from it — including where it came from.
+
+    A22: `RuleTable` recorded `layer_of` and `displaced_layer` correctly, and
+    `router._choose` never read them, so a rule-pinned reroute produced an IR asserting
+    the *base* layer had decided. Recording a fact is not enough if consulting it is
+    optional, so the fact travels with the answer rather than beside it. The caller cannot
+    take the value without being handed the provenance in the same object.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: ParamValue
+    """The pinned contract id, or the parameter value. `then`, resolved."""
+    from_layer: LayerName
+    """The layer whose *rule block* decided. Not where the chosen contract was found —
+    those differ, and the difference is the whole of A22."""
+    displaced_layer: LayerName | None = None
+    decision: Decision
+    row: DecisionRow
+
+    def because(self) -> str:
+        """The most specific justification available, row before block."""
+        return (
+            self.row.cite
+            or self.decision.cite
+            or self.row.because
+            or self.decision.because
+            or ""
+        )
+
+
 class RuleTable(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -128,6 +169,49 @@ class RuleTable(BaseModel):
     contracts were being watched. Audit A15.
     """
 
+    @staticmethod
+    def kind(
+        registry: Registry,
+        vocabulary: Vocabulary,
+        measurements: MeasurementRegistry,
+    ) -> Kind[str, Decision]:
+        """How rule blocks are found, keyed and stacked.
+
+        Keyed on the decision's *target*, not the file: a laboratory naming its overlay
+        `aligner.yml` where the base says `rnaseq.yml` is still replacing that block, and
+        keying on filenames would have let both fire with row order deciding.
+
+        A higher layer replaces the whole block, not row by row — a reviewer should read
+        one block and see the entire effective decision.
+        """
+
+        def parse(path: Path) -> list[Decision]:
+            data = yaml.safe_load(path.read_text()) or {}
+            found = []
+            for raw in data.get("decisions", []):
+                decision = Decision.model_validate(raw)
+                _validate(decision, path, registry, vocabulary, measurements)
+                found.append(decision)
+            return found
+
+        return Kind(
+            DeclaredKind.RULES,
+            parse=parse,
+            key=lambda decision: decision.decides.key(),
+            policy=Policy.REPLACE,
+        )
+
+    @classmethod
+    def of(cls, stacked: Stacked[str, Decision], layers: Sequence[Layer]) -> "RuleTable":
+        name_of = {layer.index: layer.name for layer in layers}
+        return cls(
+            decisions=[stacked.entries[key] for key in sorted(stacked.entries)],
+            layer_of={key: name_of[at] for key, at in stacked.origin.items()},
+            displaced_layer={
+                record.key: record.displaced_layer for record in stacked.displaced
+            },
+        )
+
     @classmethod
     def load(
         cls,
@@ -136,70 +220,36 @@ class RuleTable(BaseModel):
         registry: Registry,
         vocabulary: Vocabulary,
         measurements: MeasurementRegistry,
-        names: Sequence[str] | None = None,
     ) -> "RuleTable":
-        if isinstance(layers, Path):
-            layers = [layers]
-        # A rules directory is `<layer>/rules`, so the layer's name lives one level up —
-        # the same knowledge the caller has and this does not, and the same reason
-        # `Registry.load` takes `names`. Audit A12.
-        layer_names = list(names) if names is not None else [layer.parent.name for layer in layers]
-        by_target: dict[str, Decision] = {}
-        layer_of: dict[str, str] = {}
-        displaced_layer: dict[str, str] = {}
-        for layer, layer_name in zip(layers, layer_names, strict=True):
-            if not layer.exists():
-                continue
-            seen_here: set[str] = set()
-            paths = [layer] if layer.is_file() else sorted(layer.glob("*.yml"))
-            for path in paths:
-                data = yaml.safe_load(path.read_text()) or {}
-                for raw in data.get("decisions", []):
-                    decision = Decision.model_validate(raw)
-                    key = decision.decides.key()
-                    if key in seen_here:
-                        raise RuleValidationError(
-                            f"{path}: {key} is decided twice in one layer. Two blocks for one "
-                            f"target is a mistake; shadowing happens between layers."
-                        )
-                    seen_here.add(key)
-                    _validate(decision, path, registry, vocabulary, measurements)
-                    # A higher layer replaces the whole block, not row by row: a reviewer
-                    # should read one block and see the entire effective decision.
-                    #
-                    # Replacing one is a silent reroute unless somebody writes it down.
-                    # `setdefault` keeps the *lowest* displaced layer across a three-deep
-                    # stack, which is the one a reader is surprised to have lost.
-                    prior = layer_of.get(key)
-                    if prior is not None and prior != layer_name:
-                        displaced_layer.setdefault(key, prior)
-                    by_target[key] = decision
-                    layer_of[key] = layer_name
-        return cls(
-            decisions=[by_target[k] for k in sorted(by_target)],
-            layer_of=layer_of,
-            displaced_layer=displaced_layer,
+        """Load rule blocks across a layer stack. **Layer roots, not `rules/`.**
+
+        The `names` argument is gone with the rest: a `Layer` carries its own name, so
+        there is no longer a fact the caller has to forward on the loader's behalf.
+        """
+        as_layers = layers_of(layers)
+        return cls.of(
+            stack(as_layers, cls.kind(registry, vocabulary, measurements)), as_layers
         )
 
-    def _for(
-        self, key: str, profile: DataProfile
-    ) -> tuple[ParamValue, Decision, DecisionRow] | None:
+    def _for(self, key: str, profile: DataProfile) -> Pin | None:
         for decision in self.decisions:
             if decision.decides.key() != key:
                 continue
             for row in decision.rows:
                 if row.matches(profile):
-                    return row.then, decision, row
+                    return Pin(
+                        value=row.then,
+                        from_layer=self.layer_of.get(key, ""),
+                        displaced_layer=self.displaced_layer.get(key),
+                        decision=decision,
+                        row=row,
+                    )
         return None
 
-    def value_for(
-        self, param: str, profile: DataProfile
-    ) -> tuple[ParamValue, Decision, DecisionRow] | None:
+    def value_for(self, param: str, profile: DataProfile) -> Pin | None:
         return self._for(f"param:{param}", profile)
 
-    def producer_for(
-        self, type_id: str, profile: DataProfile
-    ) -> tuple[ParamValue, Decision, DecisionRow] | None:
+    def producer_for(self, type_id: str, profile: DataProfile) -> Pin | None:
         return self._for(f"producer_of:{type_id}", profile)
 
 

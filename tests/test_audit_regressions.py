@@ -512,7 +512,7 @@ A3_PATHS = [
 ]
 
 A3_LEGITIMATE = [
-    "nf-core/star/align@2.7.11b",  # a contract ID has slashes and must survive
+    "nf-core/star/align@1.11.0",  # a contract ID has slashes and must survive
     "GRCh38",
     "reverse",
     "ILLUMINA",
@@ -841,6 +841,68 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
         "lab-registry",
         "comeni-registry-examples",
     )
+
+
+def test_a22_a_rule_pinned_reroute_names_the_layer_that_decided(tmp_path):
+    """A22 — `RuleTable` recorded the provenance and `router._choose` never read it.
+
+    A15 fixed the recording and its test used a `param:` decision, which reaches the IR
+    through `resolve._resolve_param` — a different path. A **`producer_of:`** decision goes
+    through `router._choose`, which built its `RouteStep` from `registry.layer_of` alone. So
+    an overlay rule rerouting the aligner produced an artifact asserting
+    `from_layer: comeni-registry-examples` — not silence, but the *opposite* of what
+    happened, in the field a curator reads to decide whether to trust the pipeline.
+
+    Recording a fact is not enough if consulting it is optional. `RouteStep.from_layer` has
+    no default now, so a caller cannot build a step without saying where the choice came
+    from, and `producer_for` hands back a `Pin` that carries the answer.
+    """
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    # The base's shipped `rnaseq.yml` already decides `producer_of:alignment.bam` — STAR
+    # above 70bp, HISAT2 below. The goal measures 150bp, so the base routes to STAR. The
+    # lab's overlay replaces that whole block, which is the reroute.
+    (lab / "rules" / "aligner.yml").write_text(
+        "version: 1\n"
+        "decisions:\n"
+        "  - decides: {producer_of: alignment.bam}\n"
+        "    because: 'this lab has a HISAT2 index and no STAR index'\n"
+        "    rows:\n"
+        "      - {when: {read_length: '>= 50'}, then: nf-core/hisat2/align@2.2.2}\n"
+    )
+
+    ir = _resolve_stacked_from(layers_mod.load([base, lab]))
+
+    # `hisat2/build` sorts first and is a tier-1 index step from the base layer —
+    # matching on "hisat2" alone picks it and tests nothing.
+    aligner = next(n for n in ir.nodes if "hisat2/align" in n.contract_id)
+    assert aligner.selection.from_layer == "lab-registry", (
+        "the layer whose *rule* decided, not the layer the contract was found in"
+    )
+    assert aligner.selection.displaced_layer == "comeni-registry-examples"
+    assert any("hisat2/align" in line for line in ir.overlay_reroutes())
+
+
+def test_a22_a_route_step_cannot_omit_where_it_came_from():
+    """The half of A22's fix that is a type rather than a line.
+
+    `from_layer` had a default of `None`, so the way to get provenance wrong was to write
+    nothing — and the site that got it wrong wrote something worse than nothing. There is
+    one construction site today and it is correct; this refuses the *next* one, which is
+    the only version of this guard that can still be working in a year.
+
+    `None` remains a legal answer, for the single-layer build that is the normal case. It
+    has to be given rather than assumed.
+    """
+    from mendel_resolver.router import RouteStep
+
+    with pytest.raises(ValidationError, match="from_layer"):
+        RouteStep(contract_id="x@1", node_id="x", satisfies="alignment.bam")
+
+    assert RouteStep(
+        contract_id="x@1", node_id="x", satisfies="alignment.bam", from_layer=None
+    ).from_layer is None
 
 
 def test_a20_marker_metadata_is_a_closed_vocabulary():

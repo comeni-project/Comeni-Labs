@@ -191,6 +191,7 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
             continue
 
         incoming: dict[K, T] = {}
+        first_declared: dict[K, Path] = {}
         for path in _files(directory):
             claimed.add(path)
             for entry in kind.parse(path):
@@ -199,11 +200,15 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
                     # Between layers this is a declaration and is recorded. Twice inside one
                     # layer is a copy-paste, and resolving it by glob order would be the
                     # silent arbitrary pick invariant 8 exists to prevent.
+                    here = path.relative_to(layer.path)
+                    there = first_declared[key].relative_to(layer.path)
+                    place = f"twice in {here}" if here == there else f"in {here} and in {there}"
                     raise ValueError(
-                        f"{key} is declared twice in {layer.path}: {path.name} duplicates "
-                        "an earlier file"
+                        f"{key} is declared {place}, both under layer {layer.path}. "
+                        "Shadowing happens between layers, not inside one."
                     )
                 incoming[key] = entry
+                first_declared[key] = path
         if not incoming:
             continue
 

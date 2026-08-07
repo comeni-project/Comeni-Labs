@@ -55,11 +55,14 @@ def _rules_and_measurements(tmp_path, registry, vocabulary, body):
     for name, declaration in MEASUREMENTS.items():
         (measurements / name).write_text(declaration)
     declared = MeasurementRegistry.load(tmp_path)
-    rules = tmp_path / "rules.yml"
-    rules.write_text(body)
+    # A layer's rules live in `<layer>/rules/`. `RuleTable.load` took a bare file path
+    # too, which is one more way to spell "a layer" than a layer has.
+    rules = tmp_path / "rules"
+    rules.mkdir(exist_ok=True)
+    (rules / "r.yml").write_text(body)
     return (
         RuleTable.load(
-            rules, registry=registry, vocabulary=vocabulary, measurements=declared
+            tmp_path, registry=registry, vocabulary=vocabulary, measurements=declared
         ),
         declared,
     )

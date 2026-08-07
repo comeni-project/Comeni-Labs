@@ -50,6 +50,7 @@ def world(tmp_path):
         "vocabulary": vocabulary,
         "registry": Registry.load(tmp_path, vocabulary),
         "measurements": MeasurementRegistry.load(tmp_path),
+        "layer": tmp_path,
         "rules": tmp_path / "rules",
     }
 
@@ -58,7 +59,7 @@ def _rules(world, body):
     world["rules"].mkdir(exist_ok=True)
     (world["rules"] / "r.yml").write_text(body)
     return RuleTable.load(
-        world["rules"],
+        world["layer"],
         registry=world["registry"],
         vocabulary=world["vocabulary"],
         measurements=world["measurements"],
@@ -67,9 +68,9 @@ def _rules(world, body):
 
 def test_a_matching_row_yields_its_value_and_provenance(world):
     table = _rules(world, GOOD)
-    value, decision, row = table.value_for("strandedness", DataProfile(strandedness="reverse"))
-    assert value == 2
-    assert "Liao" in decision.cite
+    pin = table.value_for("strandedness", DataProfile(strandedness="reverse"))
+    assert pin.value == 2
+    assert "Liao" in pin.decision.cite
 
 
 def test_no_matching_row_falls_through(world):
@@ -86,8 +87,7 @@ decisions:
       - {when: {strandedness: reverse}, then: 99}
       - {when: {strandedness: reverse}, then: 2}
 """)
-    value, _, _ = table.value_for("strandedness", DataProfile(strandedness="reverse"))
-    assert value == 99
+    assert table.value_for("strandedness", DataProfile(strandedness="reverse")).value == 99
 
 
 def test_a_comparison_string_works(world):
@@ -150,8 +150,11 @@ decisions:
     rows:
       - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
 """)
-    pinned, _, _ = table.producer_for("counts.matrix", DataProfile(read_length=150))
-    assert pinned == "nf-core/subread/featurecounts@2.0.6"
+    pin = table.producer_for("counts.matrix", DataProfile(read_length=150))
+    assert pin.value == "nf-core/subread/featurecounts@2.0.6"
+    # The provenance travels with the value. Reading it was optional until A22, and the
+    # one caller that had to remember did not.
+    assert pin.from_layer is not None
 
 
 def test_a_producer_rule_naming_a_contract_that_produces_something_else(world):
@@ -166,7 +169,13 @@ decisions:
 
 
 def test_two_decisions_for_one_target_in_one_layer_is_an_error(world):
-    with pytest.raises(RuleValidationError, match="twice"):
+    """A plain `ValueError` from `stack()`, not `RuleValidationError`.
+
+    Duplicate keys inside one layer are refused by the one stacking mechanism, for all four
+    kinds, with one message. Keeping a per-kind exception type here would mean the rule that
+    invariant 8 rests on had four implementations again — which is what root B is about.
+    """
+    with pytest.raises(ValueError, match="declared twice"):
         _rules(world, GOOD + """
   - decides: {param: strandedness}
     rows:
@@ -200,9 +209,9 @@ def test_a_higher_layer_replaces_a_whole_decision_block(world, tmp_path):
     """Whole-block replacement, not row merging: one block is the effective decision."""
     world["rules"].mkdir(exist_ok=True)
     (world["rules"] / "r.yml").write_text(GOOD)
-    overlay = tmp_path / "lab-rules"
-    overlay.mkdir()
-    (overlay / "r.yml").write_text("""
+    overlay = tmp_path / "lab"
+    (overlay / "rules").mkdir(parents=True)
+    (overlay / "rules" / "r.yml").write_text("""
 version: 1
 decisions:
   - decides: {param: strandedness}
@@ -210,13 +219,12 @@ decisions:
       - {when: {strandedness: reverse}, then: 0}
 """)
     table = RuleTable.load(
-        [world["rules"], overlay],
+        [world["layer"], overlay],
         registry=world["registry"],
         vocabulary=world["vocabulary"],
         measurements=world["measurements"],
     )
-    value, _, _ = table.value_for("strandedness", DataProfile(strandedness="reverse"))
-    assert value == 0
+    assert table.value_for("strandedness", DataProfile(strandedness="reverse")).value == 0
     assert table.value_for("strandedness", DataProfile(strandedness="forward")) is None
 
 

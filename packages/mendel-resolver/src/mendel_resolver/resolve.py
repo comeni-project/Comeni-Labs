@@ -221,19 +221,17 @@ def _resolve_param(
         )
 
     # Tier 3 — a declared rule matches the measured profile.
-    matched = rules.value_for(param_name, goal.profile)
-    if matched is not None:
-        value, decision, row = matched
-        key = decision.decides.key()
+    pin = rules.value_for(param_name, goal.profile)
+    if pin is not None:
         return ResolvedValue(
-            value=value,
+            value=pin.value,
             tier=Tier.DATA_PROFILED,
-            reason=f"rule {key}: {row.cite or decision.cite or ''}",
-            # Which layer's rule block decided this, and which lower one it replaced.
-            # Read off the table rather than the decision, because a layer must not be
-            # able to write its own provenance. Audit A15.
-            from_layer=rules.layer_of.get(key),
-            displaced_layer=rules.displaced_layer.get(key),
+            reason=f"rule {pin.decision.decides.key()}: {pin.because()}",
+            # Provenance arrives *with* the value rather than beside it. It was two
+            # lookups on the table a caller had to remember to make, which is how the
+            # other consumer of the same table forgot both. Audit A15, A22.
+            from_layer=pin.from_layer,
+            displaced_layer=pin.displaced_layer,
         )
 
     # Tier 2 — a documented default exists for this context.

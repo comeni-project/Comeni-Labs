@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
-from mendel_resolver.rules import RuleTable
+from mendel_resolver.rules import Pin, RuleTable
 
 
 class UnroutableError(ValueError):
@@ -46,9 +46,17 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
-    from_layer: str | None = None
+    from_layer: str | None
+    """Which layer this selection came from. **No default.**
+
+    A22: `_choose` could resolve a contract by an overlay's *rule* and then build the step
+    from `registry.layer_of`, which names the layer the contract was found in — so the
+    artifact asserted the base layer had decided. The fix that lasts is not remembering to
+    read the pin: it is that a `RouteStep` cannot be constructed without answering this.
+    `None` is still a legal answer (a single-layer build), but it has to be given."""
+
     displaced_layer: str | None = None
-    """Which layer supplied the winner, and which lower layer it beat. Audit A5."""
+    """Which lower layer this beat, if any. Audit A5, A15, A22."""
 
 
 class RoutePlan(BaseModel):
@@ -151,7 +159,7 @@ def route(
         if not candidates:
             raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
 
-        chosen, tier, reason, pinned_by = _choose(
+        chosen, tier, reason, pinned_by, pin = _choose(
             type_id, states, candidates, goal, rules, resolver, plan
         )
 
@@ -176,8 +184,18 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
-                    from_layer=_layer_name(registry, chosen.id),
-                    displaced_layer=_displaced_layer(registry, chosen, candidates),
+                    # A rule that fired decided this, so the rule's layer is the answer —
+                    # not the layer the winning contract happens to sit in. Those differ
+                    # whenever an overlay reroutes to a base-layer module, which is A22's
+                    # exact shape and the case the IR used to describe backwards.
+                    from_layer=(
+                        pin.from_layer if pin else _layer_name(registry, chosen.id)
+                    ),
+                    displaced_layer=(
+                        pin.displaced_layer
+                        if pin
+                        else _displaced_layer(registry, chosen, candidates)
+                    ),
                 )
             )
 
@@ -224,19 +242,19 @@ def _choose(
     rules: RuleTable | None,
     resolver: AmbiguityResolver,
     plan: RoutePlan,
-) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None]:
-    """Which contract produces `type_id` here, at which tier, and why."""
+) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None]:
+    """Which contract produces `type_id` here, at which tier, why, and on whose say-so."""
     pinned = rules.producer_for(type_id, goal.profile) if rules else None
     if pinned is not None:
-        contract_id, decision, row = pinned
-        match = [c for c in candidates if c.id == contract_id]
+        match = [c for c in candidates if c.id == pinned.value]
         if match:
-            because = row.cite or decision.cite or row.because or decision.because or ""
             return (
                 match[0],
                 Tier.DATA_PROFILED,
-                f"rule {decision.decides.key()} matched {row.when}: {because}",
-                row.when,
+                f"rule {pinned.decision.decides.key()} matched {pinned.row.when}: "
+                f"{pinned.because()}",
+                pinned.row.when,
+                pinned,
             )
         # The pinned contract is not a candidate *here*. Load-time validation already
         # proved it exists and produces this type, so the only way to arrive is that it
@@ -252,12 +270,13 @@ def _choose(
     ordered = sorted(candidates, key=rank)
     best = rank(ordered[0])
     if len(ordered) == 1:
-        return ordered[0], Tier.STRUCTURAL, "the only contract that produces this", None
+        return ordered[0], Tier.STRUCTURAL, "the only contract that produces this", None, None
     if best[0] < rank(ordered[1])[0]:
         return (
             ordered[0],
             Tier.STRUCTURAL,
             f"the only contract producing {type_id} with exactly the required states",
+            None,
             None,
         )
     if best[:2] < rank(ordered[1])[:2]:
@@ -266,6 +285,7 @@ def _choose(
             Tier.CONVENTION,
             f"registry priority {ordered[0].priority}, over "
             f"{', '.join(c.id for c in ordered[1:])}",
+            None,
             None,
         )
 
@@ -305,5 +325,6 @@ def _choose(
         chosen,
         Tier.AMBIGUOUS,
         f"nothing distinguishes {', '.join(c.id for c in ordered)}; chosen by id order",
+        None,
         None,
     )

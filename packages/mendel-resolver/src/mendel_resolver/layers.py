@@ -17,7 +17,6 @@ One function, so the order is a fact rather than a convention.
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement, layers_of, stack
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
@@ -90,23 +89,20 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     except UnknownStateError as error:
         raise _blame_the_overlay(error, declared_types.displaced) from error
     registry = Registry.of(contracts, stacked)
-    rules = RuleTable.load(
-        [layer / "rules" for layer in layers],
-        registry=registry,
-        vocabulary=vocabulary,
-        measurements=measurements,
-        # The layer's name, for the same reason contracts get one: a rule block replacing
-        # a lower layer's must say which layer it came from, and `rules/`'s basename is
-        # "rules" everywhere. Audit A15.
-        names=[layer_name(layer) for layer in layers],
-    )
+    decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements))
+    rules = RuleTable.of(decided, stacked)
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
         registry=registry,
         rules=rules,
         paths=list(layers),
-        displaced=[*measured.displaced, *declared_types.displaced, *contracts.displaced],
+        displaced=[
+            *measured.displaced,
+            *declared_types.displaced,
+            *contracts.displaced,
+            *decided.displaced,
+        ],
     )
 
 
