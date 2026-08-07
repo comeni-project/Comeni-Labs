@@ -90,7 +90,7 @@ Closes A19, A20, A30 and the open marker set.
 **Interfaces:** Produces `Mark(StrEnum)` with 15 members and all 15 aliases rewritten as
 `Annotated[str, Mark.<X>]`. Consumed by every later part.
 
-- [ ] **Step 1: Write the failing test.** In `tests/test_audit_regressions.py`:
+- [x] **Step 1: Write the failing test.** In `tests/test_audit_regressions.py`:
 
 ```python
 def test_a20_marker_metadata_is_a_closed_vocabulary():
@@ -103,25 +103,25 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
     assert not any(isinstance(m, Mark) for m in invented.__metadata__)
 ```
 
-- [ ] **Step 2: Run to verify it fails.** `uv run pytest tests/test_audit_regressions.py -k a20_marker -x`
+- [x] **Step 2: Run to verify it fails.** `uv run pytest tests/test_audit_regressions.py -k a20_marker -x`
       → `ImportError: cannot import name 'Mark'`.
-- [ ] **Step 3: Add the enum**, 15 members, exactly the strings currently used as metadata plus
+- [x] **Step 3: Add the enum**, 15 members, exactly the strings currently used as metadata plus
       `FREE_TEXT = "free-text"` and `PARAM_LITERAL = "param-literal"`. Docstring: why an enum
       rather than strings — `isinstance(meta, Mark)` is a question with an answer.
-- [ ] **Step 4: Rewrite all 15 aliases** to `Annotated[str, Mark.<X>]`. `FreeText` and
+- [x] **Step 4: Rewrite all 15 aliases** to `Annotated[str, Mark.<X>]`. `FreeText` and
       `ParamLiteral` classes are deleted; `Text = Annotated[str, Mark.FREE_TEXT]`,
       `ParamValue`'s string arm becomes `Annotated[str, Mark.PARAM_LITERAL]`.
-- [ ] **Step 5: Fix the re-exports.** `comeni_core/__init__.py` imports and lists `FreeText`
+- [x] **Step 5: Fix the re-exports.** `comeni_core/__init__.py` imports and lists `FreeText`
       and `ParamLiteral` in `__all__` (lines 34, 60, 76). Replace both with `Mark`. Found by
       the plan's own self-review, not by execution — an `__init__` that re-exports a deleted
       name is an `ImportError` at the top of the next task.
-- [ ] **Step 6: Fix `tests/test_egress.py`'s marker references.** `_mentions(annotation,
+- [x] **Step 6: Fix `tests/test_egress.py`'s marker references.** `_mentions(annotation,
       marks.FreeText)` becomes an `isinstance(meta, Mark) and meta is Mark.FREE_TEXT` test.
       `FREE_TEXT_FIELDS` keeps its four entries and its count must not change. Four sites:
       `test_egress.py:149` plus three in docstrings at `:159`, `:162`, `:172`.
-- [ ] **Step 7: Run the suite.** `uv run pytest tests/test_egress.py -v` → 8 passed;
+- [x] **Step 7: Run the suite.** `uv run pytest tests/test_egress.py -v` → 8 passed;
       `uv run python -c "import comeni_core.profile"` still imports.
-- [ ] **Step 8: Commit** `refactor(core): marker metadata is a closed vocabulary — A20`
+- [x] **Step 8: Commit** `refactor(core): marker metadata is a closed vocabulary — A20`
 
 ### Task A2: the positive leaf rule
 
@@ -130,16 +130,16 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
 **Interfaces:** Consumes `Mark` (A1). Produces
 `test_every_payload_field_is_a_declared_shape`.
 
-- [ ] **Step 1: Write the rule.** A `_permitted(annotation) -> list[str]` walker returning
+- [x] **Step 1: Write the rule.** A `_permitted(annotation) -> list[str]` walker returning
       offending descriptions. Permitted: `int`, `float`, `bool`, `NoneType`; any
       `enum.Enum` subclass; any `BaseModel` in `_payload_types()`; `str` **only** when some
       metadata element `isinstance(meta, Mark)`; `list[X]`/`frozenset[X]` with `X` permitted;
       every arm of a union permitted. `Annotated[X, ...]` unwraps to `X` and non-`Mark` metadata
       (an `AfterValidator`) is allowed alongside.
-- [ ] **Step 2: Run it against the tree as it stands.** Expected **PASS** — the table is a
+- [x] **Step 2: Run it against the tree as it stands.** Expected **PASS** — the table is a
       transcription of the measured graph (22 models, `list`/`frozenset` only, 8 terminal kinds).
       **If it fails, stop: that is a finding, not a reason to widen the table.**
-- [ ] **Step 3: Give `Any` its own predicate** and point
+- [x] **Step 3: Give `Any` its own predicate** and point
       `test_no_payload_carries_an_untyped_container` at it:
 
 ```python
@@ -149,7 +149,7 @@ def _mentions_any(annotation: object) -> bool:
     return any(_mentions_any(arg) for arg in typing.get_args(annotation))
 ```
 
-- [ ] **Step 4: Watch all nine probes fail.** One at a time, added to a real payload, run,
+- [x] **Step 4: Watch all nine probes fail.** One at a time, added to a real payload, run,
       reverted. Paste each observed message into this task.
 
 | probe | on | must fail |
@@ -164,8 +164,8 @@ def _mentions_any(annotation: object) -> bool:
 | `leak: str` | `Lockfile` | positive rule and bare-str rule |
 | `leak: Annotated[str, "invented"]` | `Lockfile` | **positive rule only — passes today** |
 
-- [ ] **Step 5: `git status` clean**, `uv run pytest tests/test_egress.py -v` → 9 passed.
-- [ ] **Step 6: Commit** `test(egress): a payload field is a declared shape — A19, A20, A30`
+- [x] **Step 5: `git status` clean**, `uv run pytest tests/test_egress.py -v` → 9 passed.
+- [x] **Step 6: Commit** `test(egress): a payload field is a declared shape — A19, A20, A30`
 
 ### Task A3: A17 — `ctypes`
 
@@ -174,20 +174,20 @@ def _mentions_any(annotation: object) -> bool:
 A17 is unclustered (see the root-causes document: the purity banlist cannot become an allowlist),
 but it is a two-line fix and belongs with the other guard work.
 
-- [ ] **Step 1: Reproduce.** Add reviewer 1's `_telemetry()` to `emit.py` — `ctypes.CDLL`,
+- [x] **Step 1: Reproduce.** Add reviewer 1's `_telemetry()` to `emit.py` — `ctypes.CDLL`,
       `libc.socket`/`connect`/`send` to `127.0.0.1` — with a listener. Confirm
       `uv run pytest tests/test_purity.py tests/test_purity_runtime.py` → **3 passed** while
       bytes arrive.
-- [ ] **Step 2:** Add `"ctypes"` to `BANNED_PREFIXES`.
-- [ ] **Step 3:** Add `"ctypes.dlopen"`, `"ctypes.dlsym"`, `"ctypes.call_function"`,
+- [x] **Step 2:** Add `"ctypes"` to `BANNED_PREFIXES`.
+- [x] **Step 3:** Add `"ctypes.dlopen"`, `"ctypes.dlsym"`, `"ctypes.call_function"`,
       `"ctypes.cdata"` to `WATCHED`.
-- [ ] **Step 4: Re-run.** Both guards must now fail, naming the file.
-- [ ] **Step 5: Delete the telemetry code.** `git status` clean.
-- [ ] **Step 6: `CLAUDE.md` invariant 1** gains FFI: the union of the two guards does not cover a
+- [x] **Step 4: Re-run.** Both guards must now fail, naming the file.
+- [x] **Step 5: Delete the telemetry code.** `git status` clean.
+- [x] **Step 6: `CLAUDE.md` invariant 1** gains FFI: the union of the two guards does not cover a
       libc call obtained through `ctypes`, and now does.
-- [ ] **Step 7: Commit** `test(purity): ctypes is a route the union did not cover — A17`
+- [x] **Step 7: Commit** `test(purity): ctypes is a route the union did not cover — A17`
 
-- [ ] **Part A gate:** `make verify` — check, slow, guards, drift. Paste the four numbers.
+- [x] **Part A gate:** `make verify` — check, slow, guards, drift. Paste the four numbers.
 
 ---
 
@@ -204,70 +204,70 @@ Closes A22, A23, A24, A25, A26, A35. **The largest part.**
 **Interfaces:** Produces `Layer(path, name, index)`, `DeclaredKind(StrEnum)`, `Policy(StrEnum)`,
 `Kind`, `Stacked(entries, origin, displaced)`, `Displacement`, `stack(layers, kind)`.
 
-- [ ] **Step 1: Write failing tests** against a synthetic kind with no dependency on the
+- [x] **Step 1: Write failing tests** against a synthetic kind with no dependency on the
       registry: two layers, one shared key, one unique key each. Assert `entries` has the
       higher layer's value, `origin` maps each key to a layer **index**, and `displaced` holds
       one record naming both layers.
-- [ ] **Step 2: Run to verify it fails** — `ModuleNotFoundError: comeni_core.layered`.
-- [ ] **Step 3: Implement.** Recursion via `rglob`, `*.yml` **and** `*.yaml`, missing
+- [x] **Step 2: Run to verify it fails** — `ModuleNotFoundError: comeni_core.layered`.
+- [x] **Step 3: Implement.** Recursion via `rglob`, `*.yml` **and** `*.yaml`, missing
       subdirectory tolerated, entries sorted for determinism, and a `claimed: set[Path]` on
       `Stacked` recording which files were read.
-- [ ] **Step 4: Test the collision case** — two layers whose `name` is identical but whose
+- [x] **Step 4: Test the collision case** — two layers whose `name` is identical but whose
       `index` differs. Both displacement records must survive. This is A25 and it must fail
       before step 3 is complete.
-- [ ] **Step 5: Test `Policy.DELETE_GROUP`** — a `group` key differing from the storage key,
+- [x] **Step 5: Test `Policy.DELETE_GROUP`** — a `group` key differing from the storage key,
       with displaced members removed. This is contract shadowing, tested before any contract
       uses it.
-- [ ] **Step 6:** `uv run pytest packages/comeni-core/tests/test_layered.py -v`.
-- [ ] **Step 7: Commit** `feat(core): a layer is a value and stacking is one mechanism`
+- [x] **Step 6:** `uv run pytest packages/comeni-core/tests/test_layered.py -v`.
+- [x] **Step 7: Commit** `feat(core): a layer is a value and stacking is one mechanism`
 
 ### Task B2: measurements move to `stack()`
 
 **Files:** Modify `measurement.py`, `layers.py`; test `tests/test_audit_regressions.py`.
 
-- [ ] **Step 1: Write the failing A23 test** — base + overlay measurement with a different
+- [x] **Step 1: Write the failing A23 test** — base + overlay measurement with a different
       `meta_values` translation; assert a `Displacement` is produced naming both layers.
-- [ ] **Step 2: Run to verify it fails** — no displacement is recorded today.
-- [ ] **Step 3:** `MeasurementRegistry.load` becomes `Kind(MEASUREMENTS, parse, key=stem,
+- [x] **Step 2: Run to verify it fails** — no displacement is recorded today.
+- [x] **Step 3:** `MeasurementRegistry.load` becomes `Kind(MEASUREMENTS, parse, key=stem,
       policy=REPLACE)` with `add_values` as `Policy.MERGE`.
-- [ ] **Step 4: Re-run.** Also assert the shipped single-layer registry produces **no**
+- [x] **Step 4: Re-run.** Also assert the shipped single-layer registry produces **no**
       displacement.
-- [ ] **Step 5: Commit** `fix(core): a measurement overlay says so — A23`
+- [x] **Step 5: Commit** `fix(core): a measurement overlay says so — A23`
 
 ### Task B3: vocabularies move to `stack()`, and `add_states` lands
 
 **Files:** Modify `vocabulary.py`, `layers.py`; test `tests/test_audit_regressions.py`.
 
-- [ ] **Step 1: Write two failing tests** — A24 (an overlay replacing `entry_channel` is
+- [x] **Step 1: Write two failing tests** — A24 (an overlay replacing `entry_channel` is
       reported) and A35 (an overlay declaring `states:` replaces and **is reported**; one
       declaring `add_states:` extends and base states survive).
-- [ ] **Step 2: Run to verify they fail.** A35 currently surfaces as
+- [x] **Step 2: Run to verify they fail.** A35 currently surfaces as
       `UnknownStateError: 'trimmed' is not a declared state` from an unrelated contract — paste
       that, it is the misdirection the fix removes.
-- [ ] **Step 3:** `Vocabulary.load` becomes a `Kind`; `add_states` is `Policy.MERGE`; the
+- [x] **Step 3:** `Vocabulary.load` becomes a `Kind`; `add_states` is `Policy.MERGE`; the
       per-field conditional replacement is removed so one policy governs the whole entry.
-- [ ] **Step 4: Re-run.** Shipped registry unchanged.
-- [ ] **Step 5: Commit** `fix(core): a vocabulary overlay says so, and add_states extends — A24, A35`
+- [x] **Step 4: Re-run.** Shipped registry unchanged.
+- [x] **Step 5: Commit** `fix(core): a vocabulary overlay says so, and add_states extends — A24, A35`
 
 ### Task B4: contracts move to `stack()`; `ShadowRecord` is deleted
 
 **Files:** Modify `registry.py`, `ir.py`, `layers.py`, `cli.py`, `lockfile.py`.
 
-- [ ] **Step 1: Write the failing test** — `PipelineIR.displaced` holds a `Displacement` for a
+- [x] **Step 1: Write the failing test** — `PipelineIR.displaced` holds a `Displacement` for a
       shadowed contract, with `displaced_keys` naming the full ids removed.
-- [ ] **Step 2: Run to verify it fails** — `PipelineIR` has `shadowed`, not `displaced`.
-- [ ] **Step 3:** `Registry.load` becomes `Kind(CONTRACTS, parse=ModuleContract.load,
+- [x] **Step 2: Run to verify it fails** — `PipelineIR` has `shadowed`, not `displaced`.
+- [x] **Step 3:** `Registry.load` becomes `Kind(CONTRACTS, parse=ModuleContract.load,
       key=id, group=module_key, policy=DELETE_GROUP)`. `Registry.layer_of` maps to **index**.
-- [ ] **Step 4:** `PipelineIR.shadowed` → `displaced: list[Displacement]`; delete
+- [x] **Step 4:** `PipelineIR.shadowed` → `displaced: list[Displacement]`; delete
       `ShadowRecord`; update `cli.py`'s `SHADOW` line into the `OVERLAY` block. **Five consumers
       beyond `registry.py`**, found by self-review: `comeni_core/__init__.py:43,88` (import and
       `__all__`), `ir.py:24,180`, and prose references in `layer.py:9`, `ir.py:77`,
       `test_ir_provenance.py:66`, `test_audit_regressions.py:148,334`. The prose references are
       history and stay; the imports must go.
-- [ ] **Step 5: Revert `Lockfile.drift_against`'s layer comparison** and confirm its guard fails.
+- [x] **Step 5: Revert `Lockfile.drift_against`'s layer comparison** and confirm its guard fails.
       It was inert once already (`8dbde51`) and this part changes the identity it reads.
-- [ ] **Step 6:** `uv run pytest tests/test_lockfile.py tests/test_publish.py -v`.
-- [ ] **Step 7: Commit** `refactor(core): contracts stack through the one mechanism — A25`
+- [x] **Step 6:** `uv run pytest tests/test_lockfile.py tests/test_publish.py -v`.
+- [x] **Step 7: Commit** `refactor(core): contracts stack through the one mechanism — A25`
 
 ### Task B5: rules move to `stack()`, and a pin carries its provenance — A22
 
@@ -276,35 +276,63 @@ Closes A22, A23, A24, A25, A26, A35. **The largest part.**
 **Interfaces:** Produces `Pin(contract_id, from_layer, displaced_layer, decision, row)`.
 `RouteStep.from_layer` loses its default.
 
-- [ ] **Step 1: Write the failing A22 test** — an overlay with a **`producer_of:`** rule block
+- [x] **Step 1: Write the failing A22 test** — an overlay with a **`producer_of:`** rule block
       (not `param:` — that is the bug in the A15 fixture). Assert `selection.from_layer` names
       the layer whose *rule* decided, and `overlay_reroutes()` names it.
-- [ ] **Step 2: Run to verify it fails.** Expected today: `from_layer: registry`,
+- [x] **Step 2: Run to verify it fails.** Expected today: `from_layer: registry`,
       `displaced_layer: None`, `overlay_reroutes() == []` — the artifact asserting the opposite
       of what happened. Paste it.
-- [ ] **Step 3:** `RuleTable.producer_for` returns a `Pin`.
-- [ ] **Step 4:** `RouteStep.from_layer: LayerName` — **no default**. Fix every construction
+- [x] **Step 3:** `RuleTable.producer_for` returns a `Pin`.
+- [x] **Step 4:** `RouteStep.from_layer: LayerName` — **no default**. Fix every construction
       site; the type is what forces the read.
-- [ ] **Step 5:** `router._choose` destructures the `Pin` and prefers rule provenance over the
+- [x] **Step 5:** `router._choose` destructures the `Pin` and prefers rule provenance over the
       contract-level answer when a rule decided.
-- [ ] **Step 6: Re-run**, plus the A15 `param:` test, which must still pass.
-- [ ] **Step 7: Commit** `fix(resolver): a rule-pinned reroute says which layer decided — A22`
+- [x] **Step 6: Re-run**, plus the A15 `param:` test, which must still pass.
+- [x] **Step 7: Commit** `fix(resolver): a rule-pinned reroute says which layer decided — A22`
 
 ### Task B6: every file in a layer is claimed — A26
 
 **Files:** Modify `layers.py`; test `tests/test_audit_regressions.py`.
 
-- [ ] **Step 1: Write three failing tests** — a `.yaml` contract loads; a vocabulary nested one
+- [x] **Step 1: Write three failing tests** — a `.yaml` contract loads; a vocabulary nested one
       directory deep loads; an unrecognised `.yml` under a layer subdirectory **raises naming
       the file**.
-- [ ] **Step 2: Run to verify they fail.** The `.yaml` case today routes on the base layer with
+- [x] **Step 2: Run to verify they fail.** The `.yaml` case today routes on the base layer with
       exit 0 — paste that.
-- [ ] **Step 3:** `layers.load` unions every `Stacked.claimed` and raises on the residue.
-- [ ] **Step 4: Re-run**; shipped registry unaffected.
-- [ ] **Step 5: Commit** `fix(resolver): a file in a layer that nothing reads is an error — A26`
+- [x] **Step 3:** `layers.load` unions every `Stacked.claimed` and raises on the residue.
+- [x] **Step 4: Re-run**; shipped registry unaffected.
+- [x] **Step 5: Commit** `fix(resolver): a file in a layer that nothing reads is an error — A26`
 
-- [ ] **Part B gate:** `make verify`. **Emission must be byte-identical** for the shipped
+- [x] **Part B gate:** `make verify`. **Emission must be byte-identical** for the shipped
       single-layer registry — this is the part most likely to move it.
+      **Green, 2026-08-07:** check 392, slow 2 (the counts matrix, including the
+      strandedness assertion A23's mechanism touches), guards 13, drift skipped. Golden
+      files unmoved.
+
+> **Corrections made while executing Part B**, in the spirit of the global constraint.
+>
+> - **Every loader takes layer roots**, not `<layer>/contracts` or `<layer>/measurements`.
+>   The plan said "`MeasurementRegistry.load` becomes a `Kind`" without saying what it is
+>   handed; `stack()` reads `layer.path / kind.which.value`, so a slice-taking loader cannot
+>   use it. `names=` disappears from `Registry.load` and `RuleTable.load` for the same
+>   reason — the fact the caller was forwarding is now on the `Layer`. ~40 call sites, all
+>   in tests, all mechanical.
+> - **Each container carries its own `displaced`**, and `resolve()` reads
+>   `measurements.displaced + registry.displaced`. Passing them in would be the guard in a
+>   caller the next caller forgets — the same argument the plan makes for `RouteStep`.
+>   `Vocabulary`'s join in Part E, when `resolve()` takes one; recorded in `resolve.py`.
+> - **`value_for` returns a `Pin` too**, not only `producer_for`. Same forgetting risk,
+>   and A15 was found at exactly that site.
+> - **A35 needed a message, not only a record.** Reporting the displacement does not help
+>   if the build dies first with `UnknownStateError` naming a base contract. `layers.load`
+>   joins the two: `UnknownStateError` carries `type_id` and `state`, and the loader names
+>   the layer that removed the state.
+> - **B6's residue check covers the whole layer**, not only the four subdirectories —
+>   everything under those is claimed by construction, so the check would have been inert.
+>   A misspelled `contract/` is the case that matters.
+> - **Two dead conditions found by reverting**: `origin[key] != layer.index` can never be
+>   false, and `stack()`'s duplicate-key message named "an earlier file" when the duplicate
+>   is usually in the same file.
 
 ---
 
