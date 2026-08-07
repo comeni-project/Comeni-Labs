@@ -69,7 +69,8 @@ Then Plan 2.
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **nine specs, one per root. Read the part's spec before starting it.** |
+| `docs/internal/specs/` | **ten specs. Nine are one per audit root; the tenth is a design spec. Read the part's spec before starting it.** |
+| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | **`pipeline.yml` — one artifact replacing the IR json, the lockfile and the bundle. Supersedes the four-route settings surface below. Takes precedence over the code it cites.** |
 | `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
 | `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
 | `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |

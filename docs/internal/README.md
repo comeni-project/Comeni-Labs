@@ -81,6 +81,23 @@ replays recorded decisions when a curated bundle is edited, the other caches mod
 across runs — but they are close enough that building both without noticing gives two ways to
 do one thing. Whichever runs second should absorb the first rather than duplicate it.
 
+### The tenth spec is not a root
+
+`specs/` holds nine specs written one per audit root, and one that is not:
+**`2026-08-07-the-pipeline-file.md`**. The nine describe fixes to code that exists; that one
+describes a design change — `pipeline.yml` as a single readable artifact replacing
+`pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`'s on-disk form, with every setting
+carrying its tier, its route to the tool, and its reason.
+
+**It takes precedence over the code it cites**, by the operator's decision on 2026-08-07: the
+roots are being implemented concurrently, so its citations will drift, and where they disagree
+the spec wins. It may relocate a guard the roots install; it may never weaken one.
+
+**Its place in this table is not yet decided**, and no plan exists for it. The argument for
+running it before Plan 2 is that it changes door 4's payload type and the shape replay reads, both
+of which Plan 2 builds on. The argument against is that it moves the v1 criterion no further than
+1.7 or 1.8 did, and the criterion's one unmet clause is still the plain-language prompt.
+
 ### On the numbering
 
 `1.5`, `1.6` and `1.7` are the deterministic core: no AI, no network, no new dependency.

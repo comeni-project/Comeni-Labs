@@ -1,0 +1,549 @@
+# The pipeline file — one artifact, every setting, every provenance
+
+**Spec, 2026-08-07.** Closes [#10](https://github.com/comeni-project/Comeni-Labs/issues/10).
+Supersedes the four-route settings surface described in `ARCHITECTURE.md`.
+
+Verified against the code at `e9cab07`.
+
+**This is a design spec, not an audit root.** The nine root specs
+(`2026-08-07-root-*.md`) close findings in code that exists. This one changes what the code
+should be.
+
+---
+
+## Precedence, because the ground is moving
+
+The nine root specs are being implemented concurrently, in a separate worktree. The code this
+spec cites **will have moved** by the time it runs. Two rules resolve that:
+
+1. **Where this spec and the codebase disagree, this spec wins.** Design choices settled here
+   overwrite whatever shape the code has arrived at. Every code citation below names a *symbol
+   and a behaviour*, never a line number, so a citation that no longer matches is a citation to
+   re-read rather than a spec to re-litigate.
+2. **Where this spec and a root spec disagree, the root's guarantee survives and its location
+   moves.** The roots close critical findings; this spec relocates surfaces. A guard may be
+   moved by this work. It may never be weakened, deleted, or left watching a surface that no
+   longer exists — that last one is A14's failure mode, and consolidating four artifacts into
+   one is exactly the change that could produce it silently.
+
+Concretely: root C says every string the emitter writes has a declared kind. This spec changes
+*which* strings the emitter writes and adds one kind. Root C's rule holds; its table gains a
+row. That is the pattern for every interaction below.
+
+---
+
+## The problem
+
+A researcher asking "what settings does this pipeline use, and why" must read four files and
+know which of four mechanisms carries each value.
+
+| route | declared in | reaches the tool via | visible in the artifact? |
+|---|---|---|---|
+| `ext_args` | `ModuleContract.ext_args` | `process { withName: X { ext.args } }` | no — lives in the registry |
+| `meta` map | `Measurement.meta_key` + `meta_values` | channel `.map { meta + [...] }` | as a Groovy expression in `main.nf` |
+| `params.<x>` | `Vocabulary.entry_channels` | `params.input`, `params.gtf` | as `= null` in `nextflow.config` |
+| `nf_inputs` literal | `ModuleContract.nf_inputs` | a positional argument | **nowhere** |
+
+The fourth row is the sharp one. `STAR_ALIGN(reads, index, gtf, false)` — that `false` is a
+tier-1 decision that appears in no artifact at all. `pipeline.ir.json` does not contain it.
+Neither does the lockfile.
+
+**And a fifth route does not work.** `ModuleContract.params` resolves to a
+`params.<node>_<name>` line in `main.nf` that nothing reads:
+
+```groovy
+// tier 2 (none): contract default
+params.star_align_seq_platform = 'illumina'
+```
+
+`vendor/modules/nf-core/star/align/main.nf` has no `seq_platform`. nf-core/rnaseq passes it
+through `ext.args` as `--outSAMattrRGline ID:$prefix 'PL:illumina'`. So the resolver runs, emits
+a tier-4 flag, records a `DecisionRecord`, prints `REVIEW star_align.seq_platform`, and the
+pipeline behaves identically whatever the answer is. That is issue #10, and it is the CLAUDE.md
+*deadness* gotcha with a name.
+
+**The whole declared-param surface is two entries and all of it is dead.** Across ten shipped
+contracts: `star/align` and `hisat2/align`, both `seq_platform`, both `tier_hint: 4`, both
+reaching nothing. Fixing this costs nearly nothing today and gets expensive once the forge emits
+params at volume.
+
+### Three artifacts describe one pipeline
+
+| artifact | holds | overlap |
+|---|---|---|
+| `pipeline.ir.json` | nodes, edges, selections, decisions, profile, layers | near-total |
+| `PublishBundle` | goal + that IR + decisions + lockfile + gate | near-total, plus `goal` and `gate` |
+| `mendel.lock.yml` | contract digests, layer digests | becomes per-step `digest:` |
+
+None is human-facing. The IR for the five-module spine is ~200 lines of JSON. A build directory
+contains no readable account of what was decided — the tiers and reasons survive as comments
+scattered through `main.nf` and as records inside the JSON, and `needs_review()` reaches the user
+as one line on stderr.
+
+### And emission reads four inputs
+
+`emit(ir, registry, vocab, measurements)`. A published pipeline therefore reproduces only against
+the registry it was built with, at that version. Hand someone a bundle and they may get different
+Nextflow. For a lab archiving a validated pipeline, "archive the registry too, and hope it still
+loads" is not an answer.
+
+---
+
+## The design
+
+### 1. One artifact: `pipeline.yml`
+
+It replaces `pipeline.ir.json`, `mendel.lock.yml`, and `PublishBundle`'s on-disk form. A build
+directory becomes:
+
+```
+build/
+  pipeline.yml       the pipeline — read this
+  main.nf            generated
+  nextflow.config    generated
+  modules/           vendored module source, as today
+```
+
+```yaml
+# pipeline.yml — the pipeline. Edit it; `mendel emit` rebuilds the Nextflow.
+version: 1
+
+goal:                          # what was asked for. `upgrade` re-resolves from here.
+  have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
+  want: [counts.matrix]
+  constraints: {required_states: {counts.matrix: [gene_level]}}
+  profile: {read_length: 150, strandedness: reverse, paired: true, n_samples: 12}
+
+registry:                      # provenance. NOT a dependency of `emit`.
+  layers: [{name: comeni-registry-examples, digest: sha256:1a4f…}]
+  shadowed: []
+  unverified: []
+
+steps:
+  - id: star_align
+    module:  {id: nf-core/star/align@1.11.0, digest: sha256:9f2c…}
+    why:     {tier: 3, source: resolver, from_layer: comeni-registry-examples,
+              reason: "rule producer_of:alignment.bam matched read_length >= 70:
+                       doi:10.1093/bioinformatics/bts635"}
+    process: STAR_ALIGN
+    include: modules/nf-core/star/align/main
+    inputs:
+      reads: {from: trimgalore.reads, states: [trimmed]}
+      index: {from: star_genomegenerate.index}
+      gtf:   {from: "channel:annotation.gtf"}
+    call:
+      - {ports: [reads]}
+      - {ports: [index]}
+      - {ports: [gtf]}
+      - {literal: false, because: "no GTF-free splice-junction path in this spine"}
+    settings:
+      readFilesCommand:
+        value: zcat
+        via: ext_args
+        template: "--readFilesCommand {value}"
+        why: {tier: 1, source: contract, reason: "TrimGalore emits .fq.gz"}
+      seq_platform:
+        value: illumina
+        via: ext_args
+        template: "--outSAMattrRGline ID:${meta.id} 'PL:{value}'"
+        why: {tier: 4, source: human, reason: "our sequencer"}
+
+channels:                      # what the lab supplies, and the measured facts
+  fastq.reads:
+    param: input
+    expression: "Channel.fromFilePairs(params.input, checkIfExists: true)…"
+    meta: {single_end: false, strandedness: reverse}
+
+decisions:                     # the review queue: tier 4, ties, overrides
+  - key: star_align.seq_platform
+    tier: 4
+    resolved_by: flag-only
+    reason: "no rule covered 'seq_platform'"
+    human_override: illumina
+
+gate: test                     # the strongest gate this pipeline actually passed
+```
+
+Four properties are load-bearing:
+
+**`why:` on every step and every setting.** Tier, who settled it, which layer, and the citation,
+in one place. This is the legibility the four-file split cannot provide.
+
+**`call:` materialises `nf_inputs`**, including the tier-1 literal that appears in no artifact
+today, and it carries the literal's `because` — so the hollow-input lesson (`NfInput.empty`
+requiring a reason, because `-stub-run` cannot see a hollow input) survives into the readable
+artifact instead of living only in the registry.
+
+**`inputs:` replaces the flat edge list**, keyed under the consuming step. Lossless — an
+`IREdge` has exactly one consuming port — and it makes "where does this step's GTF come from"
+answerable without scanning a separate list. Root D's finding that `diff_ir` ignored `ir.edges`
+is the reason edges must be prominent rather than tucked away.
+
+**`gate:` lives inside the file.** Root D's title is *the verdict comes from the artifact*; this
+is that, structurally. The evidence and the pipeline are one document, so a bundle whose gate
+claim was edited away is a bundle whose digest moved.
+
+### 2. `emit` reads one file
+
+```python
+# comeni-core — pure; the interface Wiener consumes
+class Pipeline(BaseModel):
+    """Everything `emit` reads. The on-disk form is pipeline.yml."""
+    model_config = ConfigDict(extra="forbid")
+
+    version: int
+    goal: Goal
+    registry: RegistryProvenance
+    steps: list[Step]
+    channels: list[Channel]
+    decisions: list[DecisionRecord]
+    gate: Gate | None = None
+
+    @classmethod
+    def of(cls, ir: PipelineIR, registry: Registry,
+           vocab: Vocabulary, measurements: MeasurementRegistry) -> "Pipeline": ...
+
+# mendel-compiler — was emit(ir, registry, vocab, measurements)
+def emit(pipeline: Pipeline) -> str: ...
+def emit_config(pipeline: Pipeline) -> str: ...
+```
+
+`Pipeline.of()` is **the only validating constructor**, enforced the way
+`MeasurementRegistry.profile()` already is — by `tests/test_construction.py`, which exists
+because deleting one call let `profile: {sample_name: ...}` build cleanly. Same reasoning:
+materialisation must not be bypassable by a caller assembling a `Pipeline` by hand with the
+contract-derived fields empty.
+
+`PipelineIR` and `Lockfile` survive as internal types. `resolve()` still returns an IR;
+`Lockfile.of()` still computes digests, which land as `steps[].module.digest` and
+`registry.layers[].digest`. They stop being **artifacts**. Neither `pipeline.ir.json` nor
+`mendel.lock.yml` is written.
+
+### 3. Four verbs
+
+```bash
+mendel build --goal g.yml --registry registry/ --out build/   # resolve, then emit
+mendel emit  build/pipeline.yml --out build/                  # no registry, no network
+mendel verify build/pipeline.yml --registry registry/         # frozen values vs. digests
+mendel upgrade build/pipeline.yml --registry registry/        # re-resolve, replay edits
+mendel publish build/pipeline.yml
+```
+
+**`build` emits from the round-tripped file, not the in-memory object.** Write `pipeline.yml`,
+parse it back, emit from the parsed result. One extra parse; in exchange, what you built and what
+anyone else re-emits are the same bytes *by construction*. This is earned, not speculative:
+`ResolvedValue._drop_computed` exists because `PipelineIR.model_validate_json(ir.model_dump_json())`
+raised, and — in that field's own words — *"nothing noticed, because nothing read an IR back
+until now."* Making the round trip load-bearing on every build retires that whole bug class.
+
+**A `pipeline.yml` is generated, never hand-authored from nothing.** Resolution needs a registry
+and always will. The file is the output of resolution that you may then edit; it is not an
+alternative front door. `mendel build --goal` (and, from Plan 2, the prompt door) remains the
+only way to make one.
+
+### 4. Settings: `via:` is mandatory and closed
+
+```python
+class Via(StrEnum):
+    EXT_ARGS  = "ext_args"   # → process { withName: X { ext.args = "…" } }
+    META      = "meta"       # → channel .map { meta + [k: v], files }
+    DIRECTIVE = "directive"  # → process { withName: X { cpus = 12 } }
+```
+
+Three values because Nextflow offers exactly three destinations for a resolved value: a tool's
+argument string, the sample's meta map, or a process directive. The enum is closed because it is
+**exhaustive**, not because more are deferred — each `via:` needs its own emission site in the
+compiler, and emission sites are code. Fixing the set at three now avoids forcing a schema
+migration on a file format labs are being asked to archive.
+
+**A setting without `via:` fails to load.** That makes a dead setting structurally impossible
+rather than merely detectable, and it closes #10 by removing the possibility rather than by
+adding a warning.
+
+Composition is deterministic: the contract's static `ext_args` first, then each `via: ext_args`
+setting in **name-sorted** order.
+
+### 5. `{value}` is validated, not escaped
+
+```yaml
+template: "--outSAMattrRGline ID:${meta.id} 'PL:{value}'"
+```
+
+Two interpolation systems meet in that line, and conflating them is how this goes wrong:
+
+- **`{value}` is Mendel's**, substituted at emit time. The only one.
+- **`${meta.id}` is Groovy's**, evaluated by Nextflow at run time. Passed through verbatim. A
+  literal dollar is written `\$`.
+
+`{value}` must not go through `_render_literal`, which returns a *quoted* Groovy literal and
+would turn `'PL:{value}'` into `'PL:'illumina''`. Escaping-for-context is precisely the trap root
+C exists to close. So instead: **`{value}` accepts a closed character class** —
+`[A-Za-z0-9_.:+-]*`, `int`, `float`, `bool` — and anything else fails to load. No escaping, no
+injection surface, and it takes root C's own stance on identifiers: validated, or it is not one.
+Every real case fits (`illumina`, `10`, `true`), and it composes with the declared-legal-values
+work `marks.py` already anticipates for Plan 2 Task 11.
+
+One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
+interpolates, where `_render_literal` single-quotes it today. **Every golden file moves.** That
+belongs in its own commit, ahead of the behaviour changes, so the diff stays legible.
+
+### 6. A goal pin and a file edit are different acts
+
+`resolve.py` returns a goal-pinned param as `tier=Tier.STRUCTURAL` with
+`source=ValueSource.GOAL`, and `review_level` is *derived* from tier — so it carries review
+`none`. **That is deliberate and must not be changed.** `ValueSource`'s own docstring makes the
+argument: *"A user who pins a parameter has legitimately removed the ambiguity, so the tier is
+still structural — but a reviewer needs to see that Mendel did not derive it."* Resolution never
+faced an ambiguity, so tier 1 is honest, and `source` is the axis that records who.
+
+Editing `pipeline.yml` is a **different act**. Resolution did face the ambiguity, flagged it tier
+4, and emitted a `DecisionRecord`; a human then answered it in the artifact. Collapsing that to
+tier 1 would erase the fact that the pipeline contains a question someone had to answer — and
+`needs_review()` would go quiet on a pipeline that is *more* in need of review than before, not
+less.
+
+So this spec adds a member rather than relabelling one, and invents no fifth tier:
+
+- **`ValueSource.HUMAN`** — set on a value edited in `pipeline.yml`. `GOAL` keeps its current
+  meaning and its tier-1 treatment.
+- A `HUMAN` setting **keeps the tier of what it displaced**, so `seq_platform` stays tier 4 with
+  `source: human`. An override answers an ambiguity; it does not abolish it.
+- `needs_review()` gains a sibling **`overrides()`**, keyed on `source is ValueSource.HUMAN`, so
+  "what did a person change" and "what still needs looking at" are separate questions with
+  separate answers. Invariant 6 — tier 4 is always flagged — then holds without an exception for
+  answered ones.
+
+This is adjacent to A3 but not the same finding. A3 was a path reaching `main.nf` through an open
+`dict`, and its fix (`HumanParamValue`, `PortName`) stands. What A3's docstring noted in passing
+— that the override *suppressed the tier-4 flag it replaced* — is the part this section addresses,
+and only for edits to the artifact.
+
+### 7. Replay reports four categories, and refuses on the fourth
+
+`mendel upgrade` keeps `goal` plus every value with `source: human`, re-resolves against the new
+registry, materialises a fresh `Pipeline`, and reapplies them:
+
+```
+$ mendel upgrade build/pipeline.yml --registry registry/
+
+drift      2  digest changed, resolved value unchanged
+              nf-core/star/align@1.11.0   sha256:9f2c… → sha256:c418…
+changes    1  the resolver now decides differently
+              samtools/sort   tier 1 → tier 3 (a rule now covers it)
+replayed   1  your edits, reapplied
+              star_align.seq_platform = 'illumina'
+ORPHANED   1  your edit no longer applies to anything
+              hisat2_align.seq_platform — that step is gone
+              → refused. remove the override, or pin the module.
+```
+
+**An orphaned override refuses the build.** An override that silently stops applying is the same
+failure as a guard that silently stops guarding — A14's shape, and not one to reintroduce in a
+new place. Drift and changes stay separate categories because Plan 1.7 established that
+distinction and it earns its keep: a digest moving is not the same event as a decision moving.
+
+### 8. Mappings are written, lists are stored
+
+`tests/test_egress.py` forbids mappings anywhere a payload can reach, because a `dict` key
+type-checks while saying nothing about whether the key was ever declared — which is why
+`RequiredStates` is a record. `Constraints._accept_mapping` set the precedent that the ergonomic
+form and the safe representation need not be the same decision.
+
+A `model_validator(mode="before")` normalises mapping → list for: `settings`, `channels`,
+`inputs`, `channels[].meta`, `goal.profile`, `goal.constraints.required_states`.
+
+**No positional shorthand in `call:`.** The three `NfInput` shapes are written out explicitly.
+Root G's rule is that a file can be read only one way, and `call:` is the field where a second
+reading produces a silently miswired pipeline rather than a parse error.
+
+### 9. Diagnostics
+
+`Diagnostic.contract_id` becomes **`subject`** — these point at a place in a file, not always at
+a contract. One type, one renderer, one flat `explain` namespace. `fix` stays required.
+
+| band | subject |
+|---|---|
+| `M0100`–`M0107` | conformance — a contract disagrees with its module (**exists**) |
+| `M0108`–`M0109` | reserved for conformance |
+| `M0110`–`M0119` | the pipeline file — a setting, an override, or the format |
+
+| code | refuses | catches |
+|---|---|---|
+| `M0108` | build | `via: ext_args` on a module whose source never reads `task.ext.args` |
+| `M0110` | build | a setting with no `via:` |
+| `M0111` | build | `{value}` outside the closed character class |
+| `M0112` | no — `verify` reports | a frozen value disagrees with the contract's current digest |
+| `M0113` | build | an orphaned override |
+| `M0114` | build | a `template:` that never mentions `{value}` |
+| `M0115` | build | `via:` is not one of the three |
+| `M0116` | build | the file `build` wrote does not parse back to the same object |
+| `M0117` | build | `version:` is newer than this Mendel understands |
+| `M0118` | build | two writers for one `meta` key |
+| `M0119` | build | `via: directive` names something Nextflow will silently ignore |
+
+`M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
+`"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
+checkable lie, and it lands in the reserved conformance band on day one.
+
+Four deserve their reasoning recorded:
+
+**`M0114`** is the subtle one. `via: ext_args` with a template that forgets `{value}` produces a
+setting that looks wired, renders real flags, and discards the value. Deadness wearing a bridge
+is *harder* to spot than today's honest no-op.
+
+**`M0116`** is what makes the round trip load-bearing rather than decorative.
+
+**`M0118`** exists because `via: meta` and a `Measurement.meta_key` write to the same map, and
+`_with_meta` does `meta + [...]`, so the later write wins silently. Two writers for one key is a
+refusal, not a precedence rule nobody remembers.
+
+**`M0119`** is the one that costs something. An unknown directive inside `withName` is *silently
+ignored by Nextflow* — the exact failure this design exists to eliminate, so omitting it would be
+incoherent. It needs a list of legal directive names, and that list belongs in the **registry
+vocabulary as data**, not in the compiler as code, so a new Nextflow directive arrives as an
+approved data change (invariants 2 and 7).
+
+A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Eleven new codes is
+where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
+
+### 10. What measurements do, so nobody "fixes" it
+
+A `Measurement` has two jobs and only one of them is a route. `strandedness` and `paired` declare
+`describes` + `meta_key` and reach the tool through the meta map. `read_length` and `n_samples`
+declare neither, and correctly reach no tool — they are inputs to **rules**, which route
+decisions rather than carrying values. A measurement with no `meta_key` is not a dead setting,
+and `M0110` must not be extended to cover it.
+
+---
+
+## How this composes with the other roots
+
+- **Root A (egress allowlist).** `Pipeline` becomes door 4's payload, replacing `PublishBundle`'s
+  shape, so the guard walks it: no `Any`, no bare `str`, no mappings, every string a declared
+  alias or `FreeText`. The free-text count must not change — the two permitted fields stay
+  `PromptRequest.prompt` and `GateFailure.tool_message`. `tests/test_egress.py` holds its lists
+  literally on purpose, so editing it is the intended friction.
+- **Root C (nothing is interpolated).** `template` is a **new string kind**, and it renders into
+  Groovy — so it takes `entry_channel`'s discipline, not `reason`'s. Root C's table gains a sixth
+  row. In exchange, `channels[].expression` becomes the *only* unbounded-Groovy field in the only
+  emitted-from file, which is a better position than root C's current five kinds across two
+  surfaces. If root C lands first, this spec's new markers must be added to its `Mark` enum, not
+  invented beside it.
+- **Root D (the verdict comes from the artifact).** `gate:` moves inside `pipeline.yml`, and
+  `upgrade`'s comparison becomes a comparison of two `Pipeline` objects rather than of
+  hand-enumerated IR fields. Root D's finding was that `diff_ir` enumerates what it knows about,
+  so every new field is a silent blind spot. A materialised `Pipeline` narrows that: the fields
+  `emit` reads and the fields a diff must compare become the same set, checkable by construction.
+- **Root B (a layer is one thing).** `registry.layers` and `registry.shadowed` are that
+  provenance, carried on the artifact. Root B reports when an overlay replaces an
+  `entry_channel`; this spec puts the resulting expression in the file, so the replacement is
+  visible in the thing you read rather than only in a build-time message.
+- **Root G (a file reads only one way).** `pipeline.yml` is a **new file format**, so it inherits
+  root G's duplicate-key problem on arrival rather than acquiring it later. Root G's loader
+  discipline applies to it from the first commit — this is why `call:` takes no shorthand.
+- **Root I (every guard is watched failing).** The table below.
+- **A14.** This spec touches `resolve.py` and `mendel_compiler/cli.py` — two of the four files
+  CLAUDE.md names as requiring **`make verify`** rather than `make check`. That section exists
+  because Plan 1.8 changed all four and reported each task verified on `make check` alone. Not to
+  be repeated here.
+
+  It also touches `emit.py`, which is *not* on that list — and on this change it should be. The
+  list names the files whose breakage `make check` cannot see, and `tests/test_counts.py` is the
+  only check that proves a setting reaches a tool. Rewriting `emit()`'s signature and its
+  `ext.args` composition is precisely a change `make check` would wave through. **The plan should
+  add `emit.py` to that list in CLAUDE.md**, rather than treating this spec as an exception to it.
+- **A16 / Plan 2 Task 11.** Override replay reads `DecisionRecord.human_override`, and A16 is the
+  `DecisionRecord.chosen` type conflation. This spec does not fix A16 and does not depend on it
+  being fixed, but the plan should sequence after it if both are in flight, since replay is the
+  code that would have to change twice.
+
+---
+
+## Verification
+
+Root I applies. Each probe added, watched failing, reverted.
+
+| probe | expected |
+|---|---|
+| a setting with `via:` removed | refused at load, `M0110`, naming the setting |
+| `seq_platform: "illumina'; println 'X'; //"` | refused at load, `M0111`. **Root C's own attack, on the new surface** |
+| `template: "--flag fixed"` with no `{value}` | refused, `M0114` |
+| an override for a step that re-resolution does not produce | refused, `M0113` — **not warned, not dropped** |
+| `via: meta` on `single_end` while `paired` is also measured | refused, `M0118` |
+| a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
+| a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `M0116` |
+| `via: directive` naming `cpuz` | refused, `M0119` |
+| `version: 2` in a `pipeline.yml` | refused, `M0117` |
+| **a step carrying two `via: ext_args` settings, with the name-sort reverted** | **byte-identity must fail** |
+| the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
+| `mendel emit` with no `--registry` and no network | **succeeds** |
+| a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
+| `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
+| `tests/test_counts.py` with one real `via: ext_args` setting on the spine | **the flag reaches the tool and changes observable output** |
+
+Three rows carry most of the weight.
+
+**The two-settings row is the one I expect to be got wrong.** With a single `via: ext_args`
+setting the name-sort is unobservable, so a test that reverts the sort still passes — a guard
+that cannot see its own subject. This is the `frozenset`-has-no-stable-order trap in a new place.
+
+**The counts row is a hard requirement, not a nice-to-have.** `M0114` catches a template that
+ignores `{value}`; *nothing* catches a template whose flag is wrong, because the flag goes to the
+tool and not to the module — the same limit that makes `-stub-run` blind to a hollow input. So
+the spine must grow one real `via: ext_args` setting whose effect is visible in the output, and
+`test_counts.py` must assert it took effect. Without that row, the routing mechanism is verified
+only by unit tests of its own machinery.
+
+**The last-two-rows pattern from root C applies here too**: the byte-identical row and the
+still-accepted rows are what catch over-correction. A fix that moves the spine's output, or that
+breaks `entry_channel`, has gone too far.
+
+---
+
+## Blast radius
+
+- **New:** `comeni_core/pipeline.py` — `Pipeline`, `Step`, `Setting`, `Channel`,
+  `RegistryProvenance`, `Via`, `Pipeline.of()`.
+- `comeni_core/contract.py` — `Param` gains `via` (required) and `template`.
+- `comeni_core/tiers.py` — `ValueSource.HUMAN`, beside `GOAL` and with its own rationale.
+- `comeni_core/ir.py` — `overrides()` beside `needs_review()`.
+- `comeni_core/egress.py` — door 4's payload becomes `Pipeline`; `PublishBundle` retires.
+- `comeni_core/marks.py` — the `NfTemplate` kind and its validator.
+- `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
+- `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
+  `via: directive` and `via: meta` emission.
+- `mendel_compiler/conformance.py` — `subject` replaces `contract_id`; `M0108`, `M0110`–`M0119`.
+- `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips.
+- `registry/` — `via:` and `template:` on both `seq_platform` params; a directive-name
+  vocabulary; one real `via: ext_args` setting on the spine for the counts assertion.
+- **Tests:** every golden file moves (quoting). `tests/test_egress.py` edited for the new payload
+  type. `tests/test_construction.py` gains `Pipeline`. `tests/test_counts.py` gains the
+  reaches-a-tool assertion.
+
+Unlike root C, **the registry does change** — two contracts gain `via:`/`template:`, and the
+spine gains a setting. So "byte-identical output" is a check on the *unchanged* parts only, and
+the plan must say which golden diffs are expected before they appear, or the expected diff will
+be used to wave through an unexpected one.
+
+---
+
+## What this spec does not cover
+
+- **The `via: directive` vocabulary's exact shape.** That it is registry data rather than
+  compiler code is decided; which file and what schema is a plan question.
+- **Whether `mendel verify` should also re-resolve**, or only compare digests. Digest comparison
+  is specified; a full re-resolve is what `upgrade` does, and whether `verify` should be a dry-run
+  of it is open.
+- **Issue [#2](https://github.com/comeni-project/Comeni-Labs/issues/2)** — `sealed` blocking
+  tier-3 decisions on asserted measurements. Untouched. `ProfilePolicy` is still Plan 2.
+- **Issue [#16](https://github.com/comeni-project/Comeni-Labs/issues/16)** — signed bundles. One
+  self-contained file makes detached signing *easier* (sign `pipeline.yml`, ship the signature
+  beside it), and the egress guard's `bytes` prohibition is unaffected. Still needs a federation
+  §8 decision.
+- **A16** — the `DecisionRecord.chosen` conflation. Noted as a sequencing interaction above, not
+  fixed here.
+- **Whether the emitted `params { }` block should shrink.** Entry params (`input`, `gtf`,
+  `fasta`) stay as they are; they are lab-supplied data, not settings, and invariant 15 is why
+  they default to `null`.
+- **Plan 3's review screens.** They will read `pipeline.yml`, which is most of why it is YAML
+  with a `why:` on every decision, but the API surface is Plan 3's.
