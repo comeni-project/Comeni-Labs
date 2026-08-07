@@ -561,31 +561,31 @@ Closes A21.
 
 **Files:** Modify `digest.py`, `packages/comeni-core/tests/test_digest.py`.
 
-- [ ] **Step 1: Revert `_hex(name.encode())` → `name`** and run
+- [x] **Step 1: Revert `_hex(name.encode())` → `name`** and run
       `uv run pytest packages/comeni-core/tests/test_digest.py -v`. Expected **12 passed** —
       paste it. That is the finding.
-- [ ] **Step 2: Extract `entry_hash(name, content_digest) -> str`**, public, documenting that a
+- [x] **Step 2: Extract `entry_hash(name, content_digest) -> str`**, public, documenting that a
       test must construct forgeries through it.
-- [ ] **Step 3: Rewrite the test** to build its forged filename from `entry_hash`.
-- [ ] **Step 4: With the fix still reverted, re-run.** The test must now **fail**.
-- [ ] **Step 5: Restore the fix**; digest of the shipped registry unchanged.
-- [ ] **Step 6: Ask A21's symmetric question** — revert `_FILE` domain separation and run the
+- [x] **Step 3: Rewrite the test** to build its forged filename from `entry_hash`.
+- [x] **Step 4: With the fix still reverted, re-run.** The test must now **fail**.
+- [x] **Step 5: Restore the fix**; digest of the shipped registry unchanged.
+- [x] **Step 6: Ask A21's symmetric question** — revert `_FILE` domain separation and run the
       suite. If nothing fails, that is a **new finding**; record it as A36 rather than fixing it
       here.
-- [ ] **Step 7: Commit** `test(digest): the forgery test calls the code it guards — A21`
+- [x] **Step 7: Commit** `test(digest): the forgery test calls the code it guards — A21`
 
 ### Task F2: the sweep
 
 **Files:** Modify `docs/internal/audits/guard-ledger.md`.
 
-- [ ] **Step 1:** For each of `test_lockfile.py`, `test_registry_drift.py`,
+- [x] **Step 1:** For each of `test_lockfile.py`, `test_registry_drift.py`,
       `test_generated_types.py`, `test_conformance.py` and the remaining `test_digest.py` tests,
       answer one question: does the test **call** the code under test to build its fixture, or
       **restate** what that code does?
-- [ ] **Step 2:** Record each answer in the ledger. Restating is a finding, numbered A37+.
-- [ ] **Step 3: Commit** `docs: the guard ledger, and what re-implements its subject`
+- [x] **Step 2:** Record each answer in the ledger. Restating is a finding, numbered A37+.
+- [x] **Step 3: Commit** `docs: the guard ledger, and what re-implements its subject`
 
-- [ ] **Part F gate:** `make verify`.
+- [x] **Part F gate:** `make verify`. **Green:** check 438, slow 2, guards 13.
 
 ---
 
@@ -598,31 +598,31 @@ Closes A31.
 
 **Files:** Create `packages/comeni-core/src/comeni_core/yaml_strict.py`; modify the 7 call sites.
 
-- [ ] **Step 1: Write the failing test** — a contract with a repeated `priority:` is refused,
+- [x] **Step 1: Write the failing test** — a contract with a repeated `priority:` is refused,
       and the message names **the file, the key and both line numbers**.
-- [ ] **Step 2: Run to verify it fails.** Paste `loaded priority = 999`.
-- [ ] **Step 3: Implement** a `SafeLoader` subclass overriding `construct_mapping`.
-- [ ] **Step 4: Move all 7 call sites** — `vocabulary.py`, `contract.py`, `measurement.py`,
+- [x] **Step 2: Run to verify it fails.** Paste `loaded priority = 999`.
+- [x] **Step 3: Implement** a `SafeLoader` subclass overriding `construct_mapping`.
+- [x] **Step 4: Move all 7 call sites** — `vocabulary.py`, `contract.py`, `measurement.py`,
       `layer.py`, `rules.py`, `modulespec.py`, `cli.py` (the goal file).
-- [ ] **Step 5: Run against everything the project owns** — the shipped `registry/`, all of
+- [x] **Step 5: Run against everything the project owns** — the shipped `registry/`, all of
       `examples/`, and **every vendored `meta.yml`**. A vendored file that trips it is a finding
       about that module, recorded, **not exempted**.
-- [ ] **Step 6: Commit** `fix(core): a declared file cannot be read two ways — A31`
+- [x] **Step 6: Commit** `fix(core): a declared file cannot be read two ways — A31`
 
 ### Task G2: measure the anchor hypothesis
 
 **Files:** `docs/internal/audits/2026-08-07-round-two-audit.md`.
 
-- [ ] **Step 1:** Construct a contract using a YAML anchor and alias; load it. Record what
+- [x] **Step 1:** Construct a contract using a YAML anchor and alias; load it. Record what
       happens.
-- [ ] **Step 2:** Construct a billion-laughs expansion; load it with a timeout. Record what
+- [x] **Step 2:** Construct a billion-laughs expansion; load it with a timeout. Record what
       happens.
-- [ ] **Step 3:** **Only now** decide whether `_StrictLoader` refuses anchors. If it should,
+- [x] **Step 3:** **Only now** decide whether `_StrictLoader` refuses anchors. If it should,
       that is a new task; if not, record why. Recording an untested hypothesis as a fix is what
       this plan exists to stop.
-- [ ] **Step 4: Commit** `docs: anchors and expansion, measured`
+- [x] **Step 4: Commit** `docs: anchors and expansion, measured`
 
-- [ ] **Part G gate:** `make verify`.
+- [x] **Part G gate:** `make verify`. **Green:** check 438, slow 2, guards 13.
 
 ---
 
@@ -639,33 +639,33 @@ Closes A32, A33. **Depends on Part E** for `DecisionKind` and `EdgeRef`.
 **Interfaces:** Produces `ParamAsked`, `ProducerAsked`, `SourceAsked`; `Resolution` gains
 `extra="forbid"` and `resolved_by: ResolverId`.
 
-- [ ] **Step 1: Write failing tests** — `Ambiguity(..., extra=1)` refused; a `context=` keyword
+- [x] **Step 1: Write failing tests** — `Ambiguity(..., extra=1)` refused; a `context=` keyword
       fails because the field is gone; `Resolution(resolved_by=<unmarked str>)` refused.
-- [ ] **Step 2: Run to verify they fail** — today `Ambiguity` has no `model_config` at all.
-- [ ] **Step 3: Implement** the three types, moving `context`'s three uses (`type_id`,
+- [x] **Step 2: Run to verify they fail** — today `Ambiguity` has no `model_config` at all.
+- [x] **Step 3: Implement** the three types, moving `context`'s three uses (`type_id`,
       `required`, `states`, `tier_hint`) to declared fields per kind.
-- [ ] **Step 4: Add `Ambiguity` and `Resolution` to the egress guard's roots**; they must pass
+- [x] **Step 4: Add `Ambiguity` and `Resolution` to the egress guard's roots**; they must pass
       part A's leaf rule.
-- [ ] **Step 5: Assert the projection is total** — a test that every `*Asked` field maps to an
+- [x] **Step 5: Assert the projection is total** — a test that every `*Asked` field maps to an
       `AmbiguityRequest` field, so a future field cannot silently fail to cross.
-- [ ] **Step 6:** `FlagOnlyResolver` and `ReplayResolver` still satisfy the protocol.
-- [ ] **Step 7: Commit** `refactor(core): the seam a model sits behind is a declared type — A32`
+- [x] **Step 6:** `FlagOnlyResolver` and `ReplayResolver` still satisfy the protocol.
+- [x] **Step 7: Commit** `refactor(core): the seam a model sits behind is a declared type — A32`
 
 ### Task H2: A33's four smaller items
 
 **Files:** Modify `router.py`, `resolve.py`, `cli.py`, `CLAUDE.md`.
 
-- [ ] **Step 1:** `router._choose`'s tier-4 reason states what happened rather than always
+- [x] **Step 1:** `router._choose`'s tier-4 reason states what happened rather than always
       `"chosen by id order"`.
-- [ ] **Step 2:** Document at the site why `_resolve_param` trusts a non-candidate answer while
+- [x] **Step 2:** Document at the site why `_resolve_param` trusts a non-candidate answer while
       the other two sites do not.
-- [ ] **Step 3:** Add `ValueError` to `cli.main`'s except-list so a symlinked layer and A35's
+- [x] **Step 3:** Add `ValueError` to `cli.main`'s except-list so a symlinked layer and A35's
       `UnknownStateError` read as `mendel:` lines rather than tracebacks.
-- [ ] **Step 4:** Correct `CLAUDE.md` invariant 14 — it says two free-text fields; there are
+- [x] **Step 4:** Correct `CLAUDE.md` invariant 14 — it says two free-text fields; there are
       four, and the guard is the honest one.
-- [ ] **Step 5: Commit** `fix: four smaller items at the AI seam — A33`
+- [x] **Step 5: Commit** `fix: four smaller items at the AI seam — A33`
 
-- [ ] **Part H gate:** `make verify`.
+- [x] **Part H gate:** `make verify`. **Green:** check 441, slow 2, guards 14.
 
 ---
 
@@ -678,19 +678,19 @@ Closes A14 — **and only when the ledger is complete, which this plan does not 
 
 **Files:** Create `docs/internal/audits/guard-ledger.md`.
 
-- [ ] **Step 1:** One row per guard: file, test, what was reverted, what happened, message
+- [x] **Step 1:** One row per guard: file, test, what was reverted, what happened, message
       quality, date. Append-only.
-- [ ] **Step 2:** Seed it with round two's 22 recorded reverts.
-- [ ] **Step 3: Commit** `docs: the guard ledger — A14's closure condition`
+- [x] **Step 2:** Seed it with round two's 22 recorded reverts.
+- [x] **Step 3: Commit** `docs: the guard ledger — A14's closure condition`
 
 ### Task I2: the residue
 
-- [ ] **Step 1:** After Parts A–H, list every guard in `tests/` with no ledger row.
-- [ ] **Step 2:** Revert each, watch, record. Most will already be covered because A–H rewrite
+- [x] **Step 1:** After Parts A–H, list every guard in `tests/` with no ledger row.
+- [x] **Step 2:** Revert each, watch, record. Most will already be covered because A–H rewrite
       them.
-- [ ] **Step 3:** **Re-revert every guard a part rewrote**, after the rewrite. A21 exists
+- [x] **Step 3:** **Re-revert every guard a part rewrote**, after the rewrite. A21 exists
       because a *fix* disarmed a guard.
-- [ ] **Step 4: Commit** `docs: the ledger is complete — A14 closed`
+- [x] **Step 4: Commit** `docs: the ledger is complete — A14 closed`
 
 ---
 
@@ -719,3 +719,31 @@ Audit again after this plan, by the brief in
 **A36** or wherever Part F and G's measurements have taken the numbering. The sharpest defect has
 been in the freshest code in all three audits; there is no reason to expect this plan to be the
 exception, and five of round two's findings were in code written to close round one.
+
+---
+
+## What actually happened, 2026-08-07
+
+**A17–A35 are closed.** `make verify` green: check 441, slow 2, guards 14, drift skipped
+(no `../comeni-registry` checkout on this machine). Golden files never moved.
+
+**Three findings arrived during execution and are recorded in the audit, not here:**
+
+- **A36** — `_FILE` domain separation protects nothing; reverting it fails no test. Left
+  open with three options written down, because Part F's step said to record rather than
+  fix, and because nothing is published so the decision is free today.
+- **A37** — `producers_of`'s priority ordering had no test that could fail. Fixed the same
+  day; the fixture agreed with itself.
+- **The anchor hypothesis, measured and dismissed.** Merge keys were already refused;
+  aliases do not amplify. Recorded so it is not re-opened from the armchair.
+
+**Corrections to this plan are inline above, per part.** Six of the nine parts needed one.
+The pattern across them is the same as every previous plan: the spec was right about the
+defect and wrong about a detail of the fix, and the detail was always something only the
+code could answer — a signature, a call-site count, whether a string shape can discriminate.
+
+**A14 does not close.** Eleven test files still have no recorded revert. The ledger says
+which, and why `test_counts.py` is the expensive one. Marking it closed to make the
+arithmetic work was the temptation Plan 1.8 named and declined; this declines it again.
+
+**Round three starts at A38.**

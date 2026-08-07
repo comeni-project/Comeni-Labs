@@ -15,8 +15,8 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, 1.5, 1.6, 1.7 and 1.8 are complete, and Plan 1.9 is in
-progress** — Part A and Part B Task B1 are done. 378 fast tests green,
+**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8 and 1.9 are complete.** A17–A35 are
+closed; **A14, A16's successors A36 and A37, and round three remain**. 441 fast tests green,
 `ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
 produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
 strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
@@ -40,16 +40,21 @@ is that layer.
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
 written against the types that exist.
 
-The 2026-08-03 audit's defects (C1–C4) are all closed. **The 2026-08-06 audit's A1–A13 are
-closed too**, plus A15, which Plan 1.8 found while fixing A5 — an overlay rule block replaced a
-lower layer's and recorded nothing. **A14 and A16 are open.**
+The 2026-08-03 audit's defects (C1–C4) are all closed, as are the 2026-08-06 audit's A1–A13
+and A15, and **round two's A16–A35** (Plan 1.9). **A14 is still open, and A36 and A37 are
+new.**
 
 **A14 is critical and open on purpose**, so the fix-then-re-audit loop has *not* exited: its
 criterion is that no critical finding survives. A14 is that a guard never watched failing may be
-inert rather than merely weak — four instances in one day, each a test that passed against
-deliberately broken code — and it closes only when every guard in `tests/` has a recorded revert
-that was watched failing. **Round two has run** — A17–A35, eighteen findings, seven critical, and they collapse to nine
-root design problems. **Plan 1.9 is next**, then Plan 2. A16 is absorbed into root E.
+inert rather than merely weak, and it closes only when every guard in `tests/` has a recorded
+revert. **`docs/internal/audits/guard-ledger.md` is that record** — 40-odd rows now, and it
+names the eleven files that still have none. Plan 1.9 found three more inert guards while
+closing round two, two of them in code written that same day: `stack()`'s
+`origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
+`producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
+
+**Round three starts at A38**, by the brief in `docs/internal/audits/2026-08-07-round-two-brief.md`.
+Then Plan 2.
 
 | Read this | For |
 |---|---|
@@ -62,10 +67,11 @@ root design problems. **Plan 1.9 is next**, then Plan 2. A16 is absorbed into ro
 | `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
-| `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35. Seven critical, all open.** |
+| `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
 | `docs/internal/specs/` | **nine specs, one per root. Read the part's spec before starting it.** |
-| `docs/internal/plans/2026-08-07-closing-round-two.md` | **Plan 1.9 — nine parts, A–I. Next.** |
+| `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
+| `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
 | `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
 | `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
 | `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
@@ -92,11 +98,10 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5–1.8 are complete and round two has run; **Plan 1.9 is next**, then Plan 2,
-  then Plan 3. Plan 1.9 comes first because A14 is critical and open, and the loop's exit
-  criterion is that no critical finding survives. That file now also
-  says *why* that order, including the argument against it — the sequence was asserted and
-  believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
+  a date. Plans 1.5–1.9 are complete; **round three is next**, then Plan 2, then Plan 3.
+  Round three comes first because A14 is critical and open, and the loop's exit criterion is
+  that no critical finding survives. That file now also says *why* that order, including the
+  argument against it — the sequence was asserted and believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that
   date still use the old name.
 
