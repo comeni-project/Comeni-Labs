@@ -13,8 +13,13 @@ priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """
 
+# **Sorts *after* `sort` by id and *before* it by priority**, so the two orderings
+# disagree. It was `fastsort`, which is higher priority *and* alphabetically first — so
+# `sorted(key=id)` and `sorted(key=(-priority, id))` produced the same list and the test
+# below passed against both. Reverting `producers_of` to id-only ordering failed nothing in
+# the entire suite. A37, found by Part I's sweep.
 PREFERRED_SORT = SORT.replace(
-    "nf-core/samtools/sort@1.21.0", "nf-core/samtools/fastsort@1.21.0"
+    "nf-core/samtools/sort@1.21.0", "nf-core/samtools/zippysort@1.21.0"
 ).replace("priority: 0", "priority: 10")
 
 # same module key, newer version — the lab pinning a different build
@@ -66,9 +71,15 @@ def test_producers_of_returns_nothing_for_unproduced_state(registry):
 
 
 def test_producers_are_sorted_by_priority_then_id(registry):
+    """Priority first, id second — and the fixture must be able to tell them apart.
+
+    `zippysort` outranks `sort` on priority and loses to it on id, so this list is wrong
+    under either half of the key alone. That is the whole content of the test: the previous
+    fixture agreed on both orderings, so it asserted nothing.
+    """
     found = registry.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     assert [c.id for c in found] == [
-        "nf-core/samtools/fastsort@1.21.0",
+        "nf-core/samtools/zippysort@1.21.0",
         "nf-core/samtools/sort@1.21.0",
     ]
 
@@ -91,10 +102,11 @@ def test_overlay_shadows_the_same_module_key_at_any_version(tmp_path, base, voca
     with pytest.raises(KeyError):
         reg.get("nf-core/samtools/sort@1.21.0")
 
-    # and it did not tie: exactly one sort candidate survives, plus fastsort
+    # and it did not tie: exactly one sort candidate survives, plus zippysort — which
+    # outranks it on priority, so it comes first.
     found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     assert [c.id for c in found] == [
-        "nf-core/samtools/fastsort@1.21.0",
+        "nf-core/samtools/zippysort@1.21.0",
         "nf-core/samtools/sort@1.22.0",
     ]
 

@@ -633,3 +633,32 @@ rather than deep inside a consumer.
 
 Recording an untested hypothesis as a fix is what Plan 1.9 exists to stop, and that cuts
 both ways: this one is recorded as measured and dismissed.
+
+### A37 — `producers_of`'s priority ordering had no test that could fail — *important, closed*
+
+Found by Part I's sweep. Reverting
+
+    sorted(matches.values(), key=lambda c: (-c.priority, c.id))
+
+to `key=lambda c: c.id` — dropping priority from the ranking the whole tier-2 path rests on
+— left the **entire suite at 441 passed**. Including `test_producers_are_sorted_by_priority_then_id`,
+which is named for the property.
+
+The fixture could not tell the two orderings apart. Its higher-priority contract was called
+`fastsort`, which outranks `sort` on priority *and* precedes it alphabetically, so
+`sorted(key=id)` and `sorted(key=(-priority, id))` produce the same list. Every assertion
+held under both.
+
+Same family as A21 and as the `min`/`max` reduction: not a missing test, a test whose
+*inputs* cannot discriminate. A21 was a fixture that restated its subject; this is a fixture
+that agrees with itself. Both look exactly like a working guard from the outside, and
+neither is visible by reading the test.
+
+**Closed the same day**: the fixture is now `zippysort`, which outranks `sort` on priority
+and loses to it on id, so the expected list is wrong under either half of the key alone.
+Reverting `producers_of` now fails two tests in that file.
+
+Worth noting what the sweep did *not* find: the router re-ranks candidates itself with
+`(surplus, -priority, id)`, so the emitted pipeline was never wrong. The defect was in the
+guard, not in the behaviour — which is exactly the class A14 is about, and exactly why "no
+test failed" is not evidence that a change is safe.
