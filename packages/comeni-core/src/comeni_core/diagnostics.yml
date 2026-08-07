@@ -1,0 +1,140 @@
+# The diagnostic registry. One entry per code.
+#
+# `docs/reference/cli.md`'s table is GENERATED from this file — do not edit it by hand.
+# Regenerate with: uv run python tools/generate_diagnostics_doc.py
+#
+# `MD` is Mendel's deterministic core: the three packages that may not reach the network.
+# `MF`, `MA` and `MI` belong to the forge, the API and the AI adapters; `N` and `W` are
+# reserved for Nightingale and Wiener, so a future Nightingale API is `NA` and cannot collide.
+#
+# Bands of one hundred group by concern inside a prefix:
+#
+#   MD0000-MD0099  loading declared registry data          (none yet — Pydantic errors today)
+#   MD0100-MD0199  conformance: a contract disagrees with its module
+#   MD0200-MD0299  the pipeline file: a setting, an override, or the format
+#   MD0300-MD0399  routing and resolution                  (see issue #18)
+#   MD0400-MD0499  gates and emission                      (none yet)
+#
+# A band may overflow into a new band. **A code is never renumbered** — a published code is
+# something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
+# section 10.
+
+MD0100:
+  emitted_by: compiler
+  concern: conformance
+  says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified`"
+  fires_on: [build]
+  refuses: false
+  fix: |
+    Vendor the module under `vendor/modules/` if you have it, or accept the contract as
+    unverified — which is legitimate for a laboratory wrapping a bare container.
+  explanation: |
+    The contract names a module whose source is not present, so nothing could check
+    it. The build continues and the contract is marked unverified, which is recorded
+    on the IR and reaches a publish bundle. A curator may refuse to curate an
+    unverified contract: a claim about a module, with no module to check it against,
+    is a claim without evidence.
+
+MD0101:
+  emitted_by: compiler
+  concern: conformance
+  says: "`nf_process` is not the process the module declares"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Set `nf_process` to the process name as written in the module's `main.nf`. Read it out
+    of the file — it is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`.
+  explanation: |
+    `nf_process` must be the process name as written in the module's main.nf. The
+    emitted workflow calls it by that name, so a mismatch fails at launch with
+    'process not found' — after the containers have been pulled.
+
+MD0102:
+  emitted_by: compiler
+  concern: conformance
+  says: "`nf_inputs` declares a different number of channels than the process takes"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the `input:` declarations in the module's `main.nf` and declare one `nf_inputs`
+    entry per channel — not one per contract port.
+  explanation: |
+    `nf_inputs` declares one entry per channel the process takes. A contract port is
+    not a process argument: featurecounts takes one channel carrying two ports, and
+    samtools/sort takes three of which two model nothing. Nextflow matches arity, so
+    a mismatch fails at launch.
+
+MD0103:
+  emitted_by: compiler
+  concern: conformance
+  says: "an `{empty: N}` placeholder is the wrong tuple width"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the elements in the module's `tuple` declaration for that slot and set `empty`
+    to that width.
+  explanation: |
+    `NfInput.empty` is a tuple *width*, not a count of channels. Nextflow matches
+    arity: a 2-tuple handed to a slot declared `tuple val(meta), path(fasta),
+    path(fai)` dies with 'Path value cannot be null'.
+
+MD0104:
+  emitted_by: compiler
+  concern: conformance
+  says: "a placeholder sits where the module declares `path(...)`, with no `because`"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Either wire a real input into that slot, or add `because:` saying why an empty one is
+    correct here. Saying which is the whole check.
+  explanation: |
+    This slot declares `path(...)`, so the module expects a real file, and the
+    contract supplies an empty placeholder. Sometimes that is correct — samtools/sort
+    only needs a reference to write CRAM — and sometimes it is a hole: STAR was called
+    with no genome for weeks, through a green test suite and a passing stub gate.
+    Saying which, in `because`, is the whole check.
+
+MD0105:
+  emitted_by: compiler
+  concern: conformance
+  says: "a `produces[].name` is not one of the module's `emit:` labels"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Set `produces[].name` to the module's `emit:` label. It is the emit label, not a name
+    for the semantic thing — that is what `type_id` carries.
+  explanation: |
+    The emitted workflow reads `PROCESS.out.<name>` for each produced port, so every
+    `produces[].name` must appear in the module's `emit:` labels. A mismatch fails at
+    runtime against a channel that does not exist.
+
+MD0106:
+  emitted_by: compiler
+  concern: conformance
+  says: "a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Declare the measurement with a `meta_key` for that key, or remove the `meta_key` that
+    no module reads.
+  explanation: |
+    Measured facts reach nf-core modules through the `meta` map, and a module reading
+    a key nothing sets silently uses its default. That is how featureCounts computed
+    -s 0 for a reverse-stranded library and produced a matrix of wrong numbers while
+    every gate stayed green. The reverse also matters: a `meta_key` no module reads is
+    a declaration with no effect.
+
+MD0107:
+  emitted_by: compiler
+  concern: conformance
+  says: "`container` has drifted from the module's directive"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Copy the container from the module's `container` directive. Take the *last* quoted
+    string in the ternary: nf-core 4.x puts singularity first and docker second.
+  explanation: |
+    The container must match the module's `container` directive exactly. A contract
+    claiming a container the module does not use is claiming a reproducibility it does
+    not have. Take the *last* quoted string in the ternary: nf-core 4.x puts
+    singularity first and docker second.

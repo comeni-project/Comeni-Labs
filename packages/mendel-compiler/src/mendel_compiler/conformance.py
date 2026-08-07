@@ -13,63 +13,14 @@ follows it.
 
 from pathlib import Path
 
+from comeni_core import diagnostics
 from comeni_core.contract import ModuleContract
+from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from mendel_compiler.modulespec import ModuleSpec
-
-EXPLANATIONS: dict[str, str] = {
-    "MD0100": (
-        "The contract names a module whose source is not present, so nothing could check\n"
-        "it. The build continues and the contract is marked unverified, which is recorded\n"
-        "on the IR and reaches a publish bundle. A curator may refuse to curate an\n"
-        "unverified contract: a claim about a module, with no module to check it against,\n"
-        "is a claim without evidence."
-    ),
-    "MD0101": (
-        "`nf_process` must be the process name as written in the module's main.nf. The\n"
-        "emitted workflow calls it by that name, so a mismatch fails at launch with\n"
-        "'process not found' — after the containers have been pulled."
-    ),
-    "MD0102": (
-        "`nf_inputs` declares one entry per channel the process takes. A contract port is\n"
-        "not a process argument: featurecounts takes one channel carrying two ports, and\n"
-        "samtools/sort takes three of which two model nothing. Nextflow matches arity, so\n"
-        "a mismatch fails at launch."
-    ),
-    "MD0103": (
-        "`NfInput.empty` is a tuple *width*, not a count of channels. Nextflow matches\n"
-        "arity: a 2-tuple handed to a slot declared `tuple val(meta), path(fasta),\n"
-        "path(fai)` dies with 'Path value cannot be null'."
-    ),
-    "MD0104": (
-        "This slot declares `path(...)`, so the module expects a real file, and the\n"
-        "contract supplies an empty placeholder. Sometimes that is correct — samtools/sort\n"
-        "only needs a reference to write CRAM — and sometimes it is a hole: STAR was called\n"
-        "with no genome for weeks, through a green test suite and a passing stub gate.\n"
-        "Saying which, in `because`, is the whole check."
-    ),
-    "MD0105": (
-        "The emitted workflow reads `PROCESS.out.<name>` for each produced port, so every\n"
-        "`produces[].name` must appear in the module's `emit:` labels. A mismatch fails at\n"
-        "runtime against a channel that does not exist."
-    ),
-    "MD0106": (
-        "Measured facts reach nf-core modules through the `meta` map, and a module reading\n"
-        "a key nothing sets silently uses its default. That is how featureCounts computed\n"
-        "-s 0 for a reverse-stranded library and produced a matrix of wrong numbers while\n"
-        "every gate stayed green. The reverse also matters: a `meta_key` no module reads is\n"
-        "a declaration with no effect."
-    ),
-    "MD0107": (
-        "The container must match the module's `container` directive exactly. A contract\n"
-        "claiming a container the module does not use is claiming a reproducibility it does\n"
-        "not have. Take the *last* quoted string in the ternary: nf-core 4.x puts\n"
-        "singularity first and docker second."
-    ),
-}
 
 
 class Diagnostic(BaseModel):
@@ -83,6 +34,26 @@ class Diagnostic(BaseModel):
     fix: str
     """What to write. A diagnostic without this is half a diagnostic."""
 
+    @field_validator("code")
+    @classmethod
+    def _declared(cls, code: str) -> str:
+        """A code must exist in `comeni_core/diagnostics.yml`.
+
+        The alternative was a test asserting every emittable code has an explanation, and a
+        test can only find codes on paths it executes. This makes an undeclared code
+        unrepresentable — invariant 7's shape, a closed vocabulary, applied to diagnostics.
+
+        Re-raised as `ValueError`: Pydantic converts only `ValueError` and `AssertionError`
+        into a `ValidationError`, and `UnknownDiagnosticError` is a `KeyError` because a direct
+        `spec_for` call is a failed lookup. Left alone it escapes this validator raw, so a
+        caller writing `except ValidationError` around a model construction would miss it.
+        """
+        try:
+            diagnostics.spec_for(code)
+        except diagnostics.UnknownDiagnosticError as error:
+            raise ValueError(str(error)) from None
+        return code
+
     def render(self) -> str:
         return (
             f"{self.code}  {self.contract_id}\n"
@@ -92,14 +63,7 @@ class Diagnostic(BaseModel):
         )
 
 
-def explain(code: str) -> str:
-    """Long-form, after `rustc --explain`."""
-    if code not in EXPLANATIONS:
-        return (
-            f"{code} is not a diagnostic this version emits.\n"
-            f"Known: {', '.join(sorted(EXPLANATIONS))}"
-        )
-    return f"{code}\n\n{EXPLANATIONS[code]}"
+__all__ = ["Diagnostic", "check", "explain", "module_path"]
 
 
 def module_path(contract: ModuleContract, module_root: Path) -> Path:
