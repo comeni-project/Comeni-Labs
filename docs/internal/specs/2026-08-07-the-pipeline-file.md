@@ -729,26 +729,87 @@ M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
 the reader grep for it. `Diagnostic.render()` already lays out summary/detail/fix in that order and
 needs no change beyond the field.
 
-**The codes are also public documentation, and the spec had forgotten it.**
+**The codes are also public documentation, and an earlier draft had forgotten it.**
 `docs/reference/cli.md` carries the `M0100`–`M0107` table, a rendered example and the `mendel
-explain` usage — it is the document a stranger reads, public since 2026-08-04, and it appeared
-nowhere in this spec's blast radius. Two consequences:
+explain` usage — it is the document a stranger reads, public since 2026-08-04. All fourteen new codes
+belong there, and one existing row goes stale: `M0100`'s entry says the contract is *"recorded in
+`pipeline.ir.json` as `unverified`"*, and that file retires here — the fact moves to
+`registry.unverified`.
 
-- **All fourteen new codes must land there**, or the public table documents eight of twenty-two.
-- **One existing row goes stale.** `M0100`'s entry says the contract is *"recorded in
-  `pipeline.ir.json` as `unverified`"*. That file retires under this spec; the fact moves to
-  `registry.unverified` in `pipeline.yml`. Nothing would have caught that — it is prose in a
-  reference doc, and no test reads it.
+That draft proposed a test asserting every code appears in `cli.md`. **§10 supersedes it**: the table
+is generated from `diagnostics.yml`, so it cannot drift, and `--check` is both the test and the fix.
 
-So: **a test asserts every code the compiler can emit appears in `docs/reference/cli.md`**, not only
-in `EXPLANATIONS`. `make check` already gates generated-stub freshness for the same reason — a
-generated artifact that drifts from its source is a lie with a timestamp — and a public diagnostics
-table is that, with a wider audience.
+Codes are declared in `diagnostics.yml` and validated at construction (§10), so a code with no
+explanation is unrepresentable rather than merely tested for.
 
-A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Fourteen new codes is
-where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
+### 10. The codes are data, and the document is generated
 
-### 10. What measurements do, so nobody "fixes" it
+Decided 2026-08-07. Everything above describes the codes as prose in three places kept in step by a
+test. **That is the wrong shape** — it is the same hand-maintained-list defect as root D's `diff_ir`
+and §2's field mapping, wearing documentation's clothes. One source, two derived artifacts.
+
+```yaml
+# packages/mendel-compiler/src/mendel_compiler/diagnostics.yml
+M0111:
+  band: pipeline-file
+  says: "`{value}` outside the closed character class"     # one line — it is a table row
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use letters, digits, and `_ . : + - ` only, or a number, or true/false.
+    If your value legitimately needs a space or a slash, that is a case we assumed
+    did not exist — please report it at github.com/comeni-project/Comeni-Labs/issues.
+  explanation: |
+    A template substitutes {value} into a string that becomes part of a shell command
+    line. Rather than escape dangerous characters, Mendel refuses them …
+```
+
+**What stays in code, and why the boundary is there.** `summary` and `detail` interpolate the actual
+mismatch — *this* contract, *this* declared value versus *that* module's. They stay at the check
+site. What moves to data is the code's **identity**: its one-line description, its standing advice,
+its long form, which verbs raise it, whether it refuses. That split is exactly the line between
+per-occurrence and per-code, and it is also the line that keeps root C's interpolation problem out of
+the data file: nothing in `diagnostics.yml` is a template.
+
+**Three things the compiler pulls, and one of them replaces a test with a type.**
+
+1. **`Diagnostic` validates `code` against the registry**, so an undeclared code **cannot be
+   constructed**. The test "every emittable code has an explanation" stops being a test and becomes
+   unrepresentable — which is invariant 7's shape (a closed vocabulary; a contract using an
+   undeclared state fails to load) applied to diagnostics. This is strictly better than the test it
+   replaces, because a test can only find codes on paths it executes.
+2. **`explain()` reads `explanation` from the registry.** The `EXPLANATIONS` dict retires, and with it
+   the possibility of a code that exists in one and not the other.
+3. **`Diagnostic.fix` defaults to the registry's `fix`**, so a check site restates nothing. It stays
+   overridable per occurrence, because some fixes must name real values — `fix` being required
+   (*"a diagnostic without this is half a diagnostic"*) is unchanged.
+
+**`tools/generate_diagnostics_doc.py`, mirroring `tools/generate_types.py` exactly** — render between
+markers in `docs/reference/cli.md`, `--check` compares and exits 1 with *"run: uv run python
+tools/generate_diagnostics_doc.py"*, and `make check` gains it beside `make types`. The same pattern,
+because a second convention for the same job is how one of them rots. The generated table therefore
+**cannot** drift, so §9's proposed "every code appears in `cli.md`" test is deleted rather than
+written: `--check` is that test, and it is the one that also fixes the file.
+
+Three things easy to get wrong here, all with precedent in this repository:
+
+- **Root G applies to this file.** `yaml.safe_load` silently keeps the last of two duplicate keys, so
+  a `diagnostics.yml` with `M0111` twice would load one and lose one. It takes the same loader
+  discipline as a contract.
+- **`says` must be a single line.** It is rendered into a markdown table row; a newline breaks the
+  table silently rather than loudly. Root C's `Line`/`Text` split, in a new place — `says` is `Line`,
+  `fix` and `explanation` are `Text`.
+- **It must ship inside the wheel.** `mendel explain M0111` has to work from an installed package
+  with no repository checked out, so `diagnostics.yml` is package data and needs the packaging entry
+  to match. This repo has been bitten twice by a file that existed locally and not where it was
+  needed — `/build/` in `.gitignore` swallowing a vendored module, and `uv sync` installing nothing
+  the root project does not depend on.
+
+**It belongs in Plan 1.10 rather than after it.** Fourteen codes are being added; adding them to a
+hand-maintained table and then extracting the table afterwards means writing the same content twice
+and reconciling it once.
+
+### 11. What measurements do, so nobody "fixes" it
 
 A `Measurement` has two jobs and only one of them is a route. `strandedness` and `paired` declare
 `describes` + `meta_key` and reach the tool through the meta map. `read_length` and `n_samples`
@@ -913,13 +974,20 @@ breaks `entry_channel`, has gone too far.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
 - `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0122`.
+  `EXPLANATIONS` retires into `diagnostics.yml`; `Diagnostic` validates `code` against it.
+- **New:** `mendel_compiler/diagnostics.yml` — the code registry, shipped as package data so
+  `mendel explain` works from an installed wheel. Packaging entry required.
+- **New:** `tools/generate_diagnostics_doc.py` — renders the `cli.md` table; `--check` in `make check`,
+  mirroring `tools/generate_types.py`.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips. **And
   `mendel profile`, which the first draft of this radius missed**: it shares `build`'s emitter path,
   so it moves with the signature. It writes `pipeline.yml` *and* `profile.yml` — two files, correctly,
   because `profile.yml` is an instruction sheet for the laboratory rather than a description of the
   pipeline. "One artifact" is a claim about what describes the pipeline, not a cap on output files.
 - `mendel_compiler/` — the legal Nextflow directive names, as code, carrying the Nextflow version
-  they were read against. Not registry data; see `M0119`.
+  they were read against. Not registry data; see `M0119`. **Open question for the plan:** whether
+  these belong in `diagnostics.yml`'s neighbourhood as compiler data rather than in a Python
+  literal, now that §10 establishes the pattern.
 - `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
   setting on the spine for the counts assertion.
 - **Public documentation, which the first draft of this radius omitted entirely.**
