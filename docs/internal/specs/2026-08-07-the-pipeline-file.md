@@ -484,21 +484,29 @@ written down which kind it was.
 The pipeline band is twenty wide rather than ten. Reviewing this spec's own claims produced two
 new codes before a line was written; a band sized to the first draft would already be full.
 
-| code | refuses | catches |
+An earlier draft's column said *"refuses: build"* on almost every row. That is wrong now that four
+verbs read `pipeline.yml`: **a load-time check must fire wherever the file is loaded**, or `mendel
+emit` on a hand-edited file succeeds where `mendel build` would have refused. So the column is which
+verbs a code fires on, and *any load* means all four.
+
+| code | fires on | catches |
 |---|---|---|
 | `M0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
-| `M0110` | build | a setting with no `via:` |
-| `M0111` | build | `{value}` outside the closed character class |
-| `M0112` | no — `verify` reports | a frozen value disagrees with the contract's current digest |
-| `M0113` | build | an orphaned override |
-| `M0114` | build | a `template:` with no `{value}`, **or** a template on a route that takes none |
-| `M0115` | build | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
+| `M0110` | any load | a setting with no `via:` |
+| `M0111` | any load | `{value}` outside the closed character class |
+| `M0112` | `verify` — **reports, does not refuse** | a frozen value disagrees with the contract's current digest |
+| `M0113` | `upgrade` | an orphaned override. Only re-resolution can know, so no other verb can raise it |
+| `M0114` | any load | a `template:` with no `{value}`, **or** a template on a route that takes none |
+| `M0115` | any load | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
 | `M0116` | build | the file `build` wrote does not parse back to the same object |
-| `M0117` | build | `version:` is newer than this Mendel understands |
-| `M0118` | build | two writers for one destination — a `meta` key, a `prefix`, or a directive |
-| `M0119` | build | `via: directive` names something Nextflow will silently ignore |
+| `M0117` | any load | `version:` is newer than this Mendel understands |
+| `M0118` | any load | two writers for one destination — a `meta` key, a `prefix`, or a directive |
+| `M0119` | any load | `via: directive` names something Nextflow will silently ignore |
 | `M0120` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
-| `M0121` | build | `channels[].params` disagrees with what `expression` actually references |
+| `M0121` | any load | `channels[].params` disagrees with what `expression` actually references |
+
+`M0108` is build-only because it needs module source, which `emit` does not read. `M0120` is
+emit-only because that is the verb that would otherwise write an unrunnable `main.nf`.
 
 `M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
 `"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
@@ -547,7 +555,7 @@ one.
 Rendered, with `where:` pointing into the file rather than at a contract id:
 
 ```
-$ mendel build --from build/pipeline.yml
+$ mendel upgrade build/pipeline.yml --registry registry/
 
 M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
   Your override no longer applies to anything.
@@ -663,6 +671,9 @@ Root I applies. Each probe added, watched failing, reverted.
 | a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
 | a field added to `PipelineIR` or `DecisionRecord` with no home in `Pipeline` | the totality test fails, naming the field |
 | a `Registry` or `ModuleContract` field added to `Pipeline` | refused — `registry.py`'s mapping premise must hold |
+| any `frozenset`-typed field on `Pipeline` | refused — `digest_of` is not stable over one |
+| a hand-edited `pipeline.yml` with a bad setting, run through `mendel emit` | refused — a load check fires on **every** verb, not only `build` |
+| `mendel verify` on a `pipeline.yml` built before `Param` gained `via` | reports drift on `star/align` and `hisat2/align` only — **expected, not a bug** |
 | `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
 | `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
 
@@ -728,6 +739,25 @@ Unlike root C, **the registry does change** — two contracts gain `via:`/`templ
 spine gains a setting. So "byte-identical output" is a check on the *unchanged* parts only, and
 the plan must say which golden diffs are expected before they appear, or the expected diff will
 be used to wave through an unexpected one.
+
+### Two digest consequences the spec had not accounted for
+
+`digest_of` hashes `model.model_dump_json()`, and Pydantic dumps defaults as well as set fields. So:
+
+**Adding `via`, `key` and `template` to `Param` moves the digest of every contract that has one.**
+That is exactly two — `star/align` and `hisat2/align`. The other eight declare `params: []`, hold no
+`Param` instance, and keep their digests. Narrow, but it invalidates any existing lockfile or bundle
+pinning those two, and `mendel verify` will correctly report drift on a file built before this
+change. The plan needs a line about that being expected rather than a bug report.
+
+**`Pipeline` must respect the `frozenset` rule from birth.** `digest.py` states it outright:
+*"Anything new that serialises a set needs the same treatment or it silently breaks this function and
+every lockfile made with it."* `Pipeline` will be digested — it is what publish ships — so
+`Step.inputs[].states`, which comes from `IREdge.states` (a `frozenset` carrying a `field_serializer`),
+must be a **sorted `list[StateName]` fixed at materialisation**, not a set. Every other set-shaped
+field on `Pipeline` needs the same, and the totality test above is the natural place to assert that
+no field of `Pipeline` is a bare `frozenset`. This is the CLAUDE.md gotcha — `frozenset` has no
+stable order — arriving in a new type that was designed after the lesson and could still miss it.
 
 ---
 
