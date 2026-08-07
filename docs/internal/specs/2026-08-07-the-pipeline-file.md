@@ -749,7 +749,7 @@ test. **That is the wrong shape** — it is the same hand-maintained-list defect
 and §2's field mapping, wearing documentation's clothes. One source, two derived artifacts.
 
 ```yaml
-# packages/mendel-compiler/src/mendel_compiler/diagnostics.yml
+# packages/comeni-core/src/comeni_core/diagnostics.yml   — see "why comeni-core" below
 M0111:
   band: pipeline-file
   says: "`{value}` outside the closed character class"     # one line — it is a table row
@@ -763,6 +763,28 @@ M0111:
     A template substitutes {value} into a string that becomes part of a shell command
     line. Rather than escape dangerous characters, Mendel refuses them …
 ```
+
+**Why `comeni-core` and not `mendel-compiler`.** The forge, the API and `mendel-ai` will all emit
+diagnostics, and codes are globally unique across the M-namespace. Putting the registry in
+`mendel-compiler` forces one of two bad outcomes: `mendel-forge` depends on the compiler — a
+dependency that exists for a data file and points the wrong way for an impure package — or the forge
+gets a *second* registry, and `mendel explain M0201` cannot answer because the compiler has never
+heard of it. `comeni-core` is the one package everything already depends on, so one registry stays one
+registry and every `explain` in the system reads it.
+
+Bands are reserved by subsystem now, while it costs nothing:
+
+| band | subsystem |
+|---|---|
+| `M0100`–`M0199` | compiler — contracts, conformance, the pipeline file |
+| `M0200`–`M0299` | forge — ingestion, drafting, the approval queue |
+| `M0300`–`M0399` | API |
+
+Reserving them now rather than at Plan 2 is the cheap half of a decision that gets expensive once
+codes are published and a lab has a runbook citing one. **Open question for the plan:** whether the
+resolver's typed exceptions join the scheme. `UnroutablePinError` is user-facing — a genuine
+contradiction between a pin and its inputs — and reads like a diagnostic; the others are closer to
+programming errors. Not decided here.
 
 **What stays in code, and why the boundary is there.** `summary` and `detail` interpolate the actual
 mismatch — *this* contract, *this* declared value versus *that* module's. They stay at the check
@@ -805,9 +827,13 @@ Three things easy to get wrong here, all with precedent in this repository:
   needed — `/build/` in `.gitignore` swallowing a vendored module, and `uv sync` installing nothing
   the root project does not depend on.
 
-**It belongs in Plan 1.10 rather than after it.** Fourteen codes are being added; adding them to a
-hand-maintained table and then extracting the table afterwards means writing the same content twice
-and reconciling it once.
+**It belongs in Plan 1.10 rather than after it**, for two reasons. Fourteen codes are being added, and
+adding them to a hand-maintained table then extracting it means writing the content twice. And the
+band reservation has to precede Plan 2, or the forge picks numbers in whatever range is free and the
+namespace acquires its layout by accident.
+
+**No GitHub Action commits the generated doc**, and that is a decision rather than an omission — see
+*What this spec does not cover*.
 
 ### 11. What measurements do, so nobody "fixes" it
 
@@ -975,8 +1001,9 @@ breaks `entry_channel`, has gone too far.
   `via: directive` and `via: meta` emission.
 - `mendel_compiler/conformance.py` — `where` replaces `contract_id`; `M0108`, `M0110`–`M0122`.
   `EXPLANATIONS` retires into `diagnostics.yml`; `Diagnostic` validates `code` against it.
-- **New:** `mendel_compiler/diagnostics.yml` — the code registry, shipped as package data so
-  `mendel explain` works from an installed wheel. Packaging entry required.
+- **New:** `comeni_core/diagnostics.yml` — the code registry, in `comeni-core` because the forge and
+  the API will emit codes too. Shipped as package data so `mendel explain` works from an installed
+  wheel; packaging entry required.
 - **New:** `tools/generate_diagnostics_doc.py` — renders the `cli.md` table; `--check` in `make check`,
   mirroring `tools/generate_types.py`.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips. **And
@@ -1047,6 +1074,25 @@ stable order — arriving in a new type that was designed after the lesson and c
 - **Where in `mendel-compiler` the directive-name list lives, and how it records the Nextflow
   version it was read against.** That it is code rather than registry data is decided (`M0119`); the
   module and shape are a plan question.
+- **An Action that regenerates `cli.md` on push to `main` was considered and rejected.** It was
+  proposed on 2026-08-07 and the reasoning against is worth keeping, because the idea will recur.
+
+  `--check` on a pull request and auto-commit on `main` solve the same problem at different times, and
+  the earlier time is strictly better: **main cannot drift if drift cannot merge.** The `--check`
+  pattern already exists (`make types` inside `make check`, which CI runs on every PR), so the
+  protection is in place before any Action would fire.
+
+  What auto-committing adds is cost. It needs push rights to `main`, which is a protected branch, so
+  the bot needs a bypass — and a bypass exists forever, for everything, not just for this. It puts
+  bot commits in the history of a public repository. It can race with a concurrent push. And the real
+  objection: **it makes `main` self-healing, so nobody ever sees the drift.** Someone edits the
+  generated table by hand, the bot silently reverts them, and they learn nothing about why the file is
+  generated. A failing check teaches; a silent fix does not.
+
+  The genuine gap it would close is drift arriving by a route that skips PR CI — a direct push, or a
+  merge that bypassed checks. That is real and cheap to cover: **add the `--check` to
+  `.github/workflows/nightly.yml`**, which already exists and already runs the stub gate. It fails
+  loudly, changes nothing, and needs no write permission.
 - **Whether `ExtKey` should carry `args2` and `args3` at all.** Included on nf-core convention with
   no evidence in this repository — see §4. The one judgement in this spec that rests on knowledge of
   nf-core rather than on code here.
