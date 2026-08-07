@@ -26,7 +26,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core.layer import layer_name
-from comeni_core.marks import ContractId, LayerName, Subject
+from comeni_core.marks import LayerName, Subject
 
 
 class DeclaredKind(StrEnum):
@@ -106,8 +106,15 @@ class Displacement(BaseModel):
     three-deep stack produces two records rather than one. Under `DELETE_GROUP` a single
     record can cover victims from several layers at once, and it names the **lowest** — the
     one a reader is most surprised to have lost."""
-    displaced_keys: list[ContractId] = []
-    """Contracts only: the full ids removed, when the group key is not the storage key."""
+    displaced_keys: list[Subject] = []
+    """The full keys removed, when the group key is not the storage key — contract ids, in
+    the one kind that has a group.
+
+    `list[ContractId]` until root C gave that alias a validator, at which point this field
+    started refusing every key that is not literally `<owner>/<name>@<version>` — including
+    the synthetic ones `test_layered.py` stacks, which exist precisely so the mechanism can
+    be tested without a registry. `Subject` is the honest type: a displaced key is whatever
+    that kind keys on."""
     winning_key: Subject | None = None
     """Which incoming entry won, when the group key is not the storage key.
 

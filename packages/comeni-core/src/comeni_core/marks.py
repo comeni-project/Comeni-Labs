@@ -61,6 +61,12 @@ class Mark(StrEnum):
     NF_PATH = "nf-path"
     """A relative path fragment under the emitted pipeline directory."""
 
+    EDGE_REF = "edge-ref"
+    """`<node>.<port>` — which upstream output feeds a consumer's port. A declared shape,
+    not an unlucky filename: `dual.bam` is legal *because* both halves are identifiers, and
+    `run.cram` is refused because `run` names no node. That is what let A3's blocklist stop
+    guessing."""
+
     GROOVY_EXPRESSION = "groovy-expression"
     """Unbounded Groovy, emitted verbatim. The designed exception, marked so that it is
     visibly the exception rather than merely being one."""
@@ -239,7 +245,51 @@ Line = Annotated[str, Mark.FREE_TEXT, AfterValidator(_single_line)]
 `FREE_TEXT_FIELDS` allowlist and its count are unaffected: the split is by destination, not
 by prose-ness."""
 
+def _edge_ref(value: str) -> str:
+    """`<node>.<port>`, both Groovy identifiers.
+
+    The resolver writes these when it records which output it wired. They were bare
+    `ParamValue`s indistinguishable from filenames, which is the exact reason
+    `_reject_path_shaped` had to be scoped to human-written fields rather than applied to
+    `chosen`. A16.
+    """
+    # Shape alone cannot separate this from a filename, and saying so is the point: the
+    # spec predicted `run.cram` would be refused and it is not — `run` and `cram` are both
+    # identifiers, exactly as `dual` and `bam` are. What the shape *does* refuse is every
+    # filename with a second dot or a hyphen — `S1_R1.fastq.gz`, `PT-4471023.bam` — and
+    # what closes the rest is that a source decision is checked against the candidate set,
+    # which is built from the pipeline's own nodes. A16's gain is that the *kinds* no
+    # longer share a field, not that a string became self-describing.
+    node, separator, port = value.partition(".")
+    if not separator or not _is_identifier(node) or not _is_identifier(port):
+        raise ValueError(
+            f"{value!r} is not an edge reference. It names an upstream output as "
+            f"`<node>.<port>`, both Nextflow identifiers."
+        )
+    return value
+
+
+def _contract_id(value: str) -> str:
+    """`<owner>/<name…>@<version>` — what a contract file declares as its `id`.
+
+    A `ProducerDecision.chosen` is one of these, so giving the alias a shape is what makes
+    that type say something. `module_key()` splits on the `@` and shadowing is decided on
+    the part before it; an id with no `@` would make every contract its own module key.
+    """
+    owner, separator, version = value.rpartition("@")
+    if not separator or not version or "/" not in owner:
+        raise ValueError(
+            f"{value!r} is not a contract id. They are `<owner>/<name>@<version>` — the "
+            f"part before the `@` is the module key that shadowing is decided on."
+        )
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/")
+    if set(owner) - allowed or set(version) - (allowed - {"/"}):
+        raise ValueError(f"{value!r} is not a contract id: unexpected characters")
+    return value
+
+
 NfIdentifier = Annotated[str, Mark.NF_IDENTIFIER, AfterValidator(_groovy_identifier)]
+EdgeRef = Annotated[str, Mark.EDGE_REF, AfterValidator(_edge_ref)]
 NfPath = Annotated[str, Mark.NF_PATH, AfterValidator(_relative_path)]
 GroovyExpression = Annotated[str, Mark.GROOVY_EXPRESSION]
 """Unbounded Groovy emitted verbatim — `entry_channel`, and nothing else.
@@ -248,7 +298,7 @@ Marked rather than validated because the whole point is that a laboratory can br
 the compiler has never seen and say how it arrives. Root B reports when an overlay replaces
 one (A24); root C makes it the only field of this kind."""
 
-ContractId = Annotated[str, Mark.CONTRACT_ID]
+ContractId = Annotated[str, Mark.CONTRACT_ID, AfterValidator(_contract_id)]
 TypeId = Annotated[str, Mark.TYPE_ID, AfterValidator(_type_id)]
 NodeId = Annotated[str, Mark.NODE_ID]
 Subject = Annotated[str, Mark.SUBJECT]

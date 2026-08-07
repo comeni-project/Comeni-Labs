@@ -6,7 +6,7 @@ are replayed rather than re-asked; this is the class that does it.
 """
 
 import pytest
-from comeni_core.decision import Ambiguity, DecisionRecord
+from comeni_core.decision import Ambiguity, ParamDecision
 from mendel_resolver.replay import ReplayResolver
 
 
@@ -15,7 +15,7 @@ def _ambiguity(subject="aligner", node="star_align"):
 
 
 def _record(ambiguity, chosen="b", **kwargs):
-    return DecisionRecord(
+    return ParamDecision(
         key=ambiguity.key(),
         subject=ambiguity.subject,
         candidates=ambiguity.candidates,

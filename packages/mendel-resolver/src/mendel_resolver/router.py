@@ -17,7 +17,7 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 from collections.abc import Callable
 
 from comeni_core.contract import InputPort, ModuleContract
-from comeni_core.decision import Ambiguity, DecisionRecord
+from comeni_core.decision import Ambiguity, DecisionRecord, ProducerDecision
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
 from comeni_core.registry import Registry
@@ -308,7 +308,7 @@ def _choose(
     # have moved: a forged or stale answer is not trusted, it is ignored.
     chosen = next((c for c in ordered if c.id == resolution.chosen), ordered[0])
     plan.decisions.append(
-        DecisionRecord(
+        ProducerDecision(
             key=ambiguity.key(),
             subject=ambiguity.subject,
             candidates=ambiguity.candidates,

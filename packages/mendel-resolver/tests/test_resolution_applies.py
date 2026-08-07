@@ -17,7 +17,7 @@ disagrees, because agreement is what hid it.
 """
 
 import pytest
-from comeni_core.decision import Ambiguity, DecisionRecord, Resolution
+from comeni_core.decision import Ambiguity, ProducerDecision, Resolution
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
@@ -317,4 +317,4 @@ def test_a_replayed_record_is_not_needed_for_this_to_hold(tied):
     assert [n.contract_id for n in ir.nodes] == ["audit/aligner-a@1.0.0"]
     record = next(d for d in ir.decisions if d.subject.startswith("producer:"))
     assert record.resolved_by == "flag-only"
-    assert isinstance(record, DecisionRecord)
+    assert isinstance(record, ProducerDecision)

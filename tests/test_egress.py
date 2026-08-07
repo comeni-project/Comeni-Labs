@@ -30,7 +30,12 @@ FREE_TEXT_FIELDS = {
     # exempted, because an audit found these riding along unexamined inside a nested
     # model the guard never opened.
     ("ResolvedValue", "reason"),
-    ("DecisionRecord", "reason"),
+    # One per decision kind since A16 split `DecisionRecord` into three. Four entries
+    # became six by a refactor rather than by a new field crossing the boundary — which is
+    # exactly the sort of change this literal list exists to make someone notice.
+    ("ParamDecision", "reason"),
+    ("ProducerDecision", "reason"),
+    ("SourceDecision", "reason"),
 }
 
 
@@ -185,6 +190,15 @@ def _leaf_problems(
         return _leaf_problems(inner, where, models, seen)
 
     origin = typing.get_origin(annotation)
+    if origin is typing.Literal:
+        # A discriminator. `Literal[DecisionKind.PARAM]` is *narrower* than the enum it
+        # draws from — one member rather than any — so it is permitted for the same reason
+        # an enum is, and only for values that would themselves be permitted leaves.
+        return [
+            problem
+            for value in typing.get_args(annotation)
+            for problem in _leaf_problems(type(value), where, models, marked)
+        ]
     if origin in (typing.Union, types.UnionType) or origin in _PERMITTED_CONTAINERS:
         return [
             problem

@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from comeni_core.contract import InputPort
-from comeni_core.decision import Ambiguity, DecisionRecord
+from comeni_core.decision import Ambiguity, DecisionRecord, ParamDecision, SourceDecision
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
@@ -199,7 +199,7 @@ def _source_for(
             equally_good[-1],
         )
         decisions.append(
-            DecisionRecord(
+            SourceDecision(
                 key=ambiguity.key(),
                 subject=ambiguity.subject,
                 candidates=ambiguity.candidates,
@@ -268,7 +268,7 @@ def _resolve_param(
     )
     resolution = resolver.resolve(ambiguity)
     decisions.append(
-        DecisionRecord(
+        ParamDecision(
             key=ambiguity.key(),
             subject=param_name,
             candidates=ambiguity.candidates,
@@ -306,3 +306,4 @@ def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:
         # bundle as a *key*, and a state that no type declares is a goal asking for
         # something no contract can satisfy.
         vocabulary.validate(required.type_id, required.states)
+

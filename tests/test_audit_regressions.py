@@ -551,10 +551,10 @@ def test_a3_a_path_shaped_parameter_is_refused(value):
     Reproduced on the unmodified tree with no monkeypatching: a patient path validated
     into a `DecisionRecord` and from there into a `PublishBundle`, the door with no undo.
     """
-    from comeni_core.decision import DecisionRecord
+    from comeni_core.decision import ParamDecision
 
     with pytest.raises(ValidationError):
-        DecisionRecord(
+        ParamDecision(
             key="k", subject="s", chosen=None, reason="r", resolved_by="human",
             human_override=value,
         )
@@ -568,9 +568,9 @@ def test_a3_a_registry_shaped_parameter_still_validates(value):
     `then:` is exactly that. A blocklist that rejected it would make the registry
     unloadable.
     """
-    from comeni_core.decision import DecisionRecord
+    from comeni_core.decision import ParamDecision
 
-    record = DecisionRecord(
+    record = ParamDecision(
         key="k", subject="s", chosen=None, reason="r", resolved_by="human",
         human_override=value,
     )
@@ -607,10 +607,15 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
     routing paths rebuild it from their candidate list rather than trusting a resolver's
     answer (audit A8). Nothing human reaches it. Guard by who writes a field, not by what
     the value looks like.
-    """
-    from comeni_core.decision import DecisionRecord
 
-    record = DecisionRecord(
+    **A16 improves on this rather than replacing it.** `SourceDecision.chosen` is an
+    `EdgeRef` now, so `dual.bam` is accepted *because it is declared* rather than tolerated
+    because the blocklist was scoped around it. The scoping argument still holds for
+    `ParamDecision.human_override`, which is the one kind with no domain — Plan 2 Task 11.
+    """
+    from comeni_core.decision import ParamDecision, SourceDecision
+
+    record = SourceDecision(
         key="dual.source:bam", subject="source:bam", candidates=["dual.bam", "solo.bam"],
         chosen="dual.bam", reason="r", resolved_by="flag-only",
     )
@@ -618,7 +623,7 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
 
     # The same string typed by a person is still refused, which is the whole scoping.
     with pytest.raises(ValidationError):
-        DecisionRecord(
+        ParamDecision(
             key="k", subject="s", chosen=None, reason="r", resolved_by="human",
             human_override="/data/patients/PT-4471023/S1_R1.fastq.gz",
         )
@@ -1226,6 +1231,59 @@ def test_a29_upgrade_refuses_a_bundle_carrying_an_undeclared_type(tmp_path):
                  "--root", "."]) == 2
 
 
+def test_a16_a_decision_declares_its_kind():
+    """A16 — `chosen` carried three sorts of value and the discriminator was a prefix.
+
+        subject=f"producer:{type_id}"    # chosen is a ContractId
+        subject=f"source:{port.name}"    # chosen is "{node}.{port}"
+        subject=param_name               # chosen is a ParamValue — no prefix at all
+
+    Two of three prefixed and one not, so "what kind of decision is this?" was answered by
+    pattern-matching a string nobody designed to be parsed. Each kind now has a type and a
+    domain, and the domains are what the checks read.
+    """
+    from comeni_core.decision import (
+        DecisionKind,
+        ParamDecision,
+        ProducerDecision,
+        SourceDecision,
+    )
+
+    common = {"key": "k", "subject": "s", "reason": "r", "resolved_by": "flag-only"}
+
+    assert ProducerDecision(**common, chosen="nf-core/star/align@1.11.0").kind is (
+        DecisionKind.PRODUCER
+    )
+    with pytest.raises(ValidationError):
+        ProducerDecision(**common, chosen="not-a-contract")
+
+    # The A3 collision, resolved by declaration rather than by exemption.
+    assert SourceDecision(**common, chosen="dual.bam").chosen == "dual.bam"
+    for not_an_edge in ("PT-4471023.fastq.gz", "S1_R1.bam.gz", "bam"):
+        with pytest.raises(ValidationError):
+            SourceDecision(**common, chosen=not_an_edge)
+
+    # And the kind with no declared domain keeps its blocklist, which is what Plan 2
+    # Task 11 replaces.
+    assert ParamDecision(**common, chosen=None).kind is DecisionKind.PARAM
+
+
+def test_a16_a_bundle_round_trips_through_the_union(tmp_path):
+    """`kind` reaches the artifact, so a published bundle must read back as itself."""
+    from comeni_core.egress import PublishBundle
+    from mendel_compiler.cli import main
+
+    out = tmp_path / "p"
+    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
+                 "--root", "."]) == 0
+    text = (out / "pipeline.bundle.json").read_text()
+
+    bundle = PublishBundle.model_validate_json(text)
+    assert bundle.decisions, "the spine has a tier-4 parameter, so there is one to read"
+    assert bundle.model_dump_json(indent=2) == text
+    assert all(record.kind for record in bundle.decisions)
+
+
 def test_a20_marker_metadata_is_a_closed_vocabulary():
     """The marker set was open, so "declared identifier" meant "a string exists here".
 
@@ -1239,7 +1297,11 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
 
     from comeni_core.marks import ContractId, Mark
 
-    assert all(isinstance(m, Mark) for m in ContractId.__metadata__)
+    # **Some** metadata element, never all. `ContractId` carries an `AfterValidator`
+    # alongside its `Mark` since root C gave it a shape, exactly as `HumanParamValue`
+    # always has — and requiring all would refuse every alias that validates anything,
+    # which is the trap `_leaf_problems` documents.
+    assert any(isinstance(m, Mark) for m in ContractId.__metadata__)
 
     for invented in (typing.Annotated[str, "clinical-notes"], typing.Annotated[str, 42]):
         assert not any(isinstance(m, Mark) for m in invented.__metadata__), (
