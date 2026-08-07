@@ -263,7 +263,7 @@ contract-derived fields empty.
 mendel build --goal g.yml --registry registry/ --out build/   # resolve, then emit
 mendel emit  build/pipeline.yml --out build/                  # no registry, no network
 mendel verify build/pipeline.yml --registry registry/         # frozen values vs. digests
-mendel upgrade build/pipeline.yml --registry registry/        # re-resolve, replay edits
+mendel upgrade build/pipeline.yml --registry registry/ --out next/   # never in place
 mendel publish build/pipeline.yml
 ```
 
@@ -278,6 +278,14 @@ until now."* Making the round trip load-bearing on every build retires that whol
 and always will. The file is the output of resolution that you may then edit; it is not an
 alternative front door. `mendel build --goal` (and, from Plan 2, the prompt door) remains the
 only way to make one.
+
+**`upgrade` must never write over the file it read.** `tests/test_upgrade.py` already asserts this
+of a bundle — `test_upgrade_never_writes_over_the_bundle_it_read` — and consolidation makes the rule
+*more* important while making it easier to break. Today the input is a bundle and the output is a
+report, so there is nothing to collide. With one artifact, the natural implementation updates
+`pipeline.yml` in place, and that destroys the only record of what you had: the replayed overrides,
+the previous digests, the gate evidence. `mendel upgrade` therefore requires `--out` and refuses to
+resolve it to the input's directory. The existing test keeps its meaning and gains a second subject.
 
 **The archive unit is the directory, not the file** — say it precisely, because the loose version of
 this claim is wrong. `pipeline.yml` is sufficient to regenerate `main.nf` and `nextflow.config`
@@ -440,7 +448,7 @@ and only for edits to the artifact.
 registry, materialises a fresh `Pipeline`, and reapplies them:
 
 ```
-$ mendel upgrade build/pipeline.yml --registry registry/
+$ mendel upgrade build/pipeline.yml --registry registry/ --out next/
 
 drift      2  digest changed, resolved value unchanged
               nf-core/star/align@1.11.0   sha256:9f2c… → sha256:c418…
@@ -613,7 +621,7 @@ one.
 Rendered, with `where:` pointing into the file rather than at a contract id:
 
 ```
-$ mendel upgrade build/pipeline.yml --registry registry/
+$ mendel upgrade build/pipeline.yml --registry registry/ --out next/
 
 M0113  build/pipeline.yml → steps[hisat2_align].settings[seq_platform]
   Your override no longer applies to anything.
@@ -674,11 +682,24 @@ and `M0110` must not be extended to cover it.
   emitted-from file, which is a better position than root C's current five kinds across two
   surfaces. If root C lands first, this spec's new markers must be added to its `Mark` enum, not
   invented beside it.
-- **Root D (the verdict comes from the artifact).** `gate:` moves inside `pipeline.yml`, and
-  `upgrade`'s comparison becomes a comparison of two `Pipeline` objects rather than of
-  hand-enumerated IR fields. Root D's finding was that `diff_ir` enumerates what it knows about,
-  so every new field is a silent blind spot. A materialised `Pipeline` narrows that: the fields
-  `emit` reads and the fields a diff must compare become the same set, checkable by construction.
+- **Root D (the verdict comes from the artifact).** `gate:` moves inside `pipeline.yml`. The
+  sequencing here needs care, because root D is **actively rewriting `diff_ir(before: PipelineIR,
+  after: PipelineIR)`** and this spec changes what it compares.
+
+  **Root D lands first, as specified, against `PipelineIR`.** It closes a critical finding and must
+  not wait. This spec then re-targets it to `Pipeline`, and root D's own tests are what verify the
+  replacement did not regress — its test suite is the acceptance criterion for the change, not
+  collateral.
+
+  The prize is worth the ordering. Root D's finding is that `diff_ir` enumerates the fields it knows
+  about, so every field added to the IR is a silent blind spot — Plan 1.8 added four. A **total**
+  `Pipeline` makes the diff complete *by construction*: if every field of every replaced type has a
+  declared home (§2), then a recursive walk over `model_fields` cannot miss one, because there is
+  nowhere for a field to hide. Root D gets a guarantee it cannot reach by enumeration.
+
+  Which means **§2's totality test and root D's completeness fix are the same idea twice** — one
+  applied to construction, one to comparison. They should share a mechanism rather than each growing
+  a hand-maintained field list, since a hand-maintained list is the defect in both cases.
 - **Root B (a layer is one thing).** `registry.layers` and `registry.shadowed` are that
   provenance, carried on the artifact. Root B reports when an overlay replaces an
   `entry_channel`; this spec puts the resulting expression in the file, so the replacement is
@@ -717,6 +738,7 @@ Root I applies. Each probe added, watched failing, reverted.
 | an override whose candidate set moved | re-asked and reported `STALE`; **not** refused, and **not** silent as it is today |
 | a setting answered by an override | absent from `needs_review()`, present in `overrides()`, still tier 4 |
 | `upgrade` replaying an override | the recorded `reason` emitted **verbatim** — byte-identical `main.nf`, federation §4.1 |
+| `mendel upgrade --out` pointed at the input's own directory | refused — the existing never-overwrite test, with a second subject |
 | `via: meta` on `single_end` while `paired` is also measured | refused, `M0118` |
 | a `Pipeline` hand-built with `process: ""` | refused by `tests/test_construction.py` |
 | a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `M0116` |
