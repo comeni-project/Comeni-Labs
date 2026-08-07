@@ -12,7 +12,7 @@ import sys
 
 import pytest
 from comeni_core.contract import ModuleContract
-from comeni_core.digest import digest_of, digest_of_directory
+from comeni_core.digest import content_hash, digest_of, digest_of_directory, entry_hash
 from comeni_core.vocabulary import Vocabulary
 
 CONTRACT = """
@@ -154,9 +154,16 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
 
     The first version joined `f"{name}:{content_hash}"` with newlines, so a filename
     containing a colon and a newline could impersonate a second entry: one file named
-    `a.yml:<sha of "alpha">\\nb.yml` holding "beta" digested identically to a two-file layer
-    holding a.yml/"alpha" and b.yml/"beta". Task 8 makes layers something strangers
-    distribute and a lockfile pins them by digest, so this is the whole guarantee.
+    `a.yml:<sha of "alpha">\nb.yml` holding "beta" digested identically to a two-file layer
+    holding a.yml/"alpha" and b.yml/"beta". Layers are something strangers distribute and a
+    lockfile pins them by digest, so this is the whole guarantee.
+
+    **The forgery is built by calling the code, not by restating it.** It used to spell out
+    the old format by hand, so reverting the fix left it passing — twelve passed against the
+    defect it exists to catch, which is A21. The first rewrite called `entry_hash` and still
+    computed the content half as a bare `sha256(b"alpha")`, omitting `_FILE`, and passed
+    against the revert a second time. Both halves have to come from the code, or the test is
+    guarding a computation the code does not perform.
     """
     honest, forged = tmp_path / "honest", tmp_path / "forged"
     honest.mkdir()
@@ -164,10 +171,22 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
     (honest / "a.yml").write_text("alpha")
     (honest / "b.yml").write_text("beta")
 
-    alpha_hash = hashlib.sha256(b"alpha").hexdigest()
-    (forged / f"a.yml:{alpha_hash}\nb.yml").write_text("beta")
+    # Exactly what the code writes for an honest first entry, asked of the code.
+    impersonated = entry_hash("a.yml", content_hash(b"alpha"))
+    (forged / f"{impersonated}\nb.yml").write_text("beta")
 
     assert digest_of_directory(honest) != digest_of_directory(forged)
+
+
+def test_the_streaming_and_in_memory_content_hashes_agree(tmp_path):
+    """Two spellings of one hash is how the forgery test came to guard a computation the
+    code does not perform. If these ever disagree, `content_hash` is a lie and every
+    forgery built through it is testing nothing."""
+    (tmp_path / "a.yml").write_text("alpha")
+    honest = digest_of_directory(tmp_path)
+    one_entry = entry_hash("a.yml", content_hash(b"alpha"))
+    rebuilt = f"sha256:{hashlib.sha256(one_entry.encode()).hexdigest()}"
+    assert honest == rebuilt
 
 
 def test_a_layer_may_not_contain_a_symlink(tmp_path):

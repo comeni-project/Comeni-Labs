@@ -50,6 +50,38 @@ def digest_of(model: BaseModel) -> Digest:
     return f"{_ALGORITHM}:{_hex(model.model_dump_json().encode())}"
 
 
+def content_hash(data: bytes) -> str:
+    """The content half of a directory-digest entry, domain-separated as a file.
+
+    Extracted for the same reason as `entry_hash`, and the reason is sharper here: the
+    first rewrite of the forgery test called `entry_hash` and still computed the content
+    half as a bare `sha256(b"alpha")` — leaving out `_FILE`. The forged entry therefore did
+    not match what the code produces for an honest file, and the test kept passing against
+    the reverted fix a *second* time. A21 has two levels, and only calling the code all the
+    way down reaches the bottom of it.
+    """
+    hasher = hashlib.sha256()
+    hasher.update(_FILE)
+    hasher.update(data)
+    return hasher.hexdigest()
+
+
+def entry_hash(name: str, content_digest: str) -> str:
+    """One entry of a directory digest: a filename and its content, both fixed-width hex.
+
+    **Public because a test must construct a forgery through this rather than restate it.**
+    A21: `test_a_filename_cannot_forge_an_entry_boundary` built its forged filename as
+    `f"a.yml:{sha}\nb.yml"` — the format the *old, broken* code used — so it kept passing
+    when the fix was reverted, because the forgery it built no longer matched the code it
+    was guarding. Twelve passed against the defect it exists to catch.
+
+    A guard that re-implements its subject tests its own copy. Reading the format out of
+    here means a forgery is built the way the digest builds one, and a change to the format
+    changes both at once or fails loudly.
+    """
+    return f"{_hex(name.encode())}:{content_digest}"
+
+
 def digest_of_directory(path: Path) -> Digest:
     """Content digest of every entry under `path`, name and bytes alike.
 
@@ -101,6 +133,10 @@ def digest_of_directory(path: Path) -> Digest:
             with entry.open("rb") as handle:
                 while chunk := handle.read(_CHUNK):
                     hasher.update(chunk)
-            parts.append(f"{_hex(name.encode())}:{hasher.hexdigest()}")
+            # `content_hash` is the same computation for data that fits in memory, and the
+            # streaming form is what a layer of real files needs. They are asserted equal
+            # in `test_digest.py`, because two spellings of one hash is how the forgery
+            # test came to be guarding a computation the code does not perform.
+            parts.append(entry_hash(name, hasher.hexdigest()))
     joined = "\n".join(parts)
     return f"{_ALGORITHM}:{_hex(joined.encode())}"

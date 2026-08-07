@@ -560,3 +560,43 @@ refused by Pydantic before the guard is reached.
 - **Conformance** (`conformance.py`, `modulespec.py`, M0102–M0107) and **gates** were read, not
   attacked.
 - **Frontend, API, forge** do not exist. **Toolchain and C1–C4** excluded by the brief.
+
+---
+
+## Found during Plan 1.9 — A36 onwards
+
+Numbered here rather than in a new document, because they were found the same way and a
+reader asking "what did round two turn up" should not have to know which day each answer
+arrived. Round three starts after these.
+
+### A36 — `_FILE` domain separation protects nothing, and no test says so — *minor, open*
+
+Found by Part F, Task F1, Step 6: A21's symmetric question, asked of the code A21 was about.
+
+`digest.py` prefixes every file's content hash with `_FILE = b"file\x00"`. Setting it to
+`b""` and running the whole suite gives **436 passed**. Nothing depends on it.
+
+That is not a defect in the tag; it is the truth about it. Its own docstring says why it
+exists: *"the moment a second entry kind is added it is what keeps the two from hashing
+alike."* Its sibling `_LINK` is gone with the symlink branch A9 removed, so there is
+currently exactly one entry kind and a domain separator between one thing and nothing is a
+separator that separates nothing.
+
+Three options, none of them urgent, and the reason this is recorded rather than fixed is
+that the plan says a measurement is not a mandate:
+
+1. **Delete it.** Honest, and it costs the property the day a second kind arrives.
+2. **Keep it and say so** — that it is prospective, guarding a future entry kind rather
+   than a current one. A comment already gestures at this; a test cannot assert it.
+3. **Give it a test that can fail** — hash a directory two ways, one with a synthetic
+   second entry kind, and assert they differ. This is the only option that makes the tag's
+   claim checkable, and it requires inventing the second kind to check it.
+
+**Nothing is published**, so changing the tag is free today and expensive after the first
+lockfile a stranger holds. That, rather than the tag's current uselessness, is the argument
+for deciding it soon.
+
+Same shape as two other findings this plan turned up by reverting: `stack()`'s
+`origin[key] != layer.index`, which can never be false, and `min` versus `max` over a set
+that is always a singleton. A line that cannot be wrong reads exactly like a line that is
+untested.
