@@ -48,7 +48,7 @@ def world(tmp_path):
     vocabulary = Vocabulary.load(tmp_path)
     return {
         "vocabulary": vocabulary,
-        "registry": Registry.load(contracts, vocabulary),
+        "registry": Registry.load(tmp_path, vocabulary),
         "measurements": MeasurementRegistry.load(tmp_path),
         "rules": tmp_path / "rules",
     }

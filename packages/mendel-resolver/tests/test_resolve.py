@@ -76,7 +76,7 @@ def setup(tmp_path):
     (contracts / "fc.yml").write_text(COUNTS)
     (contracts / "sort.yml").write_text(SORT)
     vocabulary = Vocabulary.load(tmp_path)
-    registry = Registry.load(contracts, vocabulary)
+    registry = Registry.load(tmp_path, vocabulary)
     return registry, *_rules_and_measurements(tmp_path, registry, vocabulary, RULES)
 
 
@@ -189,7 +189,7 @@ def tied(tmp_path):
         )
     )
     vocabulary = Vocabulary.load(tmp_path)
-    registry = Registry.load(contracts, vocabulary)
+    registry = Registry.load(tmp_path, vocabulary)
     return registry, *_rules_and_measurements(
         tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"
     )
@@ -249,7 +249,7 @@ def with_index(tmp_path):
     (contracts / "sort.yml").write_text(SORT)
     (contracts / "index.yml").write_text(INDEX)
     vocabulary = Vocabulary.load(tmp_path)
-    registry = Registry.load(contracts, vocabulary)
+    registry = Registry.load(tmp_path, vocabulary)
     return registry, *_rules_and_measurements(
         tmp_path, registry, vocabulary, "version: 1\ndecisions: []\n"
     )

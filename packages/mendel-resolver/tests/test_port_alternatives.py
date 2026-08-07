@@ -52,7 +52,7 @@ def _world(tmp_path, contracts: dict[str, str]):
     for name, body in contracts.items():
         (contract_dir / name).write_text(body)
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(contract_dir, vocabulary)
+    return Registry.load(tmp_path, vocabulary)
 
 
 def _goal():

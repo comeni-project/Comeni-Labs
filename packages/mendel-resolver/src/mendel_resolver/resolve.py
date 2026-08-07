@@ -40,10 +40,14 @@ def resolve(
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
-        # Read off the registry rather than passed in: a shadow is a fact the registry
-        # discovered while loading, and asking the caller to forward it is asking them to
-        # forget. A published pipeline whose overlay quietly rerouted it is unauditable.
-        shadowed=list(registry.shadowed),
+        # Read off the loaded data rather than passed in: a displacement is a fact each
+        # loader discovered, and asking the caller to forward it is asking them to forget.
+        # A published pipeline whose overlay quietly rerouted it is unauditable.
+        #
+        # The vocabulary's own displacements join this list in Part E, when `resolve()`
+        # takes a vocabulary. Until then A24 is reported by `mendel build` and not by the
+        # artifact, which is recorded here rather than left to be rediscovered.
+        displaced=[*measurements.displaced, *registry.displaced],
     )
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —

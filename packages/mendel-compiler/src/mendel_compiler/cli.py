@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 from comeni_core.egress import PublishBundle
 from comeni_core.layer import layer_name
+from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
@@ -198,17 +199,15 @@ def _build(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
-    for record in registry.shadowed:
-        print(
-            f"  SHADOW  {record.module_key}: {record.winning_id} from {record.winning_layer} "
-            f"displaced {', '.join(record.displaced_ids)}",
-            file=sys.stderr,
-        )
-
     # Its own section, above the review list rather than inside it. "What did my overlay
     # change" and "what must I decide" are different questions, and folding the first into
     # the second is how a reviewer learns to skim both. Audit A5, A15.
-    reroutes = ir.overlay_reroutes()
+    #
+    # One block for all four kinds since A23/A24/A25. `SHADOW` was contracts only, printed
+    # off the registry, so a measurement or vocabulary an overlay replaced had nowhere to
+    # be said — and a reader had two lists to read that answered one question.
+    reroutes = [_displacement_line(record) for record in ir.displaced]
+    reroutes += ir.overlay_reroutes()
     if reroutes:
         print(
             f"{len(reroutes)} overlay reroute(s) — an installed layer changed what the "
@@ -257,6 +256,21 @@ def _build(argv: list[str] | None = None) -> int:
             yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
         )
     return 0
+
+
+def _displacement_line(record: Displacement) -> str:
+    """One displaced declaration, in the words a reader of the build output needs.
+
+    Names the kind, because `strandedness` and a contract id look nothing alike but a
+    laboratory reading "displaced" wants to know *what* was displaced before it cares
+    which layer did it.
+    """
+    what = record.winning_key or record.key
+    displaced = f" over {', '.join(record.displaced_keys)}" if record.displaced_keys else ""
+    return (
+        f"{record.kind.value}: {what} from {record.winning_layer}{displaced}, "
+        f"displacing {record.displaced_layer}"
+    )
 
 
 def _profiling_goal(args: argparse.Namespace, loaded: layers.Layers) -> Goal:

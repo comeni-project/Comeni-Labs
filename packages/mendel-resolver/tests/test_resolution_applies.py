@@ -83,7 +83,7 @@ def tied(tmp_path):
     (contracts / "a.yml").write_text(ALIGNER.format(tag="a", upper="A"))
     (contracts / "b.yml").write_text(ALIGNER.format(tag="b", upper="B"))
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(contracts, vocabulary), RuleTable(), MeasurementRegistry()
+    return Registry.load(tmp_path, vocabulary), RuleTable(), MeasurementRegistry()
 
 
 def _goal():
@@ -241,7 +241,7 @@ def two_equally_good_sources(tmp_path):
     (contracts / "dual.yml").write_text(DUAL)
     (contracts / "counter.yml").write_text(COUNTER)
     vocabulary = Vocabulary.load(tmp_path)
-    return Registry.load(contracts, vocabulary)
+    return Registry.load(tmp_path, vocabulary)
 
 
 def test_an_edge_record_names_the_edge_that_was_built(two_equally_good_sources):

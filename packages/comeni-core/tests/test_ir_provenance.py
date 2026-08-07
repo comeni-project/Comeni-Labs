@@ -20,7 +20,7 @@ SPINE_INPUTS = ["fastq.reads", "annotation.gtf", "genome.fasta"]
 
 def test_an_ir_defaults_to_no_layers():
     assert PipelineIR().registry_layers == []
-    assert PipelineIR().shadowed == []
+    assert PipelineIR().displaced == []
 
 
 def test_a_resolved_ir_records_the_layers_it_was_built_from():
@@ -35,7 +35,7 @@ def test_a_resolved_ir_records_the_layers_it_was_built_from():
     assert ir.registry_layers == ["registry"]
 
 
-def test_a_resolved_ir_carries_the_shadow_records(tmp_path):
+def test_a_resolved_ir_carries_the_displacements(tmp_path):
     """An overlay that displaced a contract must be visible in the artifact, not only
     on stderr at build time. A published pipeline that hid it would be unauditable."""
     base = ROOT / "registry"
@@ -58,13 +58,13 @@ def test_a_resolved_ir_carries_the_shadow_records(tmp_path):
         layer_names=[p.name for p in loaded.paths],
     )
     assert ir.registry_layers == ["registry", "lab"]
-    assert [s.module_key for s in ir.shadowed] == ["nf-core/samtools/sort"]
+    assert [d.key for d in ir.displaced] == ["nf-core/samtools/sort"]
 
 
-def test_a_shadow_record_names_the_layer_and_never_its_path(tmp_path):
+def test_a_displacement_names_the_layer_and_never_its_path(tmp_path):
     """`winning_layer` held `str(layer)` — an absolute filesystem path — until
-    `PipelineIR.shadowed` made ShadowRecord reachable from a publish bundle and the egress
-    guard walked it for the first time.
+    `PipelineIR.shadowed` made the record reachable from a publish bundle and the egress
+    guard walked it for the first time. The record is a `Displacement` now — same rule.
 
     A path in a published artifact is meaningless on the machine that reads it and says
     more about the machine that wrote it than anyone intended. The lockfile has a dedicated
@@ -89,7 +89,7 @@ def test_a_shadow_record_names_the_layer_and_never_its_path(tmp_path):
         loaded.measurements,
         layer_names=[p.name for p in loaded.paths],
     )
-    assert [s.winning_layer for s in ir.shadowed] == ["lab"]
+    assert [d.winning_layer for d in ir.displaced] == ["lab"]
 
     serialised = ir.model_dump_json()
     assert str(tmp_path) not in serialised
@@ -126,4 +126,4 @@ def test_the_ir_round_trips_with_its_provenance(tmp_path):
     )
     again = PipelineIR.model_validate_json(ir.model_dump_json())
     assert again.registry_layers == ir.registry_layers
-    assert [s.module_key for s in again.shadowed] == [s.module_key for s in ir.shadowed]
+    assert [d.key for d in again.displaced] == [d.key for d in ir.displaced]

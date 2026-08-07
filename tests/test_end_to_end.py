@@ -41,8 +41,13 @@ def test_the_measured_strandedness_reaches_the_tool(tmp_path):
     assert "single_end: false" in reads, reads
 
 
-def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
-    """--registry stacks layers, and a build on a modified registry announces it."""
+def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
+    """--registry stacks layers, and a build on a modified registry announces it.
+
+    One `OVERLAY` block for all four kinds since A23-A25. It was `SHADOW`, printed off
+    the registry and covering contracts alone, so an overlay measurement or vocabulary had
+    nowhere to be announced at all.
+    """
     # A layer is a directory holding contracts/, rules/ and vocabularies/ — the lab ships
     # only contracts here, and inherits the base layer's types and rules.
     overlay = tmp_path / "lab"
@@ -63,7 +68,7 @@ def test_an_overlay_shadows_and_says_so(tmp_path, capsys):
         "--registry", str(overlay),
     ])
     assert exit_code == 0
-    assert "SHADOW  nf-core/samtools/sort" in capsys.readouterr().err
+    assert "OVERLAY  contracts: nf-core/samtools/sort@1.99.0" in capsys.readouterr().err
     ir = json.loads((tmp_path / "pipeline" / "pipeline.ir.json").read_text())
     assert "nf-core/samtools/sort@1.99.0" in [n["contract_id"] for n in ir["nodes"]]
 

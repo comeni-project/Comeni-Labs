@@ -62,6 +62,25 @@ fail where the mistake is — it fails inside whichever contract happened to men
 `measurement.*` type. `mendel_resolver.layers.load()` exists so the order is a fact rather
 than something each caller remembers.
 
+### Stacking is one mechanism
+
+`comeni_core.layered.stack(layers, kind)` loads one kind across a stack. A `Kind` declares
+only what genuinely differs — how a file parses, what keys an entry, whether a higher layer
+replaces (`Policy.REPLACE`), extends (`MERGE`, opt-in and spelled in the file as `add_states`
+or `add_values`) or deletes a whole group (`DELETE_GROUP`, which is contract shadowing by
+module key). Everything else — recursion, `*.yml` **and** `*.yaml`, a missing subdirectory,
+stack order, and recording what displaced what — belongs to `stack()` and is therefore
+identical for all four.
+
+It was four hand-written loaders before Plan 1.9, disagreeing on six axes: two of them
+recorded nothing at all, three globbed one level, all four ignored `.yaml`, and displacement
+was keyed on a layer *name*. Every finding in audit root B is a cell in that table.
+
+A `Layer` is a value: `path`, `name` (from `registry.yml`, for rendering) and `index`
+(**identity** — names collide). Every displacement, of any kind, is one `Displacement`
+record: it reaches `PipelineIR.displaced`, a publish bundle, and the `OVERLAY` block of
+`mendel build`.
+
 ### Vocabularies are closed
 
 `Vocabulary.validate(type_id, states)` raises `UnknownStateError` for any state the type does

@@ -3,10 +3,20 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from comeni_core.contract import ModuleContract
-from comeni_core.marks import ContractId, LayerName, ModuleKey
+from comeni_core.layered import (
+    DeclaredKind,
+    Displacement,
+    Kind,
+    Layer,
+    Policy,
+    Stacked,
+    layers_of,
+    stack,
+)
+from comeni_core.marks import LayerName
 from comeni_core.vocabulary import Vocabulary
 
 
@@ -15,117 +25,75 @@ def module_key(contract_id: str) -> str:
     return contract_id.rsplit("@", 1)[0]
 
 
-class ShadowRecord(BaseModel):
-    """A higher layer displaced every lower-layer contract for one module key.
-
-    Every field is a declared ID and `extra` is forbidden, because this became reachable
-    from `PublishBundle` when `PipelineIR.shadowed` landed. Until then nothing had walked
-    it, and it was carrying `winning_layer` as an absolute filesystem path — straight into
-    a publishable artifact, past the rule the lockfile has an explicit test for.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    module_key: ModuleKey
-    winning_id: ContractId
-    winning_layer: LayerName
-    """The layer's *name*, never where it sat. A path is meaningless on the machine that
-    reads a published bundle, and says more about the machine that wrote it than anyone
-    intended."""
-    displaced_ids: list[ContractId]
-
-
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
-    shadowed: list[ShadowRecord] = []
-    layer_of: dict[str, LayerName] = {}
-    """Which layer each surviving contract came from.
+
+    displaced: list[Displacement] = []
+    """What this stack's higher layers removed. Was `list[ShadowRecord]`.
+
+    `ShadowRecord` is deleted rather than kept as a projection: an abstraction with one
+    kind opted out decays back into four loaders, which is the whole of root B. Its one
+    distinctive property survives as `Displacement.winning_key` — a layer may hold two
+    versions of one module, so a record naming only the module key can contradict the
+    build it describes.
+    """
+
+    layer_of: dict[str, int] = {}
+    """Which layer each surviving contract came from, **by index**.
+
+    An index, not a name: names are not unique, and `--registry registry/ --registry
+    ./registry` is a day-one collision that made `order.index(name)` answer about the
+    wrong layer (A25). Identity is position.
 
     Here rather than on `ModuleContract` on purpose: a contract is content-addressed
     (audit A10), and a field recording where it was found would make its digest depend on
     the machine that read it — reopening A10 sideways. A `Registry` is never reachable
     from `PublishBundle`, so a mapping is legal here in a way it is not on the IR.
-
-    Routing reads this to answer A5: not *which* layer won, which is rarely interesting,
-    but whether the winner beat a candidate a lower layer offered.
     """
 
     layer_order: list[LayerName] = []
-    """The stack, lowest first. Without it `layer_of` cannot answer "was this layer above
-    that one", which is the whole of the displacement test."""
+    """The stack's names, lowest first — for rendering a record, never for comparing."""
+
+    @staticmethod
+    def kind(vocab: Vocabulary) -> Kind[str, ModuleContract]:
+        """How contracts are found, keyed and stacked.
+
+        The one kind that needs a `group`: the storage key is the full id and displacement
+        is decided on the id minus its version, so `@2.0.0` displaces both `@1.11.0` and
+        `@1.21.0`. Keying displacement on the full id would make a version bump ambiguity
+        rather than a decision — invariant 11's reason for the module key.
+        """
+        return Kind(
+            DeclaredKind.CONTRACTS,
+            parse=lambda path: [ModuleContract.load(path, vocab)],
+            key=lambda contract: contract.id,
+            group=lambda contract: module_key(contract.id),
+            policy=Policy.DELETE_GROUP,
+            # The same `(-priority, id)` order `producers_of` returns, so the record names
+            # the contract routing will actually prefer.
+            prefer=lambda contracts: min(contracts, key=lambda c: (-c.priority, c.id)),
+        )
 
     @classmethod
-    def load(
-        cls,
-        layers: Path | Sequence[Path],
-        vocab: Vocabulary,
-        names: Sequence[str] | None = None,
-    ) -> "Registry":
-        """`names[i]` is what layer `i` is called in a shadow record.
-
-        Passed in rather than derived, because this method is handed `<layer>/contracts`
-        directories and the layer's name lives one level up — knowledge the caller has and
-        this does not. Defaulting to the directory's own name keeps every existing caller
-        working and, crucially, keeps a *name* in that field rather than a path.
-        """
-        if isinstance(layers, Path):
-            layers = [layers]
-        layer_names = list(names) if names is not None else [layer.name for layer in layers]
-
-        contracts: dict[str, ModuleContract] = {}
-        shadowed: list[ShadowRecord] = []
-        layer_of: dict[str, LayerName] = {}
-
-        for layer, layer_name in zip(layers, layer_names, strict=True):
-            incoming: dict[str, ModuleContract] = {}
-            for path in sorted(layer.rglob("*.yml")):
-                contract = ModuleContract.load(path, vocab)
-                if contract.id in incoming:
-                    # Shadowing *between* layers is a declaration and is recorded. Twice
-                    # in one layer is a copy-paste, and resolving it by glob order would
-                    # be the silent arbitrary pick invariant 8 exists to prevent.
-                    raise ValueError(
-                        f"{contract.id} is declared twice in {layer}: {path.name} "
-                        f"duplicates an earlier file"
-                    )
-                incoming[contract.id] = contract
-
-            keys = {module_key(cid) for cid in incoming}
-            for key in sorted(keys):
-                displaced = sorted(c for c in contracts if module_key(c) == key)
-                if not displaced:
-                    continue
-                # A layer may legitimately hold two versions of one module. Name the one
-                # routing would actually prefer, so the record does not contradict the build:
-                # the same (-priority, id) order producers_of returns.
-                winner = min(
-                    (c for cid, c in incoming.items() if module_key(cid) == key),
-                    key=lambda c: (-c.priority, c.id),
-                ).id
-                shadowed.append(
-                    ShadowRecord(
-                        module_key=key,
-                        winning_id=winner,
-                        winning_layer=layer_name,
-                        displaced_ids=displaced,
-                    )
-                )
-                for cid in displaced:
-                    del contracts[cid]
-                    # A contract that is gone has no layer. Leaving the entry behind would
-                    # let routing report a displacement against a candidate that is not in
-                    # the registry any more.
-                    layer_of.pop(cid, None)
-
-            contracts.update(incoming)
-            layer_of.update(dict.fromkeys(incoming, layer_name))
-
+    def of(cls, stacked: Stacked[str, ModuleContract], layers: Sequence[Layer]) -> "Registry":
         return cls(
-            contracts=contracts,
-            shadowed=shadowed,
-            layer_of=layer_of,
-            layer_order=list(layer_names),
+            contracts=dict(stacked.entries),
+            displaced=list(stacked.displaced),
+            layer_of=dict(stacked.origin),
+            layer_order=[layer.name for layer in layers],
         )
+
+    @classmethod
+    def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
+        """Load contracts across a layer stack. **Layer roots, not `contracts/`.**
+
+        The `names` argument is gone: it existed because this was handed
+        `<layer>/contracts` directories and the layer's name lives one level up, so the
+        caller had to supply what the loader could not see. A layer is now a value that
+        carries its own name and index, so there is nothing left to forward.
+        """
+        as_layers = layers_of(layers)
+        return cls.of(stack(as_layers, cls.kind(vocab)), as_layers)
 
     def get(self, contract_id: str) -> ModuleContract:
         if contract_id not in self.contracts:

@@ -18,7 +18,15 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
+from comeni_core.layered import (
+    DeclaredKind,
+    Displacement,
+    Kind,
+    Policy,
+    Stacked,
+    layers_of,
+    stack,
+)
 from comeni_core.marks import MeasurementId, ParamValue
 from comeni_core.profile import DataProfile, Measured
 from comeni_core.tiers import ValueSource
@@ -172,6 +180,14 @@ class MeasurementRegistry(BaseModel):
 
     measurements: dict[str, Measurement] = Field(default_factory=dict)
 
+    displaced: list[Displacement] = Field(default_factory=list)
+    """What a higher layer replaced or extended here.
+
+    On the registry rather than returned beside it, for the reason `Registry.displaced`
+    gives: a caller who has to carry a second value is a caller who will drop it, and this
+    one reaches `PipelineIR.displaced` and therefore a publish bundle.
+    """
+
     @staticmethod
     def kind() -> Kind[str, Measurement | MeasurementDelta]:
         """How measurements are found, keyed and stacked. Everything else is `stack()`."""
@@ -193,7 +209,7 @@ class MeasurementRegistry(BaseModel):
                     f"add_values for {measurement_id!r}, which no layer declares"
                 )
             found[measurement_id] = entry
-        return cls(measurements=found)
+        return cls(measurements=found, displaced=list(stacked.displaced))
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> "MeasurementRegistry":

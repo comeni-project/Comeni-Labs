@@ -357,15 +357,12 @@ def _stacked(tmp_path):
     return base, lab
 
 
-def _resolve_stacked(tmp_path):
+def _resolve_stacked_from(loaded):
     import yaml
     from comeni_core.goal import Goal
     from comeni_core.layer import layer_name
-    from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
-    base, lab = _stacked(tmp_path)
-    loaded = layers_mod.load([base, lab])
     goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
     return resolve(
         goal,
@@ -374,6 +371,13 @@ def _resolve_stacked(tmp_path):
         loaded.measurements,
         layer_names=[layer_name(p) for p in loaded.paths],
     )
+
+
+def _resolve_stacked(tmp_path):
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    return _resolve_stacked_from(layers_mod.load([base, lab]))
 
 
 def test_a5_an_overlay_contract_that_displaces_one_says_so(tmp_path):
@@ -799,6 +803,44 @@ def test_a35_add_states_extends_and_the_base_survives(tmp_path):
     )
     assert "params.input" in loaded.vocabulary.entry_channels["fastq.reads"]
     assert loaded.vocabulary.test_data["fastq.reads"], "the base's test data survives too"
+
+
+def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
+    """A25 — displacement was keyed on a layer *name*, and names collide.
+
+    The lockfile's own docstring says the collision is not exotic: the public layer is
+    named `registry`, so a lab stacking it over their own `registry/` hits it on day one.
+    `ShadowRecord` is gone; a contract shadow is a `Displacement` like the other three
+    kinds, and the IR carries all of them under one field.
+    """
+    import shutil
+
+    from comeni_core.layered import DeclaredKind
+    from mendel_resolver import layers as layers_mod
+
+    base, lab = _stacked(tmp_path)
+    (lab / "contracts").mkdir(parents=True, exist_ok=True)
+    shutil.copy(
+        base / "contracts" / "nf-core" / "samtools-sort.yml",
+        lab / "contracts" / "samtools-sort.yml",
+    )
+    shadowing = (lab / "contracts" / "samtools-sort.yml").read_text()
+    (lab / "contracts" / "samtools-sort.yml").write_text(
+        shadowing.replace("@1.21.0", "@1.22.0")
+    )
+
+    ir = _resolve_stacked_from(layers_mod.load([base, lab]))
+
+    contracts = [d for d in ir.displaced if d.kind is DeclaredKind.CONTRACTS]
+    assert len(contracts) == 1
+    record = contracts[0]
+    assert record.key == "nf-core/samtools/sort"
+    assert record.winning_key == "nf-core/samtools/sort@1.22.0"
+    assert record.displaced_keys == ["nf-core/samtools/sort@1.21.0"]
+    assert (record.winning_layer, record.displaced_layer) == (
+        "lab-registry",
+        "comeni-registry-examples",
+    )
 
 
 def test_a20_marker_metadata_is_a_closed_vocabulary():

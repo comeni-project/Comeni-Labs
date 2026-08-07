@@ -31,6 +31,7 @@ from comeni_core.egress import (
 )
 from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
+from comeni_core.layered import DeclaredKind, Displacement, Layer
 from comeni_core.marks import Mark, ParamValue
 from comeni_core.measurement import (
     BadMeasurementValueError,
@@ -40,7 +41,7 @@ from comeni_core.measurement import (
     UnknownMeasurementError,
 )
 from comeni_core.profile import DataProfile, Measured
-from comeni_core.registry import Registry, ShadowRecord, module_key
+from comeni_core.registry import Registry, module_key
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
 
@@ -54,6 +55,8 @@ __all__ = [
     "BadMeasurementValueError",
     "Constraints",
     "DataProfile",
+    "DeclaredKind",
+    "Displacement",
     "DecisionRecord",
     "EgressPayload",
     "ErrorCategory",
@@ -64,6 +67,7 @@ __all__ = [
     "IREdge",
     "IRNode",
     "InputPort",
+    "Layer",
     "Measured",
     "Measurement",
     "MeasurementKind",
@@ -84,7 +88,6 @@ __all__ = [
     "Resolution",
     "ResolvedValue",
     "ReviewLevel",
-    "ShadowRecord",
     "Tier",
     "UnknownMeasurementError",
     "UnknownStateError",

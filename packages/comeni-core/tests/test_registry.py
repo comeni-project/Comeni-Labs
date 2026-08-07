@@ -1,4 +1,5 @@
 import pytest
+from comeni_core.layered import DeclaredKind
 from comeni_core.registry import Registry, module_key
 from comeni_core.vocabulary import Vocabulary
 
@@ -21,11 +22,12 @@ NEWER_SORT = SORT.replace("@1.21.0", "@1.22.0").replace("SAMTOOLS_SORT", "SAMTOO
 
 
 def _layer(root, name, files):
-    d = root / name
-    d.mkdir()
+    """A layer root holding a `contracts/` directory. `Registry.load` takes layer roots."""
+    d = root / name / "contracts"
+    d.mkdir(parents=True)
     for filename, body in files.items():
         (d / filename).write_text(body)
-    return d
+    return root / name
 
 
 @pytest.fixture
@@ -97,18 +99,19 @@ def test_overlay_shadows_the_same_module_key_at_any_version(tmp_path, base, voca
     ]
 
 
-def test_shadowing_is_recorded(tmp_path, base, vocab):
+def test_shadowing_is_recorded_as_a_displacement(tmp_path, base, vocab):
     overlay = _layer(tmp_path, "lab", {"sort.yml": NEWER_SORT})
     reg = Registry.load([base, overlay], vocab)
 
-    assert len(reg.shadowed) == 1
-    record = reg.shadowed[0]
-    assert record.module_key == "nf-core/samtools/sort"
-    assert record.winning_id == "nf-core/samtools/sort@1.22.0"
-    assert record.displaced_ids == ["nf-core/samtools/sort@1.21.0"]
+    assert len(reg.displaced) == 1
+    record = reg.displaced[0]
+    assert record.kind is DeclaredKind.CONTRACTS
+    assert record.key == "nf-core/samtools/sort"
+    assert record.winning_key == "nf-core/samtools/sort@1.22.0"
+    assert record.displaced_keys == ["nf-core/samtools/sort@1.21.0"]
 
 
-def test_shadow_record_names_the_contract_routing_prefers(tmp_path, base, vocab):
+def test_a_displacement_names_the_contract_routing_prefers(tmp_path, base, vocab):
     """A layer may hold two versions of one module. The record must not name a loser."""
     overlay = _layer(
         tmp_path,
@@ -122,7 +125,7 @@ def test_shadow_record_names_the_contract_routing_prefers(tmp_path, base, vocab)
 
     # @1.21.0 at priority 5 outranks @1.22.0 at priority 0 under (-priority, id) — so it is
     # the winner named, even though it sorts later lexically.
-    assert reg.shadowed[0].winning_id == "nf-core/samtools/sort@1.21.0"
+    assert reg.displaced[0].winning_key == "nf-core/samtools/sort@1.21.0"
     produced = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))
     sorts = [c.id for c in produced if module_key(c.id) == "nf-core/samtools/sort"]
     assert sorts[0] == "nf-core/samtools/sort@1.21.0"
@@ -134,7 +137,7 @@ def test_a_different_module_key_does_not_shadow(tmp_path, base, vocab):
     )
     reg = Registry.load([base, overlay], vocab)
 
-    assert reg.shadowed == []
+    assert reg.displaced == []
     # it competes normally — and ties with the base at equal priority, which invariant 8
     # leaves for the router to demote to tier 4
     found = reg.producers_of("alignment.bam", frozenset({"coordinate_sorted"}))

@@ -14,7 +14,7 @@ from comeni_core import MeasurementRegistry, Registry, Vocabulary
 
 measurements = MeasurementRegistry.load("registry")  # a layer root, not a slice of one
 vocabulary = Vocabulary.load("registry").with_measurements(measurements)
-registry = Registry.load("registry/contracts", vocabulary)
+registry = Registry.load("registry", vocabulary)
 ```
 
 Load order matters — a measurement derives a `measurement.<id>` type that contracts are

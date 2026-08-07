@@ -85,11 +85,11 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind())
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
-    with_contracts = [layer for layer in layers if (layer / "contracts").exists()]
     try:
-        registry = _load_contracts(with_contracts, vocabulary)
+        contracts = stack(stacked, Registry.kind(vocabulary))
     except UnknownStateError as error:
         raise _blame_the_overlay(error, declared_types.displaced) from error
+    registry = Registry.of(contracts, stacked)
     rules = RuleTable.load(
         [layer / "rules" for layer in layers],
         registry=registry,
@@ -106,21 +106,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         registry=registry,
         rules=rules,
         paths=list(layers),
-        displaced=[*measured.displaced, *declared_types.displaced],
-    )
-
-
-def _load_contracts(with_contracts: list[Path], vocabulary: Vocabulary) -> Registry:
-    return Registry.load(
-        [layer / "contracts" for layer in with_contracts],
-        vocabulary,
-        # The layer's name, not its `contracts/` subdirectory and not its path. A shadow
-        # record reaches a publish bundle, so this is the same identifier the lockfile
-        # uses — and a path there would be both meaningless elsewhere and a leak.
-        #
-        # Read from `registry.yml` when the layer declares one, because a basename is not
-        # an identity: `--registry .` produced `''`. Audit 2026-08-06, A12.
-        names=[layer_name(layer) for layer in with_contracts],
+        displaced=[*measured.displaced, *declared_types.displaced, *contracts.displaced],
     )
 
 

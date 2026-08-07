@@ -10,6 +10,7 @@ from pydantic import (
 )
 
 from comeni_core.decision import DecisionRecord
+from comeni_core.layered import Displacement
 from comeni_core.marks import (
     ContractId,
     LayerName,
@@ -21,7 +22,6 @@ from comeni_core.marks import (
     TypeId,
 )
 from comeni_core.profile import DataProfile
-from comeni_core.registry import ShadowRecord
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 
@@ -74,7 +74,8 @@ class ResolvedValue(BaseModel):
 
     Invariant 11 ends "never let an installed overlay reroute a pipeline silently", and
     two routes did. An overlay contract with a different module key is not a shadow, so
-    `ShadowRecord` misses it; a priority win is not a tie, so invariant 8 misses it too.
+    a shadow, so `displaced` misses it; a priority win is not a tie, so invariant 8
+    misses it too.
     An overlay rule block overwrote a lower layer's whole block and recorded nothing at
     all, which is worse — nothing was watching rules.
 
@@ -177,12 +178,17 @@ class PipelineIR(BaseModel):
     """Which layers built this, in stacking order. A list because order is meaning:
     later layers win, and a set would lose that."""
 
-    shadowed: list[ShadowRecord] = Field(default_factory=list)
-    """Contracts an overlay displaced.
+    displaced: list[Displacement] = Field(default_factory=list)
+    """What an overlay replaced, across every kind of declared data.
 
     Carried on the artifact rather than only printed at build time. A published pipeline
     whose registry quietly rerouted it would be unauditable by the person who downloaded
-    it, which is the failure invariant 11 exists to prevent."""
+    it, which is the failure invariant 11 exists to prevent.
+
+    Was `shadowed: list[ShadowRecord]`, which covered contracts alone — so an overlay
+    measurement that flipped the strandedness a module is told (A23) or an overlay
+    vocabulary that replaced the entry channel (A24) reached the artifact as nothing at
+    all. They have no `IRNode` to hang off; this is where they go."""
 
     unverified: list[ContractId] = Field(default_factory=list)
     """Contracts whose module source was not present, so nothing checked them.

@@ -172,13 +172,24 @@ Violating any of these breaks the product claim, not just a test.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
 11. **The registry is a stack**: public curated base, then private overlays. A layer is a
     **directory** holding `contracts/`, `rules/`, `vocabularies/` and `measurements/`, and all
-    four stack. Load them through `mendel_resolver.layers.load()`, never by hand: they are not
-    independent, and the wrong order fails inside a contract rather than at the caller. A higher layer
-    sharing a **module key** (the contract ID minus `@version`) shadows every lower-layer
-    contract for that module and writes a `ShadowRecord`. A different module key is an
-    ordinary candidate and obeys invariant 8. Keying on the module key rather than the full ID
-    is what lets a lab pin `@1.22.0` over `@1.21.0` without the two tying — a version bump is
-    not ambiguity. Never let an installed overlay reroute a pipeline silently.
+    four stack **through one mechanism** — `comeni_core.layered.stack()`, parameterised by a
+    `Kind` that declares only how its files parse, key and merge. Four hand-written loaders
+    disagreeing on six axes is what audit root B was. Load a stack through
+    `mendel_resolver.layers.load()`, never by hand: the kinds are not independent, and the
+    wrong order fails inside a contract rather than at the caller. Every loader takes **layer
+    roots**, never a `contracts/` or `measurements/` directory: a loader handed a slice of a
+    layer cannot know which layer it is reading, which is why displacement went unrecorded.
+    A higher layer sharing a **module key** (the contract ID minus `@version`) displaces every
+    lower-layer contract for that module. A different module key is an ordinary candidate and
+    obeys invariant 8. Keying on the module key rather than the full ID is what lets a lab pin
+    `@1.22.0` over `@1.21.0` without the two tying — a version bump is not ambiguity.
+    **Identity is `Layer.index`, never `Layer.name`**: two layers may share a name and the
+    lockfile's own docstring says `registry/` over `registry/` is a day-one collision.
+    Replacement is legal and **`Displacement` is the record that it happened** — one shape for
+    all four kinds, carried on `PipelineIR.displaced` and printed in the `OVERLAY` block, so a
+    measurement or a vocabulary type finally has somewhere to be reported. `states:` replaces a
+    type's states, `add_states:` extends them; `values:` and `add_values:` say the same pair for
+    a measurement. Never let an installed overlay reroute a pipeline silently.
 12. **No subscription OAuth.** Claude Pro/Max tokens in third-party tools violate Anthropic's
     Consumer ToS (documented 2026-02-19, enforced since 2026-01). API keys or local models only.
 13. **Self-hosted is not a degraded tier.** Same registry, same resolver, byte-identical

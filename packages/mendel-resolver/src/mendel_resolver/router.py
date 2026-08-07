@@ -89,6 +89,14 @@ def _surplus(contract: ModuleContract, type_id: str, states: frozenset[str]) -> 
     )
 
 
+def _layer_name(registry: Registry, contract_id: str) -> str | None:
+    """The name of the layer a contract came from, for a record a human reads."""
+    at = registry.layer_of.get(contract_id)
+    if at is None or at >= len(registry.layer_order):
+        return None
+    return registry.layer_order[at]
+
+
 def _displaced_layer(
     registry: Registry, chosen: ModuleContract, candidates: list[ModuleContract]
 ) -> str | None:
@@ -103,18 +111,19 @@ def _displaced_layer(
     not lose to anything and is not counted as displaced.
     """
     order = registry.layer_order
-    winning_layer = registry.layer_of.get(chosen.id)
-    if winning_layer is None or winning_layer not in order:
+    winner_at = registry.layer_of.get(chosen.id)
+    if winner_at is None or winner_at >= len(order):
         return None
-    winner_at = order.index(winning_layer)
 
+    # Indexes throughout. This compared *names* — `order.index(layer_of[id])` — so two
+    # layers sharing a name resolved to the lower one's position and a real reroute went
+    # unreported. A25: identity is position.
     beaten = [
-        order.index(layer)
+        at
         for candidate in candidates
         if candidate.id != chosen.id
-        and (layer := registry.layer_of.get(candidate.id)) is not None
-        and layer in order
-        and order.index(layer) < winner_at
+        and (at := registry.layer_of.get(candidate.id)) is not None
+        and at < winner_at
     ]
     return order[min(beaten)] if beaten else None
 
@@ -167,7 +176,7 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
-                    from_layer=registry.layer_of.get(chosen.id),
+                    from_layer=_layer_name(registry, chosen.id),
                     displaced_layer=_displaced_layer(registry, chosen, candidates),
                 )
             )

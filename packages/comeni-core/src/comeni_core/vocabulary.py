@@ -7,7 +7,15 @@ from typing import TYPE_CHECKING
 import yaml
 from pydantic import BaseModel, ConfigDict, field_serializer
 
-from comeni_core.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
+from comeni_core.layered import (
+    DeclaredKind,
+    Displacement,
+    Kind,
+    Policy,
+    Stacked,
+    layers_of,
+    stack,
+)
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
     from comeni_core.measurement import MeasurementRegistry
@@ -93,6 +101,9 @@ def _merge_type(
 
 class Vocabulary(BaseModel):
     types: dict[str, frozenset[str]]
+
+    displaced: list[Displacement] = []
+    """What a higher layer replaced or extended here. See `Registry.displaced`."""
     test_data: dict[str, str | list[str]] = {}
     """Where a small public example of this type lives, for the `test` profile.
 
@@ -150,7 +161,12 @@ class Vocabulary(BaseModel):
                 entry_channels[type_id] = entry.entry_channel
             if entry.test_data:
                 test_data[type_id] = entry.test_data
-        return cls(types=types, entry_channels=entry_channels, test_data=test_data)
+        return cls(
+            types=types,
+            entry_channels=entry_channels,
+            test_data=test_data,
+            displaced=list(stacked.displaced),
+        )
 
     @classmethod
     def load(cls, layers: "Path | Sequence[Path]") -> "Vocabulary":
@@ -185,6 +201,7 @@ class Vocabulary(BaseModel):
             types=types,
             entry_channels=dict(self.entry_channels),
             test_data=dict(self.test_data),
+            displaced=list(self.displaced),
         )
 
     def states_for(self, type_id: str) -> frozenset[str]:
