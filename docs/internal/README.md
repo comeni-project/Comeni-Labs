@@ -31,8 +31,8 @@ the order.
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
 | 6 | `2026-08-06-closing-the-audit.md` | Plan 1.8 — **complete.** Closed A1–A13 and A15; A14 and A16 stay open |
 | 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
-| 8 | *(no plan yet)* round three | **next.** A14 is critical and open; starts at A38 |
-| 9 | *(no plan yet)* `specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`.** Spec written. Ordering against round three **not settled** |
+| 8 | *(no plan yet)* `specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** Spec written and re-verified against 1.9 |
+| 9 | *(no plan yet)* round three | A14 is critical and open; starts at A38 |
 | 10 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
 | 11 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
@@ -95,7 +95,19 @@ carrying its tier, its route to the tool, and its reason.
 roots are being implemented concurrently, so its citations will drift, and where they disagree
 the spec wins. It may relocate a guard the roots install; it may never weaken one.
 
-**It runs as Plan 1.10 — after Plan 1.9, before Plan 2**, decided 2026-08-07. It changes door 4's
+**It runs as Plan 1.10 — after Plan 1.9 and *before round three*,** decided 2026-08-07.
+
+The reason is A14's own logic. Round three is another revert-and-watch sweep over the guards, and A14 is
+that a guard never watched failing may be **inert rather than merely weak**. Plan 1.10 moves the surfaces
+those guards watch: three artifacts become one, `emit()` loses three arguments, door 4's payload type
+changes, fourteen diagnostics arrive. Auditing guards immediately before that is auditing guards that are
+about to move — and the guard ledger's rows would attest to code that no longer exists, which is the
+exact failure A14 names. Doing 1.10 first means round three audits the shape that will ship.
+
+**The argument against, recorded because it is real and this is the third time:** A14 is critical and
+open, the loop's exit criterion is that no critical finding survives, and this defers it again. Plans
+1.7, 1.8 and 1.9 each had a version of this argument made against them. The counter is that round three's
+value depends on auditing the final surface, not that 1.10 matters more than A14. It changes door 4's
 payload type and the shape `replay.py` reads, both of which Plan 2 builds on; doing it second would
 mean fixing them with a model already wired to the old shape, which is the same argument that put
 Plan 1.8 before Plan 2. **The argument against, recorded because it is real:** it moves the v1
