@@ -480,19 +480,19 @@ Closes A29, A18, A16.
 
 **Files:** Modify `resolve.py` and every call site; test `tests/test_audit_regressions.py`.
 
-- [ ] **Step 1: Write the failing test** — a goal with
+- [x] **Step 1: Write the failing test** — a goal with
       `type_id: "PT-4471023 Jane Doe, /data/…"` is refused by `resolve()`; the same through
       `required_states`; the same through a bundle via `mendel upgrade`.
-- [ ] **Step 2: Run to verify it fails.** Paste the `grep` showing it in
+- [x] **Step 2: Run to verify it fails.** Paste the `grep` showing it in
       `pipeline.bundle.json`.
-- [ ] **Step 3:** `resolve()` gains a **required** `vocabulary` parameter — required for A2's
+- [x] **Step 3:** `resolve()` gains a **required** `vocabulary` parameter — required for A2's
       reason — and validates `have`, `want` and `required_states`.
-- [ ] **Step 4: Update every call site.** Count them; **do not trust a number written here** —
+- [x] **Step 4: Update every call site.** Count them; **do not trust a number written here** —
       Plan 1.8 Task 4 predicted eight and found twelve plus a README, and a loose grep during
       this plan's self-review returned 46 across code, tests and docs. Establish the real figure
       with a narrow grep before starting, and record it in this step.
-- [ ] **Step 5: Confirm `examples/rnaseq-goal.yml` still resolves**, emission byte-identical.
-- [ ] **Step 6: Commit** `fix(resolver): a goal's types must be declared — A29`
+- [x] **Step 5: Confirm `examples/rnaseq-goal.yml` still resolves**, emission byte-identical.
+- [x] **Step 6: Commit** `fix(resolver): a goal's types must be declared — A29`
 
 ### Task E2: a decision declares its kind — A16
 
@@ -501,33 +501,54 @@ Closes A29, A18, A16.
 **Interfaces:** Produces `DecisionKind`, `EdgeRef`, `ParamDecision`, `ProducerDecision`,
 `SourceDecision`, `DecisionRecord` as a discriminated union.
 
-- [ ] **Step 1: Write failing tests** — `ProducerDecision(chosen="not-a-contract")` refused;
+- [x] **Step 1: Write failing tests** — `ProducerDecision(chosen="not-a-contract")` refused;
       `SourceDecision(chosen="run.cram")` refused; **`SourceDecision(chosen="dual.bam")`
       accepted**; a published bundle round-trips through the union.
-- [ ] **Step 2: Run to verify they fail.**
-- [ ] **Step 3: Implement** the three types over a shared base, with `EdgeRef` built from
+- [x] **Step 2: Run to verify they fail.**
+- [x] **Step 3: Implement** the three types over a shared base, with `EdgeRef` built from
       `NfIdentifier` (part C).
-- [ ] **Step 4: Construct the right kind** at all three ambiguity sites.
-- [ ] **Step 5: Narrow `HumanParamValue`** to `ParamDecision.human_override` alone; the other
+- [x] **Step 4: Construct the right kind** at all three ambiguity sites.
+- [x] **Step 5: Narrow `HumanParamValue`** to `ParamDecision.human_override` alone; the other
       two kinds now have real domains.
-- [ ] **Step 6: `replay.py` round-trips the union**; `uv run pytest -k replay -v`.
-- [ ] **Step 7: Commit** `refactor(core): a decision declares its kind — A16`
+- [x] **Step 6: `replay.py` round-trips the union**; `uv run pytest -k replay -v`.
+- [x] **Step 7: Commit** `refactor(core): a decision declares its kind — A16`
 
 ### Task E3: the construction guard stops matching spellings — A18
 
 **Files:** Modify `tests/test_construction.py`.
 
-- [ ] **Step 1: Write the failing test** — `from … import DataProfile as _DP;
+- [x] **Step 1: Write the failing test** — `from … import DataProfile as _DP;
       _DP.model_construct(...)` in a pure package is flagged.
-- [ ] **Step 2: Run to verify it fails** — today: 1 passed.
-- [ ] **Step 3:** Reuse `test_purity.py`'s `_imported_names`; flag `model_construct`,
+- [x] **Step 2: Run to verify it fails** — today: 1 passed.
+- [x] **Step 3:** Reuse `test_purity.py`'s `_imported_names`; flag `model_construct`,
       `model_validate`, `model_validate_json` on a binding resolving to `DataProfile`.
-- [ ] **Step 4: Record in the docstring** that A2's re-check inside `resolve()` is the real
+- [x] **Step 4: Record in the docstring** that A2's re-check inside `resolve()` is the real
       enforcement and this scan is belt and braces — otherwise the next reader treats a
       spelling-matcher as the guarantee, which is how A18 happened.
-- [ ] **Step 5: Commit** `test(construction): resolve aliases and alternate constructors — A18`
+- [x] **Step 5: Commit** `test(construction): resolve aliases and alternate constructors — A18`
 
-- [ ] **Part E gate:** `make verify`.
+- [x] **Part E gate:** `make verify`. **Green, 2026-08-07:** check 435, slow 2, guards 13.
+
+> **Corrections made while executing Part E.**
+>
+> - **The call-site count is 43**, established by grep as Step 4 demanded, all in tests, all
+>   mechanical. `vocabulary` is keyword-only as well as required: at a call site with four
+>   positional arguments already, a fifth says nothing about which is which.
+> - **`SourceDecision(chosen="run.cram")` is *not* refused**, and the spec said it would be.
+>   `run` and `cram` are both identifiers, exactly as `dual` and `bam` are — shape cannot
+>   separate an edge reference from a filename, and the claim that it could was the same
+>   kind of assertion this plan exists to stop. What the shape does refuse is every filename
+>   with a second dot or a hyphen; what closes the rest is the candidate check. Written into
+>   `marks.py` where the next reader will meet it.
+> - **`ContractId` gained a validator too**, which the spec implied by expecting
+>   `ProducerDecision(chosen="not-a-contract")` to be refused without saying what makes it
+>   one: `<owner>/<name>@<version>`, because `module_key()` splits on the `@` and an id
+>   without one would make every contract its own module key.
+> - **`Displacement.displaced_keys` becomes `list[Subject]`.** `list[ContractId]` started
+>   refusing `test_layered.py`'s synthetic keys the moment `ContractId` had a shape — and
+>   those exist precisely so the mechanism can be tested without a registry.
+> - **The egress leaf rule learns `Literal`.** A discriminator is narrower than the enum it
+>   draws from, so it is permitted for the same reason an enum is.
 
 ---
 
