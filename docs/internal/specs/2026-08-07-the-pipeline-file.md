@@ -56,8 +56,12 @@ Neither does the lockfile.
 params.star_align_seq_platform = 'illumina'
 ```
 
-`vendor/modules/nf-core/star/align/main.nf` has no `seq_platform`. nf-core/rnaseq passes it
-through `ext.args` as `--outSAMattrRGline ID:$prefix 'PL:illumina'`. So the resolver runs, emits
+`vendor/modules/nf-core/star/align/main.nf` has no `seq_platform` — nor does
+`hisat2/align/main.nf`, so both declared params are dead and not merely one. The route it *should*
+take is `ext.args`, as an `--outSAMattrRGline` fragment; the exact spelling used upstream by
+nf-core/rnaseq is **not verified here** and must be read out of that repository rather than out of
+this spec, per the standing rule about reading process names and containers from module source and
+never from a plan. So the resolver runs, emits
 a tier-4 flag, records a `DecisionRecord`, prints `REVIEW star_align.seq_platform`, and the
 pipeline behaves identically whatever the answer is. That is issue #10, and it is the CLAUDE.md
 *deadness* gotcha with a name.
@@ -135,16 +139,20 @@ steps:
       - {ports: [reads]}
       - {ports: [index]}
       - {ports: [gtf]}
-      - {literal: false, because: "no GTF-free splice-junction path in this spine"}
+      - literal: false
+        why: {tier: 1, source: contract,
+              reason: "no GTF-free splice-junction path in this spine"}
     settings:
       readFilesCommand:
         value: zcat
-        via: ext_args
+        via: ext
+        key: args
         template: "--readFilesCommand {value}"
         why: {tier: 1, source: contract, reason: "TrimGalore emits .fq.gz"}
       seq_platform:
         value: illumina
-        via: ext_args
+        via: ext
+        key: args
         template: "--outSAMattrRGline ID:${meta.id} 'PL:{value}'"
         why: {tier: 4, source: human, reason: "our sequencer"}
 
@@ -170,7 +178,9 @@ Four properties are load-bearing:
 in one place. This is the legibility the four-file split cannot provide.
 
 **`call:` materialises `nf_inputs`**, including the tier-1 literal that appears in no artifact
-today, and it carries the literal's `because` — so the hollow-input lesson (`NfInput.empty`
+today. It carries a full `why:` rather than `NfInput`'s bare `because:` — a positional literal is
+as much a decision as a flag is, and "every choice carries its provenance" cannot have an
+exception for the one route with no artifact at all. The hollow-input lesson (`NfInput.empty`
 requiring a reason, because `-stub-run` cannot see a hollow input) survives into the readable
 artifact instead of living only in the registry.
 
@@ -243,25 +253,54 @@ only way to make one.
 
 ### 4. Settings: `via:` is mandatory and closed
 
-```python
-class Via(StrEnum):
-    EXT_ARGS  = "ext_args"   # → process { withName: X { ext.args = "…" } }
-    META      = "meta"       # → channel .map { meta + [k: v], files }
-    DIRECTIVE = "directive"  # → process { withName: X { cpus = 12 } }
+An earlier draft of this spec claimed three `via:` values were **exhaustive over Nextflow's
+destinations**. That was checked against the vendored modules and is false. `task.ext.prefix`
+appears in 8 of the 10 shipped modules and `task.ext.when` in all 10, and neither is `ext.args`:
+
+```groovy
+// vendor/modules/nf-core/samtools/sort/main.nf
+when:
+    task.ext.when == null || task.ext.when
+script:
+    prefix = task.ext.prefix ?: "${meta.id}"
 ```
 
-Three values because Nextflow offers exactly three destinations for a resolved value: a tool's
-argument string, the sample's meta map, or a process directive. The enum is closed because it is
-**exhaustive**, not because more are deferred — each `via:` needs its own emission site in the
-compiler, and emission sites are code. Fixing the set at three now avoids forcing a schema
-migration on a file format labs are being asked to archive.
+So the `ext` scope is not one destination but a **keyspace**, and the correct claim is about
+*emission sites*, of which there are three:
+
+```python
+class Via(StrEnum):
+    EXT       = "ext"        # → process { withName: X { ext.<key> = … } }
+    META      = "meta"       # → channel .map { meta + [k: v], files }
+    DIRECTIVE = "directive"  # → process { withName: X { cpus = 12 } }
+
+class ExtKey(StrEnum):
+    ARGS   = "args"          # and args2, args3 — multi-tool modules
+    ARGS2  = "args2"
+    ARGS3  = "args3"
+    PREFIX = "prefix"        # names outputs; NOT appended to args
+```
+
+Three emission sites, because those are the three places the compiler writes into — the `ext`
+scope, the channel's meta map, and the directive scope. That is verifiable against the emitter
+rather than being a prediction about Nextflow, which is why it is the claim worth making.
+
+`via: ext` requires `key:`. A `directive` requires a name from the registry vocabulary (§9,
+`M0119`).
 
 **A setting without `via:` fails to load.** That makes a dead setting structurally impossible
 rather than merely detectable, and it closes #10 by removing the possibility rather than by
 adding a warning.
 
-Composition is deterministic: the contract's static `ext_args` first, then each `via: ext_args`
-setting in **name-sorted** order.
+Composition is deterministic per key: for `ext.args`, the contract's static `ext_args` first, then
+each `via: ext` / `key: args` setting in **name-sorted** order. `prefix`, `meta` and `directive`
+take a single value and refuse a second writer (`M0118`).
+
+**`ext.when` is deliberately absent, and refused.** It is a boolean that skips a process
+entirely, so a setting could switch off a step while `steps:` and `inputs:` still describe it
+running. That is a second routing mechanism competing with resolution, and it would make the
+file's DAG a claim rather than a description. Whether a step exists is decided by resolving the
+goal. A `pipeline.yml` naming `key: when` is refused by `M0115`.
 
 ### 5. `{value}` is validated, not escaped
 
@@ -282,6 +321,12 @@ C exists to close. So instead: **`{value}` accepts a closed character class** �
 injection surface, and it takes root C's own stance on identifiers: validated, or it is not one.
 Every real case fits (`illumina`, `10`, `true`), and it composes with the declared-legal-values
 work `marks.py` already anticipates for Plan 2 Task 11.
+
+**`template:` is legal only where the destination is an argument string** — `key: args`, `args2`,
+`args3`. `prefix`, `meta` and `directive` each take one typed value and emit it directly; a
+template there has nothing to compose into, and `cpus = "--cpus 12"` is not a thing. `M0114`
+therefore covers both halves of the same mistake: a template that never mentions `{value}`, and a
+template on a route that takes none.
 
 One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
 interpolates, where `_render_literal` single-quotes it today. **Every golden file moves.** That
@@ -365,40 +410,50 @@ a contract. One type, one renderer, one flat `explain` namespace. `fix` stays re
 |---|---|
 | `M0100`–`M0107` | conformance — a contract disagrees with its module (**exists**) |
 | `M0108`–`M0109` | reserved for conformance |
-| `M0110`–`M0119` | the pipeline file — a setting, an override, or the format |
+| `M0110`–`M0129` | the pipeline file — a setting, an override, or the format |
+
+The pipeline band is twenty wide rather than ten. Reviewing this spec's own claims produced two
+new codes before a line was written; a band sized to the first draft would already be full.
 
 | code | refuses | catches |
 |---|---|---|
-| `M0108` | build | `via: ext_args` on a module whose source never reads `task.ext.args` |
+| `M0108` | build | `via: ext` / `key: args` on a module whose source never reads `task.ext.args` |
 | `M0110` | build | a setting with no `via:` |
 | `M0111` | build | `{value}` outside the closed character class |
 | `M0112` | no — `verify` reports | a frozen value disagrees with the contract's current digest |
 | `M0113` | build | an orphaned override |
-| `M0114` | build | a `template:` that never mentions `{value}` |
-| `M0115` | build | `via:` is not one of the three |
+| `M0114` | build | a `template:` with no `{value}`, **or** a template on a route that takes none |
+| `M0115` | build | `via:` is not one of the three, or `key:` is not a legal `ExtKey` — including `when` |
 | `M0116` | build | the file `build` wrote does not parse back to the same object |
 | `M0117` | build | `version:` is newer than this Mendel understands |
-| `M0118` | build | two writers for one `meta` key |
+| `M0118` | build | two writers for one destination — a `meta` key, a `prefix`, or a directive |
 | `M0119` | build | `via: directive` names something Nextflow will silently ignore |
 
 `M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
 `"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
-checkable lie, and it lands in the reserved conformance band on day one.
+checkable lie, and it lands in the reserved conformance band on day one. The same parse extends to
+`key: prefix` — `task.ext.prefix` is present in 8 of the 10 shipped modules and absent from
+`star/genomegenerate` and `samtools/index`, so the check has real negatives to find.
 
 Four deserve their reasoning recorded:
 
-**`M0114`** is the subtle one. `via: ext_args` with a template that forgets `{value}` produces a
+**`M0114`** is the subtle one. `key: args` with a template that forgets `{value}` produces a
 setting that looks wired, renders real flags, and discards the value. Deadness wearing a bridge
 is *harder* to spot than today's honest no-op.
 
 **`M0116`** is what makes the round trip load-bearing rather than decorative.
 
-**`M0118`** exists because `via: meta` and a `Measurement.meta_key` write to the same map, and
-`_with_meta` does `meta + [...]`, so the later write wins silently. Two writers for one key is a
-refusal, not a precedence rule nobody remembers.
+**`M0118`** exists because `via: meta` and a `Measurement.meta_key` write to the same map. The
+collision is a **Python** one before it is a Groovy one: `meta_for()` returns `dict[str,
+ParamValue]` and `_render_meta` renders its sorted keys, so a setting and a measurement both
+claiming `single_end` collide in that dict and one is gone before any Groovy is written. `prefix`
+and each directive have the same property for the same reason. Two writers for one destination is
+a refusal, not a precedence rule nobody remembers.
 
-**`M0119`** is the one that costs something. An unknown directive inside `withName` is *silently
-ignored by Nextflow* — the exact failure this design exists to eliminate, so omitting it would be
+**`M0119`** is the one that costs something, and the premise was tested rather than assumed. A
+pipeline whose config contained `process { withName: FOO { cpuz = 4 } }` ran to **exit 0 with no
+diagnostic** on Nextflow 25.10.4 — no error, no warning, nothing. An unknown directive is silently
+ignored, which is the exact failure this design exists to eliminate, so omitting the check would be
 incoherent. It needs a list of legal directive names, and that list belongs in the **registry
 vocabulary as data**, not in the compiler as code, so a new Nextflow directive arrives as an
 approved data change (invariants 2 and 7).
@@ -474,23 +529,25 @@ Root I applies. Each probe added, watched failing, reverted.
 | a `Pipeline` field added with no `field_serializer` on a `frozenset` | refused at build, `M0116` |
 | `via: directive` naming `cpuz` | refused, `M0119` |
 | `version: 2` in a `pipeline.yml` | refused, `M0117` |
-| **a step carrying two `via: ext_args` settings, with the name-sort reverted** | **byte-identity must fail** |
+| **a step carrying two `key: args` settings, with the name-sort reverted** | **byte-identity must fail** |
+| `key: when` on any setting | refused, `M0115` — a step's existence is resolution's call |
+| `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `M0108` |
 | the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
 | `mendel emit` with no `--registry` and no network | **succeeds** |
 | a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
 | `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
-| `tests/test_counts.py` with one real `via: ext_args` setting on the spine | **the flag reaches the tool and changes observable output** |
+| `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
 
 Three rows carry most of the weight.
 
-**The two-settings row is the one I expect to be got wrong.** With a single `via: ext_args`
+**The two-settings row is the one I expect to be got wrong.** With a single `key: args`
 setting the name-sort is unobservable, so a test that reverts the sort still passes — a guard
 that cannot see its own subject. This is the `frozenset`-has-no-stable-order trap in a new place.
 
 **The counts row is a hard requirement, not a nice-to-have.** `M0114` catches a template that
 ignores `{value}`; *nothing* catches a template whose flag is wrong, because the flag goes to the
 tool and not to the module — the same limit that makes `-stub-run` blind to a hollow input. So
-the spine must grow one real `via: ext_args` setting whose effect is visible in the output, and
+the spine must grow one real `key: args` setting whose effect is visible in the output, and
 `test_counts.py` must assert it took effect. Without that row, the routing mechanism is verified
 only by unit tests of its own machinery.
 
@@ -502,9 +559,9 @@ breaks `entry_channel`, has gone too far.
 
 ## Blast radius
 
-- **New:** `comeni_core/pipeline.py` — `Pipeline`, `Step`, `Setting`, `Channel`,
-  `RegistryProvenance`, `Via`, `Pipeline.of()`.
-- `comeni_core/contract.py` — `Param` gains `via` (required) and `template`.
+- **New:** `comeni_core/pipeline.py` — `Pipeline`, `Step`, `Setting`, `Channel`, `CallArg`,
+  `RegistryProvenance`, `Via`, `ExtKey`, `Pipeline.of()`.
+- `comeni_core/contract.py` — `Param` gains `via` (required), `key`, and `template`.
 - `comeni_core/tiers.py` — `ValueSource.HUMAN`, beside `GOAL` and with its own rationale.
 - `comeni_core/ir.py` — `overrides()` beside `needs_review()`.
 - `comeni_core/egress.py` — door 4's payload becomes `Pipeline`; `PublishBundle` retires.
@@ -515,7 +572,7 @@ breaks `entry_channel`, has gone too far.
 - `mendel_compiler/conformance.py` — `subject` replaces `contract_id`; `M0108`, `M0110`–`M0119`.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips.
 - `registry/` — `via:` and `template:` on both `seq_platform` params; a directive-name
-  vocabulary; one real `via: ext_args` setting on the spine for the counts assertion.
+  vocabulary; one real `key: args` setting on the spine for the counts assertion.
 - **Tests:** every golden file moves (quoting). `tests/test_egress.py` edited for the new payload
   type. `tests/test_construction.py` gains `Pipeline`. `tests/test_counts.py` gains the
   reaches-a-tool assertion.
