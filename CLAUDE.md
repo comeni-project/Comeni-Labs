@@ -69,7 +69,8 @@ Then Plan 2.
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **nine specs, one per root. Read the part's spec before starting it.** |
+| `docs/internal/specs/` | **ten specs. Nine are one per audit root; the tenth is a design spec. Read the part's spec before starting it.** |
+| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`, one artifact replacing the IR json, the lockfile and the bundle. Supersedes the four-route settings surface below. Takes precedence over the code it cites. Runs after 1.9; order against round three unsettled.** |
 | `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
 | `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
 | `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
@@ -80,6 +81,7 @@ Then Plan 2.
 | `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
 | `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
+| `docs/internal/plans/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** 12 tasks. Read the spec first; it takes precedence. |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -381,6 +383,7 @@ conversation is a loose end lost.
 | 10 | answering a tier-4 parameter clears the flag without changing the pipeline | Plan 2's Task 11, or a decision now |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
+| 18 | the error surface is half-declared — 41 raise sites, 32 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
 
 ## Commands
 

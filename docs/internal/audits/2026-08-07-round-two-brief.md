@@ -79,6 +79,33 @@ in the same way — found only by reverting after the fix had landed.
 - **State the severity honestly even when it is inconvenient.** A14 is critical and open, and
   filing it lower to let the loop exit would have been the easy call.
 
+## Carried forward — look at these
+
+This section is the counterpart to *Do not re-audit*, and it exists because round two produced
+decisions that deferred work rather than closing it. **A deferral recorded only in a commit message is
+a deferral lost.** Added 2026-08-07.
+
+- **The error surface is half-declared: 41 raise sites, and 32 of them are bare `ValueError`.** Nine
+  typed classes exist (`UnroutableError`, `UnroutablePinError`, `NoCandidatesError`,
+  `UnknownTypeError`, `UnknownStateError`, `UnknownMeasurementError`, `BadMeasurementValueError`,
+  `RuleValidationError`, `DuplicateKeyError`), and every one of them is more legible than the thirty-two
+  bare `ValueError`s beside it. `UnroutablePinError` is user-facing — a real contradiction between a pin
+  and its inputs — and a laboratory hitting it gets a Python traceback where a `mendel explain` would
+  serve. **Band `MD0300`–`MD0399` is reserved for this.** The question deliberately left open is *which*
+  of the 41 deserve a code, and that is a judgement per site: an audit is a better instrument for it
+  than a plan, because the test is whether a person could act on the message. Deferred out of Plan 1.10
+  on 2026-08-07 to keep that plan's surface from tripling. Tracked as [#18](https://github.com/comeni-project/Comeni-Labs/issues/18).
+
+- **Round three audits a surface Plan 1.10 will have moved.** 1.10 runs first, by decision on
+  2026-08-07: it collapses three artifacts into one `pipeline.yml`, drops `emit()` from four arguments
+  to one, changes door 4's payload type, and adds sixteen diagnostics. That ordering is deliberate —
+  A14's finding is that a guard never watched failing may be *inert*, and a ledger row attesting to code
+  that has since moved is exactly that. **So do not trust a ledger row dated before 1.10 merged**; check
+  whether the guard still calls the code it claims to watch.
+
+- **Eleven test files still have no ledger row**, `tests/test_counts.py` among them. That is A14's own
+  closure condition and it is unchanged.
+
 ## Do not re-audit
 
 The toolchain (verified 2026-08-02) and the 2026-08-03 audit's C1–C4, which are closed.
