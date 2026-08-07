@@ -251,6 +251,19 @@ and always will. The file is the output of resolution that you may then edit; it
 alternative front door. `mendel build --goal` (and, from Plan 2, the prompt door) remains the
 only way to make one.
 
+**The archive unit is the directory, not the file** — say it precisely, because the loose version of
+this claim is wrong. `pipeline.yml` is sufficient to regenerate `main.nf` and `nextflow.config`
+byte-for-byte with no registry and no network. It is *not* sufficient to produce a runnable
+pipeline: `cli.py` copies module source from `<root>/vendor/modules` at **build** time, and `emit`
+has no source to copy from. So a `pipeline.yml` alone regenerates text whose `include` statements
+point at files that may not be there.
+
+`pipeline.yml` + `modules/` is the archive, and both are already written side by side into `--out`.
+The right claim is that **emission no longer depends on the registry** — which is the one that
+matters for reproducing a decision, since `modules/` is inert vendored source while the registry is
+the thing that resolves differently as it changes. `mendel emit` refuses when `modules/` is absent
+rather than writing a `main.nf` that cannot run.
+
 ### 4. Settings: `via:` is mandatory and closed
 
 An earlier draft of this spec claimed three `via:` values were **exhaustive over Nextflow's
@@ -285,8 +298,8 @@ Three emission sites, because those are the three places the compiler writes int
 scope, the channel's meta map, and the directive scope. That is verifiable against the emitter
 rather than being a prediction about Nextflow, which is why it is the claim worth making.
 
-`via: ext` requires `key:`. A `directive` requires a name from the registry vocabulary (§9,
-`M0119`).
+`via: ext` requires `key:`. A `directive` requires a name from the compiler's directive list, which
+is code rather than registry data for reasons §9 sets out under `M0119`.
 
 **A setting without `via:` fails to load.** That makes a dead setting structurally impossible
 rather than merely detectable, and it closes #10 by removing the possibility rather than by
@@ -329,8 +342,19 @@ therefore covers both halves of the same mistake: a template that never mentions
 template on a route that takes none.
 
 One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
-interpolates, where `_render_literal` single-quotes it today. **Every golden file moves.** That
-belongs in its own commit, ahead of the behaviour changes, so the diff stays legible.
+interpolates, where `_render_literal` single-quotes it today.
+
+An earlier draft said *"every golden file moves, as a reviewable diff."* **There is one golden
+file — `tests/golden/spine/main.nf` — and it is not the one this change writes into.** `grep -rn
+"nextflow.config" tests/` returns nothing: no golden, no assertion, no coverage of any kind. The
+`ext.args` block is where this entire mechanism lands, and it is emitted into an ungoverned file.
+
+**A golden `nextflow.config` is therefore a prerequisite of this work, not a step within it** —
+first commit, before any behaviour changes, so the quoting change and the composition change arrive
+as diffs against something. Root C found this same file *"also injectable"*, as the second surface
+nobody was guarding; it is the second surface nobody is testing either, and for the same reason —
+`main.nf` goes through Jinja and looks like output, while `nextflow.config` is assembled by
+f-strings and looks like plumbing.
 
 ### 6. A goal pin and a file edit are different acts
 
@@ -428,6 +452,7 @@ new codes before a line was written; a band sized to the first draft would alrea
 | `M0117` | build | `version:` is newer than this Mendel understands |
 | `M0118` | build | two writers for one destination — a `meta` key, a `prefix`, or a directive |
 | `M0119` | build | `via: directive` names something Nextflow will silently ignore |
+| `M0120` | `emit` | `modules/` is absent, so the emitted `include` paths would point at nothing |
 
 `M0108` costs nothing: `modulespec.py` already parses `reads_ext_args` as
 `"task.ext.args" in source`. A setting claiming that route for a module that ignores it is a
@@ -454,9 +479,24 @@ a refusal, not a precedence rule nobody remembers.
 pipeline whose config contained `process { withName: FOO { cpuz = 4 } }` ran to **exit 0 with no
 diagnostic** on Nextflow 25.10.4 — no error, no warning, nothing. An unknown directive is silently
 ignored, which is the exact failure this design exists to eliminate, so omitting the check would be
-incoherent. It needs a list of legal directive names, and that list belongs in the **registry
-vocabulary as data**, not in the compiler as code, so a new Nextflow directive arrives as an
-approved data change (invariants 2 and 7).
+incoherent.
+
+An earlier draft said the list of legal directive names *"belongs in the registry vocabulary as
+data, not in the compiler as code"*. **That was wrong on both halves.** `Vocabulary` is strictly
+per-type — one file per type id carrying `states`, `entry_channel` and `test_data` — and a flat
+list of directive names is not a type. Putting it in a layer would mean a fifth member beside
+`contracts/`, `rules/`, `vocabularies/` and `measurements/`, which collides directly with root B.
+
+And the invariant-7 analogy does not hold. Vocabularies are closed because **a contract using an
+undeclared biological state must fail**, and new states arrive through the forge as reviewed
+domain knowledge. Nextflow's directive set is not domain knowledge; it is a fact about the
+toolchain, it changes on Nextflow's release cycle rather than a laboratory's, and no lab should be
+able to add `cpuz` to it by approving a data change. `modulespec.py` already encodes toolchain
+facts in code for the same reason.
+
+**So the list lives in `mendel-compiler`, as code, versioned with the Nextflow version it was read
+against.** That is a genuine cost — a new Nextflow directive needs a release — and it is the right
+one.
 
 A test asserts every code the compiler can emit has an `EXPLANATIONS` entry. Eleven new codes is
 where `mendel explain M0118` answering *"not a diagnostic this version emits"* becomes likely.
@@ -533,7 +573,9 @@ Root I applies. Each probe added, watched failing, reverted.
 | `key: when` on any setting | refused, `M0115` — a step's existence is resolution's call |
 | `key: prefix` on `star/genomegenerate`, whose source has no `task.ext.prefix` | refused, `M0108` |
 | the shipped registry, built then re-emitted from its own `pipeline.yml` | **byte-identical `main.nf` and `nextflow.config`** |
-| `mendel emit` with no `--registry` and no network | **succeeds** |
+| `mendel emit` with no `--registry` and no network, `modules/` present | **succeeds** |
+| `mendel emit` on a `pipeline.yml` with `modules/` deleted | refused, `M0120` — never a `main.nf` that cannot run |
+| the emitted `nextflow.config`, against a golden file | **byte-identical** — a file with no coverage today |
 | a measurement with no `meta_key` (`read_length`) | **still routes nothing, and is not flagged** |
 | `GateFailure.tool_message` with newlines | **still accepted** — regression guard for root C's split |
 | `tests/test_counts.py` with one real `key: args` setting on the spine | **the flag reaches the tool and changes observable output** |
@@ -544,12 +586,22 @@ Three rows carry most of the weight.
 setting the name-sort is unobservable, so a test that reverts the sort still passes — a guard
 that cannot see its own subject. This is the `frozenset`-has-no-stable-order trap in a new place.
 
-**The counts row is a hard requirement, not a nice-to-have.** `M0114` catches a template that
-ignores `{value}`; *nothing* catches a template whose flag is wrong, because the flag goes to the
-tool and not to the module — the same limit that makes `-stub-run` blind to a hollow input. So
-the spine must grow one real `key: args` setting whose effect is visible in the output, and
-`test_counts.py` must assert it took effect. Without that row, the routing mechanism is verified
-only by unit tests of its own machinery.
+**The counts row is a hard requirement, not a nice-to-have**, and what it covers today is narrower
+than an earlier draft claimed. `test_counts.py` asserts `-s 2` and `-p`, and its own docstring says
+why: *"Strandedness arrives through meta now."* So it proves the **meta** route reaches a tool and
+says nothing about `ext.args`.
+
+The `ext.args` route is proven only *implicitly*: `star/align` carries `--readFilesCommand zcat`,
+TrimGalore emits `.fq.gz`, and STAR cannot read gzip without it — so dropping the route breaks the
+spine and the counts test fails. Real coverage, but incidental, and it covers the **static**
+`ext_args` string rather than the new thing. **Nothing at all covers a resolved param composing
+into `ext.args`**, which is the mechanism this spec adds.
+
+And `M0114` catches a template that ignores `{value}`; *nothing* catches a template whose flag is
+wrong, because the flag goes to the tool and not to the module — the same limit that makes
+`-stub-run` blind to a hollow input. So the spine must grow one real `key: args` setting whose
+effect is visible in output, and `test_counts.py` must assert it took effect. Without that row the
+routing mechanism is verified only by unit tests of its own machinery.
 
 **The last-two-rows pattern from root C applies here too**: the byte-identical row and the
 still-accepted rows are what catch over-correction. A fix that moves the spine's output, or that
@@ -569,13 +621,17 @@ breaks `entry_channel`, has gone too far.
 - `mendel_resolver/resolve.py` — an override keeps the displaced tier and sets `source: human`.
 - `mendel_compiler/emit.py` — `emit(pipeline)`; `ext.args` composition and double-quoting;
   `via: directive` and `via: meta` emission.
-- `mendel_compiler/conformance.py` — `subject` replaces `contract_id`; `M0108`, `M0110`–`M0119`.
+- `mendel_compiler/conformance.py` — `subject` replaces `contract_id`; `M0108`, `M0110`–`M0120`.
 - `mendel_compiler/cli.py` — `emit`, `verify`, `upgrade` reworked; `build` round-trips.
-- `registry/` — `via:` and `template:` on both `seq_platform` params; a directive-name
-  vocabulary; one real `key: args` setting on the spine for the counts assertion.
-- **Tests:** every golden file moves (quoting). `tests/test_egress.py` edited for the new payload
-  type. `tests/test_construction.py` gains `Pipeline`. `tests/test_counts.py` gains the
-  reaches-a-tool assertion.
+- `mendel_compiler/` — the legal Nextflow directive names, as code, carrying the Nextflow version
+  they were read against. Not registry data; see `M0119`.
+- `registry/` — `via:`, `key:` and `template:` on both `seq_platform` params; one real `key: args`
+  setting on the spine for the counts assertion.
+- **Tests, and one of them comes first.** A golden `tests/golden/spine/nextflow.config` is a
+  **prerequisite commit** — that file has no coverage at all today and is where this mechanism
+  emits. Then: `tests/golden/spine/main.nf` moves; `tests/test_egress.py` is edited for the new
+  payload type; `tests/test_construction.py` gains `Pipeline`; `tests/test_counts.py` gains the
+  reaches-a-tool assertion for a resolved param, which nothing covers now.
 
 Unlike root C, **the registry does change** — two contracts gain `via:`/`template:`, and the
 spine gains a setting. So "byte-identical output" is a check on the *unchanged* parts only, and
