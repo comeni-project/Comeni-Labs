@@ -10,13 +10,6 @@ nextflow.enable.dsl = 2
 include { {{ node.process }} } from './{{ node.include }}'
 {% endfor %}
 
-{% for node in nodes %}
-{% for name, value in node.params %}
-// tier {{ value.tier.value }} ({{ value.review_level.value }}): {{ value.reason }}
-params.{{ node.id }}_{{ name }} = {{ value.rendered }}
-{% endfor %}
-{% endfor %}
-
 workflow {
 {% for name, expression in entry_channels %}
     {{ name }} = {{ expression }}

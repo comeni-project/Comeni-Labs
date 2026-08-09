@@ -316,7 +316,7 @@ def test_a11_the_emitter_never_compares_two_resolved_values():
 
     # An IR is deserialised from a bundle, so a duplicate binding stays *representable*
     # even once a contract cannot declare one. It must not reach an unorderable compare.
-    emit(PipelineIR(nodes=[node]), loaded.registry, loaded.vocabulary, loaded.measurements)
+    emit(_pipe(PipelineIR(nodes=[node]), loaded))
 
 
 def _stacked(tmp_path):
@@ -1103,10 +1103,21 @@ def test_a27_the_emitter_still_produces_a_comment_when_the_type_is_bypassed():
         params=[ParamBinding(name="threads", value=smuggled)],
     )
 
-    text = emit(PipelineIR(nodes=[node]), loaded.registry, loaded.vocabulary, loaded.measurements)
+    text = emit(_pipe(PipelineIR(nodes=[node]), loaded))
 
-    smuggled_lines = [line for line in text.splitlines() if "println 'OWNED'" in line]
-    assert smuggled_lines == ["// println 'OWNED'"], text
+    # Plan 1.10 Task 5 moved this guard's subject. A27 was about a multi-line `reason`
+    # reaching `main.nf` as a comment, where `_render_comment` had to prefix every line or the
+    # second one became a statement. That surface is gone: reasons no longer reach `main.nf`
+    # at all — they live in `pipeline.yml` beside the value, and `Line` refuses a newline at
+    # the type level besides.
+    #
+    # Re-pointed rather than deleted. A guard left watching a surface that no longer exists is
+    # A14's exact finding, and deleting it would lose the property instead of relocating it.
+    # The assertion is now stronger than what it replaced: not "prose is safely commented" but
+    # "prose does not reach this file". **Task 6 must re-point it at `pipeline.yml`**, which is
+    # where prose reaches an artifact once that file is written.
+    assert "println 'OWNED'" not in text, text
+    assert "looks fine" not in text, "no resolver prose reaches main.nf any more"
 
 
 def test_a27_a_config_process_block_cannot_be_broken_out_of():
@@ -1443,3 +1454,14 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
         assert not any(isinstance(m, Mark) for m in invented.__metadata__), (
             f"{invented} must not read as declared"
         )
+
+
+def _pipe(ir, loaded):
+    """Materialise an IR for the emitter.
+
+    `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
+    registry, vocabulary and measurements now lives on the `Pipeline`.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements)

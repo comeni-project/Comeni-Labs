@@ -19,7 +19,7 @@ Two rules govern what is in here, and they are converse:
   accepted on condition that nothing rides along.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.contract import ModuleContract
 from comeni_core.decision import DecisionRecord
@@ -148,9 +148,25 @@ class StepInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     port: PortName
-    source: EdgeRef
-    """`<node>.<port>`, or `channel:<type_id>` for something entering the pipeline."""
+    source: EdgeRef | None = None
+    """`<node>.<port>` when an upstream step produces it.
+
+    Two fields rather than one string with two shapes. The spec drafted this as a single
+    `from:` carrying either `trimgalore.reads` or `channel:annotation.gtf`, and that cannot be
+    an `EdgeRef` — its validator requires two Groovy identifiers, which `channel:annotation.gtf`
+    is not. Encoding a union in a string is also root G's problem: a field that reads two ways.
+    """
+    channel: TypeId | None = None
+    """The entry channel this port reads, when nothing upstream produces it."""
     states: list[StateName] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> "StepInput":
+        if (self.source is None) == (self.channel is None):
+            raise ValueError(
+                f"MD0212: input {self.port} must name exactly one of `source` or `channel`"
+            )
+        return self
     """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
     order — `digest_of` hashes the JSON, so this must not be one."""
 
@@ -163,6 +179,15 @@ class Step(BaseModel):
     process: NfIdentifier
     include: NfPath
     why: Why
+    ext_args: NfTemplate = ""
+    """Flags the module always needs, from its contract — `--readFilesCommand zcat` because
+    TrimGalore emits `.fq.gz` and STAR cannot read gzip.
+
+    Not a `Setting`: nothing resolved it and there is no decision behind it, so giving it a
+    `why` would invent provenance. Carried rather than looked up because emission must not
+    need the registry, and composed *before* the resolved settings so a contract's baseline
+    cannot be reordered by a value someone answered.
+    """
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
     settings: list[Setting] = Field(default_factory=list)
@@ -186,6 +211,11 @@ class Channel(BaseModel):
     """The one unbounded-Groovy field in the file, by design. A type declares how it arrives;
     the compiler has no built-in idea what a FASTQ is."""
     meta: list[MetaEntry] = Field(default_factory=list)
+    test_data: list[str] = Field(default_factory=list)
+    """A small public example of this type, for the `test` profile. Pinned to a commit in the
+    vocabulary, never a branch — a dataset that moves is one you cannot compare a result against
+    next year. Always a list here even when the vocabulary declares one string, because a schema
+    that is sometimes a string and sometimes a list reads two ways."""
 
 
 class RegistryProvenance(BaseModel):
@@ -252,7 +282,8 @@ class Pipeline(BaseModel):
                     process=contract.nf_process,
                     include=contract.nf_include,
                     why=_why(node.selection),
-                    inputs=_inputs(ir, node),
+                    ext_args=contract.ext_args,
+                    inputs=_inputs(ir, node, contract),
                     call=_call(contract),
                     settings=_settings(node, contract),
                 )
@@ -329,17 +360,30 @@ def _call(contract: ModuleContract) -> list[CallArg]:
     ]
 
 
-def _inputs(ir, node) -> list[StepInput]:
-    """Every consumed port and where it comes from, keyed under the consumer."""
-    return [
-        StepInput(
-            port=edge.to_port,
-            source=f"{edge.from_node}.{edge.from_port}",
-            states=sorted(edge.states),
-        )
-        for edge in ir.edges
-        if edge.to_node == node.id
-    ]
+def _inputs(ir, node, contract) -> list[StepInput]:
+    """Every consumed port and where it comes from, keyed under the consumer.
+
+    Entry ports are listed too. Without them a `Step` would not know which channel a port
+    reads, and emission would have to ask the registry for `consumes[].type_id` — which is
+    exactly the dependency materialisation removes.
+    """
+    fed = {
+        edge.to_port: edge for edge in ir.edges if edge.to_node == node.id
+    }
+    inputs = []
+    for port in contract.consumes:
+        edge = fed.get(port.name)
+        if edge is not None:
+            inputs.append(
+                StepInput(
+                    port=port.name,
+                    source=f"{edge.from_node}.{edge.from_port}",
+                    states=sorted(edge.states),
+                )
+            )
+        else:
+            inputs.append(StepInput(port=port.name, channel=port.type_id))
+    return inputs
 
 
 def _channels(ir, registry, vocab, measurements) -> list[Channel]:
@@ -359,12 +403,57 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
     channels = []
     for type_id in sorted(needed):
         entries = measurements.meta_for(type_id, ir.profile) if measurements else {}
+        expression = vocab.entry_channels.get(type_id) or _default_entry(type_id)
+        declared = vocab.test_data.get(type_id)
         channels.append(
             Channel(
                 type_id=type_id,
-                params=[],
-                expression=vocab.entry_channels.get(type_id, ""),
+                params=_param_refs(expression),
+                expression=expression,
                 meta=[MetaEntry(key=key, value=entries[key]) for key in sorted(entries)],
+                test_data=[declared] if isinstance(declared, str) else list(declared or []),
             )
         )
     return channels
+
+
+_IDENT_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyz" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "0123456789" "_"
+)
+
+
+def _param_refs(expression: str) -> list[str]:
+    """Every `params.<name>` an entry-channel expression references, sorted and deduplicated.
+
+    Scanned by hand rather than with `re`, which is not on `comeni-core`'s purity allowlist —
+    `_is_identifier` refused to widen it for a character class and this is the same trade.
+    `mendel_compiler.emit.entry_params` does the same job with a regex because that package
+    already allows one; the two must agree, which is what `MD0211` checks.
+
+    Plural because one expression may reference several: `fastq.reads` names `params.input`
+    three times today, and the shipped registry being 1:1 is not a schema guarantee.
+    """
+    found: set[str] = set()
+    marker = "params."
+    start = expression.find(marker)
+    while start != -1:
+        cursor = start + len(marker)
+        end = cursor
+        while end < len(expression) and expression[end] in _IDENT_CHARS:
+            end += 1
+        if end > cursor:
+            found.add(expression[cursor:end])
+        start = expression.find(marker, end)
+    return sorted(found)
+
+
+def _default_entry(type_id: str) -> str:
+    """How a type arrives when its vocabulary declares no `entry_channel`.
+
+    Materialised here rather than left to the emitter, because emission must not need the
+    vocabulary. Deleting this while narrowing `emit`'s signature emitted `ch_genome_index_star =`
+    with nothing after it — valid-looking Groovy that dies at parse, caught by reading the
+    golden diff rather than by regenerating it and moving on.
+    """
+    param = type_id.rsplit(".", 1)[-1]
+    return f"Channel.fromPath(params.{param}, checkIfExists: true).map {{ f -> [ [:], f ] }}"

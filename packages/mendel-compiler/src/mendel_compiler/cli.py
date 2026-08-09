@@ -13,6 +13,7 @@ from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
+from comeni_core.pipeline import Pipeline
 from mendel_resolver import layers
 from mendel_resolver.diff import diff_ir
 from mendel_resolver.goal import Goal, GoalInput
@@ -167,8 +168,11 @@ def _build(argv: list[str] | None = None) -> int:
     ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "main.nf").write_text(emit(ir, registry, vocab, loaded.measurements))
-    (args.out / "nextflow.config").write_text(emit_config(ir, registry, vocab))
+    # Materialise once, then emit from that. Everything the emitter reads now lives on the
+    # `Pipeline`, which is what lets `mendel emit` regenerate this without a registry.
+    pipeline = Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths)
+    (args.out / "main.nf").write_text(emit(pipeline))
+    (args.out / "nextflow.config").write_text(emit_config(pipeline))
     (args.out / "pipeline.ir.json").write_text(ir.model_dump_json(indent=2))
     # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is
     # where this repository keeps the source. Deliberately not the same path.
@@ -242,7 +246,7 @@ def _build(argv: list[str] | None = None) -> int:
     passed: Gate | None = None
     if args.gate is not None:
         if args.gate is Gate.STUB:
-            materialise_stub_data(args.out, entry_params(ir, registry, vocab))
+            materialise_stub_data(args.out, entry_params(pipeline))
         result = run_gate(args.gate, args.out)
         print(f"gate {result.gate}: {'PASS' if result.passed else 'FAIL'}", file=sys.stderr)
         if not result.passed:

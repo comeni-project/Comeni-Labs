@@ -3,10 +3,9 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.contract import InputPort, ModuleContract, NfInput
-from comeni_core.ir import PipelineIR
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.marks import substitutable
+from comeni_core.pipeline import Pipeline, Step
+from comeni_core.routes import Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -88,46 +87,25 @@ def _channel_name(type_id: str) -> str:
     return "ch_" + type_id.replace(".", "_").replace("-", "_")
 
 
-def _entry_type(port: InputPort) -> str:
-    """Which type a port not fed by the pipeline expects from outside.
-
-    The *first* alternative, because that is the author's stated preference and nothing
-    upstream has narrowed it: if a port accepts a BAM or a CRAM and the laboratory is
-    supplying the file, the pipeline asks for the one the contract names first.
-    """
-    return port.alternatives()[0].type_id
+def _process_of(pipeline: Pipeline, node_id: str) -> str:
+    return next(step.process for step in pipeline.steps if step.id == node_id)
 
 
-def _default_entry(type_id: str) -> str:
-    param = type_id.rsplit(".", 1)[-1]
-    return f"Channel.fromPath(params.{param}, checkIfExists: true).map {{ f -> [ [:], f ] }}"
-
-
-def _contract(ir: PipelineIR, registry: Registry, node_id: str) -> ModuleContract:
-    node = next(n for n in ir.nodes if n.id == node_id)
-    return registry.get(node.contract_id)
-
-
-def _process(ir: PipelineIR, registry: Registry, node_id: str) -> str:
-    return _contract(ir, registry, node_id).nf_process
-
-
-def _port_expression(ir: PipelineIR, registry: Registry, node_id: str, port_name: str) -> str:
+def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
     """Where this port's data comes from: an upstream process, or an entry channel."""
-    for edge in ir.edges:
-        if edge.to_node == node_id and edge.to_port == port_name:
-            return f"{_process(ir, registry, edge.from_node)}.out.{edge.from_port}"
-    contract = _contract(ir, registry, node_id)
-    port = next(p for p in contract.consumes if p.name == port_name)
-    return _channel_name(_entry_type(port))
+    wiring = next(item for item in step.inputs if item.port == port_name)
+    if wiring.source is not None:
+        node_id, _, from_port = wiring.source.partition(".")
+        return f"{_process_of(pipeline, node_id)}.out.{from_port}"
+    return _channel_name(wiring.channel)
 
 
-def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -> str:
-    if spec.empty:
-        return _empty(spec.empty)
-    if not spec.ports:
-        return _render_literal(spec.literal)
-    expressions = [_port_expression(ir, registry, node_id, name) for name in spec.ports]
+def _argument(pipeline: Pipeline, step: Step, arg) -> str:
+    if arg.empty_width:
+        return _empty(arg.empty_width)
+    if not arg.ports:
+        return _render_literal(arg.literal)
+    expressions = [_port_expression(pipeline, step, name) for name in arg.ports]
     if len(expressions) == 1:
         return expressions[0]
     # Several semantic ports share one channel — featurecounts wants
@@ -137,71 +115,44 @@ def _argument(ir: PipelineIR, registry: Registry, node_id: str, spec: NfInput) -
     return f"{head}{joined}"
 
 
-def _render_meta(entries: dict[str, object]) -> str:
-    """A Groovy map literal, keys sorted so emission stays byte-identical."""
-    rendered = ", ".join(f"{key}: {_render_literal(entries[key])}" for key in sorted(entries))
+def _render_meta(entries: list) -> str:
+    """A Groovy map literal. Already sorted at materialisation."""
+    rendered = ", ".join(f"{entry.key}: {_render_literal(entry.value)}" for entry in entries)
     return "[" + rendered + "]"
 
 
-def _with_meta(expression: str, entries: dict[str, object]) -> str:
+def _with_meta(expression: str, entries: list) -> str:
     """Merge measured facts into the channel's meta map.
 
-    `meta + [...]` rather than replacing it: the entry channel already put an `id` there,
-    and losing it would break `tag "$meta.id"` in every module.
+    `meta + [...]` rather than replacing it: the entry channel already put an `id` there, and
+    losing it would break `tag "$meta.id"` in every module.
     """
     if not entries:
         return expression
     return f"({expression}).map {{ meta, files -> [ meta + {_render_meta(entries)}, files ] }}"
 
 
-def _entry_expressions(
-    ir: PipelineIR, registry: Registry, vocab: Vocabulary
-) -> dict[str, str]:
-    """Every type consumed but not produced inside the pipeline, and how it arrives."""
-    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
-    needed: dict[str, str] = {}
-    for node in ir.nodes:
-        for port in registry.get(node.contract_id).consumes:
-            if (node.id, port.name) in fed:
-                continue
-            type_id = _entry_type(port)
-            needed[type_id] = vocab.entry_channels.get(type_id, _default_entry(type_id))
-    return needed
-
-
-def _entry_channels(
-    ir: PipelineIR, registry: Registry, vocab: Vocabulary, measurements=None
-) -> list[tuple[str, str]]:
-    """Declarations for every type consumed but not produced inside the pipeline."""
-    needed = _entry_expressions(ir, registry, vocab)
+def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     return [
-        (
-            _channel_name(type_id),
-            _with_meta(
-                needed[type_id],
-                measurements.meta_for(type_id, ir.profile) if measurements else {},
-            ),
-        )
-        for type_id in sorted(needed)
+        (_channel_name(channel.type_id), _with_meta(channel.expression, channel.meta))
+        for channel in pipeline.channels
     ]
 
 
-def _calls(ir: PipelineIR, registry: Registry) -> list[str]:
-    calls = []
-    for node in ir.nodes:
-        contract = registry.get(node.contract_id)
-        args = [_argument(ir, registry, node.id, spec) for spec in contract.input_signature()]
-        calls.append(f"{contract.nf_process}({', '.join(args)})")
-    return calls
+def _calls(pipeline: Pipeline) -> list[str]:
+    return [
+        f"{step.process}({', '.join(_argument(pipeline, step, arg) for arg in step.call)})"
+        for step in pipeline.steps
+    ]
 
 
-def emit(
-    ir: PipelineIR,
-    registry: Registry,
-    vocab: Vocabulary | None = None,
-    measurements=None,
-) -> str:
-    vocab = vocab or Vocabulary(types={})
+def emit(pipeline: Pipeline) -> str:
+    """`main.nf`, from one argument.
+
+    No registry, no vocabulary, no measurements: everything they supplied is materialised on
+    the `Pipeline`. That is what lets a laboratory regenerate a validated pipeline's Nextflow
+    years later without the registry it was built against.
+    """
     env = Environment(
         loader=FileSystemLoader(_TEMPLATES),
         undefined=StrictUndefined,
@@ -210,100 +161,37 @@ def emit(
         keep_trailing_newline=True,
     )
     nodes = [
-        {
-            "id": node.id,
-            "process": _render_process_name(registry.get(node.contract_id).nf_process),
-            "include": registry.get(node.contract_id).nf_include,
-            "params": [
-                (
-                    name,
-                    _ParamView(
-                        tier=value.tier,
-                        review_level=value.review_level,
-                        reason=_render_comment(value.reason),
-                        rendered=_render_literal(value.value),
-                    ),
-                )
-                # Sorted on the name alone. A tuple sort falls through to the second
-                # element when names tie, and `ResolvedValue` is not orderable — a
-                # duplicate binding died here with an uncaught TypeError. A contract can
-                # no longer declare one, but an IR deserialised from a bundle can still
-                # carry one, and this must not be where that is discovered. Audit A11.
-                for name, value in sorted(
-                    ((b.name, b.value) for b in node.params), key=lambda pair: pair[0]
-                )
-            ],
-        }
-        for node in ir.nodes
+        {"id": step.id, "process": step.process, "include": step.include}
+        for step in pipeline.steps
     ]
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
-        entry_channels=_entry_channels(ir, registry, vocab, measurements),
-        calls=_calls(ir, registry),
+        entry_channels=_entry_channels(pipeline),
+        calls=_calls(pipeline),
     )
 
 
-def entry_params(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> list[str]:
-    """The `params.<name>` a generated pipeline expects the laboratory to supply.
-
-    Read out of the entry-channel expressions rather than hardcoded, so a type that
-    declares its own entry channel automatically declares its own parameter.
-    """
-    import re
-
-    found: set[str] = set()
-    for expression in _entry_expressions(ir, registry, vocab).values():
-        found.update(re.findall(r"params\.(\w+)", expression))
-    return sorted(found)
+def entry_params(pipeline: Pipeline) -> list[str]:
+    """The `params.<name>` a generated pipeline expects the laboratory to supply."""
+    return sorted({name for channel in pipeline.channels for name in channel.params})
 
 
-def _params_by_type(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> dict[str, str]:
-    """Which `params.<name>` each entry type supplies, as `{param: type_id}`.
-
-    Read back out of the entry-channel expressions rather than assumed, for the same
-    reason `entry_params` is: a type that declares its own channel declares its own
-    parameter, and the compiler must not have an opinion about what it is called.
-    """
-    import re
-
-    found: dict[str, str] = {}
-    for type_id, expression in _entry_expressions(ir, registry, vocab).items():
-        for name in re.findall(r"params\.(\w+)", expression):
-            found[name] = type_id
-    return found
-
-
-def _render_test_data(value: str | list[str]) -> str:
-    """A single URL, or an explicit list of mates.
-
-    A list because Nextflow refuses a glob pattern over https — `fromFilePairs` cannot
-    brace-expand `SRR6357070_{1,2}.fastq.gz` when it is a URL, which is how the first
-    `test` profile failed. The entry channel takes a list as the mates themselves.
-    """
-    if isinstance(value, str):
-        return f'"{value}"'
+def _render_test_data(value: list[str]) -> str:
+    if len(value) == 1:
+        return f'"{value[0]}"'
     return "[" + ", ".join(f'"{item}"' for item in value) + "]"
 
 
-def _test_profile(
-    ir: PipelineIR, registry: Registry, vocab: Vocabulary, params: list[str]
-) -> list[str]:
+def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
     """A `test` profile, when every entry type declares where a public example lives.
-
-    `Gate.TEST` runs `-profile test`, and until this existed nothing emitted one, so the
-    gate could not pass and the v1 criterion was stated in terms of something unreachable.
-
-    The URLs come from the vocabulary's `test_data`, not from here — same reason
-    `entry_channel` does. Nextflow stages a remote path itself, so no fetching happens in
-    this package, which is just as well: `mendel-compiler` is on the purity banlist and
-    may not open a socket.
 
     All or nothing. A partial `test` profile would fail at run time with a null parameter,
     which looks like a pipeline bug rather than a missing declaration.
     """
-    by_type = _params_by_type(ir, registry, vocab)
-    values = {name: vocab.test_data.get(by_type.get(name, "")) for name in params}
-    missing = sorted(name for name, value in values.items() if not value)
+    by_param = {
+        name: channel for channel in pipeline.channels for name in channel.params
+    }
+    missing = sorted(name for name in params if not by_param[name].test_data)
     if missing:
         return [
             "    // No `test` profile: these inputs declare no `test_data` in the",
@@ -316,28 +204,80 @@ def _test_profile(
         "        // correct, and it is not a substitute for the laboratory validating it.",
         "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
         "        // result against next year.",
-        *[f"        params.{name} = {_render_test_data(values[name])}" for name in params],
+        *[
+            f"        params.{name} = {_render_test_data(by_param[name].test_data)}"
+            for name in params
+        ],
         "    }",
     ]
 
 
-def _process_scope(ir: PipelineIR, registry: Registry) -> list[str]:
-    """`ext.args` per process, for modules that declare flags they always need.
+def _ext_scope(step: Step) -> list[str]:
+    """Every `ext.<key>` this step needs, composed.
 
-    Every nf-core module opens its script with `def args = task.ext.args ?: ''`, so this
-    is the only channel by which a flag reaches a tool. Emitting nothing for a module with
-    no `ext_args` keeps the generated config readable; an empty block is noise, and noise
-    is how a generated file stops being read.
+    The contract's static flags first, then each routed setting in **name-sorted** order. With
+    one setting that sort is unobservable, which is exactly why a test carrying one cannot see
+    a sort bug — and byte-identical emission depends on it.
+
+    A fragment mentioning `${…}` needs the task, so the whole key is emitted as a **closure**.
+    Measured on Nextflow 25.10.4: a config GString is evaluated when the config is read, where
+    no task exists, and `ext.args = "--rg ID:${meta.id}"` dies with `Unknown config attribute
+    process.withName:FOO.meta.id`. A static fragment stays a plain single-quoted string, so a
+    contract that needs no task keeps exactly the output it had.
     """
-    blocks = []
-    for node in ir.nodes:
-        contract = registry.get(node.contract_id)
-        if not contract.ext_args:
+    fragments: dict[str, list[str]] = {}
+    if step.ext_args:
+        fragments.setdefault("args", []).append(step.ext_args)
+
+    for setting in sorted(step.settings, key=lambda s: s.name):
+        if setting.via is not Via.EXT:
             continue
-        blocks.append(
-            f"    withName: {_render_process_name(contract.nf_process)} "
-            f"{{ ext.args = {_render_literal(contract.ext_args)} }}"
+        if setting.value is None:
+            # An unanswered tier-4 setting contributes nothing, and must not block the build.
+            # Invariant 6 says tier 4 is always *flagged*, not that it is fatal — the pipeline
+            # still runs and `needs_review()` still names it. Omitting the fragment also leaves
+            # the module's own fallback in charge, which is the right answer: STAR builds its
+            # default read-group line when nobody has said which platform this was.
+            #
+            # MD0201 is for a value that exists and cannot be carried, not for absence. Refusing
+            # here made `mendel publish` exit 2 on the shipped spine.
+            continue
+        if setting.template is None:
+            fragments.setdefault(setting.key.value, []).append(_render_literal(setting.value))
+            continue
+        if not substitutable(setting.value):
+            raise ValueError(
+                f"MD0201: {step.id}.{setting.name} is {setting.value!r}, which is outside the "
+                "substitutable class. Use letters, digits and _ . : + - only, or a number, or "
+                "true/false. If your value legitimately needs a space or a slash, that is a "
+                "case we assumed did not exist — please report it."
+            )
+        rendered = (
+            str(setting.value).lower()
+            if isinstance(setting.value, bool)
+            else str(setting.value)
         )
+        fragments.setdefault(setting.key.value, []).append(
+            setting.template.replace("{value}", rendered)
+        )
+
+    lines = []
+    for key in sorted(fragments):
+        joined = " ".join(fragments[key])
+        if "${" in joined:
+            lines.append(f'    withName: {step.process} {{ ext.{key} = {{ "{joined}" }} }}')
+        else:
+            lines.append(
+                f"    withName: {step.process} {{ ext.{key} = {_render_literal(joined)} }}"
+            )
+    return lines
+
+
+def _process_scope(pipeline: Pipeline) -> list[str]:
+    """`ext.*` per process, for modules that declare flags or carry routed settings."""
+    blocks: list[str] = []
+    for step in pipeline.steps:
+        blocks += _ext_scope(step)
     if not blocks:
         return []
     # Sorted and deduplicated: a contract used twice must not emit its block twice, and
@@ -345,18 +285,14 @@ def _process_scope(ir: PipelineIR, registry: Registry) -> list[str]:
     return ["process {", *sorted(set(blocks)), "}", ""]
 
 
-def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
+def emit_config(pipeline: Pipeline) -> str:
     """`nextflow.config` for the generated pipeline.
 
-    Every input parameter defaults to `null`: the pipeline describes a shape and the
-    laboratory supplies the data at run time, which is invariant 15 surviving into the
-    configuration as well as the workflow.
-
-    The `stub_data` profile exists for the `-stub-run` gate and points at synthetic
-    files the gate materialises. It is a validation harness, not a test profile — it
-    proves the DAG executes, never that the analysis is right.
+    Every input parameter defaults to `null`: the pipeline describes a shape and the laboratory
+    supplies the data at run time, which is invariant 15 surviving into the configuration as
+    well as the workflow.
     """
-    params = entry_params(ir, registry, vocab)
+    params = entry_params(pipeline)
     lines = [
         "// Generated by Mendel. Do not edit by hand — edit the goal and recompile.",
         "",
@@ -364,7 +300,7 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
     ]
     lines += [f"    {name} = null" for name in params]
     lines += ["}", ""]
-    lines += _process_scope(ir, registry)
+    lines += _process_scope(pipeline)
     lines += ["profiles {", "    stub_data {"]
     for name in params:
         pattern = (
@@ -374,7 +310,7 @@ def emit_config(ir: PipelineIR, registry: Registry, vocab: Vocabulary) -> str:
         )
         lines.append(f"        params.{name} = {pattern}")
     lines += ["    }"]
-    lines += _test_profile(ir, registry, vocab, params)
+    lines += _test_profile(pipeline, params)
     lines += [
         "    docker {",
         "        docker.enabled = true",

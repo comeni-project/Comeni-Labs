@@ -1,6 +1,7 @@
 import pathlib
 
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.pipeline import Pipeline
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 
@@ -9,6 +10,12 @@ ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 def _vocab():
     return layers.load(ROOT / "registry").vocabulary
+
+
+def _pipeline():
+    """The two-node fixture, materialised. `emit` takes one argument now."""
+    loaded = layers.load(ROOT / "registry")
+    return Pipeline.of(_ir(), loaded.registry, loaded.vocabulary, loaded.measurements)
 
 
 def _registry():
@@ -43,38 +50,47 @@ def _ir():
 
 
 def test_emits_include_statements_for_every_node():
-    source = emit(_ir(), _registry(), _vocab())
+    source = emit(_pipeline())
     assert "include { TRIMGALORE } from './modules/nf-core/trimgalore/main'" in source
     assert "include { STAR_ALIGN } from './modules/nf-core/star/align/main'" in source
 
 
 def test_emits_workflow_block_wiring_edges():
-    source = emit(_ir(), _registry(), _vocab())
+    source = emit(_pipeline())
     assert "workflow {" in source
     assert "TRIMGALORE(ch_fastq_reads)" in source
     assert "STAR_ALIGN(TRIMGALORE.out.reads" in source
 
 
-def test_annotates_each_param_with_its_tier():
-    source = emit(_ir(), _registry(), _vocab())
-    assert "// tier 2 (none): contract default" in source
-    assert "params.star_align_seq_platform = 'illumina'" in source
+def test_a_resolved_param_no_longer_becomes_a_dead_params_line():
+    """This test used to assert the opposite, and asserting it was the bug.
+
+    It required `params.star_align_seq_platform = 'illumina'` in `main.nf` with a tier comment
+    above it — a line no module reads. The resolver ran, flagged tier 4, printed REVIEW, and
+    the pipeline behaved identically whatever the answer was. Issue #10.
+
+    The value now reaches the tool through `ext.args`, so `main.nf` carries no `params.<node>_`
+    line at all and the provenance lives in `pipeline.yml` beside the value.
+    """
+    source = emit(_pipeline())
+    assert "params.star_align_seq_platform" not in source
+    assert "// tier " not in source
 
 
 def test_emission_is_byte_identical_across_runs():
-    assert emit(_ir(), _registry(), _vocab()) == emit(_ir(), _registry(), _vocab())
+    assert emit(_pipeline()) == emit(_pipeline())
 
 
 def test_carries_its_intended_purpose_statement():
     """The .nf travels alone. It has to say what it is without the rest of the repo."""
-    source = emit(_ir(), _registry(), _vocab())
+    source = emit(_pipeline())
     assert "It is not a diagnostic" in source
     assert "must be validated by" in source
 
 
 def test_matches_the_golden_file():
     golden = ROOT / "tests" / "golden" / "spine" / "main.nf"
-    assert emit(_ir(), _registry(), _vocab()) == golden.read_text()
+    assert emit(_pipeline()) == golden.read_text()
 
 
 def test_the_config_matches_its_golden_file():
@@ -90,7 +106,7 @@ def test_the_config_matches_its_golden_file():
     from mendel_compiler.emit import emit_config
 
     golden = ROOT / "tests" / "golden" / "spine" / "nextflow.config"
-    assert emit_config(_ir(), _registry(), _vocab()) == golden.read_text()
+    assert emit_config(_pipeline()) == golden.read_text()
 
 
 def test_call_arity_follows_the_declared_signature():
@@ -104,7 +120,7 @@ def test_call_arity_follows_the_declared_signature():
     featureCounts. Issue #8. `-stub-run` could never catch it, because nf-core stubs do
     not read their inputs, so the call was as green as a correct one.
     """
-    source = emit(_ir(), _registry(), _vocab())
+    source = emit(_pipeline())
     call = next(line for line in source.splitlines() if "STAR_ALIGN(" in line).strip()
     assert call == (
         "STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, ch_annotation_gtf, false)"
@@ -113,10 +129,15 @@ def test_call_arity_follows_the_declared_signature():
 
 def test_empty_placeholders_match_the_declared_tuple_width():
     """Nextflow matches tuple arity: a 2-tuple handed to a 3-tuple input is a null path."""
-    from comeni_core.contract import NfInput
     from mendel_compiler.emit import _argument
 
-    assert _argument(_ir(), _registry(), "star_align", NfInput(empty=3)) == (
+    pipeline = _pipeline()
+    step = next(s for s in pipeline.steps if s.id == "star_align")
+
+    class _Arg:
+        empty_width, ports, literal = 3, [], None
+
+    assert _argument(pipeline, step, _Arg()) == (
         "Channel.value([[:], [], []])"
     )
 
@@ -132,8 +153,8 @@ def test_config_declares_every_entry_parameter_as_null():
     """The pipeline describes a shape; the laboratory supplies the data. Invariant 15."""
     from mendel_compiler.emit import emit_config, entry_params
 
-    config = emit_config(_ir(), _registry(), _vocab())
-    for name in entry_params(_ir(), _registry(), _vocab()):
+    config = emit_config(_pipeline())
+    for name in entry_params(_pipeline()):
         assert f"{name} = null" in config
     assert "stub_data" in config
 
@@ -158,3 +179,50 @@ def test_a_control_character_is_refused():
 
     with pytest.raises(ValueError, match="control character"):
         _render_literal("bad\nvalue")
+
+
+def test_a_routed_setting_composes_into_ext_args():
+    """The whole point of Plan 1.10: a resolved value reaches the tool."""
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(_pipeline())
+    assert "withName: STAR_ALIGN" in config
+    assert "--outSAMattrRGline" in config
+
+
+def test_a_template_that_needs_the_task_is_emitted_as_a_closure():
+    """Measured on Nextflow 25.10.4: a double-quoted config string fails at parse with
+    `Unknown config attribute process.withName:FOO.meta.id`, because a config GString is
+    evaluated when the config is read and no task exists then. Only a closure resolves.
+    """
+    from mendel_compiler.emit import emit_config
+
+    line = next(line for line in emit_config(_pipeline()).splitlines() if "STAR_ALIGN" in line)
+    assert "ext.args = {" in line, line
+
+
+def test_a_static_ext_args_stays_a_plain_string():
+    """Regression guard against over-correction.
+
+    A contract's static flags need no task, so wrapping them in a closure would move every
+    golden file for nothing. TRIMGALORE carries none, so STAR's is the one to check: its
+    static part must survive composition rather than being replaced by the template.
+    """
+    from mendel_compiler.emit import emit_config
+
+    line = next(line for line in emit_config(_pipeline()).splitlines() if "STAR_ALIGN" in line)
+    assert "--readFilesCommand zcat" in line, line
+
+
+def test_no_dead_params_line_survives():
+    """`params.star_align_seq_platform` was read by nothing — issue #10. It is gone."""
+    assert "star_align_seq_platform" not in emit(_pipeline())
+
+
+def test_emission_needs_no_registry():
+    """One argument. A published pipeline reproduces without the registry it was built
+    against, which is what a laboratory archiving a validated pipeline needs.
+    """
+    import inspect
+
+    assert list(inspect.signature(emit).parameters) == ["pipeline"]

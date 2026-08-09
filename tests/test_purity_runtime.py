@@ -121,7 +121,7 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
         loaded.measurements,
         vocabulary=loaded.vocabulary,
     )
-        emit(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
+        emit(_pipe(ir, loaded))
     finally:
         state["armed"] = False
 
@@ -129,3 +129,14 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
         "a pure package opened a socket or spawned a process during a build:\n"
         + "\n".join(violations)
     )
+
+
+def _pipe(ir, loaded):
+    """Materialise an IR for the emitter.
+
+    `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
+    registry, vocabulary and measurements now lives on the `Pipeline`.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
