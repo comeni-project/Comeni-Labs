@@ -27,6 +27,18 @@ class ValueSource(StrEnum):
 
     RESOLVER = "resolver"
     GOAL = "goal"
+    HUMAN = "human"
+    """A person answered an ambiguity **after** resolution had faced it and flagged it.
+
+    Deliberately not the same as `GOAL`, and the tier is what makes the difference visible.
+    A goal pin is tier 1: the user removed the ambiguity before anything looked at it, so no
+    choice existed to be made. An override is tier 4 that stayed tier 4 — resolution met a
+    real ambiguity, could not settle it, and a human settled it in the artifact.
+
+    Collapsing the two would erase that the pipeline contains a question somebody had to
+    answer, and it would erase it precisely on the pipelines most worth reviewing. So the
+    tier is kept and the *review* is what clears: see `PipelineIR.overrides()`.
+    """
     MEASURED = "measured"
     """A tool produced this value by looking at the data, and named itself.
 

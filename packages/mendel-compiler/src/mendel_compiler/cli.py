@@ -252,6 +252,20 @@ def _build(argv: list[str] | None = None) -> int:
         for item in reroutes:
             print(f"  OVERLAY  {item}", file=sys.stderr)
 
+    # Its own line, above the review list, exactly as OVERLAY is. "What did somebody
+    # already decide" and "what must I decide" are different questions, and an answered
+    # tier-4 left in the second is how the count never reaches zero — a list that cries
+    # wolf gets ignored, and the genuinely unanswered item beside it goes unread too.
+    answered = ir.overrides()
+    if answered:
+        print(
+            f"{len(answered)} tier-4 question(s) answered by a human — still tier 4, and "
+            f"still recorded:",
+            file=sys.stderr,
+        )
+        for item in answered:
+            print(f"  ANSWERED {item}", file=sys.stderr)
+
     flagged = ir.needs_review()
     print(f"{len(ir.nodes)} modules, {len(flagged)} requiring review", file=sys.stderr)
     for item in flagged:

@@ -1421,6 +1421,35 @@ git commit -m "test(counts): a resolved setting reaches the tool, on real data"
 
 ## Task 8: an override is a different act from a goal pin
 
+> **Done, 2026-08-09, and it found a dead mechanism.**
+>
+> **A human override on a *parameter* was discarded entirely, in silence.** Not a tier
+> problem — the answer never arrived. `ReplayResolver._still_applies` asks whether the
+> recorded choice is a member of the current candidate list, and a parameter's candidate list
+> is literally `[None]`, a placeholder because a `Param` has no declared domain until Plan 2
+> Task 11. So every override on a parameter failed that check, was counted as *newly asked*,
+> and the person's answer was thrown away. Measured before it was fixed: a record carrying
+> `human_override="illumina"` came back `chosen=None, resolved_by="flag-only"`. `resolve.py`
+> already documents this exact asymmetry from the other direction; the membership half now
+> stands down where there is no domain to be a member of, keyed on the placeholder so it turns
+> itself back on the day a parameter gets one.
+>
+> **The producer side was fixed too, though the plan named only `resolve.py`.** An overridden
+> module choice is the identical defect one field over, and `needs_review()` lists selections
+> as `<node> (module)`. `_choose` carries a `ValueSource` out and `RouteStep.selection_source`
+> carries it in. Fixing half a property is what these audits keep finding.
+>
+> **`Resolution.source` is how it travels.** `resolved_by` cannot carry it: that names the
+> implementation, and the implementation replaying a person's answer is still `replay`.
+>
+> The CLI prints `ANSWERED` above the `REVIEW` list, on the `OVERLAY` precedent — "what did
+> somebody already decide" and "what must I decide" are different questions.
+>
+> **Three revert probes, all biting**: the `needs_review` split, the replay fix, and
+> collapsing the override to tier 1 (the wrong fix, which fails two tests naming the tier).
+>
+> `make verify` green: 512 fast, 3 slow, 15 guards.
+
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/tiers.py` (`ValueSource.HUMAN`)
 - Modify: `packages/comeni-core/src/comeni_core/ir.py` (`overrides()`, `needs_review()`)
@@ -1431,7 +1460,7 @@ git commit -m "test(counts): a resolved setting reaches the tool, on real data"
 has legitimately removed the ambiguity"*. **That stays.** Editing `pipeline.yml` is a different
 act: resolution faced the ambiguity, flagged it tier 4, and a human answered it in the artifact.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_an_override_keeps_the_tier_it_displaced():
@@ -1457,11 +1486,11 @@ def test_an_answered_setting_leaves_needs_review_and_appears_in_overrides():
     assert "star_align.seq_platform" in ir.overrides()
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: `make verify`** — this touches `resolve.py`.
+- [x] **Step 3: `make verify`** — this touches `resolve.py`.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git commit -am "feat(resolver): an override answers an ambiguity without abolishing it"

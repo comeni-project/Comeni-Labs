@@ -183,3 +183,29 @@ guard watches the mechanism it names. That distinction is A21 in one sentence.
 The two older rows in this file remain unearned — `test_the_spine_produces_a_counts_matrix`
 and `test_featurecounts_ran_with_the_strandedness_that_was_measured` were not individually
 probed, and this row does not cover them.
+
+### Task 8 — three probes, and a mechanism that was never watched at all
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_audit_regressions.py` | `_still_open` drops the `source is not HUMAN` clause | 1 failed | `test_an_answered_setting_leaves_needs_review_and_appears_in_overrides` |
+| 2026-08-09 | `test_audit_regressions.py` | `_still_applies` restores the membership check on a `[None]` domain | **4 failed** | starting with `test_a_human_override_on_a_parameter_is_replayed_at_all` |
+| 2026-08-09 | `test_audit_regressions.py` | an override collapsed to `Tier.STRUCTURAL` — the *wrong* fix, not the absent one | 2 failed | `test_an_override_keeps_the_tier_it_displaced`, naming the tier |
+
+The third probe is the one worth copying. Reverting a fix asks "does the guard notice it is
+gone"; applying the **plausible wrong fix instead** asks "does the guard notice it is wrong",
+which is the question a reviewer actually has. Collapsing a human override to tier 1 is what
+a reasonable person would write, and it fails here for a stated reason.
+
+### The mechanism nobody had watched
+
+`human_override` on a parameter had never worked. `ReplayResolver._still_applies` checked
+membership in a candidate list that is literally `[None]` for parameters, so every override
+was discarded, counted as newly asked, and the answer thrown away.
+
+Nothing caught it because every existing replay test used producers or sources, which have
+real candidate lists. The parameter case had unit tests for `_chosen`, for `_still_applies`,
+and for the record type — and none for the one path that carries a person's answer to a
+parameter end to end. **Coverage of the parts is not coverage of the path**, which is the
+same lesson as A8: a `DecisionRecord` can state a choice the pipeline did not make, and only
+a test that follows the value all the way sees it.

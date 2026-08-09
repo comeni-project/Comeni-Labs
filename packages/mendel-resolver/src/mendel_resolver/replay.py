@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 from comeni_core.decision import Ambiguity, DecisionRecord, Resolution
 from comeni_core.marks import DecisionKey
+from comeni_core.tiers import ValueSource
 
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 
@@ -57,6 +58,15 @@ class ReplayResolver:
                 reason=record.reason,
                 confidence=record.confidence,
                 resolved_by="replay",
+                # Who settled it, which `resolved_by` cannot say: the implementation
+                # replaying a person's answer is still `replay`. Set only when the record
+                # carries an override, so a replayed *resolver* choice stays a resolver
+                # choice and keeps its review flag.
+                source=(
+                    ValueSource.HUMAN
+                    if record.human_override is not None
+                    else ValueSource.RESOLVER
+                ),
             )
         self.fresh.append(ambiguity.key())
         return self._fallback.resolve(ambiguity)
@@ -69,9 +79,23 @@ class ReplayResolver:
         nobody is asking any more; or the choice itself is gone from the registry. Either
         way, replaying would assert a decision between options that no longer exist —
         worse than asking again, because it would look decided.
+
+        **The membership half does not apply where there is no domain to be a member of.**
+        A parameter's candidate list is literally `[None]` — a placeholder, because a `Param`
+        has no declared legal values until Plan 2 Task 11 — so *every* human override on a
+        parameter failed this check and was discarded in silence. Measured, not theorised:
+        a record with `human_override="illumina"` came back `chosen=None`, `resolved_by=
+        "flag-only"`, counted as newly asked. The whole override mechanism was dead for the
+        one kind of decision that has no other way to be answered.
+
+        `resolve.py`'s tier-4 site already documents this asymmetry from the other side and
+        for the same reason. Keyed on the placeholder rather than on the kind, so the check
+        turns itself back on the day a parameter gets a real domain.
         """
         if list(record.candidates) != list(ambiguity.candidates):
             return False
+        if list(ambiguity.candidates) == [None]:
+            return True
         return _chosen(record) in ambiguity.candidates
 
 

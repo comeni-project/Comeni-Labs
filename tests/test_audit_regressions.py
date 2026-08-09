@@ -1552,3 +1552,144 @@ def _pipe(ir, loaded):
     from comeni_core.pipeline import Pipeline
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
+
+
+# --- Plan 1.10 Task 8: an override is a different act from a goal pin -----------------
+#
+# Issue #10's tail. Answering a tier-4 parameter must clear the flag without pretending the
+# question was never asked — and, as it turned out, without the answer being thrown away.
+
+
+def _override_record(value="illumina"):
+    from comeni_core.decision import ParamDecision
+
+    return ParamDecision(
+        key="star_align.seq_platform",
+        subject="seq_platform",
+        candidates=[None],
+        chosen=None,
+        human_override=value,
+        reason="our sequencer",
+        resolved_by="human",
+    )
+
+
+def _loaded():
+    from mendel_resolver import layers as layers_mod
+
+    return layers_mod.load("registry")
+
+
+def _resolved(resolver=None, mutate=None):
+    """The shipped goal, resolved. `mutate` edits the raw mapping before validation."""
+    from comeni_core import yaml_strict
+    from mendel_resolver.goal import Goal
+    from mendel_resolver.resolve import resolve
+
+    loaded = _loaded()
+    raw = yaml_strict.load(Path("examples/rnaseq-goal.yml"))
+    if mutate is not None:
+        mutate(raw)
+    return resolve(
+        Goal.model_validate(raw),
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+        resolver=resolver,
+    )
+
+
+def _ir_with_override(value="illumina"):
+    from mendel_resolver.replay import ReplayResolver
+
+    return _resolved(resolver=ReplayResolver([_override_record(value)]))
+
+
+def _binding(ir, name):
+    return next(b.value for n in ir.nodes for b in n.params if b.name == name)
+
+
+def test_a_human_override_on_a_parameter_is_replayed_at_all():
+    """It was not, and nothing said so. Found while writing the test below.
+
+    A parameter's candidate list is literally `[None]` — a placeholder, because a `Param` has
+    no declared legal values until Plan 2 Task 11 — so `_still_applies` asked whether the
+    human's answer was a member of `[None]`, and it never was. **Every** override on a
+    parameter was discarded, counted as newly asked, and the recorded answer thrown away.
+
+    That is issue #10's shape exactly: a mechanism that runs, records, and changes nothing.
+    """
+    from comeni_core.decision import ParamAsked
+    from mendel_resolver.replay import ReplayResolver
+
+    resolver = ReplayResolver([_override_record()])
+    resolution = resolver.resolve(
+        ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None])
+    )
+    assert resolution.chosen == "illumina", "the human's answer must be the answer"
+    assert resolver.replayed == ["star_align.seq_platform"]
+    assert resolver.fresh == [], "an answered question is not a new one"
+
+
+def test_an_override_keeps_the_tier_it_displaced():
+    """Collapsing it to tier 1 would say "no choice existed", which is what a *goal pin*
+    means and is precisely what did not happen here. Resolution met a real ambiguity and
+    could not settle it; a person settled it afterwards, and a reviewer reading a curated
+    pipeline needs to see that it contains a question rather than that it contains none."""
+    from comeni_core.tiers import ValueSource
+
+    value = _binding(_ir_with_override(), "seq_platform")
+    assert value.value == "illumina"
+    assert value.tier is Tier.AMBIGUOUS
+    assert value.source is ValueSource.HUMAN
+
+
+def test_a_goal_pin_is_still_tier_one_and_still_says_goal():
+    """The regression guard for the split. `ValueSource`'s docstring argues that a
+    goal-pinned param is legitimately tier 1 — the user removed the ambiguity before
+    anything looked at it — and that argument stays true."""
+    from comeni_core.tiers import ValueSource
+
+    def pin(raw):
+        raw["constraints"] = {"params": [{"name": "seq_platform", "value": "illumina"}]}
+
+    ir = _resolved(mutate=pin)
+    value = _binding(ir, "seq_platform")
+    assert value.tier is Tier.STRUCTURAL
+    assert value.source is ValueSource.GOAL
+    assert ir.overrides() == [], "a pin is not an override; the two must not merge"
+
+
+def test_an_answered_setting_leaves_needs_review_and_appears_in_overrides():
+    """Otherwise the count never reaches zero and the CLI says REVIEW for ever on a question
+    already answered. `lockfile.py` makes this argument about a different list and it is the
+    sharper one: a list that cries wolf gets ignored, so the genuinely unanswered tier-4
+    beside it goes unread too."""
+    ir = _ir_with_override()
+    assert "star_align.seq_platform" not in ir.needs_review()
+    assert any("star_align.seq_platform" in item for item in ir.overrides())
+
+
+def test_an_unanswered_tier_four_still_needs_review():
+    """The other half, and the one that matters most: clearing the flag must depend on
+    somebody having answered, not on the machinery having run."""
+    ir = _resolved()
+    assert "star_align.seq_platform" in ir.needs_review()
+    assert ir.overrides() == []
+
+
+def test_an_override_reaches_the_pipeline_file_as_source_human():
+    """The artifact is where a reviewer meets this, so it has to survive materialisation.
+
+    `Why.source` already carried a `ValueSource`; what changed is that there is now a value
+    for it to carry. Without this the file would say `source: resolver` beside a value no
+    resolver chose."""
+    from comeni_core.tiers import ValueSource
+
+    pipeline = _pipe(_ir_with_override(), _loaded())
+    step = next(s for s in pipeline.steps if s.id == "star_align")
+    setting = next(s for s in step.settings if s.name == "seq_platform")
+    assert setting.value == "illumina"
+    assert setting.why.source is ValueSource.HUMAN
+    assert setting.why.tier is Tier.AMBIGUOUS
