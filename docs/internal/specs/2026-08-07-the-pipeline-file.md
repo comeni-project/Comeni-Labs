@@ -500,8 +500,34 @@ template there has nothing to compose into, and `cpus = "--cpus 12"` is not a th
 therefore covers both halves of the same mistake: a template that never mentions `{value}`, and a
 template on a route that takes none.
 
-One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
-interpolates, where `_render_literal` single-quotes it today.
+**Corrected 2026-08-09 by experiment.** Two earlier drafts said `ext.args` must be emitted as a
+**double-quoted** Groovy string so `${meta.id}` interpolates. That is false, and Nextflow says so
+loudly:
+
+```
+$ # process { withName: FOO { ext.args = "--rg ID:${meta.id}" } }
+ERROR ~ Unknown config attribute `process.withName:FOO.meta.id`
+```
+
+A double-quoted string in a config file is a GString evaluated **when the config is parsed**, where
+no task exists and `meta` is not a name. The form that works is a **closure**, evaluated per task:
+
+```
+$ # process { withName: FOO { ext.args = { "--rg ID:${meta.id}" } } }
+echo "ARGS=[--rg ID:SAMPLE1]"          # from the resolved .command.sh
+```
+
+So the emission rule is not about quote characters, it is about **whether the template needs the
+task**:
+
+| template | emitted as |
+|---|---|
+| no `${…}` — e.g. `--readFilesCommand zcat` | single-quoted string, **exactly as today** |
+| any `${…}` | `ext.<key> = { "…" }`, a closure |
+
+Two consequences the drafts got wrong. **The golden files move far less than predicted** — a static
+`ext_args` keeps its single quotes, so only a step carrying a dynamic template moves at all. And
+`_render_literal` stays correct for the static case rather than being replaced.
 
 An earlier draft said *"every golden file moves, as a reviewable diff"*, and then that
 `nextflow.config` had *"no golden, no assertion, no coverage of any kind"*. **1.9 falsified the second
@@ -528,8 +554,34 @@ template there has nothing to compose into, and `cpus = "--cpus 12"` is not a th
 therefore covers both halves of the same mistake: a template that never mentions `{value}`, and a
 template on a route that takes none.
 
-One consequence: `ext.args` must be emitted as a **double-quoted** Groovy string so `${meta.id}`
-interpolates, where `_render_literal` single-quotes it today.
+**Corrected 2026-08-09 by experiment.** Two earlier drafts said `ext.args` must be emitted as a
+**double-quoted** Groovy string so `${meta.id}` interpolates. That is false, and Nextflow says so
+loudly:
+
+```
+$ # process { withName: FOO { ext.args = "--rg ID:${meta.id}" } }
+ERROR ~ Unknown config attribute `process.withName:FOO.meta.id`
+```
+
+A double-quoted string in a config file is a GString evaluated **when the config is parsed**, where
+no task exists and `meta` is not a name. The form that works is a **closure**, evaluated per task:
+
+```
+$ # process { withName: FOO { ext.args = { "--rg ID:${meta.id}" } } }
+echo "ARGS=[--rg ID:SAMPLE1]"          # from the resolved .command.sh
+```
+
+So the emission rule is not about quote characters, it is about **whether the template needs the
+task**:
+
+| template | emitted as |
+|---|---|
+| no `${…}` — e.g. `--readFilesCommand zcat` | single-quoted string, **exactly as today** |
+| any `${…}` | `ext.<key> = { "…" }`, a closure |
+
+Two consequences the drafts got wrong. **The golden files move far less than predicted** — a static
+`ext_args` keeps its single quotes, so only a step carrying a dynamic template moves at all. And
+`_render_literal` stays correct for the static case rather than being replaced.
 
 An earlier draft said *"every golden file moves, as a reviewable diff."* **There is one golden
 file — `tests/golden/spine/main.nf` — and it is not the one this change writes into.** `grep -rn

@@ -6,7 +6,14 @@ consumes:
   - {name: index, type_id: genome.index.hisat2, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
-  - {name: seq_platform, tier_hint: 4}
+  # Same shape as star/align, different flag:
+  #   rg = args.contains("--rg-id") ? "" : "--rg-id ${prefix} --rg SM:${prefix}"
+  # HISAT2 takes one KEY:VALUE per `--rg`, so PL is its own flag rather than a field.
+  - name: seq_platform
+    tier_hint: 4
+    via: ext
+    key: args
+    template: "--rg-id ${meta.id} --rg SM:${meta.id} --rg PL:{value}"
 priority: 0
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, splicesites) | val save_unaligned
 nf_inputs:

@@ -118,6 +118,16 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
 | `MD0107` | `container` has drifted from the module's directive |
 
+#### The pipeline file — a setting, an override, or the format
+
+| Code | Says |
+|---|---|
+| `MD0200` | a setting declares no `via:`, so nothing would carry its value |
+| `MD0201` | a resolved value is outside the substitutable character class |
+| `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
+| `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
+| `MD0209` | `via: directive` names something Nextflow silently ignores |
+
 <!-- END GENERATED DIAGNOSTICS -->
 
 Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's

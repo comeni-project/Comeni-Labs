@@ -14,8 +14,11 @@ nf_include: modules/nf-core/subread/featurecounts/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
 produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
 params:
-  - {name: strandedness, tier_hint: 3}
-  - {name: seq_platform, tier_hint: 4, default: illumina}
+  # `via:` is mandatory since Plan 1.10 Task 3 — a setting with no route reaches no tool.
+  # The template is a stand-in: these fixtures test resolution, not emission.
+  - {name: strandedness, tier_hint: 3, via: ext, key: args, template: "--x {value}"}
+  - {name: seq_platform, tier_hint: 4, default: illumina,
+     via: ext, key: args, template: "--x {value}"}
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-02"}
 """

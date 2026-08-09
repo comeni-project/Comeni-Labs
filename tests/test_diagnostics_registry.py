@@ -13,7 +13,6 @@ unrepresentable instead, which is strictly stronger and is why no such test exis
 import pathlib
 
 import pytest
-
 from comeni_core import diagnostics
 
 CONFORMANCE = ("MD0100", "MD0101", "MD0102", "MD0103", "MD0104", "MD0105", "MD0106", "MD0107")

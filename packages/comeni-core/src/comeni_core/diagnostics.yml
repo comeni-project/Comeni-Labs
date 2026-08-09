@@ -138,3 +138,109 @@ MD0107:
     claiming a container the module does not use is claiming a reproducibility it does
     not have. Take the *last* quoted string in the ternary: nf-core 4.x puts
     singularity first and docker second.
+
+MD0200:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting declares no `via:`, so nothing would carry its value"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Add `via:` naming where the value should land — `ext` with a `key:`, `meta`, or `directive`.
+  explanation: |
+    A setting the resolver decides has to reach the tool somehow. Before this was required, a
+    resolved value became a `params.<node>_<name>` line in the emitted workflow that no module
+    reads: the resolver ran, flagged tier 4, printed REVIEW, and the pipeline behaved
+    identically whatever the answer was.
+
+    Emptiness and deadness are different problems. Few parameters is emptiness, and the forge
+    fixes it. A resolved value reaching no tool is deadness, and no amount of forge output
+    fixes that — only a declared route does.
+
+MD0201:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a resolved value is outside the substitutable character class"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use letters, digits and `_ . : + -` only, or a number, or true/false.
+
+    If your value legitimately needs a space or a slash, that is a case we assumed did not
+    exist rather than one we decided to forbid. Please report it, with the tool and the flag:
+    https://github.com/comeni-project/Comeni-Labs/issues
+  explanation: |
+    A template substitutes {value} into a string that becomes part of a shell command line.
+    Rather than escape dangerous characters, Mendel refuses them: escaping-for-context is where
+    injection bugs live, and a value that cannot contain a quote cannot close one.
+
+    The class is deliberately narrow, on the stated assumption that almost no tool setting needs
+    a space or a slash. That assumption has not met a real counterexample, which is why this
+    message asks for one.
+
+    Loosening the class later is backward-compatible — every file that validated still
+    validates. Tightening it is not, because files already on disk would stop loading. So it
+    starts strict, and the three excluded classes are not equally cheap to admit later: a slash
+    is inert here and needs only a wider pattern; a space needs the substituted value
+    shell-quoted at emit time, which moves every argument string; and a quote, dollar, backtick,
+    semicolon or newline should stay excluded, because those are the reason this refuses rather
+    than escapes.
+
+MD0204:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a `template:` never mentions `{value}`, or sits on a route that takes none"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Put `{value}` in the template where the resolved value belongs — or drop the template, if
+    the route takes one typed value rather than an argument string.
+  explanation: |
+    Two mistakes with one shape: a setting that looks wired and is not.
+
+    A template on `ext.args` that forgets `{value}` renders real flags and discards the value.
+    That is harder to spot than an honest no-op precisely because it looks correct — flags do
+    reach the tool, just not yours.
+
+    A template on `prefix`, `meta` or a directive has nothing to compose into. Those carry one
+    typed value; `cpus = "--cpus 12"` is not a thing.
+
+MD0205:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`via:`/`key:` are not a legal pair — including `key: when`"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    `via: ext` needs a `key:` of `args`, `args2`, `args3` or `prefix`. Every other route takes
+    no key at all.
+  explanation: |
+    The `ext` scope is a keyspace; `meta` and `directive` are single destinations. A key on
+    either of those names nothing.
+
+    `when` is not a legal key on purpose. `ext.when` is a boolean that skips a process
+    entirely, so a setting could switch a step off while the pipeline file still described it
+    running — a second routing mechanism competing with resolution. Whether a step exists is
+    decided by resolving the goal.
+
+MD0209:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`via: directive` names something Nextflow silently ignores"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use a process directive Nextflow accepts. `ext` is not one of them here — `via: ext` owns
+    that scope, and a setting must not reach it by two routes.
+  explanation: |
+    An unknown directive inside a `withName` block is silently ignored by Nextflow. Measured
+    rather than assumed: a config carrying `process { withName: FOO { cpuz = 4 } }` runs to
+    exit 0 with no error and no warning on Nextflow 25.10.4.
+
+    That is the exact failure this design exists to remove, so a routed directive whose name
+    was never checked would reinstall it — a resource setting that does nothing, reported by
+    nobody.
+
+    The legal names live in the compiler rather than the registry: Nextflow's directive set is
+    a fact about the toolchain, moving on Nextflow's release cycle, and no laboratory should be
+    able to approve `cpuz` into it by editing data.

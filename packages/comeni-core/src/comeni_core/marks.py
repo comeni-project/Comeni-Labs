@@ -59,6 +59,14 @@ class Mark(StrEnum):
     validated or it is not one."""
 
     NF_PATH = "nf-path"
+
+    NF_TEMPLATE = "nf-template"
+    """A flag fragment carrying exactly one Mendel substitution, `{value}`.
+
+    Distinct from GROOVY_EXPRESSION: an entry channel is unbounded Groovy by design,
+    while a template is a fragment whose only variable part is a value this code
+    substitutes. Two interpolation systems meet in one string and they are not the
+    same kind of risk."""
     """A relative path fragment under the emitted pipeline directory."""
 
     EDGE_REF = "edge-ref"
@@ -288,9 +296,59 @@ def _contract_id(value: str) -> str:
     return value
 
 
+_VALUE_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyz" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "0123456789" "_.:+-"
+)
+"""The characters `{value}` may carry, spelled out rather than compiled.
+
+`re` is not on `comeni-core`'s purity allowlist and `_is_identifier` already refused to widen
+it for a character class, for the reason given there: the allowlist is valuable precisely
+because it has no unknown unknowns. This is the same trade and gets the same answer.
+"""
+
+
+def _nf_template(value: str) -> str:
+    """A flag fragment with exactly one Mendel substitution.
+
+    Two interpolation systems meet in one string and only one of them is ours:
+
+    - `{value}` is **Mendel's**, substituted at emit time. The only one this code touches.
+    - `${…}` is **Groovy's**, evaluated by Nextflow per task and passed through verbatim.
+
+    A template mentioning `${…}` must be emitted as a *closure* rather than a string — measured
+    on Nextflow 25.10.4, where `ext.args = "--rg ID:${meta.id}"` fails at config parse with
+    `Unknown config attribute process.withName:FOO.meta.id`, because a config GString is
+    evaluated when the config is read and no task exists then. The closure form resolves.
+
+    One line only: it is composed into a single argument string, and a newline there would end
+    the command rather than the flag.
+    """
+    if "\n" in value:
+        raise ValueError("MD0204: a template is one line — it composes into an argument string")
+    return value
+
+
+def substitutable(value: object) -> bool:
+    """Whether `{value}` may carry this value.
+
+    **Refuse rather than escape.** Escaping-for-context is where injection bugs live, and a value
+    that cannot contain a quote cannot close one. The substituted result lands in a shell command
+    line, so a quote, dollar, backtick, semicolon or newline is the whole reason this exists.
+
+    The class is deliberately narrow on a **stated assumption**: that almost no tool setting needs
+    a space or a slash. That assumption has not met a real counterexample, which is why `MD0201`'s
+    message asks the person who finds one to report it. Loosening later is backward-compatible —
+    every file that validated still validates — while tightening is not, so it starts strict.
+    """
+    if isinstance(value, bool | int | float):
+        return True
+    return isinstance(value, str) and all(char in _VALUE_CHARS for char in value)
+
+
 NfIdentifier = Annotated[str, Mark.NF_IDENTIFIER, AfterValidator(_groovy_identifier)]
 EdgeRef = Annotated[str, Mark.EDGE_REF, AfterValidator(_edge_ref)]
 NfPath = Annotated[str, Mark.NF_PATH, AfterValidator(_relative_path)]
+NfTemplate = Annotated[str, Mark.NF_TEMPLATE, AfterValidator(_nf_template)]
 GroovyExpression = Annotated[str, Mark.GROOVY_EXPRESSION]
 """Unbounded Groovy emitted verbatim — `entry_channel`, and nothing else.
 
