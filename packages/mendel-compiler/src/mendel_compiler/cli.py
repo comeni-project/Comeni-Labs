@@ -7,15 +7,14 @@ from pathlib import Path
 
 import yaml
 from comeni_core import yaml_strict
-from comeni_core.digest import digest_of_bytes
-from comeni_core.egress import Emitted, PublishBundle
+from comeni_core.digest import digest_of, digest_of_bytes
 from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
 from comeni_core.pipeline import Pipeline
 from mendel_resolver import layers
-from mendel_resolver.diff import diff_ir
+from mendel_resolver.diff import diff_pipeline
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
@@ -26,7 +25,6 @@ from pydantic import ValidationError
 from mendel_compiler import conformance, pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
-from mendel_compiler.pipeline_file import EMITTED_FILES
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,14 +58,20 @@ def _build(argv: list[str] | None = None) -> int:
         "target",
         nargs="?",
         default=None,
-        help="a diagnostic code for `explain`, or a pipeline.yml for `emit`",
+        help=(
+            "a diagnostic code for `explain`, or a pipeline.yml for `emit`, `upgrade` "
+            "and `publish`"
+        ),
     )
     parser.add_argument("--goal", type=Path, default=None)
     parser.add_argument(
-        "--bundle",
-        type=Path,
-        default=None,
-        help="a published pipeline.bundle.json to re-resolve. `upgrade` only.",
+        "--dry-run",
+        action="store_true",
+        help=(
+            "`upgrade` only: report what would move and write nothing. This is `verify` — "
+            "a separate verb comparing digests would answer a strictly weaker question, "
+            "and two answers to 'is this still what it says it is' is how they disagree."
+        ),
     )
     parser.add_argument(
         "--have",
@@ -100,7 +104,25 @@ def _build(argv: list[str] | None = None) -> int:
         print(conformance.explain(args.target))
         return 0
 
-    if args.out is None:
+    # `--dry-run` belongs to `upgrade` alone: it means "re-resolve and compare", and there
+    # is nothing to compare a fresh `build` against. Accepting it elsewhere would make it a
+    # flag that silently means "do nothing".
+    if args.dry_run and args.command != "upgrade":
+        parser.error("--dry-run is for `upgrade`; it is what `verify` would have been")
+
+    # `publish` takes no `--out`, and that is the shape of the verb rather than an omission.
+    # It does not produce a new pipeline; it certifies the one it was given — runs the gate
+    # and stamps the verdict into that directory's `pipeline.yml`. `upgrade` is the opposite
+    # and must never write in place, because what you had is the evidence.
+    if args.command == "publish":
+        if args.out is not None:
+            parser.error(
+                "publish takes no --out: it certifies the pipeline you give it, in place. "
+                "Use `mendel upgrade <pipeline.yml> --out <dir>` to produce a new one."
+            )
+    # `--dry-run` writes nothing, so demanding somewhere to write would be argparse
+    # describing the wrong verb — the same reason `explain` is handled above it.
+    elif args.out is None and not args.dry_run:
         parser.error(f"{args.command} needs --out")
 
     # Before the registry loads, and deliberately: `emit` reads no registry, no vocabulary
@@ -142,17 +164,36 @@ def _build(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    previous: PublishBundle | None = None
+    previous: Pipeline | None = None
     resolver = None
-    if args.command == "upgrade":
-        # An upgrade reads its goal from the bundle rather than from a file: re-resolving
-        # a *different* goal and calling the result an upgrade is how "only what you
-        # touched moved" would quietly become false.
-        if args.bundle is None:
-            parser.error("upgrade needs --bundle")
-        previous = PublishBundle.model_validate_json(args.bundle.read_text())
+    if args.command in ("upgrade", "publish"):
+        # Both read the artifact. An upgrade takes its goal from the file rather than from a
+        # `--goal` argument: re-resolving a *different* goal and calling the result an upgrade
+        # is how "only what you touched moved" would quietly become false.
+        if not args.target:
+            parser.error(
+                f"{args.command} needs a pipeline.yml, e.g. "
+                f"`mendel {args.command} build/pipeline.yml`"
+            )
+        source = Path(args.target)
+        previous = pipeline_file.load(source)
+        refusal = _refuse_a_divergent_directory(source, previous, args.command)
+        if refusal is not None:
+            return refusal
         goal = previous.goal
         resolver = ReplayResolver(previous.decisions)
+        if args.command == "publish":
+            args.out = source.parent
+        elif args.out is not None and args.out.resolve() == source.parent.resolve():
+            # Never in place. With one artifact the natural implementation updates
+            # `pipeline.yml` where it sits, and that destroys the only record of what you
+            # had: the replayed overrides, the previous digests, the gate evidence.
+            print(
+                f"mendel: {args.command} must not write over the pipeline it read. "
+                f"Give --out a different directory; the one you have is the evidence.",
+                file=sys.stderr,
+            )
+            return 2
     elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:
@@ -176,16 +217,29 @@ def _build(argv: list[str] | None = None) -> int:
     )
     ir.unverified = unverified
 
+    pipeline = Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths, goal=goal)
+
+    # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
+    # posture, and `MD0203` is a refusal — and reporting after the write meant an orphaned
+    # override produced a directory that looked upgraded and then said it was not.
+    #
+    # It is also what makes `--dry-run` the same code path rather than a second one. The
+    # verdict compares against what *would* be emitted, in memory, so nothing here needs
+    # files on disk: `verify` differs from `upgrade` only in whether bytes are written. Two
+    # comparisons of "is this still what it says it is" is root D's finding waiting to happen.
+    if previous is not None and args.command == "upgrade":
+        if _report_upgrade(previous, pipeline, ir, registry, loaded.paths, resolver):
+            return 2
+        if args.dry_run:
+            return 0
+
     args.out.mkdir(parents=True, exist_ok=True)
     # Materialise once, write it, read it back, and emit from **the copy that was read**.
     # Everything the emitter reads now lives on the `Pipeline`, which is what lets `mendel
     # emit` regenerate this without a registry — and running emission on the round trip is
     # what keeps that promise honest, since a field that does not survive YAML fails the
     # build (MD0206) instead of quietly meaning less than the file says.
-    pipeline = pipeline_file.write(
-        args.out,
-        Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths, goal=goal),
-    )
+    pipeline = pipeline_file.write(args.out, pipeline)
     (args.out / "main.nf").write_text(emit(pipeline))
     (args.out / "nextflow.config").write_text(emit_config(pipeline))
     # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is
@@ -210,57 +264,6 @@ def _build(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
-
-    if previous is not None:
-        # Nothing upgrades implicitly. Drift is what the registry did underneath the
-        # lockfile; changes are what that did to *this* pipeline. Both, because a contract
-        # can be edited in ways that change nothing here — and the lockfile no longer
-        # describing what is on disk is still worth knowing.
-        for line in previous.lockfile.drift_against(ir, registry, loaded.paths):
-            print(f"  DRIFT   {line}", file=sys.stderr)
-        changes = diff_ir(previous.ir, ir)
-        # The verdict comes from the artifact, and the diff explains it. It used to come
-        # *from* the diff, which enumerates the fields it knows about — so every field
-        # added to the IR was a new blind spot and upgrade said "re-resolves identically"
-        # while `main.nf` had demonstrably moved. Audit A28.
-        for line in _verdict(previous, args.out, changes):
-            print(line, file=sys.stderr)
-        for change in changes:
-            print(f"  CHANGED {change}", file=sys.stderr)
-        if resolver is not None:
-            print(
-                f"{len(resolver.replayed)} decisions replayed, "
-                f"{len(resolver.fresh)} newly asked",
-                file=sys.stderr,
-            )
-            # Five categories, not four. Stale and orphaned are different events and were
-            # both invisible: stale vanished into the "newly asked" count above, and
-            # orphaned had nowhere to appear at all, because `resolve()` is never called
-            # for a question that is no longer asked.
-            for key in resolver.stale:
-                what = (
-                    "your edit no longer answers the question being asked"
-                    if key in resolver.stale_overrides
-                    else "the recorded choice no longer fits; re-asked"
-                )
-                print(f"  STALE    {key} — {what}", file=sys.stderr)
-            for key in resolver.orphaned:
-                print(
-                    f"  ORPHANED {key} — your edit no longer applies to anything",
-                    file=sys.stderr,
-                )
-            if resolver.orphaned:
-                # Refuses, where stale only reports. The difference is whether there is
-                # still a question: a stale answer is re-asked and flagged tier 4, and an
-                # orphaned one has nothing left to be an answer to. Dropping it quietly is
-                # the same failure as a guard that silently stops guarding — A14's shape.
-                print(
-                    f"\nmendel: MD0203: {len(resolver.orphaned)} recorded override(s) "
-                    f"answer questions this re-resolution does not ask. Nothing was "
-                    f"published.\n`mendel explain MD0203` for the long form.",
-                    file=sys.stderr,
-                )
-                return 2
 
     # Its own section, above the review list rather than inside it. "What did my overlay
     # change" and "what must I decide" are different questions, and folding the first into
@@ -321,39 +324,20 @@ def _build(argv: list[str] | None = None) -> int:
     if failed:
         return 1
 
-    if args.command == "publish":
-        # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
-        # to, why each choice was made, and against exactly which registry. All four, or
-        # the recipient can neither reproduce it nor audit it.
-        #
-        # This writes files and sends nothing. Transmitting them is a later, separate act,
-        # which is the right shape for the door with no undo: a person can read what they
-        # are about to publish.
-        #
-        # **After the gate, not before.** It used to run above, so `publish --gate test`
-        # wrote the bundle, ran the gate, and returned 1 — leaving an artifact on disk
-        # that had just failed the only gate which checks wiring. `mendel upgrade` already
-        # took the opposite posture, and a refused publish must emit nothing for the same
-        # reason, more so: this is the door with no undo. Audit A4.
-        lockfile = Lockfile.of(ir, registry, loaded.paths)
-        bundle = PublishBundle(
-            goal=goal,
-            ir=ir,
-            decisions=ir.decisions,
-            lockfile=lockfile,
-            gate=passed,
-            # Digested here rather than above, so the record is of the files that passed
-            # the gate. The generated two only: `modules/` is vendored, not emitted.
-            emitted=Emitted.of(args.out, EMITTED_FILES),
-        )
-        #
-        # `mendel.lock.yml` is no longer written. Everything it carried is in
-        # `pipeline.yml` — every contract by digest and container under `steps[].module`,
-        # every layer under `registry.layers` — and a second file restating that is a second
-        # thing to keep in step. The `Lockfile` object survives inside the bundle, where
-        # `upgrade --bundle` still reads it; **`pipeline.bundle.json` retires in Task 10**,
-        # which is what re-points `upgrade` at `pipeline.yml` and gives it somewhere to go.
-        (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
+    # `pipeline.bundle.json` and `mendel.lock.yml` are both gone. Everything they carried
+    # is in `pipeline.yml` — the goal, every decision, every contract by digest and
+    # container, every layer, the gate that passed and the digests of what was emitted.
+    #
+    # So `publish` writes no artifact of its own: **the directory is the artifact.** It
+    # re-resolves the file, refuses if the directory has diverged from it, runs the gate
+    # you ask for, and stamps the verdict into `pipeline.yml`. What you hand somebody is
+    # `pipeline.yml` plus `modules/`, which is what they already had to be handed.
+    #
+    # This still writes files and sends nothing. Transmitting them is a later, separate
+    # act, which is the right shape for the door with no undo: a person can read what they
+    # are about to publish. And the gate still runs *before* the verdict is stamped — A4:
+    # `publish --gate test` used to write the bundle, run the gate, and return 1, leaving
+    # an artifact on disk that had just failed the only gate which checks wiring.
     return 0
 
 
@@ -413,38 +397,162 @@ def _emit_verb(target: Path, out: Path) -> int:
     return 0
 
 
-def _verdict(previous: PublishBundle, out: Path, changes: list) -> list[str]:
+def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -> int | None:
+    """`MD0213` and `MD0214`, on the verbs that treat the generated files as evidence.
+
+    Task 6 put both on `emit`, where `MD0213` could only report — that verb is the *cure* for
+    staleness, so refusing there would mean the file a reader is told to edit can never be
+    edited. Here it refuses, and the reason is the difference between the verbs.
+
+    `upgrade` compares against what this directory says it emitted, and `publish` stamps a
+    gate verdict onto it. A `main.nf` generated from a different `pipeline.yml` than the one
+    being read makes both of those statements about nothing.
+    """
+    directory = source.parent
+    edited = pipeline_file.hand_edited(directory, previous)
+    if edited:
+        print(
+            f"mendel: MD0214: {', '.join(edited)} changed since it was generated, so this "
+            f"directory does not describe itself. Make the change in {source} and run "
+            f"`mendel emit` — `mendel explain MD0214`.",
+            file=sys.stderr,
+        )
+        return 2
+    if pipeline_file.is_stale(previous):
+        print(
+            f"mendel: MD0213: {source} has changed since the Nextflow was generated from "
+            f"it, so `{verb}` would report on files that are not what this file describes.\n"
+            f"  Run `mendel emit {source} --out {directory}` first — "
+            f"`mendel explain MD0213`.",
+            file=sys.stderr,
+        )
+        return 2
+    return None
+
+
+def _report_upgrade(previous, fresh, ir, registry, paths, resolver) -> int:
+    """Five categories, printed. Returns non-zero when one of them refuses.
+
+    Drift and changes stay separate because Plan 1.7 established that distinction and it
+    earns its keep: a digest moving is not the same event as a decision moving, and a contract
+    can be edited in ways that change nothing here.
+    """
+    lockfile = Lockfile.from_pipeline(previous)
+    for line in lockfile.drift_against(ir, registry, paths):
+        print(f"  DRIFT   {line}", file=sys.stderr)
+
+    changes = diff_pipeline(previous, fresh)
+    for line in _verdict(previous, fresh, changes):
+        print(line, file=sys.stderr)
+    for change in changes:
+        print(f"  CHANGED {change}", file=sys.stderr)
+
+    for line in _frozen_against_moved_contracts(previous, fresh, registry):
+        print(f"  MD0202  {line}", file=sys.stderr)
+
+    if resolver is None:
+        return 0
+    print(
+        f"{len(resolver.replayed)} decisions replayed, {len(resolver.fresh)} newly asked",
+        file=sys.stderr,
+    )
+    # Five categories, not four. Stale and orphaned are different events and were both
+    # invisible: stale vanished into the "newly asked" count above, and orphaned had
+    # nowhere to appear at all, because `resolve()` is never called for a question that is
+    # no longer asked.
+    for key in resolver.stale:
+        what = (
+            "your edit no longer answers the question being asked"
+            if key in resolver.stale_overrides
+            else "the recorded choice no longer fits; re-asked"
+        )
+        print(f"  STALE    {key} — {what}", file=sys.stderr)
+    for key in resolver.orphaned:
+        print(f"  ORPHANED {key} — your edit no longer applies to anything", file=sys.stderr)
+    if resolver.orphaned:
+        # Refuses, where stale only reports. The difference is whether there is still a
+        # question: a stale answer is re-asked and flagged tier 4, and an orphaned one has
+        # nothing left to be an answer to. Dropping it quietly is the same failure as a
+        # guard that silently stops guarding — A14's shape.
+        print(
+            f"\nmendel: MD0203: {len(resolver.orphaned)} recorded override(s) answer "
+            f"questions this re-resolution does not ask. Nothing was written.\n"
+            f"`mendel explain MD0203` for the long form.",
+            file=sys.stderr,
+        )
+        return 2
+    return 0
+
+
+def _frozen_against_moved_contracts(previous, fresh, registry) -> list[str]:
+    """`MD0202` — which values are carried forward from a contract that has since moved.
+
+    `DRIFT` says a contract you pinned was edited. This says the consequence: these values
+    were decided against the version before that edit and are being replayed regardless.
+    Both are true and neither implies the other — a contract can be edited in ways that touch
+    nothing here, and a value can be replayed from a contract that has not moved at all.
+
+    Reports rather than refuses, because replaying is correct. Invariant 9 is that records are
+    replayed on rerun rather than re-asked, which is how determinism survives having a model
+    in the loop. A person is owed knowing it happened, not being stopped.
+    """
+    now = {step.id: step for step in fresh.steps}
+    lines = []
+    for step in previous.steps:
+        current = now.get(step.id)
+        if current is None or current.module.contract_id not in registry.contracts:
+            continue
+        if digest_of(registry.get(current.module.contract_id)) == step.module.digest:
+            continue
+        was = {setting.name: setting.value for setting in step.settings}
+        frozen = sorted(
+            setting.name
+            for setting in current.settings
+            if setting.name in was and was[setting.name] == setting.value
+        )
+        if frozen:
+            lines.append(
+                f"{step.id}: {', '.join(frozen)} unchanged, but "
+                f"{step.module.contract_id} has been edited since they were decided"
+            )
+    return lines
+
+
+def _verdict(previous, fresh, changes: list) -> list[str]:
     """Did the emitted pipeline move, and does anything explain it?
 
     Three separate statements, and they stay separate: `DRIFT` says the registry moved
-    underneath the lockfile, this says the *pipeline* moved, and `CHANGED` says why. Drift
-    with an identical artifact is ordinary — a contract edited in a way this pipeline does
-    not use — and that is why they were split in Plan 1.7.
+    underneath the pin, this says the *pipeline* moved, and `CHANGED` says why. Drift with an
+    identical artifact is ordinary — a contract edited in a way this pipeline does not use —
+    and that is why they were split in Plan 1.7.
+
+    Compares against what would be emitted **now**, in memory, rather than against files on
+    disk. That is what lets `--dry-run` answer the same question while writing nothing, and it
+    removes a way for the two paths to disagree.
     """
     if previous.emitted is None:
         return [
-            "this bundle predates the emitted-artifact record, so whether the pipeline "
-            "moved cannot be checked — only what the diff below can see."
+            "this pipeline predates the emitted-artifact record, so whether it moved cannot "
+            "be checked — only what the diff below can see."
         ]
 
+    would_be = {
+        "main.nf": digest_of_bytes(emit(fresh).encode()),
+        "nextflow.config": digest_of_bytes(emit_config(fresh).encode()),
+    }
     recorded = {file.name: file.digest for file in previous.emitted.files}
-    moved = sorted(
-        name
-        for name in recorded
-        if (out / name).exists() and digest_of_bytes((out / name).read_bytes()) != recorded[name]
-    )
-    missing = sorted(name for name in recorded if not (out / name).exists())
-    if not moved and not missing:
-        return ["the generated pipeline is byte-identical to the bundle"]
+    moved = sorted(name for name, digest in recorded.items() if would_be.get(name) != digest)
+    if not moved:
+        return ["the generated pipeline is byte-identical to the one recorded"]
 
-    lines = [f"the generated pipeline differs: {', '.join(moved + missing)}"]
+    lines = [f"the generated pipeline differs: {', '.join(moved)}"]
     if not changes:
-        # A guard that reports its own blind spot. Today a diff gap is silent by
-        # construction; naming both causes keeps a reader from assuming the likelier one.
+        # A guard that reports its own blind spot. `diff_pipeline` deliberately does not
+        # compare `ext_args`, and no comparison of two documents can see the compiler itself
+        # changing; naming both causes keeps a reader from assuming the likelier one.
         lines.append(
-            "  but no IR change explains it. Either the compiler itself changed since "
-            "this bundle was published, or the diff has a blind spot. Both are worth "
-            "knowing."
+            "  but no recorded change explains it. Either the compiler itself changed since "
+            "this pipeline was written, or the diff has a blind spot. Both are worth knowing."
         )
     return lines
 

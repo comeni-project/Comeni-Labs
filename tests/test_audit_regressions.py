@@ -194,36 +194,44 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
     )
 
 
-def test_a2_upgrade_refuses_a_bundle_carrying_an_undeclared_measurement(tmp_path):
-    """The reachable route, end to end: a bundle is a *downloaded* artifact.
+def _published_pipeline(tmp_path, root, name="published"):
+    """Build and certify a pipeline, and hand back the file that names it.
 
-    `mendel upgrade` reads its goal from the bundle rather than from a file, so it was the
+    `publish` stopped writing an artifact of its own in Plan 1.10 Task 10 — the directory is
+    the artifact — so this is `build` then `publish`, and what comes back is `pipeline.yml`.
+    """
+    from mendel_compiler.cli import main
+
+    out = tmp_path / name
+    assert main(["build", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
+                 "--out", str(out), "--root", str(root)]) == 0
+    assert main(["publish", str(out / "pipeline.yml"), "--root", str(root)]) == 0
+    return out / "pipeline.yml"
+
+
+def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_path):
+    """The reachable route, end to end: a `pipeline.yml` is a *downloaded* artifact.
+
+    `mendel upgrade` reads its goal from that file rather than from a `--goal`, so it was the
     one verb reading something a stranger wrote and the one verb with no check. Reproduced
     in the audit as exit 0 with `sample_name: PATIENT-00417` in the emitted IR, and
     re-published verbatim by any following `mendel publish`.
     """
-    import json
-
+    import yaml
     from mendel_compiler.cli import main
 
     root = Path(__file__).parent.parent
-    published = tmp_path / "published"
-    assert main(
-        ["publish", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
-         "--out", str(published), "--root", str(root)]
-    ) == 0
+    published = _published_pipeline(tmp_path, root)
 
-    bundle_path = published / "pipeline.bundle.json"
-    bundle = json.loads(bundle_path.read_text())
-    bundle["goal"]["profile"]["measurements"].append(
+    doc = yaml.safe_load(published.read_text())
+    doc["goal"]["profile"]["measurements"].append(
         {"measurement": "sample_name", "value": "PATIENT-00417", "source": "goal", "by": None}
     )
-    tainted = tmp_path / "tainted.bundle.json"
-    tainted.write_text(json.dumps(bundle))
+    published.write_text(yaml.safe_dump(doc, sort_keys=False))
 
     out = tmp_path / "upgraded"
-    assert main(["upgrade", "--bundle", str(tainted), "--out", str(out), "--root", str(root)]) != 0
-    assert not (out / "pipeline.ir.json").exists(), "a refused upgrade must emit nothing"
+    assert main(["upgrade", str(published), "--out", str(out), "--root", str(root)]) != 0
+    assert not (out / "pipeline.yml").exists(), "a refused upgrade must emit nothing"
 
 
 def test_a2_a_declared_profile_still_resolves():
@@ -676,6 +684,7 @@ def test_a4_a_bundle_records_which_gate_it_passed():
 
 
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
+    import yaml
     from mendel_compiler import cli
     from mendel_compiler.gates import GateResult
 
@@ -684,20 +693,25 @@ def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch)
     )
     out = tmp_path / "p"
     assert cli.main([
-        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
-        "--out", str(out), "--root", ".", "--gate", "lint",
+        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".",
     ]) == 0
-    assert json.loads((out / "pipeline.bundle.json").read_text())["gate"] == "lint"
+    assert cli.main([
+        "publish", str(out / "pipeline.yml"), "--root", ".", "--gate", "lint",
+    ]) == 0
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
 
 
 def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
-    """Publication is the door with no undo, so a bundle must not survive a failed gate.
+    """Publication is the door with no undo, so a *verdict* must not survive a failed gate.
 
-    The bundle was written *before* the gate ran, so `publish --gate test` left a bundle on
-    disk and returned 1 — an artifact claiming to be a pipeline that had just failed the
-    only gate that checks wiring. Same posture `mendel upgrade` already takes: a refused
-    run emits nothing.
+    The bundle was written before the gate ran, so `publish --gate test` left a bundle on
+    disk and returned 1 — an artifact claiming to be a pipeline that had just failed the only
+    gate that checks wiring. The bundle is gone since Plan 1.10 and the claim survives it: a
+    failed gate stamps `gate: null`, which is no evidence, and no evidence must never read as
+    a gate that passed.
     """
+    import yaml
     from mendel_compiler import cli
     from mendel_compiler.gates import GateResult
 
@@ -706,11 +720,16 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     )
     out = tmp_path / "p"
     assert cli.main([
-        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
-        "--out", str(out), "--root", ".", "--gate", "lint",
+        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".",
+    ]) == 0
+    assert cli.main([
+        "publish", str(out / "pipeline.yml"), "--root", ".", "--gate", "lint",
     ]) == 1
-    assert not (out / "pipeline.bundle.json").exists()
-    assert not (out / "mendel.lock.yml").exists()
+    # The claim moved with the artifact. There is no bundle to be absent any more, so what
+    # must not survive a failed gate is the *verdict*: `gate: null` is no evidence, and it
+    # must never read as a gate that passed.
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] is None
 
 
 def _overlay_measurement(lab: Path) -> None:
@@ -1310,23 +1329,21 @@ def test_a29_an_undeclared_state_is_refused_too():
         )
 
 
-def test_a29_upgrade_refuses_a_bundle_carrying_an_undeclared_type(tmp_path):
-    """The reachable route: a bundle is a file a *stranger* wrote.
+def test_a29_upgrade_refuses_a_pipeline_carrying_an_undeclared_type(tmp_path):
+    """The reachable route: a `pipeline.yml` is a file a *stranger* wrote.
 
     `mendel build` reads a goal the operator wrote; `mendel upgrade` reads one out of a
     downloaded artifact. That asymmetry is exactly how A2 happened, one field over.
     """
+    import yaml
     from mendel_compiler.cli import main
 
-    out = tmp_path / "published"
-    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
-                 "--root", "."]) == 2 or True
-    bundle_path = out / "pipeline.bundle.json"
-    bundle = json.loads(bundle_path.read_text())
-    bundle["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
-    bundle_path.write_text(json.dumps(bundle))
+    published = _published_pipeline(tmp_path, Path("."))
+    doc = yaml.safe_load(published.read_text())
+    doc["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
+    published.write_text(yaml.safe_dump(doc, sort_keys=False))
 
-    assert main(["upgrade", "--bundle", str(bundle_path), "--out", str(tmp_path / "up"),
+    assert main(["upgrade", str(published), "--out", str(tmp_path / "up"),
                  "--root", "."]) == 2
 
 
@@ -1367,20 +1384,23 @@ def test_a16_a_decision_declares_its_kind():
     assert ParamDecision(**common, chosen=None).kind is DecisionKind.PARAM
 
 
-def test_a16_a_bundle_round_trips_through_the_union(tmp_path):
-    """`kind` reaches the artifact, so a published bundle must read back as itself."""
-    from comeni_core.egress import PublishBundle
-    from mendel_compiler.cli import main
+def test_a16_the_artifact_round_trips_through_the_union(tmp_path):
+    """`kind` reaches the artifact, so a published pipeline must read back as itself.
 
-    out = tmp_path / "p"
-    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
-                 "--root", "."]) == 0
-    text = (out / "pipeline.bundle.json").read_text()
+    The subject moved from `pipeline.bundle.json` to `pipeline.yml` and the property got
+    stronger on the way: `build` now performs this round trip on **every** run and refuses
+    with `MD0206` if it fails, so the discriminated union is exercised continuously rather
+    than in this test alone.
+    """
+    from mendel_compiler import pipeline_file
 
-    bundle = PublishBundle.model_validate_json(text)
-    assert bundle.decisions, "the spine has a tier-4 parameter, so there is one to read"
-    assert bundle.model_dump_json(indent=2) == text
-    assert all(record.kind for record in bundle.decisions)
+    published = _published_pipeline(tmp_path, Path("."))
+    text = published.read_text()
+
+    pipeline = pipeline_file.load(published)
+    assert pipeline.decisions, "the spine has a tier-4 parameter, so there is one to read"
+    assert all(record.kind for record in pipeline.decisions)
+    assert pipeline_file.dump(pipeline) == text, "byte-identical, not merely equivalent"
 
 
 def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):

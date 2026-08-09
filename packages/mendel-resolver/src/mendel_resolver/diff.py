@@ -6,7 +6,7 @@ is the easy half; this is the half a person reads. Every line has to say *what* 
 demand completely different amounts of attention, and a diff that flattens them is noise.
 """
 
-from comeni_core.ir import PipelineIR
+from comeni_core.pipeline import Pipeline
 from comeni_core.tiers import Tier
 from pydantic import BaseModel, ConfigDict
 
@@ -25,106 +25,148 @@ class Change(BaseModel):
         return f"  {self.what}: {self.before} -> {self.after}  (tier {self.tier}) {self.reason}"
 
 
-def diff_ir(before: PipelineIR, after: PipelineIR) -> list[Change]:
-    """Every module and parameter that resolved differently, in a stable order."""
+# `diff_ir` and `_edge_changes` lived here and are deleted. `upgrade` reads a `pipeline.yml`
+# since Plan 1.10 Task 10, so there is no previous `PipelineIR` to compare against and they
+# had no callers left.
+#
+# Deleted rather than kept for a future caller. Two comparisons answering "what moved" is
+# root D's finding waiting to happen — the whole reason `verify` is `upgrade --dry-run`
+# rather than a second verb — and an unused one is the easier of the two to drift.
+
+
+def diff_pipeline(before: Pipeline, after: Pipeline) -> list[Change]:
+    """The same question as `diff_ir`, asked of the artifact rather than of the IR.
+
+    `upgrade` reads a `pipeline.yml` since Plan 1.10 Task 10, so there is no previous IR to
+    compare against — only the file, which is the thing a person edited and the thing they
+    will read the answer beside.
+
+    **`ext_args` is deliberately not compared, and that is not an oversight.** It is a contract
+    field rather than a decision: nobody resolved it, it carries no `why`, and a change to it
+    is the registry moving, which `DRIFT` already reports. What catches its effect is the
+    digest verdict — `emitted.from_digest` and `emitted.files` say the generated pipeline
+    moved, and when nothing in this diff explains that, `upgrade` says so out loud instead of
+    letting a reader assume the diff is complete. That pairing is audit A28's actual fix, and
+    a diff that compared every field would not remove the need for it: the compiler itself can
+    change, and no comparison of two documents can see that.
+    """
     changes: list[Change] = []
+    was = {step.id: step for step in before.steps}
+    now = {step.id: step for step in after.steps}
 
-    was = {node.id: node for node in before.nodes}
-    now = {node.id: node for node in after.nodes}
-
-    for node_id in sorted(set(was) | set(now)):
-        old, new = was.get(node_id), now.get(node_id)
+    for step_id in sorted(set(was) | set(now)):
+        old, new = was.get(step_id), now.get(step_id)
         if old is None:
             changes.append(
                 Change(
-                    what=node_id,
+                    what=step_id,
                     before="(absent)",
-                    after=new.contract_id,
-                    tier=new.selection.tier,
-                    reason=new.selection.reason,
+                    after=new.module.contract_id,
+                    tier=new.why.tier,
+                    reason=new.why.reason,
                 )
             )
             continue
         if new is None:
             changes.append(
                 Change(
-                    what=node_id,
-                    before=old.contract_id,
+                    what=step_id,
+                    before=old.module.contract_id,
                     after="(removed)",
-                    tier=old.selection.tier,
+                    tier=old.why.tier,
                     reason="no longer routed",
                 )
             )
             continue
-        if old.contract_id != new.contract_id:
+        if old.module.contract_id != new.module.contract_id:
             changes.append(
                 Change(
-                    what=node_id,
-                    before=old.contract_id,
-                    after=new.contract_id,
-                    tier=new.selection.tier,
-                    reason=new.selection.reason,
+                    what=step_id,
+                    before=old.module.contract_id,
+                    after=new.module.contract_id,
+                    tier=new.why.tier,
+                    reason=new.why.reason,
                 )
             )
+        changes += _setting_changes(step_id, old, new)
+        changes += _wiring_changes(step_id, old, new)
 
-        old_params = {b.name: b.value for b in old.params}
-        for binding in new.params:
-            previous = old_params.get(binding.name)
-            if previous is None or previous.value != binding.value.value:
-                changes.append(
-                    Change(
-                        what=f"{node_id}.{binding.name}",
-                        before="(unset)" if previous is None else str(previous.value),
-                        after=str(binding.value.value),
-                        tier=binding.value.tier,
-                        reason=binding.value.reason,
-                    )
-                )
-            elif previous.tier is not binding.value.tier:
-                # Same value, different tier. A parameter that moves from a documented
-                # default to "nobody knows" is the same number and a completely different
-                # claim, and a reviewer has to see it. A28.
-                changes.append(
-                    Change(
-                        what=f"{node_id}.{binding.name}",
-                        before=f"{previous.value} (tier {previous.tier})",
-                        after=f"{binding.value.value} (tier {binding.value.tier})",
-                        tier=binding.value.tier,
-                        reason=binding.value.reason,
-                    )
-                )
-
-    changes += _edge_changes(before, after)
     return sorted(changes, key=lambda change: (change.what, change.before, change.after))
 
 
-def _edge_changes(before: PipelineIR, after: PipelineIR) -> list[Change]:
+def _setting_changes(step_id: str, old, new) -> list[Change]:
+    """Values, and the tier each exited at.
+
+    Same value at a different tier is still a change, and a large one: a parameter that moves
+    from a documented default to "nobody knows" is the same number and a completely different
+    claim. A28.
+    """
+    was = {setting.name: setting for setting in old.settings}
+    changes = []
+    for setting in new.settings:
+        previous = was.get(setting.name)
+        what = f"{step_id}.{setting.name}"
+        if previous is None or previous.value != setting.value:
+            changes.append(
+                Change(
+                    what=what,
+                    before="(unset)" if previous is None else str(previous.value),
+                    after=str(setting.value),
+                    tier=setting.why.tier,
+                    reason=setting.why.reason,
+                )
+            )
+        elif previous.why.tier is not setting.why.tier:
+            changes.append(
+                Change(
+                    what=what,
+                    before=f"{previous.value} (tier {previous.why.tier})",
+                    after=f"{setting.value} (tier {setting.why.tier})",
+                    tier=setting.why.tier,
+                    reason=setting.why.reason,
+                )
+            )
+    for name in sorted(set(was) - {s.name for s in new.settings}):
+        changes.append(
+            Change(
+                what=f"{step_id}.{name}",
+                before=str(was[name].value),
+                after="(no longer a setting)",
+                tier=was[name].why.tier,
+                reason="the contract no longer declares it",
+            )
+        )
+    return changes
+
+
+def _wiring_changes(step_id: str, old, new) -> list[Change]:
     """Which output now feeds each consumed port.
 
-    Keyed on the *destination*, because that is the question: what arrives here? `resolve.py`
+    Keyed on the destination, because that is the question: what arrives here? `resolve.py`
     records in its own comment that wiring `.bai` into featureCounts was "valid Nextflow, no
     flag, and `-stub-run` cannot catch it" — nor could `mendel upgrade`, which compared
     contracts and parameters and never looked at the wiring between them. A28.
     """
-    was = {(edge.to_node, edge.to_port): edge for edge in before.edges}
-    now = {(edge.to_node, edge.to_port): edge for edge in after.edges}
 
-    def source(edge: object) -> str:
-        return "(nothing)" if edge is None else f"{edge.from_node}.{edge.from_port}"
+    def origin(item) -> str:
+        if item is None:
+            return "(nothing)"
+        return item.source if item.source is not None else f"channel:{item.channel}"
 
+    was = {item.port: item for item in old.inputs}
+    now = {item.port: item for item in new.inputs}
     changes = []
-    for key in sorted(set(was) | set(now)):
-        old, new = was.get(key), now.get(key)
-        if source(old) == source(new):
+    for port in sorted(set(was) | set(now)):
+        before, after = origin(was.get(port)), origin(now.get(port))
+        if before == after:
             continue
-        node, port = key
         changes.append(
             Change(
-                what=f"{node} <- {port}",
-                before=source(old),
-                after=source(new),
+                what=f"{step_id} <- {port}",
+                before=before,
+                after=after,
                 # Structural: an edge is not resolved at a tier, it is what routing built.
-                # The tier that matters for a rewire is on the node whose selection moved,
+                # The tier that matters for a rewire is on the step whose selection moved,
                 # and that change is already its own line.
                 tier=Tier.STRUCTURAL,
                 reason="the wiring changed",

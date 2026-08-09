@@ -1578,6 +1578,44 @@ git commit -am "feat(resolver): a discarded override is reported, and an orphane
 
 ## Task 10: four verbs
 
+> **Done, 2026-08-09, and it retired more than the plan asked.**
+>
+> **`publish` takes no `--out`, and that is the shape of the verb.** It does not produce a new
+> pipeline; it certifies the one it is given — re-resolves, refuses if the directory has
+> diverged from its file, runs the gate, stamps the verdict into that `pipeline.yml`.
+> `upgrade` is the opposite and must never write in place. Giving them one flag with opposite
+> meanings is how somebody loses the evidence they meant to keep.
+>
+> **`pipeline.bundle.json` retires here, as Task 6 promised.** With it, `publish` stopped
+> being a second writer beside `build`: the directory is the artifact. `PublishBundle` the
+> *type* survives to Task 11, which is where it stops being door 4's payload.
+>
+> **`diff_ir` is deleted and `diff_pipeline` replaces it.** There is no previous IR to compare
+> against — `upgrade` reads a `pipeline.yml`. `ext_args` is deliberately not compared: it is a
+> contract field rather than a decision, `DRIFT` already reports it moving, and the digest
+> verdict is what catches its effect. Keeping an unused second comparison is root D's finding
+> waiting to happen, which is the same argument that made `verify` a flag rather than a verb.
+>
+> **The upgrade report moved *above* the write.** A refused upgrade must leave nothing behind
+> — A4's posture — and reporting after the write meant an orphaned override produced a
+> directory that looked upgraded and then said it was not. It is also what makes `--dry-run`
+> the same code path rather than a second one, since `_verdict` now compares against what
+> *would* be emitted, in memory.
+>
+> **`MD0213` refuses here, which is the half Task 6 deferred.** `emit` reports and cures;
+> `upgrade` and `publish` refuse, because both make statements about generated files and a
+> `main.nf` built from a different `pipeline.yml` makes those statements about nothing.
+> Answering a flag in the file therefore means `edit → mendel emit → mendel upgrade`, and the
+> test helper does exactly that rather than working around it.
+>
+> **`Lockfile.from_pipeline` reassembles what `mendel.lock.yml` used to be**, so
+> `drift_against` keeps working off the artifact.
+>
+> Four revert probes, all biting: `MD0202` silenced, `--dry-run` allowed to write, the
+> in-place refusal removed, and the divergence refusal removed.
+>
+> `make verify` green: 534 fast, 3 slow, 15 guards.
+
 **Files:**
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py`
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.yml` (`MD0202`)
@@ -1595,7 +1633,7 @@ mendel publish build/pipeline.yml
 weaker question, and two comparisons of "is this still what it says it is" is root D's finding
 waiting to happen.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_emit_needs_no_registry_and_no_network(tmp_path):
@@ -1624,11 +1662,11 @@ def test_dry_run_writes_nothing_and_reports_five_categories(tmp_path):
         assert word in err.lower()
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: `make verify`** — this touches `cli.py`.
+- [x] **Step 3: `make verify`** — this touches `cli.py`.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git commit -am "feat(cli): emit, upgrade --out, and verify as upgrade --dry-run"

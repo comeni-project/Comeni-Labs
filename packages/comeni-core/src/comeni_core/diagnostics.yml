@@ -186,6 +186,32 @@ MD0201:
     semicolon or newline should stay excluded, because those are the reason this refuses rather
     than escapes.
 
+MD0202:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a replayed value is frozen against a contract that has since been edited"
+  fires_on: [upgrade]
+  refuses: false
+  fix: |
+    Nothing, if you meant it — replaying is what keeps an upgrade honest, and a value that
+    does not move is the whole point of a recorded decision.
+
+    Read the contract's diff and decide. If the edit changed what the setting means rather
+    than what it defaults to, clear the recorded decision so the value is resolved afresh.
+  explanation: |
+    `DRIFT` says a contract you pinned has been edited. This says which of your values were
+    decided against the version before that edit and are being carried forward regardless.
+
+    Both are true and neither implies the other. A contract can be edited in ways that touch
+    nothing this pipeline uses, and a value can be replayed from a contract that has not moved
+    at all. Reporting only the first leaves a reader to work out the consequence, which is the
+    part that actually affects the numbers a tool produces.
+
+    It reports rather than refuses because replaying is correct. Invariant 9 is that records
+    are replayed on rerun rather than re-asked — that is how determinism survives having a
+    model in the loop — so a frozen value is the system working. What a person is owed is
+    knowing it happened, not being stopped.
+
 MD0203:
   emitted_by: compiler
   concern: pipeline-file

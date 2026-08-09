@@ -124,6 +124,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 |---|---|
 | `MD0200` | a setting declares no `via:`, so nothing would carry its value |
 | `MD0201` | a resolved value is outside the substitutable character class |
+| `MD0202` | a replayed value is frozen against a contract that has since been edited |
 | `MD0203` | an override answers a question this re-resolution never asks |
 | `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |

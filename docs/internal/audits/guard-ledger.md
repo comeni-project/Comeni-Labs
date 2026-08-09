@@ -234,3 +234,14 @@ hung their smuggled value on a `nf-core/samtools/sort` binding, and that contrac
 what its name said. `MD0216` refusing is what surfaced them: the fixtures started failing, and
 the reason they failed was that they had never worked. A guard catching *another test* is the
 cheapest audit there is.
+
+### Task 10 — four probes on the verb surface
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_upgrade.py` | `_frozen_against_moved_contracts` returns `[]` | 1 failed | `test_a_replayed_value_frozen_against_a_moved_contract_is_reported` |
+| 2026-08-09 | `test_upgrade.py` | `--dry-run`'s early return removed, so it writes | 4 failed | starting with `test_dry_run_writes_nothing` |
+| 2026-08-09 | `test_upgrade.py` | the in-place refusal on `upgrade --out` removed | 1 failed | `test_upgrade_refuses_to_write_into_the_directory_it_read` |
+| 2026-08-09 | `test_publish.py` | `_refuse_a_divergent_directory` removed from `upgrade` and `publish` | 2 failed | both `MD0213` and `MD0214` on the door with no undo |
+
+`test_publish.py` and `test_upgrade.py` were both in the residue list; both have rows now.

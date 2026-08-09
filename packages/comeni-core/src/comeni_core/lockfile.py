@@ -16,6 +16,7 @@ determinism tests would go from meaningful to noise.
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +25,10 @@ from comeni_core.ir import PipelineIR
 from comeni_core.layer import layer_name
 from comeni_core.marks import ContainerRef, ContractId, Digest, LayerName
 from comeni_core.registry import Registry
+
+if TYPE_CHECKING:  # pragma: no cover — the import exists for the annotation only
+    # `comeni_core.pipeline` imports this module, so a runtime import here would be a cycle.
+    from comeni_core.pipeline import Pipeline
 
 
 class LockedContract(BaseModel):
@@ -82,6 +87,32 @@ class Lockfile(BaseModel):
                 LockedLayer(name=layer_name(path), digest=digest_of_directory(path))
                 for path in layers
             ],
+        )
+
+    @classmethod
+    def from_pipeline(cls, pipeline: "Pipeline") -> "Lockfile":
+        """The lockfile a `pipeline.yml` already contains, reassembled.
+
+        `mendel.lock.yml` retired in Plan 1.10 because everything it held is in the pipeline
+        file — every contract by digest and container under `steps[].module`, every layer
+        under `registry.layers`. `Lockfile` survives as an internal type, and this is how
+        `upgrade` gets one from the artifact it now reads.
+
+        Deduplicated on contract id and sorted, because `Lockfile.of` produces a sorted set of
+        the contracts *used* and two steps may share one. A lockfile that lists a contract
+        twice would report drift twice for one edit.
+        """
+        pinned = {
+            step.module.contract_id: LockedContract(
+                id=step.module.contract_id,
+                digest=step.module.digest,
+                container=step.module.container,
+            )
+            for step in pipeline.steps
+        }
+        return cls(
+            contracts=[pinned[key] for key in sorted(pinned)],
+            layers=list(pipeline.registry.layers),
         )
 
     def drift_against(
