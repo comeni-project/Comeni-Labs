@@ -124,6 +124,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 |---|---|
 | `MD0200` | a setting declares no `via:`, so nothing would carry its value |
 | `MD0201` | a resolved value is outside the substitutable character class |
+| `MD0203` | an override answers a question this re-resolution never asks |
 | `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
 | `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
@@ -135,6 +136,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0213` | `pipeline.yml` has changed since the Nextflow was generated from it |
 | `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
 | `MD0215` | an input names neither `source` nor `channel`, or names both |
+| `MD0216` | a resolved binding names a parameter its contract does not declare |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

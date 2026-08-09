@@ -209,3 +209,28 @@ and for the record type — and none for the one path that carries a person's an
 parameter end to end. **Coverage of the parts is not coverage of the path**, which is the
 same lesson as A8: a `DecisionRecord` can state a choice the pipeline did not make, and only
 a test that follows the value all the way sees it.
+
+### Task 9 — and a rule that shipped inert
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_replay.py` | `stale` merged back into `fresh` | 5 failed | including the pre-existing `test_a_record_whose_candidates_changed_is_not_replayed`, which had been asserting the merge |
+| 2026-08-09 | `test_upgrade.py` | `MD0203` downgraded from a refusal to a warning | 2 failed | `test_an_orphaned_override_refuses_and_names_the_code` |
+| 2026-08-09 | `test_audit_regressions.py` | `MD0216` back to a silent drop | **nothing failed — 523 passed** | see below |
+
+**`MD0216` shipped inert, and the probe is the only reason anyone knows.** The refusal was
+written, `make verify` was green, and reverting it broke nothing at all: no test covered the
+rule. A guard was then written, the probe repeated, and it fails now.
+
+This is A14's finding arriving on the same afternoon as A14's ledger row, in code written by
+whoever wrote the row. It is worth recording plainly rather than quietly fixing, because the
+lesson is not "remember to write a test" — the rule *had* tests around it, three files of them,
+and 523 passed over a change that removed it. The lesson is that **green is not evidence**, and
+the only thing that distinguishes a guard from a decoration is somebody having seen it red.
+
+**Two tests that passed for the wrong reason, both found by `MD0216` itself.** Both A27 tests
+hung their smuggled value on a `nf-core/samtools/sort` binding, and that contract declares
+`params: []` — so the value was dropped before anything looked at it, and neither test asserted
+what its name said. `MD0216` refusing is what surfaced them: the fixtures started failing, and
+the reason they failed was that they had never worked. A guard catching *another test* is the
+cheapest audit there is.

@@ -402,15 +402,24 @@ def _settings(node, contract: ModuleContract) -> list[Setting]:
     with one setting cannot see a sort bug — and `ext.args` composition depends on this being
     deterministic for byte-identical emission.
 
-    **A binding whose contract declares no such param is dropped, silently, and that is a
-    known hole.** Resolution never produces one — it sets params *from* `contract.params` —
-    so it takes a deserialised IR whose contract has since dropped the param. Which is the
-    orphan case exactly one level below the one Plan 1.10 Task 9 is about, and it is left
-    for that task rather than given a code here that would collide with `MD0203`. Found by
-    a guard that passed for the wrong reason: an A27 test smuggled prose through a
-    `samtools/sort` binding, and `samtools/sort` declares `params: []`.
+    **A binding whose contract declares no such param refuses**, and used to be dropped in
+    silence — the orphan case one level below `MD0203`, and found by a guard that passed for
+    the wrong reason: an A27 test smuggled prose through a `samtools/sort` binding, and that
+    contract declares `params: []`, so nothing was being tested.
+
+    Resolution cannot produce one, since it sets parameters *from* `contract.params`. So this
+    takes a deserialised or hand-built IR — and there, refusing is right: a value with no
+    route is a value the emitted Nextflow will not contain, described in a file whose whole
+    claim is that it records every value.
     """
     routes = {param.name: param for param in contract.params}
+    orphaned = sorted({b.name for b in node.params} - set(routes))
+    if orphaned:
+        raise ValueError(
+            f"MD0216: {node.id} carries resolved value(s) for {', '.join(orphaned)}, which "
+            f"{contract.id} does not declare as a parameter, so nothing would carry them to "
+            f"the tool. `mendel explain MD0216`."
+        )
     return [
         Setting(
             name=binding.name,
@@ -421,7 +430,6 @@ def _settings(node, contract: ModuleContract) -> list[Setting]:
             why=_why(binding.value),
         )
         for binding in sorted(node.params, key=lambda b: b.name)
-        if binding.name in routes
     ]
 
 

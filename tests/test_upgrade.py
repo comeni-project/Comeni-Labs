@@ -256,3 +256,86 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     assert "DRIFT" in err and "no longer in the registry" in err
     assert "the generated pipeline differs" in err
     assert "samtools_sort" in err, "and the diff names what changed"
+
+
+# --- Plan 1.10 Task 9: the five categories, at the command line -----------------------
+
+
+def _with_override(bundle, key, subject, value, node_exists=True):
+    """Answer a recorded flag in a published bundle, the way a reviewer would.
+
+    **Fills in the existing record for that key rather than appending one.** Appending was
+    the first draft and it silently did nothing: `ReplayResolver` takes the *first* record
+    per key — two for one key is a corrupt bundle rather than a choice — so the duplicate
+    override lost to the unanswered record already there. Answering a question means editing
+    the question, which is also what a person handed this file would do.
+    """
+    data = json.loads(bundle.read_text())
+    existing = next((d for d in data["decisions"] if d["key"] == key), None)
+    if existing is not None:
+        existing["human_override"] = value
+    else:
+        data["decisions"].append(
+            {
+                "kind": "param",
+                "key": key,
+                "subject": subject,
+                "candidates": [None],
+                "chosen": None,
+                "human_override": value,
+                "reason": "our sequencer",
+                "confidence": 0.0,
+                "resolved_by": "human",
+                "tier": 4,
+            }
+        )
+    assert node_exists or key.split(".")[0] not in [n["id"] for n in data["ir"]["nodes"]]
+    bundle.write_text(json.dumps(data, indent=2))
+    return bundle
+
+
+def test_an_orphaned_override_refuses_and_names_the_code(tmp_path, capsys):
+    """`resolve()` is never called for a step that is gone, so nothing in the resolver could
+    see this. It refuses rather than warns: a stale answer is re-asked and flagged, and an
+    orphaned one has nothing left to be an answer to. Dropping it quietly is the same failure
+    as a guard that silently stops guarding."""
+    bundle = _with_override(
+        _published(tmp_path), "hisat2_align.seq_platform", "seq_platform", "illumina",
+        node_exists=False,
+    )
+    code = main(
+        ["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)]
+    )
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "MD0203" in err
+    assert "ORPHANED hisat2_align.seq_platform" in err
+
+
+def test_an_override_that_still_applies_is_replayed_rather_than_orphaned(tmp_path, capsys):
+    """The regression guard for the refusal above: it must depend on the step being gone,
+    not on an override existing."""
+    bundle = _with_override(
+        _published(tmp_path), "star_align.seq_platform", "seq_platform", "illumina"
+    )
+    code = main(
+        ["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)]
+    )
+    err = capsys.readouterr().err
+    assert code == 0, err
+    assert "ORPHANED" not in err
+    assert "ANSWERED star_align.seq_platform = 'illumina'" in err
+
+
+def test_a_refused_upgrade_publishes_nothing(tmp_path):
+    """A4's posture, applied to this refusal too. `upgrade` already took it for a failed
+    gate; an orphaned override must not leave a directory behind that looks upgraded."""
+    bundle = _with_override(
+        _published(tmp_path), "hisat2_align.seq_platform", "seq_platform", "illumina",
+        node_exists=False,
+    )
+    out = tmp_path / "up"
+    assert main(
+        ["upgrade", "--bundle", str(bundle), "--out", str(out), "--root", str(ROOT)]
+    ) == 2
+    assert not (out / "pipeline.bundle.json").exists()

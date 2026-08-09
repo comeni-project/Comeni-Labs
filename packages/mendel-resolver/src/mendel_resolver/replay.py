@@ -35,13 +35,32 @@ class ReplayResolver:
         for record in records:
             self._records.setdefault(record.key, record)
         self._fallback = fallback or FlagOnlyResolver()
+        self._asked: set[str] = set()
         self.replayed: list[DecisionKey] = []
         self.fresh: list[DecisionKey] = []
+        self.stale: list[DecisionKey] = []
+        """A record existed for this key and no longer fits, so it was re-asked.
+
+        **Not `fresh`.** `fresh` means nobody had answered this before; a discarded record is
+        a different event, and merging the two made the honest one unreadable. `upgrade`
+        reported "1 newly asked" for a question somebody had already answered.
+        """
+        self.stale_overrides: list[DecisionKey] = []
+        """The subset of `stale` where the discarded record carried a **human's** answer.
+
+        Both are re-asked and both are right to be. Only one is worth interrupting somebody
+        about: a resolver's recorded choice being reconsidered is ordinary, and a person's
+        answer being thrown away is not.
+        """
 
     def resolve(self, ambiguity: Ambiguity) -> Resolution:
-        record = self._records.get(ambiguity.key())
+        key = ambiguity.key()
+        # Every question this run actually faced. `orphaned` is the complement, and reading
+        # it off what was asked is what makes it impossible to disagree with what happened.
+        self._asked.add(key)
+        record = self._records.get(key)
         if record is not None and self._still_applies(record, ambiguity):
-            self.replayed.append(ambiguity.key())
+            self.replayed.append(key)
             return Resolution(
                 chosen=_chosen(record),
                 # The recorded reason, verbatim. Prefixing it with "replayed from a
@@ -68,8 +87,39 @@ class ReplayResolver:
                     else ValueSource.RESOLVER
                 ),
             )
-        self.fresh.append(ambiguity.key())
+        if record is not None:
+            # Re-asking is right, and `_still_applies` defends why. Doing it in silence is
+            # not: the answer that was dropped is exactly the thing a person needs told.
+            self.stale.append(key)
+            if record.human_override is not None:
+                self.stale_overrides.append(key)
+        else:
+            self.fresh.append(key)
         return self._fallback.resolve(ambiguity)
+
+    @property
+    def orphaned(self) -> list[DecisionKey]:
+        """Human answers to questions this run never asked. Meaningful once resolution ends.
+
+        `resolve()` is never called for a step that is gone, so no resolver hook can see one
+        — it needs a sweep, and the sweep is the complement of what was asked. Two causes,
+        both meaning *your edit no longer applies to anything*: the step is gone, or the value
+        stopped being a question because a rule now covers it.
+
+        Derived from `_asked` rather than by comparing two pipelines, which was the plan's
+        sketch and is the weaker mechanism. A comparison enumerates the fields it knows
+        about, so it can disagree with what resolution actually did — that is root D, and A28
+        exactly: `mendel upgrade` said "re-resolves identically" while `main.nf` had moved.
+
+        **Only an override can be orphaned.** A resolver's recorded choice for a step that no
+        longer exists is nothing at all; nobody is owed a report that the machine's opinion
+        about a deleted step went unused.
+        """
+        return sorted(
+            key
+            for key, record in self._records.items()
+            if record.human_override is not None and key not in self._asked
+        )
 
     @staticmethod
     def _still_applies(record: DecisionRecord, ambiguity: Ambiguity) -> bool:

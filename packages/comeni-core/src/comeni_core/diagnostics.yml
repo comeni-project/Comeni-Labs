@@ -186,6 +186,38 @@ MD0201:
     semicolon or newline should stay excluded, because those are the reason this refuses rather
     than escapes.
 
+MD0203:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "an override answers a question this re-resolution never asks"
+  fires_on: [upgrade]
+  refuses: true
+  fix: |
+    Decide what the answer was for. If the step it belonged to is gone, delete the override
+    from `decisions:` — that is a real edit and it should look like one. If the step should
+    still be there, the goal or the registry moved in a way you did not intend, and the
+    upgrade is what caught it.
+  explanation: |
+    Two things can happen to a recorded answer when a pipeline is re-resolved against a newer
+    registry, and they are not the same event.
+
+    **Stale** — the question is still asked, but its options moved, so the recorded answer no
+    longer fits. Re-asking is correct: replaying would assert a choice between options that no
+    longer exist, which is worse than asking again because it would look decided. That is
+    reported as STALE and flagged tier 4. It does not refuse.
+
+    **Orphaned** — the question is never asked at all. The step is gone, or the value stopped
+    being ambiguous because a rule now covers it. `resolve()` is never called for it, so no
+    resolver hook can see it; it is found by taking the complement of what this run was asked.
+    That refuses.
+
+    The difference is whether there is still a question. An override that silently stops
+    applying is the same failure as a guard that silently stops guarding, which is audit A14's
+    shape — so this one is loud, and it is the only one of the two that stops the upgrade.
+
+    Only a *human's* answer can be orphaned. A resolver's recorded choice for a step that no
+    longer exists is nothing at all, and nobody is owed a report about it.
+
 MD0204:
   emitted_by: compiler
   concern: pipeline-file
@@ -403,3 +435,27 @@ MD0215:
 
     A field that reads two ways is root G, and `inputs:` is where a second reading produces a
     silently miswired pipeline rather than a parse error.
+
+MD0216:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a resolved binding names a parameter its contract does not declare"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    The value has nowhere to go: a route is declared on the contract's `Param`, and there is
+    no `Param` by that name. Either the contract dropped the parameter and the binding is
+    left over from an older resolution, or the binding names it wrongly.
+  explanation: |
+    Materialisation used to drop such a binding **silently**, which is the orphan case one
+    level below `MD0203`: a value resolution recorded, absent from the artifact that claims to
+    record every value, with nothing said.
+
+    Found by a guard that passed for the wrong reason. An `A27` test smuggled prose through a
+    binding on `nf-core/samtools/sort`, and that contract declares `params: []` — so the
+    binding was discarded before anything validated it, and the test was asserting nothing.
+
+    Resolution cannot produce one: it sets parameters *from* `contract.params`. So this takes
+    a deserialised or hand-built IR, and in that case refusing is right — nothing legitimate
+    reaches it, and what does reach it is a pipeline file describing a value that will not
+    exist in the Nextflow.

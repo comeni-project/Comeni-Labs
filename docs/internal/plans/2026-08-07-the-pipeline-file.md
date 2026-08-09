@@ -1500,6 +1500,35 @@ git commit -am "feat(resolver): an override answers an ambiguity without abolish
 
 ## Task 9: replay tells stale from orphaned
 
+> **Done, 2026-08-09, with three corrections and one guard written after the fact.**
+>
+> **`orphaned` is derived from what the resolver was *asked*, not by diffing two pipelines.**
+> The plan sketched `orphaned_overrides(previous=…, fresh=…)`. `ReplayResolver` already knows
+> every key it faced, so the orphans are the complement — recorded overrides never asked
+> about. That is strictly better than a comparison, which enumerates the fields it knows about
+> and can therefore disagree with what resolution actually did. Root D, and A28 exactly.
+> It also covers a case the diff sketch missed: a step that still exists whose value stopped
+> being a question because a rule now covers it.
+>
+> **The class is `ReplayResolver`, not `ReplayingResolver`.** The plan's tests named a type
+> that does not exist.
+>
+> **`stale` gained a subset, `stale_overrides`.** Both are re-asked and both should be; only
+> one is worth interrupting somebody about. A resolver's recorded choice being reconsidered is
+> ordinary, and a person's answer being thrown away is not.
+>
+> **`MD0216` closes Task 6's deferred finding** — `_settings` dropping a binding whose contract
+> declares no such param. It refuses now. **And it shipped inert**: reverting the refusal broke
+> nothing, because no test covered it. The guard was written after the revert probe found that
+> out, which is A14's finding happening on the same day as A14's ledger row.
+>
+> Two pre-existing tests had to be corrected, both because they asserted the merge rather than
+> the property: `test_a_record_whose_candidates_changed_is_not_replayed` asserted `in
+> resolver.fresh`, and `test_upgrade.py`'s new helper appended a duplicate decision key, which
+> `ReplayResolver` discards first-wins — so the override it added did nothing at all.
+>
+> `make verify` green: 525 fast, 3 slow, 15 guards.
+
 **Files:**
 - Modify: `packages/mendel-resolver/src/mendel_resolver/replay.py`
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.yml` (`MD0203`)
@@ -1510,7 +1539,7 @@ a documented deliberate re-ask: *"replaying would assert a decision between opti
 longer exist — worse than asking again, because it would look decided."* What is wrong is that
 it vanishes into a `fresh` count with no statement that an override was discarded.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_a_stale_override_is_reported_and_re_asked():
@@ -1537,9 +1566,9 @@ def test_replay_emits_the_recorded_reason_verbatim():
     assert r.resolve(_matching_ambiguity()).reason == "rule matched: doi:10.1093/…"
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git commit -am "feat(resolver): a discarded override is reported, and an orphaned one refuses"

@@ -1084,47 +1084,51 @@ def test_a27_a_gate_message_may_still_be_many_lines():
 def test_a27_no_resolver_prose_reaches_main_nf_at_all():
     """Defence in depth, and the reason it is not redundant with `Line`.
 
-    An IR is deserialised from a bundle a stranger wrote, and `model_construct` skips
-    validation entirely, so the boundary must not depend on the emitter being careful and the
-    emitter must not depend on its input being clean.
+    An IR is deserialised from a bundle a stranger wrote and `model_construct` skips
+    validation entirely, so the emitter must not depend on its input being clean.
 
-    This used to assert that such a `reason` came out as a comment on *every* line rather than
-    as Groovy. Plan 1.10 removed the comment: reasons live in `pipeline.yml` now, so the
-    assertion is the stronger one that replaced it — prose does not reach this file. Renamed
-    when the old name started describing the opposite of what the body checks.
+    Two rewrites, both forced and both by a guard catching this test rather than its subject.
+    It asserted that a multi-line `reason` came out as a comment on *every* line rather than
+    as Groovy; Plan 1.10 removed the comment, because reasons live in `pipeline.yml` now, so
+    the assertion became the stronger one that replaced it. Then `MD0216` caught the fixture:
+    it hung the smuggled value on a `samtools/sort` binding, and that contract declares
+    `params: []`, so the value was dropped before anything looked at it. **The test was
+    asserting nothing, twice over.**
+
+    It now bypasses every type on the way in, which is what "the emitter does not trust its
+    input" actually requires — materialisation refuses this input, as the test below asserts.
     """
-    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from comeni_core.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.routes import Via
+    from comeni_core.tiers import ValueSource
     from mendel_compiler.emit import emit
-    from mendel_resolver import layers as layers_mod
 
-    loaded = layers_mod.load("registry")
-    contract_id = "nf-core/samtools/sort@1.21.0"
-    smuggled = ResolvedValue.model_construct(
-        value=1,
+    why = Why.model_construct(
         tier=Tier.CONVENTION,
+        source=ValueSource.RESOLVER,
         reason="looks fine\nprintln 'OWNED'",
-        source=ResolvedValue.model_fields["source"].default,
     )
-    node = IRNode(
-        id="samtools_sort",
-        contract_id=contract_id,
-        selection=ResolvedValue(value=contract_id, tier=Tier.STRUCTURAL, reason="only one"),
-        params=[ParamBinding(name="threads", value=smuggled)],
+    pipeline = Pipeline.model_construct(
+        version=1,
+        steps=[
+            Step.model_construct(
+                id="samtools_sort",
+                module=None,
+                process="SAMTOOLS_SORT",
+                include="modules/nf-core/samtools/sort/main",
+                why=why,
+                ext_args="",
+                inputs=[],
+                call=[],
+                settings=[
+                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
+                ],
+            )
+        ],
+        channels=[],
     )
 
-    text = emit(_pipe(PipelineIR(nodes=[node]), loaded))
-
-    # Plan 1.10 Task 5 moved this guard's subject. A27 was about a multi-line `reason`
-    # reaching `main.nf` as a comment, where `_render_comment` had to prefix every line or the
-    # second one became a statement. That surface is gone: reasons no longer reach `main.nf`
-    # at all — they live in `pipeline.yml` beside the value, and `Line` refuses a newline at
-    # the type level besides.
-    #
-    # Re-pointed rather than deleted. A guard left watching a surface that no longer exists is
-    # A14's exact finding, and deleting it would lose the property instead of relocating it.
-    # The assertion is now stronger than what it replaced: not "prose is safely commented" but
-    # "prose does not reach this file". **Task 6 must re-point it at `pipeline.yml`**, which is
-    # where prose reaches an artifact once that file is written.
+    text = emit(pipeline)
     assert "println 'OWNED'" not in text, text
     assert "looks fine" not in text, "no resolver prose reaches main.nf any more"
 
@@ -1693,3 +1697,67 @@ def test_an_override_reaches_the_pipeline_file_as_source_human():
     assert setting.value == "illumina"
     assert setting.why.source is ValueSource.HUMAN
     assert setting.why.tier is Tier.AMBIGUOUS
+
+
+def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
+    """MD0216, and it exists because two A27 tests passed for the wrong reason.
+
+    Both hung a smuggled value on a `nf-core/samtools/sort` binding, and that contract
+    declares `params: []` — so `_settings` dropped the binding before anything looked at it,
+    and neither test was asserting what its name said.
+
+    The drop itself is the defect: a value resolution recorded, absent from the artifact that
+    claims to record every value, with nothing said. It is the orphan case one level below
+    `MD0203`, and it refuses for the same reason that one does.
+
+    Resolution cannot produce this — it sets parameters *from* `contract.params` — so the
+    input is a deserialised or hand-built IR, which is exactly the input `Pipeline.of` must
+    not trust.
+
+    **This test exists because reverting the refusal broke nothing.** The rule shipped first
+    and the guard was written after a revert probe found it inert, which is A14's finding
+    happening to the person who had just written A14's ledger row.
+    """
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    contract_id = "nf-core/samtools/sort@1.21.0"
+    assert loaded.registry.get(contract_id).params == [], "the fixture needs a param-less one"
+
+    node = IRNode(
+        id="samtools_sort",
+        contract_id=contract_id,
+        selection=ResolvedValue(value=contract_id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[
+            ParamBinding(
+                name="threads",
+                value=ResolvedValue(value=4, tier=Tier.CONVENTION, reason="a default"),
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="MD0216"):
+        _pipe(PipelineIR(nodes=[node]), loaded)
+
+
+def test_a_binding_the_contract_does_declare_is_carried():
+    """The regression guard for the refusal above: it must depend on the param being absent,
+    not on a binding existing at all."""
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    contract = next(c for c in loaded.registry.all() if c.params)
+    node = IRNode(
+        id=contract.nf_process.lower(),
+        contract_id=contract.id,
+        selection=ResolvedValue(value=contract.id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[
+            ParamBinding(
+                name=contract.params[0].name,
+                value=ResolvedValue(value="illumina", tier=Tier.CONVENTION, reason="d"),
+            )
+        ],
+    )
+    pipeline = _pipe(PipelineIR(nodes=[node]), loaded)
+    assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]

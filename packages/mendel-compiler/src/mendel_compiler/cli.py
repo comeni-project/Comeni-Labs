@@ -233,6 +233,34 @@ def _build(argv: list[str] | None = None) -> int:
                 f"{len(resolver.fresh)} newly asked",
                 file=sys.stderr,
             )
+            # Five categories, not four. Stale and orphaned are different events and were
+            # both invisible: stale vanished into the "newly asked" count above, and
+            # orphaned had nowhere to appear at all, because `resolve()` is never called
+            # for a question that is no longer asked.
+            for key in resolver.stale:
+                what = (
+                    "your edit no longer answers the question being asked"
+                    if key in resolver.stale_overrides
+                    else "the recorded choice no longer fits; re-asked"
+                )
+                print(f"  STALE    {key} — {what}", file=sys.stderr)
+            for key in resolver.orphaned:
+                print(
+                    f"  ORPHANED {key} — your edit no longer applies to anything",
+                    file=sys.stderr,
+                )
+            if resolver.orphaned:
+                # Refuses, where stale only reports. The difference is whether there is
+                # still a question: a stale answer is re-asked and flagged tier 4, and an
+                # orphaned one has nothing left to be an answer to. Dropping it quietly is
+                # the same failure as a guard that silently stops guarding — A14's shape.
+                print(
+                    f"\nmendel: MD0203: {len(resolver.orphaned)} recorded override(s) "
+                    f"answer questions this re-resolution does not ask. Nothing was "
+                    f"published.\n`mendel explain MD0203` for the long form.",
+                    file=sys.stderr,
+                )
+                return 2
 
     # Its own section, above the review list rather than inside it. "What did my overlay
     # change" and "what must I decide" are different questions, and folding the first into
