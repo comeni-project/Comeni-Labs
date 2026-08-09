@@ -10,6 +10,7 @@ import types
 import typing
 from collections import abc
 
+from _walk import reachable
 from comeni_core import egress
 from comeni_core.marks import Mark
 from pydantic import BaseModel
@@ -55,26 +56,7 @@ def _payload_types() -> set[type[BaseModel]]:
         and issubclass(obj, egress.EgressPayload)
         and obj is not egress.EgressPayload
     }
-    seen: set[type[BaseModel]] = set()
-    queue = list(roots)
-    while queue:
-        model = queue.pop()
-        if model in seen:
-            continue
-        seen.add(model)
-        for annotation in typing.get_type_hints(model, include_extras=True).values():
-            queue += [n for n in _nested_models(annotation) if n not in seen]
-    return seen
-
-
-def _nested_models(annotation: object) -> list[type[BaseModel]]:
-    """Every BaseModel mentioned anywhere in an annotation, however deeply wrapped."""
-    found = []
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        found.append(annotation)
-    for arg in typing.get_args(annotation):
-        found += _nested_models(arg)
-    return found
+    return reachable(*roots)
 
 
 def _mentions(annotation: object, marker: object) -> bool:

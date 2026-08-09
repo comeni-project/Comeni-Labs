@@ -33,17 +33,17 @@ BYPASSES = ("model_construct", "model_validate", "model_validate_json")
 file. A18: the scan knew about `DataProfile(...)` and nothing else."""
 
 
-def _aliases_of(tree: ast.AST) -> set[str]:
-    """Every local name that resolves to `DataProfile` in this file.
+def _aliases_of(tree: ast.AST, name: str = "DataProfile") -> set[str]:
+    """Every local name that resolves to `name` in this file.
 
     `import ... as` is the whole of A18: the guard compared a spelling, so renaming the
     import at the point of use was enough to disappear from it.
     """
-    names = {"DataProfile"}
+    names = {name}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
-                if alias.name == "DataProfile":
+                if alias.name == name:
                     names.add(alias.asname or alias.name)
     return names
 
@@ -84,4 +84,40 @@ def test_data_profile_is_constructed_in_one_place():
     assert offenders == [], (
         "build a profile through MeasurementRegistry.profile(), which validates it; "
         "these construct one directly: " + ", ".join(offenders)
+    )
+
+
+PIPELINE_ALLOWED = {
+    # the one validated constructor, and the module the class is defined in
+    "packages/comeni-core/src/comeni_core/pipeline.py",
+}
+
+
+def test_pipeline_is_constructed_in_one_place():
+    """`Pipeline.of()` or nowhere, for the reason `MeasurementRegistry.profile()` exists.
+
+    A `Pipeline` assembled by hand is one with the contract-derived fields left empty — no
+    `process`, no `call`, no frozen `ext.args` — and it would emit a `main.nf` calling a
+    process with no name. Materialisation is the whole value of the type; a constructor that
+    skips it is the type not doing its job.
+
+    The scan walks `packages/*/src` and nothing else, so tests may still hand-build a
+    pathological one. That matters: `test_a11_the_emitter_never_compares_two_resolved_values`
+    deliberately constructs a node with duplicate params to prove the emitter survives it, and
+    a sole-constructor rule covering `tests/` would have made that test unwritable.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    offenders = []
+    for package in ("comeni-core", "mendel-resolver", "mendel-compiler"):
+        for py in sorted((root / "packages" / package / "src").rglob("*.py")):
+            if str(py.relative_to(root)) in PIPELINE_ALLOWED:
+                continue
+            tree = ast.parse(py.read_text())
+            aliases = _aliases_of(tree, "Pipeline")
+            modules = _imported_names(tree)
+            for line in _constructions(tree, aliases, modules):
+                offenders.append(f"{py.relative_to(root)}:{line}")
+    assert offenders == [], (
+        "build one through Pipeline.of(), which materialises it; these construct one "
+        "directly: " + ", ".join(offenders)
     )
