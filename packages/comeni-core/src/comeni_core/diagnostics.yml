@@ -22,7 +22,7 @@
 MD0100:
   emitted_by: compiler
   concern: conformance
-  says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified`"
+  says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified`"
   fires_on: [build]
   refuses: false
   fix: |

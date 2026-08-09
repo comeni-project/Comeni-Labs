@@ -128,9 +128,9 @@ jobs:
           path: |
             build/main.nf
             build/nextflow.config
-            build/pipeline.ir.json
+            build/pipeline.yml
             test-build/main.nf
-            test-build/pipeline.ir.json
+            test-build/pipeline.yml
             test-build/results/
             profile-build/
           retention-days: 14

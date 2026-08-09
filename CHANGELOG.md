@@ -11,6 +11,48 @@ fixtures rather than as a shipped registry.
 
 ## [Unreleased]
 
+### Changed
+
+- **One artifact: `pipeline.yml`.** It replaces `pipeline.ir.json`, `mendel.lock.yml` and
+  `pipeline.bundle.json`, which are no longer written. Every step, setting, decision, module
+  digest, registry layer and gate verdict is in it, and every value carries a `why:` — the
+  tier it exited at, who settled it, which layer it came from, and the citation. "What
+  settings does this pipeline use, and why" was four files and four mechanisms; it is one file
+  now. See [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md).
+- **A setting declares the route that carries it, and a dead one is refused.** Every `Param`
+  names `via: ext | meta | directive`. Before this, a resolved value became a `params.<x>`
+  line in the workflow that no module reads — the resolver ran, flagged tier 4, printed
+  `REVIEW`, and the pipeline behaved identically whatever anyone answered. Issue #10.
+- **Four verbs.** `mendel emit <pipeline.yml>` rebuilds the Nextflow with no registry and no
+  network; `mendel upgrade <pipeline.yml> --out` never writes in place, and `--dry-run` is
+  `verify`; `mendel publish <pipeline.yml>` certifies a directory rather than writing a
+  bundle beside it.
+- **Publication carries a `Pipeline`.** `PublishBundle` is retired: the artifact on disk *is*
+  the payload, so what a person reads before publishing and what crosses the boundary cannot
+  disagree.
+- **`upgrade` reports five categories, not three** — drift, changes, replayed, stale and
+  orphaned. A recorded answer that stops applying used to vanish into a "newly asked" count.
+
+### Added
+
+- **The diagnostic registry is data.** `comeni_core/diagnostics.yml` holds every code, and the
+  table in `docs/reference/cli.md` is generated from it — `make docs` regenerates, CI checks.
+  An undeclared code cannot be constructed. 24 codes: `MD0100`–`MD0108` conformance,
+  `MD0200`–`MD0216` the pipeline file.
+- **`emitted.from_digest`** — Nextflow runs `main.nf`, not `pipeline.yml`, so editing the file
+  and forgetting to re-emit would leave the run and the artifact diverged with every digest
+  matching. `mendel emit` reports and cures it; `upgrade` and `publish` refuse.
+- **A resolved setting is proven to reach a tool**, on real data, in `tests/test_counts.py`.
+
+### Fixed
+
+- **A human override on a *parameter* was discarded entirely, in silence.** A parameter's
+  candidate list is a placeholder, so the replay resolver's membership check rejected every
+  override, counted it as newly asked, and threw the answer away.
+- **The egress guard walked three doors out of four.** It collected its roots by scanning
+  `egress.py` rather than from `DOORS`, so moving the publication payload to another module
+  took the door with no undo out of every check in that file, silently.
+
 ### Security
 
 - **The 2026-08-06 audit's thirteen findings are closed** (A1–A13), plus A15, found while
@@ -43,13 +85,16 @@ fixtures rather than as a shipped registry.
   order, with `-j1` where it matters. `make check` deselects the only tests that exercise the
   v1 criterion, and naming that in a Makefile target beats remembering it.
 
-- **A pipeline is a shareable artifact.** `mendel publish` writes a `PublishBundle` — goal,
-  IR, decision records and a lockfile — plus `mendel.lock.yml` pinning every contract used
-  by content digest and every layer by name and digest. No filesystem paths and no
-  timestamps, both tested: a path is meaningless on the machine that reads it, and a
-  timestamp would turn the determinism tests into noise. It writes files and sends nothing;
-  transmitting them is a later, separate act.
-- **`mendel upgrade`** re-resolves a published bundle against the current registry, replays
+- **A pipeline is a shareable artifact.** `mendel publish` certifies a pipeline directory:
+  every contract pinned by content digest, every layer by name and digest, the gate that
+  passed and the digests of what was emitted. No filesystem paths and no timestamps, both
+  tested — a path is meaningless on the machine that reads it, and a timestamp would turn the
+  determinism tests into noise. It writes files and sends nothing; transmitting them is a
+  later, separate act.
+
+  *Shipped in this cycle as a `PublishBundle` plus `mendel.lock.yml`; both were consolidated
+  into `pipeline.yml` before release, and this bullet describes where it landed.*
+- **`mendel upgrade`** re-resolves a published pipeline against the current registry, replays
   every recorded decision rather than asking again, and reports drift (the registry moved)
   separately from changes (that moved *this* pipeline), each with its tier and reason.
   Against an unchanged registry it reproduces byte-identical Nextflow.
@@ -161,7 +206,7 @@ involved anywhere, and every choice carries a tier.
 **Pipeline construction**
 
 - `mendel build` — goal in, pipeline directory out: `main.nf`, `nextflow.config`,
-  `pipeline.ir.json` and the vendored module tree.
+  `pipeline.yml` and the vendored module tree.
 - `mendel profile` — emits a pipeline that measures the input data, plus a `profile.yml`
   recording which contract produces each value.
 - Three validation gates: `lint`, `stub` and `test`. The RNA-seq spine passes `stub`

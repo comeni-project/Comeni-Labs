@@ -71,7 +71,8 @@ uv run pytest -v
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/
 ```
 
-That writes `build/main.nf`, `build/nextflow.config` and `build/pipeline.ir.json`, and prints
+That writes `build/main.nf`, `build/nextflow.config`, `build/modules/` and
+`build/pipeline.yml` — the pipeline, with every setting and the reason for each — and prints
 what needs a human:
 
 ```

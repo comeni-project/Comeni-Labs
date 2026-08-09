@@ -116,6 +116,18 @@ profile:
   paired: true
 ```
 
+## The goal reaches the pipeline file, and is inert there
+
+`mendel build` copies the goal into `build/pipeline.yml` under `goal:`, so a pipeline records
+what was asked for and not only what it resolved to. A recipient can read the question as well
+as the answer.
+
+**Editing it there changes nothing until `mendel upgrade`.** `mendel emit` reads none of it —
+the facts emission needs are already materialised into `channels[].meta` — and it could not
+honour a changed profile even in principle, because validating one needs the measurement
+registry and `emit` has no registry by design. See
+[pipeline-schema.md](pipeline-schema.md#goal--inert-to-emit).
+
 ## What is deliberately absent
 
 No input path. No sample sheet. No output directory. No filename of any kind.

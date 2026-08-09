@@ -20,7 +20,9 @@ Start here. Each section answers a different kind of question.
 **[guides/](guides/)** — task-shaped, start to finish. Read one when you are trying to get
 something done.
 
-**[reference/](reference/)** — every field of every file format, and every CLI flag. Read
+**[reference/](reference/)** — every field of every file format, and every CLI flag. Start
+with [reference/pipeline-schema.md](reference/pipeline-schema.md): `pipeline.yml` is the file a
+pipeline *is*, and the one you edit to change it. Read
 one when you know what you want and need the spelling. These describe the Pydantic models
 in `packages/comeni-core`, so a field named here exists in the code.
 

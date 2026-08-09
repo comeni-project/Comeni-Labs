@@ -1786,24 +1786,52 @@ git commit -am "refactor(core): Pipeline is the publication payload, and Publish
 
 ## Task 12: the documentation, and the `make verify` list
 
+> **Done, 2026-08-09. Plan 1.10 is complete.**
+>
+> `docs/reference/pipeline-schema.md` is new and is now the first thing `docs/README.md`
+> points at. Both code snippets in `docs/concepts/` were **run against a real
+> `build/pipeline.yml`** before being committed, rather than written to look right.
+>
+> **Three stale counts, not one.** The plan predicted `CLAUDE.md`'s invariant 14 saying "two"
+> where the guard held six. By the time Task 12 ran it said six and the guard held **seven**,
+> because Task 11 added `Why.reason`; and `docs/concepts/privacy-and-egress.md` said **four**,
+> which nothing had noticed. All three now say seven and say that the number has only ever
+> risen by refactor.
+>
+> **`CHANGELOG.md` contradicted itself inside one section.** A Plan 1.7 bullet under
+> `[Unreleased]` described `mendel publish` writing a bundle and a lockfile, which the new
+> entry three lines above says are gone. Corrected in place with a note saying where it
+> landed, rather than leaving one section asserting both.
+>
+> `emit.py` and `pipeline.py` join the `make verify` list, and the reason is stated: nothing
+> outside `test_counts.py` runs a tool, so a flag that stops reaching one is invisible to every
+> other test in the repository.
+>
+> `ARCHITECTURE.md` gains **§5a, where a resolved value goes** — the three emission sites, the
+> three checked properties, and why measured facts do not use `via:` at all. The five-stage
+> diagram gains `materialise`.
+>
+> `make verify` green: 542 fast, 3 slow, 20 guards. `make static` green. Every relative link
+> in the public docs resolves, checked mechanically.
+
 **Files:**
 - Create: `docs/reference/pipeline-schema.md`
 - Modify: `docs/reference/cli.md` (regenerate; correct `MD0100`'s `pipeline.ir.json` reference)
 - Modify: `docs/reference/goal-schema.md` (`goal:` is inert to `emit`)
 - Modify: `ARCHITECTURE.md`, `docs/README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
-- [ ] **Step 1: write `docs/reference/pipeline-schema.md`**
+- [x] **Step 1: write `docs/reference/pipeline-schema.md`**
 
 Every section of `pipeline.yml`, for a stranger. It is now the file a reader is most likely to
 open. Include the comment that `goal:` takes effect on `upgrade`, not on `emit`.
 
-- [ ] **Step 2: regenerate `cli.md` and fix `MD0100`'s row**
+- [x] **Step 2: regenerate `cli.md` and fix `MD0100`'s row**
 
 Run: `uv run python tools/generate_diagnostics_doc.py`
 `MD0100`'s prose says the contract is *"recorded in `pipeline.ir.json` as `unverified`"*. That
 file no longer exists; the fact moves to `registry.unverified` in `pipeline.yml`.
 
-- [ ] **Step 3: correct `CLAUDE.md`'s invariant 14**
+- [x] **Step 3: correct `CLAUDE.md`'s invariant 14**
 
 It says *"exactly two fields across the whole surface may hold free text"*. There are six, and
 1.9's A16 split is why — `reason` on `ResolvedValue` and on each of the three decision variants.
@@ -1811,19 +1839,19 @@ The invariant's *argument* is unchanged and still right; only the count is wrong
 them, and note that the number is held literally in `tests/test_egress.py` so widening it means
 editing a file that says these are all the ways data leaves.
 
-- [ ] **Step 4: add `emit.py` to CLAUDE.md's `make verify` list**
+- [x] **Step 4: add `emit.py` to CLAUDE.md's `make verify` list**
 
 The list names the files whose breakage `make check` cannot see. `tests/test_counts.py` is the
 only check that a setting reaches a tool, and rewriting `emit()`'s signature and its `ext.args`
 composition is precisely a change `make check` waves through.
 
-- [ ] **Step 5: update `ARCHITECTURE.md`'s settings surface**
+- [x] **Step 5: update `ARCHITECTURE.md`'s settings surface**
 
 The four-route description is superseded. One artifact, three emission sites, `via:` mandatory.
 
-- [ ] **Step 6: `make verify` and `make static`**
+- [x] **Step 6: `make verify` and `make static`**
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add docs/ ARCHITECTURE.md CLAUDE.md CHANGELOG.md

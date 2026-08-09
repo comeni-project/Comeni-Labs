@@ -31,8 +31,8 @@ the order.
 | 5 | `2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — **complete** |
 | 6 | `2026-08-06-closing-the-audit.md` | Plan 1.8 — **complete.** Closed A1–A13 and A15; A14 and A16 stay open |
 | 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
-| 8 | `2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** 12 tasks, plus a prerequisite rename PR |
-| 9 | *(no plan yet)* round three | A14 is critical and open; starts at A38 |
+| 8 | `2026-08-07-the-pipeline-file.md` | Plan 1.10 — `pipeline.yml`. **Complete**, with each task's corrections inline |
+| 9 | *(no plan yet)* round three | **Next.** A14 is critical and open; starts at A38 |
 | 10 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
 | 11 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
@@ -95,7 +95,9 @@ carrying its tier, its route to the tool, and its reason.
 roots are being implemented concurrently, so its citations will drift, and where they disagree
 the spec wins. It may relocate a guard the roots install; it may never weaken one.
 
-**It runs as Plan 1.10 — after Plan 1.9 and *before round three*,** decided 2026-08-07.
+**It ran as Plan 1.10 — after Plan 1.9 and *before round three*,** decided 2026-08-07, and it
+is complete as of 2026-08-09. **Round three is next**, and the argument below is why it audits
+this shape rather than the one before it.
 
 The reason is A14's own logic. Round three is another revert-and-watch sweep over the guards, and A14 is
 that a guard never watched failing may be **inert rather than merely weak**. Plan 1.10 moves the surfaces
@@ -116,6 +118,43 @@ plain-language prompt — Plan 2 Task 3. Three plans in a row have now deferred 
 
 It must not start before 1.9 finishes. Root D is rewriting `diff_ir` and this spec re-targets it;
 1.10 landing first would mean rewriting a critical-finding fix underneath its own author.
+
+### What round three inherits from 1.10
+
+Written for whoever audits next, because this is a large new surface and the point of doing
+1.10 first was that round three audits the shape that ships.
+
+**New and never audited.** `pipeline.yml` and its round trip; `mendel emit`, `upgrade
+--dry-run` and `publish` on a pipeline file; `Pipeline` as door 4's payload; sixteen new
+diagnostics (`MD0108`, `MD0202`–`MD0203`, `MD0206`–`MD0216`); `Lockfile.from_pipeline` and
+`diff_pipeline`; `ValueSource.HUMAN` and the `needs_review`/`overrides` split.
+
+**Four guards moved or were rebuilt**, and each is worth re-reverting rather than trusting
+this plan's own probes:
+
+- `tests/test_egress.py` — its roots come from `DOORS` now, not from `vars(egress)`. The old
+  form walked three doors out of four the moment the publication payload moved modules.
+- `tests/test_construction.py` — the `Pipeline` allowlist exempts a **spelling**
+  (`model_validate` in `pipeline_file.load`), never a file.
+- `tests/test_audit_regressions.py` — both A27 tests were rewritten, because both had been
+  passing for the wrong reason: they hung a smuggled value on a contract declaring
+  `params: []`, so it was dropped before anything validated it.
+- `tests/test_counts.py` — has ledger rows now, for the first time.
+
+**Two things this plan found and did not fix**, deliberately, and both are honest candidates
+for a finding rather than a fix:
+
+- `MD0216` shipped **inert**: the refusal was written, `make verify` was green, and reverting
+  it broke nothing because no test covered it. A guard was written afterwards. That is A14's
+  finding happening on the same day as A14's ledger row, and it is recorded rather than
+  quietly repaired because the lesson is that green is not evidence.
+- `Resolution.source` can be set untruthfully by any resolver, including a future model
+  adapter. It is declared vocabulary rather than a proof, on the same standing as `confidence`
+  and `reason`. Whether that is acceptable once Plan 2 wires a model to that port is a
+  question for round three, not an oversight.
+
+**The guard ledger has five new sections** (Tasks 6–11) and `docs/internal/audits/guard-ledger.md`
+is where every probe is recorded, including the ones that found nothing.
 
 ### On the numbering
 

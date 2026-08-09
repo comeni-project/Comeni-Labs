@@ -48,7 +48,8 @@ uv run mendel build --goal examples/rnaseq-goal.yml --out build/
   REVIEW  star_align.seq_platform
 ```
 
-You now have `build/main.nf`, `build/nextflow.config` and `build/pipeline.ir.json`.
+You now have `build/main.nf`, `build/nextflow.config`, `build/modules/` — and
+`build/pipeline.yml`, which is the one to read.
 
 ## Read what it decided
 
@@ -56,14 +57,14 @@ The second line is the point of the whole tool. Four modules were chosen without
 you, and one parameter could not be settled by any rule — so it is flagged rather than
 guessed. Nothing was decided silently.
 
-Every choice carries a tier. Look at the intermediate representation:
+Every choice carries a tier, and its reason sits beside it. Open `build/pipeline.yml`, or:
 
 ```bash
 uv run python -c "
-import json
-ir = json.load(open('build/pipeline.ir.json'))
-for n in ir['nodes']:
-    print(n['id'], '→ tier', n['selection']['tier'], '—', n['selection']['reason'])
+import yaml
+p = yaml.safe_load(open('build/pipeline.yml'))
+for s in p['steps']:
+    print(s['id'], '→ tier', s['why']['tier'], '—', s['why']['reason'])
 "
 ```
 
