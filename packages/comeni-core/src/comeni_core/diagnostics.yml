@@ -1,0 +1,516 @@
+# The diagnostic registry. One entry per code.
+#
+# `docs/reference/cli.md`'s table is GENERATED from this file — do not edit it by hand.
+# Regenerate with: uv run python tools/generate_diagnostics_doc.py
+#
+# `MD` is Mendel's deterministic core: the three packages that may not reach the network.
+# `MF`, `MA` and `MI` belong to the forge, the API and the AI adapters; `N` and `W` are
+# reserved for Nightingale and Wiener, so a future Nightingale API is `NA` and cannot collide.
+#
+# Bands of one hundred group by concern inside a prefix:
+#
+#   MD0000-MD0099  loading declared registry data          (none yet — Pydantic errors today)
+#   MD0100-MD0199  conformance: a contract disagrees with its module
+#   MD0200-MD0299  the pipeline file: a setting, an override, or the format
+#   MD0300-MD0399  routing and resolution                  (see issue #18)
+#   MD0400-MD0499  gates and emission                      (none yet)
+#
+# A band may overflow into a new band. **A code is never renumbered** — a published code is
+# something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
+# section 10.
+
+MD0100:
+  emitted_by: compiler
+  concern: conformance
+  says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified`"
+  fires_on: [build]
+  refuses: false
+  fix: |
+    Vendor the module under `vendor/modules/` if you have it, or accept the contract as
+    unverified — which is legitimate for a laboratory wrapping a bare container.
+  explanation: |
+    The contract names a module whose source is not present, so nothing could check
+    it. The build continues and the contract is marked unverified, which is recorded
+    on the IR and reaches a publish bundle. A curator may refuse to curate an
+    unverified contract: a claim about a module, with no module to check it against,
+    is a claim without evidence.
+
+MD0101:
+  emitted_by: compiler
+  concern: conformance
+  says: "`nf_process` is not the process the module declares"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Set `nf_process` to the process name as written in the module's `main.nf`. Read it out
+    of the file — it is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`.
+  explanation: |
+    `nf_process` must be the process name as written in the module's main.nf. The
+    emitted workflow calls it by that name, so a mismatch fails at launch with
+    'process not found' — after the containers have been pulled.
+
+MD0102:
+  emitted_by: compiler
+  concern: conformance
+  says: "`nf_inputs` declares a different number of channels than the process takes"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the `input:` declarations in the module's `main.nf` and declare one `nf_inputs`
+    entry per channel — not one per contract port.
+  explanation: |
+    `nf_inputs` declares one entry per channel the process takes. A contract port is
+    not a process argument: featurecounts takes one channel carrying two ports, and
+    samtools/sort takes three of which two model nothing. Nextflow matches arity, so
+    a mismatch fails at launch.
+
+MD0103:
+  emitted_by: compiler
+  concern: conformance
+  says: "an `{empty: N}` placeholder is the wrong tuple width"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the elements in the module's `tuple` declaration for that slot and set `empty`
+    to that width.
+  explanation: |
+    `NfInput.empty` is a tuple *width*, not a count of channels. Nextflow matches
+    arity: a 2-tuple handed to a slot declared `tuple val(meta), path(fasta),
+    path(fai)` dies with 'Path value cannot be null'.
+
+MD0104:
+  emitted_by: compiler
+  concern: conformance
+  says: "a placeholder sits where the module declares `path(...)`, with no `because`"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Either wire a real input into that slot, or add `because:` saying why an empty one is
+    correct here. Saying which is the whole check.
+  explanation: |
+    This slot declares `path(...)`, so the module expects a real file, and the
+    contract supplies an empty placeholder. Sometimes that is correct — samtools/sort
+    only needs a reference to write CRAM — and sometimes it is a hole: STAR was called
+    with no genome for weeks, through a green test suite and a passing stub gate.
+    Saying which, in `because`, is the whole check.
+
+MD0105:
+  emitted_by: compiler
+  concern: conformance
+  says: "a `produces[].name` is not one of the module's `emit:` labels"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Set `produces[].name` to the module's `emit:` label. It is the emit label, not a name
+    for the semantic thing — that is what `type_id` carries.
+  explanation: |
+    The emitted workflow reads `PROCESS.out.<name>` for each produced port, so every
+    `produces[].name` must appear in the module's `emit:` labels. A mismatch fails at
+    runtime against a channel that does not exist.
+
+MD0106:
+  emitted_by: compiler
+  concern: conformance
+  says: "a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Declare the measurement with a `meta_key` for that key, or remove the `meta_key` that
+    no module reads.
+  explanation: |
+    Measured facts reach nf-core modules through the `meta` map, and a module reading
+    a key nothing sets silently uses its default. That is how featureCounts computed
+    -s 0 for a reverse-stranded library and produced a matrix of wrong numbers while
+    every gate stayed green. The reverse also matters: a `meta_key` no module reads is
+    a declaration with no effect.
+
+MD0107:
+  emitted_by: compiler
+  concern: conformance
+  says: "`container` has drifted from the module's directive"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Copy the container from the module's `container` directive. Take the *last* quoted
+    string in the ternary: nf-core 4.x puts singularity first and docker second.
+  explanation: |
+    The container must match the module's `container` directive exactly. A contract
+    claiming a container the module does not use is claiming a reproducibility it does
+    not have. Take the *last* quoted string in the ternary: nf-core 4.x puts
+    singularity first and docker second.
+
+MD0108:
+  emitted_by: compiler
+  concern: conformance
+  says: "a setting routes to an `ext` key this module never reads"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Route the setting somewhere the module reads, or drop it. A value that reaches no tool is
+    the defect `via:` exists to remove, and a declared route is not a true one.
+  explanation: |
+    A contract is a hand-written FFI binding, and this is the binding naming a destination that
+    does not exist. `via:` made a route **declared**; it did not make it **true**.
+
+    A setting routed to `ext.args` on a module whose script never mentions `task.ext.args`
+    behaves exactly like the dead `params.<node>_<name>` line issue #10 was about: the resolver
+    runs, the value is recorded, the pipeline behaves identically whatever it is. Wearing the
+    fix, which makes it harder to see rather than easier.
+
+    Cheap to check, which is why it lands on day one rather than waiting for a Groovy parser:
+    `modulespec.py` already looks for `task.ext.args` and `task.ext.prefix` as substrings of
+    the module source. Three of the ten vendored modules ignore `task.ext.prefix`, so the
+    prefix half has real negatives — a check that can only pass is not a check.
+
+    Build-only, because it needs module source. `mendel emit` does not read any, by design.
+
+    Only `args`, `args2`, `args3` and `prefix` are checkable this way. `via: meta` and
+    `via: directive` are Nextflow's own mechanisms rather than the module's, and `MD0209`
+    already guards directive names against the same class of mistake.
+
+MD0200:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting declares no `via:`, so nothing would carry its value"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Add `via:` naming where the value should land — `ext` with a `key:`, `meta`, or `directive`.
+  explanation: |
+    A setting the resolver decides has to reach the tool somehow. Before this was required, a
+    resolved value became a `params.<node>_<name>` line in the emitted workflow that no module
+    reads: the resolver ran, flagged tier 4, printed REVIEW, and the pipeline behaved
+    identically whatever the answer was.
+
+    Emptiness and deadness are different problems. Few parameters is emptiness, and the forge
+    fixes it. A resolved value reaching no tool is deadness, and no amount of forge output
+    fixes that — only a declared route does.
+
+MD0201:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a resolved value is outside the substitutable character class"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use letters, digits and `_ . : + -` only, or a number, or true/false.
+
+    If your value legitimately needs a space or a slash, that is a case we assumed did not
+    exist rather than one we decided to forbid. Please report it, with the tool and the flag:
+    https://github.com/comeni-project/Comeni-Labs/issues
+  explanation: |
+    A template substitutes {value} into a string that becomes part of a shell command line.
+    Rather than escape dangerous characters, Mendel refuses them: escaping-for-context is where
+    injection bugs live, and a value that cannot contain a quote cannot close one.
+
+    The class is deliberately narrow, on the stated assumption that almost no tool setting needs
+    a space or a slash. That assumption has not met a real counterexample, which is why this
+    message asks for one.
+
+    Loosening the class later is backward-compatible — every file that validated still
+    validates. Tightening it is not, because files already on disk would stop loading. So it
+    starts strict, and the three excluded classes are not equally cheap to admit later: a slash
+    is inert here and needs only a wider pattern; a space needs the substituted value
+    shell-quoted at emit time, which moves every argument string; and a quote, dollar, backtick,
+    semicolon or newline should stay excluded, because those are the reason this refuses rather
+    than escapes.
+
+MD0202:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a replayed value is frozen against a contract that has since been edited"
+  fires_on: [upgrade]
+  refuses: false
+  fix: |
+    Nothing, if you meant it — replaying is what keeps an upgrade honest, and a value that
+    does not move is the whole point of a recorded decision.
+
+    Read the contract's diff and decide. If the edit changed what the setting means rather
+    than what it defaults to, clear the recorded decision so the value is resolved afresh.
+  explanation: |
+    `DRIFT` says a contract you pinned has been edited. This says which of your values were
+    decided against the version before that edit and are being carried forward regardless.
+
+    Both are true and neither implies the other. A contract can be edited in ways that touch
+    nothing this pipeline uses, and a value can be replayed from a contract that has not moved
+    at all. Reporting only the first leaves a reader to work out the consequence, which is the
+    part that actually affects the numbers a tool produces.
+
+    It reports rather than refuses because replaying is correct. Invariant 9 is that records
+    are replayed on rerun rather than re-asked — that is how determinism survives having a
+    model in the loop — so a frozen value is the system working. What a person is owed is
+    knowing it happened, not being stopped.
+
+MD0203:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "an override answers a question this re-resolution never asks"
+  fires_on: [upgrade]
+  refuses: true
+  fix: |
+    Decide what the answer was for. If the step it belonged to is gone, delete the override
+    from `decisions:` — that is a real edit and it should look like one. If the step should
+    still be there, the goal or the registry moved in a way you did not intend, and the
+    upgrade is what caught it.
+  explanation: |
+    Two things can happen to a recorded answer when a pipeline is re-resolved against a newer
+    registry, and they are not the same event.
+
+    **Stale** — the question is still asked, but its options moved, so the recorded answer no
+    longer fits. Re-asking is correct: replaying would assert a choice between options that no
+    longer exist, which is worse than asking again because it would look decided. That is
+    reported as STALE and flagged tier 4. It does not refuse.
+
+    **Orphaned** — the question is never asked at all. The step is gone, or the value stopped
+    being ambiguous because a rule now covers it. `resolve()` is never called for it, so no
+    resolver hook can see it; it is found by taking the complement of what this run was asked.
+    That refuses.
+
+    The difference is whether there is still a question. An override that silently stops
+    applying is the same failure as a guard that silently stops guarding, which is audit A14's
+    shape — so this one is loud, and it is the only one of the two that stops the upgrade.
+
+    Only a *human's* answer can be orphaned. A resolver's recorded choice for a step that no
+    longer exists is nothing at all, and nobody is owed a report about it.
+
+MD0204:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a `template:` never mentions `{value}`, or sits on a route that takes none"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Put `{value}` in the template where the resolved value belongs — or drop the template, if
+    the route takes one typed value rather than an argument string.
+  explanation: |
+    Two mistakes with one shape: a setting that looks wired and is not.
+
+    A template on `ext.args` that forgets `{value}` renders real flags and discards the value.
+    That is harder to spot than an honest no-op precisely because it looks correct — flags do
+    reach the tool, just not yours.
+
+    A template on `prefix`, `meta` or a directive has nothing to compose into. Those carry one
+    typed value; `cpus = "--cpus 12"` is not a thing.
+
+MD0205:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`via:`/`key:` are not a legal pair — including `key: when`"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    `via: ext` needs a `key:` of `args`, `args2`, `args3` or `prefix`. Every other route takes
+    no key at all.
+  explanation: |
+    The `ext` scope is a keyspace; `meta` and `directive` are single destinations. A key on
+    either of those names nothing.
+
+    `when` is not a legal key on purpose. `ext.when` is a boolean that skips a process
+    entirely, so a setting could switch a step off while the pipeline file still described it
+    running — a second routing mechanism competing with resolution. Whether a step exists is
+    decided by resolving the goal.
+
+MD0206:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "the `pipeline.yml` just written does not parse back to the object it was written from"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Nothing you can do in the file — this is a bug in Mendel, and the pipeline directory it
+    would have written is not trustworthy. Please report it with the goal that produced it:
+    https://github.com/comeni-project/Comeni-Labs/issues
+  explanation: |
+    Every build writes `pipeline.yml`, reads it back, and emits the Nextflow from the copy it
+    read. So the round trip is exercised on every build rather than asserted once in a test,
+    and a field that does not survive YAML is a refused build rather than a file that quietly
+    means less than it says.
+
+    That is a direct answer to how `ResolvedValue._drop_computed` came to be needed. The IR did
+    not round-trip at all, and in that field's own words: nothing noticed, because nothing read
+    an IR back until now.
+
+MD0207:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`version:` is newer than this Mendel understands"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Upgrade Mendel. Do not edit the version number down — that only moves the failure to
+    somewhere less obvious than this message.
+  explanation: |
+    Forward compatibility is a promise this format has not made. An older Mendel reading the
+    parts of a newer file it happens to recognise would emit a pipeline missing whatever the
+    unrecognised section carried, and would say nothing, because from its point of view the
+    file parsed.
+
+    Refusing is the honest reading of an unknown document, and it is why `version:` is the
+    first key in the file.
+
+MD0209:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`via: directive` names something Nextflow silently ignores"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Use a process directive Nextflow accepts. `ext` is not one of them here — `via: ext` owns
+    that scope, and a setting must not reach it by two routes.
+  explanation: |
+    An unknown directive inside a `withName` block is silently ignored by Nextflow. Measured
+    rather than assumed: a config carrying `process { withName: FOO { cpuz = 4 } }` runs to
+    exit 0 with no error and no warning on Nextflow 25.10.4.
+
+    That is the exact failure this design exists to remove, so a routed directive whose name
+    was never checked would reinstall it — a resource setting that does nothing, reported by
+    nobody.
+
+    The legal names live in the compiler rather than the registry: Nextflow's directive set is
+    a fact about the toolchain, moving on Nextflow's release cycle, and no laboratory should be
+    able to approve `cpuz` into it by editing data.
+
+MD0210:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`modules/` is absent, so the emitted `include` paths would point at nothing"
+  fires_on: [emit]
+  refuses: true
+  fix: |
+    Run `mendel emit` in the pipeline directory `mendel build` produced, keeping `modules/`
+    beside `pipeline.yml`. The module source is part of the pipeline, not a build artifact.
+  explanation: |
+    `include { STAR_ALIGN } from 'modules/nf-core/star/align/main'` is resolved by Nextflow at
+    launch, not by Mendel at emit time. Writing a `main.nf` whose includes cannot resolve
+    produces a file that looks finished and fails at the first run, with an error about a
+    module path rather than about a missing directory.
+
+    Never emit a `main.nf` that cannot run. This is the same rule as `NfInput.empty` requiring
+    a reason, applied to the directory instead of to a channel.
+
+MD0211:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`channels[].params` disagrees with what its `expression` references"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Make `params:` list exactly the `params.<name>` that `expression:` reads. Edit whichever of
+    the two is wrong — they answer the same question and the file must not answer it twice.
+  explanation: |
+    `params:` is stored and also derivable, deliberately. Taking a scan over arbitrary Groovy
+    out of the emitter is much of what materialising the pipeline buys, and the emitter's copy
+    of that scan lives in a package that may use a regular expression while `comeni-core` may
+    not.
+
+    The price of the duplication is that the two spellings must be checked against each other,
+    on every load rather than only where they were written together. Two implementations of one
+    computation is how a guard comes to be testing its own copy — audit A21 — so here they are
+    compared instead.
+
+MD0212:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "two steps share an `id`, or two settings on one step share a `name`"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Give each step a distinct `id`, and each setting on a step a distinct `name`.
+  explanation: |
+    A11 arriving in a new type. `ModuleContract` already refuses a duplicate `Param`, because
+    the second one silently wins and nothing says so.
+
+    Here it is worse than ambiguous. A step `id` is what `inputs[].source` points at, so a
+    duplicate makes the wiring itself unreadable. And `ext.args` composition sorts the settings
+    by name and joins them, so two settings with one name are two fragments the emitter would
+    concatenate into a single flag string without comment.
+
+MD0213:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`pipeline.yml` has changed since the Nextflow was generated from it"
+  fires_on: [emit, publish]
+  refuses: false
+  fix: |
+    Run `mendel emit <dir>/pipeline.yml --out <dir>`. That regenerates `main.nf` and
+    `nextflow.config` from what the file now says, and restamps `emitted.from_digest`.
+
+    `emit` reports this and then cures it, so seeing it there is normal — it is the record of
+    what your edit changed. Any verb that treats the generated files as evidence refuses
+    instead, because a gate result or a published bundle describing a `main.nf` built from a
+    different `pipeline.yml` is evidence about nothing.
+  explanation: |
+    Consolidating four artifacts into one opens a failure the four did not have, and it is the
+    one this whole design exists to prevent: Nextflow runs `main.nf`, not `pipeline.yml`.
+
+    Edit the file you were told to edit, forget to re-emit, and the pipeline that runs is not
+    the pipeline that is documented — with every file digest matching, because the bytes on
+    disk are exactly the bytes that were written. The artifact and the run diverge in silence,
+    through the door the design itself installs.
+
+    So `emitted.from_digest` records the pipeline content the generated files came from,
+    computed over the model with `emitted:` excluded, and this fires when the file no longer
+    digests to it.
+
+MD0214:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`main.nf` or `nextflow.config` was edited by hand since it was generated"
+  fires_on: [emit, publish]
+  refuses: true
+  fix: |
+    Make the change in `pipeline.yml` and re-emit. Settings, provenance and wiring all live
+    there, and only edits made there survive the next `mendel emit`.
+
+    To discard the hand edit instead, delete the file and re-emit — a file that is not there is
+    rewritten rather than refused, because nothing is destroyed by writing it.
+  explanation: |
+    Regenerating would overwrite the edit and say nothing, so this refuses rather than silently
+    winning an argument with whoever made it.
+
+    The fix names the other file rather than telling anyone to revert. A person who hand-edited
+    `main.nf` was trying to change the pipeline; the file that changes the pipeline is
+    `pipeline.yml`. A diagnostic that only forbids is half a diagnostic.
+
+MD0215:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "an input names neither `source` nor `channel`, or names both"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Give the input exactly one origin: `source: <step>.<port>` when an earlier step produces
+    it, or `channel: <type_id>` when the laboratory supplies it.
+  explanation: |
+    Two declared fields rather than one string with two shapes. The specification drafted this
+    as a single `from:` carrying either `trimgalore.reads` or `channel:annotation.gtf`, and the
+    second cannot be an `EdgeRef` — that mark requires two Groovy identifiers, so the union
+    would have had to give up the validation that makes an edge reference distinguishable from
+    a filename in the first place (audit A16).
+
+    A field that reads two ways is root G, and `inputs:` is where a second reading produces a
+    silently miswired pipeline rather than a parse error.
+
+MD0216:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a resolved binding names a parameter its contract does not declare"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    The value has nowhere to go: a route is declared on the contract's `Param`, and there is
+    no `Param` by that name. Either the contract dropped the parameter and the binding is
+    left over from an older resolution, or the binding names it wrongly.
+  explanation: |
+    Materialisation used to drop such a binding **silently**, which is the orphan case one
+    level below `MD0203`: a value resolution recorded, absent from the artifact that claims to
+    record every value, with nothing said.
+
+    Found by a guard that passed for the wrong reason. An `A27` test smuggled prose through a
+    binding on `nf-core/samtools/sort`, and that contract declares `params: []` — so the
+    binding was discarded before anything validated it, and the test was asserting nothing.
+
+    Resolution cannot produce one: it sets parameters *from* `contract.params`. So this takes
+    a deserialised or hand-built IR, and in that case refusing is right — nothing legitimate
+    reaches it, and what does reach it is a pipeline file describing a value that will not
+    exist in the Nextflow.

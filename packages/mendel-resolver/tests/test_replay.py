@@ -72,7 +72,12 @@ def test_an_unrecorded_decision_falls_through_to_the_fallback():
 
 def test_a_record_whose_candidates_changed_is_not_replayed():
     """The registry moved underneath the record. Replaying would assert a choice between
-    options that no longer exist, which is worse than asking again."""
+    options that no longer exist, which is worse than asking again.
+
+    The claim is unchanged; the list it lands in is. This asserted `in resolver.fresh` until
+    Plan 1.10 Task 9 split the two, and that assertion was the merge — it said a question
+    somebody had already answered was one nobody had.
+    """
     ambiguity = _ambiguity()
     stale = _record(ambiguity)
     resolver = ReplayResolver([stale])
@@ -80,7 +85,8 @@ def test_a_record_whose_candidates_changed_is_not_replayed():
         node_id="star_align", subject="aligner", candidates=["a", "b", "c"]
     )
     assert resolver.resolve(widened).resolved_by == "flag-only"
-    assert widened.key() in resolver.fresh
+    assert widened.key() in resolver.stale
+    assert widened.key() not in resolver.fresh
 
 
 def test_a_record_whose_choice_is_no_longer_a_candidate_is_not_replayed():
@@ -200,3 +206,94 @@ def test_replaying_a_previous_run_reproduces_its_choices():
     assert second.model_dump_json() != "" and [n.contract_id for n in second.nodes] == [
         n.contract_id for n in first.nodes
     ]
+
+
+# --- Plan 1.10 Task 9: stale is not orphaned, and neither may be silent ----------------
+#
+# `_still_applies` returning False is a *deliberate* re-ask, and it stays — replaying would
+# assert a decision between options that no longer exist, which is worse than asking again
+# because it would look decided. What was wrong is that it vanished into a `fresh` count
+# with no statement that somebody's answer had been discarded.
+
+
+def test_a_stale_record_is_reported_as_stale_rather_than_as_fresh():
+    """`fresh` means "nobody had answered this". A record that existed and no longer applies
+    is a different event, and merging the two makes the honest one unreadable."""
+    ambiguity = _ambiguity()
+    resolver = ReplayResolver([_record(ambiguity)])
+    widened = ParamAsked(node_id="star_align", subject="aligner", candidates=["a", "b", "c"])
+
+    assert resolver.resolve(widened).resolved_by == "flag-only"
+    assert resolver.stale == [widened.key()]
+    assert resolver.replayed == []
+    assert resolver.fresh == [], "it was not fresh — there was a record, and it was dropped"
+
+
+def test_a_stale_human_override_is_called_out_separately():
+    """Discarding a resolver's recorded choice is ordinary; discarding a person's answer is
+    not. Both are re-asked, and only one is worth interrupting somebody about."""
+    ambiguity = _ambiguity()
+    resolver = ReplayResolver([_record(ambiguity, chosen="a", human_override="a")])
+    widened = ParamAsked(node_id="star_align", subject="aligner", candidates=["c", "d"])
+
+    resolver.resolve(widened)
+    assert resolver.stale == [widened.key()]
+    assert resolver.stale_overrides == [widened.key()]
+
+
+def test_a_stale_record_with_no_override_is_stale_but_not_an_override():
+    ambiguity = _ambiguity()
+    resolver = ReplayResolver([_record(ambiguity)])
+    resolver.resolve(ParamAsked(node_id="star_align", subject="aligner", candidates=["c"]))
+    assert resolver.stale and resolver.stale_overrides == []
+
+
+def test_an_override_for_a_question_never_asked_is_orphaned():
+    """`resolve()` is never called for a step that is gone, so no resolver hook can see it.
+
+    Derived from what this resolver was *asked*, rather than by diffing two pipelines. The
+    diff was the plan's sketch and it is the weaker mechanism: a comparison enumerates the
+    fields it knows about, so it can disagree with what resolution actually did — which is
+    root D, and audit A28 in particular.
+    """
+    ambiguity = _ambiguity()
+    gone = ParamAsked(node_id="hisat2_align", subject="seq_platform", candidates=["a", "b"])
+    resolver = ReplayResolver([
+        _record(ambiguity, human_override="a"),
+        _record(gone, human_override="illumina"),
+    ])
+    resolver.resolve(ambiguity)
+
+    assert resolver.orphaned == ["hisat2_align.seq_platform"]
+
+
+def test_a_replayed_override_is_not_orphaned():
+    ambiguity = _ambiguity()
+    resolver = ReplayResolver([_record(ambiguity, human_override="a")])
+    resolver.resolve(ambiguity)
+    assert resolver.orphaned == []
+
+
+def test_a_stale_override_is_not_also_orphaned():
+    """The two categories must not double-count: it *was* asked, and the answer no longer
+    fits. Reporting it twice under two headings is how a reviewer learns to skim both."""
+    ambiguity = _ambiguity()
+    resolver = ReplayResolver([_record(ambiguity, chosen="a", human_override="a")])
+    resolver.resolve(ParamAsked(node_id="star_align", subject="aligner", candidates=["c"]))
+    assert resolver.stale_overrides and resolver.orphaned == []
+
+
+def test_a_recorded_choice_with_no_override_is_never_orphaned():
+    """Only a *human's* answer can be orphaned. A resolver's recorded choice for a step that
+    no longer exists is nothing at all — nobody is owed a report that the machine's opinion
+    about a deleted step went unused."""
+    resolver = ReplayResolver([_record(_ambiguity(node="hisat2_align"))])
+    assert resolver.orphaned == []
+
+
+def test_replay_still_emits_the_recorded_reason_verbatim():
+    """The constraint every change to this file has to survive: `reason` reaches the artifact,
+    and federation §4.1 requires an upgraded pipeline to reproduce byte-identical Nextflow."""
+    ambiguity = _ambiguity()
+    resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
+    assert resolution.reason == "recorded earlier"

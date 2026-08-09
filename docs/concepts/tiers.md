@@ -99,14 +99,20 @@ alphabetically. A record nobody is shown is not a flag.
 
 ```bash
 uv run python -c "
-import json
-ir = json.load(open('build/pipeline.ir.json'))
-for n in ir['nodes']:
-    print(n['id'], n['selection']['tier'], n['selection']['review_level'])
-    for b in n['params']:
-        print('   ', b['name'], b['value']['tier'], b['value']['review_level'])
+import yaml
+p = yaml.safe_load(open('build/pipeline.yml'))
+for s in p['steps']:
+    print(s['id'], 'tier', s['why']['tier'], '—', s['why']['reason'])
+    for setting in s['settings']:
+        w = setting['why']
+        print('   ', setting['name'], '=', setting['value'],
+              'tier', w['tier'], 'by', w['source'])
 "
 ```
+
+`source: human` means somebody answered a tier-4 question by editing the file. The tier stays
+4 — the pipeline still contains a question that had to be answered — but it stops appearing
+under `REVIEW` and appears under `ANSWERED` instead.
 
 ## Where they came from
 

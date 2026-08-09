@@ -22,11 +22,18 @@ def test_the_registry_has_one_tier_three_rule_and_it_is_the_aligner():
     assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]
 
 
-def test_featurecounts_declares_no_parameters():
-    """Strandedness arrives through meta now. A `Param` for it would resolve to a value
-    that reaches nothing, which is what this whole plan is about removing."""
-    registry = layers.load(ROOT / "registry").registry
-    assert registry.get("nf-core/subread/featurecounts@2.0.6").params == []
+def test_featurecounts_declares_no_strandedness_parameter():
+    """Strandedness arrives through meta, and a `Param` for it would resolve to a value that
+    reaches nothing — the defect this whole plan is about removing.
+
+    This asserted `params == []` until Plan 1.10 Task 7, which is a stronger claim than the
+    argument supports and it blocked the one thing that argument needs: a declared setting
+    whose flag is watched arriving at a real tool. The claim is now about strandedness, which
+    is what was ever true, plus the rule that every param carries a route.
+    """
+    contract = layers.load(ROOT / "registry").registry.get("nf-core/subread/featurecounts@2.0.6")
+    assert "strandedness" not in [param.name for param in contract.params]
+    assert all(param.via for param in contract.params), "a setting with no route is the defect"
 
 
 @pytest.fixture(scope="module")
@@ -66,3 +73,27 @@ def test_featurecounts_ran_with_the_strandedness_that_was_measured(run):
     assert scripts, "featureCounts never ran"
     assert "-s 2" in scripts[0], scripts[0]
     assert "-p" in scripts[0], "paired-end reads must be counted as fragments"
+
+
+@pytest.mark.slow
+def test_a_resolved_setting_reaches_the_tool(run):
+    """The only check that a value Mendel resolved changed what a tool was asked to do.
+
+    `MD0204` catches a template that ignores `{value}`. **Nothing catches a template whose
+    flag is wrong** — the flag goes to the tool, not to the module, so conformance cannot see
+    it and `-stub-run` cannot either: an nf-core stub never reads its inputs and never runs
+    the tool. This is the same blind spot that let two modules ship with hollow inputs, and
+    `--gate test` is the only thing that sees through it.
+
+    `-Q 0` is featureCounts' own default, so this asserts the *route* without moving a single
+    number in the matrix the test above checks. A wrong flag still fails here, because what is
+    read is the command line rather than the result.
+    """
+    out, _ = run
+    scripts = [
+        c.read_text()
+        for c in (out / "work").rglob(".command.sh")
+        if "featureCounts" in c.read_text()
+    ]
+    assert scripts, "featureCounts never ran"
+    assert "-Q 0" in scripts[0], scripts[0]

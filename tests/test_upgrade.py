@@ -4,20 +4,27 @@ Federation §4.3: "re-resolves a locked pipeline against the current registry an
 what moved, at which tier, and why. Nothing upgrades implicitly."
 """
 
-import json
 import pathlib
 import shutil
 
+import yaml
 from mendel_compiler.cli import main
 
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
 
 
-def _published(tmp_path):
-    out = tmp_path / "published"
-    assert main(["publish", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
-    return out / "pipeline.bundle.json"
+def _published(tmp_path, name="published"):
+    """A published pipeline directory, and the file that names it.
+
+    `pipeline.bundle.json` retired in Plan 1.10 Task 10: everything it held is in
+    `pipeline.yml`, and the directory is the artifact. `publish` is now a check over a built
+    directory rather than a second writer beside `build`.
+    """
+    out = tmp_path / name
+    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    assert main(["publish", str(out / "pipeline.yml"), "--root", str(ROOT)]) == 0
+    return out / "pipeline.yml"
 
 
 def _registry_with(tmp_path, edit):
@@ -38,7 +45,6 @@ def test_upgrading_against_an_unchanged_registry_reports_nothing(tmp_path, capsy
     code = main(
         [
             "upgrade",
-            "--bundle",
             str(bundle),
             "--out",
             str(tmp_path / "up"),
@@ -48,14 +54,14 @@ def test_upgrading_against_an_unchanged_registry_reports_nothing(tmp_path, capsy
     )
     assert code == 0
     err = capsys.readouterr().err
-    assert "the generated pipeline is byte-identical to the bundle" in err
+    assert "the generated pipeline is byte-identical to the one recorded" in err
     assert "CHANGED" not in err
 
 
 def test_upgrading_reproduces_byte_identical_nextflow(tmp_path):
     """Federation 4.1: loading a locked pipeline reproduces byte-identical Nextflow."""
     bundle = _published(tmp_path)
-    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
     assert (tmp_path / "up" / "main.nf").read_text() == (
         tmp_path / "published" / "main.nf"
     ).read_text()
@@ -84,7 +90,6 @@ def test_a_changed_rule_is_reported_with_its_tier_and_reason(tmp_path, capsys):
     main(
         [
             "upgrade",
-            "--bundle",
             str(bundle),
             "--out",
             str(tmp_path / "up"),
@@ -114,7 +119,6 @@ def test_drift_is_reported_even_when_nothing_resolved_differently(tmp_path, caps
     main(
         [
             "upgrade",
-            "--bundle",
             str(bundle),
             "--out",
             str(tmp_path / "up"),
@@ -131,25 +135,41 @@ def test_drift_is_reported_even_when_nothing_resolved_differently(tmp_path, caps
 def test_untouched_decisions_replay(tmp_path, capsys):
     """The curation property. A tier-4 decision recorded before must not be re-asked."""
     bundle = _published(tmp_path)
-    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
-    ir = json.loads((tmp_path / "up" / "pipeline.ir.json").read_text())
-    replayed = [d for d in ir["decisions"] if d["resolved_by"] == "replay"]
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    import yaml
+
+    pipeline = yaml.safe_load((tmp_path / "up" / "pipeline.yml").read_text())
+    replayed = [d for d in pipeline["decisions"] if d["resolved_by"] == "replay"]
     assert replayed, "a recorded decision should have replayed rather than been re-asked"
 
 
-def test_upgrade_never_writes_over_the_bundle_it_read(tmp_path):
-    """Nothing upgrades implicitly. The old bundle is evidence."""
+def test_upgrade_never_writes_over_the_pipeline_it_read(tmp_path):
+    """Nothing upgrades implicitly. What you had is the evidence.
+
+    Two subjects since Plan 1.10, and the second is why the rule got sharper rather than
+    easier. With a bundle in and a report out there was nothing to collide; with one artifact
+    the natural implementation updates `pipeline.yml` where it sits, destroying the only
+    record of what you had — the replayed overrides, the previous digests, the gate evidence.
+    """
     bundle = _published(tmp_path)
     before = bundle.read_text()
-    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
     assert bundle.read_text() == before
+
+
+def test_upgrade_refuses_to_write_into_the_directory_it_read(tmp_path, capsys):
+    """The collision the sentence above describes, refused rather than trusted not to happen."""
+    bundle = _published(tmp_path)
+    code = main(["upgrade", str(bundle), "--out", str(bundle.parent), "--root", str(ROOT)])
+    assert code == 2
+    assert "must not write over the pipeline it read" in capsys.readouterr().err
 
 
 def test_upgrade_says_how_many_decisions_replayed(tmp_path, capsys):
     """A count a person can sanity-check. "Only what you touched moved" is a claim, and
     this is the number that supports or refutes it."""
     bundle = _published(tmp_path)
-    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
     err = capsys.readouterr().err
     assert "decisions replayed" in err
     assert "0 newly asked" in err
@@ -183,7 +203,7 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
     code = main(
         [
             "upgrade",
-            "--bundle", str(bundle),
+            str(bundle),
             "--out", str(tmp_path / "up"),
             "--root", str(ROOT),
             "--registry", str(layer),
@@ -193,19 +213,17 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
     err = capsys.readouterr().err
     assert code == 0
     assert "the generated pipeline differs: nextflow.config" in err
-    assert "no IR change explains it" in err, err
+    assert "no recorded change explains it" in err, err
 
 
-def test_a_bundle_predating_the_record_says_so_rather_than_claiming_identity(tmp_path, capsys):
+def test_a_pipeline_predating_the_record_says_so_rather_than_claiming_identity(tmp_path, capsys):
     """`None` is no evidence, not a clean bill of health — the distinction `gate` makes."""
-    import json
-
     bundle = _published(tmp_path)
-    data = json.loads(bundle.read_text())
+    data = yaml.safe_load(bundle.read_text())
     data["emitted"] = None
-    bundle.write_text(json.dumps(data))
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
 
-    main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
 
     err = capsys.readouterr().err
     assert "predates the emitted-artifact record" in err
@@ -242,12 +260,12 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     )
     out = tmp_path / "published-with-overlay"
     assert main([
-        "publish", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT),
+        "build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT),
         "--registry", str(ROOT / "registry"), "--registry", str(lab),
     ]) == 0
 
     code = main([
-        "upgrade", "--bundle", str(out / "pipeline.bundle.json"),
+        "upgrade", str(out / "pipeline.yml"),
         "--out", str(tmp_path / "up"), "--root", str(ROOT),
     ])
 
@@ -256,3 +274,179 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     assert "DRIFT" in err and "no longer in the registry" in err
     assert "the generated pipeline differs" in err
     assert "samtools_sort" in err, "and the diff names what changed"
+
+
+# --- Plan 1.10 Task 9: the five categories, at the command line -----------------------
+
+
+def _with_override(bundle, key, subject, value, node_exists=True):
+    """Answer a recorded flag in `pipeline.yml`, the way a reviewer would.
+
+    **Fills in the existing record for that key rather than appending one.** Appending was
+    the first draft and it silently did nothing: `ReplayResolver` takes the *first* record
+    per key — two for one key is a corrupt bundle rather than a choice — so the duplicate
+    override lost to the unanswered record already there. Answering a question means editing
+    the question, which is also what a person handed this file would do.
+    """
+    data = yaml.safe_load(bundle.read_text())
+    existing = next((d for d in data["decisions"] if d["key"] == key), None)
+    if existing is not None:
+        existing["human_override"] = value
+    else:
+        data["decisions"].append(
+            {
+                "kind": "param",
+                "key": key,
+                "subject": subject,
+                "candidates": [None],
+                "chosen": None,
+                "human_override": value,
+                "reason": "our sequencer",
+                "confidence": 0.0,
+                "resolved_by": "human",
+                "tier": 4,
+            }
+        )
+    assert node_exists or key.split(".")[0] not in [s["id"] for s in data["steps"]]
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+    # Editing the file leaves the generated Nextflow describing the version before the edit,
+    # so `upgrade` refuses with MD0213 until it is re-emitted. That is the workflow, not a
+    # detour: `mendel emit` is the verb that makes a directory describe itself again.
+    assert main(["emit", str(bundle), "--out", str(bundle.parent)]) == 0
+    return bundle
+
+
+def test_an_orphaned_override_refuses_and_names_the_code(tmp_path, capsys):
+    """`resolve()` is never called for a step that is gone, so nothing in the resolver could
+    see this. It refuses rather than warns: a stale answer is re-asked and flagged, and an
+    orphaned one has nothing left to be an answer to. Dropping it quietly is the same failure
+    as a guard that silently stops guarding."""
+    bundle = _with_override(
+        _published(tmp_path), "hisat2_align.seq_platform", "seq_platform", "illumina",
+        node_exists=False,
+    )
+    code = main(
+        ["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)]
+    )
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "MD0203" in err
+    assert "ORPHANED hisat2_align.seq_platform" in err
+
+
+def test_an_override_that_still_applies_is_replayed_rather_than_orphaned(tmp_path, capsys):
+    """The regression guard for the refusal above: it must depend on the step being gone,
+    not on an override existing."""
+    bundle = _with_override(
+        _published(tmp_path), "star_align.seq_platform", "seq_platform", "illumina"
+    )
+    code = main(
+        ["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)]
+    )
+    err = capsys.readouterr().err
+    assert code == 0, err
+    assert "ORPHANED" not in err
+    assert "ANSWERED star_align.seq_platform = 'illumina'" in err
+
+
+def test_a_refused_upgrade_publishes_nothing(tmp_path):
+    """A4's posture, applied to this refusal too. `upgrade` already took it for a failed
+    gate; an orphaned override must not leave a directory behind that looks upgraded."""
+    bundle = _with_override(
+        _published(tmp_path), "hisat2_align.seq_platform", "seq_platform", "illumina",
+        node_exists=False,
+    )
+    out = tmp_path / "up"
+    assert main(
+        ["upgrade", str(bundle), "--out", str(out), "--root", str(ROOT)]
+    ) == 2
+    assert not (out / "pipeline.yml").exists()
+
+
+# --- Plan 1.10 Task 10: the four verbs -------------------------------------------------
+
+
+def _snapshot(directory):
+    return {
+        path.relative_to(directory).as_posix(): path.read_bytes()
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_emit_needs_no_registry_and_no_network(tmp_path):
+    """The verb that regenerates a pipeline from its own file, years later.
+
+    `--registry` is not passed and none is loaded — `emit` is handled before the loader runs,
+    so this would fail rather than quietly fall back to a default layer.
+    """
+    bundle = _published(tmp_path)
+    assert main(["emit", str(bundle), "--out", str(bundle.parent)]) == 0
+
+
+def test_dry_run_writes_nothing(tmp_path):
+    """`verify` is this, and not a separate verb.
+
+    A digest-only compare was the alternative and it answers a strictly weaker question: it
+    can say a contract moved, but not whether the pipeline would resolve differently. Two
+    comparisons of "is this still what it says it is" is root D's finding waiting to happen,
+    so `--dry-run` differs from `upgrade` only in whether bytes are written.
+    """
+    bundle = _published(tmp_path)
+    before = _snapshot(bundle.parent)
+    code = main(["upgrade", str(bundle), "--dry-run", "--root", str(ROOT)])
+    assert code == 0
+    assert _snapshot(bundle.parent) == before
+
+
+def test_dry_run_reports_the_same_categories_upgrade_does(tmp_path, capsys):
+    """One code path, one answer. The flag decides whether bytes are written and nothing
+    else, so a report that differed between the two would mean two implementations."""
+    bundle = _published(tmp_path)
+    main(["upgrade", str(bundle), "--dry-run", "--root", str(ROOT)])
+    dry = capsys.readouterr().err
+    main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+    wet = capsys.readouterr().err
+    assert "byte-identical" in dry
+    assert "decisions replayed" in dry
+    for line in dry.splitlines():
+        assert line in wet, line
+
+
+def test_dry_run_is_refused_on_a_verb_with_nothing_to_compare(tmp_path):
+    """A flag that silently means "do nothing" is worse than no flag."""
+    import pytest
+
+    with pytest.raises(SystemExit):
+        main(["build", "--goal", str(GOAL), "--out", str(tmp_path / "b"), "--dry-run"])
+
+
+def test_a_replayed_value_frozen_against_a_moved_contract_is_reported(tmp_path, capsys):
+    """MD0202. `DRIFT` says a contract you pinned was edited; this says the consequence.
+
+    Both are true and neither implies the other — a contract can be edited in ways that touch
+    nothing here, and a value can be replayed from a contract that has not moved at all.
+    Reporting only the first leaves a reader to work out the part that affects the numbers.
+    """
+    bundle = _published(tmp_path)
+
+    def bump_a_default(layer):
+        counts = next(layer.rglob("subread-featurecounts.yml"))
+        counts.write_text(counts.read_text().replace("priority: 0", "priority: 4"))
+
+    layer = _registry_with(tmp_path, bump_a_default)
+    code = main([
+        "upgrade", str(bundle), "--dry-run", "--root", str(ROOT), "--registry", str(layer),
+    ])
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "MD0202" in err
+    assert "min_mqs" in err, "it must name which values are frozen, not just that some are"
+    assert "DRIFT" in err, "and drift stays its own statement"
+
+
+def test_md0202_is_silent_when_nothing_moved(tmp_path, capsys):
+    """The regression guard: it must depend on the contract having been edited."""
+    bundle = _published(tmp_path)
+    main(["upgrade", str(bundle), "--dry-run", "--root", str(ROOT)])
+    assert "MD0202" not in capsys.readouterr().err

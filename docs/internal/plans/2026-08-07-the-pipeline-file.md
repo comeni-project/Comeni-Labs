@@ -24,7 +24,7 @@ route (`via:` + `key:` + `template:`) so a resolved value composes into `ext.arg
 
 ## Preconditions
 
-**This plan does not start until a separate prerequisite PR has merged.** Decided 2026-08-07: a
+**This plan does not start until a separate prerequisite PR has merged.** Decided 2026-08-09: a
 mechanical rename inside a two-thousand-line feature diff is unreviewable, because nobody can tell
 the substitution from the logic.
 
@@ -471,7 +471,7 @@ docs:           ## fail if the generated diagnostics table is stale
 and change `check: lint test types` to `check: lint test types docs`. Add `docs` to `.PHONY`.
 
 In `.github/workflows/nightly.yml`, add a step running `make docs` against `main`. **No Action
-commits anything** — decided 2026-08-07; a bypass on a protected branch exists forever, and a
+commits anything** — decided 2026-08-09; a bypass on a protected branch exists forever, and a
 self-healing `main` means nobody ever sees the drift.
 
 - [ ] **Step 7: run `make check`**
@@ -1233,6 +1233,44 @@ git commit -m "feat(compiler): emit reads one Pipeline, and a resolved setting r
 
 ## Task 6: `pipeline.yml` is the artifact
 
+> **Done, 2026-08-09, with five corrections. Read these before Task 10 — three of them
+> move work into it.**
+>
+> **1. `MD0213` does not refuse in `emit`; it refuses in the verbs that treat the generated
+> files as evidence.** The step-1 test below asserted that editing `pipeline.yml` and running
+> `mendel emit` is refused. That is backwards, and it makes the design impossible: `emit` is
+> the verb that *cures* staleness, so refusing there means the file a reader is told to edit
+> can never be edited. `emit` reports `MD0213` and regenerates; `publish` and a gated run are
+> where it must refuse, and **that half lands in Task 10**, which is where those verbs get
+> their new front door. `MD0214` does refuse in `emit`, because regenerating would destroy a
+> hand edit — and a **deleted** file is rewritten rather than refused, which is the escape
+> hatch its `fix:` names.
+>
+> **2. `pipeline.bundle.json` survives Task 6 and retires in Task 10.** `mendel.lock.yml` and
+> `pipeline.ir.json` are gone as planned. The bundle is `upgrade --bundle`'s only input and
+> nothing else reads it; deleting it here would leave `upgrade` broken across Tasks 7–9, and
+> re-pointing `upgrade` needs `diff_ir` and `drift_against` to work from a `Pipeline` — which
+> is Task 10's subject, not a side effect of this one.
+>
+> **3. `MD0212` was already taken.** Task 4 shipped it on `StepInput`'s exactly-one-origin
+> rule. The spec's table assigns it to duplicates and the spec is the authority, so duplicates
+> keep `MD0212` and the input rule became **`MD0215`** — renumbered while nothing had published
+> it, which is the only moment renumbering is allowed.
+>
+> **4. `Pipeline.of` wrote `goal: {have: [], want: []}` into every file, and everything
+> passed.** It defaulted the goal to `Goal(profile=ir.profile)`, which type-checks,
+> round-trips, and satisfies the totality test — that test asks whether a field has a *home*,
+> and it did. `goal` is now keyword-only with **no default**. A field present and empty is
+> worse than a field absent in a file whose whole claim is that it records what was asked for,
+> and Task 10's `upgrade` would have re-resolved an empty goal.
+>
+> **5. `_settings` silently drops a binding whose contract declares no such param.** Found by
+> a guard of this task's own that passed for the wrong reason. It is the orphan case one level
+> below Task 9's, recorded at the site, and **left to Task 9** rather than given a code here
+> that would collide with `MD0203`.
+>
+> `make verify` green: 506 fast, 2 slow, 15 guards.
+
 **Files:**
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py`
 - Modify: `packages/comeni-core/src/comeni_core/pipeline.py` (`from_digest`, serialisation)
@@ -1240,7 +1278,7 @@ git commit -m "feat(compiler): emit reads one Pipeline, and a resolved setting r
   (`MD0206`, `MD0207`, `MD0210`, `MD0211`, `MD0212`, `MD0213`, `MD0214`)
 - Test: `tests/test_pipeline_file.py` (create)
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_build_writes_pipeline_yml_and_not_the_three_it_replaces(tmp_path):
@@ -1293,21 +1331,21 @@ def test_a_newer_version_is_refused(tmp_path):
     assert code != 0 and "MD0207" in err
 ```
 
-- [ ] **Step 2: run and watch them fail**
+- [x] **Step 2: run and watch them fail**
 
-- [ ] **Step 3: implement `from_digest`**
+- [x] **Step 3: implement `from_digest`**
 
 Digest the model **with `emitted:` excluded** — otherwise it would contain its own digest.
 Same exclusion `ResolvedValue._drop_computed` makes for `review_level`, and for the same
 reason: a derived field inside the thing it describes does not round-trip.
 
-- [ ] **Step 4: write `pipeline.yml` in `_build`, delete the other two writes**
+- [x] **Step 4: write `pipeline.yml` in `_build`, delete the other two writes**
 
 Replace `cli.py`'s `(args.out / "pipeline.ir.json").write_text(...)` with a `pipeline.yml`
 write, and delete the `pipeline.bundle.json` and `mendel.lock.yml` writes from `_publish`.
 Emit from the reparsed file, not the in-memory object.
 
-- [ ] **Step 5: add the seven codes to `diagnostics.yml`**
+- [x] **Step 5: add the seven codes to `diagnostics.yml`**
 
 | code | `says` |
 |---|---|
@@ -1319,9 +1357,9 @@ Emit from the reparsed file, not the in-memory object.
 | `MD0213` | `pipeline.yml` changed since the Nextflow was generated from it |
 | `MD0214` | `main.nf` or `nextflow.config` was hand-edited since it was generated |
 
-- [ ] **Step 6: `make verify`**
+- [x] **Step 6: `make verify`**
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add packages/ tests/test_pipeline_file.py
@@ -1332,6 +1370,16 @@ git commit -m "feat(compiler): pipeline.yml is the artifact, and the run cannot 
 
 ## Task 7: the counts test proves a setting reaches a tool
 
+> **Done, 2026-08-09.** One correction: `test_featurecounts_declares_no_parameters` asserted
+> `params == []`, which is a stronger claim than its own argument supports — the argument is
+> about *strandedness*, which the module already translates from `meta`. It blocked exactly
+> what that argument needs, so it now asserts what was ever true: no strandedness param, and
+> every param carries a route.
+>
+> **Watched failing by reverting the route rather than the assertion.** With `params: []` back,
+> the run emits `featureCounts \` with an empty `${args}`, and the test fails
+> naming the whole command line. `uv run pytest -m slow`: 3 passed, ~40s.
+
 **Files:**
 - Modify: `tests/test_counts.py`
 - Modify: `registry/contracts/nf-core/subread-featurecounts.yml`
@@ -1340,12 +1388,12 @@ git commit -m "feat(compiler): pipeline.yml is the artifact, and the run cannot 
 wrong**, because the flag goes to the tool and not to the module — the same limit that makes
 `-stub-run` blind to a hollow input. Only `--gate test` sees it.
 
-- [ ] **Step 1: add one real setting whose effect is visible in output**
+- [x] **Step 1: add one real setting whose effect is visible in output**
 
 `featurecounts` gains a `min_mqs` param routed `via: ext`, `key: args`, template
 `-Q {value}`, default `0`. Read `main.nf` first to confirm `-Q` is accepted.
 
-- [ ] **Step 2: write the failing assertion**
+- [x] **Step 2: write the failing assertion**
 
 ```python
 @pytest.mark.slow
@@ -1357,12 +1405,12 @@ def test_a_resolved_setting_reaches_the_tool(run):
     assert "-Q 0" in scripts[0], scripts[0]
 ```
 
-- [ ] **Step 3: run it**
+- [x] **Step 3: run it**
 
 Run: `uv run pytest -m slow -v`
 Expected: PASS. If `-Q` is absent, the composition in Task 5 is not reaching the module.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add tests/test_counts.py registry/contracts/nf-core/subread-featurecounts.yml
@@ -1372,6 +1420,35 @@ git commit -m "test(counts): a resolved setting reaches the tool, on real data"
 ---
 
 ## Task 8: an override is a different act from a goal pin
+
+> **Done, 2026-08-09, and it found a dead mechanism.**
+>
+> **A human override on a *parameter* was discarded entirely, in silence.** Not a tier
+> problem — the answer never arrived. `ReplayResolver._still_applies` asks whether the
+> recorded choice is a member of the current candidate list, and a parameter's candidate list
+> is literally `[None]`, a placeholder because a `Param` has no declared domain until Plan 2
+> Task 11. So every override on a parameter failed that check, was counted as *newly asked*,
+> and the person's answer was thrown away. Measured before it was fixed: a record carrying
+> `human_override="illumina"` came back `chosen=None, resolved_by="flag-only"`. `resolve.py`
+> already documents this exact asymmetry from the other direction; the membership half now
+> stands down where there is no domain to be a member of, keyed on the placeholder so it turns
+> itself back on the day a parameter gets one.
+>
+> **The producer side was fixed too, though the plan named only `resolve.py`.** An overridden
+> module choice is the identical defect one field over, and `needs_review()` lists selections
+> as `<node> (module)`. `_choose` carries a `ValueSource` out and `RouteStep.selection_source`
+> carries it in. Fixing half a property is what these audits keep finding.
+>
+> **`Resolution.source` is how it travels.** `resolved_by` cannot carry it: that names the
+> implementation, and the implementation replaying a person's answer is still `replay`.
+>
+> The CLI prints `ANSWERED` above the `REVIEW` list, on the `OVERLAY` precedent — "what did
+> somebody already decide" and "what must I decide" are different questions.
+>
+> **Three revert probes, all biting**: the `needs_review` split, the replay fix, and
+> collapsing the override to tier 1 (the wrong fix, which fails two tests naming the tier).
+>
+> `make verify` green: 512 fast, 3 slow, 15 guards.
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/tiers.py` (`ValueSource.HUMAN`)
@@ -1383,7 +1460,7 @@ git commit -m "test(counts): a resolved setting reaches the tool, on real data"
 has legitimately removed the ambiguity"*. **That stays.** Editing `pipeline.yml` is a different
 act: resolution faced the ambiguity, flagged it tier 4, and a human answered it in the artifact.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_an_override_keeps_the_tier_it_displaced():
@@ -1409,11 +1486,11 @@ def test_an_answered_setting_leaves_needs_review_and_appears_in_overrides():
     assert "star_align.seq_platform" in ir.overrides()
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: `make verify`** — this touches `resolve.py`.
+- [x] **Step 3: `make verify`** — this touches `resolve.py`.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git commit -am "feat(resolver): an override answers an ambiguity without abolishing it"
@@ -1422,6 +1499,35 @@ git commit -am "feat(resolver): an override answers an ambiguity without abolish
 ---
 
 ## Task 9: replay tells stale from orphaned
+
+> **Done, 2026-08-09, with three corrections and one guard written after the fact.**
+>
+> **`orphaned` is derived from what the resolver was *asked*, not by diffing two pipelines.**
+> The plan sketched `orphaned_overrides(previous=…, fresh=…)`. `ReplayResolver` already knows
+> every key it faced, so the orphans are the complement — recorded overrides never asked
+> about. That is strictly better than a comparison, which enumerates the fields it knows about
+> and can therefore disagree with what resolution actually did. Root D, and A28 exactly.
+> It also covers a case the diff sketch missed: a step that still exists whose value stopped
+> being a question because a rule now covers it.
+>
+> **The class is `ReplayResolver`, not `ReplayingResolver`.** The plan's tests named a type
+> that does not exist.
+>
+> **`stale` gained a subset, `stale_overrides`.** Both are re-asked and both should be; only
+> one is worth interrupting somebody about. A resolver's recorded choice being reconsidered is
+> ordinary, and a person's answer being thrown away is not.
+>
+> **`MD0216` closes Task 6's deferred finding** — `_settings` dropping a binding whose contract
+> declares no such param. It refuses now. **And it shipped inert**: reverting the refusal broke
+> nothing, because no test covered it. The guard was written after the revert probe found that
+> out, which is A14's finding happening on the same day as A14's ledger row.
+>
+> Two pre-existing tests had to be corrected, both because they asserted the merge rather than
+> the property: `test_a_record_whose_candidates_changed_is_not_replayed` asserted `in
+> resolver.fresh`, and `test_upgrade.py`'s new helper appended a duplicate decision key, which
+> `ReplayResolver` discards first-wins — so the override it added did nothing at all.
+>
+> `make verify` green: 525 fast, 3 slow, 15 guards.
 
 **Files:**
 - Modify: `packages/mendel-resolver/src/mendel_resolver/replay.py`
@@ -1433,7 +1539,7 @@ a documented deliberate re-ask: *"replaying would assert a decision between opti
 longer exist — worse than asking again, because it would look decided."* What is wrong is that
 it vanishes into a `fresh` count with no statement that an override was discarded.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_a_stale_override_is_reported_and_re_asked():
@@ -1460,9 +1566,9 @@ def test_replay_emits_the_recorded_reason_verbatim():
     assert r.resolve(_matching_ambiguity()).reason == "rule matched: doi:10.1093/…"
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git commit -am "feat(resolver): a discarded override is reported, and an orphaned one refuses"
@@ -1471,6 +1577,44 @@ git commit -am "feat(resolver): a discarded override is reported, and an orphane
 ---
 
 ## Task 10: four verbs
+
+> **Done, 2026-08-09, and it retired more than the plan asked.**
+>
+> **`publish` takes no `--out`, and that is the shape of the verb.** It does not produce a new
+> pipeline; it certifies the one it is given — re-resolves, refuses if the directory has
+> diverged from its file, runs the gate, stamps the verdict into that `pipeline.yml`.
+> `upgrade` is the opposite and must never write in place. Giving them one flag with opposite
+> meanings is how somebody loses the evidence they meant to keep.
+>
+> **`pipeline.bundle.json` retires here, as Task 6 promised.** With it, `publish` stopped
+> being a second writer beside `build`: the directory is the artifact. `PublishBundle` the
+> *type* survives to Task 11, which is where it stops being door 4's payload.
+>
+> **`diff_ir` is deleted and `diff_pipeline` replaces it.** There is no previous IR to compare
+> against — `upgrade` reads a `pipeline.yml`. `ext_args` is deliberately not compared: it is a
+> contract field rather than a decision, `DRIFT` already reports it moving, and the digest
+> verdict is what catches its effect. Keeping an unused second comparison is root D's finding
+> waiting to happen, which is the same argument that made `verify` a flag rather than a verb.
+>
+> **The upgrade report moved *above* the write.** A refused upgrade must leave nothing behind
+> — A4's posture — and reporting after the write meant an orphaned override produced a
+> directory that looked upgraded and then said it was not. It is also what makes `--dry-run`
+> the same code path rather than a second one, since `_verdict` now compares against what
+> *would* be emitted, in memory.
+>
+> **`MD0213` refuses here, which is the half Task 6 deferred.** `emit` reports and cures;
+> `upgrade` and `publish` refuse, because both make statements about generated files and a
+> `main.nf` built from a different `pipeline.yml` makes those statements about nothing.
+> Answering a flag in the file therefore means `edit → mendel emit → mendel upgrade`, and the
+> test helper does exactly that rather than working around it.
+>
+> **`Lockfile.from_pipeline` reassembles what `mendel.lock.yml` used to be**, so
+> `drift_against` keeps working off the artifact.
+>
+> Four revert probes, all biting: `MD0202` silenced, `--dry-run` allowed to write, the
+> in-place refusal removed, and the divergence refusal removed.
+>
+> `make verify` green: 534 fast, 3 slow, 15 guards.
 
 **Files:**
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py`
@@ -1489,7 +1633,7 @@ mendel publish build/pipeline.yml
 weaker question, and two comparisons of "is this still what it says it is" is root D's finding
 waiting to happen.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_emit_needs_no_registry_and_no_network(tmp_path):
@@ -1518,11 +1662,11 @@ def test_dry_run_writes_nothing_and_reports_five_categories(tmp_path):
         assert word in err.lower()
 ```
 
-- [ ] **Step 2: run, watch fail, implement, run again**
+- [x] **Step 2: run, watch fail, implement, run again**
 
-- [ ] **Step 3: `make verify`** — this touches `cli.py`.
+- [x] **Step 3: `make verify`** — this touches `cli.py`.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git commit -am "feat(cli): emit, upgrade --out, and verify as upgrade --dry-run"
@@ -1531,6 +1675,40 @@ git commit -am "feat(cli): emit, upgrade --out, and verify as upgrade --dry-run"
 ---
 
 ## Task 11: `Pipeline` is door 4's payload
+
+> **Done, 2026-08-09, and the egress guard was not watching the door it was given.**
+>
+> **`_payload_types()` collected its roots from `vars(egress)`.** That was harmless while
+> every payload lived in `egress.py`. Moving the publication payload to
+> `comeni_core.pipeline` made it a hole: the guard found three doors out of four and
+> `Pipeline` — the door with no undo — crossed unchecked, with a full green run to say so.
+> The roots now come from `DOORS`, which is the declaration of what actually leaves, and
+> `test_every_door_is_walked_by_the_checks_below` is the guard that would have caught it.
+>
+> With the guard actually looking, it found **four bare `str` fields** on the new payload:
+> `Channel.expression`, `Channel.test_data`, `Why.from_layer`, `Why.displaced_layer`. The
+> first is `GroovyExpression`, which already existed for exactly this; the layer names become
+> `LayerName`, which `ResolvedValue` was already using; `test_data` needed a new mark.
+>
+> **The seventh free-text field arrived exactly where the plan predicted.** `Why.reason` is a
+> `Line`, so it reaches the set through the same door the four `reason` fields do. Listed
+> rather than exempted, because widening the boundary should mean editing a file that says
+> *these are all the ways data leaves*.
+>
+> **`frozen=True` came with `EgressPayload`**, so `gate` and `emitted` are stamped with
+> `model_copy` rather than assigned. That is the right shape for them anyway — both are
+> evidence about a finished pipeline — and `stamp()` returns the stamped copy so a caller
+> cannot keep using the unstamped one.
+>
+> **`MD0108` checks `prefix` as well as `args`.** Three of the ten vendored modules ignore
+> `task.ext.prefix` and all ten read `task.ext.args`, so the prefix half is what gives the
+> check a real negative. A check that can only pass is not a check.
+>
+> `test_pipeline_holds_no_registry` matched `RegistryProvenance` on its first run — the same
+> substring trap `test_pipeline_totality` hit on the same word in Task 4. Word boundaries now,
+> with a comment saying why rather than a quiet fix.
+>
+> Three revert probes, all biting. `make verify` green: 542 fast, 3 slow, 20 guards.
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/egress.py`
@@ -1545,7 +1723,7 @@ is a record, why `comeni-core` owns `Gate`, why a mapping is legal on `Registry`
 to name `Pipeline`.** A rationale citing a deleted type reads as authoritative and cannot be
 checked.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_publication_carries_a_pipeline():
@@ -1587,18 +1765,18 @@ def test_via_ext_args_on_a_module_that_ignores_it_is_refused():
     assert any(d.code == "MD0108" for d in diags)
 ```
 
-- [ ] **Step 2: rename `contract_id` → `where`**
+- [x] **Step 2: rename `contract_id` → `where`**
 
 Not `subject`: `marks.py` declares `Subject` and `DecisionRecord.subject` uses it for *the thing
 being decided*. A diagnostic's location is a different kind pointing at a different sort of
 thing, and reusing one mark for two is what root C exists to stop. `where` carries a document
 path — `steps[<id>].settings[<name>]`, `channels[<type_id>]`, `decisions[<key>]`.
 
-- [ ] **Step 3: run, watch fail, implement, run again**
+- [x] **Step 3: run, watch fail, implement, run again**
 
-- [ ] **Step 4: `make verify`**
+- [x] **Step 4: `make verify`**
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git commit -am "refactor(core): Pipeline is the publication payload, and PublishBundle retires"
@@ -1608,24 +1786,52 @@ git commit -am "refactor(core): Pipeline is the publication payload, and Publish
 
 ## Task 12: the documentation, and the `make verify` list
 
+> **Done, 2026-08-09. Plan 1.10 is complete.**
+>
+> `docs/reference/pipeline-schema.md` is new and is now the first thing `docs/README.md`
+> points at. Both code snippets in `docs/concepts/` were **run against a real
+> `build/pipeline.yml`** before being committed, rather than written to look right.
+>
+> **Three stale counts, not one.** The plan predicted `CLAUDE.md`'s invariant 14 saying "two"
+> where the guard held six. By the time Task 12 ran it said six and the guard held **seven**,
+> because Task 11 added `Why.reason`; and `docs/concepts/privacy-and-egress.md` said **four**,
+> which nothing had noticed. All three now say seven and say that the number has only ever
+> risen by refactor.
+>
+> **`CHANGELOG.md` contradicted itself inside one section.** A Plan 1.7 bullet under
+> `[Unreleased]` described `mendel publish` writing a bundle and a lockfile, which the new
+> entry three lines above says are gone. Corrected in place with a note saying where it
+> landed, rather than leaving one section asserting both.
+>
+> `emit.py` and `pipeline.py` join the `make verify` list, and the reason is stated: nothing
+> outside `test_counts.py` runs a tool, so a flag that stops reaching one is invisible to every
+> other test in the repository.
+>
+> `ARCHITECTURE.md` gains **§5a, where a resolved value goes** — the three emission sites, the
+> three checked properties, and why measured facts do not use `via:` at all. The five-stage
+> diagram gains `materialise`.
+>
+> `make verify` green: 542 fast, 3 slow, 20 guards. `make static` green. Every relative link
+> in the public docs resolves, checked mechanically.
+
 **Files:**
 - Create: `docs/reference/pipeline-schema.md`
 - Modify: `docs/reference/cli.md` (regenerate; correct `MD0100`'s `pipeline.ir.json` reference)
 - Modify: `docs/reference/goal-schema.md` (`goal:` is inert to `emit`)
 - Modify: `ARCHITECTURE.md`, `docs/README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
-- [ ] **Step 1: write `docs/reference/pipeline-schema.md`**
+- [x] **Step 1: write `docs/reference/pipeline-schema.md`**
 
 Every section of `pipeline.yml`, for a stranger. It is now the file a reader is most likely to
 open. Include the comment that `goal:` takes effect on `upgrade`, not on `emit`.
 
-- [ ] **Step 2: regenerate `cli.md` and fix `MD0100`'s row**
+- [x] **Step 2: regenerate `cli.md` and fix `MD0100`'s row**
 
 Run: `uv run python tools/generate_diagnostics_doc.py`
 `MD0100`'s prose says the contract is *"recorded in `pipeline.ir.json` as `unverified`"*. That
 file no longer exists; the fact moves to `registry.unverified` in `pipeline.yml`.
 
-- [ ] **Step 3: correct `CLAUDE.md`'s invariant 14**
+- [x] **Step 3: correct `CLAUDE.md`'s invariant 14**
 
 It says *"exactly two fields across the whole surface may hold free text"*. There are six, and
 1.9's A16 split is why — `reason` on `ResolvedValue` and on each of the three decision variants.
@@ -1633,19 +1839,19 @@ The invariant's *argument* is unchanged and still right; only the count is wrong
 them, and note that the number is held literally in `tests/test_egress.py` so widening it means
 editing a file that says these are all the ways data leaves.
 
-- [ ] **Step 4: add `emit.py` to CLAUDE.md's `make verify` list**
+- [x] **Step 4: add `emit.py` to CLAUDE.md's `make verify` list**
 
 The list names the files whose breakage `make check` cannot see. `tests/test_counts.py` is the
 only check that a setting reaches a tool, and rewriting `emit()`'s signature and its `ext.args`
 composition is precisely a change `make check` waves through.
 
-- [ ] **Step 5: update `ARCHITECTURE.md`'s settings surface**
+- [x] **Step 5: update `ARCHITECTURE.md`'s settings surface**
 
 The four-route description is superseded. One artifact, three emission sites, `via:` mandatory.
 
-- [ ] **Step 6: `make verify` and `make static`**
+- [x] **Step 6: `make verify` and `make static`**
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add docs/ ARCHITECTURE.md CLAUDE.md CHANGELOG.md
@@ -1662,7 +1868,7 @@ git commit -m "docs: pipeline.yml is the artifact a reader opens"
 `meta_key` routes nothing *and must not be flagged*, which is a constraint on Task 3's
 `MD0200` rather than work of its own. Verification table → distributed. Blast radius → all tasks.
 
-**Three gaps closed on 2026-08-07, before execution.** They are recorded because each was found
+**Three gaps closed on 2026-08-09, before execution.** They are recorded because each was found
 by reading the plan against the code rather than by executing it.
 
 - **The annotation walkers are extracted, not rewritten.** Task 4 originally said to write

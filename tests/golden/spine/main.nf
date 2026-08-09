@@ -9,9 +9,6 @@ nextflow.enable.dsl = 2
 include { TRIMGALORE } from './modules/nf-core/trimgalore/main'
 include { STAR_ALIGN } from './modules/nf-core/star/align/main'
 
-// tier 2 (none): contract default
-params.star_align_seq_platform = 'illumina'
-
 workflow {
     ch_annotation_gtf = Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName], gtf ] }
     ch_fastq_reads = ( params.input instanceof List ? Channel.of([ [id: 'test'], params.input.collect { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] } )

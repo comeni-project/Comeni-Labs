@@ -25,6 +25,17 @@ from comeni_core.profile import DataProfile
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 
+def _still_open(value: "ResolvedValue") -> bool:
+    """Does this still need a human, or did one already answer it?
+
+    `review_level` alone said "still needs a human" for a value a human had just supplied,
+    because the level is derived from the tier and an override deliberately keeps its tier.
+    """
+    return (
+        value.review_level is ReviewLevel.REQUIRED and value.source is not ValueSource.HUMAN
+    )
+
+
 class ResolvedValue(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -38,9 +49,10 @@ class ResolvedValue(BaseModel):
         ir.model_dump_json())` raised. Nothing noticed, because nothing read an IR back
         until now.
 
-        That matters beyond this file. `mendel upgrade` reads a `PublishBundle` off disk
-        (Plan 1.7) and the repair loop reads back an IR it sent (Plan 2); both would have
-        failed on a field this class computes for itself. Dropping it is right rather than
+        That matters beyond this file. `mendel upgrade` reads a published artifact off disk
+        (Plan 1.7, and a `pipeline.yml` since Plan 1.10) and the repair loop reads back an IR
+        it sent (Plan 2); both would have failed on a field this class computes for itself.
+        Dropping it is right rather than
         merely convenient — the stored value would be a duplicate of `review_level_for(tier)`
         and could disagree with it.
         """
@@ -211,24 +223,73 @@ class PipelineIR(BaseModel):
             f"{node.id}.{binding.name}"
             for node in self.nodes
             for binding in node.params
-            if binding.value.review_level is ReviewLevel.REQUIRED
+            if _still_open(binding.value)
         ]
         # A module choice carries a tier too, since `selection` landed. A tied producer
         # also emits a DecisionRecord, so this would mostly be a duplicate — except the
         # record is keyed on the ambiguity and this is keyed on the node, and a reviewer
         # reading "which modules need looking at" should not have to join the two.
         flagged += [
-            f"{node.id} (module)"
-            for node in self.nodes
-            if node.selection.review_level is ReviewLevel.REQUIRED
+            f"{node.id} (module)" for node in self.nodes if _still_open(node.selection)
         ]
+        answered = {key for key, _ in self._overrides()}
         flagged += [
             decision.key
             for decision in self.decisions
             if review_level_for(decision.tier) is ReviewLevel.REQUIRED
             and decision.key not in flagged
+            and decision.key not in answered
         ]
         return flagged
+
+    def overrides(self) -> list[str]:
+        """Tier-4 questions a **human** answered. What `needs_review()` stops listing.
+
+        A separate list, for the reason `overlay_reroutes()` is one: "what must I decide"
+        and "what did somebody already decide" are different questions, and folding the
+        second into the first teaches a reviewer to skim both.
+
+        Without this the count never reaches zero and the CLI says REVIEW for ever on a
+        question already settled — `lockfile.py` makes the same argument about a different
+        list, and it is the sharper one: **a list that cries wolf gets ignored**, so the
+        genuinely unanswered tier-4 beside it goes unread too.
+
+        The tier does *not* clear. An override is tier 4 that stayed tier 4, which is what
+        distinguishes it from a goal pin: see `ValueSource.HUMAN`. Invariant 6 says tier 4 is
+        always flagged; it does not say the flag can never be answered.
+        """
+        return [f"{key} = {value!r}" for key, value in self._overrides()]
+
+    def _overrides(self) -> list[tuple[str, object]]:
+        """Every human-answered value, keyed the way `needs_review()` keys it.
+
+        One computation, two callers, because the two disagreeing is exactly how a value
+        could be excused from review and never appear anywhere else.
+        """
+        found = [
+            (f"{node.id}.{binding.name}", binding.value.value)
+            for node in self.nodes
+            for binding in node.params
+            if binding.value.source is ValueSource.HUMAN
+        ]
+        found += [
+            (f"{node.id} (module)", node.contract_id)
+            for node in self.nodes
+            if node.selection.source is ValueSource.HUMAN
+        ]
+        # A decision key is `<node>.<subject>`, and a producer's subject is
+        # `producer:<type_id>` — so the record's key never equals the `(module)` string
+        # above. Both are listed: the record is what `upgrade` replays and the node is what
+        # a reviewer reads, and joining them by hand is what `needs_review()` exists to
+        # avoid. Deduplicated on the key, which is what makes the param case one entry.
+        seen = {key for key, _ in found}
+        found += [
+            (decision.key, decision.human_override)
+            for decision in self.decisions
+            if getattr(decision, "human_override", None) is not None
+            and decision.key not in seen
+        ]
+        return found
 
     def overlay_reroutes(self) -> list[str]:
         """Where an installed overlay changed what the layers below it would have done.

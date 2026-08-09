@@ -35,7 +35,7 @@ def resolve(
     # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
     # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry
     # that satisfies nothing was never looked up and never rejected — and a patient name
-    # and a filesystem path reached a `PublishBundle` as `type_id`, with a sentence of
+    # and a filesystem path reached the publication payload as `type_id`, with a sentence of
     # clinical notes as a `required_states` key.
     #
     # Keyword and **required**, like `measurements` and for the same reason A2 gives: an
@@ -83,6 +83,7 @@ def resolve(
             selection=ResolvedValue(
                 value=contract.id,
                 tier=step.selection_tier,
+                source=step.selection_source,
                 reason=step.selection_reason,
                 from_layer=step.from_layer,
                 displaced_layer=step.displaced_layer,
@@ -293,7 +294,21 @@ def _resolve_param(
             resolved_by=resolution.resolved_by,
         )
     )
-    return ResolvedValue(value=resolution.chosen, tier=Tier.AMBIGUOUS, reason=resolution.reason)
+    # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1
+    # would read as "no choice existed", which is what a *goal pin* means and is exactly
+    # what this did not happen. Resolution met a real ambiguity and could not settle it;
+    # somebody settled it afterwards, and a reviewer reading a curated pipeline needs to
+    # see that it contains a question rather than that it contains none.
+    #
+    # What clears is the review, not the tier: `needs_review()` skips a value whose source
+    # is HUMAN and `overrides()` lists it instead. Invariant 6 says tier 4 is always
+    # *flagged*; it does not say the flag can never be answered.
+    return ResolvedValue(
+        value=resolution.chosen,
+        tier=Tier.AMBIGUOUS,
+        source=resolution.source,
+        reason=resolution.reason,
+    )
 
 
 def _declared_types(goal: Goal, vocabulary: Vocabulary) -> None:

@@ -194,36 +194,44 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
     )
 
 
-def test_a2_upgrade_refuses_a_bundle_carrying_an_undeclared_measurement(tmp_path):
-    """The reachable route, end to end: a bundle is a *downloaded* artifact.
+def _published_pipeline(tmp_path, root, name="published"):
+    """Build and certify a pipeline, and hand back the file that names it.
 
-    `mendel upgrade` reads its goal from the bundle rather than from a file, so it was the
+    `publish` stopped writing an artifact of its own in Plan 1.10 Task 10 — the directory is
+    the artifact — so this is `build` then `publish`, and what comes back is `pipeline.yml`.
+    """
+    from mendel_compiler.cli import main
+
+    out = tmp_path / name
+    assert main(["build", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
+                 "--out", str(out), "--root", str(root)]) == 0
+    assert main(["publish", str(out / "pipeline.yml"), "--root", str(root)]) == 0
+    return out / "pipeline.yml"
+
+
+def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_path):
+    """The reachable route, end to end: a `pipeline.yml` is a *downloaded* artifact.
+
+    `mendel upgrade` reads its goal from that file rather than from a `--goal`, so it was the
     one verb reading something a stranger wrote and the one verb with no check. Reproduced
     in the audit as exit 0 with `sample_name: PATIENT-00417` in the emitted IR, and
     re-published verbatim by any following `mendel publish`.
     """
-    import json
-
+    import yaml
     from mendel_compiler.cli import main
 
     root = Path(__file__).parent.parent
-    published = tmp_path / "published"
-    assert main(
-        ["publish", "--goal", str(root / "examples" / "rnaseq-goal.yml"),
-         "--out", str(published), "--root", str(root)]
-    ) == 0
+    published = _published_pipeline(tmp_path, root)
 
-    bundle_path = published / "pipeline.bundle.json"
-    bundle = json.loads(bundle_path.read_text())
-    bundle["goal"]["profile"]["measurements"].append(
+    doc = yaml.safe_load(published.read_text())
+    doc["goal"]["profile"]["measurements"].append(
         {"measurement": "sample_name", "value": "PATIENT-00417", "source": "goal", "by": None}
     )
-    tainted = tmp_path / "tainted.bundle.json"
-    tainted.write_text(json.dumps(bundle))
+    published.write_text(yaml.safe_dump(doc, sort_keys=False))
 
     out = tmp_path / "upgraded"
-    assert main(["upgrade", "--bundle", str(tainted), "--out", str(out), "--root", str(root)]) != 0
-    assert not (out / "pipeline.ir.json").exists(), "a refused upgrade must emit nothing"
+    assert main(["upgrade", str(published), "--out", str(out), "--root", str(root)]) != 0
+    assert not (out / "pipeline.yml").exists(), "a refused upgrade must emit nothing"
 
 
 def test_a2_a_declared_profile_still_resolves():
@@ -292,15 +300,24 @@ def test_a9_an_ordinary_layer_still_digests(tmp_path):
     assert digest_of_directory(layer) == digest_of_directory(Path("registry"))
 
 
-def test_a11_the_emitter_never_compares_two_resolved_values():
-    """Belt and braces: the sort key is the name, so a tie cannot reach the value.
+def test_a11_a_duplicate_binding_is_refused_before_it_can_reach_a_compare():
+    """A11, one layer higher than it used to sit, and refusing instead of surviving.
 
-    Task 1 makes a tie unreachable by rejecting it at the contract. This asserts the
-    emitter would survive one anyway, because the next unorderable field on
-    `ResolvedValue` must not resurrect a crash that is already fixed.
+    Task 1 made a tie unreachable *at the contract*, and this asserted the emitter would
+    survive one anyway — because the next unorderable field on `ResolvedValue` must not
+    resurrect a crash that is already fixed. A duplicate binding stayed representable, since
+    an IR is deserialised from a bundle and `set_param` appends.
+
+    Plan 1.10's `MD0212` closes it properly: two settings with one name cannot exist on a
+    `Step` at all, so there is nothing left for the emitter to compare. **This test failed for
+    real when that validator landed** — it constructs exactly the duplicate the validator now
+    refuses, which is the guard being watched failing rather than argued about.
+
+    Refusing beats surviving here, and by more than tidiness: `ext.args` composition sorts by
+    name and *joins*, so two settings called `seq_platform` were never going to be a crash.
+    They were going to be two fragments concatenated into one flag string, silently.
     """
     from comeni_core.ir import IRNode, PipelineIR, ResolvedValue, Tier
-    from mendel_compiler.emit import emit
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -314,9 +331,8 @@ def test_a11_the_emitter_never_compares_two_resolved_values():
     node.set_param(name, ResolvedValue(value=1, tier=Tier.CONVENTION, reason="a"))
     node.set_param(name, ResolvedValue(value=2, tier=Tier.CONVENTION, reason="b"))
 
-    # An IR is deserialised from a bundle, so a duplicate binding stays *representable*
-    # even once a contract cannot declare one. It must not reach an unorderable compare.
-    emit(PipelineIR(nodes=[node]), loaded.registry, loaded.vocabulary, loaded.measurements)
+    with pytest.raises(ValidationError, match="MD0212"):
+        _pipe(PipelineIR(nodes=[node]), loaded)
 
 
 def _stacked(tmp_path):
@@ -495,7 +511,7 @@ def test_a6_the_egress_guard_knows_mapping_and_bytes():
     """A6 — `Mapping` is a superclass of `dict`, so `issubclass(origin, dict)` missed it.
 
     The standing version of the reproduction. With those two shapes on the real
-    `PublishBundle` the guard reported 7 passed: `Mapping[MeasurementId, ParamValue]` is
+    the publication payload the guard reported 7 passed: `Mapping[MeasurementId, ParamValue]` is
     an ordinary dict at runtime with arbitrary keys — the `{"patient_id": ...}` case the
     mapping rule's own docstring forbids — and `bytes` is not `str`, not a mapping, not
     `Any` and carries no marker, so nothing in the file could see it.
@@ -550,7 +566,7 @@ def test_a3_a_path_shaped_parameter_is_refused(value):
     """A3 — `human_override` is the slot for a human's answer and was an open string.
 
     Reproduced on the unmodified tree with no monkeypatching: a patient path validated
-    into a `DecisionRecord` and from there into a `PublishBundle`, the door with no undo.
+    into a `DecisionRecord` and from there through door 4, the one with no undo.
     """
     from comeni_core.decision import ParamDecision
 
@@ -631,7 +647,7 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
 
 
 def test_a4_gate_is_one_class_in_two_places():
-    """`Gate` moves to comeni-core so `PublishBundle` can name one. Not a copy.
+    """`Gate` moves to comeni-core so the publication payload can name one. Not a copy.
 
     Same move `Goal` and `DataProfile` made, with the same shim: `comeni-core` must not
     depend on the compiler, and the *command lines* stay in the compiler because those are
@@ -644,30 +660,30 @@ def test_a4_gate_is_one_class_in_two_places():
     assert [g.value for g in CoreGate] == ["lint", "preview", "stub", "test"]
 
 
-def test_a4_a_bundle_records_which_gate_it_passed():
+def test_a4_the_artifact_records_which_gate_it_passed():
     """A4 — only `--gate test` sees a contract pointing channels at the wrong inputs.
 
     nf-core stubs never read their inputs, so conformance, `nextflow lint` and `-stub-run`
     all pass a mis-wired pipeline. Requiring `--gate test` to publish was rejected as a
     floor (minutes, Docker and network per publish); recording what ran lets a curator
-    refuse a bundle that never ran the only gate that checks wiring. `PipelineIR.unverified`
-    set the precedent.
+    refuse a pipeline that never ran the only gate that checks wiring. `PipelineIR.unverified`
+    set the precedent. The field moved from `PublishBundle` to `Pipeline` with the door in
+    Plan 1.10 Task 11; the claim did not move at all.
     """
-    from comeni_core.egress import PublishBundle
     from comeni_core.gates import Gate
-    from comeni_core.goal import Goal
-    from comeni_core.ir import PipelineIR
+    from comeni_core.pipeline import Pipeline
 
-    assert PublishBundle(goal=Goal(), ir=PipelineIR()).gate is None
-    passed = PublishBundle(goal=Goal(), ir=PipelineIR(), gate=Gate.TEST)
+    assert Pipeline().gate is None
+    passed = Pipeline(gate=Gate.TEST)
     assert passed.gate is Gate.TEST
     # `None` must be distinguishable from "passed lint" — an absent gate is not a weak
     # gate, it is no evidence at all, and a curator reads the two differently.
     assert json.loads(passed.model_dump_json())["gate"] == "test"
-    assert json.loads(PublishBundle(goal=Goal(), ir=PipelineIR()).model_dump_json())["gate"] is None
+    assert json.loads(Pipeline().model_dump_json())["gate"] is None
 
 
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
+    import yaml
     from mendel_compiler import cli
     from mendel_compiler.gates import GateResult
 
@@ -676,20 +692,25 @@ def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch)
     )
     out = tmp_path / "p"
     assert cli.main([
-        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
-        "--out", str(out), "--root", ".", "--gate", "lint",
+        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".",
     ]) == 0
-    assert json.loads((out / "pipeline.bundle.json").read_text())["gate"] == "lint"
+    assert cli.main([
+        "publish", str(out / "pipeline.yml"), "--root", ".", "--gate", "lint",
+    ]) == 0
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
 
 
 def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
-    """Publication is the door with no undo, so a bundle must not survive a failed gate.
+    """Publication is the door with no undo, so a *verdict* must not survive a failed gate.
 
-    The bundle was written *before* the gate ran, so `publish --gate test` left a bundle on
-    disk and returned 1 — an artifact claiming to be a pipeline that had just failed the
-    only gate that checks wiring. Same posture `mendel upgrade` already takes: a refused
-    run emits nothing.
+    The bundle was written before the gate ran, so `publish --gate test` left a bundle on
+    disk and returned 1 — an artifact claiming to be a pipeline that had just failed the only
+    gate that checks wiring. The bundle is gone since Plan 1.10 and the claim survives it: a
+    failed gate stamps `gate: null`, which is no evidence, and no evidence must never read as
+    a gate that passed.
     """
+    import yaml
     from mendel_compiler import cli
     from mendel_compiler.gates import GateResult
 
@@ -698,11 +719,16 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     )
     out = tmp_path / "p"
     assert cli.main([
-        "publish", "--goal", str(Path("examples/rnaseq-goal.yml")),
-        "--out", str(out), "--root", ".", "--gate", "lint",
+        "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
+        "--out", str(out), "--root", ".",
+    ]) == 0
+    assert cli.main([
+        "publish", str(out / "pipeline.yml"), "--root", ".", "--gate", "lint",
     ]) == 1
-    assert not (out / "pipeline.bundle.json").exists()
-    assert not (out / "mendel.lock.yml").exists()
+    # The claim moved with the artifact. There is no bundle to be absent any more, so what
+    # must not survive a failed gate is the *verdict*: `gate: null` is no evidence, and it
+    # must never read as a gate that passed.
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] is None
 
 
 def _overlay_measurement(lab: Path) -> None:
@@ -1073,40 +1099,130 @@ def test_a27_a_gate_message_may_still_be_many_lines():
     assert "\n" in failure.tool_message
 
 
-def test_a27_the_emitter_still_produces_a_comment_when_the_type_is_bypassed():
+def test_a27_no_resolver_prose_reaches_main_nf_at_all():
     """Defence in depth, and the reason it is not redundant with `Line`.
 
-    An IR is deserialised from a bundle a stranger wrote, and `model_construct` skips
-    validation entirely. The boundary must not depend on the emitter being careful and the
-    emitter must not depend on its input being clean — so a `reason` that reaches the
-    template with a newline in it comes out as a comment on every line, not as Groovy.
+    An IR is deserialised from a bundle a stranger wrote and `model_construct` skips
+    validation entirely, so the emitter must not depend on its input being clean.
 
-    That argument does not apply to identifiers: there is no escaping option at a
-    declaration site, which is why `nf_process` is validated and this is rendered.
+    Two rewrites, both forced and both by a guard catching this test rather than its subject.
+    It asserted that a multi-line `reason` came out as a comment on *every* line rather than
+    as Groovy; Plan 1.10 removed the comment, because reasons live in `pipeline.yml` now, so
+    the assertion became the stronger one that replaced it. Then `MD0216` caught the fixture:
+    it hung the smuggled value on a `samtools/sort` binding, and that contract declares
+    `params: []`, so the value was dropped before anything looked at it. **The test was
+    asserting nothing, twice over.**
+
+    It now bypasses every type on the way in, which is what "the emitter does not trust its
+    input" actually requires — materialisation refuses this input, as the test below asserts.
+    """
+    from comeni_core.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.routes import Via
+    from comeni_core.tiers import ValueSource
+    from mendel_compiler.emit import emit
+
+    why = Why.model_construct(
+        tier=Tier.CONVENTION,
+        source=ValueSource.RESOLVER,
+        reason="looks fine\nprintln 'OWNED'",
+    )
+    pipeline = Pipeline.model_construct(
+        version=1,
+        steps=[
+            Step.model_construct(
+                id="samtools_sort",
+                module=None,
+                process="SAMTOOLS_SORT",
+                include="modules/nf-core/samtools/sort/main",
+                why=why,
+                ext_args="",
+                inputs=[],
+                call=[],
+                settings=[
+                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
+                ],
+            )
+        ],
+        channels=[],
+    )
+
+    text = emit(pipeline)
+    assert "println 'OWNED'" not in text, text
+    assert "looks fine" not in text, "no resolver prose reaches main.nf any more"
+
+
+def test_a27_prose_reaching_the_pipeline_file_is_refused_at_materialisation():
+    """A27 at its new address, which is the other half of Task 5's note.
+
+    Reasons no longer reach `main.nf`; they reach `pipeline.yml`, verbatim and by design —
+    that file exists to say *why*. So the surface moved rather than closed, and `Why.reason`
+    is a `Line` for the same argument `ResolvedValue.reason` is: a value smuggled past one
+    type must not be carried by the next one without complaint.
     """
     from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
-    from mendel_compiler.emit import emit
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
-    contract_id = "nf-core/samtools/sort@1.21.0"
+    # A contract that actually declares a param. `samtools/sort` declares none, so a binding
+    # on it is dropped before `Why` ever sees the prose — which is how the first draft of this
+    # test passed against a materialisation that carried the newline happily.
+    contract = next(c for c in loaded.registry.all() if c.params)
     smuggled = ResolvedValue.model_construct(
-        value=1,
+        value="illumina",
         tier=Tier.CONVENTION,
-        reason="looks fine\nprintln 'OWNED'",
+        reason="looks fine\ngate: test",
         source=ResolvedValue.model_fields["source"].default,
     )
     node = IRNode(
-        id="samtools_sort",
-        contract_id=contract_id,
-        selection=ResolvedValue(value=contract_id, tier=Tier.STRUCTURAL, reason="only one"),
-        params=[ParamBinding(name="threads", value=smuggled)],
+        id=contract.nf_process.lower(),
+        contract_id=contract.id,
+        selection=ResolvedValue(value=contract.id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[ParamBinding(name=contract.params[0].name, value=smuggled)],
     )
+    with pytest.raises(ValidationError):
+        _pipe(PipelineIR(nodes=[node]), loaded)
 
-    text = emit(PipelineIR(nodes=[node]), loaded.registry, loaded.vocabulary, loaded.measurements)
 
-    smuggled_lines = [line for line in text.splitlines() if "println 'OWNED'" in line]
-    assert smuggled_lines == ["// println 'OWNED'"], text
+def test_a27_prose_cannot_forge_a_key_even_with_every_type_bypassed():
+    """Defence in depth, and the reason it is not redundant with the test above.
+
+    Same argument as the `main.nf` version: the boundary must not depend on the writer being
+    careful, and the writer must not depend on its input being clean. Different grammar,
+    though — a `reason` that closed its own scalar and opened a key would rewrite the document
+    that documents the pipeline, and **`gate:` is in that document**: forging a passed gate is
+    forging the evidence a curator reads.
+
+    `yaml.safe_dump` makes that structurally impossible, which is exactly what would have been
+    said about `nextflow.config` right up until somebody assembled it with f-strings. A27 had
+    two surfaces for that reason. This asserts the property instead of assuming the library.
+    """
+    import yaml as _yaml
+    from comeni_core.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.routes import Via
+    from comeni_core.tiers import ValueSource
+    from mendel_compiler import pipeline_file
+
+    forged = "looks fine\ngate: test\nsteps: []"
+    why = Why.model_construct(tier=Tier.CONVENTION, source=ValueSource.RESOLVER, reason=forged)
+    pipeline = Pipeline.model_construct(
+        version=1,
+        steps=[
+            Step.model_construct(
+                id="samtools_sort",
+                module=None,
+                process="SAMTOOLS_SORT",
+                include="modules/nf-core/samtools/sort/main",
+                why=why,
+                settings=[
+                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
+                ],
+            )
+        ],
+    )
+    reparsed = _yaml.safe_load(pipeline_file.dump(pipeline))
+    assert reparsed["gate"] is None, "prose forged the gate verdict"
+    assert len(reparsed["steps"]) == 1, "prose rewrote the step list"
+    assert reparsed["steps"][0]["why"]["reason"] == forged, "and it survives verbatim"
 
 
 def test_a27_a_config_process_block_cannot_be_broken_out_of():
@@ -1129,7 +1245,7 @@ def test_a29_a_goal_type_id_must_name_a_declared_type():
     `Annotated[str, "type-id"]` says somebody named this; it does not say the name is of a
     declared type. `router._have_satisfies` only *compares*, so a `have` entry that
     satisfies nothing was never looked up — and a patient name with a filesystem path
-    reached a `PublishBundle` as a `type_id`.
+    reached the publication payload as a `type_id`.
 
     Closing it is a side effect of doing the obvious thing: an undeclared type in a goal
     was already a user error worth a clear message, and nothing had ever asked.
@@ -1212,23 +1328,21 @@ def test_a29_an_undeclared_state_is_refused_too():
         )
 
 
-def test_a29_upgrade_refuses_a_bundle_carrying_an_undeclared_type(tmp_path):
-    """The reachable route: a bundle is a file a *stranger* wrote.
+def test_a29_upgrade_refuses_a_pipeline_carrying_an_undeclared_type(tmp_path):
+    """The reachable route: a `pipeline.yml` is a file a *stranger* wrote.
 
     `mendel build` reads a goal the operator wrote; `mendel upgrade` reads one out of a
     downloaded artifact. That asymmetry is exactly how A2 happened, one field over.
     """
+    import yaml
     from mendel_compiler.cli import main
 
-    out = tmp_path / "published"
-    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
-                 "--root", "."]) == 2 or True
-    bundle_path = out / "pipeline.bundle.json"
-    bundle = json.loads(bundle_path.read_text())
-    bundle["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
-    bundle_path.write_text(json.dumps(bundle))
+    published = _published_pipeline(tmp_path, Path("."))
+    doc = yaml.safe_load(published.read_text())
+    doc["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
+    published.write_text(yaml.safe_dump(doc, sort_keys=False))
 
-    assert main(["upgrade", "--bundle", str(bundle_path), "--out", str(tmp_path / "up"),
+    assert main(["upgrade", str(published), "--out", str(tmp_path / "up"),
                  "--root", "."]) == 2
 
 
@@ -1269,20 +1383,23 @@ def test_a16_a_decision_declares_its_kind():
     assert ParamDecision(**common, chosen=None).kind is DecisionKind.PARAM
 
 
-def test_a16_a_bundle_round_trips_through_the_union(tmp_path):
-    """`kind` reaches the artifact, so a published bundle must read back as itself."""
-    from comeni_core.egress import PublishBundle
-    from mendel_compiler.cli import main
+def test_a16_the_artifact_round_trips_through_the_union(tmp_path):
+    """`kind` reaches the artifact, so a published pipeline must read back as itself.
 
-    out = tmp_path / "p"
-    assert main(["publish", "--goal", "examples/rnaseq-goal.yml", "--out", str(out),
-                 "--root", "."]) == 0
-    text = (out / "pipeline.bundle.json").read_text()
+    The subject moved from `pipeline.bundle.json` to `pipeline.yml` and the property got
+    stronger on the way: `build` now performs this round trip on **every** run and refuses
+    with `MD0206` if it fails, so the discriminated union is exercised continuously rather
+    than in this test alone.
+    """
+    from mendel_compiler import pipeline_file
 
-    bundle = PublishBundle.model_validate_json(text)
-    assert bundle.decisions, "the spine has a tier-4 parameter, so there is one to read"
-    assert bundle.model_dump_json(indent=2) == text
-    assert all(record.kind for record in bundle.decisions)
+    published = _published_pipeline(tmp_path, Path("."))
+    text = published.read_text()
+
+    pipeline = pipeline_file.load(published)
+    assert pipeline.decisions, "the spine has a tier-4 parameter, so there is one to read"
+    assert all(record.kind for record in pipeline.decisions)
+    assert pipeline_file.dump(pipeline) == text, "byte-identical, not merely equivalent"
 
 
 def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
@@ -1443,3 +1560,223 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
         assert not any(isinstance(m, Mark) for m in invented.__metadata__), (
             f"{invented} must not read as declared"
         )
+
+
+def _pipe(ir, loaded):
+    """Materialise an IR for the emitter.
+
+    `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
+    registry, vocabulary and measurements now lives on the `Pipeline`.
+
+    `goal` is keyword-only and required since Task 6. An empty one is honest here: these
+    fixtures start from an IR and never had a goal to record.
+    """
+    from comeni_core.goal import Goal
+    from comeni_core.pipeline import Pipeline
+
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
+
+
+# --- Plan 1.10 Task 8: an override is a different act from a goal pin -----------------
+#
+# Issue #10's tail. Answering a tier-4 parameter must clear the flag without pretending the
+# question was never asked — and, as it turned out, without the answer being thrown away.
+
+
+def _override_record(value="illumina"):
+    from comeni_core.decision import ParamDecision
+
+    return ParamDecision(
+        key="star_align.seq_platform",
+        subject="seq_platform",
+        candidates=[None],
+        chosen=None,
+        human_override=value,
+        reason="our sequencer",
+        resolved_by="human",
+    )
+
+
+def _loaded():
+    from mendel_resolver import layers as layers_mod
+
+    return layers_mod.load("registry")
+
+
+def _resolved(resolver=None, mutate=None):
+    """The shipped goal, resolved. `mutate` edits the raw mapping before validation."""
+    from comeni_core import yaml_strict
+    from mendel_resolver.goal import Goal
+    from mendel_resolver.resolve import resolve
+
+    loaded = _loaded()
+    raw = yaml_strict.load(Path("examples/rnaseq-goal.yml"))
+    if mutate is not None:
+        mutate(raw)
+    return resolve(
+        Goal.model_validate(raw),
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+        resolver=resolver,
+    )
+
+
+def _ir_with_override(value="illumina"):
+    from mendel_resolver.replay import ReplayResolver
+
+    return _resolved(resolver=ReplayResolver([_override_record(value)]))
+
+
+def _binding(ir, name):
+    return next(b.value for n in ir.nodes for b in n.params if b.name == name)
+
+
+def test_a_human_override_on_a_parameter_is_replayed_at_all():
+    """It was not, and nothing said so. Found while writing the test below.
+
+    A parameter's candidate list is literally `[None]` — a placeholder, because a `Param` has
+    no declared legal values until Plan 2 Task 11 — so `_still_applies` asked whether the
+    human's answer was a member of `[None]`, and it never was. **Every** override on a
+    parameter was discarded, counted as newly asked, and the recorded answer thrown away.
+
+    That is issue #10's shape exactly: a mechanism that runs, records, and changes nothing.
+    """
+    from comeni_core.decision import ParamAsked
+    from mendel_resolver.replay import ReplayResolver
+
+    resolver = ReplayResolver([_override_record()])
+    resolution = resolver.resolve(
+        ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None])
+    )
+    assert resolution.chosen == "illumina", "the human's answer must be the answer"
+    assert resolver.replayed == ["star_align.seq_platform"]
+    assert resolver.fresh == [], "an answered question is not a new one"
+
+
+def test_an_override_keeps_the_tier_it_displaced():
+    """Collapsing it to tier 1 would say "no choice existed", which is what a *goal pin*
+    means and is precisely what did not happen here. Resolution met a real ambiguity and
+    could not settle it; a person settled it afterwards, and a reviewer reading a curated
+    pipeline needs to see that it contains a question rather than that it contains none."""
+    from comeni_core.tiers import ValueSource
+
+    value = _binding(_ir_with_override(), "seq_platform")
+    assert value.value == "illumina"
+    assert value.tier is Tier.AMBIGUOUS
+    assert value.source is ValueSource.HUMAN
+
+
+def test_a_goal_pin_is_still_tier_one_and_still_says_goal():
+    """The regression guard for the split. `ValueSource`'s docstring argues that a
+    goal-pinned param is legitimately tier 1 — the user removed the ambiguity before
+    anything looked at it — and that argument stays true."""
+    from comeni_core.tiers import ValueSource
+
+    def pin(raw):
+        raw["constraints"] = {"params": [{"name": "seq_platform", "value": "illumina"}]}
+
+    ir = _resolved(mutate=pin)
+    value = _binding(ir, "seq_platform")
+    assert value.tier is Tier.STRUCTURAL
+    assert value.source is ValueSource.GOAL
+    assert ir.overrides() == [], "a pin is not an override; the two must not merge"
+
+
+def test_an_answered_setting_leaves_needs_review_and_appears_in_overrides():
+    """Otherwise the count never reaches zero and the CLI says REVIEW for ever on a question
+    already answered. `lockfile.py` makes this argument about a different list and it is the
+    sharper one: a list that cries wolf gets ignored, so the genuinely unanswered tier-4
+    beside it goes unread too."""
+    ir = _ir_with_override()
+    assert "star_align.seq_platform" not in ir.needs_review()
+    assert any("star_align.seq_platform" in item for item in ir.overrides())
+
+
+def test_an_unanswered_tier_four_still_needs_review():
+    """The other half, and the one that matters most: clearing the flag must depend on
+    somebody having answered, not on the machinery having run."""
+    ir = _resolved()
+    assert "star_align.seq_platform" in ir.needs_review()
+    assert ir.overrides() == []
+
+
+def test_an_override_reaches_the_pipeline_file_as_source_human():
+    """The artifact is where a reviewer meets this, so it has to survive materialisation.
+
+    `Why.source` already carried a `ValueSource`; what changed is that there is now a value
+    for it to carry. Without this the file would say `source: resolver` beside a value no
+    resolver chose."""
+    from comeni_core.tiers import ValueSource
+
+    pipeline = _pipe(_ir_with_override(), _loaded())
+    step = next(s for s in pipeline.steps if s.id == "star_align")
+    setting = next(s for s in step.settings if s.name == "seq_platform")
+    assert setting.value == "illumina"
+    assert setting.why.source is ValueSource.HUMAN
+    assert setting.why.tier is Tier.AMBIGUOUS
+
+
+def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
+    """MD0216, and it exists because two A27 tests passed for the wrong reason.
+
+    Both hung a smuggled value on a `nf-core/samtools/sort` binding, and that contract
+    declares `params: []` — so `_settings` dropped the binding before anything looked at it,
+    and neither test was asserting what its name said.
+
+    The drop itself is the defect: a value resolution recorded, absent from the artifact that
+    claims to record every value, with nothing said. It is the orphan case one level below
+    `MD0203`, and it refuses for the same reason that one does.
+
+    Resolution cannot produce this — it sets parameters *from* `contract.params` — so the
+    input is a deserialised or hand-built IR, which is exactly the input `Pipeline.of` must
+    not trust.
+
+    **This test exists because reverting the refusal broke nothing.** The rule shipped first
+    and the guard was written after a revert probe found it inert, which is A14's finding
+    happening to the person who had just written A14's ledger row.
+    """
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    contract_id = "nf-core/samtools/sort@1.21.0"
+    assert loaded.registry.get(contract_id).params == [], "the fixture needs a param-less one"
+
+    node = IRNode(
+        id="samtools_sort",
+        contract_id=contract_id,
+        selection=ResolvedValue(value=contract_id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[
+            ParamBinding(
+                name="threads",
+                value=ResolvedValue(value=4, tier=Tier.CONVENTION, reason="a default"),
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="MD0216"):
+        _pipe(PipelineIR(nodes=[node]), loaded)
+
+
+def test_a_binding_the_contract_does_declare_is_carried():
+    """The regression guard for the refusal above: it must depend on the param being absent,
+    not on a binding existing at all."""
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    contract = next(c for c in loaded.registry.all() if c.params)
+    node = IRNode(
+        id=contract.nf_process.lower(),
+        contract_id=contract.id,
+        selection=ResolvedValue(value=contract.id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[
+            ParamBinding(
+                name=contract.params[0].name,
+                value=ResolvedValue(value="illumina", tier=Tier.CONVENTION, reason="d"),
+            )
+        ],
+    )
+    pipeline = _pipe(PipelineIR(nodes=[node]), loaded)
+    assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]

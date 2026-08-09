@@ -48,7 +48,9 @@ class Registry(BaseModel):
     Here rather than on `ModuleContract` on purpose: a contract is content-addressed
     (audit A10), and a field recording where it was found would make its digest depend on
     the machine that read it — reopening A10 sideways. A `Registry` is never reachable
-    from `PublishBundle`, so a mapping is legal here in a way it is not on the IR.
+    from any egress payload, so a mapping is legal here in a way it is not on the IR.
+    `Pipeline.of()` takes a `Registry` as an *argument* and keeps none of it, which is what
+    keeps that true now that the artifact itself crosses door 4.
     """
 
     layer_order: list[LayerName] = []

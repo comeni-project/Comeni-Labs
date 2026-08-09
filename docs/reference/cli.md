@@ -40,8 +40,16 @@ Writes:
 |---|---|
 | `main.nf` | the Nextflow DSL2 workflow |
 | `nextflow.config` | every input parameter declared `null`, plus `docker`, `singularity` and `stub_data` profiles |
-| `pipeline.ir.json` | the full intermediate representation — nodes, edges, tiers, decision records |
+| `pipeline.yml` | **the pipeline** — every step, setting, decision and provenance. See [pipeline-schema.md](pipeline-schema.md) |
 | `modules/` | the vendored module tree, copied from `<root>/vendor/modules` if present |
+
+`pipeline.yml` replaced `pipeline.ir.json`, `mendel.lock.yml` and a publish bundle. Read that
+one file to answer "what settings does this pipeline use, and why".
+
+`build` writes it, reads it back, and emits the Nextflow **from the copy it read** — so the
+round trip is exercised on every build rather than asserted once, and a field that does not
+survive YAML is a refused build (`MD0206`) instead of a file that quietly means less than it
+says.
 
 Prints to stderr:
 
@@ -50,7 +58,8 @@ Prints to stderr:
   REVIEW  star_align.seq_platform
 ```
 
-Plus a `SHADOW` line per contract displaced by a higher layer.
+Plus an `OVERLAY` line per declaration displaced by a higher layer, and an `ANSWERED` line
+per tier-4 question a human has already settled.
 
 ## `mendel profile`
 
@@ -103,9 +112,13 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 `mendel explain MD0101` for the long form.
 ```
 
+<!-- BEGIN GENERATED DIAGNOSTICS -->
+
+#### A contract disagrees with its module
+
 | Code | Says |
 |---|---|
-| `MD0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified` |
+| `MD0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified` |
 | `MD0101` | `nf_process` is not the process the module declares |
 | `MD0102` | `nf_inputs` declares a different number of channels than the process takes |
 | `MD0103` | an `{empty: N}` placeholder is the wrong tuple width |
@@ -113,73 +126,137 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0105` | a `produces[].name` is not one of the module's `emit:` labels |
 | `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
 | `MD0107` | `container` has drifted from the module's directive |
+| `MD0108` | a setting routes to an `ext` key this module never reads |
+
+#### The pipeline file — a setting, an override, or the format
+
+| Code | Says |
+|---|---|
+| `MD0200` | a setting declares no `via:`, so nothing would carry its value |
+| `MD0201` | a resolved value is outside the substitutable character class |
+| `MD0202` | a replayed value is frozen against a contract that has since been edited |
+| `MD0203` | an override answers a question this re-resolution never asks |
+| `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
+| `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
+| `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
+| `MD0207` | `version:` is newer than this Mendel understands |
+| `MD0209` | `via: directive` names something Nextflow silently ignores |
+| `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
+| `MD0211` | `channels[].params` disagrees with what its `expression` references |
+| `MD0212` | two steps share an `id`, or two settings on one step share a `name` |
+| `MD0213` | `pipeline.yml` has changed since the Nextflow was generated from it |
+| `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
+| `MD0215` | an input names neither `source` nor `channel`, or names both |
+| `MD0216` | a resolved binding names a parameter its contract does not declare |
+
+<!-- END GENERATED DIAGNOSTICS -->
 
 Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's
 deterministic core** — the resolver, the compiler, contracts and the pipeline file. Bands of one
 hundred group by concern: `MD01xx` is conformance. A code is never renumbered once published, so a
 full band overflows into a new one rather than shifting.
 
-**The prefix arrived on 2026-08-07**; these eight were `M0100`–`M0107` before that. Working notes
+**The prefix arrived on 2026-08-09**; these eight were `M0100`–`M0107` before that. Working notes
 under `docs/internal/` are append-only and were correct on their date, so entries written earlier
 still use the old spelling.
 
 `MD0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
-directory, which is legitimate — the contract is marked `unverified` on the IR so a publish
-bundle carries which claims went unchecked, and a curator may decline to curate one.
+directory, which is legitimate — the contract is listed under `registry.unverified` in
+`pipeline.yml`, so a shared pipeline carries which claims went unchecked and a curator may
+decline to curate one.
+
+## `mendel emit`
+
+```bash
+uv run mendel emit build/pipeline.yml --out build/
+```
+
+Rebuilds `main.nf` and `nextflow.config` from the pipeline file. **No registry, no network.**
+
+That is what materialising the pipeline was for: a laboratory can archive a validated pipeline
+and regenerate its Nextflow years later without the registry it was built against — the part
+that resolves differently as it changes.
+
+This is the verb you run after editing `pipeline.yml`. It reports `MD0213` when the file has
+moved since the Nextflow was generated, and then cures it by regenerating and restamping.
+
+It refuses in two cases. `MD0210` when `modules/` is absent, because the emitted `include`
+paths would point at nothing and the workflow would die at launch rather than here. And
+`MD0214` when `main.nf` or `nextflow.config` was edited by hand, because regenerating would
+overwrite that in silence — the message names `pipeline.yml`, since somebody editing the
+workflow was trying to change the pipeline and that is the file which does it. To discard a
+hand edit instead, delete the file and re-emit.
 
 ## `mendel publish`
 
 ```bash
-uv run mendel publish --goal examples/rnaseq-goal.yml --out build/
+uv run mendel publish build/pipeline.yml --gate test
 ```
 
-Everything `build` writes, plus two files that make the pipeline shareable:
+**The directory is the artifact**, so this writes no file of its own. It re-resolves the
+pipeline, refuses if the directory has diverged from its file, runs the gate you ask for, and
+stamps the verdict into `pipeline.yml`. What you hand somebody is `pipeline.yml` plus
+`modules/`, which is what they had to be handed anyway.
 
-| File | Contents |
-|---|---|
-| `pipeline.bundle.json` | `goal` + `ir` + `decisions` + `lockfile` — federation §4.1. Fewer than four and the recipient can neither reproduce it nor audit it. |
-| `mendel.lock.yml` | every contract used, pinned by content digest, with its container; every layer, by name and digest |
+It takes no `--out`: it certifies the pipeline you give it rather than producing a new one.
+`mendel upgrade --out` is the verb that produces one.
 
 **It writes files and sends nothing.** Transmitting them is a later, separate act, which is
-deliberate: publication is the door with no undo, so a person can read what they are about
-to publish before any of it leaves.
+deliberate: publication is the door with no undo, so a person can read what they are about to
+publish before any of it leaves.
 
-The lockfile holds **no filesystem paths and no timestamps**. A path is meaningless on the
-machine that reads it; a timestamp would make every lockfile differ from every other one and
-turn the determinism tests into noise. Publishing the same goal twice produces byte-identical
-files, and a test asserts it.
+The file holds **no filesystem paths and no timestamps**. A path is meaningless on the machine
+that reads it; a timestamp would make every artifact differ from every other one and turn the
+determinism tests into noise. Publishing the same goal twice produces byte-identical files, and
+a test asserts it.
 
 Contracts are pinned by *digest*, not version — a contract can be edited without its
 `@version` moving, and in a private overlay it routinely is.
 
+`gate: null` is not a weak gate. It is no evidence at all, and a curator reads the two
+differently. Only `--gate test` runs the tools on data; conformance, `lint`, `-preview` and
+`-stub-run` all pass a mis-wired pipeline, because nf-core stubs never read their inputs.
+
 ## `mendel upgrade`
 
 ```bash
-uv run mendel upgrade --bundle build/pipeline.bundle.json --out upgraded/
+uv run mendel upgrade build/pipeline.yml --out upgraded/     # re-resolve and write
+uv run mendel upgrade build/pipeline.yml --dry-run           # report only; = verify
 ```
 
-Re-resolves a published bundle against the current registry and reports what moved. The goal
-comes from the bundle, never from a file — re-resolving a *different* goal and calling the
-result an upgrade is how "only what you touched moved" quietly becomes false.
+Re-resolves a pipeline against the current registry and reports what moved. The goal comes from
+`pipeline.yml`, never from a `--goal` — re-resolving a *different* goal and calling the result
+an upgrade is how "only what you touched moved" quietly becomes false.
 
-Two kinds of report, because they answer different questions:
+**`--dry-run` is `verify`.** A separate verb comparing digests was the alternative and answers a
+strictly weaker question: it can say a contract moved, but not whether the pipeline would
+resolve differently. One code path, one answer, and the flag decides only whether bytes are
+written.
+
+Five kinds of report, because they answer different questions:
 
 | Prefix | Means |
 |---|---|
-| `DRIFT` | the registry moved underneath the lockfile — a contract was edited, deleted, or a layer changed |
-| `CHANGED` | that actually changed *this* pipeline: a module or parameter resolved differently, with its tier and reason |
+| `DRIFT` | the registry moved underneath the pins — a contract was edited, deleted, or a layer changed |
+| `CHANGED` | that actually changed *this* pipeline: a module, setting or wiring resolved differently, with its tier and reason |
+| `MD0202` | which of your values are frozen against a contract that has since been edited |
+| `STALE` | a recorded answer no longer fits the question being asked — re-asked and flagged |
+| `ORPHANED` | a recorded answer applies to nothing any more. **Refuses** (`MD0203`) |
 
-Both are printed, because a contract can be edited in ways that change nothing here and the
-lockfile no longer describing what is on disk is still worth knowing.
+`DRIFT` and `CHANGED` are both printed, because a contract can be edited in ways that change
+nothing here and the pins no longer describing what is on disk is still worth knowing.
+
+Stale reports and orphaned refuses. The difference is whether there is still a question: a stale
+answer is re-asked, and an orphaned one has nothing left to be an answer to. An override that
+silently stopped applying is the same failure as a guard that silently stops guarding.
 
 Every recorded decision **replays** rather than being asked again — federation §4.3, and what
-makes editing a curated pipeline safe. A record stops applying if the candidate set moved or
-its choice is gone from the registry; either way replaying would assert a decision between
-options that no longer exist. `upgrade` prints how many replayed and how many were newly
-asked. Against an unchanged registry it reports `no changes` and reproduces byte-identical
-Nextflow.
+makes editing a curated pipeline safe. Against an unchanged registry it reports that the
+generated pipeline is byte-identical to the one recorded.
 
-Nothing upgrades implicitly: the bundle you read is never written over.
+Nothing upgrades implicitly, and **`upgrade` never writes over the pipeline it read**: `--out`
+is required and must name a different directory. The one you have is the evidence — the
+replayed overrides, the previous digests, the gate that passed.
 
 ## `mendel explain`
 

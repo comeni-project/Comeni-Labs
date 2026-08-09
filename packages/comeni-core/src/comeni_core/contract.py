@@ -6,14 +6,17 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core import yaml_strict
+from comeni_core.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.marks import (
     ContainerRef,
     ContractId,
     NfIdentifier,
     NfPath,
+    NfTemplate,
     PortName,
     TypeId,
 )
+from comeni_core.routes import TEMPLATED, ExtKey, Via
 from comeni_core.vocabulary import Vocabulary
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
@@ -105,11 +108,62 @@ class OutputPort(BaseModel):
 
 
 class Param(BaseModel):
+    """A setting the resolver decides, and the route that carries the answer to the tool.
+
+    Every field but `via` predates Plan 1.10. `via` is mandatory because without it a resolved
+    value went to a `params.<node>_<name>` line in `main.nf` that no module reads — the resolver
+    ran, flagged tier 4, printed `REVIEW`, and the pipeline behaved identically whatever the
+    answer was. Issue #10. Requiring a route makes that unrepresentable rather than detectable.
+    """
+
     model_config = _NO_EXTRAS
 
     name: NfIdentifier
     tier_hint: int | None = None
     default: Any = None
+    via: Via
+    """Which emission site carries this. No default: a setting with no route is the defect."""
+    key: ExtKey | None = None
+    """Required by `via: ext`, forbidden elsewhere. `when` is not a member — see `ExtKey`."""
+    template: NfTemplate | None = None
+    """How the value composes into an argument string. Required for `args`/`args2`/`args3`,
+    forbidden on routes that take one typed value."""
+
+    @model_validator(mode="after")
+    def _route_is_complete(self) -> "Param":
+        """The route must actually be able to carry a value.
+
+        Four ways it cannot, and each is a code rather than a silent no-op: no key on `ext`, a
+        key off `ext`, a template that discards the value or sits where nothing composes, and a
+        directive name Nextflow would ignore.
+        """
+        if self.via is Via.EXT and self.key is None:
+            raise ValueError(f"MD0205: {self.name} declares via: ext without a key")
+        if self.via is not Via.EXT and self.key is not None:
+            raise ValueError(
+                f"MD0205: {self.name} declares key: {self.key} on via: {self.via}, which has "
+                "no keyspace"
+            )
+        if self.via is Via.DIRECTIVE and self.name not in LEGAL_DIRECTIVES:
+            raise ValueError(
+                f"MD0209: {self.name} is not a process directive Nextflow {NEXTFLOW_VERSION} "
+                "accepts. An unknown directive inside a `withName` block is silently ignored, "
+                "so this would be a setting that does nothing."
+            )
+
+        composes = self.via is Via.EXT and self.key in TEMPLATED
+        if composes and (self.template is None or "{value}" not in self.template):
+            raise ValueError(
+                f"MD0204: {self.name} routes to ext.{self.key} but its template does not "
+                "mention {value}, so the resolved value would be discarded while real flags "
+                "were emitted"
+            )
+        if not composes and self.template is not None:
+            raise ValueError(
+                f"MD0204: {self.name} routes to {self.via}, which takes one typed value rather "
+                "than an argument string, so a template has nothing to compose into"
+            )
+        return self
 
 
 class NfInput(BaseModel):

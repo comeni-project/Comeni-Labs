@@ -1,6 +1,6 @@
 """The validation-gate vocabulary. The names only — never how one is run.
 
-`PublishBundle` records which gate a pipeline passed (audit A4), and `comeni-core` must
+`Pipeline` records which gate it passed (audit A4), and `comeni-core` must
 not depend on `mendel-compiler`, so the enum lives here. The **command lines** stay in
 `mendel_compiler.gates`, because those are how a gate is run and the core has no business
 knowing that a gate is a subprocess, let alone which one.

@@ -51,11 +51,20 @@ verified.
 | goal extraction | `PromptRequest` | your prompt — the single taint source |
 | tier-4 resolution | `AmbiguityRequest` | node id, subject, candidates, states |
 | compiler repair | `RepairRequest` | the IR and typed failure facts |
-| publication | `PublishBundle` | the IR and its decision records |
+| publication | `Pipeline` | the pipeline file: steps, settings, decisions, provenance |
 
 Every payload is a declared type. No payload may carry `Any`, a mapping, or a plain `str`.
-**Exactly four fields across the entire surface may hold free text**, and they are named
-literally in `tests/test_egress.py`.
+**Seven fields across the entire surface may hold free text**, and they are named literally in
+`tests/test_egress.py`: the prompt, a gate's tool message, and five `reason` fields carrying
+the prose that explains a choice.
+
+That number has only ever gone up by *refactor* — splitting a decision record into three
+kinds, and swapping the publication payload — never by a new kind of string crossing. The
+literal list is what makes somebody check which of the two it was.
+
+Publication carries the artifact itself. `pipeline.yml` is what a person reads before
+publishing, so the thing reviewed and the thing sent are one document rather than two that can
+disagree.
 
 Widening that boundary means editing a file whose contents say *these are all the ways data
 leaves this building* — which is the moment a person should be thinking, and the test is

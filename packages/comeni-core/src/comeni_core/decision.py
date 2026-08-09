@@ -38,7 +38,7 @@ from comeni_core.marks import (
     Subject,
     TypeId,
 )
-from comeni_core.tiers import Tier
+from comeni_core.tiers import Tier, ValueSource
 
 
 class DecisionKind(StrEnum):
@@ -115,6 +115,20 @@ class Resolution(BaseModel):
     resolved_by: ResolverId = "flag-only"
     """A declared id, not a bare `str`: this is written into every `DecisionRecord` and
     reaches a publish bundle, and it is filled in by whatever implements the port."""
+    source: ValueSource = ValueSource.RESOLVER
+    """Who settled it, as distinct from *how well* (`tier`) and *by which implementation*
+    (`resolved_by`).
+
+    Only `ReplayResolver` sets this to `HUMAN`, and only when the record it replayed carries
+    a `human_override` — the one field in the system that is by design a person's answer.
+    `resolved_by` cannot carry it: that names the implementation, and the implementation
+    replaying a human's answer is still `replay`.
+
+    Defaulted rather than required so nothing else changes shape. A resolver could set it
+    untruthfully, which is the same standing as `confidence` and `reason` — the port is a
+    boundary against undeclared *shapes*, never against a component of ours lying in a
+    declared one.
+    """
 
 
 class _Decided(BaseModel):

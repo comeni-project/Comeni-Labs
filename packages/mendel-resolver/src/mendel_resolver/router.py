@@ -21,6 +21,7 @@ from comeni_core.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
 from comeni_core.registry import Registry
+from comeni_core.tiers import ValueSource
 from pydantic import BaseModel, Field
 
 from mendel_resolver.goal import Goal
@@ -46,6 +47,11 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
+    selection_source: ValueSource = ValueSource.RESOLVER
+    """Who settled it. `HUMAN` when a replayed record carried a `human_override`.
+
+    Defaulted, unlike `from_layer` below: every branch of `_choose` answers it explicitly,
+    and the honest default for a step nobody overrode is the one the resolver made."""
     from_layer: str | None
     """Which layer this selection came from. **No default.**
 
@@ -159,7 +165,7 @@ def route(
         if not candidates:
             raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
 
-        chosen, tier, reason, pinned_by, pin = _choose(
+        chosen, tier, reason, pinned_by, pin, source = _choose(
             type_id, states, candidates, goal, rules, resolver, plan
         )
 
@@ -184,6 +190,7 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
+                    selection_source=source,
                     # A rule that fired decided this, so the rule's layer is the answer —
                     # not the layer the winning contract happens to sit in. Those differ
                     # whenever an overlay reroutes to a base-layer module, which is A22's
@@ -242,8 +249,15 @@ def _choose(
     rules: RuleTable | None,
     resolver: AmbiguityResolver,
     plan: RoutePlan,
-) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None]:
-    """Which contract produces `type_id` here, at which tier, why, and on whose say-so."""
+) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
+    """Which contract produces `type_id` here, at which tier, why, and on whose say-so.
+
+    Six elements is one past what a tuple should carry and this is overdue for a record; the
+    sixth is `source`, and it is here for the same reason the parameter ladder gained one.
+    An overridden *producer* is the identical defect one field over — a module choice a human
+    answered would otherwise stay in `needs_review()` for ever, so the count never reaches
+    zero and the CLI says REVIEW on a question already settled.
+    """
     pinned = rules.producer_for(type_id, goal.profile) if rules else None
     if pinned is not None:
         match = [c for c in candidates if c.id == pinned.value]
@@ -255,6 +269,7 @@ def _choose(
                 f"{pinned.because()}",
                 pinned.row.when,
                 pinned,
+                ValueSource.RESOLVER,
             )
         # The pinned contract is not a candidate *here*. Load-time validation already
         # proved it exists and produces this type, so the only way to arrive is that it
@@ -270,7 +285,14 @@ def _choose(
     ordered = sorted(candidates, key=rank)
     best = rank(ordered[0])
     if len(ordered) == 1:
-        return ordered[0], Tier.STRUCTURAL, "the only contract that produces this", None, None
+        return (
+            ordered[0],
+            Tier.STRUCTURAL,
+            "the only contract that produces this",
+            None,
+            None,
+            ValueSource.RESOLVER,
+        )
     if best[0] < rank(ordered[1])[0]:
         return (
             ordered[0],
@@ -278,6 +300,7 @@ def _choose(
             f"the only contract producing {type_id} with exactly the required states",
             None,
             None,
+            ValueSource.RESOLVER,
         )
     if best[:2] < rank(ordered[1])[:2]:
         return (
@@ -287,6 +310,7 @@ def _choose(
             f"{', '.join(c.id for c in ordered[1:])}",
             None,
             None,
+            ValueSource.RESOLVER,
         )
 
     ambiguity = ProducerAsked(
@@ -336,4 +360,10 @@ def _choose(
         f"nothing distinguishes {', '.join(c.id for c in ordered)}; {how}",
         None,
         None,
+        # A replayed human override keeps tier 4 and clears the *review*, never the tier.
+        # The fallback above means `chosen` may not be what the resolver named, so this
+        # asks whether the answer was actually taken: crediting a person with a choice the
+        # router made instead is the mirror of A8, where a record stated a choice the
+        # pipeline did not make.
+        resolution.source if chosen.id == resolution.chosen else ValueSource.RESOLVER,
     )

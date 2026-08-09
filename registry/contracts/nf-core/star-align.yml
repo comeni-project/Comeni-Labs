@@ -7,7 +7,15 @@ consumes:
   - {name: gtf, type_id: annotation.gtf, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
-  - {name: seq_platform, tier_hint: 4}
+  # STAR builds its own read-group line unless `ext.args` already contains the flag:
+  #   attrRG = args.contains("--outSAMattrRGline") ? "" : "--outSAMattrRGline 'ID:$prefix' ..."
+  # So supplying it suppresses the module's, and this template must carry ID and SM too —
+  # routing only the PL fragment would silently drop the read group STAR needs.
+  - name: seq_platform
+    tier_hint: 4
+    via: ext
+    key: args
+    template: "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'"
 # STAR is the nf-core/rnaseq default aligner, so this registry prefers it by
 # convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
 # citation once the rule format lands.

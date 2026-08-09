@@ -125,7 +125,7 @@ def test_star_align_consumes_the_annotation(loaded):
 def test_the_emitted_workflow_feeds_the_genome_to_star(spine, loaded):
     from mendel_compiler.emit import emit
 
-    source = emit(spine, loaded.registry, loaded.vocabulary)
+    source = emit(_pipe(spine, loaded))
     call = next(line for line in source.splitlines() if "STAR_GENOMEGENERATE(" in line)
     assert "ch_genome_fasta" in call, call
     assert "[[:], []]" not in call, call
@@ -134,7 +134,7 @@ def test_the_emitted_workflow_feeds_the_genome_to_star(spine, loaded):
 def test_the_emitted_workflow_feeds_the_annotation_to_star_align(spine, loaded):
     from mendel_compiler.emit import emit
 
-    source = emit(spine, loaded.registry, loaded.vocabulary)
+    source = emit(_pipe(spine, loaded))
     call = next(line for line in source.splitlines() if "STAR_ALIGN(" in line)
     assert "ch_annotation_gtf" in call, call
 
@@ -142,8 +142,8 @@ def test_the_emitted_workflow_feeds_the_annotation_to_star_align(spine, loaded):
 def test_the_config_asks_the_laboratory_for_a_genome(spine, loaded):
     from mendel_compiler.emit import emit_config, entry_params
 
-    assert "fasta" in entry_params(spine, loaded.registry, loaded.vocabulary)
-    assert "fasta = null" in emit_config(spine, loaded.registry, loaded.vocabulary)
+    assert "fasta" in entry_params(_pipe(spine, loaded))
+    assert "fasta = null" in emit_config(_pipe(spine, loaded))
 
 
 def test_a_test_profile_is_emitted_when_every_input_declares_test_data(spine, loaded):
@@ -155,7 +155,7 @@ def test_a_test_profile_is_emitted_when_every_input_declares_test_data(spine, lo
     """
     from mendel_compiler.emit import emit_config
 
-    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    config = emit_config(_pipe(spine, loaded))
     assert "test {" in config
     assert "nf-core/test-datasets" in config
 
@@ -164,7 +164,7 @@ def test_the_test_profile_is_labelled_as_a_smoke_test(spine, loaded):
     """It proves the pipeline runs on a known dataset. It does not prove the analysis."""
     from mendel_compiler.emit import emit_config
 
-    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    config = emit_config(_pipe(spine, loaded))
     assert "smoke test" in config.lower()
     assert "not" in config.lower() and "correct" in config.lower()
 
@@ -182,7 +182,7 @@ def test_ext_args_reaches_the_emitted_config(spine, loaded):
     line: TrimGalore emits .fq.gz and nothing told STAR to decompress."""
     from mendel_compiler.emit import emit_config
 
-    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    config = emit_config(_pipe(spine, loaded))
     assert "process {" in config
     assert "withName: STAR_ALIGN" in config
     assert "ext.args = '--readFilesCommand zcat'" in config
@@ -192,7 +192,7 @@ def test_a_module_with_no_ext_args_gets_no_withname_block(spine, loaded):
     """An empty block is noise, and noise in generated config is how nobody reads it."""
     from mendel_compiler.emit import emit_config
 
-    config = emit_config(spine, loaded.registry, loaded.vocabulary)
+    config = emit_config(_pipe(spine, loaded))
     assert "withName: TRIMGALORE" not in config
 
 
@@ -239,9 +239,7 @@ def test_meta_is_only_built_for_the_type_a_measurement_describes(loaded):
 def test_the_emitted_entry_channel_carries_the_meta(spine_with_profile, loaded):
     from mendel_compiler.emit import emit
 
-    source = emit(
-        spine_with_profile, loaded.registry, loaded.vocabulary, loaded.measurements
-    )
+    source = emit(_pipe(spine_with_profile, loaded))
     line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
     assert "strandedness: 'reverse'" in line, line
     assert "single_end: false" in line, line
@@ -263,6 +261,21 @@ def test_an_unmeasured_profile_emits_no_meta_wrapper(loaded):
         loaded.measurements,
         vocabulary=loaded.vocabulary,
     )
-    source = emit(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
+    source = emit(_pipe(ir, loaded))
     line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
     assert "meta +" not in line, line
+
+
+def _pipe(ir, loaded):
+    """Materialise an IR for the emitter.
+
+    `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
+    registry, vocabulary and measurements now lives on the `Pipeline`.
+
+    `goal` is keyword-only and required since Task 6. An empty one is honest here: these
+    fixtures start from an IR and never had a goal to record.
+    """
+    from comeni_core.goal import Goal
+    from comeni_core.pipeline import Pipeline
+
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())

@@ -110,17 +110,20 @@ each other's states indefinitely.
 
 ## Reading a route
 
-`pipeline.ir.json` carries the whole thing: nodes with their selection tier and reason,
-edges with the type and states that flowed, and every decision record.
+`pipeline.yml` carries the whole thing: every step with its selection tier and reason, the
+wiring keyed under the step that consumes it, and every decision record.
 
 ```bash
 uv run python -c "
-import json
-ir = json.load(open('build/pipeline.ir.json'))
-for e in ir['edges']:
-    print(f\"{e['from_node']}.{e['from_port']} → {e['to_node']}.{e['to_port']}\",
-          e['type_id'], e['states'])
+import yaml
+p = yaml.safe_load(open('build/pipeline.yml'))
+for s in p['steps']:
+    for i in s['inputs']:
+        origin = i['source'] or f\"channel:{i['channel']}\"
+        print(f\"{origin} → {s['id']}.{i['port']}\", i['states'])
 "
 ```
+
+Keyed on the *destination*, because that is the question a reader has: what arrives here?
 
 Implementation: `packages/mendel-resolver/src/mendel_resolver/router.py` and `resolve.py`.

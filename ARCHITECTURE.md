@@ -13,10 +13,14 @@ document is the *how*; that one is the *why it may not change*.
 ## 1. The five stages
 
 ```
-   Goal ──route──▶ RoutePlan ──resolve──▶ PipelineIR ──emit──▶ main.nf
-                                                             nextflow.config
-                                              │                     │
-                                              └──────run_gate───────┴──▶ GateResult
+   Goal ──route──▶ RoutePlan ──resolve──▶ PipelineIR ──materialise──▶ pipeline.yml
+                                                                          │
+                                                                        emit
+                                                                          │
+                                                                          ▼
+                                                              main.nf + nextflow.config
+                                                                          │
+                                                                    run_gate ──▶ GateResult
 ```
 
 | Stage | Input | Output | Lives in |
@@ -24,8 +28,22 @@ document is the *how*; that one is the *why it may not change*.
 | load | layer directories | `Layers` | `mendel_resolver/layers.py` |
 | route | `Goal`, `Registry`, `RuleTable` | `RoutePlan` | `mendel_resolver/router.py` |
 | resolve | `RoutePlan` | `PipelineIR` | `mendel_resolver/resolve.py` |
-| emit | `PipelineIR`, `Registry`, `Vocabulary` | `str` | `mendel_compiler/emit.py` |
+| materialise | `PipelineIR`, `Registry`, `Vocabulary`, measurements | `Pipeline` | `comeni_core/pipeline.py` |
+| emit | `Pipeline` | `str` | `mendel_compiler/emit.py` |
 | gate | a pipeline directory | `GateResult` | `mendel_compiler/gates.py` |
+
+**Materialisation is why `emit` takes one argument.** Everything the emitter used to look up —
+process names, include paths, entry-channel expressions, the measured facts that ride in `meta`
+— is copied onto the `Pipeline`. So `mendel emit build/pipeline.yml` regenerates the Nextflow
+with no registry and no network, which is what lets a laboratory archive a validated pipeline
+and rebuild it years later: `modules/` is inert vendored source, while the registry is the part
+that resolves differently as it changes.
+
+`build` writes `pipeline.yml`, parses it back, and emits from **the copy it read**. One extra
+parse; in exchange the round trip is load-bearing on every build rather than asserted once, and
+a field that does not survive YAML is a refused build (`MD0206`). That bug class is not
+hypothetical — `ResolvedValue._drop_computed` exists because the IR did not round-trip at all,
+and in its own words *"nothing noticed, because nothing read an IR back until now."*
 
 **`cli.py` is the only thing that touches disk.** Everything else takes objects and returns
 objects, which is what makes the golden-file tests possible at all: a stage you can only
@@ -240,6 +258,53 @@ vocabulary: it has to work for a module the compiler has never seen.
 
 ---
 
+## 5a. Where a resolved value goes
+
+A resolved value has to reach the tool, and for a plan and a half one did not: it became a
+`params.<node>_<name>` line in the emitted workflow that no module reads. The resolver ran,
+flagged tier 4, printed `REVIEW`, and the pipeline behaved identically whatever anyone
+answered. That was issue #10.
+
+Every `Param` now declares the **route** that carries it, and a setting without one cannot
+load (`MD0200`). Three destinations, because there are three places a Nextflow module takes
+configuration from:
+
+| `via:` | emitted as | `key:` |
+|---|---|---|
+| `ext` | `process { withName: X { ext.<key> = … } }` | `args`, `args2`, `args3`, `prefix` |
+| `meta` | `.map { meta, files -> [ meta + [k: v], files ] }` on the entry channel | — |
+| `directive` | `process { withName: X { cpus = 4 } }` | — |
+
+`ext` is a *keyspace* rather than one destination: `task.ext.prefix` appears in 8 of the 10
+vendored modules and `task.ext.when` in all 10. `when` is deliberately not a legal key — it
+switches a process off entirely, which would be a second routing mechanism competing with
+resolution, and whether a step exists is decided by resolving the goal.
+
+Three properties are checked rather than assumed:
+
+- A `template` on an `args` key must mention `{value}` (`MD0204`). One that forgets renders
+  real flags and discards the resolved value, which is *harder* to spot than an honest no-op.
+- A `via: directive` name must be one Nextflow accepts (`MD0209`). Measured, not assumed: a
+  config carrying `withName: FOO { cpuz = 4 }` runs to exit 0 with no warning on Nextflow
+  25.10.4, so an unchecked directive name reinstalls the exact defect `via:` removed.
+- A route must exist in the module (`MD0108`). `via: ext, key: prefix` on a module whose
+  script never mentions `task.ext.prefix` is a checkable lie — three of the ten vendored
+  modules ignore it, so the check has real negatives.
+
+**A value is validated, not escaped.** `{value}` substitution accepts letters, digits and
+`_ . : + -`, numbers and booleans, and nothing else (`MD0201`). Escaping-for-context is where
+injection bugs live, and a value that cannot contain a quote cannot close one. The class is
+narrow on a stated assumption — that almost no tool setting needs a space or a slash — and
+`MD0201`'s message asks for the counterexample, because loosening it later is
+backward-compatible and tightening it is not.
+
+**Measured facts do not go through `via:` at all.** `strandedness: reverse` rides in `meta`,
+and featureCounts contains its own translation to `-s 2`. A tier-3 rule producing `-s 2`
+directly was deleted in Plan 1.5: that is the module's encoding of a fact, not a decision, and
+duplicating it put the same claim in two places that could disagree.
+
+---
+
 ## 6. Profiling is a build
 
 A measurement is a type, so `mendel profile --have fastq.reads` is
@@ -279,7 +344,7 @@ broken by someone who meant well.
 | Guard | Asserts | Broken by |
 |---|---|---|
 | `tests/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core` and `mendel-resolver`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
-| `tests/test_egress.py` | four doors, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the four named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid |
+| `tests/test_egress.py` | four doors, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the seven named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
 | `tests/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
 
 The third exists because validation *moved*. `DataProfile` used to hold four hardcoded fields,
@@ -289,7 +354,7 @@ boundary. `MeasurementRegistry.profile()` is the only validating constructor,
 `test_construction.py` enforces that nothing else builds one, and `mendel build` re-routes
 every goal's profile through it. Without that last step a goal file carrying
 `profile: {sample_name: SILVA_biopsy_01}` validates, resolves and reaches
-`pipeline.ir.json` — the 2026-08-03 audit's `constraints` hole, re-opened one field over.
+`pipeline.yml` — the 2026-08-03 audit's `constraints` hole, re-opened one field over.
 
 **A guard that has not been watched failing has proven one thing, not the general property.**
 Three of three earlier guards had holes, all found that way.

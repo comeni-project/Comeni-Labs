@@ -126,7 +126,7 @@ complete effective decision. See [registry-layers.md](registry-layers.md).
 ## What you get
 
 A rule match exits at **tier 3**, review level `advisory`, and carries your citation into
-`pipeline.ir.json` and into a comment in the generated `main.nf`.
+`pipeline.yml`, as the `why.reason` beside the value it explains.
 
 Tier 3 is advisory rather than silent on purpose: a rule match is only as good as the
 measurement behind it. Yellow means *the machinery worked, check the premise*.

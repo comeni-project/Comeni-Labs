@@ -83,17 +83,22 @@ def test_an_unverified_contract_warns_and_builds(tmp_path, capsys):
     assert "unverified" in capsys.readouterr().err
 
 
-def test_unverified_contracts_reach_the_ir(tmp_path):
-    import json
+def test_unverified_contracts_reach_the_artifact(tmp_path):
+    """Which contracts were never checked against module source, in the file a reader reads.
+
+    Under `registry:` since Plan 1.10, beside the layers it belongs with, rather than at the
+    top level of an IR that no longer reaches disk.
+    """
+    import yaml
 
     _build_with_no_module_source(tmp_path)
-    ir = json.loads((tmp_path / "p" / "pipeline.ir.json").read_text())
-    assert ir["unverified"], "a publish bundle must carry which contracts were unchecked"
+    pipeline = yaml.safe_load((tmp_path / "p" / "pipeline.yml").read_text())
+    assert pipeline["registry"]["unverified"], "a shared pipeline must say what was unchecked"
 
 
 def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
     """The field is evidence, so it must be empty when there was evidence."""
-    import json
+    import yaml
 
     main(
         [
@@ -106,8 +111,8 @@ def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
             str(ROOT),
         ]
     )
-    ir = json.loads((tmp_path / "p" / "pipeline.ir.json").read_text())
-    assert ir["unverified"] == []
+    pipeline = yaml.safe_load((tmp_path / "p" / "pipeline.yml").read_text())
+    assert pipeline["registry"]["unverified"] == []
 
 
 def test_mendel_explain_prints_the_long_form():
@@ -132,3 +137,75 @@ def test_mendel_explain_on_an_unknown_code_lists_the_known_ones():
         cwd=ROOT,
     )
     assert "MD0104" in result.stdout
+
+
+def _layer_with(tmp_path, edit):
+    """A copy of the shipped registry with one contract edited."""
+    import shutil
+
+    layer = tmp_path / "registry"
+    shutil.copytree(ROOT / "registry", layer)
+    edit(layer)
+    return layer
+
+
+def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
+    """`via:` made a route *declared*. It did not make it *true*.
+
+    `star/genomegenerate` is one of three vendored modules whose script never mentions
+    `task.ext.prefix`, so this has a real negative to find — a check that can only pass is
+    not a check. `modulespec.py` already parses both keys as a substring of the source, which
+    is why the check lands on day one rather than waiting for a Groovy parser.
+    """
+    from mendel_compiler.conformance import check
+    from mendel_resolver import layers
+
+    def add_a_dead_route(layer):
+        path = next(layer.rglob("star-genomegenerate.yml"))
+        path.write_text(
+            path.read_text().replace(
+                "params: []",
+                'params:\n  - name: label\n    via: ext\n    key: prefix\n',
+            )
+        )
+
+    registry = layers.load(_layer_with(tmp_path, add_a_dead_route)).registry
+    found = check(registry, ROOT / "vendor")
+    dead = [d for d in found if d.code == "MD0108"]
+    assert dead, [d.code for d in found]
+    assert "label" in dead[0].where
+    assert "ext.prefix" in dead[0].summary
+
+
+def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
+    """The regression guard: it must depend on the module's source, not on a route existing.
+
+    `samtools/sort` reads `task.ext.prefix`, so the identical route there is honest.
+    """
+    from mendel_compiler.conformance import check
+    from mendel_resolver import layers
+
+    def add_a_live_route(layer):
+        path = next(layer.rglob("samtools-sort.yml"))
+        path.write_text(
+            path.read_text().replace(
+                "params: []",
+                'params:\n  - name: label\n    via: ext\n    key: prefix\n',
+            )
+        )
+
+    registry = layers.load(_layer_with(tmp_path, add_a_live_route)).registry
+    assert not [d for d in check(registry, ROOT / "vendor") if d.code == "MD0108"]
+
+
+def test_the_shipped_registry_routes_nothing_to_a_key_its_module_ignores():
+    """All ten vendored modules read `task.ext.args`, so every shipped route is live.
+
+    Asserted rather than assumed: this is the property that makes `mendel build` green, and
+    a contract added later that quietly breaks it should fail here with a name attached.
+    """
+    from mendel_compiler.conformance import check
+    from mendel_resolver import layers
+
+    registry = layers.load(ROOT / "registry").registry
+    assert not [d for d in check(registry, ROOT / "vendor") if d.code == "MD0108"]

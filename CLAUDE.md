@@ -15,24 +15,36 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8 and 1.9 are complete.** A17–A35 are
-closed; **A14, A16's successors A36 and A37, and round three remain**. 441 fast tests green,
-`ruff check` clean, and `--gate test` runs the RNA-seq spine on the nf-core test dataset and
-produces a counts matrix — 124 genes, featureCounts invoked with `-s 2 -p`, which is the
-strandedness the goal declared. `uv run pytest -m slow` is what proves that; `make check`
+**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8, 1.9 and 1.10 are complete.** A17–A35 are
+closed; **A14, A36, and round three remain** — round three is **next**, and it is the first
+audit of 1.10's surface. 542 fast tests green, `ruff check` clean, and `--gate test` runs the
+RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
+featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
+mapping quality the contract routed. `uv run pytest -m slow` is what proves that; `make check`
 excludes it and stays a one-minute gate, and **`make verify` is the one that runs both** —
-see Commands, because `make check` alone is not verification of a routing change.
+see Commands, because `make check` alone is not verification of a routing or emission change.
 `comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+
+**`pipeline.yml` is the pipeline.** One artifact replacing `pipeline.ir.json`,
+`mendel.lock.yml` and `pipeline.bundle.json`: every step and setting with a `why:` — the tier,
+who settled it, which layer, the citation — plus every module digest, the gate that passed and
+the digests of what was emitted. Every setting declares the **route** that carries it to the
+tool, so a resolved value that reaches nothing is refused rather than emitted (issue #10).
+`mendel emit` rebuilds the Nextflow from it with no registry and no network. Read
+`docs/reference/pipeline-schema.md`.
 
 **`mendel build` now refuses a contract that disagrees with its module** — seven diagnostics
 against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
 `make static` (lint + preview, no Docker) in the pull-request lane.
 
-**A pipeline is a shareable artifact.** `mendel publish` writes a `PublishBundle` (goal, IR,
-decisions, lockfile) and a `mendel.lock.yml` pinning every contract by content digest and
-every layer by name and digest — no paths, no timestamps. `mendel upgrade` re-resolves a
-bundle against the current registry, replays every recorded decision, and reports drift and
-changes separately. The registry lives in
+**A pipeline is a shareable artifact, and it is one file.** `build/pipeline.yml` carries the
+goal, every step and setting with a `why:`, every contract pinned by content digest, every
+layer, the gate that passed and the digests of what was emitted — no paths, no timestamps. It
+replaced `pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`. `mendel emit` rebuilds the
+Nextflow from it with **no registry and no network**; `mendel upgrade` re-resolves it against
+the current registry, replays every recorded decision, and reports drift, changes, stale and
+orphaned overrides separately. `mendel publish` certifies a directory rather than writing a
+bundle beside it. See `docs/reference/pipeline-schema.md`. The registry lives in
 [`comeni-registry`](https://github.com/comeni-project/comeni-registry), and `registry/` here
 is that layer.
 
@@ -53,8 +65,10 @@ closing round two, two of them in code written that same day: `stack()`'s
 `origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
 `producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
 
-**Round three starts at A38**, by the brief in `docs/internal/audits/2026-08-07-round-two-brief.md`.
-Then Plan 2.
+**Round three starts at A38 and is next**, by the brief in
+`docs/internal/audits/2026-08-07-round-two-brief.md`. Read `docs/internal/README.md`
+§ *What round three inherits from 1.10* first: it names the sixteen new diagnostics, the four
+guards that moved, and two things Plan 1.10 found and deliberately did not fix. Then Plan 2.
 
 | Read this | For |
 |---|---|
@@ -70,7 +84,8 @@ Then Plan 2.
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
 | `docs/internal/specs/` | **ten specs. Nine are one per audit root; the tenth is a design spec. Read the part's spec before starting it.** |
-| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`, one artifact replacing the IR json, the lockfile and the bundle. Supersedes the four-route settings surface below. Takes precedence over the code it cites. Runs after 1.9; order against round three unsettled.** |
+| `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
+| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
 | `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
 | `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
 | `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
@@ -81,7 +96,7 @@ Then Plan 2.
 | `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
 | `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
 | `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
-| `docs/internal/plans/2026-08-07-the-pipeline-file.md` | **Plan 1.10 — `pipeline.yml`. Next.** 12 tasks. Read the spec first; it takes precedence. |
+| `docs/internal/plans/2026-08-07-the-pipeline-file.md` | Plan 1.10 — 12 tasks. **Complete**, with each task's corrections recorded inline. |
 | `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
 | `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
@@ -204,10 +219,19 @@ Violating any of these breaks the product claim, not just a test.
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
-    **six** fields across the whole surface may hold free text: `PromptRequest.prompt`,
-    `GateFailure.tool_message`, `ResolvedValue.reason`, and one `reason` per decision kind.
-    This said "exactly two" for a plan and a half while the guard held four, then six; the
-    guard is the honest count and this sentence is the one that drifts (A33). Everything
+    **seven** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind, and
+    `Why.reason` — the citation beside every value in `pipeline.yml`.
+    This said "exactly two" for a plan and a half while the guard held four, then six, and now
+    seven; the guard is the honest count and this sentence is the one that drifts (A33). Every
+    increase so far arrived by a refactor rather than by a new kind of string crossing — A16
+    splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly what
+    a literal list exists to make somebody look at.
+    **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
+    reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
+    retired. The guard's roots come from `DOORS` rather than from what happens to live in
+    `egress.py` — scanning the module found three doors out of four the moment the publication
+    payload moved, and the one it missed was the door with no undo. Everything
     else is closed vocabulary; no payload may carry an `Any`-typed field, and none may carry
     a plain `str` — every string is a declared ID alias or marked `Mark.FREE_TEXT`, because a
     bare `str` bypasses the marker in one line and a prompt fits in it perfectly. The rule is
@@ -380,7 +404,7 @@ conversation is a loose end lost.
 | ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
 | 7 | goal extraction: what crosses door 1, per protection profile | v1 answer decided — run the agent locally |
 | ~~8~~ | ~~the emitted spine is not runnable~~ | **done** — Plan 1.5 |
-| 10 | answering a tier-4 parameter clears the flag without changing the pipeline | Plan 2's Task 11, or a decision now |
+| ~~10~~ | ~~answering a tier-4 parameter clears the flag without changing the pipeline~~ | **done** — Plan 1.10. `via:` carries the value to the tool, and an override keeps its tier while leaving `needs_review()` |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
 | 18 | the error surface is half-declared — 41 raise sites, 32 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
@@ -389,11 +413,18 @@ conversation is a loose end lost.
 
 `make help` lists them. `make check` is exactly what CI runs on a pull request.
 
-**`make check` is not verification of a change to `resolve.py`, `router.py`, `rules.py` or
-`mendel_compiler/cli.py`.** It deselects `tests/test_counts.py` — the two tests that run
-`--gate test` on the nf-core dataset and assert the counts matrix is right, which is the only
-check that exercises the v1 criterion. Touch any of those four files and run **`make verify`**,
-which is `check` + those two + the guards + registry drift, and takes about two minutes.
+**`make check` is not verification of a change to `resolve.py`, `router.py`, `rules.py`,
+`mendel_compiler/cli.py`, `mendel_compiler/emit.py` or `comeni_core/pipeline.py`.** It
+deselects `tests/test_counts.py` — the three tests that run `--gate test` on the nf-core
+dataset and assert the counts matrix is right, that featureCounts got the strandedness that
+was measured, and that a resolved setting reached the tool. That is the only check exercising
+the v1 criterion. Touch any of those six files and run **`make verify`**, which is `check` +
+those three + the guards + registry drift, and takes about two minutes.
+
+`emit.py` and `pipeline.py` joined the list in Plan 1.10. Rewriting `emit()`'s signature and
+its `ext.args` composition is precisely the kind of change `make check` waves through: nothing
+outside `test_counts.py` runs a tool, so a flag that stops reaching one is invisible to every
+other test in the repository.
 
 The files are named rather than left to judgement on purpose: Plan 1.8 changed all four and
 reported each task verified on `make check` alone. Nothing was broken and the omitted tests
@@ -410,7 +441,9 @@ uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
-# why a contract was refused, at length. Codes MD0100–MD0107.
+# why anything was refused, at length. 24 codes: MD0100–MD0108 conformance,
+# MD0200–MD0216 the pipeline file. The table in docs/reference/cli.md is generated
+# from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
 uv run mendel explain MD0104
 
 # vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
@@ -418,6 +451,17 @@ uvx nf-core modules install --dir vendor samtools/sort
 
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
+
+# `build/pipeline.yml` IS the pipeline: every step, setting, decision and reason.
+# Edit it, then rebuild the Nextflow from it — no registry, no network.
+uv run mendel emit build/pipeline.yml --out build/
+
+# re-resolve against the current registry. --dry-run is `verify` and writes nothing.
+uv run mendel upgrade build/pipeline.yml --out next/
+uv run mendel upgrade build/pipeline.yml --dry-run
+
+# certify a built directory: gate it, and stamp the verdict into pipeline.yml
+uv run mendel publish build/pipeline.yml --gate test
 
 # emit a pipeline that measures, plus profile.yml naming what measures what
 uv run mendel profile --have fastq.reads --out profile-build/

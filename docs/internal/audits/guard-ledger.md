@@ -136,3 +136,136 @@ one place where "watched failing" costs minutes rather than seconds), `test_end_
 
 **A14 therefore does not close with Plan 1.9.** Saying so is the same call Plan 1.8 made and
 it was right then too.
+
+## Plan 1.10 — the pipeline file
+
+Not a sweep. These are guards that were **watched failing in the ordinary course of the
+work**, which is the cheapest kind of row to earn and the kind this ledger most wants: no
+probe was written, the change itself broke them.
+
+| date | guard | what broke it | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_diagnostics_registry.py` | a row hand-edited in `docs/reference/cli.md` | 1 failed | `test_the_generated_table_is_current` (Task 2, recorded then) |
+| 2026-08-09 | `test_egress.py` | a bare `user_note: str` planted two levels down inside `EmittedFile` | 1 failed | `test_no_payload_carries_an_undeclared_string` (Task 4) |
+| 2026-08-09 | `test_construction.py` | `_DP` / `_P` aliased constructions in a pure package | 2 failed | both sole-constructor tests (Task 4) |
+| 2026-08-09 | `test_construction.py` | `Pipeline(version=1)` added to `pipeline_file.py`, the file whose `model_validate` is exempted | 1 failed, naming the line | the exemption is per **spelling**, not per file, so the narrowed allowlist still bites |
+| 2026-08-09 | `test_audit_regressions.py` (A11) | `Step`'s `MD0212` duplicate-setting validator landing | 1 failed | A11's own fixture builds the duplicate the validator now refuses — the guard was retargeted, from *the emitter survives one* to *one cannot be constructed* |
+
+### A guard that passed for the wrong reason
+
+`test_a27_prose_reaching_the_pipeline_file_is_refused_at_materialisation`, written this task,
+passed on its first run and should not have. It smuggled a multi-line `reason` through a
+binding on `nf-core/samtools/sort`, which declares `params: []` — so `_settings` dropped the
+binding before `Why` ever saw the prose. Nothing was being tested.
+
+Two things came out of it. The test now uses a contract that declares a param, and the reason
+it passed is itself a finding: **`_settings` drops a binding whose contract declares no such
+param, silently.** That is recorded at the site and left to Task 9, whose subject is exactly
+this one level up.
+
+It is the same shape as A21 — a guard that restates its subject instead of calling it — and it
+is the argument for this ledger existing: a green test says nothing until somebody has seen it
+red.
+
+### Task 7 — the slow lane earns a row
+
+`test_counts.py` has been in the residue list since Plan 1.9, on the honest ground that
+reverting inside it costs a Docker run per probe. Task 7 paid it once.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_counts.py` | `featurecounts`' `min_mqs` route removed — `params: []` restored | 1 failed, ~40s | `test_a_resolved_setting_reaches_the_tool`, printing the whole command line: `featureCounts \` with an empty `${args}` |
+
+Reverting the **route** rather than the assertion is the point. Changing `-Q 0` to `-Q 9`
+would prove only that the string comparison runs; removing the contract's route proves the
+guard watches the mechanism it names. That distinction is A21 in one sentence.
+
+The two older rows in this file remain unearned — `test_the_spine_produces_a_counts_matrix`
+and `test_featurecounts_ran_with_the_strandedness_that_was_measured` were not individually
+probed, and this row does not cover them.
+
+### Task 8 — three probes, and a mechanism that was never watched at all
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_audit_regressions.py` | `_still_open` drops the `source is not HUMAN` clause | 1 failed | `test_an_answered_setting_leaves_needs_review_and_appears_in_overrides` |
+| 2026-08-09 | `test_audit_regressions.py` | `_still_applies` restores the membership check on a `[None]` domain | **4 failed** | starting with `test_a_human_override_on_a_parameter_is_replayed_at_all` |
+| 2026-08-09 | `test_audit_regressions.py` | an override collapsed to `Tier.STRUCTURAL` — the *wrong* fix, not the absent one | 2 failed | `test_an_override_keeps_the_tier_it_displaced`, naming the tier |
+
+The third probe is the one worth copying. Reverting a fix asks "does the guard notice it is
+gone"; applying the **plausible wrong fix instead** asks "does the guard notice it is wrong",
+which is the question a reviewer actually has. Collapsing a human override to tier 1 is what
+a reasonable person would write, and it fails here for a stated reason.
+
+### The mechanism nobody had watched
+
+`human_override` on a parameter had never worked. `ReplayResolver._still_applies` checked
+membership in a candidate list that is literally `[None]` for parameters, so every override
+was discarded, counted as newly asked, and the answer thrown away.
+
+Nothing caught it because every existing replay test used producers or sources, which have
+real candidate lists. The parameter case had unit tests for `_chosen`, for `_still_applies`,
+and for the record type — and none for the one path that carries a person's answer to a
+parameter end to end. **Coverage of the parts is not coverage of the path**, which is the
+same lesson as A8: a `DecisionRecord` can state a choice the pipeline did not make, and only
+a test that follows the value all the way sees it.
+
+### Task 9 — and a rule that shipped inert
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_replay.py` | `stale` merged back into `fresh` | 5 failed | including the pre-existing `test_a_record_whose_candidates_changed_is_not_replayed`, which had been asserting the merge |
+| 2026-08-09 | `test_upgrade.py` | `MD0203` downgraded from a refusal to a warning | 2 failed | `test_an_orphaned_override_refuses_and_names_the_code` |
+| 2026-08-09 | `test_audit_regressions.py` | `MD0216` back to a silent drop | **nothing failed — 523 passed** | see below |
+
+**`MD0216` shipped inert, and the probe is the only reason anyone knows.** The refusal was
+written, `make verify` was green, and reverting it broke nothing at all: no test covered the
+rule. A guard was then written, the probe repeated, and it fails now.
+
+This is A14's finding arriving on the same afternoon as A14's ledger row, in code written by
+whoever wrote the row. It is worth recording plainly rather than quietly fixing, because the
+lesson is not "remember to write a test" — the rule *had* tests around it, three files of them,
+and 523 passed over a change that removed it. The lesson is that **green is not evidence**, and
+the only thing that distinguishes a guard from a decoration is somebody having seen it red.
+
+**Two tests that passed for the wrong reason, both found by `MD0216` itself.** Both A27 tests
+hung their smuggled value on a `nf-core/samtools/sort` binding, and that contract declares
+`params: []` — so the value was dropped before anything looked at it, and neither test asserted
+what its name said. `MD0216` refusing is what surfaced them: the fixtures started failing, and
+the reason they failed was that they had never worked. A guard catching *another test* is the
+cheapest audit there is.
+
+### Task 10 — four probes on the verb surface
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_upgrade.py` | `_frozen_against_moved_contracts` returns `[]` | 1 failed | `test_a_replayed_value_frozen_against_a_moved_contract_is_reported` |
+| 2026-08-09 | `test_upgrade.py` | `--dry-run`'s early return removed, so it writes | 4 failed | starting with `test_dry_run_writes_nothing` |
+| 2026-08-09 | `test_upgrade.py` | the in-place refusal on `upgrade --out` removed | 1 failed | `test_upgrade_refuses_to_write_into_the_directory_it_read` |
+| 2026-08-09 | `test_publish.py` | `_refuse_a_divergent_directory` removed from `upgrade` and `publish` | 2 failed | both `MD0213` and `MD0214` on the door with no undo |
+
+`test_publish.py` and `test_upgrade.py` were both in the residue list; both have rows now.
+
+### Task 11 — the egress guard was not watching the door it was given
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_egress.py` | roots collected from `vars(egress)` again, not `DOORS` | 2 failed | `test_every_door_is_walked_by_the_checks_below`, naming the door |
+| 2026-08-09 | `test_conformance_cli.py` | `_dead_ext_routes` removed from the check | 1 failed | `test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused` |
+| 2026-08-09 | `test_egress.py` | `Pipeline` back to a plain `BaseModel` | 2 failed | `test_the_publication_payload_is_frozen` |
+
+**The first row is the finding, not the probe.** `_payload_types()` had always collected its
+roots by scanning `vars(egress)` for `EgressPayload` subclasses. That was correct while every
+payload lived in that module, and it silently stopped being correct the moment the publication
+payload moved to `comeni_core.pipeline`: the guard walked three doors out of four, and the one
+it dropped was the door with no undo. Ten tests passed.
+
+Nothing was leaked — the payload had only just been swapped — but the shape is the one this
+ledger exists for. A guard that derives its subject from *where a type happens to live* rather
+than from *the declaration of what it guards* stops guarding without failing. The roots come
+from `DOORS` now, and a new test asserts every door is in the walked set, so the same move
+cannot be silent twice.
+
+With the guard actually looking it immediately found four undeclared `str` fields on the new
+payload. That is the cost of the hole stated precisely: not a leak, but four fields that had
+crossed into the payload without anyone examining them.
