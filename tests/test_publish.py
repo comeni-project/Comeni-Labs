@@ -22,10 +22,18 @@ def _publish(tmp_path, name="p"):
     return out
 
 
-def test_publish_writes_a_bundle_and_a_lockfile(tmp_path):
+def test_publish_writes_a_bundle_and_the_pipeline_file(tmp_path):
+    """`mendel.lock.yml` is gone since Plan 1.10.
+
+    Everything it carried is in `pipeline.yml` — every contract by digest and container under
+    `steps[].module`, every layer under `registry.layers` — and a second file restating that is
+    a second thing to keep in step. The `Lockfile` object survives inside the bundle, where
+    `upgrade --bundle` still reads it; the bundle itself retires in Task 10.
+    """
     out = _publish(tmp_path)
     assert (out / "pipeline.bundle.json").exists()
-    assert (out / "mendel.lock.yml").exists()
+    assert (out / "pipeline.yml").exists()
+    assert not (out / "mendel.lock.yml").exists()
 
 
 def test_the_bundle_carries_all_four_parts(tmp_path):
@@ -66,11 +74,18 @@ def test_the_bundle_records_the_artifact_it_produced(tmp_path):
     assert not any("modules" in f["name"] for f in files)
 
 
-def test_the_lockfile_pins_every_module_used(tmp_path):
+def test_the_pipeline_file_pins_every_module_used(tmp_path):
+    """What `mendel.lock.yml` used to assert, against the file that replaced it.
+
+    Per step rather than in a side list, which is the point: the pin sits beside the step it
+    pins, so "which STAR is this" is answered where the question is asked.
+    """
     out = _publish(tmp_path)
-    lock = yaml.safe_load((out / "mendel.lock.yml").read_text())
+    pipeline = yaml.safe_load((out / "pipeline.yml").read_text())
     ir = json.loads((out / "pipeline.bundle.json").read_text())["ir"]
-    assert {c["id"] for c in lock["contracts"]} == {n["contract_id"] for n in ir["nodes"]}
+    pinned = {step["module"]["contract_id"] for step in pipeline["steps"]}
+    assert pinned == {n["contract_id"] for n in ir["nodes"]}
+    assert all(step["module"]["digest"].startswith("sha256:") for step in pipeline["steps"])
 
 
 def test_the_bundle_records_which_layers_built_it(tmp_path):
@@ -89,12 +104,13 @@ def test_publishing_twice_produces_identical_bytes(tmp_path):
     """Determinism, applied to the artifact people share. No timestamps anywhere."""
     a, b = _publish(tmp_path, "a"), _publish(tmp_path, "b")
     assert (a / "pipeline.bundle.json").read_text() == (b / "pipeline.bundle.json").read_text()
-    assert (a / "mendel.lock.yml").read_text() == (b / "mendel.lock.yml").read_text()
+    assert (a / "pipeline.yml").read_text() == (b / "pipeline.yml").read_text()
 
 
 def test_publish_holds_no_filesystem_path(tmp_path):
+    """No paths, no timestamps. A published artifact names a layer, never a directory."""
     out = _publish(tmp_path)
-    for name in ("pipeline.bundle.json", "mendel.lock.yml"):
+    for name in ("pipeline.bundle.json", "pipeline.yml"):
         assert str(ROOT) not in (out / name).read_text()
 
 

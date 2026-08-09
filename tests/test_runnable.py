@@ -271,7 +271,11 @@ def _pipe(ir, loaded):
 
     `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
     registry, vocabulary and measurements now lives on the `Pipeline`.
+
+    `goal` is keyword-only and required since Task 6. An empty one is honest here: these
+    fixtures start from an IR and never had a goal to record.
     """
+    from comeni_core.goal import Goal
     from comeni_core.pipeline import Pipeline
 
-    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())

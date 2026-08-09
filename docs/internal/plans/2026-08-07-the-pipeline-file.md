@@ -1233,6 +1233,44 @@ git commit -m "feat(compiler): emit reads one Pipeline, and a resolved setting r
 
 ## Task 6: `pipeline.yml` is the artifact
 
+> **Done, 2026-08-09, with five corrections. Read these before Task 10 — three of them
+> move work into it.**
+>
+> **1. `MD0213` does not refuse in `emit`; it refuses in the verbs that treat the generated
+> files as evidence.** The step-1 test below asserted that editing `pipeline.yml` and running
+> `mendel emit` is refused. That is backwards, and it makes the design impossible: `emit` is
+> the verb that *cures* staleness, so refusing there means the file a reader is told to edit
+> can never be edited. `emit` reports `MD0213` and regenerates; `publish` and a gated run are
+> where it must refuse, and **that half lands in Task 10**, which is where those verbs get
+> their new front door. `MD0214` does refuse in `emit`, because regenerating would destroy a
+> hand edit — and a **deleted** file is rewritten rather than refused, which is the escape
+> hatch its `fix:` names.
+>
+> **2. `pipeline.bundle.json` survives Task 6 and retires in Task 10.** `mendel.lock.yml` and
+> `pipeline.ir.json` are gone as planned. The bundle is `upgrade --bundle`'s only input and
+> nothing else reads it; deleting it here would leave `upgrade` broken across Tasks 7–9, and
+> re-pointing `upgrade` needs `diff_ir` and `drift_against` to work from a `Pipeline` — which
+> is Task 10's subject, not a side effect of this one.
+>
+> **3. `MD0212` was already taken.** Task 4 shipped it on `StepInput`'s exactly-one-origin
+> rule. The spec's table assigns it to duplicates and the spec is the authority, so duplicates
+> keep `MD0212` and the input rule became **`MD0215`** — renumbered while nothing had published
+> it, which is the only moment renumbering is allowed.
+>
+> **4. `Pipeline.of` wrote `goal: {have: [], want: []}` into every file, and everything
+> passed.** It defaulted the goal to `Goal(profile=ir.profile)`, which type-checks,
+> round-trips, and satisfies the totality test — that test asks whether a field has a *home*,
+> and it did. `goal` is now keyword-only with **no default**. A field present and empty is
+> worse than a field absent in a file whose whole claim is that it records what was asked for,
+> and Task 10's `upgrade` would have re-resolved an empty goal.
+>
+> **5. `_settings` silently drops a binding whose contract declares no such param.** Found by
+> a guard of this task's own that passed for the wrong reason. It is the orphan case one level
+> below Task 9's, recorded at the site, and **left to Task 9** rather than given a code here
+> that would collide with `MD0203`.
+>
+> `make verify` green: 506 fast, 2 slow, 15 guards.
+
 **Files:**
 - Modify: `packages/mendel-compiler/src/mendel_compiler/cli.py`
 - Modify: `packages/comeni-core/src/comeni_core/pipeline.py` (`from_digest`, serialisation)
@@ -1240,7 +1278,7 @@ git commit -m "feat(compiler): emit reads one Pipeline, and a resolved setting r
   (`MD0206`, `MD0207`, `MD0210`, `MD0211`, `MD0212`, `MD0213`, `MD0214`)
 - Test: `tests/test_pipeline_file.py` (create)
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_build_writes_pipeline_yml_and_not_the_three_it_replaces(tmp_path):
@@ -1293,21 +1331,21 @@ def test_a_newer_version_is_refused(tmp_path):
     assert code != 0 and "MD0207" in err
 ```
 
-- [ ] **Step 2: run and watch them fail**
+- [x] **Step 2: run and watch them fail**
 
-- [ ] **Step 3: implement `from_digest`**
+- [x] **Step 3: implement `from_digest`**
 
 Digest the model **with `emitted:` excluded** — otherwise it would contain its own digest.
 Same exclusion `ResolvedValue._drop_computed` makes for `review_level`, and for the same
 reason: a derived field inside the thing it describes does not round-trip.
 
-- [ ] **Step 4: write `pipeline.yml` in `_build`, delete the other two writes**
+- [x] **Step 4: write `pipeline.yml` in `_build`, delete the other two writes**
 
 Replace `cli.py`'s `(args.out / "pipeline.ir.json").write_text(...)` with a `pipeline.yml`
 write, and delete the `pipeline.bundle.json` and `mendel.lock.yml` writes from `_publish`.
 Emit from the reparsed file, not the in-memory object.
 
-- [ ] **Step 5: add the seven codes to `diagnostics.yml`**
+- [x] **Step 5: add the seven codes to `diagnostics.yml`**
 
 | code | `says` |
 |---|---|
@@ -1319,9 +1357,9 @@ Emit from the reparsed file, not the in-memory object.
 | `MD0213` | `pipeline.yml` changed since the Nextflow was generated from it |
 | `MD0214` | `main.nf` or `nextflow.config` was hand-edited since it was generated |
 
-- [ ] **Step 6: `make verify`**
+- [x] **Step 6: `make verify`**
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add packages/ tests/test_pipeline_file.py

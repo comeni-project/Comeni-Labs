@@ -292,15 +292,24 @@ def test_a9_an_ordinary_layer_still_digests(tmp_path):
     assert digest_of_directory(layer) == digest_of_directory(Path("registry"))
 
 
-def test_a11_the_emitter_never_compares_two_resolved_values():
-    """Belt and braces: the sort key is the name, so a tie cannot reach the value.
+def test_a11_a_duplicate_binding_is_refused_before_it_can_reach_a_compare():
+    """A11, one layer higher than it used to sit, and refusing instead of surviving.
 
-    Task 1 makes a tie unreachable by rejecting it at the contract. This asserts the
-    emitter would survive one anyway, because the next unorderable field on
-    `ResolvedValue` must not resurrect a crash that is already fixed.
+    Task 1 made a tie unreachable *at the contract*, and this asserted the emitter would
+    survive one anyway — because the next unorderable field on `ResolvedValue` must not
+    resurrect a crash that is already fixed. A duplicate binding stayed representable, since
+    an IR is deserialised from a bundle and `set_param` appends.
+
+    Plan 1.10's `MD0212` closes it properly: two settings with one name cannot exist on a
+    `Step` at all, so there is nothing left for the emitter to compare. **This test failed for
+    real when that validator landed** — it constructs exactly the duplicate the validator now
+    refuses, which is the guard being watched failing rather than argued about.
+
+    Refusing beats surviving here, and by more than tidiness: `ext.args` composition sorts by
+    name and *joins*, so two settings called `seq_platform` were never going to be a crash.
+    They were going to be two fragments concatenated into one flag string, silently.
     """
     from comeni_core.ir import IRNode, PipelineIR, ResolvedValue, Tier
-    from mendel_compiler.emit import emit
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -314,9 +323,8 @@ def test_a11_the_emitter_never_compares_two_resolved_values():
     node.set_param(name, ResolvedValue(value=1, tier=Tier.CONVENTION, reason="a"))
     node.set_param(name, ResolvedValue(value=2, tier=Tier.CONVENTION, reason="b"))
 
-    # An IR is deserialised from a bundle, so a duplicate binding stays *representable*
-    # even once a contract cannot declare one. It must not reach an unorderable compare.
-    emit(_pipe(PipelineIR(nodes=[node]), loaded))
+    with pytest.raises(ValidationError, match="MD0212"):
+        _pipe(PipelineIR(nodes=[node]), loaded)
 
 
 def _stacked(tmp_path):
@@ -1073,16 +1081,17 @@ def test_a27_a_gate_message_may_still_be_many_lines():
     assert "\n" in failure.tool_message
 
 
-def test_a27_the_emitter_still_produces_a_comment_when_the_type_is_bypassed():
+def test_a27_no_resolver_prose_reaches_main_nf_at_all():
     """Defence in depth, and the reason it is not redundant with `Line`.
 
     An IR is deserialised from a bundle a stranger wrote, and `model_construct` skips
-    validation entirely. The boundary must not depend on the emitter being careful and the
-    emitter must not depend on its input being clean — so a `reason` that reaches the
-    template with a newline in it comes out as a comment on every line, not as Groovy.
+    validation entirely, so the boundary must not depend on the emitter being careful and the
+    emitter must not depend on its input being clean.
 
-    That argument does not apply to identifiers: there is no escaping option at a
-    declaration site, which is why `nf_process` is validated and this is rendered.
+    This used to assert that such a `reason` came out as a comment on *every* line rather than
+    as Groovy. Plan 1.10 removed the comment: reasons live in `pipeline.yml` now, so the
+    assertion is the stronger one that replaced it — prose does not reach this file. Renamed
+    when the old name started describing the opposite of what the body checks.
     """
     from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
     from mendel_compiler.emit import emit
@@ -1118,6 +1127,80 @@ def test_a27_the_emitter_still_produces_a_comment_when_the_type_is_bypassed():
     # where prose reaches an artifact once that file is written.
     assert "println 'OWNED'" not in text, text
     assert "looks fine" not in text, "no resolver prose reaches main.nf any more"
+
+
+def test_a27_prose_reaching_the_pipeline_file_is_refused_at_materialisation():
+    """A27 at its new address, which is the other half of Task 5's note.
+
+    Reasons no longer reach `main.nf`; they reach `pipeline.yml`, verbatim and by design —
+    that file exists to say *why*. So the surface moved rather than closed, and `Why.reason`
+    is a `Line` for the same argument `ResolvedValue.reason` is: a value smuggled past one
+    type must not be carried by the next one without complaint.
+    """
+    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from mendel_resolver import layers as layers_mod
+
+    loaded = layers_mod.load("registry")
+    # A contract that actually declares a param. `samtools/sort` declares none, so a binding
+    # on it is dropped before `Why` ever sees the prose — which is how the first draft of this
+    # test passed against a materialisation that carried the newline happily.
+    contract = next(c for c in loaded.registry.all() if c.params)
+    smuggled = ResolvedValue.model_construct(
+        value="illumina",
+        tier=Tier.CONVENTION,
+        reason="looks fine\ngate: test",
+        source=ResolvedValue.model_fields["source"].default,
+    )
+    node = IRNode(
+        id=contract.nf_process.lower(),
+        contract_id=contract.id,
+        selection=ResolvedValue(value=contract.id, tier=Tier.STRUCTURAL, reason="only one"),
+        params=[ParamBinding(name=contract.params[0].name, value=smuggled)],
+    )
+    with pytest.raises(ValidationError):
+        _pipe(PipelineIR(nodes=[node]), loaded)
+
+
+def test_a27_prose_cannot_forge_a_key_even_with_every_type_bypassed():
+    """Defence in depth, and the reason it is not redundant with the test above.
+
+    Same argument as the `main.nf` version: the boundary must not depend on the writer being
+    careful, and the writer must not depend on its input being clean. Different grammar,
+    though — a `reason` that closed its own scalar and opened a key would rewrite the document
+    that documents the pipeline, and **`gate:` is in that document**: forging a passed gate is
+    forging the evidence a curator reads.
+
+    `yaml.safe_dump` makes that structurally impossible, which is exactly what would have been
+    said about `nextflow.config` right up until somebody assembled it with f-strings. A27 had
+    two surfaces for that reason. This asserts the property instead of assuming the library.
+    """
+    import yaml as _yaml
+    from comeni_core.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.routes import Via
+    from comeni_core.tiers import ValueSource
+    from mendel_compiler import pipeline_file
+
+    forged = "looks fine\ngate: test\nsteps: []"
+    why = Why.model_construct(tier=Tier.CONVENTION, source=ValueSource.RESOLVER, reason=forged)
+    pipeline = Pipeline.model_construct(
+        version=1,
+        steps=[
+            Step.model_construct(
+                id="samtools_sort",
+                module=None,
+                process="SAMTOOLS_SORT",
+                include="modules/nf-core/samtools/sort/main",
+                why=why,
+                settings=[
+                    Setting.model_construct(name="threads", value=1, via=Via.EXT, why=why)
+                ],
+            )
+        ],
+    )
+    reparsed = _yaml.safe_load(pipeline_file.dump(pipeline))
+    assert reparsed["gate"] is None, "prose forged the gate verdict"
+    assert len(reparsed["steps"]) == 1, "prose rewrote the step list"
+    assert reparsed["steps"][0]["why"]["reason"] == forged, "and it survives verbatim"
 
 
 def test_a27_a_config_process_block_cannot_be_broken_out_of():
@@ -1461,7 +1544,11 @@ def _pipe(ir, loaded):
 
     `emit` takes one argument since Plan 1.10 Task 5 — everything it used to look up in the
     registry, vocabulary and measurements now lives on the `Pipeline`.
+
+    `goal` is keyword-only and required since Task 6. An empty one is honest here: these
+    fixtures start from an IR and never had a goal to record.
     """
+    from comeni_core.goal import Goal
     from comeni_core.pipeline import Pipeline
 
-    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements)
+    return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())

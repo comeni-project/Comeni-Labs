@@ -23,14 +23,10 @@ from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
 from pydantic import ValidationError
 
-from mendel_compiler import conformance
+from mendel_compiler import conformance, pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
-
-EMITTED_FILES = ("main.nf", "nextflow.config")
-"""What this compiler generates. Named once, because `publish` records their digests and
-`upgrade` compares against that record — two lists would be one drift away from a verdict
-about a file nobody looked at."""
+from mendel_compiler.pipeline_file import EMITTED_FILES
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,10 +54,13 @@ def main(argv: list[str] | None = None) -> int:
 def _build(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mendel")
     parser.add_argument(
-        "command", choices=["build", "profile", "publish", "upgrade", "explain"]
+        "command", choices=["build", "profile", "publish", "upgrade", "emit", "explain"]
     )
     parser.add_argument(
-        "code", nargs="?", default=None, help="a diagnostic code, for `explain`"
+        "target",
+        nargs="?",
+        default=None,
+        help="a diagnostic code for `explain`, or a pipeline.yml for `emit`",
     )
     parser.add_argument("--goal", type=Path, default=None)
     parser.add_argument(
@@ -96,13 +95,23 @@ def _build(argv: list[str] | None = None) -> int:
     # Before anything loads: `explain` is documentation, and asking it for a code while a
     # registry will not load would answer the wrong question.
     if args.command == "explain":
-        if not args.code:
+        if not args.target:
             parser.error("explain needs a code, e.g. `mendel explain MD0104`")
-        print(conformance.explain(args.code))
+        print(conformance.explain(args.target))
         return 0
 
     if args.out is None:
         parser.error(f"{args.command} needs --out")
+
+    # Before the registry loads, and deliberately: `emit` reads no registry, no vocabulary
+    # and no measurements. That is the whole point of materialising the pipeline — a
+    # laboratory can archive a validated pipeline and regenerate its Nextflow years later
+    # without the registry it was built against, which is the part that resolves differently
+    # as it changes. Loading one here would make that untrue while the tests still passed.
+    if args.command == "emit":
+        if not args.target:
+            parser.error("emit needs a pipeline.yml, e.g. `mendel emit build/pipeline.yml`")
+        return _emit_verb(Path(args.target), args.out)
 
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
@@ -168,12 +177,17 @@ def _build(argv: list[str] | None = None) -> int:
     ir.unverified = unverified
 
     args.out.mkdir(parents=True, exist_ok=True)
-    # Materialise once, then emit from that. Everything the emitter reads now lives on the
-    # `Pipeline`, which is what lets `mendel emit` regenerate this without a registry.
-    pipeline = Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths)
+    # Materialise once, write it, read it back, and emit from **the copy that was read**.
+    # Everything the emitter reads now lives on the `Pipeline`, which is what lets `mendel
+    # emit` regenerate this without a registry — and running emission on the round trip is
+    # what keeps that promise honest, since a field that does not survive YAML fails the
+    # build (MD0206) instead of quietly meaning less than the file says.
+    pipeline = pipeline_file.write(
+        args.out,
+        Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths, goal=goal),
+    )
     (args.out / "main.nf").write_text(emit(pipeline))
     (args.out / "nextflow.config").write_text(emit_config(pipeline))
-    (args.out / "pipeline.ir.json").write_text(ir.model_dump_json(indent=2))
     # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is
     # where this repository keeps the source. Deliberately not the same path.
     vendored = args.root / "vendor" / "modules"
@@ -244,15 +258,26 @@ def _build(argv: list[str] | None = None) -> int:
         print(f"  REVIEW  {item}", file=sys.stderr)
 
     passed: Gate | None = None
+    failed = False
     if args.gate is not None:
         if args.gate is Gate.STUB:
             materialise_stub_data(args.out, entry_params(pipeline))
         result = run_gate(args.gate, args.out)
         print(f"gate {result.gate}: {'PASS' if result.passed else 'FAIL'}", file=sys.stderr)
-        if not result.passed:
+        if result.passed:
+            passed = result.gate
+        else:
             print(result.output, file=sys.stderr)
-            return 1
-        passed = result.gate
+            failed = True
+
+    # Stamped last, because `gate:` is part of what `from_digest` covers — recording the
+    # digest before the gate ran would make every gated build stale the moment its verdict
+    # arrived. Stamped on the failing path too: generated files with no record of what they
+    # came from are exactly the divergence MD0213 exists to catch.
+    pipeline.gate = passed
+    pipeline_file.stamp(args.out, pipeline)
+    if failed:
+        return 1
 
     if args.command == "publish":
         # Federation §4.1: a shareable pipeline is what was asked for, what it resolved
@@ -279,10 +304,70 @@ def _build(argv: list[str] | None = None) -> int:
             # the gate. The generated two only: `modules/` is vendored, not emitted.
             emitted=Emitted.of(args.out, EMITTED_FILES),
         )
+        #
+        # `mendel.lock.yml` is no longer written. Everything it carried is in
+        # `pipeline.yml` — every contract by digest and container under `steps[].module`,
+        # every layer under `registry.layers` — and a second file restating that is a second
+        # thing to keep in step. The `Lockfile` object survives inside the bundle, where
+        # `upgrade --bundle` still reads it; **`pipeline.bundle.json` retires in Task 10**,
+        # which is what re-points `upgrade` at `pipeline.yml` and gives it somewhere to go.
         (args.out / "pipeline.bundle.json").write_text(bundle.model_dump_json(indent=2))
-        (args.out / "mendel.lock.yml").write_text(
-            yaml.safe_dump(lockfile.model_dump(mode="json"), sort_keys=True)
+    return 0
+
+
+def _emit_verb(target: Path, out: Path) -> int:
+    """`mendel emit <pipeline.yml> --out <dir>` — the Nextflow, rebuilt from the file.
+
+    Four checks, and only three of them refuse.
+
+    `MD0210` refuses because an `include` path that resolves to nothing produces a `main.nf`
+    which looks finished and dies at launch. `MD0214` refuses because regenerating would
+    overwrite a hand edit in silence, and its fix names `pipeline.yml` rather than telling
+    anyone to revert — a person who edited `main.nf` was trying to change the pipeline.
+
+    `MD0213` **does not refuse here**, and the plan had it the other way round. This verb is
+    the cure for staleness; refusing it would mean the file a reader is told to edit can never
+    be edited. The refusal belongs on the verbs that treat the generated files as evidence.
+    """
+    pipeline = pipeline_file.load(target)
+
+    # Beside the file, not beside the output: `modules/` is part of the pipeline a laboratory
+    # archives, and `pipeline.yml` is what names it.
+    source = target.parent
+    if not (source / "modules").is_dir():
+        print(
+            f"mendel: MD0210: {source}/modules is absent, so every `include` in the emitted "
+            f"workflow would point at nothing. Nothing was written. "
+            f"`mendel explain MD0210`.",
+            file=sys.stderr,
         )
+        return 2
+
+    out.mkdir(parents=True, exist_ok=True)
+    edited = pipeline_file.hand_edited(out, pipeline)
+    if edited:
+        print(
+            f"mendel: MD0214: {', '.join(edited)} changed since it was generated, and "
+            f"re-emitting would overwrite that.\n"
+            f"  Make the change in {target} and run this again — that is the file the "
+            f"pipeline is built from.\n"
+            f"  To discard it instead, delete {edited[0]} and run this again.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if pipeline_file.is_stale(pipeline):
+        print(
+            f"MD0213: {target} has changed since the Nextflow was generated from it. "
+            f"Regenerating.",
+            file=sys.stderr,
+        )
+
+    if source.resolve() != out.resolve():
+        shutil.copytree(source / "modules", out / "modules", dirs_exist_ok=True)
+    (out / "main.nf").write_text(emit(pipeline))
+    (out / "nextflow.config").write_text(emit_config(pipeline))
+    pipeline_file.stamp(out, pipeline)
     return 0
 
 

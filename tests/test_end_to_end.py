@@ -1,6 +1,6 @@
-import json
 import pathlib
 
+import yaml
 from mendel_compiler.cli import main
 
 ROOT = pathlib.Path(__file__).parent.parent
@@ -17,7 +17,7 @@ def test_builds_a_pipeline_from_the_example_goal(tmp_path):
     source = (tmp_path / "pipeline" / "main.nf").read_text()
     assert "STAR_ALIGN" in source
     assert "FEATURECOUNTS" in source
-    assert (tmp_path / "pipeline" / "pipeline.ir.json").exists()
+    assert (tmp_path / "pipeline" / "pipeline.yml").exists()
 
 
 def test_the_measured_strandedness_reaches_the_tool(tmp_path):
@@ -69,8 +69,9 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
     ])
     assert exit_code == 0
     assert "OVERLAY  contracts: nf-core/samtools/sort@1.99.0" in capsys.readouterr().err
-    ir = json.loads((tmp_path / "pipeline" / "pipeline.ir.json").read_text())
-    assert "nf-core/samtools/sort@1.99.0" in [n["contract_id"] for n in ir["nodes"]]
+    pipeline = yaml.safe_load((tmp_path / "pipeline" / "pipeline.yml").read_text())
+    pinned = [step["module"]["contract_id"] for step in pipeline["steps"]]
+    assert "nf-core/samtools/sort@1.99.0" in pinned
 
 
 def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, capsys):
@@ -80,7 +81,7 @@ def test_a_goal_file_cannot_smuggle_a_measurement_nobody_declared(tmp_path, caps
     measurements became declared data the model cannot know which keys are real. So the
     check moved to `MeasurementRegistry.profile()` and `mendel build` routes every goal
     through it. Without that call `profile: {sample_name: SILVA_biopsy_01}` validates,
-    resolves and reaches `pipeline.ir.json` — the shape of the hole the 2026-08-03 audit
+    resolves and reaches `pipeline.yml` — the shape of the hole the 2026-08-03 audit
     found in `constraints`, re-opened one field over.
     """
     goal = tmp_path / "goal.yml"
@@ -147,11 +148,11 @@ def test_output_is_identical_across_hash_seeds(tmp_path):
         )
         assert result.returncode == 0, result.stderr
         digests.append(
-            ((out / "main.nf").read_text(), (out / "pipeline.ir.json").read_text())
+            ((out / "main.nf").read_text(), (out / "pipeline.yml").read_text())
         )
 
     assert digests[0][0] == digests[1][0], "main.nf differs across PYTHONHASHSEED"
-    assert digests[0][1] == digests[1][1], "pipeline.ir.json differs across PYTHONHASHSEED"
+    assert digests[0][1] == digests[1][1], "pipeline.yml differs across PYTHONHASHSEED"
 
 
 def test_multi_state_serialisation_is_seed_independent(tmp_path):

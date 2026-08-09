@@ -223,6 +223,44 @@ MD0205:
     running — a second routing mechanism competing with resolution. Whether a step exists is
     decided by resolving the goal.
 
+MD0206:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "the `pipeline.yml` just written does not parse back to the object it was written from"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Nothing you can do in the file — this is a bug in Mendel, and the pipeline directory it
+    would have written is not trustworthy. Please report it with the goal that produced it:
+    https://github.com/comeni-project/Comeni-Labs/issues
+  explanation: |
+    Every build writes `pipeline.yml`, reads it back, and emits the Nextflow from the copy it
+    read. So the round trip is exercised on every build rather than asserted once in a test,
+    and a field that does not survive YAML is a refused build rather than a file that quietly
+    means less than it says.
+
+    That is a direct answer to how `ResolvedValue._drop_computed` came to be needed. The IR did
+    not round-trip at all, and in that field's own words: nothing noticed, because nothing read
+    an IR back until now.
+
+MD0207:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`version:` is newer than this Mendel understands"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Upgrade Mendel. Do not edit the version number down — that only moves the failure to
+    somewhere less obvious than this message.
+  explanation: |
+    Forward compatibility is a promise this format has not made. An older Mendel reading the
+    parts of a newer file it happens to recognise would emit a pipeline missing whatever the
+    unrecognised section carried, and would say nothing, because from its point of view the
+    file parsed.
+
+    Refusing is the honest reading of an unknown document, and it is why `version:` is the
+    first key in the file.
+
 MD0209:
   emitted_by: compiler
   concern: pipeline-file
@@ -244,3 +282,124 @@ MD0209:
     The legal names live in the compiler rather than the registry: Nextflow's directive set is
     a fact about the toolchain, moving on Nextflow's release cycle, and no laboratory should be
     able to approve `cpuz` into it by editing data.
+
+MD0210:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`modules/` is absent, so the emitted `include` paths would point at nothing"
+  fires_on: [emit]
+  refuses: true
+  fix: |
+    Run `mendel emit` in the pipeline directory `mendel build` produced, keeping `modules/`
+    beside `pipeline.yml`. The module source is part of the pipeline, not a build artifact.
+  explanation: |
+    `include { STAR_ALIGN } from 'modules/nf-core/star/align/main'` is resolved by Nextflow at
+    launch, not by Mendel at emit time. Writing a `main.nf` whose includes cannot resolve
+    produces a file that looks finished and fails at the first run, with an error about a
+    module path rather than about a missing directory.
+
+    Never emit a `main.nf` that cannot run. This is the same rule as `NfInput.empty` requiring
+    a reason, applied to the directory instead of to a channel.
+
+MD0211:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`channels[].params` disagrees with what its `expression` references"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Make `params:` list exactly the `params.<name>` that `expression:` reads. Edit whichever of
+    the two is wrong — they answer the same question and the file must not answer it twice.
+  explanation: |
+    `params:` is stored and also derivable, deliberately. Taking a scan over arbitrary Groovy
+    out of the emitter is much of what materialising the pipeline buys, and the emitter's copy
+    of that scan lives in a package that may use a regular expression while `comeni-core` may
+    not.
+
+    The price of the duplication is that the two spellings must be checked against each other,
+    on every load rather than only where they were written together. Two implementations of one
+    computation is how a guard comes to be testing its own copy — audit A21 — so here they are
+    compared instead.
+
+MD0212:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "two steps share an `id`, or two settings on one step share a `name`"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Give each step a distinct `id`, and each setting on a step a distinct `name`.
+  explanation: |
+    A11 arriving in a new type. `ModuleContract` already refuses a duplicate `Param`, because
+    the second one silently wins and nothing says so.
+
+    Here it is worse than ambiguous. A step `id` is what `inputs[].source` points at, so a
+    duplicate makes the wiring itself unreadable. And `ext.args` composition sorts the settings
+    by name and joins them, so two settings with one name are two fragments the emitter would
+    concatenate into a single flag string without comment.
+
+MD0213:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`pipeline.yml` has changed since the Nextflow was generated from it"
+  fires_on: [emit, publish]
+  refuses: false
+  fix: |
+    Run `mendel emit <dir>/pipeline.yml --out <dir>`. That regenerates `main.nf` and
+    `nextflow.config` from what the file now says, and restamps `emitted.from_digest`.
+
+    `emit` reports this and then cures it, so seeing it there is normal — it is the record of
+    what your edit changed. Any verb that treats the generated files as evidence refuses
+    instead, because a gate result or a published bundle describing a `main.nf` built from a
+    different `pipeline.yml` is evidence about nothing.
+  explanation: |
+    Consolidating four artifacts into one opens a failure the four did not have, and it is the
+    one this whole design exists to prevent: Nextflow runs `main.nf`, not `pipeline.yml`.
+
+    Edit the file you were told to edit, forget to re-emit, and the pipeline that runs is not
+    the pipeline that is documented — with every file digest matching, because the bytes on
+    disk are exactly the bytes that were written. The artifact and the run diverge in silence,
+    through the door the design itself installs.
+
+    So `emitted.from_digest` records the pipeline content the generated files came from,
+    computed over the model with `emitted:` excluded, and this fires when the file no longer
+    digests to it.
+
+MD0214:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "`main.nf` or `nextflow.config` was edited by hand since it was generated"
+  fires_on: [emit, publish]
+  refuses: true
+  fix: |
+    Make the change in `pipeline.yml` and re-emit. Settings, provenance and wiring all live
+    there, and only edits made there survive the next `mendel emit`.
+
+    To discard the hand edit instead, delete the file and re-emit — a file that is not there is
+    rewritten rather than refused, because nothing is destroyed by writing it.
+  explanation: |
+    Regenerating would overwrite the edit and say nothing, so this refuses rather than silently
+    winning an argument with whoever made it.
+
+    The fix names the other file rather than telling anyone to revert. A person who hand-edited
+    `main.nf` was trying to change the pipeline; the file that changes the pipeline is
+    `pipeline.yml`. A diagnostic that only forbids is half a diagnostic.
+
+MD0215:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "an input names neither `source` nor `channel`, or names both"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Give the input exactly one origin: `source: <step>.<port>` when an earlier step produces
+    it, or `channel: <type_id>` when the laboratory supplies it.
+  explanation: |
+    Two declared fields rather than one string with two shapes. The specification drafted this
+    as a single `from:` carrying either `trimgalore.reads` or `channel:annotation.gtf`, and the
+    second cannot be an `EdgeRef` — that mark requires two Groovy identifiers, so the union
+    would have had to give up the validation that makes an edge reference distinguishable from
+    a filename in the first place (audit A16).
+
+    A field that reads two ways is root G, and `inputs:` is where a second reading produces a
+    silently miswired pipeline rather than a parse error.

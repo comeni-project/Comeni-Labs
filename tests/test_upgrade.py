@@ -132,8 +132,10 @@ def test_untouched_decisions_replay(tmp_path, capsys):
     """The curation property. A tier-4 decision recorded before must not be re-asked."""
     bundle = _published(tmp_path)
     main(["upgrade", "--bundle", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
-    ir = json.loads((tmp_path / "up" / "pipeline.ir.json").read_text())
-    replayed = [d for d in ir["decisions"] if d["resolved_by"] == "replay"]
+    import yaml
+
+    pipeline = yaml.safe_load((tmp_path / "up" / "pipeline.yml").read_text())
+    replayed = [d for d in pipeline["decisions"] if d["resolved_by"] == "replay"]
     assert replayed, "a recorded decision should have replayed rather than been re-asked"
 
 
@@ -198,8 +200,6 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
 
 def test_a_bundle_predating_the_record_says_so_rather_than_claiming_identity(tmp_path, capsys):
     """`None` is no evidence, not a clean bill of health — the distinction `gate` makes."""
-    import json
-
     bundle = _published(tmp_path)
     data = json.loads(bundle.read_text())
     data["emitted"] = None

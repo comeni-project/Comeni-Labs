@@ -48,8 +48,20 @@ def _aliases_of(tree: ast.AST, name: str = "DataProfile") -> set[str]:
     return names
 
 
-def _constructions(tree: ast.AST, aliases: set[str], modules: set[str]) -> list[int]:
-    """Every line that builds a `DataProfile`, by any spelling this scan can see."""
+def _constructions(
+    tree: ast.AST,
+    aliases: set[str],
+    modules: set[str],
+    permitted: frozenset[str] = frozenset(),
+) -> list[int]:
+    """Every line that builds a `DataProfile`, by any spelling this scan can see.
+
+    `permitted` exempts named *spellings*, never a whole file. `pipeline_file.load` needs
+    `Pipeline.model_validate` — reading one back off disk is not materialising one, and the
+    round trip is what the design rests on — but a bare `Pipeline(...)` in that same module
+    must stay an offence. Exempting the file would have granted both, which is how a
+    sole-constructor rule quietly becomes a suggestion.
+    """
     found = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -61,7 +73,11 @@ def _constructions(tree: ast.AST, aliases: set[str], modules: set[str]) -> list[
         elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
             # `DataProfile.model_construct(...)` or `_DP.model_validate_json(...)` — a
             # bypass on a name that resolves to the model.
-            bypass = func.value.id in aliases and func.attr in BYPASSES
+            bypass = (
+                func.value.id in aliases
+                and func.attr in BYPASSES
+                and func.attr not in permitted
+            )
             # `profile.DataProfile(...)` — the model reached through its module.
             through_module = func.attr in aliases and func.value.id in modules
             if bypass or through_module:
@@ -92,6 +108,17 @@ PIPELINE_ALLOWED = {
     "packages/comeni-core/src/comeni_core/pipeline.py",
 }
 
+PIPELINE_READERS = {
+    # `pipeline_file.load` parses a `pipeline.yml` back into a `Pipeline`, and reading one
+    # off disk is not materialising one — the file it reads was written by `Pipeline.of`.
+    # Note what is exempted: the **spelling**, not the file. `Pipeline(...)` here is still an
+    # offence, and `model_construct` — which skips validation entirely, so `MD0207`,
+    # `MD0211`, `MD0212` and `MD0215` would never fire — still is too.
+    "packages/mendel-compiler/src/mendel_compiler/pipeline_file.py": frozenset(
+        {"model_validate"}
+    ),
+}
+
 
 def test_pipeline_is_constructed_in_one_place():
     """`Pipeline.of()` or nowhere, for the reason `MeasurementRegistry.profile()` exists.
@@ -115,7 +142,8 @@ def test_pipeline_is_constructed_in_one_place():
             tree = ast.parse(py.read_text())
             aliases = _aliases_of(tree, "Pipeline")
             modules = _imported_names(tree)
-            for line in _constructions(tree, aliases, modules):
+            permitted = PIPELINE_READERS.get(str(py.relative_to(root)), frozenset())
+            for line in _constructions(tree, aliases, modules, permitted):
                 offenders.append(f"{py.relative_to(root)}:{line}")
     assert offenders == [], (
         "build one through Pipeline.of(), which materialises it; these construct one "

@@ -44,21 +44,15 @@ def _render_literal(value: object) -> str:
     return f"'{escaped}'"
 
 
-def _render_comment(text: str) -> str:
-    """Prose, rendered so that it stays prose.
-
-    A27: `reason` was interpolated into `// {{ value.reason }}` and a newline made the rest
-    of it Groovy. `Line` refuses one at the boundary — but an IR is deserialised from a
-    bundle a stranger wrote, and `model_construct` skips validation altogether, so the
-    emitter renders rather than trusts. Belt and braces, and the two halves fail
-    independently.
-
-    Continuation lines are re-prefixed rather than stripped: a reviewer reading the
-    generated file should see everything the record said, on lines that are all comments.
-    """
-    lines = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    cleaned = ["".join(c for c in line if ord(c) >= 32 or c == "\t") for line in lines]
-    return "\n// ".join(cleaned)
+# `_render_comment` lived here and is deleted. A27 needed it because `reason` was
+# interpolated into `// {{ value.reason }}`, where a newline made the rest of the line
+# Groovy. Nothing interpolates prose into `main.nf` any more — reasons live in
+# `pipeline.yml`, beside the value they explain — so the renderer had no caller.
+#
+# Deleted rather than kept "in case": dead defensive code reads as protection and provides
+# none, and a reader finding it would reasonably conclude prose still reaches this file.
+# The property it defended is asserted at its new address, in the two A27 tests that watch
+# `pipeline.yml`.
 
 
 def _render_process_name(name: str) -> str:

@@ -83,17 +83,22 @@ def test_an_unverified_contract_warns_and_builds(tmp_path, capsys):
     assert "unverified" in capsys.readouterr().err
 
 
-def test_unverified_contracts_reach_the_ir(tmp_path):
-    import json
+def test_unverified_contracts_reach_the_artifact(tmp_path):
+    """Which contracts were never checked against module source, in the file a reader reads.
+
+    Under `registry:` since Plan 1.10, beside the layers it belongs with, rather than at the
+    top level of an IR that no longer reaches disk.
+    """
+    import yaml
 
     _build_with_no_module_source(tmp_path)
-    ir = json.loads((tmp_path / "p" / "pipeline.ir.json").read_text())
-    assert ir["unverified"], "a publish bundle must carry which contracts were unchecked"
+    pipeline = yaml.safe_load((tmp_path / "p" / "pipeline.yml").read_text())
+    assert pipeline["registry"]["unverified"], "a shared pipeline must say what was unchecked"
 
 
 def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
     """The field is evidence, so it must be empty when there was evidence."""
-    import json
+    import yaml
 
     main(
         [
@@ -106,8 +111,8 @@ def test_a_conformant_build_records_nothing_as_unverified(tmp_path):
             str(ROOT),
         ]
     )
-    ir = json.loads((tmp_path / "p" / "pipeline.ir.json").read_text())
-    assert ir["unverified"] == []
+    pipeline = yaml.safe_load((tmp_path / "p" / "pipeline.yml").read_text())
+    assert pipeline["registry"]["unverified"] == []
 
 
 def test_mendel_explain_prints_the_long_form():

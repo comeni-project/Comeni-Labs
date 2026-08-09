@@ -1,4 +1,3 @@
-import json
 import pathlib
 
 from mendel_compiler.cli import main
@@ -34,10 +33,12 @@ def test_profile_is_the_same_operation_as_a_measurement_build(tmp_path):
 
 def test_a_profiling_build_resolves_against_an_empty_profile(tmp_path):
     """Otherwise profiling needs a profile, which is the regress this rule stops."""
+    import yaml
+
     main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"), "--root", str(ROOT)])
-    ir = json.loads((tmp_path / "p" / "pipeline.ir.json").read_text())
-    tiers = {b["value"]["tier"] for n in ir["nodes"] for b in n["params"]}
-    tiers |= {n["selection"]["tier"] for n in ir["nodes"]}
+    pipeline = yaml.safe_load((tmp_path / "p" / "pipeline.yml").read_text())
+    tiers = {s["why"]["tier"] for step in pipeline["steps"] for s in step["settings"]}
+    tiers |= {step["why"]["tier"] for step in pipeline["steps"]}
     assert 3 not in tiers, "a profiling build must not resolve anything at tier 3"
 
 

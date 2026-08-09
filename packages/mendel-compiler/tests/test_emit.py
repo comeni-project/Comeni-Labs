@@ -1,5 +1,6 @@
 import pathlib
 
+from comeni_core.goal import Goal
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.pipeline import Pipeline
 from mendel_compiler.emit import emit
@@ -13,9 +14,15 @@ def _vocab():
 
 
 def _pipeline():
-    """The two-node fixture, materialised. `emit` takes one argument now."""
+    """The two-node fixture, materialised. `emit` takes one argument now.
+
+    An empty `Goal`: this fixture starts from a hand-written IR, so there is no goal behind
+    it to record, and `goal:` is inert to emission anyway.
+    """
     loaded = layers.load(ROOT / "registry")
-    return Pipeline.of(_ir(), loaded.registry, loaded.vocabulary, loaded.measurements)
+    return Pipeline.of(
+        _ir(), loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal()
+    )
 
 
 def _registry():

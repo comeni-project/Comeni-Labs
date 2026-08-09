@@ -145,14 +145,35 @@ class Emitted(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     files: list[EmittedFile] = []
+    from_digest: Digest | None = None
+    """The digest of the pipeline content these files were generated **from**.
+
+    `files` catches a hand-edited `main.nf`. It cannot catch the opposite and likelier
+    mistake, which consolidating four artifacts into one is what opens: **Nextflow runs
+    `main.nf`, not `pipeline.yml`.** Edit the file you were told to edit, forget `mendel
+    emit`, and the pipeline that runs is not the pipeline that is documented — with every
+    digest here matching, because the bytes on disk are exactly the bytes that were written.
+    The artifact and the run diverge silently, which is the one failure this whole design
+    exists to prevent, arriving through the door the design itself installs.
+
+    Computed over the model with `emitted:` **excluded** — otherwise it would have to contain
+    its own digest. That is the same exclusion `ResolvedValue._drop_computed` makes for
+    `review_level`, and for the same reason: a derived field inside the thing it describes
+    does not round-trip.
+
+    `None` means no evidence, as it does for `gate`. It must never read as "identical".
+    """
 
     @classmethod
-    def of(cls, directory: Path, names: Sequence[str]) -> "Emitted":
+    def of(
+        cls, directory: Path, names: Sequence[str], from_digest: Digest | None = None
+    ) -> "Emitted":
         return cls(
             files=[
                 EmittedFile(name=name, digest=digest_of_bytes((directory / name).read_bytes()))
                 for name in sorted(names)
-            ]
+            ],
+            from_digest=from_digest,
         )
 
 

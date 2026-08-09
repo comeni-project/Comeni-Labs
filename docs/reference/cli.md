@@ -126,7 +126,15 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0201` | a resolved value is outside the substitutable character class |
 | `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
+| `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
+| `MD0207` | `version:` is newer than this Mendel understands |
 | `MD0209` | `via: directive` names something Nextflow silently ignores |
+| `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
+| `MD0211` | `channels[].params` disagrees with what its `expression` references |
+| `MD0212` | two steps share an `id`, or two settings on one step share a `name` |
+| `MD0213` | `pipeline.yml` has changed since the Nextflow was generated from it |
+| `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
+| `MD0215` | an input names neither `source` nor `channel`, or names both |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

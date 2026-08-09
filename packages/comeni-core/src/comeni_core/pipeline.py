@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.contract import ModuleContract
 from comeni_core.decision import DecisionRecord
+from comeni_core.digest import digest_of
 from comeni_core.egress import Emitted
 from comeni_core.gates import Gate
 from comeni_core.goal import Goal
@@ -46,7 +47,12 @@ from comeni_core.marks import (
 from comeni_core.routes import ExtKey, Via
 from comeni_core.tiers import Tier, ValueSource
 
+SCHEMA_VERSION = 1
+"""What this Mendel writes and the highest it will read. Bumped only by a change that an
+older Mendel would misread — a section it would ignore, or a field whose meaning moved."""
+
 __all__ = [
+    "SCHEMA_VERSION",
     "CallArg",
     "Channel",
     "MetaEntry",
@@ -159,16 +165,16 @@ class StepInput(BaseModel):
     channel: TypeId | None = None
     """The entry channel this port reads, when nothing upstream produces it."""
     states: list[StateName] = Field(default_factory=list)
+    """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
+    order — `digest_of` hashes the JSON, so this must not be one."""
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> "StepInput":
         if (self.source is None) == (self.channel is None):
             raise ValueError(
-                f"MD0212: input {self.port} must name exactly one of `source` or `channel`"
+                f"MD0215: input {self.port} must name exactly one of `source` or `channel`"
             )
         return self
-    """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
-    order — `digest_of` hashes the JSON, so this must not be one."""
 
 
 class Step(BaseModel):
@@ -191,6 +197,23 @@ class Step(BaseModel):
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
     settings: list[Setting] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _no_duplicate_setting(self) -> "Step":
+        """MD0212. A11 arriving in a new type.
+
+        `ModuleContract` already rejects a duplicate `Param` because the second silently
+        wins and nothing says so. Here it is worse than ambiguous: `ext.args` composition
+        sorts by name and joins, so two settings called `readFilesCommand` are two fragments
+        the emitter would concatenate into one flag string without comment.
+        """
+        names = [setting.name for setting in self.settings]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(
+                f"MD0212: step {self.id} declares {', '.join(repeated)} more than once"
+            )
+        return self
 
 
 class Channel(BaseModel):
@@ -216,6 +239,23 @@ class Channel(BaseModel):
     vocabulary, never a branch — a dataset that moves is one you cannot compare a result against
     next year. Always a list here even when the vocabulary declares one string, because a schema
     that is sometimes a string and sometimes a list reads two ways."""
+
+    @model_validator(mode="after")
+    def _params_match_the_expression(self) -> "Channel":
+        """MD0211, and it is the price of storing what is also derivable.
+
+        The duplication is deliberate — taking a scan over arbitrary Groovy out of the
+        emitter is much of what materialisation buys — so the two must be checked against
+        each other on **every** load, not only where they were written together.
+        """
+        referenced = _param_refs(self.expression)
+        if sorted(self.params) != referenced:
+            raise ValueError(
+                f"MD0211: channel {self.type_id} declares params {sorted(self.params)} but "
+                f"its expression references {referenced}. `params:` names what `expression:` "
+                f"reads; edit whichever of the two is wrong."
+            )
+        return self
 
 
 class RegistryProvenance(BaseModel):
@@ -249,9 +289,48 @@ class Pipeline(BaseModel):
     gate: Gate | None = None
     """The strongest gate this pipeline actually passed. The verdict comes from the artifact."""
 
+    @model_validator(mode="after")
+    def _readable_and_unambiguous(self) -> "Pipeline":
+        """MD0207 and MD0212, on **every** load — this is what `any load` means.
+
+        MD0207 refuses a file from a newer Mendel rather than reading the parts it happens to
+        recognise. Forward compatibility is a promise this format has not made, and an older
+        build silently ignoring a section a newer one added is how a pipeline gets emitted
+        without the thing that section carried.
+        """
+        if self.version > SCHEMA_VERSION:
+            raise ValueError(
+                f"MD0207: this pipeline.yml declares version {self.version}, and this Mendel "
+                f"understands version {SCHEMA_VERSION}. Upgrade Mendel; do not edit the "
+                f"version down, which would only move the failure somewhere less obvious."
+            )
+        ids = [step.id for step in self.steps]
+        repeated = sorted({name for name in ids if ids.count(name) > 1})
+        if repeated:
+            raise ValueError(
+                f"MD0212: two steps share the id {', '.join(repeated)}. A step id is what "
+                f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous."
+            )
+        return self
+
+    def content_digest(self) -> str:
+        """The digest `emitted.from_digest` records, over everything **but** `emitted`.
+
+        A derived field inside the thing it describes does not round-trip, which is the same
+        reason `ResolvedValue._drop_computed` exists for `review_level`. Excluding it here is
+        load-bearing rather than tidy: include it and the digest can never be recomputed.
+        """
+        return digest_of(self.model_copy(update={"emitted": None}))
+
     @classmethod
-    def of(cls, ir, registry, vocab, measurements=None, layers=()) -> "Pipeline":
+    def of(cls, ir, registry, vocab, measurements=None, layers=(), *, goal) -> "Pipeline":
         """The **only** validating constructor.
+
+        `goal` is **keyword-only and required**, with no default. The first version defaulted
+        it to `Goal(profile=ir.profile)`, which type-checked, round-tripped, passed the
+        totality test — that test asks whether a field has a *home*, and it did — and wrote
+        `have: []`, `want: []` into every pipeline file. A default is how a field comes to be
+        present and empty, and this file's whole claim is that it records what was asked for.
 
         Enforced by `tests/test_construction.py`, the way `MeasurementRegistry.profile()`
         already is — that guard exists because deleting one call let `profile: {sample_name:
@@ -290,7 +369,10 @@ class Pipeline(BaseModel):
             )
 
         return cls(
-            goal=Goal(profile=ir.profile),
+            # The *resolved* profile, not the one the goal file declared: `resolve()` routes
+            # every profile through `MeasurementRegistry.profile()`, the one validating
+            # constructor, and what survived that is what the pipeline was built against.
+            goal=goal.model_copy(update={"profile": ir.profile}),
             registry=RegistryProvenance(
                 layers=list(lock.layers),
                 displaced=list(ir.displaced),
@@ -319,6 +401,14 @@ def _settings(node, contract: ModuleContract) -> list[Setting]:
     Sorted by name. With one setting the order is unobservable, which is exactly why a test
     with one setting cannot see a sort bug — and `ext.args` composition depends on this being
     deterministic for byte-identical emission.
+
+    **A binding whose contract declares no such param is dropped, silently, and that is a
+    known hole.** Resolution never produces one — it sets params *from* `contract.params` —
+    so it takes a deserialised IR whose contract has since dropped the param. Which is the
+    orphan case exactly one level below the one Plan 1.10 Task 9 is about, and it is left
+    for that task rather than given a code here that would collide with `MD0203`. Found by
+    a guard that passed for the wrong reason: an A27 test smuggled prose through a
+    `samtools/sort` binding, and `samtools/sort` declares `params: []`.
     """
     routes = {param.name: param for param in contract.params}
     return [

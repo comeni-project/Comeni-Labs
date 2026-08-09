@@ -136,3 +136,33 @@ one place where "watched failing" costs minutes rather than seconds), `test_end_
 
 **A14 therefore does not close with Plan 1.9.** Saying so is the same call Plan 1.8 made and
 it was right then too.
+
+## Plan 1.10 — the pipeline file
+
+Not a sweep. These are guards that were **watched failing in the ordinary course of the
+work**, which is the cheapest kind of row to earn and the kind this ledger most wants: no
+probe was written, the change itself broke them.
+
+| date | guard | what broke it | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_diagnostics_registry.py` | a row hand-edited in `docs/reference/cli.md` | 1 failed | `test_the_generated_table_is_current` (Task 2, recorded then) |
+| 2026-08-09 | `test_egress.py` | a bare `user_note: str` planted two levels down inside `EmittedFile` | 1 failed | `test_no_payload_carries_an_undeclared_string` (Task 4) |
+| 2026-08-09 | `test_construction.py` | `_DP` / `_P` aliased constructions in a pure package | 2 failed | both sole-constructor tests (Task 4) |
+| 2026-08-09 | `test_construction.py` | `Pipeline(version=1)` added to `pipeline_file.py`, the file whose `model_validate` is exempted | 1 failed, naming the line | the exemption is per **spelling**, not per file, so the narrowed allowlist still bites |
+| 2026-08-09 | `test_audit_regressions.py` (A11) | `Step`'s `MD0212` duplicate-setting validator landing | 1 failed | A11's own fixture builds the duplicate the validator now refuses — the guard was retargeted, from *the emitter survives one* to *one cannot be constructed* |
+
+### A guard that passed for the wrong reason
+
+`test_a27_prose_reaching_the_pipeline_file_is_refused_at_materialisation`, written this task,
+passed on its first run and should not have. It smuggled a multi-line `reason` through a
+binding on `nf-core/samtools/sort`, which declares `params: []` — so `_settings` dropped the
+binding before `Why` ever saw the prose. Nothing was being tested.
+
+Two things came out of it. The test now uses a contract that declares a param, and the reason
+it passed is itself a finding: **`_settings` drops a binding whose contract declares no such
+param, silently.** That is recorded at the site and left to Task 9, whose subject is exactly
+this one level up.
+
+It is the same shape as A21 — a guard that restates its subject instead of calling it — and it
+is the argument for this ledger existing: a green test says nothing until somebody has seen it
+red.
