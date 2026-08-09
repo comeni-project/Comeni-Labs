@@ -10,6 +10,8 @@ A test can only find codes on paths it executes. Validating at construction make
 unrepresentable instead, which is strictly stronger and is why no such test exists here.
 """
 
+import pathlib
+
 import pytest
 
 from comeni_core import diagnostics
@@ -74,3 +76,23 @@ def test_a_declared_code_still_constructs():
     d = Diagnostic(code="MD0104", contract_id="nf-core/star/align@1.11.0",
                    summary="s", detail="d", fix="f")
     assert d.code == "MD0104"
+
+
+def test_the_generated_table_is_current():
+    """`make check` runs this, and so does the nightly workflow against `main`.
+
+    A generated artifact that drifts from its source is a lie with a timestamp — the same
+    reason `tools/generate_types.py --check` exists. No Action commits the regenerated file:
+    a bypass on a protected branch exists forever and for everything, and a self-healing
+    `main` means nobody ever sees the drift. A failing check teaches; a silent fix does not.
+    """
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "tools/generate_diagnostics_doc.py", "--check"],
+        cwd=pathlib.Path(__file__).parent.parent,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

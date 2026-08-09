@@ -1,4 +1,4 @@
-.PHONY: help check verify slow guards drift test lint fmt types static stub profile clean
+.PHONY: help check verify slow guards drift test lint fmt types docs static stub profile clean
 
 # A sibling checkout of github.com/comeni-project/comeni-registry, if you have one.
 # `make drift` skips when it is absent rather than failing: a target that breaks over a
@@ -8,7 +8,7 @@ REGISTRY ?= ../comeni-registry
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-check: lint test types  ## everything CI runs on a pull request (~1 min, no Docker)
+check: lint test types docs  ## everything CI runs on a pull request (~1 min, no Docker)
 
 verify:         ## check + slow + guards + drift — needs Docker, ~2 min. See CLAUDE.md
 	@$(MAKE) --no-print-directory -j1 check
@@ -45,6 +45,9 @@ fmt:            ## format in place
 
 types:          ## fail if the generated measurement stub is stale
 	uv run python tools/generate_types.py --check
+
+docs:           ## fail if the generated diagnostics table is stale
+	uv run python tools/generate_diagnostics_doc.py --check
 
 static:         ## conformance + lint + preview — everything checkable without Docker
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint

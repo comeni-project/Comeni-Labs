@@ -103,6 +103,10 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 `mendel explain MD0101` for the long form.
 ```
 
+<!-- BEGIN GENERATED DIAGNOSTICS -->
+
+#### A contract disagrees with its module
+
 | Code | Says |
 |---|---|
 | `MD0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.ir.json` as `unverified` |
@@ -113,6 +117,8 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0105` | a `produces[].name` is not one of the module's `emit:` labels |
 | `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
 | `MD0107` | `container` has drifted from the module's directive |
+
+<!-- END GENERATED DIAGNOSTICS -->
 
 Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's
 deterministic core** — the resolver, the compiler, contracts and the pipeline file. Bands of one

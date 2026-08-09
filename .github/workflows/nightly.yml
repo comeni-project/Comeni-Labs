@@ -46,6 +46,28 @@ jobs:
       - name: Shared registry files agree across both repositories
         run: uv run python tools/check_registry_drift.py .comeni-registry
 
+  generated-docs:
+    # `make check` runs this on every pull request, so drift cannot merge. This catches the
+    # case that skips that lane entirely — a direct push, or a merge that bypassed checks.
+    #
+    # A check, never a commit. An Action that regenerated the file would need push rights to
+    # a protected branch, and a bypass exists forever and for everything. Worse, a
+    # self-healing `main` means nobody ever sees the drift: someone hand-edits the generated
+    # table, a bot silently reverts them, and they learn nothing about why it is generated.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: The generated documentation matches its source
+        run: make docs
+
   stub-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
