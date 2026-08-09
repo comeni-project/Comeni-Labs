@@ -166,3 +166,20 @@ this one level up.
 It is the same shape as A21 — a guard that restates its subject instead of calling it — and it
 is the argument for this ledger existing: a green test says nothing until somebody has seen it
 red.
+
+### Task 7 — the slow lane earns a row
+
+`test_counts.py` has been in the residue list since Plan 1.9, on the honest ground that
+reverting inside it costs a Docker run per probe. Task 7 paid it once.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_counts.py` | `featurecounts`' `min_mqs` route removed — `params: []` restored | 1 failed, ~40s | `test_a_resolved_setting_reaches_the_tool`, printing the whole command line: `featureCounts \` with an empty `${args}` |
+
+Reverting the **route** rather than the assertion is the point. Changing `-Q 0` to `-Q 9`
+would prove only that the string comparison runs; removing the contract's route proves the
+guard watches the mechanism it names. That distinction is A21 in one sentence.
+
+The two older rows in this file remain unearned — `test_the_spine_produces_a_counts_matrix`
+and `test_featurecounts_ran_with_the_strandedness_that_was_measured` were not individually
+probed, and this row does not cover them.

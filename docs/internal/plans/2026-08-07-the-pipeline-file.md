@@ -1370,6 +1370,16 @@ git commit -m "feat(compiler): pipeline.yml is the artifact, and the run cannot 
 
 ## Task 7: the counts test proves a setting reaches a tool
 
+> **Done, 2026-08-09.** One correction: `test_featurecounts_declares_no_parameters` asserted
+> `params == []`, which is a stronger claim than its own argument supports — the argument is
+> about *strandedness*, which the module already translates from `meta`. It blocked exactly
+> what that argument needs, so it now asserts what was ever true: no strandedness param, and
+> every param carries a route.
+>
+> **Watched failing by reverting the route rather than the assertion.** With `params: []` back,
+> the run emits `featureCounts \` with an empty `${args}`, and the test fails
+> naming the whole command line. `uv run pytest -m slow`: 3 passed, ~40s.
+
 **Files:**
 - Modify: `tests/test_counts.py`
 - Modify: `registry/contracts/nf-core/subread-featurecounts.yml`
@@ -1378,12 +1388,12 @@ git commit -m "feat(compiler): pipeline.yml is the artifact, and the run cannot 
 wrong**, because the flag goes to the tool and not to the module — the same limit that makes
 `-stub-run` blind to a hollow input. Only `--gate test` sees it.
 
-- [ ] **Step 1: add one real setting whose effect is visible in output**
+- [x] **Step 1: add one real setting whose effect is visible in output**
 
 `featurecounts` gains a `min_mqs` param routed `via: ext`, `key: args`, template
 `-Q {value}`, default `0`. Read `main.nf` first to confirm `-Q` is accepted.
 
-- [ ] **Step 2: write the failing assertion**
+- [x] **Step 2: write the failing assertion**
 
 ```python
 @pytest.mark.slow
@@ -1395,12 +1405,12 @@ def test_a_resolved_setting_reaches_the_tool(run):
     assert "-Q 0" in scripts[0], scripts[0]
 ```
 
-- [ ] **Step 3: run it**
+- [x] **Step 3: run it**
 
 Run: `uv run pytest -m slow -v`
 Expected: PASS. If `-Q` is absent, the composition in Task 5 is not reaching the module.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add tests/test_counts.py registry/contracts/nf-core/subread-featurecounts.yml
