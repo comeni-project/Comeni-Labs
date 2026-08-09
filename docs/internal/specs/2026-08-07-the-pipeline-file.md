@@ -1,10 +1,10 @@
 # The pipeline file — one artifact, every setting, every provenance
 
-**Spec, 2026-08-07.** Closes [#10](https://github.com/comeni-project/Comeni-Labs/issues/10).
+**Spec, 2026-08-09.** Closes [#10](https://github.com/comeni-project/Comeni-Labs/issues/10).
 Supersedes the four-route settings surface described in `ARCHITECTURE.md`.
 
 Verified against the code at `e9cab07`, then **re-verified against `ae92002`** (Plan 1.9 complete,
-441 fast tests green) on 2026-08-07. Five citations were stale and are corrected inline, each marked
+441 fast tests green) on 2026-08-09. Five citations were stale and are corrected inline, each marked
 *"1.9 changed this"*; every design decision survived. What changed and what held is in
 [the journal](../journal/).
 
@@ -218,7 +218,7 @@ string, because bare values were indistinguishable from filenames — A16. Lossl
 answerable without scanning a separate list. Root D's finding that `diff_ir` ignored `ir.edges`
 is the reason edges must be prominent rather than tucked away.
 
-**`emitted.from_digest` closes a gap consolidation opens.** Decided 2026-08-07. `Emitted` records the
+**`emitted.from_digest` closes a gap consolidation opens.** Decided 2026-08-09. `Emitted` records the
 digests of the generated files, so a hand-edited `main.nf` is caught. It cannot catch the opposite and
 more likely mistake: **Nextflow runs `main.nf`, not `pipeline.yml`.** Edit the file you were told to edit,
 forget `mendel emit`, and the pipeline that runs is not the pipeline that is documented — with every
@@ -300,7 +300,7 @@ three types and one has exactly that shape, and reviewing it by eye already fail
 
 **And the converse rule: every embedded field must be productive.** Self-containment widens door 4 —
 `pipeline.yml` embeds contract-derived strings (`process`, `include`, `template`, `expression`) that
-`PublishBundle` only ever pinned by digest. That widening was accepted on 2026-08-07 **on the
+`PublishBundle` only ever pinned by digest. That widening was accepted on 2026-08-09 **on the
 condition that nothing rides along**. So a field is embedded only if it is either:
 
 1. **read by `emit`** — without it the Nextflow cannot be regenerated; or
@@ -346,7 +346,7 @@ and always will. The file is the output of resolution that you may then edit; it
 alternative front door. `mendel build --goal` (and, from Plan 2, the prompt door) remains the
 only way to make one.
 
-**`verify` is `upgrade --dry-run`, not a separate verb** — decided 2026-08-07. A digest-only compare
+**`verify` is `upgrade --dry-run`, not a separate verb** — decided 2026-08-09. A digest-only compare
 was the alternative, and it answers a strictly weaker question: it can say a contract moved, but not
 whether the pipeline would resolve differently. A dry run reports all five categories — drift,
 changes, replayed, stale, orphaned — and writes nothing.
@@ -459,7 +459,7 @@ work `marks.py` already anticipates for Plan 2 Task 11.
 
 #### The assumption behind the character class, and how to revisit it
 
-**Decided 2026-08-07: start strict, on the stated assumption that almost no tool setting needs a
+**Decided 2026-08-09: start strict, on the stated assumption that almost no tool setting needs a
 space or a slash in its value.** Written down because it is an assumption and not a fact.
 
 The asymmetry is what makes strict the safe direction: **loosening later is backward-compatible** —
@@ -815,7 +815,7 @@ explanation is unrepresentable rather than merely tested for.
 
 ### 10. The codes are data, and the document is generated
 
-Decided 2026-08-07. Everything above describes the codes as prose in three places kept in step by a
+Decided 2026-08-09. Everything above describes the codes as prose in three places kept in step by a
 test. **That is the wrong shape** — it is the same hand-maintained-list defect as root D's `diff_ir`
 and §2's field mapping, wearing documentation's clothes. One source, two derived artifacts.
 
@@ -843,7 +843,7 @@ gets a *second* registry, and `mendel explain M0201` cannot answer because the c
 heard of it. `comeni-core` is the one package everything already depends on, so one registry stays one
 registry and every `explain` in the system reads it.
 
-**A two-letter prefix per subsystem, with 100-wide bands inside it.** Decided 2026-08-07, after two
+**A two-letter prefix per subsystem, with 100-wide bands inside it.** Decided 2026-08-09, after two
 wrong drafts worth recording because both looked reasonable.
 
 The first put 100-wide numeric bands under a single `M`. The second gave each subsystem its own letter
@@ -890,7 +890,7 @@ never be done again.
 `docs/internal/audits/` and the 2026-08-05 conformance plan. Those are append-only and were correct on
 their date — the same convention that leaves journal entries saying "Plan 2.5" for what is now Plan
 1.7. A reader meeting `M0104` in a journal entry needs one line in `docs/reference/cli.md` saying the
-`MD` prefix arrived on 2026-08-07 and old entries predate it.
+`MD` prefix arrived on 2026-08-09 and old entries predate it.
 
 **The thirteen pipeline-file codes move into their own band while they are still free.** They were
 drafted as `M0110`–`M0122`, wedged against conformance because that is where there was room. Nothing
@@ -1225,7 +1225,7 @@ stable order — arriving in a new type that was designed after the lesson and c
 
 ## Before the plan is written
 
-**This spec merges after Plan 1.9, and Plan 1.10 is written after that** — decided 2026-08-07. Not a
+**This spec merges after Plan 1.9, and Plan 1.10 is written after that** — decided 2026-08-09. Not a
 formality: `CLAUDE.md` records that every plan written ahead of its types has needed correction during
 execution, and names the damage. Plans 2 and 3 *"predate the types they reference"*. The measurements
 plan predicted a YAML row syntax that does not parse, a producer pin that makes the spine unbuildable,
@@ -1262,7 +1262,7 @@ in the header are a claim about a moment, and that moment will have passed.
   version it was read against.** That it is code rather than registry data is decided (`MD0209`); the
   module and shape are a plan question.
 - **An Action that regenerates `cli.md` on push to `main` was considered and rejected.** It was
-  proposed on 2026-08-07 and the reasoning against is worth keeping, because the idea will recur.
+  proposed on 2026-08-09 and the reasoning against is worth keeping, because the idea will recur.
 
   `--check` on a pull request and auto-commit on `main` solve the same problem at different times, and
   the earlier time is strictly better: **main cannot drift if drift cannot merge.** The `--check`
@@ -1277,7 +1277,7 @@ in the header are a claim about a moment, and that moment will have passed.
   generated. A failing check teaches; a silent fix does not.
 
   The genuine gap it would close is drift arriving by a route that skips PR CI — a direct push, or a
-  merge that bypassed checks. **Decided 2026-08-07: cover it with a check, not a commit.** Two places,
+  merge that bypassed checks. **Decided 2026-08-09: cover it with a check, not a commit.** Two places,
   both read-only:
 
   - `make check` → `--check` on every pull request, so drift cannot merge. This is the existing
@@ -1292,7 +1292,7 @@ in the header are a claim about a moment, and that moment will have passed.
   at build and a wrong omission is a migration. Still the one judgement in this spec resting on
   knowledge of nf-core rather than on code here, and §4 says so at the enum.
 - **Whether the resolver's and loaders' errors become `MD03xx` diagnostics** — [#18](https://github.com/comeni-project/Comeni-Labs/issues/18).
-  **Deferred to the next audit round on 2026-08-07**, not dropped: 41 raise sites, of which 32 are bare `ValueError`, and
+  **Deferred to the next audit round on 2026-08-09**, not dropped: 41 raise sites, of which 32 are bare `ValueError`, and
   deciding which are user-facing is judgement per site. Band `MD0300`–`MD0399` is reserved and the item
   is carried in
   [`../audits/2026-08-07-round-two-brief.md`](../audits/2026-08-07-round-two-brief.md) under *Carried

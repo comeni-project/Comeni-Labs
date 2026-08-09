@@ -125,7 +125,7 @@ deterministic core** — the resolver, the compiler, contracts and the pipeline 
 hundred group by concern: `MD01xx` is conformance. A code is never renumbered once published, so a
 full band overflows into a new one rather than shifting.
 
-**The prefix arrived on 2026-08-07**; these eight were `M0100`–`M0107` before that. Working notes
+**The prefix arrived on 2026-08-09**; these eight were `M0100`–`M0107` before that. Working notes
 under `docs/internal/` are append-only and were correct on their date, so entries written earlier
 still use the old spelling.
 

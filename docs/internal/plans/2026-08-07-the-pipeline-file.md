@@ -24,7 +24,7 @@ route (`via:` + `key:` + `template:`) so a resolved value composes into `ext.arg
 
 ## Preconditions
 
-**This plan does not start until a separate prerequisite PR has merged.** Decided 2026-08-07: a
+**This plan does not start until a separate prerequisite PR has merged.** Decided 2026-08-09: a
 mechanical rename inside a two-thousand-line feature diff is unreviewable, because nobody can tell
 the substitution from the logic.
 
@@ -471,7 +471,7 @@ docs:           ## fail if the generated diagnostics table is stale
 and change `check: lint test types` to `check: lint test types docs`. Add `docs` to `.PHONY`.
 
 In `.github/workflows/nightly.yml`, add a step running `make docs` against `main`. **No Action
-commits anything** — decided 2026-08-07; a bypass on a protected branch exists forever, and a
+commits anything** — decided 2026-08-09; a bypass on a protected branch exists forever, and a
 self-healing `main` means nobody ever sees the drift.
 
 - [ ] **Step 7: run `make check`**
@@ -1662,7 +1662,7 @@ git commit -m "docs: pipeline.yml is the artifact a reader opens"
 `meta_key` routes nothing *and must not be flagged*, which is a constraint on Task 3's
 `MD0200` rather than work of its own. Verification table → distributed. Blast radius → all tasks.
 
-**Three gaps closed on 2026-08-07, before execution.** They are recorded because each was found
+**Three gaps closed on 2026-08-09, before execution.** They are recorded because each was found
 by reading the plan against the code rather than by executing it.
 
 - **The annotation walkers are extracted, not rewritten.** Task 4 originally said to write
