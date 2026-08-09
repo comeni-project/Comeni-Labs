@@ -35,7 +35,7 @@ def resolve(
     # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
     # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry
     # that satisfies nothing was never looked up and never rejected — and a patient name
-    # and a filesystem path reached a `PublishBundle` as `type_id`, with a sentence of
+    # and a filesystem path reached the publication payload as `type_id`, with a sentence of
     # clinical notes as a `required_states` key.
     #
     # Keyword and **required**, like `measurements` and for the same reason A2 gives: an

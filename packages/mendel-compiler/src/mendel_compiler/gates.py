@@ -9,7 +9,7 @@ from pydantic import BaseModel
 __all__ = ["Gate", "GateResult", "materialise_stub_data", "run_gate"]
 
 # `Gate` is re-exported, not redefined. It moved to `comeni_core.gates` so a
-# `PublishBundle` could record which gate it passed (audit A4) without the core depending
+# `Pipeline` could record which gate it passed (audit A4) without the core depending
 # on this package. The shim stays because a gate is something the *compiler* runs, and
 # rewriting every import to relocate an enum is churn nobody reviews carefully — the same
 # call made for `Goal` and `DataProfile`. `tests/test_audit_regressions.py` asserts the two

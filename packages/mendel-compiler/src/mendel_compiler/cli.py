@@ -151,7 +151,7 @@ def _build(argv: list[str] | None = None) -> int:
     diagnostics = conformance.check(
         registry, args.root / "vendor", measurements=loaded.measurements
     )
-    unverified = [d.contract_id for d in diagnostics if d.code == "MD0100"]
+    unverified = [d.where for d in diagnostics if d.code == "MD0100"]
     blocking = [d for d in diagnostics if d.code != "MD0100"]
     for diagnostic in diagnostics:
         print(diagnostic.render(), file=sys.stderr)
@@ -319,8 +319,7 @@ def _build(argv: list[str] | None = None) -> int:
     # digest before the gate ran would make every gated build stale the moment its verdict
     # arrived. Stamped on the failing path too: generated files with no record of what they
     # came from are exactly the divergence MD0213 exists to catch.
-    pipeline.gate = passed
-    pipeline_file.stamp(args.out, pipeline)
+    pipeline = pipeline_file.stamp(args.out, pipeline, gate=passed)
     if failed:
         return 1
 

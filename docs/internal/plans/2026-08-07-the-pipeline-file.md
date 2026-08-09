@@ -1676,6 +1676,40 @@ git commit -am "feat(cli): emit, upgrade --out, and verify as upgrade --dry-run"
 
 ## Task 11: `Pipeline` is door 4's payload
 
+> **Done, 2026-08-09, and the egress guard was not watching the door it was given.**
+>
+> **`_payload_types()` collected its roots from `vars(egress)`.** That was harmless while
+> every payload lived in `egress.py`. Moving the publication payload to
+> `comeni_core.pipeline` made it a hole: the guard found three doors out of four and
+> `Pipeline` — the door with no undo — crossed unchecked, with a full green run to say so.
+> The roots now come from `DOORS`, which is the declaration of what actually leaves, and
+> `test_every_door_is_walked_by_the_checks_below` is the guard that would have caught it.
+>
+> With the guard actually looking, it found **four bare `str` fields** on the new payload:
+> `Channel.expression`, `Channel.test_data`, `Why.from_layer`, `Why.displaced_layer`. The
+> first is `GroovyExpression`, which already existed for exactly this; the layer names become
+> `LayerName`, which `ResolvedValue` was already using; `test_data` needed a new mark.
+>
+> **The seventh free-text field arrived exactly where the plan predicted.** `Why.reason` is a
+> `Line`, so it reaches the set through the same door the four `reason` fields do. Listed
+> rather than exempted, because widening the boundary should mean editing a file that says
+> *these are all the ways data leaves*.
+>
+> **`frozen=True` came with `EgressPayload`**, so `gate` and `emitted` are stamped with
+> `model_copy` rather than assigned. That is the right shape for them anyway — both are
+> evidence about a finished pipeline — and `stamp()` returns the stamped copy so a caller
+> cannot keep using the unstamped one.
+>
+> **`MD0108` checks `prefix` as well as `args`.** Three of the ten vendored modules ignore
+> `task.ext.prefix` and all ten read `task.ext.args`, so the prefix half is what gives the
+> check a real negative. A check that can only pass is not a check.
+>
+> `test_pipeline_holds_no_registry` matched `RegistryProvenance` on its first run — the same
+> substring trap `test_pipeline_totality` hit on the same word in Task 4. Word boundaries now,
+> with a comment saying why rather than a quiet fix.
+>
+> Three revert probes, all biting. `make verify` green: 542 fast, 3 slow, 20 guards.
+
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/egress.py`
 - Modify: `packages/mendel-compiler/src/mendel_compiler/conformance.py` (`where`, `MD0108`)
@@ -1689,7 +1723,7 @@ is a record, why `comeni-core` owns `Gate`, why a mapping is legal on `Registry`
 to name `Pipeline`.** A rationale citing a deleted type reads as authoritative and cannot be
 checked.
 
-- [ ] **Step 1: write the failing tests**
+- [x] **Step 1: write the failing tests**
 
 ```python
 def test_publication_carries_a_pipeline():
@@ -1731,18 +1765,18 @@ def test_via_ext_args_on_a_module_that_ignores_it_is_refused():
     assert any(d.code == "MD0108" for d in diags)
 ```
 
-- [ ] **Step 2: rename `contract_id` → `where`**
+- [x] **Step 2: rename `contract_id` → `where`**
 
 Not `subject`: `marks.py` declares `Subject` and `DecisionRecord.subject` uses it for *the thing
 being decided*. A diagnostic's location is a different kind pointing at a different sort of
 thing, and reusing one mark for two is what root C exists to stop. `where` carries a document
 path — `steps[<id>].settings[<name>]`, `channels[<type_id>]`, `decisions[<key>]`.
 
-- [ ] **Step 3: run, watch fail, implement, run again**
+- [x] **Step 3: run, watch fail, implement, run again**
 
-- [ ] **Step 4: `make verify`**
+- [x] **Step 4: `make verify`**
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git commit -am "refactor(core): Pipeline is the publication payload, and PublishBundle retires"

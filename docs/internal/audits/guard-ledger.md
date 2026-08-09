@@ -245,3 +245,27 @@ cheapest audit there is.
 | 2026-08-09 | `test_publish.py` | `_refuse_a_divergent_directory` removed from `upgrade` and `publish` | 2 failed | both `MD0213` and `MD0214` on the door with no undo |
 
 `test_publish.py` and `test_upgrade.py` were both in the residue list; both have rows now.
+
+### Task 11 — the egress guard was not watching the door it was given
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-09 | `test_egress.py` | roots collected from `vars(egress)` again, not `DOORS` | 2 failed | `test_every_door_is_walked_by_the_checks_below`, naming the door |
+| 2026-08-09 | `test_conformance_cli.py` | `_dead_ext_routes` removed from the check | 1 failed | `test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused` |
+| 2026-08-09 | `test_egress.py` | `Pipeline` back to a plain `BaseModel` | 2 failed | `test_the_publication_payload_is_frozen` |
+
+**The first row is the finding, not the probe.** `_payload_types()` had always collected its
+roots by scanning `vars(egress)` for `EgressPayload` subclasses. That was correct while every
+payload lived in that module, and it silently stopped being correct the moment the publication
+payload moved to `comeni_core.pipeline`: the guard walked three doors out of four, and the one
+it dropped was the door with no undo. Ten tests passed.
+
+Nothing was leaked — the payload had only just been swapped — but the shape is the one this
+ledger exists for. A guard that derives its subject from *where a type happens to live* rather
+than from *the declaration of what it guards* stops guarding without failing. The roots come
+from `DOORS` now, and a new test asserts every door is in the walked set, so the same move
+cannot be silent twice.
+
+With the guard actually looking it immediately found four undeclared `str` fields on the new
+payload. That is the cost of the hole stated precisely: not a leak, but four fields that had
+crossed into the payload without anyone examining them.

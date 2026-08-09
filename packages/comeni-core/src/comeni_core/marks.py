@@ -50,6 +50,7 @@ class Mark(StrEnum):
     MEASUREMENT_ID = "measurement-id"
     DIGEST = "digest"
     LAYER_NAME = "layer-name"
+    TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
 
@@ -112,7 +113,7 @@ def _reject_path_shaped(value: object) -> object:
     It exists now because A3 is a live route into a published artifact and Plan 2 is not
     close: on the unmodified tree, with no monkeypatching, `DecisionRecord.human_override`
     accepted `/data/patients/PT-4471023/S1_R1.fastq.gz` and carried it into a
-    `PublishBundle` — the door with no undo. `human_override` is the sharpest case,
+    the publication payload — the door with no undo. `human_override` is the sharpest case,
     because it is by design the slot for a human's answer.
 
     The 2026-08-03 audit's C3 reported this and it was recorded fixed. It was fixed in
@@ -388,7 +389,7 @@ HumanParamValue = Annotated[ParamValue, AfterValidator(_reject_path_shaped)]
 Two fields qualify: `DecisionRecord.human_override`, which is by design the slot for a
 reviewer's answer, and `Goal`'s `ParamOverride.value`, which is what someone types into a
 goal file. On the unmodified tree both accepted
-`/data/patients/PT-4471023/S1_R1.fastq.gz` and carried it into a `PublishBundle` — the door
+`/data/patients/PT-4471023/S1_R1.fastq.gz` and carried it through door 4 — the door
 with no undo. Audit A3.
 
 Scoped to these two rather than to `ParamValue` for a reason recorded in
@@ -405,6 +406,18 @@ this alias.
 Digest = Annotated[str, Mark.DIGEST]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
+
+TestDataRef = Annotated[str, Mark.TEST_DATA_REF]
+"""Where a small public example of a type lives, for the `test` profile.
+
+A URL pinned to a commit, declared in the vocabulary. Never a laboratory's own path: this
+reaches a published artifact, and a dataset that moves is one you cannot compare a result
+against next year — a path on somebody's machine is both of those problems at once.
+
+Marked rather than validated. The vocabulary is where a laboratory says how a type it brought
+arrives, and narrowing this to a URL pattern would decide for them; `MD0201`'s note about
+starting strict does not apply where the value never reaches a shell.
+"""
 
 LayerName = Annotated[str, Mark.LAYER_NAME]
 """A registry layer's declared name. Never a filesystem path — a path is meaningless on

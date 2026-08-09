@@ -26,7 +26,6 @@ from comeni_core.egress import (
     ErrorCategory,
     GateFailure,
     PromptRequest,
-    PublishBundle,
     RepairRequest,
 )
 from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
@@ -82,7 +81,6 @@ __all__ = [
     "PipelineIR",
     "PromptRequest",
     "Provenance",
-    "PublishBundle",
     "Registry",
     "RepairRequest",
     "Resolution",

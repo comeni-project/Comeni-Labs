@@ -18,6 +18,7 @@ from comeni_core.contract import ModuleContract
 from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
+from comeni_core.routes import ExtKey, Via
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from mendel_compiler.modulespec import ModuleSpec
@@ -27,7 +28,7 @@ class Diagnostic(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: str
-    contract_id: str
+    where: str
     summary: str
     detail: str
     """What the module says, and what the contract says instead."""
@@ -56,7 +57,7 @@ class Diagnostic(BaseModel):
 
     def render(self) -> str:
         return (
-            f"{self.code}  {self.contract_id}\n"
+            f"{self.code}  {self.where}\n"
             f"  {self.summary}\n"
             f"{self.detail}\n"
             f"  → {self.fix}"
@@ -91,7 +92,7 @@ def check(
             found.append(
                 Diagnostic(
                     code="MD0100",
-                    contract_id=contract.id,
+                    where=contract.id,
                     summary="unverified: no module source to check this contract against",
                     detail=f"    looked for {path}",
                     fix="vendor the module, or accept that this contract cannot be curated",
@@ -101,7 +102,7 @@ def check(
         found += _against(contract, ModuleSpec.parse(path), path)
     if measurements is not None:
         found += _meta_keys(registry, module_root, measurements)
-    return sorted(found, key=lambda d: (d.contract_id, d.code, d.detail))
+    return sorted(found, key=lambda d: (d.where, d.code, d.detail))
 
 
 def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
@@ -111,7 +112,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
         found.append(
             Diagnostic(
                 code="MD0101",
-                contract_id=contract.id,
+                where=contract.id,
                 summary=f"process {contract.nf_process!r} is not what this module declares",
                 detail=f"    {path}   process {spec.process} {{",
                 fix=f"nf_process: {spec.process}",
@@ -123,7 +124,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
         found.append(
             Diagnostic(
                 code="MD0102",
-                contract_id=contract.id,
+                where=contract.id,
                 summary=(
                     f"the contract declares {len(signature)} channels; "
                     f"the module takes {len(spec.inputs)}"
@@ -142,7 +143,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
             found.append(
                 Diagnostic(
                     code="MD0103",
-                    contract_id=contract.id,
+                    where=contract.id,
                     summary=(
                         f"slot {slot.position} placeholder is width {entry.empty}, "
                         f"the module declares {slot.width}"
@@ -174,7 +175,7 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
             found.append(
                 Diagnostic(
                     code="MD0104",
-                    contract_id=contract.id,
+                    where=contract.id,
                     summary=(
                         f"slot {slot.position} declares path({wanted}) "
                         f"and the contract supplies a placeholder"
@@ -196,18 +197,20 @@ def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Dia
             found.append(
                 Diagnostic(
                     code="MD0105",
-                    contract_id=contract.id,
+                    where=contract.id,
                     summary=f"the module emits no channel named {port.name!r}",
                     detail=f"    {path}   emit: {', '.join(sorted(emitted)) or '(none)'}",
                     fix=f"rename the port to one of: {', '.join(sorted(emitted)) or '(none)'}",
                 )
             )
 
+    found += _dead_ext_routes(contract, spec, path)
+
     if contract.container and spec.container and contract.container != spec.container:
         found.append(
             Diagnostic(
                 code="MD0107",
-                contract_id=contract.id,
+                where=contract.id,
                 summary="the container has drifted from the module",
                 detail=f"    module   {spec.container}\n    contract {contract.container}",
                 fix=f"container: {spec.container}",
@@ -260,7 +263,7 @@ def _meta_keys(
     found = [
         Diagnostic(
             code="MD0106",
-            contract_id=contract_id,
+            where=contract_id,
             summary=f"the module reads meta.{key!r} and no declared measurement sets it",
             detail="    it will silently use the module's own default",
             fix=f"declare a measurement with `meta_key: {key}`, or accept the default knowingly",
@@ -277,11 +280,72 @@ def _meta_keys(
         found += [
             Diagnostic(
                 code="MD0106",
-                contract_id=f"measurements/{declared[key]}",
+                where=f"measurements/{declared[key]}",
                 summary=f"meta_key {key!r} is declared and no module in this registry reads it",
                 detail="    the value would be set on the channel and never consulted",
                 fix=f"remove `meta_key: {key}`, or add a module that reads it",
             )
             for key in sorted(set(declared) - set(read))
         ]
+    return found
+
+
+def _dead_ext_routes(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
+    """`MD0108` — a setting routed to an `ext` key the module never reads.
+
+    A contract is a hand-written FFI binding, and this is the binding claiming a destination
+    that does not exist. `via:` made a route *declared*; it did not make it *true*. A setting
+    routed to `ext.args` on a module whose script never mentions `task.ext.args` is exactly
+    the deadness issue #10 was about, wearing the fix.
+
+    It costs nothing: `modulespec.py` already parses both as a substring of the source, which
+    is why this lands in the reserved conformance band on day one rather than waiting for a
+    Groovy parser. Three of the ten vendored modules ignore `task.ext.prefix`, so the prefix
+    half has real negatives — a check that can only pass is not a check.
+
+    Only `args`/`args2`/`args3` and `prefix` are checkable this way. `meta` and `directive`
+    are Nextflow's own mechanisms rather than the module's, and `MD0209` already guards the
+    directive names.
+    """
+    reads = {
+        ExtKey.ARGS: spec.reads_ext_args,
+        ExtKey.ARGS2: spec.reads_ext_args,
+        ExtKey.ARGS3: spec.reads_ext_args,
+        ExtKey.PREFIX: spec.reads_ext_prefix,
+    }
+
+    def dead(key: ExtKey) -> bool:
+        return not reads.get(key, True)
+
+    found = []
+    # The contract's own static flags ride the same channel, and a contract declaring
+    # `ext_args` for a module that ignores it is the same lie with no `Param` attached.
+    if contract.ext_args and dead(ExtKey.ARGS):
+        found.append(
+            Diagnostic(
+                code="MD0108",
+                where=f"{contract.id}.ext_args",
+                summary="the module never reads `task.ext.args`, so these flags reach nothing",
+                detail=f"    {path}   no `task.ext.args` in the script block",
+                fix="drop `ext_args`, or vendor a module that reads it",
+            )
+        )
+    for param in contract.params:
+        if param.via is not Via.EXT or not dead(param.key):
+            continue
+        found.append(
+            Diagnostic(
+                code="MD0108",
+                where=f"{contract.id}.params[{param.name}]",
+                summary=(
+                    f"{param.name} routes to ext.{param.key.value}, which this module "
+                    f"never reads"
+                ),
+                detail=f"    {path}   no `task.ext.{param.key.value}` in the script block",
+                fix=(
+                    "route it somewhere the module reads, or drop the parameter — a value "
+                    "reaching no tool is the defect `via:` exists to remove"
+                ),
+            )
+        )
     return found

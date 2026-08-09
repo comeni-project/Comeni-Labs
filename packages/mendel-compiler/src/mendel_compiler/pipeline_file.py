@@ -91,16 +91,31 @@ def write(directory: Path, pipeline: Pipeline) -> Pipeline:
     return reparsed
 
 
-def stamp(directory: Path, pipeline: Pipeline) -> None:
-    """Record what was written, and what it was written from.
+def stamp(directory: Path, pipeline: Pipeline, gate=None) -> Pipeline:
+    """Record what was written, what it was written from, and which gate it passed.
 
     Last, and on the failing-gate path too: a directory holding generated files with no record
     of where they came from is exactly the divergence `MD0213` exists to catch.
+
+    `model_copy` rather than assignment, because `Pipeline` is door 4's payload and therefore
+    frozen — what was reviewed is what is sent. That is the right shape for these two fields
+    anyway: both are evidence about a finished pipeline, and evidence should not be edited in
+    place. The stamped copy is returned so a caller cannot keep using the unstamped one.
+
+    `gate` is applied **before** the digest, because `from_digest` covers it. Recording the
+    digest and then setting the verdict would make every gated build stale the moment its
+    verdict arrived.
     """
-    pipeline.emitted = Emitted.of(
-        directory, EMITTED_FILES, from_digest=pipeline.content_digest()
+    stamped = pipeline.model_copy(update={"gate": gate})
+    stamped = stamped.model_copy(
+        update={
+            "emitted": Emitted.of(
+                directory, EMITTED_FILES, from_digest=stamped.content_digest()
+            )
+        }
     )
-    (directory / FILENAME).write_text(dump(pipeline))
+    (directory / FILENAME).write_text(dump(stamped))
+    return stamped
 
 
 def hand_edited(directory: Path, pipeline: Pipeline) -> list[str]:

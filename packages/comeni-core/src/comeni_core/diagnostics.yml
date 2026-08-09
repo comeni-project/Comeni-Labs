@@ -139,6 +139,35 @@ MD0107:
     not have. Take the *last* quoted string in the ternary: nf-core 4.x puts
     singularity first and docker second.
 
+MD0108:
+  emitted_by: compiler
+  concern: conformance
+  says: "a setting routes to an `ext` key this module never reads"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Route the setting somewhere the module reads, or drop it. A value that reaches no tool is
+    the defect `via:` exists to remove, and a declared route is not a true one.
+  explanation: |
+    A contract is a hand-written FFI binding, and this is the binding naming a destination that
+    does not exist. `via:` made a route **declared**; it did not make it **true**.
+
+    A setting routed to `ext.args` on a module whose script never mentions `task.ext.args`
+    behaves exactly like the dead `params.<node>_<name>` line issue #10 was about: the resolver
+    runs, the value is recorded, the pipeline behaves identically whatever it is. Wearing the
+    fix, which makes it harder to see rather than easier.
+
+    Cheap to check, which is why it lands on day one rather than waiting for a Groovy parser:
+    `modulespec.py` already looks for `task.ext.args` and `task.ext.prefix` as substrings of
+    the module source. Three of the ten vendored modules ignore `task.ext.prefix`, so the
+    prefix half has real negatives — a check that can only pass is not a check.
+
+    Build-only, because it needs module source. `mendel emit` does not read any, by design.
+
+    Only `args`, `args2`, `args3` and `prefix` are checkable this way. `via: meta` and
+    `via: directive` are Nextflow's own mechanisms rather than the module's, and `MD0209`
+    already guards directive names against the same class of mistake.
+
 MD0200:
   emitted_by: compiler
   concern: pipeline-file

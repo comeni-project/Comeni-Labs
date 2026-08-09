@@ -18,12 +18,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from comeni_core.decision import DecisionRecord
 from comeni_core.digest import digest_of_bytes
-from comeni_core.gates import Gate
-from comeni_core.goal import Goal
 from comeni_core.ir import PipelineIR
-from comeni_core.lockfile import Lockfile
 from comeni_core.marks import (
     ContractId,
     Digest,
@@ -34,6 +30,19 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
+
+
+def _publication_payload() -> type[BaseModel]:
+    """`Pipeline`, resolved late.
+
+    `comeni_core.pipeline` imports `Emitted` from this module, so naming the type at the top
+    would be a cycle. A function keeps the declaration in `DOORS` where every other door is
+    declared, rather than registering it from somewhere else — the point of that mapping is
+    that the four doors are readable in one place.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    return Pipeline
 
 
 class EgressPayload(BaseModel):
@@ -177,44 +186,16 @@ class Emitted(BaseModel):
         )
 
 
-class PublishBundle(EgressPayload):
-    """Door 4 — publication. The door with no undo.
-
-    A shareable pipeline is what a human asked for, what it resolved to, why each choice
-    was made, and against exactly which registry — federation spec §4.1. All four, or the
-    recipient cannot reproduce it and cannot audit it.
-    """
-
-    goal: Goal
-    ir: PipelineIR
-    decisions: list[DecisionRecord] = []
-    lockfile: Lockfile = Lockfile()
-    gate: Gate | None = None
-    """The strongest gate this pipeline actually passed, or `None` if none ran. Audit A4.
-
-    A contract can point channels at the wrong inputs and pass conformance, `nextflow
-    lint`, `-preview` and `-stub-run`, because nf-core stubs never read their inputs. Only
-    `--gate test` runs the tools on data. Requiring it to publish was considered and
-    rejected — minutes, Docker and network per publish is too high a floor — so the bundle
-    carries the evidence instead and a curator may refuse one that never ran the gate that
-    checks wiring. `PipelineIR.unverified` set that precedent: state what was not checked
-    rather than pretend it was.
-
-    `None` is not a weak gate. It is no evidence at all, and must read differently from
-    `lint`.
-    """
-
-    emitted: Emitted | None = None
-    """The digests of the files this bundle was published from, recorded after the gate ran.
-
-    `None` means the bundle predates the field — no evidence, exactly as `gate: None` means
-    no gate ran. It must never read as "identical". Audit A28.
-    """
-
-
-DOORS: dict[str, type[EgressPayload]] = {
+DOORS: dict[str, type[BaseModel]] = {
     "goal_extraction": PromptRequest,
     "tier4_resolution": AmbiguityRequest,
     "compiler_repair": RepairRequest,
-    "publication": PublishBundle,
+    # Door 4 carries a `Pipeline` since Plan 1.10 Task 11. `PublishBundle` held goal + IR +
+    # decisions + lockfile, which is the same information one layer less assembled; the
+    # artifact on disk *is* the payload now, so what a person reads before publishing and
+    # what crosses the door are one document rather than two that can disagree.
+    #
+    # Imported inside the mapping to keep this module's import graph acyclic:
+    # `comeni_core.pipeline` imports `Emitted` from here.
+    "publication": _publication_payload(),
 }

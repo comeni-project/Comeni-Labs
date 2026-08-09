@@ -55,7 +55,7 @@ class RequiredStates(BaseModel):
     """States a wanted output must carry.
 
     A record rather than a mapping key, because `tests/test_egress.py` forbids mappings in
-    anything reachable from a payload and `Goal` became reachable when `PublishBundle`
+    anything reachable from a payload and `Goal` became reachable when the publication payload
     started carrying one. `dict[TypeId, list[StateName]]` type-checks perfectly while
     saying nothing about whether the key was ever declared.
     """

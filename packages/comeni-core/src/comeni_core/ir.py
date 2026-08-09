@@ -49,9 +49,10 @@ class ResolvedValue(BaseModel):
         ir.model_dump_json())` raised. Nothing noticed, because nothing read an IR back
         until now.
 
-        That matters beyond this file. `mendel upgrade` reads a `PublishBundle` off disk
-        (Plan 1.7) and the repair loop reads back an IR it sent (Plan 2); both would have
-        failed on a field this class computes for itself. Dropping it is right rather than
+        That matters beyond this file. `mendel upgrade` reads a published artifact off disk
+        (Plan 1.7, and a `pipeline.yml` since Plan 1.10) and the repair loop reads back an IR
+        it sent (Plan 2); both would have failed on a field this class computes for itself.
+        Dropping it is right rather than
         merely convenient — the stored value would be a duplicate of `review_level_for(tier)`
         and could disagree with it.
         """

@@ -511,7 +511,7 @@ def test_a6_the_egress_guard_knows_mapping_and_bytes():
     """A6 — `Mapping` is a superclass of `dict`, so `issubclass(origin, dict)` missed it.
 
     The standing version of the reproduction. With those two shapes on the real
-    `PublishBundle` the guard reported 7 passed: `Mapping[MeasurementId, ParamValue]` is
+    the publication payload the guard reported 7 passed: `Mapping[MeasurementId, ParamValue]` is
     an ordinary dict at runtime with arbitrary keys — the `{"patient_id": ...}` case the
     mapping rule's own docstring forbids — and `bytes` is not `str`, not a mapping, not
     `Any` and carries no marker, so nothing in the file could see it.
@@ -566,7 +566,7 @@ def test_a3_a_path_shaped_parameter_is_refused(value):
     """A3 — `human_override` is the slot for a human's answer and was an open string.
 
     Reproduced on the unmodified tree with no monkeypatching: a patient path validated
-    into a `DecisionRecord` and from there into a `PublishBundle`, the door with no undo.
+    into a `DecisionRecord` and from there through door 4, the one with no undo.
     """
     from comeni_core.decision import ParamDecision
 
@@ -647,7 +647,7 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
 
 
 def test_a4_gate_is_one_class_in_two_places():
-    """`Gate` moves to comeni-core so `PublishBundle` can name one. Not a copy.
+    """`Gate` moves to comeni-core so the publication payload can name one. Not a copy.
 
     Same move `Goal` and `DataProfile` made, with the same shim: `comeni-core` must not
     depend on the compiler, and the *command lines* stay in the compiler because those are
@@ -660,27 +660,26 @@ def test_a4_gate_is_one_class_in_two_places():
     assert [g.value for g in CoreGate] == ["lint", "preview", "stub", "test"]
 
 
-def test_a4_a_bundle_records_which_gate_it_passed():
+def test_a4_the_artifact_records_which_gate_it_passed():
     """A4 — only `--gate test` sees a contract pointing channels at the wrong inputs.
 
     nf-core stubs never read their inputs, so conformance, `nextflow lint` and `-stub-run`
     all pass a mis-wired pipeline. Requiring `--gate test` to publish was rejected as a
     floor (minutes, Docker and network per publish); recording what ran lets a curator
-    refuse a bundle that never ran the only gate that checks wiring. `PipelineIR.unverified`
-    set the precedent.
+    refuse a pipeline that never ran the only gate that checks wiring. `PipelineIR.unverified`
+    set the precedent. The field moved from `PublishBundle` to `Pipeline` with the door in
+    Plan 1.10 Task 11; the claim did not move at all.
     """
-    from comeni_core.egress import PublishBundle
     from comeni_core.gates import Gate
-    from comeni_core.goal import Goal
-    from comeni_core.ir import PipelineIR
+    from comeni_core.pipeline import Pipeline
 
-    assert PublishBundle(goal=Goal(), ir=PipelineIR()).gate is None
-    passed = PublishBundle(goal=Goal(), ir=PipelineIR(), gate=Gate.TEST)
+    assert Pipeline().gate is None
+    passed = Pipeline(gate=Gate.TEST)
     assert passed.gate is Gate.TEST
     # `None` must be distinguishable from "passed lint" — an absent gate is not a weak
     # gate, it is no evidence at all, and a curator reads the two differently.
     assert json.loads(passed.model_dump_json())["gate"] == "test"
-    assert json.loads(PublishBundle(goal=Goal(), ir=PipelineIR()).model_dump_json())["gate"] is None
+    assert json.loads(Pipeline().model_dump_json())["gate"] is None
 
 
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
@@ -1246,7 +1245,7 @@ def test_a29_a_goal_type_id_must_name_a_declared_type():
     `Annotated[str, "type-id"]` says somebody named this; it does not say the name is of a
     declared type. `router._have_satisfies` only *compares*, so a `have` entry that
     satisfies nothing was never looked up — and a patient name with a filesystem path
-    reached a `PublishBundle` as a `type_id`.
+    reached the publication payload as a `type_id`.
 
     Closing it is a side effect of doing the obvious thing: an undeclared type in a goal
     was already a user error worth a clear message, and nothing had ever asked.

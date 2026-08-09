@@ -117,6 +117,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0105` | a `produces[].name` is not one of the module's `emit:` labels |
 | `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
 | `MD0107` | `container` has drifted from the module's directive |
+| `MD0108` | a setting routes to an `ext` key this module never reads |
 
 #### The pipeline file — a setting, an override, or the format
 

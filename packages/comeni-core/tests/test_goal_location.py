@@ -1,6 +1,6 @@
 """`Goal` lives in comeni-core, and the resolver re-exports it.
 
-The move exists so `PublishBundle` can carry one. `mendel_resolver.goal` stays as a shim
+The move exists so the publication payload can carry one. `mendel_resolver.goal` stays as a shim
 because a goal is what most resolver code actually meets, and breaking every import to
 relocate a type is churn nobody reviews carefully.
 """
@@ -26,13 +26,17 @@ def test_the_resolver_re_export_is_the_same_class():
     assert CoreGoal is ResolverGoal
 
 
-def test_a_publish_bundle_carries_the_goal():
-    from comeni_core.egress import PublishBundle
-    from comeni_core.goal import Goal
-    from comeni_core.ir import PipelineIR
+def test_the_publication_payload_carries_the_goal():
+    """`Pipeline` is door 4's payload since Plan 1.10; `PublishBundle` was before it.
 
-    bundle = PublishBundle(goal=Goal(want=["counts.matrix"]), ir=PipelineIR())
-    assert bundle.goal.want == ["counts.matrix"]
+    The reason `Goal` lives in `comeni-core` is unchanged by the swap — the publication
+    payload carries one, and `comeni-core` must not depend on `mendel-resolver`.
+    """
+    from comeni_core.egress import DOORS
+    from comeni_core.goal import Goal
+
+    payload = DOORS["publication"](goal=Goal(want=["counts.matrix"]))
+    assert payload.goal.want == ["counts.matrix"]
 
 
 def test_the_goal_still_has_nowhere_to_put_a_sample_identifier():

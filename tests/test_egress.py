@@ -26,7 +26,7 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 FREE_TEXT_FIELDS = {
     ("PromptRequest", "prompt"),
     ("GateFailure", "tool_message"),
-    # Reachable through RepairRequest.ir and PublishBundle. Model- or resolver-written
+    # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
     # prose explaining a choice — genuinely free text, and named here rather than
     # exempted, because an audit found these riding along unexamined inside a nested
     # model the guard never opened.
@@ -37,6 +37,14 @@ FREE_TEXT_FIELDS = {
     ("ParamDecision", "reason"),
     ("ProducerDecision", "reason"),
     ("SourceDecision", "reason"),
+    # Seventh, and expected: `Pipeline` became door 4's payload in Plan 1.10 Task 11, and
+    # `Why.reason` is the citation beside every value — the legibility the whole artifact
+    # exists for. It is a `Line`, so it is `FREE_TEXT` with a single-line validator, and it
+    # reaches this set through exactly the same door the four `reason` fields above do.
+    #
+    # It is listed rather than exempted for the reason the whole list is literal: widening
+    # the boundary should mean editing a file that says *these are all the ways data leaves*.
+    ("Why", "reason"),
 }
 
 
@@ -48,8 +56,19 @@ def _payload_types() -> set[type[BaseModel]]:
     inside `RepairRequest.ir`, and a payload serialised a patient path and an SSN while
     this file reported green. Transitive expansion is the fix; exempting nested models
     would be the hole.
+
+    **The roots come from `DOORS`**, not from what happens to be defined in `egress.py`.
+    That distinction had no consequences until Plan 1.10 Task 11 moved the publication
+    payload to `comeni_core.pipeline`: scanning `vars(egress)` then found three doors out of
+    four, and `Pipeline` — the door with no undo — crossed the boundary entirely unchecked
+    while this file reported ten passed.
+
+    `DOORS` is the declaration of what actually leaves. The subclass scan stays beside it,
+    so a payload type declared and not yet wired to a door is still covered; the union is
+    what makes both "declared but unused" and "used but declared elsewhere" visible.
     """
-    roots = {
+    roots = set(egress.DOORS.values())
+    roots |= {
         obj
         for obj in vars(egress).values()
         if isinstance(obj, type)
@@ -57,6 +76,18 @@ def _payload_types() -> set[type[BaseModel]]:
         and obj is not egress.EgressPayload
     }
     return reachable(*roots)
+
+
+def test_every_door_is_walked_by_the_checks_below():
+    """The guard that would have caught the hole above.
+
+    Every check in this file starts from `_payload_types()`, so a door whose payload that
+    set does not contain is a door nothing in here inspects — silently, and with a full green
+    run to say so.
+    """
+    walked = _payload_types()
+    for name, payload in egress.DOORS.items():
+        assert payload in walked, f"door {name} carries {payload.__name__}, and nothing walks it"
 
 
 def _mentions(annotation: object, marker: object) -> bool:
@@ -232,6 +263,13 @@ def test_every_door_declares_an_egress_payload():
 
 
 def test_free_text_lives_only_where_declared():
+    """Seven fields, not two, and not six.
+
+    CLAUDE.md said "exactly two" for a plan and a half while this list held four, then six;
+    the list is the honest count and the prose is what drifts. Six became seven when
+    `Pipeline` took door 4 — by a payload swap rather than by a new kind of string crossing,
+    which is exactly the sort of change a literal list exists to make someone look at.
+    """
     found: set[tuple[str, str]] = set()
     for payload in _payload_types():
         found |= _fields(payload, Mark.FREE_TEXT)
@@ -339,3 +377,59 @@ def test_every_ambiguity_field_can_cross_the_door():
                 f"model behind door 2 would never be told it"
             )
     assert Ambiguity.model_config.get("extra") == "forbid"
+
+
+# --- Plan 1.10 Task 11: Pipeline is door 4's payload ----------------------------------
+
+
+def test_publication_carries_a_pipeline():
+    """The artifact a person reads before publishing and the thing that crosses the boundary
+    are one document. `PublishBundle` held goal + IR + decisions + lockfile — the same
+    information one layer less assembled, and one more thing that could disagree with what
+    was on disk."""
+    from comeni_core.pipeline import Pipeline
+
+    assert egress.DOORS["publication"] is Pipeline
+
+
+def test_publish_bundle_is_gone():
+    """Retired, not deprecated. A type nothing constructs is a type that drifts, and its name
+    was load-bearing rationale in eight other files — rationale citing a deleted type reads as
+    authoritative and cannot be checked."""
+    assert not hasattr(egress, "PublishBundle")
+
+
+def test_the_publication_payload_is_frozen():
+    """`EgressPayload` sets `frozen=True`, so what was reviewed is what is sent.
+
+    `gate` and `emitted` are stamped with `model_copy` rather than assigned, which is the
+    right shape for them anyway: both are evidence about a finished pipeline, and evidence
+    should not be edited in place.
+    """
+    import pytest
+    from comeni_core.pipeline import Pipeline
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Pipeline().gate = "test"
+
+
+def test_pipeline_holds_no_registry():
+    """`registry.py` carries a mapping and says it is legal because a `Registry` is not
+    payload-reachable. That sentence became load-bearing the moment the artifact itself
+    crossed door 4: materialisation must copy values, never hold the thing it read them from.
+    """
+    import re
+
+    from comeni_core.pipeline import Pipeline
+
+    # Word boundaries, not `in`. The first version matched `RegistryProvenance` and reported
+    # `Pipeline.registry holds a Registry` — the same substring trap `test_pipeline_totality`
+    # hit on the same word, which is what makes it worth a comment rather than a quiet fix.
+    forbidden = re.compile(r"\b(Registry|ModuleContract|Vocabulary|MeasurementRegistry)\b")
+    for model in reachable(Pipeline):
+        for name, annotation in typing.get_type_hints(model, include_extras=True).items():
+            if name not in model.model_fields:
+                continue
+            held = forbidden.search(str(annotation))
+            assert held is None, f"{model.__name__}.{name} holds a {held.group()}"

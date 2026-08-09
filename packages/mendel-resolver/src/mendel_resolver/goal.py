@@ -1,8 +1,12 @@
 """Re-export of the goal types, which live in `comeni_core.goal`.
 
-They moved there so `PublishBundle` could carry a `Goal` — a shareable pipeline is
-`Goal` + `PipelineIR` + `DecisionRecord[]` + lockfile, and `comeni-core` must not depend
-on `mendel-resolver`. Same move `DataProfile` made, for the same reason.
+They moved there so the publication payload could carry a `Goal`, and `comeni-core` must
+not depend on `mendel-resolver`. Same move `DataProfile` made, for the same reason.
+
+The payload was `PublishBundle` — `Goal` + `PipelineIR` + `DecisionRecord[]` + lockfile —
+and is `Pipeline` since Plan 1.10, which carries the same information one layer less
+assembled. The reason for the move is unchanged by that; it is why it is stated as a reason
+rather than as a reference.
 
 This shim stays because a goal is what most resolver code actually meets, and rewriting
 every import to relocate a type is churn nobody reviews carefully.

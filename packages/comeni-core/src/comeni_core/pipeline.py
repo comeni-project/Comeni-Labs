@@ -1,6 +1,6 @@
 """`pipeline.yml` — one artifact, every setting, every provenance.
 
-Replaces `pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`'s on-disk form. A researcher
+Replaces `pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle` entirely. A researcher
 asking "what settings does this pipeline use, and why" read four files and had to know which of
 four mechanisms carried each value; one of those mechanisms carried nothing at all.
 
@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from comeni_core.contract import ModuleContract
 from comeni_core.decision import DecisionRecord
 from comeni_core.digest import digest_of
-from comeni_core.egress import Emitted
+from comeni_core.egress import EgressPayload, Emitted
 from comeni_core.gates import Gate
 from comeni_core.goal import Goal
 from comeni_core.layered import Displacement
@@ -34,6 +34,8 @@ from comeni_core.marks import (
     ContractId,
     Digest,
     EdgeRef,
+    GroovyExpression,
+    LayerName,
     Line,
     NfIdentifier,
     NfPath,
@@ -42,6 +44,7 @@ from comeni_core.marks import (
     ParamValue,
     PortName,
     StateName,
+    TestDataRef,
     TypeId,
 )
 from comeni_core.routes import ExtKey, Via
@@ -79,8 +82,8 @@ class Why(BaseModel):
     tier: Tier
     source: ValueSource
     reason: Line
-    from_layer: str | None = None
-    displaced_layer: str | None = None
+    from_layer: LayerName | None = None
+    displaced_layer: LayerName | None = None
     """Set when a lower layer offered something this one beat. A5, A15 — dropped by two drafts
     of this schema, which is why the totality test exists."""
 
@@ -230,11 +233,11 @@ class Channel(BaseModel):
     emitter is much of what materialisation buys, so the duplication is accepted and then
     checked — `MD0211` refuses a hand-edited file where the two have diverged.
     """
-    expression: str
+    expression: GroovyExpression
     """The one unbounded-Groovy field in the file, by design. A type declares how it arrives;
     the compiler has no built-in idea what a FASTQ is."""
     meta: list[MetaEntry] = Field(default_factory=list)
-    test_data: list[str] = Field(default_factory=list)
+    test_data: list[TestDataRef] = Field(default_factory=list)
     """A small public example of this type, for the `test` profile. Pinned to a commit in the
     vocabulary, never a branch — a dataset that moves is one you cannot compare a result against
     next year. Always a list here even when the vocabulary declares one string, because a schema
@@ -270,10 +273,19 @@ class RegistryProvenance(BaseModel):
     unverified: list[ContractId] = Field(default_factory=list)
 
 
-class Pipeline(BaseModel):
-    """The pipeline. Read this; edit this; `mendel emit` rebuilds the Nextflow from it."""
+class Pipeline(EgressPayload):
+    """The pipeline. Read this; edit this; `mendel emit` rebuilds the Nextflow from it.
 
-    model_config = ConfigDict(extra="forbid")
+    **Door 4's payload**, since Plan 1.10 Task 11 — publication, the door with no undo.
+    `PublishBundle` carried goal + IR + decisions + lockfile, which is this same information
+    one layer less assembled, so the artifact a person reads before publishing and the thing
+    that crosses the boundary are now one document rather than two that can disagree.
+
+    Being an `EgressPayload` means `frozen=True` as well as `extra="forbid"`: what was
+    reviewed is what is sent. `gate` and `emitted` are therefore stamped with `model_copy`
+    rather than assigned, which is the right shape for them anyway — both are evidence about
+    a finished pipeline, and evidence should not be edited in place.
+    """
 
     version: int = 1
     goal: Goal = Field(default_factory=Goal)

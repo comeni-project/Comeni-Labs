@@ -65,14 +65,14 @@ def test_a_diagnostic_cannot_carry_an_undeclared_code():
     from mendel_compiler.conformance import Diagnostic
 
     with pytest.raises(ValueError, match="MD9999"):
-        Diagnostic(code="MD9999", contract_id="x", summary="s", detail="d", fix="f")
+        Diagnostic(code="MD9999", where="x", summary="s", detail="d", fix="f")
 
 
 def test_a_declared_code_still_constructs():
     """Regression guard for over-correction: the eight real codes must still work."""
     from mendel_compiler.conformance import Diagnostic
 
-    d = Diagnostic(code="MD0104", contract_id="nf-core/star/align@1.11.0",
+    d = Diagnostic(code="MD0104", where="nf-core/star/align@1.11.0",
                    summary="s", detail="d", fix="f")
     assert d.code == "MD0104"
 

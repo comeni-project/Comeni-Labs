@@ -82,6 +82,11 @@ class ModuleSpec(BaseModel):
     container: str | None = None
     meta_reads: list[MetaRead] = Field(default_factory=list)
     reads_ext_args: bool = False
+    reads_ext_prefix: bool = False
+    """Whether the module reads `task.ext.prefix`.
+
+    Absent from three of the ten vendored modules, which is what gives `MD0108` real
+    negatives to find rather than a check that can only ever pass."""
     documented: list[DocumentedInput] = Field(default_factory=list)
 
     @classmethod
@@ -101,6 +106,7 @@ class ModuleSpec(BaseModel):
                 MetaRead(variable=v, key=k) for v, k in dict.fromkeys(_META.findall(source))
             ],
             reads_ext_args="task.ext.args" in source,
+            reads_ext_prefix="task.ext.prefix" in source,
             documented=_documented(main_nf.parent / "meta.yml"),
         )
 
