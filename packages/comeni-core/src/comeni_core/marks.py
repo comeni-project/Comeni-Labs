@@ -308,24 +308,69 @@ because it has no unknown unknowns. This is the same trade and gets the same ans
 """
 
 
+_TEMPLATE_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    " _.:+-/=,'"
+)
+"""What a template's fixed text may contain, once `{value}` and `${meta.x}`/`${task.x}` are
+removed. A superset of `_VALUE_CHARS` — a template needs spaces, single quotes and `:`, which a
+resolved value does not — but it still excludes `"`, a backtick, `;`, `|`, `&`, `<`, `>`, `#`
+and a bare `$`, because a template is composed into a shell command line and, when it carries an
+interpolation, into a double-quoted Groovy closure. Spelled out rather than a regex: `re` is off
+`comeni-core`'s purity allowlist.
+"""
+
+
 def _nf_template(value: str) -> str:
-    """A flag fragment with exactly one Mendel substitution.
+    """A flag fragment with Mendel and Groovy substitutions, and nothing else executable.
 
     Two interpolation systems meet in one string and only one of them is ours:
 
     - `{value}` is **Mendel's**, substituted at emit time. The only one this code touches.
     - `${…}` is **Groovy's**, evaluated by Nextflow per task and passed through verbatim.
 
-    A template mentioning `${…}` must be emitted as a *closure* rather than a string — measured
-    on Nextflow 25.10.4, where `ext.args = "--rg ID:${meta.id}"` fails at config parse with
+    A template mentioning `${…}` is emitted as a *closure* rather than a string — measured on
+    Nextflow 25.10.4, where `ext.args = "--rg ID:${meta.id}"` fails at config parse with
     `Unknown config attribute process.withName:FOO.meta.id`, because a config GString is
     evaluated when the config is read and no task exists then. The closure form resolves.
 
-    One line only: it is composed into a single argument string, and a newline there would end
-    the command rather than the flag.
+    **A45.** Only newlines used to be refused, so the fixed text around `{value}` was an open
+    door: a `${…}` body was arbitrary Groovy in that closure, and shell metacharacters
+    (`; touch x #`) reached the tool's command line verbatim. Now every `${…}` must be a single
+    `meta.<id>` or `task.<id>` reference, and the rest of the text is a closed character class.
+    One line only: a newline would end the command rather than the flag.
     """
     if "\n" in value:
         raise ValueError("MD0204: a template is one line — it composes into an argument string")
+    residue: list[str] = []
+    i = 0
+    while i < len(value):
+        if value.startswith("${", i):
+            end = value.find("}", i)
+            if end == -1:
+                raise ValueError(f"MD0204: unterminated ${{ in template {value!r}")
+            head, _, tail = value[i + 2 : end].partition(".")
+            if head not in ("meta", "task") or not _is_identifier(tail):
+                raise ValueError(
+                    f"MD0204: ${{{value[i + 2 : end]}}} is not an allowed interpolation. A "
+                    "template may reference only ${meta.<id>} or ${task.<id>}; anything else is "
+                    "arbitrary Groovy reaching the generated config."
+                )
+            i = end + 1
+        elif value.startswith("{value}", i):
+            i += len("{value}")
+        else:
+            residue.append(value[i])
+            i += 1
+    bad = sorted(set(residue) - _TEMPLATE_CHARS)
+    if bad:
+        raise ValueError(
+            f"MD0204: a template may not contain {bad[0]!r}. The text around {{value}} is "
+            "composed into a shell command line; letters, digits, spaces, single quotes and "
+            "`_ . : + - / = ,` are allowed, and `{value}`, `${meta.x}`, `${task.x}` interpolate."
+        )
     return value
 
 

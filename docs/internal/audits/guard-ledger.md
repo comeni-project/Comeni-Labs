@@ -350,3 +350,13 @@ Each refusal added by the fixing plan, reverted and watched failing before the f
 **Trap recorded, again.** `git checkout <file>` to restore after the probe reverted the
 *uncommitted fix*, not just the probe — exactly the 2026-08-08 journal warning. Re-applied by
 edit. Use a script that restores only the probed lines, or commit the fix before probing.
+
+### A45 — NfTemplate grammar
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_marks.py` | grammar neutered to the old newline-only check | 6 failed | `test_nf_template_rejects_injection[...]` |
+
+Restored from memory, not `git checkout` (the A44 trap). The residue char-class and the
+`${meta.x}`/`${task.x}` interpolation check are one guard; reverting either alone would leave
+the other catching a subset, so both were removed together and all six injection shapes returned.
