@@ -34,7 +34,13 @@ def main(argv: list[str] | None = None) -> int:
     except UnroutableError as exc:
         print(f"mendel: cannot route this goal — {exc}", file=sys.stderr)
     except ValidationError as exc:
-        print(f"mendel: this goal is not valid —\n{exc}", file=sys.stderr)
+        # A41. `title` is the model that failed. A `ModuleContract` failing is a contract
+        # author's mistake, not the operator's — blaming "this goal" sent them to the one file
+        # they did not write. The missing-`via` case is already re-raised as MD0200 before it
+        # reaches here; this catches every other contract-shape failure (`nf_process`,
+        # a malformed port) and names the right file.
+        subject = "contract" if exc.title == "ModuleContract" else "this goal"
+        print(f"mendel: {subject} is not valid —\n{exc}", file=sys.stderr)
     except RuleValidationError as exc:
         print(f"mendel: a rule table will not load —\n{exc}", file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:

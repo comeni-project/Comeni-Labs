@@ -349,6 +349,25 @@ def test_a_rules_displacement_reaches_the_artifact(tmp_path):
     assert "rules" in _displaced_kinds(out)
 
 
+# --- A41: a contract that fails to load is blamed on the contract, not the goal ---
+
+
+def test_a_contract_missing_via_emits_MD0200_and_blames_the_contract(tmp_path, capsys):
+    """A `Param` with no `via:` raised a raw Pydantic `Field required` under 'this goal is not
+    valid' — the one file the operator did not write, blamed for a contract author's omission.
+    The refusal is a real one (MD0200: the value reaches no tool); the message just named the
+    wrong file and buried the code."""
+    ov = _overlay_with(tmp_path, "  - {name: x, default: 1}\n")  # no via:
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "MD0200" in err
+    assert "goal is not valid" not in err
+    assert "subread" in err or "featurecounts" in err.lower(), "name the contract at fault"
+
+
 # --- A40: two writers for one destination is a refusal, not a silent concatenation ---
 
 

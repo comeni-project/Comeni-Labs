@@ -489,3 +489,17 @@ also internally inconsistent — the honest override path recorded `source: huma
 same inconsistency read as a bug. Two changes close it: `resolve()` records `human_override` on the
 `ParamDecision` whenever `resolution.source is HUMAN`, so the decision carries the evidence; and
 `Pipeline` refuses (MD0220) any `source: human` setting without a matching non-null override.
+
+### A41 — a contract that fails to load is blamed on the contract, not the goal
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | the missing-`via` catch in `ModuleContract.load` (`_missing_via` re-raise) | 1 failed | `test_a_contract_missing_via_emits_MD0200_and_blames_the_contract` |
+
+A `Param` with no `via:` is a real refusal — MD0200, the value reaches no tool — but Pydantic
+reported it as a bare `Field required` on `params.N.via`, and the CLI wrapped every
+`ValidationError` as "this goal is not valid": the one file the operator did not write, blamed for
+a contract author's omission. `load` now re-raises the missing-`via` case with its code and the
+contract named, and the CLI wrapper blames "contract" rather than "this goal" for any
+`ModuleContract`-titled validation error. Other `ValidationError`s (`nf_process`, `nf_include`,
+the model-level route checks) are left untouched, so their tests keep asserting exactly what they did.

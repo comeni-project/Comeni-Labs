@@ -3,7 +3,14 @@
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_serializer,
+    model_validator,
+)
 
 from comeni_core import yaml_strict
 from comeni_core.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
@@ -298,9 +305,42 @@ class ModuleContract(BaseModel):
 
     @classmethod
     def load(cls, path: Path, vocab: Vocabulary) -> "ModuleContract":
-        contract = cls.model_validate(yaml_strict.load(path))
+        data = yaml_strict.load(path)
+        try:
+            contract = cls.model_validate(data)
+        except ValidationError as exc:
+            # A missing `via` is a real refusal — MD0200, the value reaches no tool — but
+            # Pydantic reports it as a bare `Field required` on `params.N.via`, and the CLI
+            # wraps any `ValidationError` as "this goal is not valid": the one file the operator
+            # did not write, blamed for a contract author's omission (A41). Re-raise the
+            # missing-`via` case with its code and the contract named; leave every other
+            # `ValidationError` untouched so `nf_process`/`nf_include` and the model-level route
+            # checks keep raising exactly what their tests assert.
+            missing_via = cls._missing_via(exc, data)
+            if missing_via is not None:
+                raise missing_via from exc
+            raise
         contract.check_against(vocab)
         return contract
+
+    @staticmethod
+    def _missing_via(exc: ValidationError, data: Any) -> ValueError | None:
+        """MD0200 for a `Param` with no `via:`, naming the contract and the parameter."""
+        params = data.get("params", []) if isinstance(data, dict) else []
+        cid = data.get("id", "<unknown>") if isinstance(data, dict) else "<unknown>"
+        for error in exc.errors():
+            loc = error["loc"]
+            if error["type"] == "missing" and "via" in loc and "params" in loc:
+                idx = loc[loc.index("params") + 1]
+                name = "<unnamed>"
+                if isinstance(idx, int) and idx < len(params) and isinstance(params[idx], dict):
+                    name = params[idx].get("name", "<unnamed>")
+                return ValueError(
+                    f"MD0200: contract {cid} parameter {name!r} declares no via:, so nothing "
+                    f"would carry its value. Add via: naming where it lands — ext with a key, "
+                    f"meta, or directive. `mendel explain MD0200`."
+                )
+        return None
 
     def check_against(self, vocab: Vocabulary) -> None:
         for port in self.consumes:
