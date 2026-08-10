@@ -138,7 +138,7 @@ prompt in a signed public registry is in every clone's history forever.
 | goal extraction | `PromptRequest` | **free text** — the only taint source | `mendel-ai` |
 | tier-4 resolution | `AmbiguityRequest` | contract IDs, type IDs, states, tier hints | `mendel-ai` |
 | compiler repair | `RepairRequest` | the IR + `GateFailure` | `mendel-ai` |
-| publication | `PublishBundle` | typed goal, IR, decision records, lockfile | `mendel-api` |
+| publication | `Pipeline` | the `pipeline.yml` artifact — goal, steps, settings, decisions, digests | `mendel-api` |
 
 Payload **types** are declared in a new `comeni_core/egress.py`; **transmission** stays in the
 impure packages. Invariant 1 already prevents a pure package from opening a socket, so pure code
@@ -382,7 +382,7 @@ Mirrors the existing split; all of it runs offline.
 | `test_forget_preserves_replay` | after `mendel forget`, the IR still resolves and the pipeline still emits byte-identically |
 | `test_sealed_requires_actor` | `sealed` refuses to run with an anonymous deployment |
 | `test_sealed_requires_digests` | `sealed` refuses a reference that resolves only to a tag |
-| `test_publish_bundle_is_typed` | no `FreeText` field can reach a `PublishBundle` |
+| `test_publication_carries_a_pipeline` / `test_publish_bundle_is_gone` | door 4 carries a `Pipeline` (the artifact on disk); `PublishBundle` is retired |
 
 ---
 

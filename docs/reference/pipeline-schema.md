@@ -156,7 +156,20 @@ example above elides the nulls for readability.
 
 `call` is the process's positional arguments, including tier-1 literals that appeared in no
 artifact at all before this — `STAR_ALIGN(reads, index, gtf, false)` recorded neither that
-`false` nor why.
+`false` nor why. Each `CallArg` is exactly one of three shapes, written out with no positional
+shorthand (a second reading of one field is how root G miswires a pipeline silently):
+
+| field | is | example |
+|---|---|---|
+| `ports` | one or more channels carrying named ports | `{ports: [reads]}` |
+| `literal` | a positional constant the process takes | `{literal: false, why: {…}}` |
+| `empty_width` | an empty placeholder channel, and its **tuple width** | `{empty_width: 2, why: {…}}` |
+
+`empty_width` is the arity of an empty tuple `[[:], []]` handed to an input the goal does not
+fill — Nextflow matches arity, so a 2-tuple in a 3-tuple slot dies at launch. A literal and an
+empty placeholder each carry a `why`: a positional choice is a decision, and `NfInput.empty`
+already required a `because`, so the artifact records the whole provenance rather than an
+exception for the one route that had no artifact.
 
 ### `settings` — and where each value goes
 

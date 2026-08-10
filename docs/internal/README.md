@@ -33,9 +33,10 @@ the order.
 | 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
 | 8 | `2026-08-07-the-pipeline-file.md` | Plan 1.10 — `pipeline.yml`. **Complete**, with each task's corrections inline |
 | 9 | `../audits/2026-08-10-round-three-audit.md` | Round three audit — **complete.** A38–A54, four critical (A38, A44, A46, A50) |
-| 10 | *(no plan yet)* Plan 1.11 | **Next.** Closes the round-three findings; A14 stays open until it lands |
-| 11 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
-| 12 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 10 | `2026-08-10-closing-round-three.md` | Plan 1.11 — **complete.** Closed A38–A54 (17 tasks), with each task's corrections inline; A14 stays open |
+| 11 | *(no audit yet)* Round four | **Next.** The loop exits on *no critical finding surviving*, not on an empty audit, so 1.11's surface is still owed a pass |
+| 12 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 13 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 

@@ -15,9 +15,10 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8, 1.9 and 1.10 are complete.** A17–A35 are
-closed; **A14, A36, and round three remain** — round three is **next**, and it is the first
-audit of 1.10's surface. 542 fast tests green, `ruff check` clean, and `--gate test` runs the
+**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 and 1.11 are complete.** A17–A35
+and round three's A38–A54 are closed; **A14 and A36 remain**, and **round four is next** — the
+loop exits on *no critical finding surviving*, not on an empty audit, so 1.11's surface is owed a
+pass. 591 fast tests green, `ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
 mapping quality the contract routed. `uv run pytest -m slow` is what proves that; `make check`
@@ -65,10 +66,11 @@ closing round two, two of them in code written that same day: `stack()`'s
 `origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
 `producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
 
-**Round three starts at A38 and is next**, by the brief in
-`docs/internal/audits/2026-08-07-round-two-brief.md`. Read `docs/internal/README.md`
-§ *What round three inherits from 1.10* first: it names the sixteen new diagnostics, the four
-guards that moved, and two things Plan 1.10 found and deliberately did not fix. Then Plan 2.
+**Round three is closed — its A38–A54 were Plan 1.11 (complete).** **Round four is next**, by the
+same revert-and-watch + cold-reviewer method in
+`docs/internal/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
+finding surviving a fresh audit. Read `docs/internal/journal/2026-08-10-evening.md` for what 1.11
+shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
 
 | Read this | For |
 |---|---|
@@ -115,9 +117,9 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5–1.9 are complete; **round three is next**, then Plan 2, then Plan 3.
-  Round three comes first because A14 is critical and open, and the loop's exit criterion is
-  that no critical finding survives. That file now also says *why* that order, including the
+  a date. Plans 1.5–1.11 are complete; **round four is next**, then Plan 2, then Plan 3.
+  An audit round comes before the next plan because A14 is critical and open, and the loop's exit
+  criterion is that no critical finding survives. That file now also says *why* that order, including the
   argument against it — the sequence was asserted and believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that
   date still use the old name.
@@ -407,7 +409,7 @@ conversation is a loose end lost.
 | ~~10~~ | ~~answering a tier-4 parameter clears the flag without changing the pipeline~~ | **done** — Plan 1.10. `via:` carries the value to the tool, and an override keeps its tier while leaving `needs_review()` |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
-| 18 | the error surface is half-declared — 41 raise sites, 32 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
+| 18 | the error surface is half-declared — 91 raise sites, 56 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
 
 ## Commands
 
@@ -441,8 +443,8 @@ uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
-# why anything was refused, at length. 24 codes: MD0100–MD0108 conformance,
-# MD0200–MD0216 the pipeline file. The table in docs/reference/cli.md is generated
+# why anything was refused, at length. 30 codes: MD0100–MD0108 conformance,
+# MD0200–MD0220 the pipeline file. The table in docs/reference/cli.md is generated
 # from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
 uv run mendel explain MD0104
 
