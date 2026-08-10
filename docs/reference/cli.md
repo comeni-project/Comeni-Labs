@@ -148,6 +148,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
 | `MD0215` | an input names neither `source` nor `channel`, or names both |
 | `MD0216` | a resolved binding names a parameter its contract does not declare |
+| `MD0217` | a test_data reference contains a character that would inject into the generated config |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

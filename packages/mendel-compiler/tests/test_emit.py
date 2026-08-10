@@ -233,3 +233,15 @@ def test_emission_needs_no_registry():
     import inspect
 
     assert list(inspect.signature(emit).parameters) == ["pipeline"]
+
+
+def test_render_test_data_escapes_like_a_literal():
+    """A44: test_data is emitted single-quoted and escaped, not raw double-quoted.
+
+    Called directly with a value the type validator would reject, to prove the emitter is
+    belt-and-braces: even a value that reached it would be inert Groovy, not a statement.
+    """
+    from mendel_compiler.emit import _render_test_data
+
+    assert _render_test_data(["a'b"]) == "'a\\'b'"
+    assert _render_test_data(["x", "y"]) == "['x', 'y']"

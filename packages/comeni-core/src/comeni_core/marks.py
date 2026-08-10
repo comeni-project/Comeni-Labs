@@ -407,16 +407,46 @@ Digest = Annotated[str, Mark.DIGEST]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
 
-TestDataRef = Annotated[str, Mark.TEST_DATA_REF]
+_TEST_DATA_FORBIDDEN = frozenset("\"'`${}\\ \t\n\r")
+"""Characters that never belong in a reference and are the way into the generated config.
+
+Spelled out rather than a regex, for the reason `_VALUE_CHARS` gives: `re` is off
+`comeni-core`'s purity allowlist. This is the injection surface — a quote or backtick starts a
+new Groovy expression, `$` and `${}` interpolate, whitespace splits — and a URL or object-store
+reference contains none of them.
+"""
+
+
+def _test_data_ref(value: str) -> str:
+    """A reference to a small public example dataset, safe to emit into the `test` profile.
+
+    A44: `test_data` is rendered as `params.<type> = <value>`, which is Groovy. It reached that
+    line unescaped, so a crafted value executed at `nextflow config` time. The emitter now
+    escapes it (`_render_literal`); this is the second gate, refusing the injection surface at
+    load. The URL *scheme* is deliberately not dictated — a laboratory may host its example
+    anywhere — so only the metacharacters are refused, not the shape.
+    """
+    bad = sorted(_TEST_DATA_FORBIDDEN & set(value)) or [c for c in value if ord(c) < 32]
+    if bad:
+        raise ValueError(
+            f"MD0217: test_data {value!r} contains {bad[0]!r}, which would inject into the "
+            "generated config. A reference is a URL pinned to a commit; remove quotes, "
+            "backticks, `$`, braces and whitespace."
+        )
+    return value
+
+
+TestDataRef = Annotated[str, Mark.TEST_DATA_REF, AfterValidator(_test_data_ref)]
 """Where a small public example of a type lives, for the `test` profile.
 
 A URL pinned to a commit, declared in the vocabulary. Never a laboratory's own path: this
 reaches a published artifact, and a dataset that moves is one you cannot compare a result
 against next year — a path on somebody's machine is both of those problems at once.
 
-Marked rather than validated. The vocabulary is where a laboratory says how a type it brought
-arrives, and narrowing this to a URL pattern would decide for them; `MD0201`'s note about
-starting strict does not apply where the value never reaches a shell.
+Validated for the **injection surface only** (`_test_data_ref`), not the URL shape. A44 showed
+the premise that this "never reaches a shell" was false — it is emitted into Groovy — so the
+metacharacters that make that an injection are refused. The scheme is still the laboratory's to
+choose, because the vocabulary is where it says how a type it brought arrives.
 """
 
 LayerName = Annotated[str, Mark.LAYER_NAME]

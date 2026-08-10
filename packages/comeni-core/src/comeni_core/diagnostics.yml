@@ -514,3 +514,26 @@ MD0216:
     a deserialised or hand-built IR, and in that case refusing is right — nothing legitimate
     reaches it, and what does reach it is a pipeline file describing a value that will not
     exist in the Nextflow.
+
+MD0217:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a test_data reference contains a character that would inject into the generated config"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    `test_data` is a public reference to a small example dataset — a URL pinned to a commit is
+    the canonical form. Remove quotes, backticks, `$`, braces, and whitespace: none belongs in
+    a reference, and each is a way into the Groovy that `params.<type>` is emitted as.
+  explanation: |
+    A44. `test_data` is rendered into the `test` profile as `params.<type> = <value>`, which is
+    Groovy, not data. It reached that line double-quoted and unescaped, so a value carrying a
+    quote closed the string and the rest ran — at `nextflow config` time, before any pipeline
+    executed. Reachable by hand-editing `pipeline.yml` and by an installed registry overlay.
+
+    Two fixes, and this is the first. The emitter now single-quotes and escapes the value like
+    any other literal, so even a value that reached it is inert text. This refusal is the
+    second: a reference is not a place for a shell metacharacter, and refusing names the
+    mistake rather than silently rewriting it. The URL *scheme* is deliberately not dictated —
+    a laboratory bringing its own type may host its example anywhere — so only the injection
+    surface is refused, not the shape.

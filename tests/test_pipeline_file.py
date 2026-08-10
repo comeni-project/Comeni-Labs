@@ -253,3 +253,22 @@ def test_the_file_records_the_goal_it_was_built_from(tmp_path):
     ]
     measured = {m["measurement"]: m["value"] for m in raw["goal"]["profile"]["measurements"]}
     assert measured["strandedness"] == "reverse"
+
+
+def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
+    """A44: a poisoned test_data in pipeline.yml is refused before it can be emitted.
+
+    The audit's reproduction: a Groovy payload in a test_data list executed at `nextflow
+    config` time. It now fails to load — the validator on `TestDataRef` fires — and even were
+    it to reach the emitter, `_render_test_data` single-quotes and escapes it.
+    """
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    payload = 'x"; new File("/tmp/PWNED_A44").text = "rce"; def z="'
+    for ch in doc["channels"]:
+        if ch["type_id"] == "annotation.gtf":
+            ch["test_data"] = [payload]
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code != 0 and "MD0217" in err
+    assert not pathlib.Path("/tmp/PWNED_A44").exists()

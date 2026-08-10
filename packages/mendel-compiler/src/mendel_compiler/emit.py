@@ -171,9 +171,13 @@ def entry_params(pipeline: Pipeline) -> list[str]:
 
 
 def _render_test_data(value: list[str]) -> str:
+    # A44: a `params.x = "…"` assignment is Groovy, not data, and a double-quoted string is a
+    # GString. `_render_literal` single-quotes and escapes, so a value here is inert text even
+    # if one reached the emitter — `TestDataRef`'s validator is the primary gate, this is the
+    # second. The generated stub-data literals (`${projectDir}/…`) are rendered elsewhere.
     if len(value) == 1:
-        return f'"{value[0]}"'
-    return "[" + ", ".join(f'"{item}"' for item in value) + "]"
+        return _render_literal(value[0])
+    return "[" + ", ".join(_render_literal(item) for item in value) + "]"
 
 
 def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:

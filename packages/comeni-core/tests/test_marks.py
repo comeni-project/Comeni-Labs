@@ -11,7 +11,7 @@ exception a laboratory brings its own type through.
 """
 
 import pytest
-from comeni_core.marks import GroovyExpression, Line, NfIdentifier, NfPath, Text
+from comeni_core.marks import GroovyExpression, Line, NfIdentifier, NfPath, TestDataRef, Text
 from pydantic import BaseModel, ValidationError
 
 
@@ -98,3 +98,32 @@ def test_every_new_mark_is_in_the_closed_vocabulary():
 
     for alias in (NfIdentifier, NfPath, GroovyExpression, Line, Text):
         assert any(isinstance(meta, Mark) for meta in alias.__metadata__), alias
+
+
+# --- A44: test_data reaches generated Groovy, so it is validated, not merely marked ---
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        'x"; throw new RuntimeException("PWNED"); def z="',  # the audit's payload
+        "x'; println 'y",
+        "a`id`b",
+        "a${System.env}b",
+        "line1\nline2",
+    ],
+)
+def test_test_data_ref_rejects_an_injection(bad):
+    with pytest.raises(ValidationError):
+        _model(TestDataRef)(value=bad)
+
+
+@pytest.mark.parametrize(
+    "good",
+    [
+        "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d/reference/genes.gtf",
+        "s3://a-lab-bucket/reference/genome.fasta",  # scheme is the lab's call, not ours
+    ],
+)
+def test_test_data_ref_accepts_a_reference(good):
+    assert _model(TestDataRef)(value=good).value == good

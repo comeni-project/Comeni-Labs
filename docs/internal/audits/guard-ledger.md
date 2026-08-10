@@ -335,3 +335,18 @@ the work and no test exercises a second spelling of the same path.
 **Not added as a normal caught row, but recorded:** `_still_applies`'s `[None]` special case *is*
 guarded — reverting it fails five replay tests. That is the parameter-override fix from Plan 1.10,
 and it is the one piece of this subsystem with a guard that watches its subject.
+
+## Plan 1.11 — closing round three (A44–A54 fixes)
+
+Each refusal added by the fixing plan, reverted and watched failing before the fix was committed.
+
+### A44 — test_data escaped and validated
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_emit.py` | `_render_test_data` back to raw double-quote | 1 failed | `test_render_test_data_escapes_like_a_literal` |
+| 2026-08-10 | `test_marks.py` | dropped the `_test_data_ref` validator | 5 failed | `test_test_data_ref_rejects_an_injection[...]` |
+
+**Trap recorded, again.** `git checkout <file>` to restore after the probe reverted the
+*uncommitted fix*, not just the probe — exactly the 2026-08-08 journal warning. Re-applied by
+edit. Use a script that restores only the probed lines, or commit the fix before probing.
