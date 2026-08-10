@@ -300,6 +300,17 @@ def _resolve_param(
             reason=resolution.reason,
             confidence=resolution.confidence,
             resolved_by=resolution.resolved_by,
+            # A54. `source: HUMAN` on the value is a claim that a person answered, and it is
+            # what clears the review — so the decision has to carry the evidence, not just the
+            # value's `Why`. Only `ReplayResolver` returns `HUMAN`, and only when the record it
+            # replayed held a `human_override`, so recording it back here keeps the artifact
+            # self-consistent: a `human` source and a null `human_override` was the exact
+            # inconsistency A54 named, and it is what `Pipeline`'s MD0220 refuses at load.
+            human_override=(
+                resolution.chosen
+                if resolution.source is ValueSource.HUMAN
+                else None
+            ),
         )
     )
     # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1

@@ -474,3 +474,18 @@ never watched). And a `--out` holding some *third* pipeline was overwritten with
 overrides, digests and gate evidence gone. `upgrade` now refuses a `--out` whose `pipeline.yml`
 has a different content digest than the one being upgraded, unless `--force`; a byte-identical
 occupant (an idempotent re-upgrade) is still allowed, and an empty `--out` stays the normal case.
+
+### A54 — `source: human` requires a matching non-null human_override
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | the MD0220 cross-check in `Pipeline._readable_and_unambiguous` | 1 failed | `test_human_source_requires_a_matching_override` |
+
+`why.source: human` is what clears a tier-4 review, and `source` is declared vocabulary the
+resolver sets — not proof. A resolver (a future `mendel-ai` adapter included) could return
+`source=HUMAN` for a value no human saw and empty `needs_review()` by assertion. The artifact was
+also internally inconsistent — the honest override path recorded `source: human` on the value with
+`human_override: null` on the decision (resolve.py never wrote the override back), which is the
+same inconsistency read as a bug. Two changes close it: `resolve()` records `human_override` on the
+`ParamDecision` whenever `resolution.source is HUMAN`, so the decision carries the evidence; and
+`Pipeline` refuses (MD0220) any `source: human` setting without a matching non-null override.

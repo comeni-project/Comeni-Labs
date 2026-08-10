@@ -152,6 +152,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0217` | a test_data reference contains a character that would inject into the generated config |
 | `MD0218` | a tier-4 answer is written in two places that disagree |
 | `MD0219` | two decision records share one key |
+| `MD0220` | a setting claims source: human with no override recording the answer |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

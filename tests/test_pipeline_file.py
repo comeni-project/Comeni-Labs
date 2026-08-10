@@ -439,6 +439,45 @@ def test_editing_the_value_answers_for_emit_and_upgrade(tmp_path, capsys):
     assert "'PL:nanopore'" in (nxt / "nextflow.config").read_text()
 
 
+# --- A54: `source: human` is a claim about evidence, not assertable through the port ---
+
+
+def test_human_source_requires_a_matching_override(tmp_path, capsys):
+    """`why.source: human` is what clears a tier-4 review — it says a person answered the
+    ambiguity after resolution flagged it. Asserted through `settings[].why` with no decision
+    recording that answer, it is a review cleared by claim: the exact dishonesty invariant 6
+    forbids. A `human` source must have a matching non-null `human_override`."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+                setting["why"]["source"] = "human"
+    # Deliberately leave decisions[].human_override null — the claim without the evidence.
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0220" in err
+
+
+def test_human_source_with_a_matching_override_is_accepted(tmp_path, capsys):
+    """The honest case: the value, the `human` source and the decision's override all agree —
+    a person answered, and the record proves it. This must still emit."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+                setting["why"]["source"] = "human"
+    for d in doc["decisions"]:
+        if d["key"].endswith("seq_platform"):
+            d["human_override"] = "nanopore"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 0, err
+
+
 # --- A52: a duplicate decision key is corruption, and is refused ---
 
 

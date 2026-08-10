@@ -390,6 +390,32 @@ class Pipeline(EgressPayload):
                     f"upgrade would read different ones. settings[].value is the writable one; "
                     f"remove the human_override or set it equal. `mendel explain MD0218`."
                 )
+
+        # MD0220. `why.source: human` is a claim that a person answered an ambiguity resolution
+        # had faced and flagged — and it is what clears that item from `needs_review()`. Written
+        # into `settings[].why` with no decision recording the answer, it is a review cleared by
+        # assertion: exactly the honesty invariant 6 exists to keep. So a `human` source must be
+        # backed by a `PARAM` decision for the same key carrying a non-null `human_override`. The
+        # genuine edit sets both (settings[].value and the override), so the honest case passes;
+        # what this refuses is the port used to relabel a resolver's guess as a person's answer.
+        overrides = {
+            record.key: record.human_override
+            for record in self.decisions
+            if getattr(record, "kind", None) is DecisionKind.PARAM
+        }
+        for step in self.steps:
+            for setting in step.settings:
+                if setting.why.source is not ValueSource.HUMAN:
+                    continue
+                key = f"{step.id}.{setting.name}"
+                if overrides.get(key) is None:
+                    raise ValueError(
+                        f"MD0220: {key} says source: human, but no decision records a person "
+                        f"answering it — its human_override is null or absent. `source: human` "
+                        f"clears the review, so it must be backed by the answer it claims. Set "
+                        f"the decision's human_override to the value, or restore the source that "
+                        f"resolution gave it. `mendel explain MD0220`."
+                    )
         return self
 
     def _param_setting_values(self) -> dict[str, ParamValue]:
