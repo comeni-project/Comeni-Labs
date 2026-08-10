@@ -383,7 +383,8 @@ def _emit_verb(target: Path, out: Path) -> int:
         )
         return 2
 
-    if pipeline_file.is_stale(pipeline):
+    stale = pipeline_file.is_stale(pipeline)
+    if stale:
         print(
             f"MD0213: {target} has changed since the Nextflow was generated from it. "
             f"Regenerating.",
@@ -394,7 +395,11 @@ def _emit_verb(target: Path, out: Path) -> int:
         shutil.copytree(source / "modules", out / "modules", dirs_exist_ok=True)
     (out / "main.nf").write_text(emit(pipeline))
     (out / "nextflow.config").write_text(emit_config(pipeline))
-    pipeline_file.stamp(out, pipeline)
+    # A47: a no-op re-emit must carry the verdict through — `stamp`'s default `gate=None` erased a
+    # `publish`ed pipeline's certification on the next `emit`. But a *stale* file has changed since
+    # it was gated, so the verdict no longer describes this pipeline and is cleared: preserving it
+    # would certify content that never passed the gate.
+    pipeline_file.stamp(out, pipeline, gate=None if stale else pipeline.gate)
     return 0
 
 

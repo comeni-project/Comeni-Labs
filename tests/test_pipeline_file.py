@@ -414,3 +414,34 @@ def test_a_duplicate_decision_key_is_refused(tmp_path, capsys):
     (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0219" in err
+
+
+# --- A47: emit carries the gate verdict rather than erasing it ---
+
+
+def test_emit_preserves_the_gate_verdict(tmp_path, capsys):
+    """A re-emit that changes nothing must not drop the certification. `gate:` is load-bearing —
+    the evidence and the pipeline are one document, and the archive workflow regenerates later.
+
+    `publish` stamps the verdict and the digests together, so the file is not stale; a no-op
+    `emit` afterwards must carry it through."""
+    out = _build(tmp_path)
+    assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(ROOT)]) == 0
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
+    code, err = _emit(out, capsys)
+    assert code == 0 and "MD0213" not in err, err  # not stale — a genuine no-op re-emit
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
+
+
+def test_emit_clears_the_gate_verdict_when_the_file_was_edited(tmp_path, capsys):
+    """A stale file has changed since it was gated, so its verdict no longer describes this
+    pipeline. Preserving it would certify content that never passed the gate."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    doc["gate"] = "lint"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    _emit(out, capsys)  # settle emitted digests against the gate stamp
+    _answer(out, "seq_platform", "nanopore")  # now edit — the pipeline changed
+    code, err = _emit(out, capsys)
+    assert code == 0 and "MD0213" in err
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] is None
