@@ -269,3 +269,69 @@ cannot be silent twice.
 With the guard actually looking it immediately found four undeclared `str` fields on the new
 payload. That is the cost of the hole stated precisely: not a leak, but four fields that had
 crossed into the payload without anyone examining them.
+
+## Round three, 2026-08-10 — the first sweep over Plan 1.10's surface
+
+Run under [the round-two brief](2026-08-07-round-two-brief.md), narrowed by the operator to clean
+code and documentation-against-behaviour. Every row is a **real removal of the condition**
+followed by the full fast suite (`pytest -m "not slow"`), then restore. Findings are
+[A38–A43](2026-08-10-round-three-audit.md).
+
+Rows that caught, and named the right thing:
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_audit_regressions.py` | `MD0216`'s orphaned-setting refusal | 1 failed | `test_a_binding_with_no_declared_param_refuses_instead_of_vanishing` |
+| 2026-08-10 | `test_audit_regressions.py` | `MD0212` duplicate setting on a step | 1 failed | `test_a11_a_duplicate_binding_is_refused_before_it_can_reach_a_compare` |
+| 2026-08-10 | `test_pipeline_file.py` | `MD0212` duplicate **step id** (the other half) | 1 failed | `test_two_steps_sharing_an_id_are_refused` |
+| 2026-08-10 | `test_pipeline_file.py` | `MD0207` version refusal | 1 failed | `test_a_newer_version_is_refused` |
+| 2026-08-10 | `test_pipeline_file.py` | `MD0211` channel params vs expression | 1 failed | `test_channel_params_disagreeing_with_its_expression_is_refused` |
+| 2026-08-10 | `test_routes.py` | `MD0204` template must mention `{value}` | 2 failed | `test_a_template_must_mention_the_value` |
+| 2026-08-10 | `test_routes.py` | `MD0204` template forbidden off composing routes | 1 failed | `test_a_template_is_illegal_where_the_route_takes_one_value` |
+| 2026-08-10 | `test_routes.py` | `MD0205` `via: ext` without a key | 1 failed | `test_ext_requires_a_key` |
+| 2026-08-10 | `test_routes.py` | `MD0205` key on a non-`ext` route | 1 failed | `test_a_key_on_a_non_ext_route_is_refused` |
+| 2026-08-10 | `test_routes.py` | `MD0209` illegal directive name | 2 failed | `test_an_unknown_directive_is_refused` |
+| 2026-08-10 | `test_runnable.py` | `_render_literal`'s Groovy quote escaping | 1 failed | `test_ext_args_is_escaped_like_any_other_literal` |
+
+Rows that **stayed green** — these are [A42](2026-08-10-round-three-audit.md), and they are a
+different shape from A14's inert guard. In each the refusal is **live and correct**; there is
+simply no test over it, so a deletion is invisible.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | *(none)* | `MD0215` — input names exactly one of `source`/`channel` | **542 passed** | — |
+| 2026-08-10 | *(none)* | `MD0201` — substitutable-class refusal in `emit` | **542 passed** | — |
+| 2026-08-10 | *(none)* | `MD0204` — a template is one line (`marks.py`) | **542 passed** | — |
+| 2026-08-10 | *(none)* | `ext.args` fragments name-sorted (`emit.py:226`) | **542 passed** | — |
+| 2026-08-10 | *(none)* | process scope `sorted(set(blocks))` (`emit.py:279`) | **542 passed** | — |
+
+**The last two rows are the ones to read.** `_ext_scope`'s docstring predicts exactly this —
+*"With one setting that sort is unobservable, which is exactly why a test carrying one cannot see
+a sort bug — and byte-identical emission depends on it"* — and no test with two settings on one
+step was ever written. Invariant 10 rests on an ordering the suite cannot observe.
+
+**A probe of mine was invalid and is recorded rather than deleted.** The first `MD0207` attempt
+changed the message from `MD0207:` to `MD0207x:` and stayed green, and I nearly filed it. The
+refusal is guarded; the probe was wrong, because `test_a_newer_version_is_refused` asserts
+`"MD0207" in err` and `MD0207x` contains that substring. The transferable lesson is question 3 in
+this file's own instructions — *did the revert reach the code the guard names* — and the smaller
+one is that **a substring assertion on a diagnostic code does not pin the code**.
+
+### Round three, second sweep — the replay/upgrade/publish boundary (A50–A54)
+
+Two more inert guards, both found by the third cold reviewer and re-run here. Both are the
+producer-with-no-consumer shape: the fix they attest to exists, but nothing observes its removal.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | *(none)* | `resolve.py:70` — drop `*measurements.displaced` (the A23 fix) | **542 passed** | — |
+| 2026-08-10 | *(none)* | `cli.py:187` — `args.out.resolve()` → plain `==` (the A53 guard's real work) | **542 passed** | — |
+
+The first is A51: `layers.load()` records displacements for all four kinds and `resolve()` reads
+two, so the A23 fix can be undone with a green suite — its tests assert on `load().displaced` and
+never on the artifact. The second is A53: the "never in place" guard's `.resolve()` is doing all
+the work and no test exercises a second spelling of the same path.
+
+**Not added as a normal caught row, but recorded:** `_still_applies`'s `[None]` special case *is*
+guarded — reverting it fails five replay tests. That is the parameter-override fix from Plan 1.10,
+and it is the one piece of this subsystem with a guard that watches its subject.
