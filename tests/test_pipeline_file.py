@@ -349,3 +349,19 @@ def test_a_meta_setting_shadowing_a_measurement_is_refused(tmp_path):
     code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
                  "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
     assert code == 2
+
+
+# --- A39: a non-templated ext key is quoted once, not twice ---
+
+
+def test_a_non_templated_ext_key_is_quoted_once(tmp_path):
+    """`prefix` takes one value and has no template, so _render_literal must run once.
+
+    It ran twice — per fragment and again on the join — so `alpha` emitted as `'\\'alpha\\''`,
+    a Groovy string whose value includes the quote characters, corrupting every output filename.
+    """
+    ov = _overlay_with(tmp_path, "  - {name: tag, default: alpha, via: ext, key: prefix}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    cfg = (out / "nextflow.config").read_text()
+    assert "ext.prefix = 'alpha'" in cfg
+    assert "\\'alpha\\'" not in cfg

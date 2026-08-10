@@ -263,7 +263,16 @@ def _ext_scope(step: Step) -> list[str]:
             # here made `mendel publish` exit 2 on the shipped spine.
             continue
         if setting.template is None:
-            fragments.setdefault(setting.key.value, []).append(_render_literal(setting.value))
+            # A39: append the raw value; the single `_render_literal` at the join quotes it,
+            # exactly as the templated branch inserts raw fragments. Rendering here as well
+            # double-quoted it — `alpha` became `'\'alpha\''`, quotes and all. Bool lowercased
+            # to match the templated branch, so `true` stays `true` rather than `True`.
+            raw = (
+                str(setting.value).lower()
+                if isinstance(setting.value, bool)
+                else str(setting.value)
+            )
+            fragments.setdefault(setting.key.value, []).append(raw)
             continue
         if not substitutable(setting.value):
             raise ValueError(
