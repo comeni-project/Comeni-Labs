@@ -459,3 +459,24 @@ def test_a_pipeline_with_no_goal_is_refused(tmp_path, capsys):
     (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
     code, err = _emit(out, capsys)
     assert code == 2
+
+
+# --- A49: a refused emit leaves the directory untouched ---
+
+
+def test_a_refused_emit_writes_nothing(tmp_path, capsys):
+    """emit wrote main.nf, then emit_config raised MD0201 — so main.nf was rewritten though the
+    emit refused, and the retry then blamed the user with MD0214 for Mendel's own damage."""
+    out = _build(tmp_path)
+    before = (out / "main.nf").read_text()
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        if s["id"] == "trimgalore":
+            s["process"] = "TRIMGALORE2"  # a valid rename → main.nf would change
+        for setting in s.get("settings", []):
+            if setting["name"] == "min_mqs":
+                setting["value"] = "0 bad"  # non-substitutable → emit_config raises MD0201
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0201" in err
+    assert (out / "main.nf").read_text() == before, "a refused emit must leave main.nf untouched"

@@ -422,3 +422,13 @@ kept its default and the model is what a hand-edited file loads through. Now req
 that constructed a bare `Pipeline()` were passing incidentally — `test_a4_...gate...` broke and was
 fixed, and `test_egress`'s frozen check was passing for the wrong reason (construction failing
 before the frozen assignment) and now passes a real goal.
+
+### A49 — a refused emit leaves the directory untouched
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | emit back to write-main.nf-then-render-config | 1 failed | `test_a_refused_emit_writes_nothing` |
+
+`emit_config` raises MD0201 on a non-substitutable value; writing `main.nf` first left the
+directory half-regenerated, and the retry then refused with MD0214 — blaming the user for a
+change emit itself made. Both files render in memory before either is written now.

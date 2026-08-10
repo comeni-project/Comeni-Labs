@@ -391,10 +391,16 @@ def _emit_verb(target: Path, out: Path) -> int:
             file=sys.stderr,
         )
 
+    # A49: render both in memory first. `emit_config` raises `MD0201` on a non-substitutable
+    # value, and writing `main.nf` before that raise left the directory half-regenerated — then
+    # the retry refused with `MD0214`, blaming the user for a change `emit` itself made. A
+    # refusal must leave nothing behind, the posture `upgrade` already takes.
+    main_nf = emit(pipeline)
+    config = emit_config(pipeline)
     if source.resolve() != out.resolve():
         shutil.copytree(source / "modules", out / "modules", dirs_exist_ok=True)
-    (out / "main.nf").write_text(emit(pipeline))
-    (out / "nextflow.config").write_text(emit_config(pipeline))
+    (out / "main.nf").write_text(main_nf)
+    (out / "nextflow.config").write_text(config)
     # A47: a no-op re-emit must carry the verdict through — `stamp`'s default `gate=None` erased a
     # `publish`ed pipeline's certification on the next `emit`. But a *stale* file has changed since
     # it was gated, so the verdict no longer describes this pipeline and is cleared: preserving it
