@@ -245,3 +245,19 @@ def test_render_test_data_escapes_like_a_literal():
 
     assert _render_test_data(["a'b"]) == "'a\\'b'"
     assert _render_test_data(["x", "y"]) == "['x', 'y']"
+
+
+def test_every_via_member_emits_or_is_refused():
+    """A38: a route declared but not emitted is issue #10 reopened.
+
+    Two of three routes shipped validated, recorded with provenance, and emitting nothing. This
+    tripwire forces a decision when `Via` grows: a new member must be wired into `emit.py`
+    (and added here) or refused at load — never left to record a value that reaches no tool.
+    """
+    from comeni_core.routes import Via
+
+    emitted = {Via.EXT, Via.META, Via.DIRECTIVE}
+    assert set(Via) == emitted, (
+        f"emit.py handles {emitted}; Via also has {set(Via) - emitted}, which would record a "
+        "value that reaches no tool. Wire it into emit.py or refuse it at load."
+    )

@@ -272,3 +272,38 @@ def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
     code, err = _emit(out, capsys)
     assert code != 0 and "MD0217" in err
     assert not pathlib.Path("/tmp/PWNED_A44").exists()
+
+
+# --- A38: via: meta and via: directive are declared routes; they must emit ---
+
+
+def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
+    """A registry overlay adding params to subread/featurecounts. Shared by A38–A42 tasks."""
+    ov = tmp_path / "ov"
+    (ov / "contracts" / "nf-core").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab\n")
+    src = (ROOT / "registry/contracts/nf-core/subread-featurecounts.yml").read_text()
+    src = src.replace("params:", "params:\n" + extra_params, 1)
+    (ov / "contracts/nf-core/subread-featurecounts.yml").write_text(src)
+    return ov
+
+
+def _build_with_overlay(tmp_path, ov) -> pathlib.Path:
+    out = tmp_path / "b"
+    assert (
+        main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+              "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+    )
+    return out
+
+
+def test_via_directive_reaches_nextflow_config(tmp_path):
+    ov = _overlay_with(tmp_path, "  - {name: cpus, default: 7, via: directive}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    assert "cpus = 7" in (out / "nextflow.config").read_text()
+
+
+def test_via_meta_reaches_the_channel_meta_map(tmp_path):
+    ov = _overlay_with(tmp_path, "  - {name: tag, default: forward, via: meta}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    assert "tag: 'forward'" in (out / "main.nf").read_text()

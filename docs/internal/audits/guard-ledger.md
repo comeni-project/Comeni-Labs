@@ -360,3 +360,16 @@ edit. Use a script that restores only the probed lines, or commit the fix before
 Restored from memory, not `git checkout` (the A44 trap). The residue char-class and the
 `${meta.x}`/`${task.x}` interpolation check are one guard; reverting either alone would leave
 the other catching a subset, so both were removed together and all six injection shapes returned.
+
+### A38 — via: meta and via: directive emit
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `_directive_scope` skips every setting | 1 failed | `test_via_directive_reaches_nextflow_config` |
+| 2026-08-10 | `test_pipeline_file.py` | `_meta_injection` not applied in `_calls` | 1 failed | `test_via_meta_reaches_the_channel_meta_map` |
+| 2026-08-10 | `test_emit.py` | completeness set narrowed to `{Via.EXT}` | 1 failed | `test_every_via_member_emits_or_is_refused` |
+
+The emitted Groovy was validated in real Nextflow 25.10.4, not only asserted: `nextflow config
+-profile test` parses the directive block (exit 0) and `nextflow lint` accepts the meta-injection
+`main.nf`. The completeness guard's honest probe is a *missing* member (`{Via.EXT}`), not
+`set(Via)` — the latter is tautological and stays green.

@@ -133,11 +133,33 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     ]
 
 
+def _meta_injection(step: Step) -> str:
+    """A `via: meta` setting rides into the module on the meta map of its first input.
+
+    nf-core's convention is that the first input tuple is `[meta, …]`, so the resolved value is
+    merged there. Arity-agnostic — `[ it[0] + [k: v] ] + it[1..-1]` reconstructs a tuple of any
+    width — because a step's first input is a 2-tuple for most modules and wider for some, and a
+    fixed `{ meta, files -> … }` pattern dies on the mismatch (the same arity trap `NfInput.empty`
+    exists for). Sorted for byte-identical emission; `_render_literal` single-quotes the value.
+    """
+    entries = sorted(
+        (s.name, s.value) for s in step.settings if s.via is Via.META and s.value is not None
+    )
+    if not entries:
+        return ""
+    rendered = ", ".join(f"{name}: {_render_literal(value)}" for name, value in entries)
+    return f".map {{ it -> [ it[0] + [{rendered}] ] + it[1..-1] }}"
+
+
 def _calls(pipeline: Pipeline) -> list[str]:
-    return [
-        f"{step.process}({', '.join(_argument(pipeline, step, arg) for arg in step.call)})"
-        for step in pipeline.steps
-    ]
+    calls = []
+    for step in pipeline.steps:
+        args = [_argument(pipeline, step, arg) for arg in step.call]
+        injection = _meta_injection(step)
+        if injection and args:
+            args[0] = f"({args[0]}){injection}"
+        calls.append(f"{step.process}({', '.join(args)})")
+    return calls
 
 
 def emit(pipeline: Pipeline) -> str:
@@ -271,11 +293,30 @@ def _ext_scope(step: Step) -> list[str]:
     return lines
 
 
+def _directive_scope(step: Step) -> list[str]:
+    """Every `via: directive` setting this step carries — `withName: X { cpus = 12 }`.
+
+    The setting name is one of `LEGAL_DIRECTIVES` (enforced at contract load by `MD0209`) and the
+    value goes through `_render_literal`, which single-quotes a string and leaves a number bare —
+    `cpus = 7`, `memory = '8.GB'`. An unanswered tier-4 setting contributes nothing, exactly as on
+    the `ext` route: invariant 6 flags it, it does not block the build.
+    """
+    lines = []
+    for setting in sorted(step.settings, key=lambda s: s.name):
+        if setting.via is not Via.DIRECTIVE or setting.value is None:
+            continue
+        lines.append(
+            f"    withName: {step.process} {{ {setting.name} = {_render_literal(setting.value)} }}"
+        )
+    return lines
+
+
 def _process_scope(pipeline: Pipeline) -> list[str]:
-    """`ext.*` per process, for modules that declare flags or carry routed settings."""
+    """`ext.*` and directives per process, for modules that declare flags or carry settings."""
     blocks: list[str] = []
     for step in pipeline.steps:
         blocks += _ext_scope(step)
+        blocks += _directive_scope(step)
     if not blocks:
         return []
     # Sorted and deduplicated: a contract used twice must not emit its block twice, and
