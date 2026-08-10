@@ -22,7 +22,7 @@ Two rules govern what is in here, and they are converse:
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.contract import ModuleContract
-from comeni_core.decision import DecisionRecord
+from comeni_core.decision import DecisionKind, DecisionRecord
 from comeni_core.digest import digest_of
 from comeni_core.egress import EgressPayload, Emitted
 from comeni_core.gates import Gate
@@ -362,7 +362,56 @@ class Pipeline(EgressPayload):
                     f"measurement already writes {shadow[0]} into the meta map — the setting "
                     f"would silently overwrite a measured fact. `mendel explain MD0208`."
                 )
+        values = self._param_setting_values()
+        for record in self.decisions:
+            if getattr(record, "kind", None) is not DecisionKind.PARAM:
+                continue
+            override = record.human_override
+            value = values.get(record.key)
+            if override is not None and value is not None and override != value:
+                raise ValueError(
+                    f"MD0218: {record.key} is answered {value!r} in settings and {override!r} "
+                    f"in its decision's human_override — one file, two answers, and emit and "
+                    f"upgrade would read different ones. settings[].value is the writable one; "
+                    f"remove the human_override or set it equal. `mendel explain MD0218`."
+                )
         return self
+
+    def _param_setting_values(self) -> dict[str, ParamValue]:
+        """`{step.id}.{setting.name}` → value, the key a `ParamDecision` carries."""
+        return {
+            f"{step.id}.{setting.name}": setting.value
+            for step in self.steps
+            for setting in step.settings
+        }
+
+    def replayable_decisions(self) -> list[DecisionRecord]:
+        """Decisions with a parameter's human answer taken from `settings[].value`.
+
+        `settings[].value` is the writable home of a tier-4 answer — the field `emit` reads and
+        the file tells a person to edit. A `ParamDecision`'s `human_override` is synced from it
+        here so `upgrade` replays the same answer `emit` already uses; before this, editing the
+        value and not the override made the two verbs produce different pipelines (A46).
+
+        Only where the value differs from the resolver's own `chosen`: an equal value is the
+        resolver's (or a model's) choice, not a human edit, and must keep its review flag rather
+        than be relabelled `HUMAN`. A stored, contradicting override is refused at load (MD0218),
+        so the value and any existing override agree by the time this runs.
+        """
+        values = self._param_setting_values()
+        replayable = []
+        for record in self.decisions:
+            value = values.get(record.key)
+            if (
+                getattr(record, "kind", None) is DecisionKind.PARAM
+                and record.human_override is None
+                and value is not None
+                and value != record.chosen
+            ):
+                replayable.append(record.model_copy(update={"human_override": value}))
+            else:
+                replayable.append(record)
+        return replayable
 
     def content_digest(self) -> str:
         """The digest `emitted.from_digest` records, over everything **but** `emitted`.

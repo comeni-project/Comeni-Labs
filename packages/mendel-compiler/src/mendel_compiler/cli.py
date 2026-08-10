@@ -181,7 +181,9 @@ def _build(argv: list[str] | None = None) -> int:
         if refusal is not None:
             return refusal
         goal = previous.goal
-        resolver = ReplayResolver(previous.decisions)
+        # A46: replay the answer `settings[].value` carries, not only `decisions[].human_override`
+        # — the two are one answer and `emit` reads the former, so `upgrade` must honour it too.
+        resolver = ReplayResolver(previous.replayable_decisions())
         if args.command == "publish":
             args.out = source.parent
         elif args.out is not None and args.out.resolve() == source.parent.resolve():

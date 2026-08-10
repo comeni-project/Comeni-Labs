@@ -565,3 +565,21 @@ MD0208:
     present in the pipeline collides with a meta setting of that name, without tracing which
     channel reaches which step — because an over-strict refusal here costs a rename and a silent
     overwrite costs a wrong result.
+
+MD0218:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a tier-4 answer is written in two places that disagree"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    A parameter's answer lives in `settings[].value` — the field `mendel emit` reads and this
+    file tells you to edit. Its decision record also has a `human_override`, and the two say
+    different things. Remove the `human_override`, or set it equal to the value.
+  explanation: |
+    A46. A tier-4 parameter had two homes for its answer: `settings[].value`, which `emit` reads,
+    and `decisions[].human_override`, which `upgrade` replays. Editing one and not the other made
+    the same `pipeline.yml` mean two different pipelines depending on the verb — with no
+    diagnostic. `settings[].value` is now the single writable answer; `upgrade` derives the
+    override from it, and a stored `human_override` that contradicts it is refused rather than
+    silently preferred by whichever verb runs.

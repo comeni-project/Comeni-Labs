@@ -387,3 +387,16 @@ conservative global over-approximation — any measurement key present collides 
 of that name, no dataflow trace — because a false rename is cheaper than a silent overwrite of a
 measured fact. A `test_two_ext_args_settings_still_compose` companion asserts the `args` family is
 exempt, so the fix does not break composition.
+
+### A46 — one writable home for a tier-4 answer
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | MD0218 contradiction refusal disabled | 1 failed | `test_value_and_human_override_may_not_contradict` |
+| 2026-08-10 | `test_pipeline_file.py` | upgrade back to `previous.decisions` (not `replayable_decisions()`) | 1 failed | `test_editing_the_value_answers_for_emit_and_upgrade` |
+
+Two halves. `settings[].value` is the single writable answer: the refusal (MD0218) rejects a
+stored `human_override` that contradicts it, and `replayable_decisions()` derives the override
+from the value so `upgrade` replays the same answer `emit` already reads. The sync fires only
+where the value differs from the resolver's `chosen`, so a resolver's (or a future model's) own
+answer keeps its review flag rather than being relabelled HUMAN.

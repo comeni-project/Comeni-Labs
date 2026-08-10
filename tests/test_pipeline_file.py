@@ -365,3 +365,35 @@ def test_a_non_templated_ext_key_is_quoted_once(tmp_path):
     cfg = (out / "nextflow.config").read_text()
     assert "ext.prefix = 'alpha'" in cfg
     assert "\\'alpha\\'" not in cfg
+
+
+# --- A46: a tier-4 answer has one writable home; the two must not disagree ---
+
+
+def test_value_and_human_override_may_not_contradict(tmp_path, capsys):
+    """settings[].value is the writable answer; a human_override that differs is one file, two
+    answers, and emit and upgrade read different ones. Refuse rather than pick."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+    for d in doc["decisions"]:
+        if d["key"].endswith("seq_platform"):
+            d["human_override"] = "illumina"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0218" in err
+
+
+def test_editing_the_value_answers_for_emit_and_upgrade(tmp_path, capsys):
+    """The A46 fix: editing settings[].value is honoured by both verbs, not just emit."""
+    out = _build(tmp_path)
+    _answer(out, "seq_platform", "nanopore")
+    code, err = _emit(out, capsys)
+    assert code == 0, err
+    assert "'PL:nanopore'" in (out / "nextflow.config").read_text()
+    nxt = tmp_path / "next"
+    assert main(["upgrade", str(out / "pipeline.yml"), "--out", str(nxt), "--root", str(ROOT)]) == 0
+    assert "'PL:nanopore'" in (nxt / "nextflow.config").read_text()
