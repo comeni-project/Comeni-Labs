@@ -12,7 +12,7 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import Pipeline, StepInput
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 
@@ -366,6 +366,43 @@ def test_a_contract_missing_via_emits_MD0200_and_blames_the_contract(tmp_path, c
     assert "MD0200" in err
     assert "goal is not valid" not in err
     assert "subread" in err or "featurecounts" in err.lower(), "name the contract at fault"
+
+
+# --- A42: guards that A42 found had no watched revert ---
+
+
+def test_a_step_input_naming_both_a_source_and_a_channel_is_refused():
+    """MD0215. A `StepInput` is one edge: it comes from an upstream step (`source`) or an entry
+    channel (`channel`), never both. Both set is a wiring that reads two ways — root G's defect
+    in a new type — so it is refused rather than resolved by field order."""
+    with pytest.raises(ValueError, match="MD0215"):
+        StepInput(port="reads", source="trimgalore.reads", channel="fastq.reads")
+
+
+def test_a_step_input_naming_neither_a_source_nor_a_channel_is_refused():
+    """MD0215, the other half: a port that names no origin at all wires to nothing."""
+    with pytest.raises(ValueError, match="MD0215"):
+        StepInput(port="reads")
+
+
+def test_ext_args_fragments_emit_name_sorted_whatever_the_setting_order(tmp_path):
+    """The property the emitter's own docstring predicted no test could see: `_ext_scope`
+    composes `key: args` fragments in **name-sorted** order, so emission is byte-identical
+    however the settings arrive. Materialisation already sorts them, which is why an end-to-end
+    build cannot watch this — so the step's settings are reversed by hand and `_ext_scope` must
+    still emit `--alpha` before `--zulu`. Reverting the sort in `_ext_scope` fails this."""
+    from mendel_compiler.emit import _ext_scope
+
+    ov = _overlay_with(
+        tmp_path,
+        '  - {name: zulu, default: 1, via: ext, key: args, template: "--zulu {value}"}\n'
+        '  - {name: alpha, default: 2, via: ext, key: args, template: "--alpha {value}"}\n',
+    )
+    out = _build_with_overlay(tmp_path, ov)
+    step = next(s for s in _load(out).steps if "FEATURECOUNTS" in s.process)
+    reversed_step = step.model_copy(update={"settings": list(reversed(step.settings))})
+    argline = next(line for line in _ext_scope(reversed_step) if "ext.args" in line)
+    assert argline.index("--alpha") < argline.index("--zulu"), "name-sorted, not setting order"
 
 
 # --- A40: two writers for one destination is a refusal, not a silent concatenation ---

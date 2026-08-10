@@ -503,3 +503,23 @@ a contract author's omission. `load` now re-raises the missing-`via` case with i
 contract named, and the CLI wrapper blames "contract" rather than "this goal" for any
 `ModuleContract`-titled validation error. Other `ValidationError`s (`nf_process`, `nf_include`,
 the model-level route checks) are left untouched, so their tests keep asserting exactly what they did.
+
+### A42 — the round-three refusals that had no watched revert
+
+A42 named guards that fired in no test. Each is reverted and watched below. Two were already
+covered and are noted rather than duplicated: **MD0204's multi-line template** is the `NfTemplate`
+grammar, watched by the A45 row (Task 2, `test_nf_template_*`); and **MD0201 at build** (a
+non-substitutable value in a contract) rides `test_routes.py`'s route checks.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `StepInput._exactly_one_source` (`MD0215`) neutered to `if False` | 2 failed | `test_a_step_input_naming_both_a_source_and_a_channel_is_refused`, `..._neither_...` |
+| 2026-08-10 | `test_pipeline_file.py` | `_ext_scope`'s `sorted(step.settings, key=name)` → declaration order | 1 failed | `test_ext_args_fragments_emit_name_sorted_whatever_the_setting_order` |
+| 2026-08-10 | `test_emit.py` | `_process_scope`'s `sorted(set(blocks))` → `sorted(blocks)` | 1 failed | `test_a_contract_used_by_two_steps_emits_its_process_block_once` |
+| 2026-08-10 | `test_pipeline_file.py` | `_ext_scope`'s `if not substitutable(...)` (`MD0201` at emit) neutered | 1 failed | `test_a_refused_emit_writes_nothing` |
+
+The `ext.args` name-sort had two redundant sorts — one at materialisation (`_settings`), one at
+emit (`_ext_scope`) — so an end-to-end build could not watch either alone: whichever you revert,
+the other re-sorts. The test reverses a materialised step's settings by hand and calls `_ext_scope`
+directly, which is the only place the emit-time sort is observable. Likewise the process-block
+dedup needed one contract in two steps, stood in for by the same step twice.
