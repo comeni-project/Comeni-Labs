@@ -135,6 +135,17 @@ def _build(argv: list[str] | None = None) -> int:
             parser.error("emit needs a pipeline.yml, e.g. `mendel emit build/pipeline.yml`")
         return _emit_verb(Path(args.target), args.out)
 
+    # `publish` certifies the artifact on disk and re-resolves nothing (A50). Like `emit`, it
+    # needs no registry and no network: `pipeline.yml` is self-contained, so certification only
+    # asks "do the files on disk pass the gate?" — a question the registry does not answer.
+    # Sharing `upgrade`'s re-resolution path made publish re-resolve against whatever `--registry`
+    # was installed, silently swap the pipeline, erase human overrides, and stamp a gate on the
+    # result: the door with no undo certifying a pipeline nobody read.
+    if args.command == "publish":
+        if not args.target:
+            parser.error("publish needs a pipeline.yml, e.g. `mendel publish build/pipeline.yml`")
+        return _publish_verb(Path(args.target), args.gate)
+
     # A layer is a directory, not a contracts folder: all three kinds of registry data
     # stack together, so a laboratory can ship its own types and rules alongside its
     # modules. Only contracts stacked before the 2026-08-03 audit.
@@ -166,14 +177,14 @@ def _build(argv: list[str] | None = None) -> int:
 
     previous: Pipeline | None = None
     resolver = None
-    if args.command in ("upgrade", "publish"):
-        # Both read the artifact. An upgrade takes its goal from the file rather than from a
-        # `--goal` argument: re-resolving a *different* goal and calling the result an upgrade
-        # is how "only what you touched moved" would quietly become false.
+    if args.command == "upgrade":
+        # `upgrade` takes its goal from the file rather than from a `--goal` argument:
+        # re-resolving a *different* goal and calling the result an upgrade is how "only what
+        # you touched moved" would quietly become false. (`publish` no longer shares this path —
+        # it certifies without re-resolving, A50.)
         if not args.target:
             parser.error(
-                f"{args.command} needs a pipeline.yml, e.g. "
-                f"`mendel {args.command} build/pipeline.yml`"
+                "upgrade needs a pipeline.yml, e.g. `mendel upgrade build/pipeline.yml`"
             )
         source = Path(args.target)
         previous = pipeline_file.load(source)
@@ -184,9 +195,7 @@ def _build(argv: list[str] | None = None) -> int:
         # A46: replay the answer `settings[].value` carries, not only `decisions[].human_override`
         # — the two are one answer and `emit` reads the former, so `upgrade` must honour it too.
         resolver = ReplayResolver(previous.replayable_decisions())
-        if args.command == "publish":
-            args.out = source.parent
-        elif args.out is not None and args.out.resolve() == source.parent.resolve():
+        if args.out is not None and args.out.resolve() == source.parent.resolve():
             # Never in place. With one artifact the natural implementation updates
             # `pipeline.yml` where it sits, and that destroys the only record of what you
             # had: the replayed overrides, the previous digests, the gate evidence.
@@ -328,17 +337,12 @@ def _build(argv: list[str] | None = None) -> int:
     # `pipeline.bundle.json` and `mendel.lock.yml` are both gone. Everything they carried
     # is in `pipeline.yml` — the goal, every decision, every contract by digest and
     # container, every layer, the gate that passed and the digests of what was emitted.
+    # **The directory is the artifact.**
     #
-    # So `publish` writes no artifact of its own: **the directory is the artifact.** It
-    # re-resolves the file, refuses if the directory has diverged from it, runs the gate
-    # you ask for, and stamps the verdict into `pipeline.yml`. What you hand somebody is
-    # `pipeline.yml` plus `modules/`, which is what they already had to be handed.
-    #
-    # This still writes files and sends nothing. Transmitting them is a later, separate
-    # act, which is the right shape for the door with no undo: a person can read what they
-    # are about to publish. And the gate still runs *before* the verdict is stamped — A4:
-    # `publish --gate test` used to write the bundle, run the gate, and return 1, leaving
-    # an artifact on disk that had just failed the only gate which checks wiring.
+    # This path is `build` and `upgrade` (and `profile`): they resolve a goal and write a fresh
+    # directory. Certifying an existing one is `publish`, which branched off above (A50) — it
+    # re-resolves nothing, so it never reaches here. The gate still runs *before* the verdict is
+    # stamped — A4: a `--gate` build must not leave an artifact stamped with a gate it failed.
     return 0
 
 
@@ -406,6 +410,45 @@ def _emit_verb(target: Path, out: Path) -> int:
     # it was gated, so the verdict no longer describes this pipeline and is cleared: preserving it
     # would certify content that never passed the gate.
     pipeline_file.stamp(out, pipeline, gate=None if stale else pipeline.gate)
+    return 0
+
+
+def _publish_verb(target: Path, gate: "Gate | None") -> int:
+    """`mendel publish <pipeline.yml> --gate <g>` — certify the artifact on disk, in place.
+
+    A50. Certification asks one question — do the files on disk pass the gate — and the answer
+    does not depend on the registry: `pipeline.yml` is self-contained and `emit` regenerated
+    these files from it with no registry at all. So `publish` re-resolves nothing. It refuses a
+    directory that has diverged from its `pipeline.yml` (`MD0213`/`MD0214`, so the gate runs on
+    the files this file describes), runs the gate, and stamps the verdict — the door with no
+    undo now certifies exactly what a person read, never a re-resolution of it.
+
+    The legitimate "I edited my goal and want to publish the result" flow still works: edit,
+    `mendel emit` (which surfaces the change via `MD0213` and regenerates), then `publish`.
+    """
+    pipeline = pipeline_file.load(target)
+    directory = target.parent
+    refusal = _refuse_a_divergent_directory(target, pipeline, "publish")
+    if refusal is not None:
+        return refusal
+
+    passed: Gate | None = None
+    if gate is not None:
+        if gate is Gate.STUB:
+            materialise_stub_data(directory, entry_params(pipeline))
+        result = run_gate(gate, directory)
+        print(f"gate {result.gate}: {'PASS' if result.passed else 'FAIL'}", file=sys.stderr)
+        if result.passed:
+            passed = result.gate
+        else:
+            print(result.output, file=sys.stderr)
+            # The verdict is stamped on the failing path too — a directory with no record of
+            # what it came from is the divergence MD0213 exists to catch — but publish reports
+            # the failure. A4: never leave an artifact stamped with a gate it did not pass.
+            pipeline_file.stamp(directory, pipeline, gate=None)
+            return 1
+
+    pipeline_file.stamp(directory, pipeline, gate=passed)
     return 0
 
 

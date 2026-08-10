@@ -432,3 +432,18 @@ before the frozen assignment) and now passes a real goal.
 `emit_config` raises MD0201 on a non-substitutable value; writing `main.nf` first left the
 directory half-regenerated, and the retry then refused with MD0214 — blaming the user for a
 change emit itself made. Both files render in memory before either is written now.
+
+### A50 — publish certifies the artifact on disk and re-resolves nothing
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_publish.py` | publish routed back through `upgrade`'s re-resolution path | 1 failed | `test_publish_does_not_re_resolve_against_the_installed_registry` |
+
+`publish` shared `upgrade`'s block, so it re-resolved against whatever `--registry` was installed
+— an overlay could swap the pipeline, erase the human overrides, and stamp a gate on a result
+nobody read, at the door with no undo. It now branches early like `emit`: it needs no registry,
+refuses a directory that diverged from its `pipeline.yml`, gates the files on disk, and stamps the
+verdict. **A design consequence:** publish no longer re-runs conformance, because conformance is a
+property of a contract against its module and publish reads no contracts. That guarantee relocated
+to `build`, where it always ran; `test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolves`
+records the move.
