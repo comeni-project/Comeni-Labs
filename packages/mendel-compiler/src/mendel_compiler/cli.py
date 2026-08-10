@@ -85,6 +85,15 @@ def _build(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--gate", type=Gate, default=None)
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "`upgrade` only: write into a --out directory that already holds a *different* "
+            "pipeline.yml, replacing it. Refused without this, because that directory is "
+            "another pipeline's evidence."
+        ),
+    )
+    parser.add_argument(
         "--registry",
         type=Path,
         action="append",
@@ -109,6 +118,12 @@ def _build(argv: list[str] | None = None) -> int:
     # flag that silently means "do nothing".
     if args.dry_run and args.command != "upgrade":
         parser.error("--dry-run is for `upgrade`; it is what `verify` would have been")
+
+    # `--force` belongs to `upgrade` alone, for the same reason: it authorises overwriting a
+    # *different* pipeline's directory, and only `upgrade` writes into a directory a person
+    # names rather than one it just built. On `build` it would silently mean nothing.
+    if args.force and args.command != "upgrade":
+        parser.error("--force is for `upgrade`; it authorises overwriting another pipeline")
 
     # `publish` takes no `--out`, and that is the shape of the verb rather than an omission.
     # It does not produce a new pipeline; it certifies the one it was given — runs the gate
@@ -205,6 +220,23 @@ def _build(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
+        # The self-overwrite check above only catches `--out` == the *source's* directory. A
+        # `--out` that holds some *other* pipeline is just as destructive and was allowed: the
+        # write replaced a third pipeline's `pipeline.yml`, overrides and gate evidence with no
+        # trace it had ever been there (A53). Refuse a `--out` that already holds a pipeline
+        # whose identity differs from the one being upgraded, unless `--force` says so.
+        if args.out is not None and not args.force:
+            occupant = args.out / pipeline_file.FILENAME
+            if occupant.exists():
+                existing = pipeline_file.load(occupant)
+                if existing.content_digest() != previous.content_digest():
+                    print(
+                        f"mendel: --out {args.out} already holds a different pipeline. "
+                        f"Upgrading into it would overwrite that pipeline's evidence. "
+                        f"Choose an empty directory, or pass --force to replace it.",
+                        file=sys.stderr,
+                    )
+                    return 2
     elif args.command == "profile":
         goal = _profiling_goal(args, loaded)
     else:

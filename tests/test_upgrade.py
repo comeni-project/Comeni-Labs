@@ -450,3 +450,65 @@ def test_md0202_is_silent_when_nothing_moved(tmp_path, capsys):
     bundle = _published(tmp_path)
     main(["upgrade", str(bundle), "--dry-run", "--root", str(ROOT)])
     assert "MD0202" not in capsys.readouterr().err
+
+
+# --- A53: `upgrade --out` refuses another pipeline's directory ---
+
+
+def _a_and_a_different_b(tmp_path):
+    """A built from the base registry, B from an overlay that bumps a default — so B is a
+    genuinely different pipeline, not a byte-identical rebuild the guard would (rightly) allow."""
+    def bump(layer):
+        counts = next(layer.rglob("subread-featurecounts.yml"))
+        counts.write_text(counts.read_text().replace("priority: 0", "priority: 7"))
+
+    a, b = tmp_path / "A", tmp_path / "B"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--out", str(a), "--root", str(ROOT)]) == 0
+    layer = _registry_with(tmp_path, bump)
+    assert main(["build", "--goal", str(GOAL), "--registry", str(layer),
+                 "--out", str(b), "--root", str(ROOT)]) == 0
+    return a, b
+
+
+def test_upgrade_refuses_to_overwrite_another_pipeline(tmp_path):
+    """`--out` is a fresh directory or the same one refused as in-place — but a *different*
+    pipeline's directory is neither, and upgrading A into B silently destroyed B: the replayed
+    overrides, the previous digests, the gate evidence, all of it. Refuse absent `--force`."""
+    a, b = _a_and_a_different_b(tmp_path)
+    before = (b / "pipeline.yml").read_text()
+    code = main(["upgrade", str(a / "pipeline.yml"), "--registry", str(ROOT / "registry"),
+                 "--out", str(b), "--root", str(ROOT)])
+    assert code == 2, "B holds a different pipeline.yml — refused absent --force"
+    assert (b / "pipeline.yml").read_text() == before, "the refusal must leave B untouched"
+
+
+def test_upgrade_force_overwrites_another_pipeline(tmp_path):
+    """`--force` is the escape hatch: a person who means to replace B says so."""
+    a, b = _a_and_a_different_b(tmp_path)
+    code = main(["upgrade", str(a / "pipeline.yml"), "--registry", str(ROOT / "registry"),
+                 "--out", str(b), "--force", "--root", str(ROOT)])
+    assert code == 0
+
+
+def test_upgrade_into_a_fresh_directory_is_allowed(tmp_path):
+    """The normal case must stay cheap — an empty `--out` is not another pipeline."""
+    a = tmp_path / "A"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--out", str(a), "--root", str(ROOT)]) == 0
+    code = main(["upgrade", str(a / "pipeline.yml"), "--registry", str(ROOT / "registry"),
+                 "--out", str(tmp_path / "next"), "--root", str(ROOT)])
+    assert code == 0
+
+
+def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
+    """The in-place refusal compared `out.resolve()` to `source.parent.resolve()` — the
+    `.resolve()` A53 flagged as never watched. A relative `--out` that names the source
+    directory must still be caught, which only works because both sides are resolved."""
+    out = tmp_path / "p"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--out", str(out), "--root", str(ROOT)]) == 0
+    monkeypatch.chdir(tmp_path)
+    code = main(["upgrade", str(out / "pipeline.yml"), "--registry", str(ROOT / "registry"),
+                 "--out", "p", "--root", str(ROOT)])
+    assert code == 2, "a relative --out onto the source is still in-place"

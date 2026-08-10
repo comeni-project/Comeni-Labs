@@ -460,3 +460,17 @@ kind that rewrites emitted Groovy verbatim) or `rules/` block reached the publis
 recording nothing — the A23 fix was untested at the artifact and half-inert. `RuleTable` now
 carries its own `displaced` list like the other three kinds, and `resolve()` reads all four off
 its arguments, so completeness is a property of the arguments rather than of the caller.
+
+### A53 — `upgrade --out` refuses another pipeline's directory
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_upgrade.py` | the in-place self-guard's `.resolve()` back to `==` | 1 failed | `test_upgrade_self_guard_sees_a_relative_out` |
+| 2026-08-10 | `test_upgrade.py` | the different-digest `--out` refusal deleted | 1 failed | `test_upgrade_refuses_to_overwrite_another_pipeline` |
+
+The in-place refusal only compared `--out` to the *source's* directory, and it compared
+unresolved paths — a relative `--out` naming the source slipped through (the `.resolve()` was
+never watched). And a `--out` holding some *third* pipeline was overwritten with no trace: its
+overrides, digests and gate evidence gone. `upgrade` now refuses a `--out` whose `pipeline.yml`
+has a different content digest than the one being upgraded, unless `--force`; a byte-identical
+occupant (an idempotent re-upgrade) is still allowed, and an empty `--out` stays the normal case.
