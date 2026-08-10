@@ -104,7 +104,7 @@ this shape rather than the one before it.
 The reason is A14's own logic. Round three is another revert-and-watch sweep over the guards, and A14 is
 that a guard never watched failing may be **inert rather than merely weak**. Plan 1.10 moves the surfaces
 those guards watch: three artifacts become one, `emit()` loses three arguments, door 4's payload type
-changes, fourteen diagnostics arrive. Auditing guards immediately before that is auditing guards that are
+changes, sixteen diagnostics arrive. Auditing guards immediately before that is auditing guards that are
 about to move — and the guard ledger's rows would attest to code that no longer exists, which is the
 exact failure A14 names. Doing 1.10 first means round three audits the shape that will ship.
 
