@@ -151,6 +151,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0216` | a resolved binding names a parameter its contract does not declare |
 | `MD0217` | a test_data reference contains a character that would inject into the generated config |
 | `MD0218` | a tier-4 answer is written in two places that disagree |
+| `MD0219` | two decision records share one key |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

@@ -362,6 +362,14 @@ class Pipeline(EgressPayload):
                     f"measurement already writes {shadow[0]} into the meta map — the setting "
                     f"would silently overwrite a measured fact. `mendel explain MD0208`."
                 )
+        keys = [record.key for record in self.decisions]
+        repeated = sorted({key for key in keys if keys.count(key) > 1})
+        if repeated:
+            raise ValueError(
+                f"MD0219: two decision records share the key {repeated[0]}. A key names one "
+                f"decision; a duplicate is a corrupt file, and `ReplayResolver` would keep one "
+                f"and drop the other's answer in silence. `mendel explain MD0219`."
+            )
         values = self._param_setting_values()
         for record in self.decisions:
             if getattr(record, "kind", None) is not DecisionKind.PARAM:

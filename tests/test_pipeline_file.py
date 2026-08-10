@@ -397,3 +397,20 @@ def test_editing_the_value_answers_for_emit_and_upgrade(tmp_path, capsys):
     nxt = tmp_path / "next"
     assert main(["upgrade", str(out / "pipeline.yml"), "--out", str(nxt), "--root", str(ROOT)]) == 0
     assert "'PL:nanopore'" in (nxt / "nextflow.config").read_text()
+
+
+# --- A52: a duplicate decision key is corruption, and is refused ---
+
+
+def test_a_duplicate_decision_key_is_refused(tmp_path, capsys):
+    """Two records for one key: ReplayResolver's setdefault kept the first and dropped the
+    second's override in silence. A duplicate is a corrupt file, not a choice — refuse it."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    dec = [d for d in doc["decisions"] if d["key"].endswith("seq_platform")][0]
+    dup = dict(dec)
+    dup["human_override"] = "illumina"
+    doc["decisions"].append(dup)
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0219" in err

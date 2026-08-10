@@ -583,3 +583,21 @@ MD0218:
     diagnostic. `settings[].value` is now the single writable answer; `upgrade` derives the
     override from it, and a stored `human_override` that contradicts it is refused rather than
     silently preferred by whichever verb runs.
+
+MD0219:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "two decision records share one key"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    A key names one decision. Two records for it is a corrupt file — a tool appended rather
+    than edited, most likely. Keep the one that carries the answer you meant and delete the
+    other.
+  explanation: |
+    A52. `ReplayResolver` keyed its records with `setdefault`, so the first record for a key
+    won and a second was dropped in silence. When the dropped one carried a person's
+    `human_override` and the kept one did not, editing a file by appending rather than in place
+    destroyed the answer with no diagnostic. Its own comment called two records for one key a
+    corrupt bundle whose arbitrary resolution "would be the coin flip invariant 8 forbids" — so
+    it is refused at load rather than resolved by first-wins.

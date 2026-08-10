@@ -400,3 +400,13 @@ stored `human_override` that contradicts it, and `replayable_decisions()` derive
 from the value so `upgrade` replays the same answer `emit` already reads. The sync fires only
 where the value differs from the resolver's `chosen`, so a resolver's (or a future model's) own
 answer keeps its review flag rather than being relabelled HUMAN.
+
+### A52 — a duplicate decision key is refused
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | MD0219 duplicate-decision-key refusal disabled | 1 failed | `test_a_duplicate_decision_key_is_refused` |
+
+`ReplayResolver`'s `setdefault` kept the first record and dropped a second's `human_override` in
+silence — its own comment already called that corruption. Refused at load now, beside MD0212's
+duplicate-step-id check.
