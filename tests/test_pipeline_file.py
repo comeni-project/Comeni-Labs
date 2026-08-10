@@ -309,6 +309,46 @@ def test_via_meta_reaches_the_channel_meta_map(tmp_path):
     assert "tag: 'forward'" in (out / "main.nf").read_text()
 
 
+# --- A51: displacements of all four kinds reach the artifact, not just contracts+measurements ---
+
+
+def _displaced_kinds(out) -> list[str]:
+    reg = yaml.safe_load((out / "pipeline.yml").read_text())["registry"]
+    return [d["kind"] for d in reg.get("displaced") or []]
+
+
+def test_a_vocabulary_displacement_reaches_the_artifact(tmp_path):
+    """A24 gave a vocabulary displacement somewhere to be recorded — `loaded.displaced` — but
+    `resolve()` re-derived `PipelineIR.displaced` from measurements+contracts alone, so the one
+    overlay that rewrites emitted Groovy verbatim reached the published file saying nothing. The
+    artifact is what a reader audits; a silent reroute there is the whole of what invariant 11
+    forbids."""
+    ov = tmp_path / "ov"
+    (ov / "vocabularies").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab-vocab\n")
+    # Replace fastq.reads' entry_channel — the base's states, a lab's own source path.
+    (ov / "vocabularies" / "fastq.reads.yml").write_text(
+        "states: [trimmed, deduplicated, subsampled]\n"
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n"
+    )
+    out = _build_with_overlay(tmp_path, ov)
+    assert "vocabularies" in _displaced_kinds(out)
+
+
+def test_a_rules_displacement_reaches_the_artifact(tmp_path):
+    """The same gap for the fourth kind: an overlay `rules/` block replacing a base decision
+    was recorded on `RuleTable.displaced_layer` (per-node, A15) but never as a `Displacement`
+    on the artifact's `registry.displaced`. Now all four kinds land in one list a reader reads
+    once."""
+    ov = tmp_path / "ov"
+    (ov / "rules").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab-rules\n")
+    base_rule = (ROOT / "registry/rules/rnaseq.yml").read_text()
+    (ov / "rules" / "rnaseq.yml").write_text(base_rule)
+    out = _build_with_overlay(tmp_path, ov)
+    assert "rules" in _displaced_kinds(out)
+
+
 # --- A40: two writers for one destination is a refusal, not a silent concatenation ---
 
 

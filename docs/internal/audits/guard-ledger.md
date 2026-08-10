@@ -447,3 +447,16 @@ verdict. **A design consequence:** publish no longer re-runs conformance, becaus
 property of a contract against its module and publish reads no contracts. That guarantee relocated
 to `build`, where it always ran; `test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolves`
 records the move.
+
+### A51 — displacements of all four kinds reach the artifact
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `resolve()`'s `displaced` back to `[*measurements.displaced, *registry.displaced]` | 2 failed | `test_a_vocabulary_displacement_reaches_the_artifact`, `test_a_rules_displacement_reaches_the_artifact` |
+
+A23/A24 gave measurements and vocabularies a `Displacement`, but `resolve()` assembled
+`PipelineIR.displaced` from measurements+contracts alone, so an overlay `vocabularies/` (the one
+kind that rewrites emitted Groovy verbatim) or `rules/` block reached the published artifact
+recording nothing — the A23 fix was untested at the artifact and half-inert. `RuleTable` now
+carries its own `displaced` list like the other three kinds, and `resolve()` reads all four off
+its arguments, so completeness is a property of the arguments rather than of the caller.

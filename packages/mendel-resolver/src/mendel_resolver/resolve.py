@@ -64,10 +64,18 @@ def resolve(
         # loader discovered, and asking the caller to forward it is asking them to forget.
         # A published pipeline whose overlay quietly rerouted it is unauditable.
         #
-        # The vocabulary's own displacements join this list in Part E, when `resolve()`
-        # takes a vocabulary. Until then A24 is reported by `mendel build` and not by the
-        # artifact, which is recorded here rather than left to be rediscovered.
-        displaced=[*measurements.displaced, *registry.displaced],
+        # All four kinds, in loader order (`layers.Layers.displaced` is the same list). This
+        # read measurements+contracts alone for a plan and a half, so an overlay `vocabularies/`
+        # or `rules/` block reached the published artifact recording nothing (A51) — A23/A24
+        # gave those kinds a `Displacement`, but `resolve()` never collected it. Each kind now
+        # carries its own list, so completeness is a property of the arguments, not of the
+        # caller remembering to forward a fifth thing.
+        displaced=[
+            *measurements.displaced,
+            *vocabulary.displaced,
+            *registry.displaced,
+            *rules.displaced,
+        ],
     )
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —
