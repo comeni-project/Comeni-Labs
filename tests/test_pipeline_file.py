@@ -445,3 +445,17 @@ def test_emit_clears_the_gate_verdict_when_the_file_was_edited(tmp_path, capsys)
     code, err = _emit(out, capsys)
     assert code == 0 and "MD0213" in err
     assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] is None
+
+
+# --- A48: a pipeline.yml with no goal is refused, not upgraded to empty ---
+
+
+def test_a_pipeline_with_no_goal_is_refused(tmp_path, capsys):
+    """`goal` is what `upgrade` re-resolves. Missing, it defaulted to an empty Goal and upgrade
+    produced `steps: []` at exit 0 — an empty pipeline from the likeliest hand-edit mistake."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    doc.pop("goal")
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2

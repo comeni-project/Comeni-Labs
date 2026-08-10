@@ -314,9 +314,16 @@ class Pipeline(EgressPayload):
     """
 
     version: int = 1
-    goal: Goal = Field(default_factory=Goal)
+    goal: Goal
     """What was asked for. **Inert to `emit`** — it is input to *resolution*, and the facts
-    emission needs are already materialised into `channels[].meta`. Editing it takes effect on
+    emission needs are already materialised into `channels[].meta`.
+
+    **Required, no default (A48).** Plan 1.10 Task 6 made `goal` keyword-only with no default on
+    `Pipeline.of()` for exactly this reason, but the model field kept `default_factory=Goal` — and
+    the model is what a hand-edited file loads through. A `pipeline.yml` with the `goal:` block
+    deleted then loaded as an empty `Goal`, and `upgrade` re-resolved *that*, writing `steps: []`
+    at exit 0. Dropping a section is the likeliest edit mistake there is; it is now a load error.
+    Editing it takes effect on
     `mendel upgrade`, and the emitted file says so in a comment."""
     registry: RegistryProvenance = Field(default_factory=RegistryProvenance)
     steps: list[Step] = Field(default_factory=list)

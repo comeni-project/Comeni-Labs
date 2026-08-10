@@ -407,11 +407,15 @@ def test_the_publication_payload_is_frozen():
     should not be edited in place.
     """
     import pytest
+    from comeni_core.goal import Goal
     from comeni_core.pipeline import Pipeline
     from pydantic import ValidationError
 
+    # A real `goal` so the refusal is the *frozen assignment*, not a missing field (A48 made
+    # `goal` required, and a bare `Pipeline()` would now raise for the wrong reason).
+    frozen = Pipeline(goal=Goal())
     with pytest.raises(ValidationError):
-        Pipeline().gate = "test"
+        frozen.gate = "test"
 
 
 def test_pipeline_holds_no_registry():

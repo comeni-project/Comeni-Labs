@@ -410,3 +410,15 @@ answer keeps its review flag rather than being relabelled HUMAN.
 `ReplayResolver`'s `setdefault` kept the first record and dropped a second's `human_override` in
 silence — its own comment already called that corruption. Refused at load now, beside MD0212's
 duplicate-step-id check.
+
+### A48 — a pipeline.yml with no goal is refused
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `Pipeline.goal` back to `default_factory=Goal` | 1 failed | `test_a_pipeline_with_no_goal_is_refused` |
+
+Plan 1.10 Task 6 made `goal` keyword-only on `Pipeline.of()` for this reason, but the model field
+kept its default and the model is what a hand-edited file loads through. Now required. Two tests
+that constructed a bare `Pipeline()` were passing incidentally — `test_a4_...gate...` broke and was
+fixed, and `test_egress`'s frozen check was passing for the wrong reason (construction failing
+before the frozen assignment) and now passes a real goal.
