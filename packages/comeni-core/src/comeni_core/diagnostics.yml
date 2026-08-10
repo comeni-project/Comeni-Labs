@@ -537,3 +537,31 @@ MD0217:
     mistake rather than silently rewriting it. The URL *scheme* is deliberately not dictated —
     a laboratory bringing its own type may host its example anywhere — so only the injection
     surface is refused, not the shape.
+
+MD0208:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes"
+  fires_on: [build, emit, upgrade]
+  refuses: true
+  fix: |
+    Two writers reach one destination that takes a single value. For an `ext` key: `args`,
+    `args2` and `args3` concatenate their fragments on purpose, but every other key — `prefix`
+    above all — takes one value, so a second setting silently wins; remove one or route it
+    elsewhere. For a `via: meta` setting whose name a measurement already sets (`single_end`,
+    `strandedness`): rename the setting, or let the measurement carry the fact.
+  explanation: |
+    A40. Two writers for one destination is a refusal, not a precedence rule nobody remembers.
+
+    The `ext` half: `_ext_scope` joins a key's fragments with a space, which is exactly right
+    for the `args` family and exactly wrong for a key that names one thing — two settings on
+    `prefix` emitted `ext.prefix = 'beta' 'alpha'`, a value neither author wrote. `MD0212`
+    catches two settings that share a *name*; this catches two that share a *destination* under
+    different names, which the composition step made silent rather than ambiguous.
+
+    The `meta` half: a `via: meta` setting and a `Measurement.meta_key` write to the same map,
+    and the setting's `.map` runs after the measurement's, so a decision would silently
+    overwrite a measured fact. The check is deliberately conservative — any measurement key
+    present in the pipeline collides with a meta setting of that name, without tracing which
+    channel reaches which step — because an over-strict refusal here costs a rename and a silent
+    overwrite costs a wrong result.

@@ -140,6 +140,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
 | `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
 | `MD0207` | `version:` is newer than this Mendel understands |
+| `MD0208` | two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes |
 | `MD0209` | `via: directive` names something Nextflow silently ignores |
 | `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
 | `MD0211` | `channels[].params` disagrees with what its `expression` references |

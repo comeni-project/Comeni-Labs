@@ -47,7 +47,7 @@ from comeni_core.marks import (
     TestDataRef,
     TypeId,
 )
-from comeni_core.routes import ExtKey, Via
+from comeni_core.routes import TEMPLATED, ExtKey, Via
 from comeni_core.tiers import Tier, ValueSource
 
 SCHEMA_VERSION = 1
@@ -218,6 +218,32 @@ class Step(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _no_two_writers_for_one_destination(self) -> "Step":
+        """MD0208. Two settings that share a *destination* under different names.
+
+        `MD0212` above catches two settings sharing a *name*, which is where a directive or a
+        meta key collides — the destination there **is** the name. The one destination two
+        differently-named settings can share is an `ext` key, and only a key that does not
+        compose: `args`, `args2` and `args3` concatenate their fragments on purpose, so two of
+        those is composition, not collision. Every other key — `prefix` — takes one value, and
+        `_ext_scope` would join two of them into `'beta' 'alpha'`, a value neither author wrote.
+        """
+        writers: dict[ExtKey, list[str]] = {}
+        for setting in self.settings:
+            if setting.via is Via.EXT and setting.key not in TEMPLATED:
+                writers.setdefault(setting.key, []).append(setting.name)
+        collided = sorted(
+            (key, sorted(who)) for key, who in writers.items() if len(who) > 1
+        )
+        if collided:
+            key, who = collided[0]
+            raise ValueError(
+                f"MD0208: step {self.id} routes {' and '.join(who)} to ext.{key.value}, which "
+                f"takes one value — a second writer silently wins. `mendel explain MD0208`."
+            )
+        return self
+
 
 class Channel(BaseModel):
     """What the laboratory supplies, and the measured facts that ride with it."""
@@ -323,6 +349,19 @@ class Pipeline(EgressPayload):
                 f"MD0212: two steps share the id {', '.join(repeated)}. A step id is what "
                 f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous."
             )
+        measured = {entry.key for channel in self.channels for entry in channel.meta}
+        for step in self.steps:
+            shadow = sorted(
+                s.name
+                for s in step.settings
+                if s.via is Via.META and s.name in measured
+            )
+            if shadow:
+                raise ValueError(
+                    f"MD0208: step {step.id} routes {', '.join(shadow)} to meta, but a "
+                    f"measurement already writes {shadow[0]} into the meta map — the setting "
+                    f"would silently overwrite a measured fact. `mendel explain MD0208`."
+                )
         return self
 
     def content_digest(self) -> str:

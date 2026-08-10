@@ -373,3 +373,17 @@ The emitted Groovy was validated in real Nextflow 25.10.4, not only asserted: `n
 -profile test` parses the directive block (exit 0) and `nextflow lint` accepts the meta-injection
 `main.nf`. The completeness guard's honest probe is a *missing* member (`{Via.EXT}`), not
 `set(Via)` — the latter is tautological and stays green.
+
+### A40 — MD0208, two writers for one destination
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `Step._no_two_writers_for_one_destination` disabled | 1 failed | `test_two_ext_settings_on_one_prefix_are_refused` |
+| 2026-08-10 | `test_pipeline_file.py` | Pipeline meta-vs-measurement check disabled | 1 failed | `test_a_meta_setting_shadowing_a_measurement_is_refused` |
+
+Two halves, one code. The ext half is A40's reproduction (two settings on `prefix`); the meta
+half is the collision the spec named and Task 3 (A38) made reachable. The meta check is a
+conservative global over-approximation — any measurement key present collides with a meta setting
+of that name, no dataflow trace — because a false rename is cheaper than a silent overwrite of a
+measured fact. A `test_two_ext_args_settings_still_compose` companion asserts the `args` family is
+exempt, so the fix does not break composition.

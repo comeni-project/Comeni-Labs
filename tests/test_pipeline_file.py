@@ -307,3 +307,45 @@ def test_via_meta_reaches_the_channel_meta_map(tmp_path):
     ov = _overlay_with(tmp_path, "  - {name: tag, default: forward, via: meta}\n")
     out = _build_with_overlay(tmp_path, ov)
     assert "tag: 'forward'" in (out / "main.nf").read_text()
+
+
+# --- A40: two writers for one destination is a refusal, not a silent concatenation ---
+
+
+def test_two_ext_settings_on_one_prefix_are_refused(tmp_path):
+    """Different names (so MD0212 passes), one non-composing key — they collide in ext.prefix."""
+    ov = _overlay_with(
+        tmp_path,
+        "  - {name: a, default: x, via: ext, key: prefix}\n"
+        "  - {name: b, default: y, via: ext, key: prefix}\n",
+    )
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    assert code == 2
+
+
+def test_two_ext_args_settings_still_compose(tmp_path):
+    """The exemption: args/args2/args3 are designed to concatenate, so two is not a collision."""
+    ov = _overlay_with(
+        tmp_path,
+        '  - {name: a, default: 1, via: ext, key: args, template: "--a {value}"}\n'
+        '  - {name: b, default: 2, via: ext, key: args, template: "--b {value}"}\n',
+    )
+    out = tmp_path / "b"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+
+
+def test_a_meta_setting_shadowing_a_measurement_is_refused(tmp_path):
+    """A via: meta setting named for a measurement would silently overwrite the measured fact.
+
+    Conservative and global: any measurement key present in the pipeline collides with a meta
+    setting of that name, without tracing which channel reaches which step — a measured fact and
+    a resolved decision writing one meta key is refused wherever both appear.
+    """
+    ov = _overlay_with(tmp_path, "  - {name: strandedness, default: forward, via: meta}\n")
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    assert code == 2
