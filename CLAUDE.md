@@ -34,8 +34,8 @@ tool, so a resolved value that reaches nothing is refused rather than emitted (i
 `mendel emit` rebuilds the Nextflow from it with no registry and no network. Read
 `docs/reference/pipeline-schema.md`.
 
-**`mendel build` now refuses a contract that disagrees with its module** — seven diagnostics
-against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
+**`mendel build` now refuses a contract that disagrees with its module** — nine diagnostics
+(`MD0100`–`MD0108`) against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
 `make static` (lint + preview, no Docker) in the pull-request lane.
 
 **A pipeline is a shareable artifact, and it is one file.** `build/pipeline.yml` carries the
@@ -351,11 +351,13 @@ through Plan 1 there is no AI path to switch off, so every build is already that
 plus zero or more private overlays via repeated `--registry`. A lab that never publishes is
 the normal case. Contributing upstream is a proposal into the forge queue.
 
-**Pipelines are publishable artifacts**: `Goal` + `PipelineIR` + `DecisionRecord[]` + a
-lockfile pinning contract digests and module versions. Three tiers — private, published
-(mechanical gate: stub-run then `-profile test`), curated (**a named human signs off**;
-never mechanical). Editing a curated pipeline replays every untouched decision from its
-record, so only what you touched can move. See the federation spec.
+**Pipelines are publishable artifacts**: one `pipeline.yml` carrying the goal, every step and
+setting with a `why:`, every contract pinned by content digest, every layer, and the gate
+verdict — the four-part `Goal` + `PipelineIR` + `DecisionRecord[]` + lockfile bundle is retired
+into it (Plan 1.10). Three tiers — private, published (mechanical gate: stub-run then
+`-profile test`), curated (**a named human signs off**; never mechanical). Editing a curated
+pipeline replays every untouched decision from its record, so only what you touched can move.
+See the federation spec.
 
 **Telemetry is opt-in and off by default.** Invariant 1 is what enforces it: telemetry lives
 in `mendel-api`, and a network call added to `comeni-core`, `mendel-resolver` or

@@ -96,8 +96,8 @@ was keyed on a layer *name*. Every finding in audit root B is a cell in that tab
 
 A `Layer` is a value: `path`, `name` (from `registry.yml`, for rendering) and `index`
 (**identity** — names collide). Every displacement, of any kind, is one `Displacement`
-record: it reaches `PipelineIR.displaced`, a publish bundle, and the `OVERLAY` block of
-`mendel build`.
+record: it reaches `PipelineIR.displaced`, the published `pipeline.yml` (`registry.displaced`),
+and the `OVERLAY` block of `mendel build`.
 
 ### Vocabularies are closed
 

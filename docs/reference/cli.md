@@ -4,7 +4,7 @@
 mendel <command> [options]
 ```
 
-Five commands: `build`, `profile`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
+Six commands: `build`, `profile`, `emit`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
 failed, `2` your input was rejected — which includes a contract that disagrees with its
 module.
 
@@ -198,10 +198,12 @@ hand edit instead, delete the file and re-emit.
 uv run mendel publish build/pipeline.yml --gate test
 ```
 
-**The directory is the artifact**, so this writes no file of its own. It re-resolves the
-pipeline, refuses if the directory has diverged from its file, runs the gate you ask for, and
-stamps the verdict into `pipeline.yml`. What you hand somebody is `pipeline.yml` plus
-`modules/`, which is what they had to be handed anyway.
+**The directory is the artifact**, so this writes no file of its own, and it re-resolves
+nothing: `pipeline.yml` is self-contained, so certifying it needs no registry and no network.
+It refuses if the directory has diverged from its file, runs the gate you ask for, and stamps
+the verdict into `pipeline.yml`. What you hand somebody is `pipeline.yml` plus `modules/`, which
+is what they had to be handed anyway. Because publish reads no contracts, conformance is checked
+at `build`; the legitimate edit-then-publish flow is edit → `mendel emit` → `publish`.
 
 It takes no `--out`: it certifies the pipeline you give it rather than producing a new one.
 `mendel upgrade --out` is the verb that produces one.
@@ -237,6 +239,12 @@ an upgrade is how "only what you touched moved" quietly becomes false.
 strictly weaker question: it can say a contract moved, but not whether the pipeline would
 resolve differently. One code path, one answer, and the flag decides only whether bytes are
 written.
+
+**`--out` never writes in place, and refuses another pipeline's directory.** Writing over the
+file it read would destroy the only record of what you had; and a `--out` that already holds a
+*different* `pipeline.yml` is refused too, since upgrading into it would erase that pipeline's
+evidence. Pass `--force` to replace it deliberately. An empty `--out`, or one holding a
+byte-identical copy, is the normal case and is allowed.
 
 Five kinds of report, because they answer different questions:
 
