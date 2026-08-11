@@ -310,6 +310,8 @@ Every failure is a message rather than a traceback.
 | `cannot route this goal — nothing produces X` | no contract produces that type; you need a contract |
 | `cannot route this goal — a rule pins X … inputs are unreachable` | a rule chose a module whose own dependencies cannot be met |
 | `this goal is not valid` | the goal file does not match the schema |
+| `contract is not valid` | a contract file does not match the schema — the message names the contract, not the goal you did write |
+| `MD0200: contract … declares no via` | a contract parameter names no route, so its value would reach no tool |
 | `this goal's profile is not valid` | an undeclared measurement, or a value outside its declaration |
 | `a rule table will not load` | a rule cannot fire against this registry; the message says what you can write |
 | `N contract(s) disagree with their modules` | conformance refused the build; each diagnostic says what to write instead |
@@ -325,7 +327,9 @@ uv run python tools/generate_types.py --check   # fail if stale — what CI runs
 make test    # uv run pytest -v
 make lint    # uv run ruff check .
 make fmt     # uv run ruff format .
-make check   # everything CI runs on a pull request
+make check   # everything CI runs on a pull request (~1 min, no Docker)
+make verify  # check + counts matrix + guards + drift — the gate for a routing or emission change
+make static  # conformance + nextflow lint + preview — everything checkable without Docker
 make stub    # the full stub gate
 make types   # regenerate the stub
 ```
