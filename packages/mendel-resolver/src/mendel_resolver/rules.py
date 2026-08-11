@@ -19,6 +19,7 @@ from pathlib import Path
 from comeni_core import yaml_strict
 from comeni_core.layered import (
     DeclaredKind,
+    Displacement,
     Kind,
     Layer,
     Policy,
@@ -167,6 +168,20 @@ class RuleTable(BaseModel):
     parameter decided by a lab's overlay was indistinguishable from one decided by the
     public registry. Invariant 11 says all four kinds of declared data stack; only
     contracts were being watched. Audit A15.
+
+    This is the *per-node* record — what `IRNode.selection.displaced_layer` reads. It is not
+    the same thing as `displaced`, below: this one answers "which layer decided this key",
+    keyed for lookup during resolution; that one is the full `Displacement` a reader audits.
+    """
+
+    displaced: list[Displacement] = Field(default_factory=list)
+    """The rules kind's contribution to `PipelineIR.displaced`, one shape for all four kinds.
+
+    `RuleTable` kept only `displaced_layer` — a key→name dict for per-node lookup — so when
+    `resolve()` assembled `PipelineIR.displaced` off its arguments, rules had no full
+    `Displacement` to contribute and a rule overlay reached the published artifact recording
+    nothing (A51). The other three kinds already carried this; now the fourth does too, so
+    the loader-level list `resolve()` reads is complete without the caller threading anything.
     """
 
     @staticmethod
@@ -210,6 +225,7 @@ class RuleTable(BaseModel):
             displaced_layer={
                 record.key: record.displaced_layer for record in stacked.displaced
             },
+            displaced=list(stacked.displaced),
         )
 
     @classmethod

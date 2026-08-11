@@ -12,7 +12,7 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import Pipeline, StepInput
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 
@@ -253,3 +253,370 @@ def test_the_file_records_the_goal_it_was_built_from(tmp_path):
     ]
     measured = {m["measurement"]: m["value"] for m in raw["goal"]["profile"]["measurements"]}
     assert measured["strandedness"] == "reverse"
+
+
+def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
+    """A44: a poisoned test_data in pipeline.yml is refused before it can be emitted.
+
+    The audit's reproduction: a Groovy payload in a test_data list executed at `nextflow
+    config` time. It now fails to load — the validator on `TestDataRef` fires — and even were
+    it to reach the emitter, `_render_test_data` single-quotes and escapes it.
+    """
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    payload = 'x"; new File("/tmp/PWNED_A44").text = "rce"; def z="'
+    for ch in doc["channels"]:
+        if ch["type_id"] == "annotation.gtf":
+            ch["test_data"] = [payload]
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code != 0 and "MD0217" in err
+    assert not pathlib.Path("/tmp/PWNED_A44").exists()
+
+
+# --- A38: via: meta and via: directive are declared routes; they must emit ---
+
+
+def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
+    """A registry overlay adding params to subread/featurecounts. Shared by A38–A42 tasks."""
+    ov = tmp_path / "ov"
+    (ov / "contracts" / "nf-core").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab\n")
+    src = (ROOT / "registry/contracts/nf-core/subread-featurecounts.yml").read_text()
+    src = src.replace("params:", "params:\n" + extra_params, 1)
+    (ov / "contracts/nf-core/subread-featurecounts.yml").write_text(src)
+    return ov
+
+
+def _build_with_overlay(tmp_path, ov) -> pathlib.Path:
+    out = tmp_path / "b"
+    assert (
+        main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+              "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+    )
+    return out
+
+
+def test_via_directive_reaches_nextflow_config(tmp_path):
+    ov = _overlay_with(tmp_path, "  - {name: cpus, default: 7, via: directive}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    assert "cpus = 7" in (out / "nextflow.config").read_text()
+
+
+def test_via_meta_reaches_the_channel_meta_map(tmp_path):
+    ov = _overlay_with(tmp_path, "  - {name: tag, default: forward, via: meta}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    assert "tag: 'forward'" in (out / "main.nf").read_text()
+
+
+# --- A51: displacements of all four kinds reach the artifact, not just contracts+measurements ---
+
+
+def _displaced_kinds(out) -> list[str]:
+    reg = yaml.safe_load((out / "pipeline.yml").read_text())["registry"]
+    return [d["kind"] for d in reg.get("displaced") or []]
+
+
+def test_a_vocabulary_displacement_reaches_the_artifact(tmp_path):
+    """A24 gave a vocabulary displacement somewhere to be recorded — `loaded.displaced` — but
+    `resolve()` re-derived `PipelineIR.displaced` from measurements+contracts alone, so the one
+    overlay that rewrites emitted Groovy verbatim reached the published file saying nothing. The
+    artifact is what a reader audits; a silent reroute there is the whole of what invariant 11
+    forbids."""
+    ov = tmp_path / "ov"
+    (ov / "vocabularies").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab-vocab\n")
+    # Replace fastq.reads' entry_channel — the base's states, a lab's own source path.
+    (ov / "vocabularies" / "fastq.reads.yml").write_text(
+        "states: [trimmed, deduplicated, subsampled]\n"
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n"
+    )
+    out = _build_with_overlay(tmp_path, ov)
+    assert "vocabularies" in _displaced_kinds(out)
+
+
+def test_a_rules_displacement_reaches_the_artifact(tmp_path):
+    """The same gap for the fourth kind: an overlay `rules/` block replacing a base decision
+    was recorded on `RuleTable.displaced_layer` (per-node, A15) but never as a `Displacement`
+    on the artifact's `registry.displaced`. Now all four kinds land in one list a reader reads
+    once."""
+    ov = tmp_path / "ov"
+    (ov / "rules").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab-rules\n")
+    base_rule = (ROOT / "registry/rules/rnaseq.yml").read_text()
+    (ov / "rules" / "rnaseq.yml").write_text(base_rule)
+    out = _build_with_overlay(tmp_path, ov)
+    assert "rules" in _displaced_kinds(out)
+
+
+# --- A41: a contract that fails to load is blamed on the contract, not the goal ---
+
+
+def test_a_contract_missing_via_emits_MD0200_and_blames_the_contract(tmp_path, capsys):
+    """A `Param` with no `via:` raised a raw Pydantic `Field required` under 'this goal is not
+    valid' — the one file the operator did not write, blamed for a contract author's omission.
+    The refusal is a real one (MD0200: the value reaches no tool); the message just named the
+    wrong file and buried the code."""
+    ov = _overlay_with(tmp_path, "  - {name: x, default: 1}\n")  # no via:
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "MD0200" in err
+    assert "goal is not valid" not in err
+    assert "subread" in err or "featurecounts" in err.lower(), "name the contract at fault"
+
+
+# --- A42: guards that A42 found had no watched revert ---
+
+
+def test_a_step_input_naming_both_a_source_and_a_channel_is_refused():
+    """MD0215. A `StepInput` is one edge: it comes from an upstream step (`source`) or an entry
+    channel (`channel`), never both. Both set is a wiring that reads two ways — root G's defect
+    in a new type — so it is refused rather than resolved by field order."""
+    with pytest.raises(ValueError, match="MD0215"):
+        StepInput(port="reads", source="trimgalore.reads", channel="fastq.reads")
+
+
+def test_a_step_input_naming_neither_a_source_nor_a_channel_is_refused():
+    """MD0215, the other half: a port that names no origin at all wires to nothing."""
+    with pytest.raises(ValueError, match="MD0215"):
+        StepInput(port="reads")
+
+
+def test_ext_args_fragments_emit_name_sorted_whatever_the_setting_order(tmp_path):
+    """The property the emitter's own docstring predicted no test could see: `_ext_scope`
+    composes `key: args` fragments in **name-sorted** order, so emission is byte-identical
+    however the settings arrive. Materialisation already sorts them, which is why an end-to-end
+    build cannot watch this — so the step's settings are reversed by hand and `_ext_scope` must
+    still emit `--alpha` before `--zulu`. Reverting the sort in `_ext_scope` fails this."""
+    from mendel_compiler.emit import _ext_scope
+
+    ov = _overlay_with(
+        tmp_path,
+        '  - {name: zulu, default: 1, via: ext, key: args, template: "--zulu {value}"}\n'
+        '  - {name: alpha, default: 2, via: ext, key: args, template: "--alpha {value}"}\n',
+    )
+    out = _build_with_overlay(tmp_path, ov)
+    step = next(s for s in _load(out).steps if "FEATURECOUNTS" in s.process)
+    reversed_step = step.model_copy(update={"settings": list(reversed(step.settings))})
+    argline = next(line for line in _ext_scope(reversed_step) if "ext.args" in line)
+    assert argline.index("--alpha") < argline.index("--zulu"), "name-sorted, not setting order"
+
+
+# --- A40: two writers for one destination is a refusal, not a silent concatenation ---
+
+
+def test_two_ext_settings_on_one_prefix_are_refused(tmp_path):
+    """Different names (so MD0212 passes), one non-composing key — they collide in ext.prefix."""
+    ov = _overlay_with(
+        tmp_path,
+        "  - {name: a, default: x, via: ext, key: prefix}\n"
+        "  - {name: b, default: y, via: ext, key: prefix}\n",
+    )
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    assert code == 2
+
+
+def test_two_ext_args_settings_still_compose(tmp_path):
+    """The exemption: args/args2/args3 are designed to concatenate, so two is not a collision."""
+    ov = _overlay_with(
+        tmp_path,
+        '  - {name: a, default: 1, via: ext, key: args, template: "--a {value}"}\n'
+        '  - {name: b, default: 2, via: ext, key: args, template: "--b {value}"}\n',
+    )
+    out = tmp_path / "b"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+
+
+def test_a_meta_setting_shadowing_a_measurement_is_refused(tmp_path):
+    """A via: meta setting named for a measurement would silently overwrite the measured fact.
+
+    Conservative and global: any measurement key present in the pipeline collides with a meta
+    setting of that name, without tracing which channel reaches which step — a measured fact and
+    a resolved decision writing one meta key is refused wherever both appear.
+    """
+    ov = _overlay_with(tmp_path, "  - {name: strandedness, default: forward, via: meta}\n")
+    out = tmp_path / "b"
+    code = main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
+                 "--registry", str(ov), "--out", str(out), "--root", str(ROOT)])
+    assert code == 2
+
+
+# --- A39: a non-templated ext key is quoted once, not twice ---
+
+
+def test_a_non_templated_ext_key_is_quoted_once(tmp_path):
+    """`prefix` takes one value and has no template, so _render_literal must run once.
+
+    It ran twice — per fragment and again on the join — so `alpha` emitted as `'\\'alpha\\''`,
+    a Groovy string whose value includes the quote characters, corrupting every output filename.
+    """
+    ov = _overlay_with(tmp_path, "  - {name: tag, default: alpha, via: ext, key: prefix}\n")
+    out = _build_with_overlay(tmp_path, ov)
+    cfg = (out / "nextflow.config").read_text()
+    assert "ext.prefix = 'alpha'" in cfg
+    assert "\\'alpha\\'" not in cfg
+
+
+# --- A46: a tier-4 answer has one writable home; the two must not disagree ---
+
+
+def test_value_and_human_override_may_not_contradict(tmp_path, capsys):
+    """settings[].value is the writable answer; a human_override that differs is one file, two
+    answers, and emit and upgrade read different ones. Refuse rather than pick."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+    for d in doc["decisions"]:
+        if d["key"].endswith("seq_platform"):
+            d["human_override"] = "illumina"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0218" in err
+
+
+def test_editing_the_value_answers_for_emit_and_upgrade(tmp_path, capsys):
+    """The A46 fix: editing settings[].value is honoured by both verbs, not just emit."""
+    out = _build(tmp_path)
+    _answer(out, "seq_platform", "nanopore")
+    code, err = _emit(out, capsys)
+    assert code == 0, err
+    assert "'PL:nanopore'" in (out / "nextflow.config").read_text()
+    nxt = tmp_path / "next"
+    assert main(["upgrade", str(out / "pipeline.yml"), "--out", str(nxt), "--root", str(ROOT)]) == 0
+    assert "'PL:nanopore'" in (nxt / "nextflow.config").read_text()
+
+
+# --- A54: `source: human` is a claim about evidence, not assertable through the port ---
+
+
+def test_human_source_requires_a_matching_override(tmp_path, capsys):
+    """`why.source: human` is what clears a tier-4 review — it says a person answered the
+    ambiguity after resolution flagged it. Asserted through `settings[].why` with no decision
+    recording that answer, it is a review cleared by claim: the exact dishonesty invariant 6
+    forbids. A `human` source must have a matching non-null `human_override`."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+                setting["why"]["source"] = "human"
+    # Deliberately leave decisions[].human_override null — the claim without the evidence.
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0220" in err
+
+
+def test_human_source_with_a_matching_override_is_accepted(tmp_path, capsys):
+    """The honest case: the value, the `human` source and the decision's override all agree —
+    a person answered, and the record proves it. This must still emit."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+                setting["why"]["source"] = "human"
+    for d in doc["decisions"]:
+        if d["key"].endswith("seq_platform"):
+            d["human_override"] = "nanopore"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 0, err
+
+
+# --- A52: a duplicate decision key is corruption, and is refused ---
+
+
+def test_a_duplicate_decision_key_is_refused(tmp_path, capsys):
+    """Two records for one key: ReplayResolver's setdefault kept the first and dropped the
+    second's override in silence. A duplicate is a corrupt file, not a choice — refuse it."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    dec = [d for d in doc["decisions"] if d["key"].endswith("seq_platform")][0]
+    dup = dict(dec)
+    dup["human_override"] = "illumina"
+    doc["decisions"].append(dup)
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0219" in err
+
+
+# --- A47: emit carries the gate verdict rather than erasing it ---
+
+
+def test_emit_preserves_the_gate_verdict(tmp_path, capsys, monkeypatch):
+    """A re-emit that changes nothing must not drop the certification. `gate:` is load-bearing —
+    the evidence and the pipeline are one document, and the archive workflow regenerates later.
+
+    `publish` stamps the verdict and the digests together, so the file is not stale; a no-op
+    `emit` afterwards must carry it through. The gate itself is stubbed so this runs in CI's
+    Nextflow-free lane — the property under test is the verdict round trip, not `nextflow lint`."""
+    from mendel_compiler import cli
+    from mendel_compiler.gates import GateResult
+
+    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
+    out = _build(tmp_path)
+    assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(ROOT)]) == 0
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
+    code, err = _emit(out, capsys)
+    assert code == 0 and "MD0213" not in err, err  # not stale — a genuine no-op re-emit
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
+
+
+def test_emit_clears_the_gate_verdict_when_the_file_was_edited(tmp_path, capsys):
+    """A stale file has changed since it was gated, so its verdict no longer describes this
+    pipeline. Preserving it would certify content that never passed the gate."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    doc["gate"] = "lint"
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    _emit(out, capsys)  # settle emitted digests against the gate stamp
+    _answer(out, "seq_platform", "nanopore")  # now edit — the pipeline changed
+    code, err = _emit(out, capsys)
+    assert code == 0 and "MD0213" in err
+    assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] is None
+
+
+# --- A48: a pipeline.yml with no goal is refused, not upgraded to empty ---
+
+
+def test_a_pipeline_with_no_goal_is_refused(tmp_path, capsys):
+    """`goal` is what `upgrade` re-resolves. Missing, it defaulted to an empty Goal and upgrade
+    produced `steps: []` at exit 0 — an empty pipeline from the likeliest hand-edit mistake."""
+    out = _build(tmp_path)
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    doc.pop("goal")
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2
+
+
+# --- A49: a refused emit leaves the directory untouched ---
+
+
+def test_a_refused_emit_writes_nothing(tmp_path, capsys):
+    """emit wrote main.nf, then emit_config raised MD0201 — so main.nf was rewritten though the
+    emit refused, and the retry then blamed the user with MD0214 for Mendel's own damage."""
+    out = _build(tmp_path)
+    before = (out / "main.nf").read_text()
+    doc = yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        if s["id"] == "trimgalore":
+            s["process"] = "TRIMGALORE2"  # a valid rename → main.nf would change
+        for setting in s.get("settings", []):
+            if setting["name"] == "min_mqs":
+                setting["value"] = "0 bad"  # non-substitutable → emit_config raises MD0201
+    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    code, err = _emit(out, capsys)
+    assert code == 2 and "MD0201" in err
+    assert (out / "main.nf").read_text() == before, "a refused emit must leave main.nf untouched"

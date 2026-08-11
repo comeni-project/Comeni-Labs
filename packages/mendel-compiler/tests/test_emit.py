@@ -233,3 +233,50 @@ def test_emission_needs_no_registry():
     import inspect
 
     assert list(inspect.signature(emit).parameters) == ["pipeline"]
+
+
+def test_render_test_data_escapes_like_a_literal():
+    """A44: test_data is emitted single-quoted and escaped, not raw double-quoted.
+
+    Called directly with a value the type validator would reject, to prove the emitter is
+    belt-and-braces: even a value that reached it would be inert Groovy, not a statement.
+    """
+    from mendel_compiler.emit import _render_test_data
+
+    assert _render_test_data(["a'b"]) == "'a\\'b'"
+    assert _render_test_data(["x", "y"]) == "['x', 'y']"
+
+
+def test_a_contract_used_by_two_steps_emits_its_process_block_once():
+    """A42. `_process_scope` does `sorted(set(blocks))`, so a module wired into two steps emits
+    one `withName:` block, not two — byte-identical output requires it, and no test watched the
+    dedup. Two identical steps stand in for one contract used twice; the block count must not
+    double."""
+    import types
+
+    from mendel_compiler.emit import _process_scope
+
+    pipeline = _pipeline()
+    step = next(
+        s for s in pipeline.steps
+        if _process_scope(types.SimpleNamespace(steps=[s])) != []
+    )
+    one = _process_scope(types.SimpleNamespace(steps=[step]))
+    two = _process_scope(types.SimpleNamespace(steps=[step, step]))
+    assert two == one, "a process block emitted twice for one contract is a dedup regression"
+
+
+def test_every_via_member_emits_or_is_refused():
+    """A38: a route declared but not emitted is issue #10 reopened.
+
+    Two of three routes shipped validated, recorded with provenance, and emitting nothing. This
+    tripwire forces a decision when `Via` grows: a new member must be wired into `emit.py`
+    (and added here) or refused at load — never left to record a value that reaches no tool.
+    """
+    from comeni_core.routes import Via
+
+    emitted = {Via.EXT, Via.META, Via.DIRECTIVE}
+    assert set(Via) == emitted, (
+        f"emit.py handles {emitted}; Via also has {set(Via) - emitted}, which would record a "
+        "value that reaches no tool. Wire it into emit.py or refuse it at load."
+    )

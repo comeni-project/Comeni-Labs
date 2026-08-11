@@ -33,9 +33,10 @@ the order.
 | 7 | `2026-08-07-closing-round-two.md` | Plan 1.9 — **complete.** Closed A17–A35; A14, A36 open, A37 fixed |
 | 8 | `2026-08-07-the-pipeline-file.md` | Plan 1.10 — `pipeline.yml`. **Complete**, with each task's corrections inline |
 | 9 | `../audits/2026-08-10-round-three-audit.md` | Round three audit — **complete.** A38–A54, four critical (A38, A44, A46, A50) |
-| 10 | *(no plan yet)* Plan 1.11 | **Next.** Closes the round-three findings; A14 stays open until it lands |
-| 11 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
-| 12 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 10 | `2026-08-10-closing-round-three.md` | Plan 1.11 — **complete.** Closed A38–A54 (17 tasks), with each task's corrections inline; A14 stays open |
+| 11 | *(no audit yet)* Round four | **Next.** The loop exits on *no critical finding surviving*, not on an empty audit, so 1.11's surface is still owed a pass |
+| 12 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 13 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 
@@ -103,7 +104,7 @@ this shape rather than the one before it.
 The reason is A14's own logic. Round three is another revert-and-watch sweep over the guards, and A14 is
 that a guard never watched failing may be **inert rather than merely weak**. Plan 1.10 moves the surfaces
 those guards watch: three artifacts become one, `emit()` loses three arguments, door 4's payload type
-changes, fourteen diagnostics arrive. Auditing guards immediately before that is auditing guards that are
+changes, sixteen diagnostics arrive. Auditing guards immediately before that is auditing guards that are
 about to move — and the guard ledger's rows would attest to code that no longer exists, which is the
 exact failure A14 names. Doing 1.10 first means round three audits the shape that will ship.
 

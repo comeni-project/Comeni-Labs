@@ -156,7 +156,20 @@ example above elides the nulls for readability.
 
 `call` is the process's positional arguments, including tier-1 literals that appeared in no
 artifact at all before this — `STAR_ALIGN(reads, index, gtf, false)` recorded neither that
-`false` nor why.
+`false` nor why. Each `CallArg` is exactly one of three shapes, written out with no positional
+shorthand (a second reading of one field is how root G miswires a pipeline silently):
+
+| field | is | example |
+|---|---|---|
+| `ports` | one or more channels carrying named ports | `{ports: [reads]}` |
+| `literal` | a positional constant the process takes | `{literal: false, why: {…}}` |
+| `empty_width` | an empty placeholder channel, and its **tuple width** | `{empty_width: 2, why: {…}}` |
+
+`empty_width` is the arity of an empty tuple `[[:], []]` handed to an input the goal does not
+fill — Nextflow matches arity, so a 2-tuple in a 3-tuple slot dies at launch. A literal and an
+empty placeholder each carry a `why`: a positional choice is a decision, and `NfInput.empty`
+already required a `because`, so the artifact records the whole provenance rather than an
+exception for the one route that had no artifact.
 
 ### `settings` — and where each value goes
 
@@ -202,8 +215,13 @@ against next year.
 
 ### `decisions` — the review queue
 
-Every ambiguity, what was on the table, what was taken, and by whom. `human_override` is your
-answer, and `mendel upgrade` replays it rather than re-asking.
+Every ambiguity, what was on the table, what was taken, and by whom. `human_override` **records**
+a person's answer — it is what `mendel upgrade` replays rather than re-asking — but it is not
+where you *write* one. The single writable home of a tier-4 answer is `settings[].value` (see
+`settings`, above); `human_override` is derived from it, and a stored one that contradicts the
+value is refused (`MD0218`) rather than silently preferred by whichever verb reads it. A setting
+that claims `why.source: human` must have a matching non-null `human_override` — a review cleared
+by assertion, with no recorded answer behind it, is refused (`MD0220`).
 
 Two things can happen to a recorded answer when the registry moves, and they are not the same
 event:

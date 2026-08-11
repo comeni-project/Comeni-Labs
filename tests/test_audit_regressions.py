@@ -671,15 +671,16 @@ def test_a4_the_artifact_records_which_gate_it_passed():
     Plan 1.10 Task 11; the claim did not move at all.
     """
     from comeni_core.gates import Gate
+    from comeni_core.goal import Goal
     from comeni_core.pipeline import Pipeline
 
-    assert Pipeline().gate is None
-    passed = Pipeline(gate=Gate.TEST)
+    assert Pipeline(goal=Goal()).gate is None
+    passed = Pipeline(goal=Goal(), gate=Gate.TEST)
     assert passed.gate is Gate.TEST
     # `None` must be distinguishable from "passed lint" — an absent gate is not a weak
     # gate, it is no evidence at all, and a curator reads the two differently.
     assert json.loads(passed.model_dump_json())["gate"] == "test"
-    assert json.loads(Pipeline().model_dump_json())["gate"] is None
+    assert json.loads(Pipeline(goal=Goal()).model_dump_json())["gate"] is None
 
 
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):

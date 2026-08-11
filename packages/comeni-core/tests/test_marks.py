@@ -11,7 +11,15 @@ exception a laboratory brings its own type through.
 """
 
 import pytest
-from comeni_core.marks import GroovyExpression, Line, NfIdentifier, NfPath, Text
+from comeni_core.marks import (
+    GroovyExpression,
+    Line,
+    NfIdentifier,
+    NfPath,
+    NfTemplate,
+    TestDataRef,
+    Text,
+)
 from pydantic import BaseModel, ValidationError
 
 
@@ -98,3 +106,65 @@ def test_every_new_mark_is_in_the_closed_vocabulary():
 
     for alias in (NfIdentifier, NfPath, GroovyExpression, Line, Text):
         assert any(isinstance(meta, Mark) for meta in alias.__metadata__), alias
+
+
+# --- A44: test_data reaches generated Groovy, so it is validated, not merely marked ---
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        'x"; throw new RuntimeException("PWNED"); def z="',  # the audit's payload
+        "x'; println 'y",
+        "a`id`b",
+        "a${System.env}b",
+        "line1\nline2",
+    ],
+)
+def test_test_data_ref_rejects_an_injection(bad):
+    with pytest.raises(ValidationError):
+        _model(TestDataRef)(value=bad)
+
+
+@pytest.mark.parametrize(
+    "good",
+    [
+        "https://raw.githubusercontent.com/nf-core/test-datasets/72a702d/reference/genes.gtf",
+        "s3://a-lab-bucket/reference/genome.fasta",  # scheme is the lab's call, not ours
+    ],
+)
+def test_test_data_ref_accepts_a_reference(good):
+    assert _model(TestDataRef)(value=good).value == good
+
+
+# --- A45: the text around {value} is emitted into a command line, so it has a grammar ---
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "-Q {value}; touch /tmp/OWNED #",              # shell path — no quotes or ${}
+        '-Q {value}"${new File("/tmp/x").text="y"}"',  # Groovy closure path
+        "-Q {value}`id`",                              # backtick
+        "-Q {value} | cat",                            # pipe
+        "--x ${System.env}",                           # ${} that is not meta/task
+        "--x $meta.id",                                # bare $ interpolation
+        "--x {value}\n--y",                            # newline
+    ],
+)
+def test_nf_template_rejects_injection(bad):
+    with pytest.raises(ValidationError):
+        _model(NfTemplate)(value=bad)
+
+
+@pytest.mark.parametrize(
+    "good",
+    [
+        "-Q {value}",
+        "--rg-id ${meta.id} --rg SM:${meta.id} --rg PL:{value}",
+        "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'",
+        "--cpus ${task.cpus}",
+    ],
+)
+def test_nf_template_allows_value_meta_task_and_quotes(good):
+    assert _model(NfTemplate)(value=good).value == good

@@ -13,6 +13,17 @@ fixtures rather than as a shipped registry.
 
 ### Changed
 
+- **`via: meta` and `via: directive` now emit** (round three, A38). Only `via: ext` reached a
+  tool before, so a value routed to the channel `meta` map or to a process directive was
+  recorded with full provenance and carried nowhere — issue #10 reopened one level below where
+  it was closed. All three routes emit now, and a `Via` member that emits nothing is refused at
+  load rather than left to record a dead value.
+- **`mendel publish` certifies the artifact on disk and re-resolves nothing** (round three,
+  A50). It read the goal back and re-resolved against whatever `--registry` was installed, so an
+  overlay could reroute the pipeline, erase human overrides, and stamp a gate on a result nobody
+  read — at the door with no undo. Publish now needs no registry: it refuses a directory that
+  diverged from its `pipeline.yml`, gates the files on disk, and stamps the verdict. Conformance
+  is checked at `build`, where it always ran, since publish reads no contracts.
 - **One artifact: `pipeline.yml`.** It replaces `pipeline.ir.json`, `mendel.lock.yml` and
   `pipeline.bundle.json`, which are no longer written. Every step, setting, decision, module
   digest, registry layer and gate verdict is in it, and every value carries a `why:` — the
@@ -37,8 +48,8 @@ fixtures rather than as a shipped registry.
 
 - **The diagnostic registry is data.** `comeni_core/diagnostics.yml` holds every code, and the
   table in `docs/reference/cli.md` is generated from it — `make docs` regenerates, CI checks.
-  An undeclared code cannot be constructed. 24 codes: `MD0100`–`MD0108` conformance,
-  `MD0200`–`MD0216` the pipeline file.
+  An undeclared code cannot be constructed. 30 codes: `MD0100`–`MD0108` conformance,
+  `MD0200`–`MD0220` the pipeline file.
 - **`emitted.from_digest`** — Nextflow runs `main.nf`, not `pipeline.yml`, so editing the file
   and forgetting to re-emit would leave the run and the artifact diverged with every digest
   matching. `mendel emit` reports and cures it; `upgrade` and `publish` refuse.
@@ -46,6 +57,18 @@ fixtures rather than as a shipped registry.
 
 ### Fixed
 
+- **Round three (A38–A54) is closed** — the first audit of the `pipeline.yml` surface, seventeen
+  findings, four critical. Beyond A38 and A50 (above): hand-editable strings no longer flow
+  unescaped into generated Groovy (`test_data` is escaped, `NfTemplate` has a grammar — A44/A45);
+  a tier-4 answer has one writable home and a stored `human_override` that contradicts it is
+  refused (`MD0218`, A46); `source: human` must be backed by a real override (`MD0220`, A54); two
+  writers for one destination, a duplicate decision key, a missing `goal:`, and a two-writer meta
+  collision are each refused (`MD0208`/`MD0217`/`MD0219`, A40/A52/A48); `upgrade --out` refuses to
+  overwrite another pipeline's directory without `--force` (A53); a refused emit leaves the
+  directory untouched (A49); all four displacement kinds reach the artifact (A51); and a contract
+  that fails to load is blamed on the contract, not the goal (`MD0200`, A41). Every refusal added
+  or restored has a reverted-and-watched row in the guard ledger. **A14 stays open** — the loop
+  exits on no critical finding surviving a *fresh* audit, so round four is owed.
 - **A human override on a *parameter* was discarded entirely, in silence.** A parameter's
   candidate list is a placeholder, so the replay resolver's membership check rejected every
   override, counted it as newly asked, and threw the answer away.

@@ -4,7 +4,7 @@
 mendel <command> [options]
 ```
 
-Five commands: `build`, `profile`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
+Six commands: `build`, `profile`, `emit`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
 failed, `2` your input was rejected — which includes a contract that disagrees with its
 module.
 
@@ -140,6 +140,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
 | `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
 | `MD0207` | `version:` is newer than this Mendel understands |
+| `MD0208` | two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes |
 | `MD0209` | `via: directive` names something Nextflow silently ignores |
 | `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
 | `MD0211` | `channels[].params` disagrees with what its `expression` references |
@@ -148,6 +149,10 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
 | `MD0215` | an input names neither `source` nor `channel`, or names both |
 | `MD0216` | a resolved binding names a parameter its contract does not declare |
+| `MD0217` | a test_data reference contains a character that would inject into the generated config |
+| `MD0218` | a tier-4 answer is written in two places that disagree |
+| `MD0219` | two decision records share one key |
+| `MD0220` | a setting claims source: human with no override recording the answer |
 
 <!-- END GENERATED DIAGNOSTICS -->
 
@@ -193,10 +198,12 @@ hand edit instead, delete the file and re-emit.
 uv run mendel publish build/pipeline.yml --gate test
 ```
 
-**The directory is the artifact**, so this writes no file of its own. It re-resolves the
-pipeline, refuses if the directory has diverged from its file, runs the gate you ask for, and
-stamps the verdict into `pipeline.yml`. What you hand somebody is `pipeline.yml` plus
-`modules/`, which is what they had to be handed anyway.
+**The directory is the artifact**, so this writes no file of its own, and it re-resolves
+nothing: `pipeline.yml` is self-contained, so certifying it needs no registry and no network.
+It refuses if the directory has diverged from its file, runs the gate you ask for, and stamps
+the verdict into `pipeline.yml`. What you hand somebody is `pipeline.yml` plus `modules/`, which
+is what they had to be handed anyway. Because publish reads no contracts, conformance is checked
+at `build`; the legitimate edit-then-publish flow is edit → `mendel emit` → `publish`.
 
 It takes no `--out`: it certifies the pipeline you give it rather than producing a new one.
 `mendel upgrade --out` is the verb that produces one.
@@ -232,6 +239,12 @@ an upgrade is how "only what you touched moved" quietly becomes false.
 strictly weaker question: it can say a contract moved, but not whether the pipeline would
 resolve differently. One code path, one answer, and the flag decides only whether bytes are
 written.
+
+**`--out` never writes in place, and refuses another pipeline's directory.** Writing over the
+file it read would destroy the only record of what you had; and a `--out` that already holds a
+*different* `pipeline.yml` is refused too, since upgrading into it would erase that pipeline's
+evidence. Pass `--force` to replace it deliberately. An empty `--out`, or one holding a
+byte-identical copy, is the normal case and is allowed.
 
 Five kinds of report, because they answer different questions:
 
@@ -297,6 +310,8 @@ Every failure is a message rather than a traceback.
 | `cannot route this goal — nothing produces X` | no contract produces that type; you need a contract |
 | `cannot route this goal — a rule pins X … inputs are unreachable` | a rule chose a module whose own dependencies cannot be met |
 | `this goal is not valid` | the goal file does not match the schema |
+| `contract is not valid` | a contract file does not match the schema — the message names the contract, not the goal you did write |
+| `MD0200: contract … declares no via` | a contract parameter names no route, so its value would reach no tool |
 | `this goal's profile is not valid` | an undeclared measurement, or a value outside its declaration |
 | `a rule table will not load` | a rule cannot fire against this registry; the message says what you can write |
 | `N contract(s) disagree with their modules` | conformance refused the build; each diagnostic says what to write instead |
@@ -312,7 +327,9 @@ uv run python tools/generate_types.py --check   # fail if stale — what CI runs
 make test    # uv run pytest -v
 make lint    # uv run ruff check .
 make fmt     # uv run ruff format .
-make check   # everything CI runs on a pull request
+make check   # everything CI runs on a pull request (~1 min, no Docker)
+make verify  # check + counts matrix + guards + drift — the gate for a routing or emission change
+make static  # conformance + nextflow lint + preview — everything checkable without Docker
 make stub    # the full stub gate
 make types   # regenerate the stub
 ```

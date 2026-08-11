@@ -162,14 +162,15 @@ class ModuleSpec(BaseModel):
 This is the same component the forge later uses to *generate* the derivable 80%. Building it
 for checking first means nothing is thrown away.
 
-### 6.2 Seven checks
+### 6.2 Eight checks
 
-> **This section said *six* until Plan 1.6 shipped seven.** `MD0107` and `MD0100` were folded
-> in during execution. The container match already existed as
-> `test_contract_containers_match_the_vendored_modules`; it is conformance by any
-> definition, and leaving it in a test file while its siblings lived in a checker would be
-> filing by accident of history. `MD0100` is a diagnostic that is not a failure, which the
-> six-check framing had no room for.
+> **This section said *six* until Plan 1.6 shipped seven, and Plan 1.10 added `MD0108` for the
+> ninth code.** `MD0107` and `MD0100` were folded in during Plan 1.6; the container match
+> already existed as `test_contract_containers_match_the_vendored_modules`, and it is
+> conformance by any definition. `MD0100` is a diagnostic that is not a failure — it warns —
+> which the six-check framing had no room for, so nine codes are eight blocking checks plus one
+> warning. `MD0108` is the newest: a setting may only route to an `ext` key the module actually
+> reads.
 
 | Code | Check | Catches |
 |---|---|---|
@@ -181,6 +182,7 @@ for checking first means nothing is thrown away.
 | `MD0105` | every `produces[].name` appears in the module's `emit:` | `.out.bams` → crash |
 | `MD0106` | meta keys, **both directions** | **the silent `-s 0`** |
 | `MD0107` | `container` matches the module's directive | a claimed reproducibility the module does not have |
+| `MD0108` | a setting routes only to an `ext` key the module reads | a resolved value composed into a flag the tool ignores |
 
 `MD0106` is the load-bearing one. Both directions are computable: a key a module reads that
 nothing sets is a silent default, and a `meta_key` declared that no module reads is dead.

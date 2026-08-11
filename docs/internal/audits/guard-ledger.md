@@ -335,3 +335,191 @@ the work and no test exercises a second spelling of the same path.
 **Not added as a normal caught row, but recorded:** `_still_applies`'s `[None]` special case *is*
 guarded — reverting it fails five replay tests. That is the parameter-override fix from Plan 1.10,
 and it is the one piece of this subsystem with a guard that watches its subject.
+
+## Plan 1.11 — closing round three (A44–A54 fixes)
+
+Each refusal added by the fixing plan, reverted and watched failing before the fix was committed.
+
+### A44 — test_data escaped and validated
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_emit.py` | `_render_test_data` back to raw double-quote | 1 failed | `test_render_test_data_escapes_like_a_literal` |
+| 2026-08-10 | `test_marks.py` | dropped the `_test_data_ref` validator | 5 failed | `test_test_data_ref_rejects_an_injection[...]` |
+
+**Trap recorded, again.** `git checkout <file>` to restore after the probe reverted the
+*uncommitted fix*, not just the probe — exactly the 2026-08-08 journal warning. Re-applied by
+edit. Use a script that restores only the probed lines, or commit the fix before probing.
+
+### A45 — NfTemplate grammar
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_marks.py` | grammar neutered to the old newline-only check | 6 failed | `test_nf_template_rejects_injection[...]` |
+
+Restored from memory, not `git checkout` (the A44 trap). The residue char-class and the
+`${meta.x}`/`${task.x}` interpolation check are one guard; reverting either alone would leave
+the other catching a subset, so both were removed together and all six injection shapes returned.
+
+### A38 — via: meta and via: directive emit
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `_directive_scope` skips every setting | 1 failed | `test_via_directive_reaches_nextflow_config` |
+| 2026-08-10 | `test_pipeline_file.py` | `_meta_injection` not applied in `_calls` | 1 failed | `test_via_meta_reaches_the_channel_meta_map` |
+| 2026-08-10 | `test_emit.py` | completeness set narrowed to `{Via.EXT}` | 1 failed | `test_every_via_member_emits_or_is_refused` |
+
+The emitted Groovy was validated in real Nextflow 25.10.4, not only asserted: `nextflow config
+-profile test` parses the directive block (exit 0) and `nextflow lint` accepts the meta-injection
+`main.nf`. The completeness guard's honest probe is a *missing* member (`{Via.EXT}`), not
+`set(Via)` — the latter is tautological and stays green.
+
+### A40 — MD0208, two writers for one destination
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `Step._no_two_writers_for_one_destination` disabled | 1 failed | `test_two_ext_settings_on_one_prefix_are_refused` |
+| 2026-08-10 | `test_pipeline_file.py` | Pipeline meta-vs-measurement check disabled | 1 failed | `test_a_meta_setting_shadowing_a_measurement_is_refused` |
+
+Two halves, one code. The ext half is A40's reproduction (two settings on `prefix`); the meta
+half is the collision the spec named and Task 3 (A38) made reachable. The meta check is a
+conservative global over-approximation — any measurement key present collides with a meta setting
+of that name, no dataflow trace — because a false rename is cheaper than a silent overwrite of a
+measured fact. A `test_two_ext_args_settings_still_compose` companion asserts the `args` family is
+exempt, so the fix does not break composition.
+
+### A46 — one writable home for a tier-4 answer
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | MD0218 contradiction refusal disabled | 1 failed | `test_value_and_human_override_may_not_contradict` |
+| 2026-08-10 | `test_pipeline_file.py` | upgrade back to `previous.decisions` (not `replayable_decisions()`) | 1 failed | `test_editing_the_value_answers_for_emit_and_upgrade` |
+
+Two halves. `settings[].value` is the single writable answer: the refusal (MD0218) rejects a
+stored `human_override` that contradicts it, and `replayable_decisions()` derives the override
+from the value so `upgrade` replays the same answer `emit` already reads. The sync fires only
+where the value differs from the resolver's `chosen`, so a resolver's (or a future model's) own
+answer keeps its review flag rather than being relabelled HUMAN.
+
+### A52 — a duplicate decision key is refused
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | MD0219 duplicate-decision-key refusal disabled | 1 failed | `test_a_duplicate_decision_key_is_refused` |
+
+`ReplayResolver`'s `setdefault` kept the first record and dropped a second's `human_override` in
+silence — its own comment already called that corruption. Refused at load now, beside MD0212's
+duplicate-step-id check.
+
+### A48 — a pipeline.yml with no goal is refused
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `Pipeline.goal` back to `default_factory=Goal` | 1 failed | `test_a_pipeline_with_no_goal_is_refused` |
+
+Plan 1.10 Task 6 made `goal` keyword-only on `Pipeline.of()` for this reason, but the model field
+kept its default and the model is what a hand-edited file loads through. Now required. Two tests
+that constructed a bare `Pipeline()` were passing incidentally — `test_a4_...gate...` broke and was
+fixed, and `test_egress`'s frozen check was passing for the wrong reason (construction failing
+before the frozen assignment) and now passes a real goal.
+
+### A49 — a refused emit leaves the directory untouched
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | emit back to write-main.nf-then-render-config | 1 failed | `test_a_refused_emit_writes_nothing` |
+
+`emit_config` raises MD0201 on a non-substitutable value; writing `main.nf` first left the
+directory half-regenerated, and the retry then refused with MD0214 — blaming the user for a
+change emit itself made. Both files render in memory before either is written now.
+
+### A50 — publish certifies the artifact on disk and re-resolves nothing
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_publish.py` | publish routed back through `upgrade`'s re-resolution path | 1 failed | `test_publish_does_not_re_resolve_against_the_installed_registry` |
+
+`publish` shared `upgrade`'s block, so it re-resolved against whatever `--registry` was installed
+— an overlay could swap the pipeline, erase the human overrides, and stamp a gate on a result
+nobody read, at the door with no undo. It now branches early like `emit`: it needs no registry,
+refuses a directory that diverged from its `pipeline.yml`, gates the files on disk, and stamps the
+verdict. **A design consequence:** publish no longer re-runs conformance, because conformance is a
+property of a contract against its module and publish reads no contracts. That guarantee relocated
+to `build`, where it always ran; `test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolves`
+records the move.
+
+### A51 — displacements of all four kinds reach the artifact
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `resolve()`'s `displaced` back to `[*measurements.displaced, *registry.displaced]` | 2 failed | `test_a_vocabulary_displacement_reaches_the_artifact`, `test_a_rules_displacement_reaches_the_artifact` |
+
+A23/A24 gave measurements and vocabularies a `Displacement`, but `resolve()` assembled
+`PipelineIR.displaced` from measurements+contracts alone, so an overlay `vocabularies/` (the one
+kind that rewrites emitted Groovy verbatim) or `rules/` block reached the published artifact
+recording nothing — the A23 fix was untested at the artifact and half-inert. `RuleTable` now
+carries its own `displaced` list like the other three kinds, and `resolve()` reads all four off
+its arguments, so completeness is a property of the arguments rather than of the caller.
+
+### A53 — `upgrade --out` refuses another pipeline's directory
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_upgrade.py` | the in-place self-guard's `.resolve()` back to `==` | 1 failed | `test_upgrade_self_guard_sees_a_relative_out` |
+| 2026-08-10 | `test_upgrade.py` | the different-digest `--out` refusal deleted | 1 failed | `test_upgrade_refuses_to_overwrite_another_pipeline` |
+
+The in-place refusal only compared `--out` to the *source's* directory, and it compared
+unresolved paths — a relative `--out` naming the source slipped through (the `.resolve()` was
+never watched). And a `--out` holding some *third* pipeline was overwritten with no trace: its
+overrides, digests and gate evidence gone. `upgrade` now refuses a `--out` whose `pipeline.yml`
+has a different content digest than the one being upgraded, unless `--force`; a byte-identical
+occupant (an idempotent re-upgrade) is still allowed, and an empty `--out` stays the normal case.
+
+### A54 — `source: human` requires a matching non-null human_override
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | the MD0220 cross-check in `Pipeline._readable_and_unambiguous` | 1 failed | `test_human_source_requires_a_matching_override` |
+
+`why.source: human` is what clears a tier-4 review, and `source` is declared vocabulary the
+resolver sets — not proof. A resolver (a future `mendel-ai` adapter included) could return
+`source=HUMAN` for a value no human saw and empty `needs_review()` by assertion. The artifact was
+also internally inconsistent — the honest override path recorded `source: human` on the value with
+`human_override: null` on the decision (resolve.py never wrote the override back), which is the
+same inconsistency read as a bug. Two changes close it: `resolve()` records `human_override` on the
+`ParamDecision` whenever `resolution.source is HUMAN`, so the decision carries the evidence; and
+`Pipeline` refuses (MD0220) any `source: human` setting without a matching non-null override.
+
+### A41 — a contract that fails to load is blamed on the contract, not the goal
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | the missing-`via` catch in `ModuleContract.load` (`_missing_via` re-raise) | 1 failed | `test_a_contract_missing_via_emits_MD0200_and_blames_the_contract` |
+
+A `Param` with no `via:` is a real refusal — MD0200, the value reaches no tool — but Pydantic
+reported it as a bare `Field required` on `params.N.via`, and the CLI wrapped every
+`ValidationError` as "this goal is not valid": the one file the operator did not write, blamed for
+a contract author's omission. `load` now re-raises the missing-`via` case with its code and the
+contract named, and the CLI wrapper blames "contract" rather than "this goal" for any
+`ModuleContract`-titled validation error. Other `ValidationError`s (`nf_process`, `nf_include`,
+the model-level route checks) are left untouched, so their tests keep asserting exactly what they did.
+
+### A42 — the round-three refusals that had no watched revert
+
+A42 named guards that fired in no test. Each is reverted and watched below. Two were already
+covered and are noted rather than duplicated: **MD0204's multi-line template** is the `NfTemplate`
+grammar, watched by the A45 row (Task 2, `test_nf_template_*`); and **MD0201 at build** (a
+non-substitutable value in a contract) rides `test_routes.py`'s route checks.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-10 | `test_pipeline_file.py` | `StepInput._exactly_one_source` (`MD0215`) neutered to `if False` | 2 failed | `test_a_step_input_naming_both_a_source_and_a_channel_is_refused`, `..._neither_...` |
+| 2026-08-10 | `test_pipeline_file.py` | `_ext_scope`'s `sorted(step.settings, key=name)` → declaration order | 1 failed | `test_ext_args_fragments_emit_name_sorted_whatever_the_setting_order` |
+| 2026-08-10 | `test_emit.py` | `_process_scope`'s `sorted(set(blocks))` → `sorted(blocks)` | 1 failed | `test_a_contract_used_by_two_steps_emits_its_process_block_once` |
+| 2026-08-10 | `test_pipeline_file.py` | `_ext_scope`'s `if not substitutable(...)` (`MD0201` at emit) neutered | 1 failed | `test_a_refused_emit_writes_nothing` |
+
+The `ext.args` name-sort had two redundant sorts — one at materialisation (`_settings`), one at
+emit (`_ext_scope`) — so an end-to-end build could not watch either alone: whichever you revert,
+the other re-sorts. The test reverses a materialised step's settings by hand and calls `_ext_scope`
+directly, which is the only place the emit-time sort is observable. Likewise the process-block
+dedup needed one contract in two steps, stood in for by the same step twice.

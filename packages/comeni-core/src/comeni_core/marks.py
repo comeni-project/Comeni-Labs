@@ -308,24 +308,69 @@ because it has no unknown unknowns. This is the same trade and gets the same ans
 """
 
 
+_TEMPLATE_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    " _.:+-/=,'"
+)
+"""What a template's fixed text may contain, once `{value}` and `${meta.x}`/`${task.x}` are
+removed. A superset of `_VALUE_CHARS` — a template needs spaces, single quotes and `:`, which a
+resolved value does not — but it still excludes `"`, a backtick, `;`, `|`, `&`, `<`, `>`, `#`
+and a bare `$`, because a template is composed into a shell command line and, when it carries an
+interpolation, into a double-quoted Groovy closure. Spelled out rather than a regex: `re` is off
+`comeni-core`'s purity allowlist.
+"""
+
+
 def _nf_template(value: str) -> str:
-    """A flag fragment with exactly one Mendel substitution.
+    """A flag fragment with Mendel and Groovy substitutions, and nothing else executable.
 
     Two interpolation systems meet in one string and only one of them is ours:
 
     - `{value}` is **Mendel's**, substituted at emit time. The only one this code touches.
     - `${…}` is **Groovy's**, evaluated by Nextflow per task and passed through verbatim.
 
-    A template mentioning `${…}` must be emitted as a *closure* rather than a string — measured
-    on Nextflow 25.10.4, where `ext.args = "--rg ID:${meta.id}"` fails at config parse with
+    A template mentioning `${…}` is emitted as a *closure* rather than a string — measured on
+    Nextflow 25.10.4, where `ext.args = "--rg ID:${meta.id}"` fails at config parse with
     `Unknown config attribute process.withName:FOO.meta.id`, because a config GString is
     evaluated when the config is read and no task exists then. The closure form resolves.
 
-    One line only: it is composed into a single argument string, and a newline there would end
-    the command rather than the flag.
+    **A45.** Only newlines used to be refused, so the fixed text around `{value}` was an open
+    door: a `${…}` body was arbitrary Groovy in that closure, and shell metacharacters
+    (`; touch x #`) reached the tool's command line verbatim. Now every `${…}` must be a single
+    `meta.<id>` or `task.<id>` reference, and the rest of the text is a closed character class.
+    One line only: a newline would end the command rather than the flag.
     """
     if "\n" in value:
         raise ValueError("MD0204: a template is one line — it composes into an argument string")
+    residue: list[str] = []
+    i = 0
+    while i < len(value):
+        if value.startswith("${", i):
+            end = value.find("}", i)
+            if end == -1:
+                raise ValueError(f"MD0204: unterminated ${{ in template {value!r}")
+            head, _, tail = value[i + 2 : end].partition(".")
+            if head not in ("meta", "task") or not _is_identifier(tail):
+                raise ValueError(
+                    f"MD0204: ${{{value[i + 2 : end]}}} is not an allowed interpolation. A "
+                    "template may reference only ${meta.<id>} or ${task.<id>}; anything else is "
+                    "arbitrary Groovy reaching the generated config."
+                )
+            i = end + 1
+        elif value.startswith("{value}", i):
+            i += len("{value}")
+        else:
+            residue.append(value[i])
+            i += 1
+    bad = sorted(set(residue) - _TEMPLATE_CHARS)
+    if bad:
+        raise ValueError(
+            f"MD0204: a template may not contain {bad[0]!r}. The text around {{value}} is "
+            "composed into a shell command line; letters, digits, spaces, single quotes and "
+            "`_ . : + - / = ,` are allowed, and `{value}`, `${meta.x}`, `${task.x}` interpolate."
+        )
     return value
 
 
@@ -407,16 +452,46 @@ Digest = Annotated[str, Mark.DIGEST]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
 
-TestDataRef = Annotated[str, Mark.TEST_DATA_REF]
+_TEST_DATA_FORBIDDEN = frozenset("\"'`${}\\ \t\n\r")
+"""Characters that never belong in a reference and are the way into the generated config.
+
+Spelled out rather than a regex, for the reason `_VALUE_CHARS` gives: `re` is off
+`comeni-core`'s purity allowlist. This is the injection surface — a quote or backtick starts a
+new Groovy expression, `$` and `${}` interpolate, whitespace splits — and a URL or object-store
+reference contains none of them.
+"""
+
+
+def _test_data_ref(value: str) -> str:
+    """A reference to a small public example dataset, safe to emit into the `test` profile.
+
+    A44: `test_data` is rendered as `params.<type> = <value>`, which is Groovy. It reached that
+    line unescaped, so a crafted value executed at `nextflow config` time. The emitter now
+    escapes it (`_render_literal`); this is the second gate, refusing the injection surface at
+    load. The URL *scheme* is deliberately not dictated — a laboratory may host its example
+    anywhere — so only the metacharacters are refused, not the shape.
+    """
+    bad = sorted(_TEST_DATA_FORBIDDEN & set(value)) or [c for c in value if ord(c) < 32]
+    if bad:
+        raise ValueError(
+            f"MD0217: test_data {value!r} contains {bad[0]!r}, which would inject into the "
+            "generated config. A reference is a URL pinned to a commit; remove quotes, "
+            "backticks, `$`, braces and whitespace."
+        )
+    return value
+
+
+TestDataRef = Annotated[str, Mark.TEST_DATA_REF, AfterValidator(_test_data_ref)]
 """Where a small public example of a type lives, for the `test` profile.
 
 A URL pinned to a commit, declared in the vocabulary. Never a laboratory's own path: this
 reaches a published artifact, and a dataset that moves is one you cannot compare a result
 against next year — a path on somebody's machine is both of those problems at once.
 
-Marked rather than validated. The vocabulary is where a laboratory says how a type it brought
-arrives, and narrowing this to a URL pattern would decide for them; `MD0201`'s note about
-starting strict does not apply where the value never reaches a shell.
+Validated for the **injection surface only** (`_test_data_ref`), not the URL shape. A44 showed
+the premise that this "never reaches a shell" was false — it is emitted into Groovy — so the
+metacharacters that make that an injection are refused. The scheme is still the laboratory's to
+choose, because the vocabulary is where it says how a type it brought arrives.
 """
 
 LayerName = Annotated[str, Mark.LAYER_NAME]

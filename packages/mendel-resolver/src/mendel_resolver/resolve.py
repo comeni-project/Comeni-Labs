@@ -64,10 +64,18 @@ def resolve(
         # loader discovered, and asking the caller to forward it is asking them to forget.
         # A published pipeline whose overlay quietly rerouted it is unauditable.
         #
-        # The vocabulary's own displacements join this list in Part E, when `resolve()`
-        # takes a vocabulary. Until then A24 is reported by `mendel build` and not by the
-        # artifact, which is recorded here rather than left to be rediscovered.
-        displaced=[*measurements.displaced, *registry.displaced],
+        # All four kinds, in loader order (`layers.Layers.displaced` is the same list). This
+        # read measurements+contracts alone for a plan and a half, so an overlay `vocabularies/`
+        # or `rules/` block reached the published artifact recording nothing (A51) — A23/A24
+        # gave those kinds a `Displacement`, but `resolve()` never collected it. Each kind now
+        # carries its own list, so completeness is a property of the arguments, not of the
+        # caller remembering to forward a fifth thing.
+        displaced=[
+            *measurements.displaced,
+            *vocabulary.displaced,
+            *registry.displaced,
+            *rules.displaced,
+        ],
     )
     # Every output emitted so far, in order. Keyed on type_id alone this was a dict, so the
     # last producer of a type won and SAMTOOLS_INDEX's `.bai` was handed to featureCounts —
@@ -292,6 +300,17 @@ def _resolve_param(
             reason=resolution.reason,
             confidence=resolution.confidence,
             resolved_by=resolution.resolved_by,
+            # A54. `source: HUMAN` on the value is a claim that a person answered, and it is
+            # what clears the review — so the decision has to carry the evidence, not just the
+            # value's `Why`. Only `ReplayResolver` returns `HUMAN`, and only when the record it
+            # replayed held a `human_override`, so recording it back here keeps the artifact
+            # self-consistent: a `human` source and a null `human_override` was the exact
+            # inconsistency A54 named, and it is what `Pipeline`'s MD0220 refuses at load.
+            human_override=(
+                resolution.chosen
+                if resolution.source is ValueSource.HUMAN
+                else None
+            ),
         )
     )
     # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1

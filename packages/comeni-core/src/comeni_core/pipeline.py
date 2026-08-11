@@ -22,7 +22,7 @@ Two rules govern what is in here, and they are converse:
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.contract import ModuleContract
-from comeni_core.decision import DecisionRecord
+from comeni_core.decision import DecisionKind, DecisionRecord
 from comeni_core.digest import digest_of
 from comeni_core.egress import EgressPayload, Emitted
 from comeni_core.gates import Gate
@@ -47,7 +47,7 @@ from comeni_core.marks import (
     TestDataRef,
     TypeId,
 )
-from comeni_core.routes import ExtKey, Via
+from comeni_core.routes import TEMPLATED, ExtKey, Via
 from comeni_core.tiers import Tier, ValueSource
 
 SCHEMA_VERSION = 1
@@ -218,6 +218,32 @@ class Step(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _no_two_writers_for_one_destination(self) -> "Step":
+        """MD0208. Two settings that share a *destination* under different names.
+
+        `MD0212` above catches two settings sharing a *name*, which is where a directive or a
+        meta key collides — the destination there **is** the name. The one destination two
+        differently-named settings can share is an `ext` key, and only a key that does not
+        compose: `args`, `args2` and `args3` concatenate their fragments on purpose, so two of
+        those is composition, not collision. Every other key — `prefix` — takes one value, and
+        `_ext_scope` would join two of them into `'beta' 'alpha'`, a value neither author wrote.
+        """
+        writers: dict[ExtKey, list[str]] = {}
+        for setting in self.settings:
+            if setting.via is Via.EXT and setting.key not in TEMPLATED:
+                writers.setdefault(setting.key, []).append(setting.name)
+        collided = sorted(
+            (key, sorted(who)) for key, who in writers.items() if len(who) > 1
+        )
+        if collided:
+            key, who = collided[0]
+            raise ValueError(
+                f"MD0208: step {self.id} routes {' and '.join(who)} to ext.{key.value}, which "
+                f"takes one value — a second writer silently wins. `mendel explain MD0208`."
+            )
+        return self
+
 
 class Channel(BaseModel):
     """What the laboratory supplies, and the measured facts that ride with it."""
@@ -288,9 +314,16 @@ class Pipeline(EgressPayload):
     """
 
     version: int = 1
-    goal: Goal = Field(default_factory=Goal)
+    goal: Goal
     """What was asked for. **Inert to `emit`** — it is input to *resolution*, and the facts
-    emission needs are already materialised into `channels[].meta`. Editing it takes effect on
+    emission needs are already materialised into `channels[].meta`.
+
+    **Required, no default (A48).** Plan 1.10 Task 6 made `goal` keyword-only with no default on
+    `Pipeline.of()` for exactly this reason, but the model field kept `default_factory=Goal` — and
+    the model is what a hand-edited file loads through. A `pipeline.yml` with the `goal:` block
+    deleted then loaded as an empty `Goal`, and `upgrade` re-resolved *that*, writing `steps: []`
+    at exit 0. Dropping a section is the likeliest edit mistake there is; it is now a load error.
+    Editing it takes effect on
     `mendel upgrade`, and the emitted file says so in a comment."""
     registry: RegistryProvenance = Field(default_factory=RegistryProvenance)
     steps: list[Step] = Field(default_factory=list)
@@ -323,7 +356,103 @@ class Pipeline(EgressPayload):
                 f"MD0212: two steps share the id {', '.join(repeated)}. A step id is what "
                 f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous."
             )
+        measured = {entry.key for channel in self.channels for entry in channel.meta}
+        for step in self.steps:
+            shadow = sorted(
+                s.name
+                for s in step.settings
+                if s.via is Via.META and s.name in measured
+            )
+            if shadow:
+                raise ValueError(
+                    f"MD0208: step {step.id} routes {', '.join(shadow)} to meta, but a "
+                    f"measurement already writes {shadow[0]} into the meta map — the setting "
+                    f"would silently overwrite a measured fact. `mendel explain MD0208`."
+                )
+        keys = [record.key for record in self.decisions]
+        repeated = sorted({key for key in keys if keys.count(key) > 1})
+        if repeated:
+            raise ValueError(
+                f"MD0219: two decision records share the key {repeated[0]}. A key names one "
+                f"decision; a duplicate is a corrupt file, and `ReplayResolver` would keep one "
+                f"and drop the other's answer in silence. `mendel explain MD0219`."
+            )
+        values = self._param_setting_values()
+        for record in self.decisions:
+            if getattr(record, "kind", None) is not DecisionKind.PARAM:
+                continue
+            override = record.human_override
+            value = values.get(record.key)
+            if override is not None and value is not None and override != value:
+                raise ValueError(
+                    f"MD0218: {record.key} is answered {value!r} in settings and {override!r} "
+                    f"in its decision's human_override — one file, two answers, and emit and "
+                    f"upgrade would read different ones. settings[].value is the writable one; "
+                    f"remove the human_override or set it equal. `mendel explain MD0218`."
+                )
+
+        # MD0220. `why.source: human` is a claim that a person answered an ambiguity resolution
+        # had faced and flagged — and it is what clears that item from `needs_review()`. Written
+        # into `settings[].why` with no decision recording the answer, it is a review cleared by
+        # assertion: exactly the honesty invariant 6 exists to keep. So a `human` source must be
+        # backed by a `PARAM` decision for the same key carrying a non-null `human_override`. The
+        # genuine edit sets both (settings[].value and the override), so the honest case passes;
+        # what this refuses is the port used to relabel a resolver's guess as a person's answer.
+        overrides = {
+            record.key: record.human_override
+            for record in self.decisions
+            if getattr(record, "kind", None) is DecisionKind.PARAM
+        }
+        for step in self.steps:
+            for setting in step.settings:
+                if setting.why.source is not ValueSource.HUMAN:
+                    continue
+                key = f"{step.id}.{setting.name}"
+                if overrides.get(key) is None:
+                    raise ValueError(
+                        f"MD0220: {key} says source: human, but no decision records a person "
+                        f"answering it — its human_override is null or absent. `source: human` "
+                        f"clears the review, so it must be backed by the answer it claims. Set "
+                        f"the decision's human_override to the value, or restore the source that "
+                        f"resolution gave it. `mendel explain MD0220`."
+                    )
         return self
+
+    def _param_setting_values(self) -> dict[str, ParamValue]:
+        """`{step.id}.{setting.name}` → value, the key a `ParamDecision` carries."""
+        return {
+            f"{step.id}.{setting.name}": setting.value
+            for step in self.steps
+            for setting in step.settings
+        }
+
+    def replayable_decisions(self) -> list[DecisionRecord]:
+        """Decisions with a parameter's human answer taken from `settings[].value`.
+
+        `settings[].value` is the writable home of a tier-4 answer — the field `emit` reads and
+        the file tells a person to edit. A `ParamDecision`'s `human_override` is synced from it
+        here so `upgrade` replays the same answer `emit` already uses; before this, editing the
+        value and not the override made the two verbs produce different pipelines (A46).
+
+        Only where the value differs from the resolver's own `chosen`: an equal value is the
+        resolver's (or a model's) choice, not a human edit, and must keep its review flag rather
+        than be relabelled `HUMAN`. A stored, contradicting override is refused at load (MD0218),
+        so the value and any existing override agree by the time this runs.
+        """
+        values = self._param_setting_values()
+        replayable = []
+        for record in self.decisions:
+            value = values.get(record.key)
+            if (
+                getattr(record, "kind", None) is DecisionKind.PARAM
+                and record.human_override is None
+                and value is not None
+                and value != record.chosen
+            ):
+                replayable.append(record.model_copy(update={"human_override": value}))
+            else:
+                replayable.append(record)
+        return replayable
 
     def content_digest(self) -> str:
         """The digest `emitted.from_digest` records, over everything **but** `emitted`.

@@ -12,9 +12,22 @@ gate you ask for, and stamps the verdict. What you hand somebody is `pipeline.ym
 """
 
 import pathlib
+import shutil
 
 import yaml
+from mendel_compiler import cli
 from mendel_compiler.cli import main
+from mendel_compiler.gates import GateResult
+
+
+def _gate_always_passes(monkeypatch):
+    """Stub the gate so a `--gate` test runs without Nextflow (as CI's fast lane lacks it).
+
+    The gate is incidental to what these tests assert — publish's re-resolution behaviour and
+    the verdict round trip — so stubbing the tool keeps the real assertion running in CI rather
+    than skipping it. The gates themselves are exercised for real by `-m slow` and `test_gates`.
+    """
+    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
 
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
@@ -162,25 +175,29 @@ def test_publish_reports_what_still_needs_review(tmp_path, capsys):
     assert "star_align.seq_platform" in err
 
 
-def test_publish_refuses_a_nonconformant_contract(tmp_path):
-    """Conformance guards the door with no undo too.
+def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolves(tmp_path):
+    """Conformance guards the door with no undo — at build, which is where it can.
 
-    Plan 1.6 made `build` refuse a contract that disagrees with its module. Publishing is
-    strictly worse to get wrong — a build you can rerun, a pipeline you have handed to
-    someone you cannot — so it must not be the looser path.
+    Plan 1.6 made `build` refuse a contract that disagrees with its module. A50 makes `publish`
+    certify the self-contained artifact without re-resolving, so it reads no registry and cannot
+    re-run conformance — exactly as `emit` already trusted the artifact. The guarantee did not
+    weaken, it relocated: a published artifact is a *built* one (`publish` refuses a directory
+    that has diverged from its `pipeline.yml`), and `build` refuses a non-conformant contract
+    before the artifact exists. Editing the registry after the fact cannot make a conformant
+    artifact non-conformant — the contracts are pinned by digest and the files are already on
+    disk. This test asserts the guarantee at its real home.
     """
-    import shutil
-
-    out = _built(tmp_path)
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
     star = next(layer.rglob("star-align.yml"))
     star.write_text(star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN"))
 
+    goal = ROOT / "examples" / "rnaseq-goal.yml"
     code = main(
-        ["publish", str(out / "pipeline.yml"), "--root", str(ROOT), "--registry", str(layer)]
+        ["build", "--goal", str(goal), "--out", str(tmp_path / "b"),
+         "--root", str(ROOT), "--registry", str(layer)]
     )
-    assert code == 2
+    assert code == 2  # the non-conformant contract never reaches a publishable artifact
 
 
 def test_publish_refuses_a_directory_that_has_diverged_from_its_file(tmp_path, capsys):
@@ -209,3 +226,62 @@ def test_publish_refuses_a_hand_edited_main_nf(tmp_path, capsys):
     code = main(["publish", str(out / "pipeline.yml"), "--root", str(ROOT)])
     assert code == 2
     assert "MD0214" in capsys.readouterr().err
+
+
+# --- A50: publish certifies the on-disk artifact, without re-resolving ---
+
+
+def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path, monkeypatch):
+    """publish shared upgrade's path: it re-resolved against whatever --registry was installed,
+    silently swapping the aligner and erasing a human override, then stamped a gate on the
+    result — the door with no undo certifying a pipeline nobody read. It must certify what is
+    on disk and change nothing else."""
+    _gate_always_passes(monkeypatch)
+    root = ROOT
+    out = tmp_path / "b"
+    assert main(["build", "--goal", str(GOAL), "--registry", str(root / "registry"),
+                 "--out", str(out), "--root", str(root)]) == 0
+    before = (out / "pipeline.yml").read_text()
+
+    # An overlay that would reroute the aligner if publish re-resolved. Bump the priority
+    # by hand, without regex — `comeni-core` bans `re`, and a test mirrors that discipline.
+    ov = tmp_path / "ov"
+    (ov / "contracts" / "nf-core").mkdir(parents=True)
+    (ov / "registry.yml").write_text("name: lab\n")
+    h = (root / "registry/contracts/nf-core/hisat2-align.yml").read_text()
+    lines = [("priority: 99" if line.strip().startswith("priority:") else line)
+             for line in h.splitlines()]
+    (ov / "contracts/nf-core/hisat2-align.yml").write_text("\n".join(lines) + "\n")
+
+    assert main(["publish", str(out / "pipeline.yml"), "--registry", str(root / "registry"),
+                 "--registry", str(ov), "--gate", "lint", "--root", str(root)]) == 0
+    after = (out / "pipeline.yml").read_text()
+    assert yaml.safe_load(after)["gate"] == "lint"  # verdict stamped
+    b, a = yaml.safe_load(before), yaml.safe_load(after)
+    assert b["steps"] == a["steps"], "publish must not re-resolve and move the pipeline"
+    assert b["decisions"] == a["decisions"], "publish must not touch the recorded decisions"
+
+
+def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, monkeypatch):
+    """The legitimate 'I changed my mind and want to publish the result' flow. publish does not
+    re-resolve, so the edit is surfaced by emit (MD0213) and the published pipeline is the
+    emitted one — nothing hidden."""
+    import yaml as _yaml
+    from mendel_compiler.cli import main
+
+    _gate_always_passes(monkeypatch)
+    root = pathlib.Path(__file__).parent.parent
+    goal = root / "examples" / "rnaseq-goal.yml"
+    out = tmp_path / "b"
+    assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(root)]) == 0
+    # Answer a tier-4 question by editing the file, then emit, then publish.
+    doc = _yaml.safe_load((out / "pipeline.yml").read_text())
+    for s in doc["steps"]:
+        for setting in s.get("settings", []):
+            if setting["name"] == "seq_platform":
+                setting["value"] = "nanopore"
+    (out / "pipeline.yml").write_text(_yaml.safe_dump(doc, sort_keys=False))
+    assert main(["emit", str(out / "pipeline.yml"), "--out", str(out)]) == 0
+    assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(root)]) == 0
+    assert "'PL:nanopore'" in (out / "nextflow.config").read_text()
+    assert _yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
