@@ -215,8 +215,13 @@ against next year.
 
 ### `decisions` — the review queue
 
-Every ambiguity, what was on the table, what was taken, and by whom. `human_override` is your
-answer, and `mendel upgrade` replays it rather than re-asking.
+Every ambiguity, what was on the table, what was taken, and by whom. `human_override` **records**
+a person's answer — it is what `mendel upgrade` replays rather than re-asking — but it is not
+where you *write* one. The single writable home of a tier-4 answer is `settings[].value` (see
+`settings`, above); `human_override` is derived from it, and a stored one that contradicts the
+value is refused (`MD0218`) rather than silently preferred by whichever verb reads it. A setting
+that claims `why.source: human` must have a matching non-null `human_override` — a review cleared
+by assertion, with no recorded answer behind it, is refused (`MD0220`).
 
 Two things can happen to a recorded answer when the registry moves, and they are not the same
 event:
