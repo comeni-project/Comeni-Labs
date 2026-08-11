@@ -12,9 +12,22 @@ gate you ask for, and stamps the verdict. What you hand somebody is `pipeline.ym
 """
 
 import pathlib
+import shutil
 
 import yaml
+from mendel_compiler import cli
 from mendel_compiler.cli import main
+from mendel_compiler.gates import GateResult
+
+
+def _gate_always_passes(monkeypatch):
+    """Stub the gate so a `--gate` test runs without Nextflow (as CI's fast lane lacks it).
+
+    The gate is incidental to what these tests assert — publish's re-resolution behaviour and
+    the verdict round trip — so stubbing the tool keeps the real assertion running in CI rather
+    than skipping it. The gates themselves are exercised for real by `-m slow` and `test_gates`.
+    """
+    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
 
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
@@ -174,8 +187,6 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
     artifact non-conformant — the contracts are pinned by digest and the files are already on
     disk. This test asserts the guarantee at its real home.
     """
-    import shutil
-
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
     star = next(layer.rglob("star-align.yml"))
@@ -220,11 +231,12 @@ def test_publish_refuses_a_hand_edited_main_nf(tmp_path, capsys):
 # --- A50: publish certifies the on-disk artifact, without re-resolving ---
 
 
-def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path):
+def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path, monkeypatch):
     """publish shared upgrade's path: it re-resolved against whatever --registry was installed,
     silently swapping the aligner and erasing a human override, then stamped a gate on the
     result — the door with no undo certifying a pipeline nobody read. It must certify what is
     on disk and change nothing else."""
+    _gate_always_passes(monkeypatch)
     root = ROOT
     out = tmp_path / "b"
     assert main(["build", "--goal", str(GOAL), "--registry", str(root / "registry"),
@@ -250,13 +262,14 @@ def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path):
     assert b["decisions"] == a["decisions"], "publish must not touch the recorded decisions"
 
 
-def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path):
+def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, monkeypatch):
     """The legitimate 'I changed my mind and want to publish the result' flow. publish does not
     re-resolve, so the edit is surfaced by emit (MD0213) and the published pipeline is the
     emitted one — nothing hidden."""
     import yaml as _yaml
     from mendel_compiler.cli import main
 
+    _gate_always_passes(monkeypatch)
     root = pathlib.Path(__file__).parent.parent
     goal = root / "examples" / "rnaseq-goal.yml"
     out = tmp_path / "b"
