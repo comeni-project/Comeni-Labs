@@ -700,3 +700,34 @@ The lesson generalises past this file. **A probe that cannot execute proves noth
 direction** — green does not mean the guard is weak, and red would not have meant it was strong.
 Round three's `MD0216` was a refusal nothing exercised; this is its mirror image, a probe nothing
 could run. Both look like evidence and are not.
+
+### A57 — the egress guard reasoned about annotations, not about the dump
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | the whole file, seven rules | `@computed_field` returning a patient path added to the **real** `PromptRequest` | **FAILED** in three rules at once — the leaf allowlist, the bare-`str` rule and the free-text marker | live |
+| 2026-08-13 | `test_no_payload_replaces_its_own_dump` | `@model_serializer` returning `{"prompt": …, "site": "/mnt/phi/site-4"}` on the real `PromptRequest` | **FAILED** | live |
+| 2026-08-13 | `_serialised_hints` | reverted to returning `model_fields` only | **FAILED** — the computed-field test | live |
+
+Round four ran both probes against the unmodified tree and got **15 passed** for each. The dump
+in the first probe is unchanged by the fix — `{"prompt":"count genes","context":"/data/patients/…"}`
+still crosses if you ship it — but it can no longer do so *quietly*, which is the whole claim
+this file makes.
+
+**Two routes, two different shapes, and the asymmetry is the finding's real content.** A computed
+field has a return annotation, so it goes through the same leaf check as a declared one — that is
+`_serialised_hints`, and six rules now ask it. A `@model_serializer` replaces the dump wholesale
+and leaves *no* per-key annotation to check, so nothing can be asserted about its contents and the
+only enforceable rule is that a payload may not define one.
+
+**One rule deliberately kept `model_fields`:** `test_every_ambiguity_field_can_cross_the_door`
+asks whether each ambiguity field has somewhere *to go*, and a computed field is not a
+destination — nothing can be assigned to it. Widening it would have been a mechanical change that
+made the rule quietly wrong, which is worth more than the consistency it would have bought.
+
+### The `FREE_TEXT_FIELDS` comment (round four's uncounted caveat)
+
+Not a probe — a correction. The comment above that set read "Exactly two fields may carry it" over
+a set of **seven**. It had been wrong for three plans, and it is the same drift family as A33 in
+`CLAUDE.md` invariant 14. The number is now deliberately *not* repeated in prose: a count beside a
+literal set is two sources of truth, and only one of them executes.

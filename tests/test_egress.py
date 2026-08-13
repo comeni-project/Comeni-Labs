@@ -13,7 +13,7 @@ from collections import abc
 from _walk import reachable
 from comeni_core import egress
 from comeni_core.marks import Mark
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
 
@@ -21,8 +21,18 @@ _BINARY = (bytes, bytearray, memoryview)
 """No payload may carry a blob. A signature field on a lockfile is the obvious way this
 arrives, and it is still a blob — sign the artifact beside the bundle, not inside it."""
 
-# Free text is the taint source. Exactly two fields may carry it, and both are
-# named here. A third requires editing this line.
+# Free text is the taint source, and **this set is the count** — not any sentence about it.
+#
+# This comment said "exactly two" for three plans while the set below held four, then six,
+# then seven; A33 is the same drift in `CLAUDE.md` invariant 14, and round four found this
+# copy of it. Naming a number in prose beside a literal set creates two sources of truth and
+# only one of them is executable, so the number is deliberately not repeated here. Widening
+# the boundary means adding a line below, which is a diff that says *these are all the ways
+# data leaves*.
+#
+# Every increase so far arrived by a refactor rather than by a new kind of string crossing —
+# A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
+# what a literal list exists to make somebody look at.
 FREE_TEXT_FIELDS = {
     ("PromptRequest", "prompt"),
     ("GateFailure", "tool_message"),
@@ -165,12 +175,33 @@ def _mentions_binary(annotation: object) -> bool:
     return any(_mentions_binary(arg) for arg in typing.get_args(annotation))
 
 
-def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
+def _serialised_hints(model: type[BaseModel]) -> dict[str, object]:
+    """Name → annotation for everything that reaches the JSON, not everything declared.
+
+    A57. `model_fields` is what a payload *declares*; a `@computed_field` lands in
+    `model_computed_fields` and crosses the door all the same. Every rule below asks this
+    instead, because the question a door guard has to answer is what is **serialised** — not
+    what was annotated.
+
+    A `@model_serializer` is the third route and cannot be covered here: it replaces the dump
+    wholesale, so there is no per-key annotation to return. `test_no_payload_replaces_its_own_dump`
+    forbids it outright, which is the only enforceable rule about a shape with nothing to check.
+    """
     hints = typing.get_type_hints(model, include_extras=True)
+    serialised: dict[str, object] = {
+        name: annotation for name, annotation in hints.items() if name in model.model_fields
+    }
+    serialised.update(
+        {name: info.return_type for name, info in model.model_computed_fields.items()}
+    )
+    return serialised
+
+
+def _fields(model: type[BaseModel], marker: object) -> set[tuple[str, str]]:
     return {
         (model.__name__, name)
-        for name, annotation in hints.items()
-        if name in model.model_fields and _mentions(annotation, marker)
+        for name, annotation in _serialised_hints(model).items()
+        if _mentions(annotation, marker)
     }
 
 
@@ -246,10 +277,8 @@ def test_every_payload_field_is_a_declared_shape():
     models = _payload_types()
     offenders: list[str] = []
     for payload in sorted(models, key=lambda m: m.__name__):
-        hints = typing.get_type_hints(payload, include_extras=True)
-        for name, annotation in hints.items():
-            if name in payload.model_fields:
-                offenders += _leaf_problems(annotation, f"{payload.__name__}.{name}", models)
+        for name, annotation in _serialised_hints(payload).items():
+            offenders += _leaf_problems(annotation, f"{payload.__name__}.{name}", models)
     assert offenders == [], "these payload fields are not declared shapes:\n" + "\n".join(offenders)
 
 
@@ -291,8 +320,8 @@ def test_no_payload_carries_an_undeclared_string():
     """
     offenders = []
     for payload in _payload_types():
-        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
-            if name in payload.model_fields and _has_bare_str(annotation):
+        for name, annotation in _serialised_hints(payload).items():
+            if _has_bare_str(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are plain `str`; annotate them as an ID type or as free text: "
@@ -314,8 +343,8 @@ def test_no_payload_carries_a_mapping():
     """
     offenders = []
     for payload in _payload_types():
-        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
-            if name in payload.model_fields and _mentions_mapping(annotation):
+        for name, annotation in _serialised_hints(payload).items():
+            if _mentions_mapping(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are mappings; use a list of declared records instead: "
@@ -332,8 +361,8 @@ def test_no_payload_carries_raw_bytes():
     """
     offenders = []
     for payload in _payload_types():
-        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
-            if name in payload.model_fields and _mentions_binary(annotation):
+        for name, annotation in _serialised_hints(payload).items():
+            if _mentions_binary(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are binary blobs, which no rule in this file can inspect: "
@@ -345,8 +374,8 @@ def test_no_payload_carries_an_untyped_container():
     """A dict[str, Any] would defeat the whole thing, so no payload may declare one."""
     offenders = []
     for payload in _payload_types():
-        for name, annotation in typing.get_type_hints(payload, include_extras=True).items():
-            if name in payload.model_fields and _mentions_any(annotation):
+        for name, annotation in _serialised_hints(payload).items():
+            if _mentions_any(annotation):
                 offenders.append(f"{payload.__name__}.{name}")
     assert offenders == [], (
         "these fields are `Any`, which defeats every other rule here: "
@@ -367,6 +396,10 @@ def test_every_ambiguity_field_can_cross_the_door():
     from comeni_core.decision import Ambiguity, AmbiguityKinds
     from comeni_core.egress import AmbiguityRequest
 
+    # `model_fields`, not `_serialised_hints`, and deliberately: this asks whether each
+    # ambiguity field has somewhere *to go*, and a `@computed_field` is not a destination —
+    # nothing can be assigned to it. A57 widened the rules that ask what crosses a door; this
+    # one asks what can be carried, which is a different question with a different answer.
     crossable = set(AmbiguityRequest.model_fields)
     for asked in AmbiguityKinds:
         for name in asked.model_fields:
@@ -432,8 +465,50 @@ def test_pipeline_holds_no_registry():
     # hit on the same word, which is what makes it worth a comment rather than a quiet fix.
     forbidden = re.compile(r"\b(Registry|ModuleContract|Vocabulary|MeasurementRegistry)\b")
     for model in reachable(Pipeline):
-        for name, annotation in typing.get_type_hints(model, include_extras=True).items():
-            if name not in model.model_fields:
-                continue
+        for name, annotation in _serialised_hints(model).items():
             held = forbidden.search(str(annotation))
             assert held is None, f"{model.__name__}.{name} holds a {held.group()}"
+
+
+def test_a_computed_field_cannot_cross_a_door_unchecked():
+    """A57. `@computed_field` puts a key in the serialised JSON and lands in
+    `model_computed_fields` — which no rule in this file consulted, because every one of them
+    filtered on `model_fields`.
+
+    The leaf allowlist was inverted from a blocklist precisely so that a shape nobody named
+    could not be silence (A19, A20, A30). It was still a blocklist with respect to *where a
+    value comes from*: the audit put a patient path into `PromptRequest`'s JSON this way with
+    the whole file reporting 15 passed.
+    """
+
+    class Sneaky(egress.PromptRequest):
+        @computed_field
+        @property
+        def context(self) -> str:
+            return "/data/patients/PT-4471023/notes: BRCA1 c.68_69del"
+
+    models = _payload_types() | {Sneaky}
+    offenders = [
+        problem
+        for name, annotation in _serialised_hints(Sneaky).items()
+        for problem in _leaf_problems(annotation, f"Sneaky.{name}", models)
+    ]
+    assert offenders, "a computed bare `str` crossed the door with no Mark and no complaint"
+
+
+def test_no_payload_replaces_its_own_dump():
+    """A57, the other half — and a different shape, which is the finding's real content.
+
+    A `@computed_field` has a return annotation, so it can go through the leaf check above.
+    A `@model_serializer` replaces the dump wholesale: there is no per-key annotation left to
+    check, and the audit returned `{"site": "/mnt/phi/…", "notes": "BRCA1 c.68_69del"}` from
+    one with 15 passed. Nothing can be checked about it, so the only enforceable rule is that
+    a payload may not define one.
+    """
+    for payload in sorted(_payload_types(), key=lambda m: m.__name__):
+        declared = dict(payload.__pydantic_decorators__.model_serializers)
+        assert not declared, (
+            f"{payload.__name__} defines @model_serializer {sorted(declared)} — the dump no "
+            "longer corresponds to the fields this file checks, so nothing here can see what "
+            "crosses the door"
+        )
