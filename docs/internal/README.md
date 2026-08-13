@@ -37,7 +37,7 @@ the order.
 | 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
 | 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **complete, and the last audit-driven plan** (decided 2026-08-13). Closed A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues |
 | 13 | `../audits/2026-08-14-design-audit-brief.md` | **The design audit — next.** Not like rounds one to four: does the *design* deliver the claim, rather than does the code match the design. Brief written; not yet run |
-| 14 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — after it. Predates the types it references; rewrite before executing |
+| 14 | `2026-08-02-mendel-ai-and-forge.md` + `2026-08-13-plan-2-corrections.md` | Plan 2 — after it. **The corrections are the rewrite** the line below demanded: six verified against the Plan 1.12 tree, and two things expected stale that are not. Read them first |
 | 15 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
@@ -81,7 +81,10 @@ exactly why round two exists, and why Plan 1.8 Task 12 sets it up rather than de
 Not "an empty audit" — no audit in this repository has ever come back empty, and important and
 minor findings are filed and carried rather than blocking Plan 2 indefinitely.
 
-**Known overlap, not yet resolved:** Plan 1.7 Task 5 builds `replay.py` in `mendel-resolver`
+**Known overlap — resolved 2026-08-13 in favour of absorption**, see
+`plans/2026-08-13-plan-2-corrections.md` §2: Plan 1.7 ran first, so Task 4 keeps only the
+*persistence* half and feeds the shipped `ReplayResolver`. Original statement of the collision:
+Plan 1.7 Task 5 builds `replay.py` in `mendel-resolver`
 and Plan 2 Task 4 builds `ReplayingResolver` in `mendel-ai`. They are not the same — one
 replays recorded decisions when a curated bundle is edited, the other caches model answers
 across runs — but they are close enough that building both without noticing gives two ways to
