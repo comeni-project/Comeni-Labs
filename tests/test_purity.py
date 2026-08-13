@@ -77,6 +77,45 @@ CODE_EXECUTORS = ("exec", "eval", "compile")
 # module nobody imported.
 DOTTED_ALLOWED = frozenset({"collections.abc", "os.path", "importlib.metadata"})
 
+# A58. An allowlist over module *names* says nothing about what a listed module can do.
+# PyYAML's non-safe loaders are arbitrary code execution — `!!python/object/apply:`
+# instantiates any importable callable — and `yaml.unsafe_load` is a single-link attribute on
+# an allowlisted module, so nothing above fires: the rule below it triggers only when the
+# attribute is itself a module name, and `unsafe_load` is not one.
+#
+# This closes `yaml`'s surface. It does not close pydantic's, and this file does not claim to:
+# cost-raising, not a proof, exactly as invariant 1 says. The general rule is that a closed
+# allowlist holds only if each allowlisted module's own surface is also closed.
+BANNED_ATTRIBUTES = {
+    "yaml": frozenset(
+        {
+            "load", "unsafe_load", "full_load", "load_all", "unsafe_load_all", "full_load_all",
+            "Loader", "UnsafeLoader", "FullLoader",
+        }
+    ),
+}
+
+# The single place a loader may be named. Every other file in the pure packages reads YAML
+# through it — `mendel-compiler` included, which only ever calls `yaml.safe_dump` — which is
+# what makes the ban above cost nothing. A path, not a module name: an exemption that matched
+# a *spelling* would be A60's shape.
+ATTRIBUTE_EXEMPT_PATH = "packages/comeni-core/src/comeni_core/yaml_strict.py"
+
+
+def _bound_modules(tree: ast.AST) -> dict[str, str]:
+    """Local name → the module it was bound from. `import yaml as y` gives `{"y": "yaml"}`.
+
+    A58 needs the module behind a name, not the set of names: a rule keyed on the spelling
+    `yaml.` would be defeated by an alias, which is exactly A60's shape one rule over.
+    """
+    bound: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                bound[alias.asname or root] = root
+    return bound
+
 
 def _imported_names(tree: ast.AST) -> set[str]:
     """Every name bound to a module by an `import` in this file."""
@@ -95,12 +134,30 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
     tree = ast.parse(path.read_text())
     where = path.relative_to(root)
     bound = _imported_names(tree)
+    modules = _bound_modules(tree)
+    exempt = str(where) == ATTRIBUTE_EXEMPT_PATH
     found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
             names = [node.module]
+            # A58, third route. `from yaml import unsafe_load` binds the loader as a bare
+            # name, so the attribute rule below never sees an attribute to check.
+            #
+            # No exemption on this route, deliberately. `yaml_strict.py` spells its loader as
+            # `yaml.load(..., Loader=...)` — the attribute form — so an `if not exempt` here
+            # would be a branch no file takes, and an inert guard is what A14 is about. If
+            # that file is ever refactored to a bare-name import, the right answer is to keep
+            # the attribute form rather than to widen this.
+            banned = BANNED_ATTRIBUTES.get(node.module.split(".")[0], frozenset())
+            found += [
+                f"{where} imports `{node.module}.{alias.name}` — an allowlisted module's "
+                "unsafe surface. Read YAML through `comeni_core.yaml_strict`, the one file "
+                "that may name a loader"
+                for alias in node.names
+                if alias.name in banned
+            ]
         elif isinstance(node, ast.Call):
             called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
             if called in DYNAMIC_IMPORTERS:
@@ -129,6 +186,18 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
                 found.append(
                     f"{where} reaches `{dotted}` — that is the `{node.attr}` module as an "
                     "attribute of an imported one, which no import statement declares"
+                )
+            # A58. Resolved through `modules` rather than matched on the spelling `yaml.`,
+            # so `import yaml as y` is caught by the same rule — A60 is what a
+            # spelling-matched check looks like when it fails.
+            if node.attr in BANNED_ATTRIBUTES.get(
+                modules.get(node.value.id, ""), frozenset()
+            ) and not exempt:
+                found.append(
+                    f"{where} reaches `{dotted}` — an allowlisted module's unsafe surface. "
+                    "PyYAML's non-safe loaders instantiate any importable callable. Read "
+                    "YAML through `comeni_core.yaml_strict`, the one file that may name a "
+                    "loader"
                 )
             continue
         else:
@@ -169,3 +238,48 @@ def test_pure_packages_import_nothing_impure():
     assert violations == [], "Pure packages must not import I/O or model libraries:\n" + "\n".join(
         violations
     )
+
+
+def test_a_pure_package_cannot_name_an_unsafe_yaml_loader(tmp_path):
+    """A58. `yaml` is on the allowlist and `yaml.unsafe_load` is arbitrary code execution:
+    `!!python/object/apply:` instantiates any importable callable.
+
+    It is a single-link attribute on an *allowlisted* module, so no rule above sees it — the
+    `ast.Attribute` rule fires only when the attribute is itself a module name, and
+    `unsafe_load` is not one. That is a whole axis the scan did not model, not the documented
+    two-link/`getattr` gap: an allowlist over module names says nothing about what a listed
+    module can do.
+    """
+    probe = tmp_path / "beacon.py"
+    probe.write_text(
+        "import yaml\n"
+        "def go():\n"
+        "    return yaml.unsafe_load("
+        "'!!python/object/apply:os.system\\nargs: [id]\\n')\n"
+    )
+    assert _violations(probe, tmp_path), "yaml.unsafe_load reached os.system with the scan green"
+
+
+def test_an_aliased_yaml_loader_is_caught_too(tmp_path):
+    """A60 is that the dynamic-importer check matches a *spelling*. This rule must not have
+    the same shape, so it resolves the local name to the module it was bound from."""
+    probe = tmp_path / "beacon.py"
+    probe.write_text("import yaml as y\ndef go():\n    return y.unsafe_load('!!python/none')\n")
+    assert _violations(probe, tmp_path), "an aliased loader walked past the check"
+
+
+def test_the_strict_loader_is_the_one_exemption():
+    """`yaml_strict.py` names `yaml.load` and a `Loader=` on purpose — it is the single place
+    a loader may be spelled, and every other file in the pure packages reads through it.
+    That is what makes the ban cost nothing."""
+    root = pathlib.Path(__file__).parent.parent
+    assert _violations(root / ATTRIBUTE_EXEMPT_PATH, root) == []
+
+
+def test_a_loader_imported_as_a_bare_name_is_caught(tmp_path):
+    """A58, third route. `from yaml import unsafe_load` binds the loader as a bare name and
+    calls it with no attribute access anywhere — so the attribute rule has nothing to see.
+    Three spellings, one capability; the check has to be on the capability."""
+    probe = tmp_path / "beacon.py"
+    probe.write_text("from yaml import unsafe_load\ndef go():\n    return unsafe_load('x')\n")
+    assert _violations(probe, tmp_path), "a bare-name loader import walked past the check"

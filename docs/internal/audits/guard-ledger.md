@@ -631,3 +631,36 @@ re-applied. Revert a probe by replacing the string you inserted, or commit the f
 
 This is the same family as Plan 1.11's wrong-worktree near-miss: the verification command ran
 happily against a tree that did not contain the work.
+
+### A58 — `yaml.unsafe_load` on the purity allowlist
+
+Three spellings reach the same capability, so there are three probes. The check resolves the
+*module* behind a local name rather than matching the text `yaml.`, because a spelling-matched
+check is what A60 is.
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `..._cannot_name_an_unsafe_yaml_loader` | `"unsafe_load"` dropped from `BANNED_ATTRIBUTES["yaml"]` | **FAILED** — 3 of 3 loader tests | live |
+| 2026-08-13 | `..._an_aliased_yaml_loader_is_caught_too` | `modules.get(node.value.id, "")` → `node.value.id`, i.e. match the spelling | **FAILED** — `import yaml as y` walked past | live |
+| 2026-08-13 | `..._the_strict_loader_is_the_one_exemption` | `and not exempt` removed from the attribute route | **FAILED** — and `test_pure_packages_import_nothing_impure` failed with it | live |
+| 2026-08-13 | `..._a_loader_imported_as_a_bare_name_is_caught` | (written after the implementation, see below) | **FAILED** before the route existed | live |
+
+The third probe failing the *whole-repo* scan as well is the useful part: it shows the exemption
+is load-bearing rather than decorative, and that `yaml_strict.py` really is the only file naming
+a loader. `mendel-compiler` only ever calls `yaml.safe_dump`, so the ban needed no second
+exemption — a stronger result than the plan assumed.
+
+**One branch was written inert and removed rather than shipped.** The bare-name route
+(`from yaml import unsafe_load`) was first written with an `if not exempt` guard copied from the
+attribute route. Probe C showed that branch is unreachable — `yaml_strict.py` uses the attribute
+form — so it was a condition no file could take. That is precisely `MD0216`'s shape from Plan
+1.10, caught this time by probing rather than after the fact, and the route is now unconditional.
+
+### A method note on probing, learned twice on 2026-08-13
+
+**Restore from a file copy, not by reversing the string edit.** Probe B replaced
+`modules.get(node.value.id, "")` with `node.value.id`; reversing that replaced the *first*
+occurrence of `node.value.id` in the file, which was the unrelated `dotted = …` line, and left
+the scan silently wrong while the suite still ran. `cp` the file aside before probing and `cp` it
+back. This is the second shape of the same lesson as the A55 row's `git checkout` note: the
+verification ran happily against a tree that was not what anyone thought it was.
