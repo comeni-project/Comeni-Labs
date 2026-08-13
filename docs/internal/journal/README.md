@@ -48,6 +48,7 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
+| [2026-08-13 evening](2026-08-13-evening.md) | Everything merged; the rule-drafter spec, rule-format limits (#38/#39) and Plan 2's corrections. **Design audit stream 2 died mid-run — artifacts survive, findings do not** |
 | [2026-08-13](2026-08-13.md) | Plan 1.12 — round four's criticals closed (A55–A59, A70); thirteen findings carried as issues. **The last audit-driven plan; Plan 2 is next** |
 | [2026-08-11](2026-08-11.md) | Round four — A55–A75, four critical; A55 is code execution through a shareable `pipeline.yml`. **A14 did not close** |
 | [2026-08-10 evening](2026-08-10-evening.md) | Plan 1.11 — A38–A54 closed, each with a watched ledger row; A14 stays open |
