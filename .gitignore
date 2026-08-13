@@ -31,3 +31,7 @@ frontend/dist/
 
 # local IDE files
 .vscode
+# Harness-created agent worktrees. `.worktrees/` (the project convention) is already
+# ignored above; this is the path `EnterWorktree` and background agents use, and a
+# `git add -A` will otherwise commit them as embedded-repo gitlinks.
+.claude/worktrees/
