@@ -431,6 +431,8 @@ conversation is a loose end lost.
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
 | 18 | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | nothing — sized at ~3 dev-days by round four. Count it with `grep`, never from prose (A73) |
+| 38 | the measurement vocabulary has no author, and it gates every tier-3 rule | nothing — derive it from twenty hand-authored rules rather than designing it abstractly |
+| 39 | the tier-3 rule format cannot express the rules the forge will need — literal-only `then`, `when` sees only measurements, completeness over alternatives | nothing. **Read `docs/design/rule-tables-and-port-logic.md` §13 before touching the format.** Hand-author twenty real rules first; they are the specification |
 | 24–36 | round four's thirteen carried findings, A60–A69 and A73–A75 | nothing — deliberately carried past Plan 1.12. **#26 (A62)** and **#32 (A68)** are the two to read before Plan 2 touches the same code |
 
 ## Commands

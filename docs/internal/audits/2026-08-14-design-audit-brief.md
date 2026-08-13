@@ -154,15 +154,31 @@ Take the product claim literally and try to break it with ordinary use, not with
 
 The design was approved before Plan 2 and v2 existed as code. This stream asks what breaks.
 
+**Do this first, before anything else in this stream.** It is the highest-value single thing this
+audit can do, and it is a shape-(ii) finding — *the claim cannot be stated*.
+
+> **Take twenty real, abstract tier-3 rules from the literature. Try to write each one in the
+> current rule format. Report what breaks.**
+
+The format was designed against a registry holding **one** rule, and the domain is understood to
+hold thousands. `docs/design/rule-tables-and-port-logic.md` §13 records three limits reasoned from
+that single example — a literal-only `then`, a `when` that sees only measurements, and the
+completeness problem over alternatives — plus the recommended repairs and their costs. **§13 is an
+argument. Twenty rules would make it evidence**, and the ones that cannot be written are the
+specification for the reform. Confirming, refuting or extending §13 against real rules is worth
+more than any other finding in this stream. Issues [#38](https://github.com/comeni-project/Comeni-Labs/issues/38)
+and [#39](https://github.com/comeni-project/Comeni-Labs/issues/39) hold the current state of it.
+
 - **Plan 2 opens three of the four doors.** Read `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md`
   (stale, and says so) against the types that now exist. Does the `AmbiguityResolver` port
   actually take a model? A56 just established that `Resolution.source` is a claim a resolver
   cannot be trusted to make — **what else in that protocol is trust-shaped?**
 - **v2 breadth is alternative aligners** — which means routing ties become the common case rather
-  than the exception. Invariant 8 says a tie demotes to tier 4; issue #1 says ties should ask a
-  human and scoring should vary by purpose, and it is **undecided**. Is the router's
-  `(surplus, -priority, id)` ranking a design that scales to a real decision tree, or one that
-  works because the spine has ten modules and no genuine alternatives?
+  than the exception. §13.4 argues this is issue #1 and the `when`-expressiveness question wearing
+  one hat: `priority` is a purpose-independent scalar, so ranking alternatives silently prefers
+  one, leaving them equal ties everything into tier 4, and only a complete `producer_of` rule is
+  honest. **Attack that argument.** Is there a fourth state it missed? Is the "adding a contract
+  can make the pipeline worse" consequence real — can you demonstrate it by adding one?
 - **The registry is empty of everything except the spine.** Every contract in it is "a test
   fixture that happens to be true" (`CLAUDE.md`). The forge is supposed to fill it. Does anything
   in the design assume a small registry — routing cost, tie behaviour, digest scope, load time?
