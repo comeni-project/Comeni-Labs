@@ -15,10 +15,14 @@ The product claim, which every design decision serves:
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
 
-**Plans 1, the measurements plan, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10 and 1.11 are complete.** A17–A35
-and round three's A38–A54 are closed; **A14 and A36 remain**, and **round four is next** — the
-loop exits on *no critical finding surviving*, not on an empty audit, so 1.11's surface is owed a
-pass. 591 fast tests green, `ruff check` clean, and `--gate test` runs the
+**Plans 1, the measurements plan, and 1.5 through 1.12 are complete.** A17–A35, round three's
+A38–A54 and round four's criticals (A55, A57, A58, A59) plus A56 and A70 are closed; **A14 and
+A36 remain**, along with fifteen carried round-four findings filed as issues. 1.12 was the last
+*audit-driven* plan, decided 2026-08-13. **What is next is the design audit** — a different
+question from rounds one to four: not "does the code match the design" but "does the design
+deliver the claim", after eleven plans built on a design approved on day one. See
+`docs/internal/audits/2026-08-14-design-audit-brief.md`. **Then Plan 2.** 608 fast tests green,
+`ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
 mapping quality the contract routed. `uv run pytest -m slow` is what proves that; `make check`
@@ -57,16 +61,27 @@ The 2026-08-03 audit's defects (C1–C4) are all closed, as are the 2026-08-06 a
 and A15, and **round two's A16–A35** (Plan 1.9). **A14 is still open, and A36 and A37 are
 new.**
 
-**A14 is critical and open on purpose**, so the fix-then-re-audit loop has *not* exited: its
-criterion is that no critical finding survives. A14 is that a guard never watched failing may be
+**A14 is critical and open, and stays open.** It is that a guard never watched failing may be
 inert rather than merely weak, and it closes only when every guard in `tests/` has a recorded
-revert. **`docs/internal/audits/guard-ledger.md` is that record** — 40-odd rows now, and it
-names the eleven files that still have none. Plan 1.9 found three more inert guards while
+revert. **`docs/internal/audits/guard-ledger.md` is that record.**
+
+**Its residue is measured per *guard*, not per file** — that is A69, and the distinction matters
+because the file-level number reads as nearly done and is not. Every test *file* now has at least
+one recorded revert (`test_pipeline_totality.py`, the last, gained rows in round four), while
+roughly a fifth of the individual guards do. **No count is repeated in this file**: two numbers
+here were stale for three plans because nothing counts them (A71, A72), and the ledger is the
+thing that can be counted. Plan 1.9 found three more inert guards while
 closing round two, two of them in code written that same day: `stack()`'s
 `origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
 `producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
 
-**Round three is closed — its A38–A54 were Plan 1.11 (complete).** **Round four is next**, by the
+**Round four ran (A55–A75) and Plan 1.12 closed its four criticals plus the two Plan-2 blockers —
+A55, A56, A57, A58, A59 and A70.** The other fifteen findings are filed as issues and carried
+deliberately. **By the operator's decision on 2026-08-13, 1.12 is the last audit-driven plan and
+the design audit and then Plan 2 follow**, which overrides the loop's own exit criterion — see
+`docs/internal/README.md` for that decision and the argument against it. The design audit is not
+part of that loop and does not reopen it: it asks whether the design delivers the product claim,
+and its findings shape Plan 2 rather than becoming a Plan 1.13. Earlier rounds used the
 same revert-and-watch + cold-reviewer method in
 `docs/internal/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
 finding surviving a fresh audit. Read `docs/internal/journal/2026-08-10-evening.md` for what 1.11
@@ -85,7 +100,8 @@ shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **ten specs. Nine are one per audit root; the tenth is a design spec. Read the part's spec before starting it.** |
+| `docs/internal/specs/` | **eleven specs. Nine per audit root, plus two design specs — the pipeline file, and the rule drafter. Read the part's spec before starting it.** |
+| `docs/internal/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
 | `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
 | `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
 | `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
@@ -117,10 +133,14 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5–1.11 are complete; **round four is next**, then Plan 2, then Plan 3.
-  An audit round comes before the next plan because A14 is critical and open, and the loop's exit
-  criterion is that no critical finding survives. That file now also says *why* that order, including the
-  argument against it — the sequence was asserted and believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
+  a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
+  That audit asks a question the four guard rounds never did — whether the design itself
+  delivers the claim — and `docs/internal/audits/2026-08-14-design-audit-brief.md` is its
+  method, because "revert and watch" cannot be run against a design. Round four ran and
+  Plan 1.12 closed its criticals; by the operator's decision on 2026-08-13 no further audit round
+  gates Plan 2, which overrides the loop's *no critical finding surviving* exit criterion. That
+  file records the decision and the argument against it, as it does for every ordering here —
+  the sequence was once asserted and believed for a day before anyone asked. **Plan 1.7 was called "Plan 2.5" until 2026-08-05**;
   the number recorded when it was written, not when it runs, and journal entries up to that
   date still use the old name.
 
@@ -411,7 +431,10 @@ conversation is a loose end lost.
 | ~~10~~ | ~~answering a tier-4 parameter clears the flag without changing the pipeline~~ | **done** — Plan 1.10. `via:` carries the value to the tool, and an override keeps its tier while leaving `needs_review()` |
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
-| 18 | the error surface is half-declared — 91 raise sites, 56 bare `ValueError`; `MD0300`–`MD0399` reserved | the next audit round; deferred out of Plan 1.10 |
+| 18 | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | nothing — sized at ~3 dev-days by round four. Count it with `grep`, never from prose (A73) |
+| 38 | the measurement vocabulary has no author, and it gates every tier-3 rule | nothing — derive it from twenty hand-authored rules rather than designing it abstractly |
+| 39 | the tier-3 rule format cannot express the rules the forge will need — literal-only `then`, `when` sees only measurements, completeness over alternatives | nothing. **Read `docs/design/rule-tables-and-port-logic.md` §13 before touching the format.** Hand-author twenty real rules first; they are the specification |
+| 24–36 | round four's thirteen carried findings, A60–A69 and A73–A75 | nothing — deliberately carried past Plan 1.12. **#26 (A62)** and **#32 (A68)** are the two to read before Plan 2 touches the same code |
 
 ## Commands
 
@@ -445,8 +468,8 @@ uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
-# why anything was refused, at length. 30 codes: MD0100–MD0108 conformance,
-# MD0200–MD0220 the pipeline file. The table in docs/reference/cli.md is generated
+# why anything was refused, at length. MD0100–MD0108 conformance, MD0200–MD0222 the
+# pipeline file — the generated table is the count. The table in docs/reference/cli.md is generated
 # from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
 uv run mendel explain MD0104
 

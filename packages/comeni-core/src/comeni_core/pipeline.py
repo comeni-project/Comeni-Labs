@@ -46,6 +46,7 @@ from comeni_core.marks import (
     StateName,
     TestDataRef,
     TypeId,
+    substitutable,
 )
 from comeni_core.routes import TEMPLATED, ExtKey, Via
 from comeni_core.tiers import Tier, ValueSource
@@ -115,6 +116,36 @@ class Setting(BaseModel):
     key: ExtKey | None = None
     template: NfTemplate | None = None
     why: Why
+
+    @model_validator(mode="after")
+    def _a_raw_ext_value_cannot_be_groovy(self) -> "Setting":
+        """`MD0221`. A55: a value on the untemplated `ext` route is appended raw, and
+        `_ext_scope` turns any fragment mentioning `${` into a Groovy **closure** that
+        Nextflow evaluates once per task — on the host, outside any container.
+
+        The templated route has always been checked (`MD0201`); this is the same class on the
+        branch that had none. It is at *load* on purpose. `pipeline.yml` is shareable and
+        publishable, `settings[].value` is the field its own header tells a human to edit, and
+        `key: prefix` takes no template by design (`MD0204`) — so the dangerous shape is also
+        the ordinary one, and the refusal has to happen before `emit` reads the file.
+
+        `value: None` is skipped: an unanswered tier-4 setting contributes no fragment at all.
+        Invariant 6 says tier 4 is *flagged*, not fatal, and refusing absence here would stop
+        the shipped spine from loading.
+        """
+        if (
+            self.via is Via.EXT
+            and self.template is None
+            and self.value is not None
+            and not substitutable(self.value)
+        ):
+            raise ValueError(
+                f"MD0221: {self.name} routes {self.value!r} to `ext.{self.key}` with no "
+                "template, so it is written into Nextflow config verbatim. Use letters, "
+                "digits and _ . : + - only, or a number, or true/false — "
+                "`mendel explain MD0221`."
+            )
+        return self
 
 
 class MetaEntry(BaseModel):

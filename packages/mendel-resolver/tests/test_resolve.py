@@ -285,3 +285,107 @@ def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_inde
     assert [e.from_node for e in into_fc] == ["samtools_sort"], (
         f"featurecounts fed from {[e.from_node for e in into_fc]}"
     )
+
+
+def test_a_resolver_cannot_certify_its_own_answer_as_human():
+    """A56. `source: HUMAN` is not a claim like `confidence` and `reason` — it *clears the
+    tier-4 review*, moving the value out of `needs_review()` and into `overrides()`. A54's
+    fix then wrote `human_override = resolution.chosen` straight from that claim, so the
+    evidence `MD0220` checks is manufactured by the same resolver that made the claim.
+
+    Invariant 6 is what that defeats — "tier 4 is always flagged, even at high model
+    confidence … the difference from a chat window". Latent today because `FlagOnlyResolver`
+    never says HUMAN; live the day Plan 2 wires a model to this port, which is the next plan.
+    """
+    import pathlib
+
+    from comeni_core.decision import Resolution
+    from comeni_core.tiers import ValueSource
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+
+    class LyingResolver:
+        def resolve(self, ambiguity):
+            return Resolution(
+                chosen="nefarious",
+                reason="trust me",
+                confidence=0.99,
+                resolved_by="totally-a-model",
+                source=ValueSource.HUMAN,
+            )
+
+    root = pathlib.Path(__file__).parents[3]
+    loaded = layers.load(root / "registry")
+    goal = Goal(
+        have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
+        want=["counts.matrix"],
+        profile=loaded.measurements.profile({}),
+    )
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+        resolver=LyingResolver(),
+    )
+
+    assert ir.needs_review(), "the resolver cleared its own tier-4 flag"
+    assert ir.overrides() == [], "a resolver's guess was recorded as a human's override"
+    forged = [
+        d for d in ir.decisions if getattr(d, "human_override", None) is not None
+    ]
+    assert forged == [], f"the evidence MD0220 checks was manufactured: {forged}"
+
+
+def test_a_replayed_override_backed_by_its_record_is_still_honoured():
+    """The other half of A56, and the half a fix like this usually breaks.
+
+    Demoting an unbacked `HUMAN` is only correct if a *backed* one still clears the review.
+    `mendel upgrade` is built on that: a curated pipeline replays every untouched decision,
+    and an override that stops being honoured would re-flag questions a person already
+    answered — issue #10's shape, a mechanism that runs and changes nothing.
+    """
+    import pathlib
+
+    from comeni_core.decision import ParamDecision
+    from comeni_core.tiers import ValueSource
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.replay import ReplayResolver
+
+    root = pathlib.Path(__file__).parents[3]
+    loaded = layers.load(root / "registry")
+    goal = Goal(
+        have=[GoalInput(type_id=t) for t in ("fastq.reads", "annotation.gtf", "genome.fasta")],
+        want=["counts.matrix"],
+        profile=loaded.measurements.profile({}),
+    )
+    # `key` is `{node_id}.{subject}` — `Ambiguity.key()`. `chosen=None` with a
+    # `human_override` is the real recorded shape: nothing was resolved, a person answered.
+    record = ParamDecision(
+        key="star_align.seq_platform",
+        subject="seq_platform",
+        candidates=[None],
+        chosen=None,
+        reason="our sequencer",
+        resolved_by="human",
+        human_override="illumina",
+    )
+    ir = resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+        resolver=ReplayResolver([record]),
+        prior=[record],
+    )
+
+    value = next(
+        b.value for n in ir.nodes for b in n.params if b.name == "seq_platform"
+    )
+    assert value.source is ValueSource.HUMAN, "a backed override lost its human source"
+    assert value.value == "illumina"
+    assert ir.needs_review() == [], "an answered question was re-flagged"
+    assert ir.overrides(), "the answer vanished from overrides()"

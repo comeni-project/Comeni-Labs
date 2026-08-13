@@ -198,6 +198,10 @@ def _build(argv: list[str] | None = None) -> int:
 
     previous: Pipeline | None = None
     resolver = None
+    # A56. The evidence behind a replayed `source: HUMAN`, passed to `resolve()` separately
+    # from the resolver that will claim it. A resolver cannot both assert that a person
+    # answered and supply the proof; these records come from the file on disk.
+    prior: list = []
     if args.command == "upgrade":
         # `upgrade` takes its goal from the file rather than from a `--goal` argument:
         # re-resolving a *different* goal and calling the result an upgrade is how "only what
@@ -215,7 +219,8 @@ def _build(argv: list[str] | None = None) -> int:
         goal = previous.goal
         # A46: replay the answer `settings[].value` carries, not only `decisions[].human_override`
         # — the two are one answer and `emit` reads the former, so `upgrade` must honour it too.
-        resolver = ReplayResolver(previous.replayable_decisions())
+        prior = list(previous.replayable_decisions())
+        resolver = ReplayResolver(prior)
         if args.out is not None and args.out.resolve() == source.parent.resolve():
             # Never in place. With one artifact the natural implementation updates
             # `pipeline.yml` where it sits, and that destroys the only record of what you
@@ -263,6 +268,7 @@ def _build(argv: list[str] | None = None) -> int:
         vocabulary=vocab,
         resolver=resolver,
         layer_names=[layer_name(p) for p in loaded.paths],
+        prior=prior,
     )
     ir.unverified = unverified
 
@@ -502,6 +508,36 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
     being read makes both of those statements about nothing.
     """
     directory = source.parent
+    if previous.emitted is None and verb == "publish":
+        # A70. `hand_edited` and `is_stale` both return "nothing to compare" here, and that is
+        # right — there is genuinely no evidence. What is wrong is a *certifying* verb reading
+        # no-evidence as no-problem: publish would gate whatever `main.nf` is on disk and stamp
+        # the verdict onto an artifact that then permanently records having emitted that file.
+        # Round four certified an unrelated workflow this way, at exit 0.
+        #
+        # A pipeline with no `emitted:` block is a supported state — archived, or hand-authored
+        # — so this is not a defect in the file. It is a statement that this directory cannot
+        # be certified until something ties the two together.
+        #
+        # **`publish` only, and the other two verbs are deliberate.**
+        #
+        # `emit` is the *cure*: it regenerates the files from this `pipeline.yml` and stamps
+        # `emitted:`, after which MD0213 and MD0214 are meaningful again. Refusing there would
+        # leave an archived pipeline with no way forward at all.
+        #
+        # `upgrade` already answers this honestly — it prints "predates the emitted-artifact
+        # record" rather than claiming byte-identity, which is the same no-evidence-is-not-a-
+        # clean-bill distinction this refusal makes. The difference is what the verb *does*
+        # with the answer: upgrade produces a report a person reads, and publish stamps a
+        # verdict onto the artifact itself. Only one of those is a claim about files nobody
+        # checked, and only one has no undo.
+        print(
+            f"mendel: MD0222: {source} records no `emitted:` block, so nothing ties the files "
+            f"in {directory} to it and `{verb}` cannot certify them. Run `mendel emit "
+            f"{source} --out {directory}` first — `mendel explain MD0222`.",
+            file=sys.stderr,
+        )
+        return 2
     edited = pipeline_file.hand_edited(directory, previous)
     if edited:
         print(

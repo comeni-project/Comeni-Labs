@@ -1,5 +1,6 @@
 import pathlib
 
+import pytest
 from comeni_core.goal import Goal
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.pipeline import Pipeline
@@ -280,3 +281,57 @@ def test_every_via_member_emits_or_is_refused():
         f"emit.py handles {emitted}; Via also has {set(Via) - emitted}, which would record a "
         "value that reaches no tool. Wire it into emit.py or refuse it at load."
     )
+
+
+def _step_carrying(setting):
+    """A real step from the fixture, carrying one setting instead of its own.
+
+    `model_construct` on the *step* too: `Step`'s own validators are not what is under test,
+    and building one field-by-field here would drift from the real shape the moment `Step`
+    gains a field.
+    """
+    step = next(s for s in _pipeline().steps if s.process == "STAR_ALIGN")
+    return step.model_construct(**{**dict(step), "settings": [setting], "ext_args": None})
+
+
+def test_the_closure_branch_is_unreachable_from_a_raw_value():
+    """A55, second layer. `model_construct` skips validators — that is A62, still open — so
+    the emitter must not depend on `Setting`'s MD0221 having run. A raw value mentioning
+    `${` is refused here too, at the branch that would otherwise make it a closure.
+    """
+    from comeni_core.pipeline import Setting, Why
+    from comeni_core.routes import ExtKey, Via
+    from comeni_core.tiers import ValueSource
+    from mendel_compiler.emit import _ext_scope
+
+    smuggled = Setting.model_construct(
+        name="seq_platform",
+        value="${['sh','-c','id'].execute().text}",
+        via=Via.EXT,
+        key=ExtKey.PREFIX,
+        template=None,
+        why=Why(tier=Tier.AMBIGUOUS, source=ValueSource.HUMAN, reason="a round-four probe"),
+    )
+    with pytest.raises(ValueError, match="MD0221"):
+        _ext_scope(_step_carrying(smuggled))
+
+
+def test_a_templated_fragment_still_emits_a_closure():
+    """Regression guard on the fix. STAR's read-group line is
+    `--outSAMattrRGline 'ID:${meta.id}' …` — a closure is *correct* there, and it arrives
+    through a validated template rather than through a raw value.
+    """
+    from comeni_core.pipeline import Setting, Why
+    from comeni_core.routes import ExtKey, Via
+    from comeni_core.tiers import ValueSource
+    from mendel_compiler.emit import _ext_scope
+
+    templated = Setting(
+        name="seq_platform",
+        value="illumina",
+        via=Via.EXT,
+        key=ExtKey.ARGS,
+        template="--outSAMattrRGline 'ID:${meta.id}' 'PL:{value}'",
+        why=Why(tier=Tier.AMBIGUOUS, source=ValueSource.HUMAN, reason="a round-four probe"),
+    )
+    assert 'ext.args = { "' in "\n".join(_ext_scope(_step_carrying(templated)))

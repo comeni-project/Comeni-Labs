@@ -1,5 +1,12 @@
 # Mendel — AI Adapters and Forge Implementation Plan
 
+> **CORRECTED 2026-08-13 — read [`2026-08-13-plan-2-corrections.md`](2026-08-13-plan-2-corrections.md) first.**
+> This plan predates most of the types it references. Six corrections are verified against the
+> tree at Plan 1.12; where they disagree with anything below, the corrections win. Two things
+> expected to be stale are **not** — the `AmbiguityResolver` port is unchanged, and the
+> `pipeline.yml` rename barely touched this plan.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this
 > plan task-by-task, sequentially, driving it yourself. Steps use checkbox (`- [ ]`) syntax for
 > tracking. Do **not** farm the tasks out with subagent-driven-development — subagents are for

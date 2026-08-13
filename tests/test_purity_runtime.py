@@ -109,18 +109,29 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
 
     sys.addaudithook(hook)
 
-    loaded = layers.load(ROOT / "registry")
-    goal = Goal.model_validate(yaml.safe_load((ROOT / "examples/rnaseq-goal.yml").read_text()))
-
+    # A59: armed **before** the loading stage, not after. `layers.load` and `yaml_strict`
+    # parse stranger-authored registry YAML — the one stage in this build that reads a file
+    # somebody else wrote — and they ran outside the watched region until round four opened
+    # a real socket inside `layers.load` and this test still reported `2 passed`. Composed
+    # with A58 that was a network call the union of both purity guards could not see.
+    #
+    # The imports above stay above the arm line for the reason the docstring gives: a hook
+    # cannot be uninstalled, and importing under it would attribute the standard library's
+    # own start-up to us. Importing a module and *calling* it are different moments, and
+    # only the second one was ever the point.
     state["armed"] = True
     try:
+        loaded = layers.load(ROOT / "registry")
+        goal = Goal.model_validate(
+            yaml.safe_load((ROOT / "examples/rnaseq-goal.yml").read_text())
+        )
         ir = resolve(
-        goal,
-        loaded.registry,
-        loaded.rules,
-        loaded.measurements,
-        vocabulary=loaded.vocabulary,
-    )
+            goal,
+            loaded.registry,
+            loaded.rules,
+            loaded.measurements,
+            vocabulary=loaded.vocabulary,
+        )
         emit(_pipe(ir, loaded))
     finally:
         state["armed"] = False
@@ -144,3 +155,69 @@ def _pipe(ir, loaded):
     from comeni_core.pipeline import Pipeline
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
+
+
+COVERAGE_EVENTS = frozenset({"open"})
+"""What the watched region is measured *with*, as opposed to what it is watched *for*.
+
+`import` cannot serve: every module is imported above the arm line on purpose, so no import
+event fires inside the region at all. `open` is the right signal for the opposite reason —
+the stage A59 found unwatched is precisely the stage that reads files somebody else wrote.
+"""
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
+    """A59. The hook armed *after* `layers.load`, so every module that parses declared
+    registry data ran unwatched — and a real socket opened inside `layers.load` was invisible.
+
+    Moving the arm line fixes that once; this is what stops it moving back. It asserts the
+    *coverage* rather than the absence, so a future edit that narrows the region — a fixture
+    hoisted above the arm for convenience, say — fails here instead of going quiet. A69 is
+    the same lesson at a different scale: measure the thing, not a proxy for it.
+    """
+    from comeni_core.goal import Goal
+    from mendel_compiler.emit import emit
+    from mendel_resolver import layers
+    from mendel_resolver.resolve import resolve
+
+    covered: set[str] = set()
+    state = {"armed": False}
+
+    def hook(event: str, args: object) -> None:
+        if state["armed"] and event in COVERAGE_EVENTS:
+            covered.update(_offending_frames())
+
+    sys.addaudithook(hook)
+
+    state["armed"] = True
+    try:
+        loaded = layers.load(ROOT / "registry")
+        goal = Goal.model_validate(
+            yaml.safe_load((ROOT / "examples/rnaseq-goal.yml").read_text())
+        )
+        emit(
+            _pipe(
+                resolve(
+                    goal,
+                    loaded.registry,
+                    loaded.rules,
+                    loaded.measurements,
+                    vocabulary=loaded.vocabulary,
+                ),
+                loaded,
+            )
+        )
+    finally:
+        state["armed"] = False
+
+    for required in (
+        "comeni_core/layered.py",
+        "comeni_core/yaml_strict.py",
+        "mendel_resolver/layers.py",
+    ):
+        assert any(name.endswith(required) for name in covered), (
+            f"{required} did not execute under the armed hook — the watched region has "
+            f"narrowed, and the stage that reads stranger-authored files is what it "
+            f"dropped. Covered: {sorted(covered)}"
+        )

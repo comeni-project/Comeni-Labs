@@ -593,3 +593,199 @@ Not a revert of a line — a revert of a *precondition*. `_refuse_a_divergent_di
 `emitted:` block **present**, the same corrupted `main.nf` is refused with `MD0214`
 (`test_publish_refuses_a_hand_edited_main_nf`) — so the guard's efficacy depends entirely on a field
 a hand-authored file legitimately lacks. Publish is the door with no undo.
+
+## Round four fixes (Plan 1.12)
+
+Every guard this plan writes, reverted and watched. `MD0216` shipped inert in Plan 1.10 because
+its refusal was written, `make verify` was green, and nothing covered it — so a fix without a
+watched revert is a fix nobody has evidence for.
+
+### A55 — a resolved value executing as Groovy
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_raw_ext_value_cannot_smuggle_groovy` | `Setting._a_raw_ext_value_cannot_be_groovy`'s `substitutable` clause replaced with `and False` | **FAILED** — `DID NOT RAISE ValidationError` | live |
+| 2026-08-13 | `test_the_closure_branch_is_unreachable_from_a_raw_value` | `_ext_scope`'s `if not substitutable(...)` short-circuited with `if False and …` | **FAILED** — `DID NOT RAISE ValueError` | live |
+| 2026-08-13 | end-to-end, the audit's own attack | nothing — run against the *fixed* tree | `mendel emit` exit **2**, `MD0221`, `/tmp/A55_PROOF` absent | fix confirmed |
+
+Two layers on purpose, and each was watched alone. The load-time validator is what protects a
+shared `pipeline.yml`; the emit-time refusal is what stops the emitter depending on a validator
+having run, which `model_construct` skips — that is **A62**, still open and carried.
+
+The third row is the one that matters most: the audit reproduced A55 by editing `settings[].value`
+to `${['sh','-c','id > …'].execute().text}` on a `key: prefix` setting and running `mendel emit`.
+Re-run against this tree, it is refused before emission and no file is written.
+
+**Two guards that did *not* need reverting, recorded because absence of a probe is not absence of
+a check:** `test_an_ordinary_raw_ext_value_still_loads` and
+`test_an_unanswered_raw_ext_value_still_loads` are over-refusal guards. The second is load-bearing
+— `value: null` is an unanswered tier-4 setting, and an earlier draft of the validator that did not
+skip `None` refused the shipped spine at load. Invariant 6 says tier 4 is flagged, not fatal.
+
+### A method note, learned the expensive way on 2026-08-13
+
+**Do not undo a probe with `git checkout <file>` while the fix is uncommitted.** It restores the
+file to HEAD, which is the *pre-fix* state — the probe and the fix are removed together, and the
+tests then pass for the wrong reason. The A55 validator was wiped exactly this way and had to be
+re-applied. Revert a probe by replacing the string you inserted, or commit the fix before probing.
+
+This is the same family as Plan 1.11's wrong-worktree near-miss: the verification command ran
+happily against a tree that did not contain the work.
+
+### A58 — `yaml.unsafe_load` on the purity allowlist
+
+Three spellings reach the same capability, so there are three probes. The check resolves the
+*module* behind a local name rather than matching the text `yaml.`, because a spelling-matched
+check is what A60 is.
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `..._cannot_name_an_unsafe_yaml_loader` | `"unsafe_load"` dropped from `BANNED_ATTRIBUTES["yaml"]` | **FAILED** — 3 of 3 loader tests | live |
+| 2026-08-13 | `..._an_aliased_yaml_loader_is_caught_too` | `modules.get(node.value.id, "")` → `node.value.id`, i.e. match the spelling | **FAILED** — `import yaml as y` walked past | live |
+| 2026-08-13 | `..._the_strict_loader_is_the_one_exemption` | `and not exempt` removed from the attribute route | **FAILED** — and `test_pure_packages_import_nothing_impure` failed with it | live |
+| 2026-08-13 | `..._a_loader_imported_as_a_bare_name_is_caught` | (written after the implementation, see below) | **FAILED** before the route existed | live |
+
+The third probe failing the *whole-repo* scan as well is the useful part: it shows the exemption
+is load-bearing rather than decorative, and that `yaml_strict.py` really is the only file naming
+a loader. `mendel-compiler` only ever calls `yaml.safe_dump`, so the ban needed no second
+exemption — a stronger result than the plan assumed.
+
+**One branch was written inert and removed rather than shipped.** The bare-name route
+(`from yaml import unsafe_load`) was first written with an `if not exempt` guard copied from the
+attribute route. Probe C showed that branch is unreachable — `yaml_strict.py` uses the attribute
+form — so it was a condition no file could take. That is precisely `MD0216`'s shape from Plan
+1.10, caught this time by probing rather than after the fact, and the route is now unconditional.
+
+### A method note on probing, learned twice on 2026-08-13
+
+**Restore from a file copy, not by reversing the string edit.** Probe B replaced
+`modules.get(node.value.id, "")` with `node.value.id`; reversing that replaced the *first*
+occurrence of `node.value.id` in the file, which was the unrelated `dotted = …` line, and left
+the scan silently wrong while the suite still ran. `cp` the file aside before probing and `cp` it
+back. This is the second shape of the same lesson as the A55 row's `git checkout` note: the
+verification ran happily against a tree that was not what anyone thought it was.
+
+### A59 — the runtime hook did not watch the stage that reads stranger files
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_real_build_opens_no_socket_and_spawns_no_process` | `__import__('socket').socket().close()` inserted before `layers.load`'s `return` — the audit's own probe | **FAILED** — where round four recorded `2 passed` on the identical probe | live |
+| 2026-08-13 | `..._the_watched_region_covers_the_stage_that_reads_stranger_files` | `state["armed"] = True` moved back below `layers.load` | **FAILED** — `layered.py`, `yaml_strict.py` and `layers.py` absent from the covered set | live |
+| 2026-08-13 | composed A58 + A59 | `import yaml` + `yaml.unsafe_load(...)` inside `layers.load` | **FAILED** — caught statically by A58's rule, in the stage A59 now watches | live |
+
+The first row is the finding, reproduced and closed: the same probe that was invisible to round
+four now fails the guard.
+
+**The coverage assertion is the row that matters for A14.** Moving one arm line is two minutes of
+work and silently reversible — the next person who needs a fixture loaded before arming moves it
+back and nothing says so. Asserting *which pure files executed under the hook* is what makes the
+region non-narrowable, and probe 2 is the evidence that assertion is not inert. A69 is the same
+lesson at a different scale: measure the thing, not a proxy for it.
+
+**`import` could not serve as the coverage signal**, which the plan had assumed it would. Every
+module is imported above the arm line on purpose — a hook cannot be uninstalled, so importing
+under it would attribute the standard library's own start-up to us — so no import event fires
+inside the region at all. `open` is the right signal for the opposite reason: the stage A59 found
+unwatched is precisely the stage that reads files somebody else wrote.
+
+### A method note: a probe must be runnable, not merely present
+
+The composed A58+A59 probe was first written as a bare `yaml.unsafe_load(...)` inside
+`layers.py` — and the scan reported **green**. That looked like a gap in A58's fix for about a
+minute. It was not: `layers.py` does not import `yaml`, so the probe would have raised
+`NameError` before reaching anything, and a check that fired on it would have been firing on a
+name that cannot resolve. Adding the `import yaml` the real attack needs, the scan refuses it.
+
+The lesson generalises past this file. **A probe that cannot execute proves nothing in either
+direction** — green does not mean the guard is weak, and red would not have meant it was strong.
+Round three's `MD0216` was a refusal nothing exercised; this is its mirror image, a probe nothing
+could run. Both look like evidence and are not.
+
+### A57 — the egress guard reasoned about annotations, not about the dump
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | the whole file, seven rules | `@computed_field` returning a patient path added to the **real** `PromptRequest` | **FAILED** in three rules at once — the leaf allowlist, the bare-`str` rule and the free-text marker | live |
+| 2026-08-13 | `test_no_payload_replaces_its_own_dump` | `@model_serializer` returning `{"prompt": …, "site": "/mnt/phi/site-4"}` on the real `PromptRequest` | **FAILED** | live |
+| 2026-08-13 | `_serialised_hints` | reverted to returning `model_fields` only | **FAILED** — the computed-field test | live |
+
+Round four ran both probes against the unmodified tree and got **15 passed** for each. The dump
+in the first probe is unchanged by the fix — `{"prompt":"count genes","context":"/data/patients/…"}`
+still crosses if you ship it — but it can no longer do so *quietly*, which is the whole claim
+this file makes.
+
+**Two routes, two different shapes, and the asymmetry is the finding's real content.** A computed
+field has a return annotation, so it goes through the same leaf check as a declared one — that is
+`_serialised_hints`, and six rules now ask it. A `@model_serializer` replaces the dump wholesale
+and leaves *no* per-key annotation to check, so nothing can be asserted about its contents and the
+only enforceable rule is that a payload may not define one.
+
+**One rule deliberately kept `model_fields`:** `test_every_ambiguity_field_can_cross_the_door`
+asks whether each ambiguity field has somewhere *to go*, and a computed field is not a
+destination — nothing can be assigned to it. Widening it would have been a mechanical change that
+made the rule quietly wrong, which is worth more than the consistency it would have bought.
+
+### The `FREE_TEXT_FIELDS` comment (round four's uncounted caveat)
+
+Not a probe — a correction. The comment above that set read "Exactly two fields may carry it" over
+a set of **seven**. It had been wrong for three plans, and it is the same drift family as A33 in
+`CLAUDE.md` invariant 14. The number is now deliberately *not* repeated in prose: a count beside a
+literal set is two sources of truth, and only one of them executes.
+
+### A56 — a resolver certifying its own answer as human
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_resolver_cannot_certify_its_own_answer_as_human` | the evidence check dropped — `honoured = resolution.source is HUMAN`, i.e. A54's behaviour | **FAILED** — `needs_review()` empty and `human_override='nefarious'` recorded | live |
+| 2026-08-13 | `test_a_replayed_override_backed_by_its_record_is_still_honoured` | (the over-correction guard) | **FAILED** during development, before the CLI threaded `prior` | live |
+
+**The second row is not decoration.** The first version of this fix cut the honest path along
+with the dishonest one: `mendel upgrade` demoted a genuinely replayed override and re-flagged a
+question a person had already answered — issue #10's shape, a mechanism that runs and changes
+nothing. Three A46/A54 regression tests caught it. A guard against over-refusal earns its place
+whenever a fix is a refusal.
+
+**What the fix actually establishes, stated honestly.** `Resolution.source` is still a field any
+resolver can set to anything; nothing here makes a resolver truthful. What changed is that the
+*evidence* now arrives through a different argument than the claim — `resolve(prior=…)`, from the
+caller's records — so no single object supplies both. A hostile *caller* is out of scope, and
+always was: the caller is our own CLI.
+
+An unbacked claim is **demoted, not refused**. Invariant 6 asks that tier 4 stay flagged, and
+demotion restores exactly that; raising would let a broken adapter halt a laboratory's build,
+trading a denial of service for a guarantee demotion already gives.
+
+**`prior` defaults to empty, and that is the safe direction** — a verb that forgets it over-flags
+rather than under-flags. A2's rule ("an optional guard is the guard the next verb forgets") argues
+for making it required; the counter is that `build` legitimately has no records, so a required
+argument would be `prior=[]` at every call site, which is a parameter nobody reads. Recorded
+because it is a real trade and the next person may disagree.
+
+### A70 — publish certifying an unchecked `main.nf`
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_publish_refuses_a_pipeline_with_no_emitted_record` | the `MD0222` branch short-circuited with `if False and …` | **FAILED** — publish certified the bogus `main.nf` at exit 0, as round four did | live |
+| 2026-08-13 | end-to-end, the audit's own attack | nothing — run against the *fixed* tree | `mendel publish` exit **2**, `MD0222`; round four's run was `gate preview: PASS`, exit 0 | fix confirmed |
+| 2026-08-13 | `test_emit_still_works_on_a_pipeline_with_no_emitted_record` | (over-refusal guard) | passes — `emit` restamps the record | live |
+| 2026-08-13 | `test_upgrade_reports_a_missing_emitted_record_rather_than_refusing` | (scope guard) | passes — `upgrade` reports, does not refuse | live |
+
+**The last two rows are the point of the task, not padding.** A refusal on the wrong verb is its
+own defect: refusing in `emit` would leave an archived pipeline with no way forward at all, since
+`emit` is the *cure* — it regenerates the files and restamps `emitted:`, after which `MD0213` and
+`MD0214` mean something again.
+
+**`upgrade` was left alone after reading the test that broke.** The first version of this fix put
+`MD0222` on every verb sharing `_refuse_a_divergent_directory`, and
+`test_a_pipeline_predating_the_record_says_so_rather_than_claiming_identity` failed. That test is
+not an obstacle — it documents `upgrade` already answering this honestly, printing "predates the
+emitted-artifact record" and never "byte-identical". The distinction that decides it is what each
+verb *does* with the answer: `upgrade` produces a report a person reads, and `publish` stamps a
+verdict onto the artifact itself. Only one is a claim about files nobody checked, and only one has
+no undo. The scope test above exists so that asymmetry stays a decision rather than becoming an
+oversight somebody "fixes" later.
+
+**What A70 was not:** the reviewer was also asked whether A50's build-time conformance relocation
+holds. It does — `build`, `upgrade` and `profile` all run `conformance.check` unconditionally
+before emitting, and no genuinely-built pipeline reaches publish with unchecked contracts. A70 is
+`main.nf` ↔ `pipeline.yml` correspondence, a different question, and A50 is not reopened.

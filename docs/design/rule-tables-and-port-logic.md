@@ -464,3 +464,141 @@ No package gains a dependency. Nothing here touches an egress door, a model, or 
 - **Cohort versus sample.** A measurement like `read_length` is per-sample and a rule needs one
   value. Whether that is a mean, a median, or a fan-out is unresolved — see the profiling spec §9,
   where it is the question most likely to change `profile.yml`.
+
+---
+
+## 13. What this format cannot express — written 2026-08-13, before it needed reforming
+
+**Read this before changing the rule format, not while changing it.**
+
+The format in §3 was designed against a registry holding **one** real rule. It has since been
+stated that the domain contains *thousands* of tier-3 rules and that most are abstract — which
+is the reason the forge needs a model at all, and which means this format will have to evolve.
+This section records what it cannot express today and what each repair costs, so that the
+reform is a design decision taken deliberately rather than a series of accommodations bolted on
+under deadline.
+
+**None of this is a defect.** A format designed against one example, kept deliberately narrow,
+and documented as narrow is the correct thing to have built. §8's rejection of full boolean
+logic is the same instinct and is still right. The mistake would be discovering these limits
+one at a time while the forge is already emitting proposals into them.
+
+### 13.1 What it does express, so the boundary is clear
+
+Rows are conjunctions of `measurement OP scalar`, tried in order, first match wins. Several rows
+give disjunction, so the real expressive class is **disjunctive normal form over
+(measurement, comparison, literal)**. That is a genuine and useful class: every classification-
+shaped rule fits it, and the shipped `producer_of` rule — read length ≥ 70 selects STAR, below
+selects HISAT2, citing Dobin — is exactly that shape and works.
+
+The three limits below are not about power for its own sake. Each one has a canonical
+bioinformatics rule sitting behind it.
+
+### 13.2 `then` is a literal, never an expression
+
+`DecisionRow.then` is a `ParamValue` and reaches the resolver as `value=row.then`, verbatim.
+
+The canonical counter-example is STAR's `--sjdbOverhang`, whose documented ideal value is
+**`max(read_length) − 1`**. That is a tier-3 rule by every definition this project uses: a
+measured input, a documented mapping, a real consequence if wrong. It cannot be written. It can
+only be *enumerated* — one row per read length the registry anticipates — which turns a rule
+into a lookup table and quietly changes what "the rule matched" means.
+
+**What a repair costs.** A computed `then` introduces an expression language into declared data,
+and that is a larger decision than it looks: an expression is code, code in the registry is code
+a stranger authored, and invariant 1 exists because code from elsewhere is exactly what the pure
+packages must not execute. A restricted arithmetic form over declared measurements — no calls, no
+attribute access, a closed operator set — is probably the answer, and it must be designed with
+`substitutable()` and `MD0221` in view, because a value that reaches `ext.args` is a value that
+reaches a shell. **Do not reach for `eval`.** The forge making this easy to generate is precisely
+what makes it dangerous.
+
+### 13.3 `when` sees measurements, and nothing else
+
+`when` keys are measurement ids. A rule therefore cannot condition on:
+
+- **Another decision.** "If the aligner is Salmon, then the GTF does not need sorting" is expert
+  knowledge with nowhere to live. Decision-conditioned rules are a large slice of what a
+  bioinformatician actually knows, and the router resolves module choice *before* parameters, so
+  the information exists at the moment a rule would need it.
+- **The goal's purpose.** The same measurement implies different values depending on what the
+  analysis is *for* — differential expression versus variant calling versus assembly. `Goal` has
+  `want` and `constraints`; `when` cannot see either.
+
+**What a repair costs.** Widening `when` beyond measurements means the rule table stops being a
+function of the data profile alone, and that has a determinism consequence worth stating: today a
+rule's inputs are a closed, declared, content-addressed set. Adding decisions as inputs creates an
+ordering dependency between rules, and ordering dependencies are where "same goal in, same
+pipeline out" quietly stops being provable. If this is done, it needs a stratification argument —
+rules may read decisions from a strictly earlier stage, never from their own.
+
+### 13.4 The completeness problem, which is issue #1 wearing a different hat
+
+**This is the one that surprised us, and it is why §12's "Ranking policies" bullet and §13.3 are
+the same finding.**
+
+When several contracts can produce a needed type, the ladder is: a tier-3 `producer_of` rule
+decides it with a citation; failing that, the `priority` scalar decides it as tier-2 convention;
+failing that — a tie — invariant 8 demotes to tier 4 and a human is asked.
+
+At the spine's scale this is clean: two aligners, one rule, `priority: 10` on STAR as a documented
+nf-core convention. At v2 breadth — alternative aligners, pseudo-aligners, UMI handling — it
+stops being clean, because **`priority` is a single scalar per contract and is purpose-independent.**
+There is no number that makes STAR correct for splice discovery, Salmon correct for fast
+transcript quantification and HISAT2 correct on a low-memory machine, because "better" is not a
+property of the contract; it is a relation between the contract and the goal.
+
+That leaves three states and none of them is good:
+
+| If the registry author… | Then |
+|---|---|
+| ranks the alternatives with `priority` | one aligner silently wins every build, presented as *convention* — a guess wearing a tier-2 label, which is what the product claim forbids |
+| leaves them equal | every build ties, demotes to tier 4, and asks the user to choose an aligner every time — the review wall |
+| writes a `producer_of` rule covering all of them | correct — **and it must be complete over the alternatives, and it inherits §13.2 and §13.3's limits** |
+
+So the third option is the only honest one, and it means: **as the registry grows, every
+additional producer of an already-produced type is a liability until a rule covers it.** Adding a
+contract can make the pipeline *worse* — by creating a tie, or by falling under a purpose-blind
+scalar — and nothing currently warns the author of that.
+
+**Two candidate repairs, and they are not equivalent.** Issue #1 proposes purpose-varying scoring;
+§13.3 proposes letting `when` see purpose. They decide the same thing by different mechanisms, and
+§12 already flags that the interaction needs settling before both exist. The rule-based route
+keeps every module choice cited and auditable, which is the product claim; the scoring route is
+cheaper and produces a number nobody can cite. **Prefer the rule.** If scoring is added anyway, it
+should be a *tie-breaker of last resort* that still emits a `DecisionRecord`, never a silent sort.
+
+### 13.5 The vocabulary underneath has no author
+
+Every rule keys on a **declared measurement**, so the measurement vocabulary gates the rule table
+entirely: a rule that needs an undeclared measurement cannot be written at all.
+
+Thousands of rules implies hundreds of measurements, and each measurement costs two things — a
+declaration in `<layer>/measurements/`, and something that actually *measures* it, since
+`mendel profile` emits a pipeline that does the measuring.
+
+**Nothing drafts measurements.** Plan 2's forge covers contracts (Task 9), vocabulary states
+(Task 10) and parameters (Task 11); there is no measurement drafter and no approval path for one.
+This is the quietest of the gaps in this section and probably the most load-bearing, because it
+sits *under* every rule the forge will eventually propose: a rule drafter that can only key on
+the measurements somebody hand-declared will propose rules about read length and strandedness
+for ever.
+
+Tracked as [#38](https://github.com/comeni-project/Comeni-Labs/issues/38); §13.2–13.4 as
+[#39](https://github.com/comeni-project/Comeni-Labs/issues/39).
+
+### 13.6 The order these want to be done in
+
+Recorded as a recommendation, not a decision, because the argument may change.
+
+1. **Hand-author ~20 real abstract rules first**, before any drafter exists. They are the test of
+   this format, and they cost days rather than a plan. Everything in §13.2–13.4 was reasoned from
+   *one* shipped rule; twenty would replace argument with evidence, and the ones that cannot be
+   written are the specification for the reform.
+2. **Then the measurement vocabulary**, because it gates everything above it.
+3. **Then the format reform**, designed against the twenty rules that broke it.
+4. **Then a rule drafter** — which Plan 2 already defers past Plan 3, for the different and also
+   correct reason that it needs a corpus of real tier-4 flags to learn from.
+
+Doing 4 before 3 means a model generating proposals into a format that cannot hold them, and the
+proposals will look plausible, which is the worst failure mode this project has.
