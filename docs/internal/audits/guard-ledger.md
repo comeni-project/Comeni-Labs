@@ -664,3 +664,39 @@ occurrence of `node.value.id` in the file, which was the unrelated `dotted = …
 the scan silently wrong while the suite still ran. `cp` the file aside before probing and `cp` it
 back. This is the second shape of the same lesson as the A55 row's `git checkout` note: the
 verification ran happily against a tree that was not what anyone thought it was.
+
+### A59 — the runtime hook did not watch the stage that reads stranger files
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_real_build_opens_no_socket_and_spawns_no_process` | `__import__('socket').socket().close()` inserted before `layers.load`'s `return` — the audit's own probe | **FAILED** — where round four recorded `2 passed` on the identical probe | live |
+| 2026-08-13 | `..._the_watched_region_covers_the_stage_that_reads_stranger_files` | `state["armed"] = True` moved back below `layers.load` | **FAILED** — `layered.py`, `yaml_strict.py` and `layers.py` absent from the covered set | live |
+| 2026-08-13 | composed A58 + A59 | `import yaml` + `yaml.unsafe_load(...)` inside `layers.load` | **FAILED** — caught statically by A58's rule, in the stage A59 now watches | live |
+
+The first row is the finding, reproduced and closed: the same probe that was invisible to round
+four now fails the guard.
+
+**The coverage assertion is the row that matters for A14.** Moving one arm line is two minutes of
+work and silently reversible — the next person who needs a fixture loaded before arming moves it
+back and nothing says so. Asserting *which pure files executed under the hook* is what makes the
+region non-narrowable, and probe 2 is the evidence that assertion is not inert. A69 is the same
+lesson at a different scale: measure the thing, not a proxy for it.
+
+**`import` could not serve as the coverage signal**, which the plan had assumed it would. Every
+module is imported above the arm line on purpose — a hook cannot be uninstalled, so importing
+under it would attribute the standard library's own start-up to us — so no import event fires
+inside the region at all. `open` is the right signal for the opposite reason: the stage A59 found
+unwatched is precisely the stage that reads files somebody else wrote.
+
+### A method note: a probe must be runnable, not merely present
+
+The composed A58+A59 probe was first written as a bare `yaml.unsafe_load(...)` inside
+`layers.py` — and the scan reported **green**. That looked like a gap in A58's fix for about a
+minute. It was not: `layers.py` does not import `yaml`, so the probe would have raised
+`NameError` before reaching anything, and a check that fired on it would have been firing on a
+name that cannot resolve. Adding the `import yaml` the real attack needs, the scan refuses it.
+
+The lesson generalises past this file. **A probe that cannot execute proves nothing in either
+direction** — green does not mean the guard is weak, and red would not have meant it was strong.
+Round three's `MD0216` was a refusal nothing exercised; this is its mirror image, a probe nothing
+could run. Both look like evidence and are not.
