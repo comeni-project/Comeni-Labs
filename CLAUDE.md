@@ -17,8 +17,11 @@ The product claim, which every design decision serves:
 
 **Plans 1, the measurements plan, and 1.5 through 1.12 are complete.** A17–A35, round three's
 A38–A54 and round four's criticals (A55, A57, A58, A59) plus A56 and A70 are closed; **A14 and
-A36 remain**, along with fifteen carried round-four findings filed as issues. **Plan 2 is next**
-— 1.12 was the last audit-driven plan, decided 2026-08-13. 608 fast tests green,
+A36 remain**, along with fifteen carried round-four findings filed as issues. 1.12 was the last
+*audit-driven* plan, decided 2026-08-13. **What is next is the design audit** — a different
+question from rounds one to four: not "does the code match the design" but "does the design
+deliver the claim", after eleven plans built on a design approved on day one. See
+`docs/internal/audits/2026-08-14-design-audit-brief.md`. **Then Plan 2.** 608 fast tests green,
 `ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
@@ -75,8 +78,10 @@ closing round two, two of them in code written that same day: `stack()`'s
 **Round four ran (A55–A75) and Plan 1.12 closed its four criticals plus the two Plan-2 blockers —
 A55, A56, A57, A58, A59 and A70.** The other fifteen findings are filed as issues and carried
 deliberately. **By the operator's decision on 2026-08-13, 1.12 is the last audit-driven plan and
-Plan 2 is next**, which overrides the loop's own exit criterion — see `docs/internal/README.md`
-for that decision and the argument against it. Earlier rounds used the
+the design audit and then Plan 2 follow**, which overrides the loop's own exit criterion — see
+`docs/internal/README.md` for that decision and the argument against it. The design audit is not
+part of that loop and does not reopen it: it asks whether the design delivers the product claim,
+and its findings shape Plan 2 rather than becoming a Plan 1.13. Earlier rounds used the
 same revert-and-watch + cold-reviewer method in
 `docs/internal/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
 finding surviving a fresh audit. Read `docs/internal/journal/2026-08-10-evening.md` for what 1.11
@@ -127,7 +132,10 @@ That is the operator's instruction, not a suggestion. Concretely:
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
 - **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
-  a date. Plans 1.5–1.12 are complete; **Plan 2 is next**, then Plan 3. Round four ran and
+  a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
+  That audit asks a question the four guard rounds never did — whether the design itself
+  delivers the claim — and `docs/internal/audits/2026-08-14-design-audit-brief.md` is its
+  method, because "revert and watch" cannot be run against a design. Round four ran and
   Plan 1.12 closed its criticals; by the operator's decision on 2026-08-13 no further audit round
   gates Plan 2, which overrides the loop's *no critical finding surviving* exit criterion. That
   file records the decision and the argument against it, as it does for every ordering here —
