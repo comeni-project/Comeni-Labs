@@ -648,3 +648,32 @@ MD0221:
     This is the same class `MD0201` has always enforced on the *templated* route. Audit A55
     found the untemplated branch had none. An unanswered setting — `value: null` — is not
     affected: it contributes no fragment, and tier 4 is flagged rather than fatal.
+
+MD0222:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "this pipeline records no `emitted:` block, so its directory cannot be certified"
+  fires_on: [publish]
+  refuses: true
+  fix: |
+    Run `mendel emit <pipeline.yml> --out <directory>` first. That regenerates the files from
+    this pipeline and records their digests, after which the directory describes itself and
+    can be certified.
+  explanation: |
+    `publish` stamps a gate verdict onto `pipeline.yml`, and that verdict is a claim about the
+    files beside it. The only thing tying those files to the pipeline is the `emitted:` block —
+    the digests recorded when they were generated. `MD0213` and `MD0214` compare against it.
+
+    A pipeline with no `emitted:` block is a **supported state**: an archived pipeline, or one
+    written by hand. But it means there is no evidence, and those two checks have nothing to
+    compare — so before this code existed, publish read "nothing to compare" as "nothing
+    wrong" and certified whatever `main.nf` happened to be in the directory, recording that
+    file's digest as the one this pipeline emitted. An unrelated workflow was certified this
+    way at exit 0.
+
+    Two verbs deliberately do not refuse. `emit` is the cure and legitimately regenerates from
+    a pipeline with no record. `upgrade` reports that the file predates the emitted-artifact
+    record rather than claiming byte-identity — the same distinction, but its output is a
+    report a person reads, where publish stamps a verdict onto the artifact itself.
+
+    Audit A70. Publication is the door with no undo.

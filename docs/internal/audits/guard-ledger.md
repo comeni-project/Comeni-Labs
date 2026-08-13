@@ -760,3 +760,32 @@ rather than under-flags. A2's rule ("an optional guard is the guard the next ver
 for making it required; the counter is that `build` legitimately has no records, so a required
 argument would be `prior=[]` at every call site, which is a parameter nobody reads. Recorded
 because it is a real trade and the next person may disagree.
+
+### A70 — publish certifying an unchecked `main.nf`
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_publish_refuses_a_pipeline_with_no_emitted_record` | the `MD0222` branch short-circuited with `if False and …` | **FAILED** — publish certified the bogus `main.nf` at exit 0, as round four did | live |
+| 2026-08-13 | end-to-end, the audit's own attack | nothing — run against the *fixed* tree | `mendel publish` exit **2**, `MD0222`; round four's run was `gate preview: PASS`, exit 0 | fix confirmed |
+| 2026-08-13 | `test_emit_still_works_on_a_pipeline_with_no_emitted_record` | (over-refusal guard) | passes — `emit` restamps the record | live |
+| 2026-08-13 | `test_upgrade_reports_a_missing_emitted_record_rather_than_refusing` | (scope guard) | passes — `upgrade` reports, does not refuse | live |
+
+**The last two rows are the point of the task, not padding.** A refusal on the wrong verb is its
+own defect: refusing in `emit` would leave an archived pipeline with no way forward at all, since
+`emit` is the *cure* — it regenerates the files and restamps `emitted:`, after which `MD0213` and
+`MD0214` mean something again.
+
+**`upgrade` was left alone after reading the test that broke.** The first version of this fix put
+`MD0222` on every verb sharing `_refuse_a_divergent_directory`, and
+`test_a_pipeline_predating_the_record_says_so_rather_than_claiming_identity` failed. That test is
+not an obstacle — it documents `upgrade` already answering this honestly, printing "predates the
+emitted-artifact record" and never "byte-identical". The distinction that decides it is what each
+verb *does* with the answer: `upgrade` produces a report a person reads, and `publish` stamps a
+verdict onto the artifact itself. Only one is a claim about files nobody checked, and only one has
+no undo. The scope test above exists so that asymmetry stays a decision rather than becoming an
+oversight somebody "fixes" later.
+
+**What A70 was not:** the reviewer was also asked whether A50's build-time conformance relocation
+holds. It does — `build`, `upgrade` and `profile` all run `conformance.check` unconditionally
+before emitting, and no genuinely-built pipeline reaches publish with unchecked contracts. A70 is
+`main.nf` ↔ `pipeline.yml` correspondence, a different question, and A50 is not reopened.

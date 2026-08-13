@@ -285,3 +285,66 @@ def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, mon
     assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(root)]) == 0
     assert "'PL:nanopore'" in (out / "nextflow.config").read_text()
     assert _yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
+
+
+def test_publish_refuses_a_pipeline_with_no_emitted_record(tmp_path, capsys):
+    """A70. `hand_edited` (MD0214) and `is_stale` (MD0213) both return "nothing to compare"
+    when `pipeline.emitted is None` — a supported state, since an archived or hand-authored
+    file has no `emitted:` block. That is correct for those two functions and wrong for a
+    *certifying* verb: publish's only tie between `main.nf` and `pipeline.yml` goes silent,
+    so it gates whatever is on disk and stamps the verdict onto an artifact that then
+    permanently claims it emitted that file.
+
+    Round four published an RNA-seq pipeline whose recorded `main.nf` digest belonged to an
+    unrelated workflow, at exit 0. Publish is the door with no undo.
+    """
+    out = _built(tmp_path)
+    source = out / "pipeline.yml"
+    doc = yaml.safe_load(source.read_text())
+    del doc["emitted"]
+    source.write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "main.nf").write_text("workflow { }\n")
+
+    code = main(["publish", str(source), "--root", str(ROOT)])
+
+    assert code == 2, "publish certified a main.nf with nothing tying it to pipeline.yml"
+    assert "MD0222" in capsys.readouterr().err
+
+
+def test_emit_still_works_on_a_pipeline_with_no_emitted_record(tmp_path):
+    """The other half. `emit` is the *cure* for a missing `emitted:` block — it regenerates
+    the files and stamps the record, after which MD0213 and MD0214 mean something again — so
+    the refusal must sit on the certifying verbs and not on this one. Refusing here would
+    leave an archived pipeline with no way forward at all.
+    """
+    out = _built(tmp_path)
+    source = out / "pipeline.yml"
+    doc = yaml.safe_load(source.read_text())
+    del doc["emitted"]
+    source.write_text(yaml.safe_dump(doc, sort_keys=False))
+
+    assert main(["emit", str(source), "--out", str(out)]) == 0
+    assert yaml.safe_load(source.read_text()).get("emitted"), "emit did not restamp the record"
+
+
+def test_upgrade_reports_a_missing_emitted_record_rather_than_refusing(tmp_path, capsys):
+    """A70's scope, asserted so the asymmetry is a decision rather than an oversight.
+
+    `MD0222` is on `publish` alone. `upgrade` meets the same missing evidence and already
+    answers it honestly — "predates the emitted-artifact record", never "byte-identical" —
+    and the difference is what each verb does with the answer: upgrade produces a report a
+    person reads, publish stamps a verdict onto the artifact. Only one is a claim about files
+    nobody checked, and only one has no undo.
+    """
+    out = _built(tmp_path)
+    source = out / "pipeline.yml"
+    doc = yaml.safe_load(source.read_text())
+    del doc["emitted"]
+    source.write_text(yaml.safe_dump(doc, sort_keys=False))
+
+    code = main(["upgrade", str(source), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert code == 0, "upgrade refused where it should report"
+    assert "MD0222" not in err
+    assert "predates the emitted-artifact record" in err
