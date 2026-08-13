@@ -209,6 +209,19 @@ was read as the latter by everyone including its author. Journal entries dated o
 Plans 2 and 3 were written ahead of the code they build on, and say things that are no longer
 true. That is the reason this directory is labelled the way it is.
 
+### specs/ — the two that are not audit roots
+
+`2026-08-07-the-pipeline-file.md` designed `pipeline.yml` and **shipped** as Plan 1.10.
+
+`2026-08-13-the-rule-drafter.md` is the other, and it is **unscheduled on purpose**. Tier 3 is the
+differentiator — the only tier that makes Mendel a resolver rather than a well-documented template
+engine — and nothing currently produces tier-3 rules. Plan 2's forge drafts contracts, vocabulary
+states and parameters; rule drafting is deferred past Plan 3 by that plan's own reasoning, because
+it needs a corpus of real tier-4 flags. The spec records the design so the deferral does not also
+lose it, and names four hard prerequisites and the central risk: a model drafting from literature
+will produce citations that look right and sometimes are not, and **a rule with a fabricated
+citation is strictly worse than no rule**.
+
 ## audits/
 
 `2026-08-03-plan-1-audit.md` — an independent review that defeated all three

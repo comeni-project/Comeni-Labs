@@ -100,7 +100,8 @@ shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **ten specs. Nine are one per audit root; the tenth is a design spec. Read the part's spec before starting it.** |
+| `docs/internal/specs/` | **eleven specs. Nine per audit root, plus two design specs — the pipeline file, and the rule drafter. Read the part's spec before starting it.** |
+| `docs/internal/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
 | `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
 | `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
 | `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
