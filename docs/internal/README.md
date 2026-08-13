@@ -35,8 +35,8 @@ the order.
 | 9 | `../audits/2026-08-10-round-three-audit.md` | Round three audit — **complete.** A38–A54, four critical (A38, A44, A46, A50) |
 | 10 | `2026-08-10-closing-round-three.md` | Plan 1.11 — **complete.** Closed A38–A54 (17 tasks), with each task's corrections inline; A14 stays open |
 | 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
-| 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **next, and the last audit-driven plan** (decided 2026-08-13). Closes A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues. A55 is code execution through a shareable artifact |
-| 13 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **complete, and the last audit-driven plan** (decided 2026-08-13). Closed A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues |
+| 13 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — **next.** Predates the types it references; rewrite before executing |
 | 14 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
@@ -85,6 +85,44 @@ and Plan 2 Task 4 builds `ReplayingResolver` in `mendel-ai`. They are not the sa
 replays recorded decisions when a curated bundle is edited, the other caches model answers
 across runs — but they are close enough that building both without noticing gives two ways to
 do one thing. Whichever runs second should absorb the first rather than duplicate it.
+
+### The loop's exit criterion was overridden on 2026-08-13
+
+**The rule until now:** the fix-then-re-audit loop exits when *no critical finding survives a
+fresh audit*. Decided 2026-08-06, and it is why A14 stayed open through four rounds and why
+Plans 1.7, 1.8, 1.10 and 1.11 each recorded an argument for deferring Plan 2.
+
+**The decision:** Plan 1.12 is the last audit-driven plan. Plan 2 follows it regardless of what
+a round five would find. The operator's reason is that the MVP needs to exist.
+
+**What that means concretely, so nothing here reads as an exit that did not happen:**
+
+- **A14 does not close.** It is carried, not resolved, and round four's own measurement of it
+  stands: roughly a fifth of individual guards have a recorded revert. The loop did not exit; it
+  was stopped.
+- **Fifteen round-four findings are carried** — A60–A69 and A73–A75 as GitHub issues, A71 and A72
+  fixed in `CLAUDE.md` directly. None is critical. Two are worth knowing about before Plan 2
+  touches the same code: **A62** (`model_construct` and assignment aliases walk past the
+  construction guard) and **A68** (the totality guard compares 60% of its field names against
+  themselves).
+- **Round five's remaining scope was always thin.** Of the three things round four could not
+  reach, two — the protection profiles and any impure sender — have no implementation to audit
+  yet. The third, the `slow` Docker lane beyond one counts-matrix probe, is real and unaudited.
+
+**The argument against, recorded because it is real and this is the fifth time an ordering
+decision has needed one.** Round four found four critical findings, three of them in the guards
+themselves, and it found them because cold reviewers attacked a surface they had not written.
+Plan 1.12's own surface — two new diagnostics, a changed `resolve()` signature, a rewritten
+egress guard, a widened purity scan — gets no such pass, and the audit history says new code is
+where the sharpest defects live. Every round so far has found something in the previous round's
+fixes.
+
+**The counter, which is why the decision stands:** the v1 criterion's one unmet clause is the
+plain-language prompt, which is Plan 2 Task 3, and four plans in a row have now deferred it. An
+audit loop whose exit criterion is "the next audit finds nothing critical" has no guaranteed
+exit at all — no audit in this repository has ever come back empty. At some point shipping is
+the decision, and this is that point. What protects the work is that the fixes are guarded and
+the residue is written down, not that another round happened.
 
 ### Plan 1.10 — the pipeline file
 
