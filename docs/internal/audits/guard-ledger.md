@@ -731,3 +731,32 @@ Not a probe — a correction. The comment above that set read "Exactly two field
 a set of **seven**. It had been wrong for three plans, and it is the same drift family as A33 in
 `CLAUDE.md` invariant 14. The number is now deliberately *not* repeated in prose: a count beside a
 literal set is two sources of truth, and only one of them executes.
+
+### A56 — a resolver certifying its own answer as human
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_resolver_cannot_certify_its_own_answer_as_human` | the evidence check dropped — `honoured = resolution.source is HUMAN`, i.e. A54's behaviour | **FAILED** — `needs_review()` empty and `human_override='nefarious'` recorded | live |
+| 2026-08-13 | `test_a_replayed_override_backed_by_its_record_is_still_honoured` | (the over-correction guard) | **FAILED** during development, before the CLI threaded `prior` | live |
+
+**The second row is not decoration.** The first version of this fix cut the honest path along
+with the dishonest one: `mendel upgrade` demoted a genuinely replayed override and re-flagged a
+question a person had already answered — issue #10's shape, a mechanism that runs and changes
+nothing. Three A46/A54 regression tests caught it. A guard against over-refusal earns its place
+whenever a fix is a refusal.
+
+**What the fix actually establishes, stated honestly.** `Resolution.source` is still a field any
+resolver can set to anything; nothing here makes a resolver truthful. What changed is that the
+*evidence* now arrives through a different argument than the claim — `resolve(prior=…)`, from the
+caller's records — so no single object supplies both. A hostile *caller* is out of scope, and
+always was: the caller is our own CLI.
+
+An unbacked claim is **demoted, not refused**. Invariant 6 asks that tier 4 stay flagged, and
+demotion restores exactly that; raising would let a broken adapter halt a laboratory's build,
+trading a denial of service for a guarantee demotion already gives.
+
+**`prior` defaults to empty, and that is the safe direction** — a verb that forgets it over-flags
+rather than under-flags. A2's rule ("an optional guard is the guard the next verb forgets") argues
+for making it required; the counter is that `build` legitimately has no records, so a required
+argument would be `prior=[]` at every call site, which is a parameter nobody reads. Recorded
+because it is a real trade and the next person may disagree.

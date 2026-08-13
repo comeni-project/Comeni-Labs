@@ -1604,8 +1604,15 @@ def _loaded():
     return layers_mod.load("registry")
 
 
-def _resolved(resolver=None, mutate=None):
-    """The shipped goal, resolved. `mutate` edits the raw mapping before validation."""
+def _resolved(resolver=None, mutate=None, prior=()):
+    """The shipped goal, resolved. `mutate` edits the raw mapping before validation.
+
+    `prior` is the recorded decisions behind a replayed human override. A56: `resolve()`
+    honours `source: HUMAN` only where a record the *caller* supplied says a person answered
+    that question with that value, so replaying an override needs both the resolver and the
+    records — passing the resolver alone leaves the value flagged, which is the safe
+    direction and the one `mendel upgrade` relies on.
+    """
     from comeni_core import yaml_strict
     from mendel_resolver.goal import Goal
     from mendel_resolver.resolve import resolve
@@ -1621,13 +1628,18 @@ def _resolved(resolver=None, mutate=None):
         loaded.measurements,
         vocabulary=loaded.vocabulary,
         resolver=resolver,
+        prior=prior,
     )
 
 
 def _ir_with_override(value="illumina"):
     from mendel_resolver.replay import ReplayResolver
 
-    return _resolved(resolver=ReplayResolver([_override_record(value)]))
+    # The record goes to both: `ReplayResolver` answers from it, and `resolve()` verifies the
+    # `HUMAN` claim against it. A56 — the claim and its evidence arrive through different
+    # arguments on purpose, so one object cannot supply both.
+    record = _override_record(value)
+    return _resolved(resolver=ReplayResolver([record]), prior=[record])
 
 
 def _binding(ir, name):

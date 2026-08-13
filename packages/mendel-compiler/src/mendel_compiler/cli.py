@@ -198,6 +198,10 @@ def _build(argv: list[str] | None = None) -> int:
 
     previous: Pipeline | None = None
     resolver = None
+    # A56. The evidence behind a replayed `source: HUMAN`, passed to `resolve()` separately
+    # from the resolver that will claim it. A resolver cannot both assert that a person
+    # answered and supply the proof; these records come from the file on disk.
+    prior: list = []
     if args.command == "upgrade":
         # `upgrade` takes its goal from the file rather than from a `--goal` argument:
         # re-resolving a *different* goal and calling the result an upgrade is how "only what
@@ -215,7 +219,8 @@ def _build(argv: list[str] | None = None) -> int:
         goal = previous.goal
         # A46: replay the answer `settings[].value` carries, not only `decisions[].human_override`
         # — the two are one answer and `emit` reads the former, so `upgrade` must honour it too.
-        resolver = ReplayResolver(previous.replayable_decisions())
+        prior = list(previous.replayable_decisions())
+        resolver = ReplayResolver(prior)
         if args.out is not None and args.out.resolve() == source.parent.resolve():
             # Never in place. With one artifact the natural implementation updates
             # `pipeline.yml` where it sits, and that destroys the only record of what you
@@ -263,6 +268,7 @@ def _build(argv: list[str] | None = None) -> int:
         vocabulary=vocab,
         resolver=resolver,
         layer_names=[layer_name(p) for p in loaded.paths],
+        prior=prior,
     )
     ir.unverified = unverified
 

@@ -31,7 +31,16 @@ def resolve(
     vocabulary: Vocabulary,
     resolver: AmbiguityResolver | None = None,
     layer_names: Sequence[str] = (),
+    prior: Sequence[DecisionRecord] = (),
 ) -> PipelineIR:
+    """`prior` is the evidence behind a `source: HUMAN` claim, and it comes from the caller
+    rather than from the resolver. A56: a resolver that says `HUMAN` clears its own tier-4
+    review, so the claim has to be checkable against something the resolver did not write.
+
+    Empty is the safe default — an unbacked `HUMAN` is demoted and keeps its flag — which is
+    the direction A2's rule wants: the verb that forgets to pass this over-flags rather than
+    under-flags. `mendel upgrade` is the one verb that has records to pass.
+    """
     # A29. `Annotated[str, "type-id"]` says somebody named this; it does not say the name
     # is of a declared type. `router._have_satisfies` only *compares*, so a `have` entry
     # that satisfies nothing was never looked up and never rejected — and a patient name
@@ -43,6 +52,13 @@ def resolve(
     # matters here, because its goal comes from a stranger's bundle rather than from a file
     # the operator wrote.
     _declared_types(goal, vocabulary)
+    # A56. What a *person* actually answered, keyed by decision. Built from the caller's
+    # records, so a resolver claiming `HUMAN` cannot also supply the proof of it.
+    backed = {
+        record.key: record.human_override
+        for record in prior
+        if getattr(record, "human_override", None) is not None
+    }
     # Invariant 15 was enforced in `mendel build`'s own re-route through
     # `MeasurementRegistry.profile()` — an application-layer step, which is not a property
     # of anything. `mendel upgrade` takes its goal from a bundle rather than a file, so the
@@ -107,6 +123,7 @@ def resolve(
                 goal=goal,
                 rules=rules,
                 resolver=resolver,
+                backed=backed,
                 decisions=ir.decisions,
             ))
 
@@ -239,6 +256,7 @@ def _resolve_param(
     rules: RuleTable,
     resolver: AmbiguityResolver,
     decisions: list[DecisionRecord],
+    backed: dict[str, object],
 ) -> ResolvedValue:
     # Tier 1 — the goal states it outright. No choice exists.
     override = next((o for o in goal.constraints.params if o.name == param_name), None)
@@ -291,6 +309,24 @@ def _resolve_param(
     # "not a candidate" would mean "any answer at all", and falling back would make tier 4
     # unable to answer anything. Plan 2 Task 11 gives a `Param` its legal values, and this
     # site becomes symmetric with the other two on the day it does. A33.
+    # A54 said the decision must carry the evidence behind a `source: HUMAN`, and that is
+    # still right. A56 is that the evidence was taken *from the claim*: `human_override` was
+    # written as `resolution.chosen` whenever the resolver said `HUMAN`, so a resolver both
+    # cleared its own tier-4 review and produced the proof `MD0220` checks against.
+    #
+    # `HUMAN` is unlike `confidence` and `reason`, which are claims a resolver is entitled to
+    # make about its own work. This one asserts that *somebody else* — a person — answered,
+    # and it is what moves the value out of `needs_review()`. So it is honoured only where a
+    # record the caller supplied says a person really did answer this question, with this
+    # value. `ReplayResolver` replaying a real override satisfies that; a model asserting it
+    # does not. Invariant 6 is what would otherwise break, and Plan 2 wires a model here.
+    #
+    # A false claim is **demoted, not refused**. The property invariant 6 asks for is that
+    # tier 4 stays flagged, and demoting restores exactly that. Raising would let a broken or
+    # hostile adapter halt a laboratory's build instead — a denial of service in exchange for
+    # a guarantee demotion already gives.
+    override = backed.get(ambiguity.key())
+    honoured = resolution.source is ValueSource.HUMAN and override == resolution.chosen
     decisions.append(
         ParamDecision(
             key=ambiguity.key(),
@@ -300,17 +336,7 @@ def _resolve_param(
             reason=resolution.reason,
             confidence=resolution.confidence,
             resolved_by=resolution.resolved_by,
-            # A54. `source: HUMAN` on the value is a claim that a person answered, and it is
-            # what clears the review — so the decision has to carry the evidence, not just the
-            # value's `Why`. Only `ReplayResolver` returns `HUMAN`, and only when the record it
-            # replayed held a `human_override`, so recording it back here keeps the artifact
-            # self-consistent: a `human` source and a null `human_override` was the exact
-            # inconsistency A54 named, and it is what `Pipeline`'s MD0220 refuses at load.
-            human_override=(
-                resolution.chosen
-                if resolution.source is ValueSource.HUMAN
-                else None
-            ),
+            human_override=resolution.chosen if honoured else None,
         )
     )
     # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1
@@ -325,7 +351,9 @@ def _resolve_param(
     return ResolvedValue(
         value=resolution.chosen,
         tier=Tier.AMBIGUOUS,
-        source=resolution.source,
+        # Not `resolution.source`: see the note above. An unbacked `HUMAN` becomes `RESOLVER`,
+        # which is what keeps the value in `needs_review()`.
+        source=ValueSource.HUMAN if honoured else ValueSource.RESOLVER,
         reason=resolution.reason,
     )
 
