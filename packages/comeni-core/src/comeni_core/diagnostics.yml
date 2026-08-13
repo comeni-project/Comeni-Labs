@@ -622,3 +622,29 @@ MD0220:
     names: a `human` source must be backed by a `PARAM` decision for the same key with a
     non-null `human_override`. A genuine override sets both, so the honest edit passes; what is
     refused is the port used to relabel a resolver's guess as a person's answer.
+
+MD0221:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "an untemplated `via: ext` value is outside the substitutable class"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Use letters, digits and `_ . : + -` only, or a number, or `true`/`false`. If your value
+    legitimately needs a space or a slash, that is a case we assumed did not exist — please
+    report it.
+  explanation: |
+    A setting with `via: ext` and no `template:` is written into `nextflow.config` verbatim,
+    inside the `ext.<key>` assignment. Nextflow emits a fragment mentioning `${…}` as a
+    **closure**, evaluated once per task on the machine running the pipeline — so a value
+    containing `${…}` is not data, it is code, and it runs on the host outside any container.
+
+    `pipeline.yml` is meant to be shared, published and edited. `settings[].value` is the
+    field the file's own header points a human at, and `key: prefix` takes no template by
+    design — `MD0204` refuses one. So the dangerous shape is also the ordinary shape, and no
+    tampering is needed to produce it: that is why this is refused when the file loads,
+    before `emit` ever reads it, and again at the branch that would emit the closure.
+
+    This is the same class `MD0201` has always enforced on the *templated* route. Audit A55
+    found the untemplated branch had none. An unanswered setting — `value: null` — is not
+    affected: it contributes no fragment, and tier 4 is flagged rather than fatal.

@@ -593,3 +593,41 @@ Not a revert of a line — a revert of a *precondition*. `_refuse_a_divergent_di
 `emitted:` block **present**, the same corrupted `main.nf` is refused with `MD0214`
 (`test_publish_refuses_a_hand_edited_main_nf`) — so the guard's efficacy depends entirely on a field
 a hand-authored file legitimately lacks. Publish is the door with no undo.
+
+## Round four fixes (Plan 1.12)
+
+Every guard this plan writes, reverted and watched. `MD0216` shipped inert in Plan 1.10 because
+its refusal was written, `make verify` was green, and nothing covered it — so a fix without a
+watched revert is a fix nobody has evidence for.
+
+### A55 — a resolved value executing as Groovy
+
+| date | guard | what was reverted | what happened | verdict |
+|---|---|---|---|---|
+| 2026-08-13 | `test_a_raw_ext_value_cannot_smuggle_groovy` | `Setting._a_raw_ext_value_cannot_be_groovy`'s `substitutable` clause replaced with `and False` | **FAILED** — `DID NOT RAISE ValidationError` | live |
+| 2026-08-13 | `test_the_closure_branch_is_unreachable_from_a_raw_value` | `_ext_scope`'s `if not substitutable(...)` short-circuited with `if False and …` | **FAILED** — `DID NOT RAISE ValueError` | live |
+| 2026-08-13 | end-to-end, the audit's own attack | nothing — run against the *fixed* tree | `mendel emit` exit **2**, `MD0221`, `/tmp/A55_PROOF` absent | fix confirmed |
+
+Two layers on purpose, and each was watched alone. The load-time validator is what protects a
+shared `pipeline.yml`; the emit-time refusal is what stops the emitter depending on a validator
+having run, which `model_construct` skips — that is **A62**, still open and carried.
+
+The third row is the one that matters most: the audit reproduced A55 by editing `settings[].value`
+to `${['sh','-c','id > …'].execute().text}` on a `key: prefix` setting and running `mendel emit`.
+Re-run against this tree, it is refused before emission and no file is written.
+
+**Two guards that did *not* need reverting, recorded because absence of a probe is not absence of
+a check:** `test_an_ordinary_raw_ext_value_still_loads` and
+`test_an_unanswered_raw_ext_value_still_loads` are over-refusal guards. The second is load-bearing
+— `value: null` is an unanswered tier-4 setting, and an earlier draft of the validator that did not
+skip `None` refused the shipped spine at load. Invariant 6 says tier 4 is flagged, not fatal.
+
+### A method note, learned the expensive way on 2026-08-13
+
+**Do not undo a probe with `git checkout <file>` while the fix is uncommitted.** It restores the
+file to HEAD, which is the *pre-fix* state — the probe and the fix are removed together, and the
+tests then pass for the wrong reason. The A55 validator was wiped exactly this way and had to be
+re-applied. Revert a probe by replacing the string you inserted, or commit the fix before probing.
+
+This is the same family as Plan 1.11's wrong-worktree near-miss: the verification command ran
+happily against a tree that did not contain the work.

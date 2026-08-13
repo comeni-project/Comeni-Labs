@@ -12,9 +12,12 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import Pipeline, StepInput
+from comeni_core.pipeline import Pipeline, Setting, StepInput, Why
+from comeni_core.routes import ExtKey, Via
+from comeni_core.tiers import Tier, ValueSource
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
+from pydantic import ValidationError
 
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
@@ -620,3 +623,51 @@ def test_a_refused_emit_writes_nothing(tmp_path, capsys):
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0201" in err
     assert (out / "main.nf").read_text() == before, "a refused emit must leave main.nf untouched"
+
+
+def _why() -> Why:
+    return Why(tier=Tier.AMBIGUOUS, source=ValueSource.HUMAN, reason="a round-four probe")
+
+
+def test_a_raw_ext_value_cannot_smuggle_groovy():
+    """A55. `key: prefix` takes no template — `MD0204` refuses one — so its value rides the
+    raw branch of `_ext_scope`, and a `${…}` there becomes a closure Nextflow evaluates per
+    task. The value is the field this file's own header tells a human to edit, and the file
+    is meant to be shared, so it is refused at load rather than at emit.
+    """
+    with pytest.raises(ValidationError) as caught:
+        Setting(
+            name="seq_platform",
+            value="${['sh','-c','id'].execute().text}",
+            via=Via.EXT,
+            key=ExtKey.PREFIX,
+            template=None,
+            why=_why(),
+        )
+    assert "MD0221" in str(caught.value)
+
+
+def test_an_ordinary_raw_ext_value_still_loads():
+    """The refusal is the substitutable class, not a ban on the raw route: A39 added that
+    branch for a reason, and a `prefix` value is an ordinary identifier."""
+    setting = Setting(
+        name="seq_platform",
+        value="illumina",
+        via=Via.EXT,
+        key=ExtKey.PREFIX,
+        template=None,
+        why=_why(),
+    )
+    assert setting.value == "illumina"
+
+
+def test_an_unanswered_raw_ext_value_still_loads():
+    """`value: null` is an unanswered tier-4 setting, and `_ext_scope` skips it — invariant 6
+    says tier 4 is *flagged*, not fatal. MD0221 is for a value that exists and cannot be
+    carried safely, so absence must stay legal or the shipped spine stops loading.
+    """
+    setting = Setting(
+        name="seq_platform", value=None, via=Via.EXT, key=ExtKey.PREFIX, template=None,
+        why=_why(),
+    )
+    assert setting.value is None

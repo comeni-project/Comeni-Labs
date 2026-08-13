@@ -267,6 +267,20 @@ def _ext_scope(step: Step) -> list[str]:
             # exactly as the templated branch inserts raw fragments. Rendering here as well
             # double-quoted it — `alpha` became `'\'alpha\''`, quotes and all. Bool lowercased
             # to match the templated branch, so `true` stays `true` rather than `True`.
+            #
+            # A55: and it is *checked*, which it was not. The join below turns any fragment
+            # mentioning `${` into a closure Nextflow evaluates per task, so an unchecked raw
+            # value here is arbitrary Groovy on the host, outside any container. `Setting`
+            # refuses this at load (MD0221); this is the second layer, because
+            # `model_construct` skips validators and the emitter must not assume the file it
+            # was handed was validated.
+            if not substitutable(setting.value):
+                raise ValueError(
+                    f"MD0221: {step.id}.{setting.name} is {setting.value!r} on an untemplated "
+                    f"`ext.{setting.key.value}` route, so it would be written into Nextflow "
+                    "config verbatim. Use letters, digits and _ . : + - only, or a number, or "
+                    "true/false — `mendel explain MD0221`."
+                )
             raw = (
                 str(setting.value).lower()
                 if isinstance(setting.value, bool)
