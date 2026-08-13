@@ -48,6 +48,15 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
+| [2026-08-11](2026-08-11.md) | Round four — A55–A75, four critical; A55 is code execution through a shareable `pipeline.yml`. **A14 did not close** |
+| [2026-08-10 evening](2026-08-10-evening.md) | Plan 1.11 — A38–A54 closed, each with a watched ledger row; A14 stays open |
+| [2026-08-10](2026-08-10.md) | Round three — A38–A54, four critical. The fixes became Plan 1.11 |
+| [2026-08-09 evening](2026-08-09-evening.md) | Plan 1.10 complete — `pipeline.yml` is the artifact and `PublishBundle` is retired |
+| [2026-08-09](2026-08-09.md) | Plan 1.10 specified and planned; two of twelve tasks done |
+| [2026-08-08](2026-08-08.md) | Plan 1.9 — A17–A35 closed; A36 and A37 new; golden files never moved across nine parts |
+| [2026-08-07 evening](2026-08-07-evening.md) | Round two's eighteen findings reduced to nine roots, all specced; Plan 1.9 written |
+| [2026-08-07](2026-08-07.md) | Plan 1.8 — A1–A13 and A15 closed; A14 and A16 open, and A14 is critical |
+| [2026-08-06 evening](2026-08-06-evening.md) | The audit landed; Plan 1.8 half executed, stopped mid-plan deliberately |
 | [2026-08-06](2026-08-06.md) | Plan 1.7 — publish, upgrade, replay, the registry split; a forgeable layer digest and seven other defects |
 | [2026-08-05 evening](2026-08-05-evening.md) | Plan 1.6 merged; "Plan 2.5" renamed to Plan 1.7 and the running order finally justified |
 | [2026-08-05](2026-08-05.md) | Plan 1.6 — conformance checking; three contracts were lying about their modules |

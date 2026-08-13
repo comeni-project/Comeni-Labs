@@ -523,3 +523,73 @@ emit (`_ext_scope`) — so an end-to-end build could not watch either alone: whi
 the other re-sorts. The test reverses a materialised step's settings by hand and calls `_ext_scope`
 directly, which is the only place the emit-time sort is observable. Likewise the process-block
 dedup needed one contract in two steps, stood in for by the same step twice.
+
+## Round four, 2026-08-11 — the guards themselves, and the last file with no row
+
+Run under [the round-two brief](2026-08-07-round-two-brief.md), findings
+[A55–A69](2026-08-11-round-four-audit.md). Two kinds of row: probes that **caught** (recording the
+last test file that had no row, `test_pipeline_totality.py`, so A14's file-level residue is now
+exhausted), and probes that **stayed green** — the four guards defeated this round, which are
+findings, not fixes.
+
+### Caught — `test_pipeline_totality.py` earns its rows
+
+The last file in Plan 1.9's residue list without a row. Four guards; three are sound.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-11 | `test_pipeline_totality.py` | `ModuleRef.container` dropped (the schema-draft failure its docstring names) | 1 failed | `LockedContract.container` — names the exact field, the `sealed`-profile one |
+| 2026-08-11 | `test_pipeline_totality.py` | a stale `NOT_CARRIED` entry (`PipelineIR.nodes` added back to `Pipeline`) | 1 failed | `test_nothing_is_excused_that_is_actually_carried`, naming the field |
+| 2026-08-11 | `test_pipeline_totality.py` | `StepInput.states` `list` → `frozenset` with no serializer | 1 failed | `test_no_field_of_pipeline_is_a_frozenset`, naming it |
+| 2026-08-11 | `test_pipeline_totality.py` | a `ModuleContract` field added to `ModuleRef` | 1 failed | `test_pipeline_holds_no_registry`, naming it — and `test_egress.py` caught it too |
+
+### Stayed green — the four guards, defeated (A55–A67)
+
+Each is a **real reintroduction** of the property the guard names, followed by the full fast suite,
+then restore. These are the round-four criticals and importants; they are recorded here as A14's
+whole point — a guard that stays green over the defect it exists to catch is inert.
+
+| date | guard | what was reverted | what happened | finding |
+|---|---|---|---|---|
+| 2026-08-11 | `test_egress.py` | a `@computed_field` returning PHI-shaped text on `PromptRequest` | **15 passed** — crosses door 1 | A57 (critical) |
+| 2026-08-11 | `test_egress.py` | a `@model_serializer` returning three undeclared keys on `PromptRequest` | **15 passed** | A57 (critical) |
+| 2026-08-11 | `test_purity.py` | a pure file calling `yaml.unsafe_load` on a `!!python/object/apply:os.system` document | **1 passed**, and it executes | A58 (critical) |
+| 2026-08-11 | `test_purity_runtime.py` | a real watched socket opened inside `layers.load` (before the hook arms) | **2 passed** | A59 (critical) |
+| 2026-08-11 | `test_purity.py` | `from importlib import import_module as _load` + `urllib.request` in `gates.py` | **1 passed** | A60 (important) |
+| 2026-08-11 | `test_construction.py` | `_P = Pipeline; _P.model_construct(...)` in `pipeline_file.py` | **2 passed** | A62 (important) |
+
+The positive controls — spelling `socket`/`Pipeline`/`DataProfile` directly, a bare `str` or `dict`
+leaf on a payload, a fifth `DOORS` entry, a watched socket inside `resolve()` — all **fired and
+named the defect**, recorded in the audit's *Clean — attacked and held*. The findings are the gaps
+between what the positive controls catch and what these probes carry: a serialisation hook, a
+third-party capability, an unwatched stage, an aliased name.
+
+### Standing on the unmodified tree (no revert needed — A64, A66)
+
+Two findings reproduce with no probe: `AmbiguityRequest` and `EmittedFile` carry newlines and paths
+through bare-`str` `Mark`s (A64), and `Emitted`'s nested evidence is mutable after review because
+`frozen` is one level deep (A66). A guard that never has to be reverted to show the gap is the
+cheapest finding there is, and neither is guarded at all.
+
+### A68 — the totality guard's own imprecision
+
+`test_pipeline_totality`'s main guard checks field *names* in a flat set. `ModuleRef.digest` removed
+→ **4 passed** (`EmittedFile.digest` supplies the name); `Displacement.winning_key` removed → **4
+passed** (`Displacement` is carried verbatim, so the field leaves both sides at once). 47 of 78
+fields (60%) are compared against themselves. The row above records the three guards in that file
+that *are* sound; this records that its headline guard is not.
+
+**A14 does not close.** The file-level residue is exhausted (`test_pipeline_totality.py` was the
+last), but four critical findings survived — which is A69: the residue was the wrong measure.
+
+### Lifecycle relaunch — A70, a guard that goes silent on a supported state
+
+| date | guard | what was reverted | what happened | finding |
+|---|---|---|---|---|
+| 2026-08-11 | `test_publish.py` divergence guard | `emitted:` block stripped from `pipeline.yml` (archived/hand-authored state) + `main.nf` replaced with an unrelated workflow | **`gate preview: PASS`, exit 0** — the bogus `main.nf` certified and its digest stamped as emitted | A70 (important) |
+
+Not a revert of a line — a revert of a *precondition*. `_refuse_a_divergent_directory`'s `MD0213`/
+`MD0214` both short-circuit when `pipeline.emitted is None`, and no test covers that path. With the
+`emitted:` block **present**, the same corrupted `main.nf` is refused with `MD0214`
+(`test_publish_refuses_a_hand_edited_main_nf`) — so the guard's efficacy depends entirely on a field
+a hand-authored file legitimately lacks. Publish is the door with no undo.

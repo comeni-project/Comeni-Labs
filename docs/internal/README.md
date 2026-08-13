@@ -34,9 +34,10 @@ the order.
 | 8 | `2026-08-07-the-pipeline-file.md` | Plan 1.10 — `pipeline.yml`. **Complete**, with each task's corrections inline |
 | 9 | `../audits/2026-08-10-round-three-audit.md` | Round three audit — **complete.** A38–A54, four critical (A38, A44, A46, A50) |
 | 10 | `2026-08-10-closing-round-three.md` | Plan 1.11 — **complete.** Closed A38–A54 (17 tasks), with each task's corrections inline; A14 stays open |
-| 11 | *(no audit yet)* Round four | **Next.** The loop exits on *no critical finding surviving*, not on an empty audit, so 1.11's surface is still owed a pass |
-| 12 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
-| 13 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
+| 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **next, and the last audit-driven plan** (decided 2026-08-13). Closes A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues. A55 is code execution through a shareable artifact |
+| 13 | `2026-08-02-mendel-ai-and-forge.md` | Plan 2 — predates the types it references; rewrite before executing |
+| 14 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
 
