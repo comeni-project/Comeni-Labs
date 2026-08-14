@@ -2,6 +2,7 @@
 # `mendel profile` an ordinary build rather than a second subsystem: the router
 # already knows how to reach a type, and a measurement is one.
 id: comeni/profile/fastqc@0.12.1
+roles: [profiling]
 nf_process: FASTQC
 nf_include: modules/nf-core/fastqc/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: []}]

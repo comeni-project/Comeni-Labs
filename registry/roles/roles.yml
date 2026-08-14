@@ -1,0 +1,16 @@
+# The jobs a contract can do. Closed, like every other vocabulary: a contract naming a role
+# that is not declared in some layer of the stack fails to load (MD0302).
+#
+# A role is what a tier-3 rule targets. It is deliberately coarser than a contract and
+# coarser than a type: `alignment` is one job that STAR and HISAT2 both do, which is what
+# lets one rule choose between them without naming either in its key.
+roles:
+  - trimming
+  - alignment
+  - index_building
+  - bam_sorting
+  - bam_indexing
+  - quantification
+  - qc_per_sample
+  - qc_aggregation
+  - profiling

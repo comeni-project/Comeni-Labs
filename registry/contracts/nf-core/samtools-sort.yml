@@ -1,4 +1,5 @@
 id: nf-core/samtools/sort@1.21.0
+roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]

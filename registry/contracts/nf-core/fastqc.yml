@@ -1,4 +1,5 @@
 id: nf-core/fastqc@0.12.1
+roles: [qc_per_sample]
 nf_process: FASTQC
 nf_include: modules/nf-core/fastqc/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: []}]

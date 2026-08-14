@@ -979,3 +979,43 @@ human_override to the value"*, contradicting `pipeline-schema.md`'s *"it is not 
 one"* two paragraphs above. The test could not be written correctly by following the diagnostic.
 Both now say the same thing: edit `settings[].value` and the reason beside it, and leave `source`
 alone.
+
+---
+
+## Plan 1.15 Task 0 — a contract declares the roles it fills (A119, A123)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_roles_through_the_loader.py::test_a_contract_naming_an_undeclared_role_stops_the_build` | the `roles.check(...)` loop in `layers.load()` | failed | `DID NOT RAISE UnknownRoleError` |
+| 2026-08-15 | `test_roles.py` ×4 (core) | the same loop | **nothing failed** | see below — this is the row worth keeping |
+| 2026-08-15 | `test_roles.py::test_a_role_name_is_snake_case_on_a_contract` | `AfterValidator(_role_name)` on `RoleName` | failed | `DID NOT RAISE ValidationError` for `Alignment`, `ribo-depletion`, `2pass`, `_hidden`, `trailing_` |
+| 2026-08-15 | `test_roles.py::test_a_vocabulary_cannot_declare_a_role_no_contract_could_name` | the `_role_name` call in `RoleVocabulary.kind()`'s `parse` | failed | `DID NOT RAISE` for a vocabulary declaring `Ribo-Depletion` |
+| 2026-08-15 | `layers.py::_every_file_is_claimed` (A26) | nothing — `registry/roles/` was added before the kind was wired in | **failed unprompted** | `registry layer … contains roles/roles.yml, which nothing reads` |
+
+**Two inert guards were found in code written the same hour, and one guard caught the author.**
+
+**The `roles.check` loop was protecting nothing.** `packages/comeni-core/tests/test_roles.py`
+called `RoleVocabulary.check` directly — four green tests proving the function works and proving
+nothing about whether anything *calls* it. Deleting the loop from `layers.load()` left all four
+green. `test_roles_through_the_loader.py` exists for that reason and for no other: it loads a
+real layer stack through the real loader, which is the only thing that can fail when the call
+goes away. Same shape as Plan 1.9's three, and as A14 generally.
+
+**The `RoleName` validator was also inert**, and chasing it found a defect rather than just a
+missing test. `RoleVocabulary.kind()`'s `parse` returned bare strings, so a vocabulary could
+declare `Ribo-Depletion` — which loads — while every contract naming it was refused by
+`RoleName`. A declaration nothing can legally use: legal, silent, useless, and the same family
+as A122's rule that can never fire. Validating both sides is the fix; the asymmetry was only
+visible because the validator was being reverted.
+
+**`_every_file_is_claimed` failed unprompted and was right.** `registry/roles/` was added before
+`RoleVocabulary.kind()` was wired into `layers.load()`, so its file was hashed into the layer
+digest and read by nothing — exactly A26. Its message also named the four kind directories as a
+literal, which would have been wrong the moment a fifth existed, so it now derives them from
+`DeclaredKind`. Same reasoning as invariant 14's *"the guard's roots come from `DOORS` rather
+than from what happens to live in `egress.py`"*.
+
+**One revert was invalid and is recorded as such.** The first attempt at removing the
+vocabulary-side validation cut the file mid-block and produced a collection error rather than a
+test failure. A guard that "fails" because the module will not import has not been watched — it
+was redone with valid syntax, and the row above is the valid one.

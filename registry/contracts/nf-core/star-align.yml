@@ -1,4 +1,5 @@
 id: nf-core/star/align@1.11.0
+roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
 consumes:

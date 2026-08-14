@@ -1,4 +1,5 @@
 id: nf-core/star/genomegenerate@1.11.0
+roles: [index_building]
 nf_process: STAR_GENOMEGENERATE
 nf_include: modules/nf-core/star/genomegenerate/main
 consumes:

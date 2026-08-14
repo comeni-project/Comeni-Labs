@@ -21,6 +21,7 @@ from comeni_core.marks import (
     NfPath,
     NfTemplate,
     PortName,
+    RoleName,
     TypeId,
 )
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
@@ -316,6 +317,16 @@ class ModuleContract(BaseModel):
     consumes: list[InputPort] = Field(default_factory=list)
     produces: list[OutputPort] = Field(default_factory=list)
     params: list[Param] = Field(default_factory=list)
+
+    roles: list[RoleName] = Field(default_factory=list)
+    """The jobs this contract can do. What a tier-3 rule targets, and the only thing it may.
+
+    Empty is legal, so the field could be added without rewriting every layer in the world
+    on the same day — but the shipped registry is held to a stricter standard by
+    `test_every_contract_declares_a_role`, because a contract filling no role is invisible
+    to every rule and that is a silent way to be unreachable rather than a loud one.
+    """
+
     priority: int = 0
     priority_because: str = ""
     """Why this contract ranks where it does — the same missing document as `Param.because`.

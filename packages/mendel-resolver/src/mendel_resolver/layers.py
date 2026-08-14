@@ -1,25 +1,31 @@
 """Loading a stack of registry layers, in the one order that works.
 
-A layer is a directory holding `contracts/`, `rules/`, `vocabularies/` and `measurements/`,
-and the four are not independent:
+A layer is a directory holding one subdirectory per `DeclaredKind`, and they are not
+independent:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
-                  ->  registry   (contracts are validated against that vocabulary)
-                  ->  rules      (a rule is validated against all three)
+                  ->  registry   (contracts are validated against that vocabulary,
+                  ->              and against the roles they claim to fill)
+                  ->  rules      (a rule is validated against all of the above)
 
 Getting that order wrong does not raise where the mistake is. Loading the vocabulary before
 the measurements gives a vocabulary with no `measurement.*` types, so every profiling
 contract fails to load with `UnknownTypeError` pointing at the contract rather than at the
 caller — which is what happened the first time this was four separate calls in five places.
 One function, so the order is a fact rather than a convention.
+
+`roles` joins between the vocabulary and the registry (Plan 1.15): a contract declares the
+roles it fills, so the names must exist before a contract is checked against them, and
+nothing above it depends on a role.
 """
 
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.layered import Displacement, Layer, layers_of, stack
+from comeni_core.layered import DeclaredKind, Displacement, Layer, layers_of, stack
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
+from comeni_core.roles import RoleVocabulary
 from comeni_core.vocabulary import UnknownStateError, Vocabulary
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,6 +40,7 @@ class Layers(BaseModel):
     measurements: MeasurementRegistry
     vocabulary: Vocabulary
     registry: Registry
+    roles: RoleVocabulary
     rules: RuleTable
 
     paths: list[Path] = Field(default_factory=list)
@@ -84,26 +91,39 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind())
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
+    named_roles = stack(stacked, RoleVocabulary.kind())
+    roles = RoleVocabulary(names=frozenset(named_roles.entries))
     try:
         contracts = stack(stacked, Registry.kind(vocabulary))
     except UnknownStateError as error:
         raise _blame_the_overlay(error, declared_types.displaced) from error
     registry = Registry.of(contracts, stacked)
+    # After the registry is assembled rather than inside `Registry.kind`'s parse, so the
+    # message can name every role that exists across the whole stack. A contract in the base
+    # layer may legitimately fill a role an overlay declares.
+    for contract in registry.all():
+        roles.check(contract.id, contract.roles)
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements))
     rules = RuleTable.of(decided, stacked)
     _every_file_is_claimed(
         stacked,
-        measured.claimed | declared_types.claimed | contracts.claimed | decided.claimed,
+        measured.claimed
+        | declared_types.claimed
+        | named_roles.claimed
+        | contracts.claimed
+        | decided.claimed,
     )
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
         registry=registry,
+        roles=roles,
         rules=rules,
         paths=list(layers),
         displaced=[
             *measured.displaced,
             *declared_types.displaced,
+            *named_roles.displaced,
             *contracts.displaced,
             *decided.displaced,
         ],
@@ -130,8 +150,9 @@ def _every_file_is_claimed(layer_values: list[Layer], claimed: set[Path]) -> Non
             where = path.relative_to(layer.path)
             raise ValueError(
                 f"registry layer {layer.path} contains {where}, which nothing reads.\n"
-                f"  Declared data lives in contracts/, rules/, vocabularies/ or "
-                f"measurements/ — nested as deeply as you like, `.yml` or `.yaml`.\n"
+                f"  Declared data lives in "
+                f"{', '.join(k.value + '/' for k in DeclaredKind)} — nested as deeply as "
+                f"you like, `.yml` or `.yaml`.\n"
                 f"  A file outside those is hashed into the layer digest and changes "
                 f"nothing, which is how an overlay that did nothing looked like one that "
                 f"worked."

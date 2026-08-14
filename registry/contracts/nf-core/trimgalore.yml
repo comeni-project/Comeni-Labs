@@ -1,4 +1,5 @@
 id: nf-core/trimgalore@0.6.10
+roles: [trimming]
 nf_process: TRIMGALORE
 nf_include: modules/nf-core/trimgalore/main
 consumes: [{name: reads, type_id: fastq.reads, state_required: []}]

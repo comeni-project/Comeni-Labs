@@ -1,4 +1,5 @@
 id: nf-core/multiqc@1.35
+roles: [qc_aggregation]
 nf_process: MULTIQC
 nf_include: modules/nf-core/multiqc/main
 consumes: [{name: reports, type_id: qc.report, state_required: []}]

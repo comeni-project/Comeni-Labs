@@ -252,10 +252,16 @@ Violating any of these breaks the product claim, not just a test.
    survives having a model in the loop.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
 11. **The registry is a stack**: public curated base, then private overlays. A layer is a
-    **directory** holding `contracts/`, `rules/`, `vocabularies/` and `measurements/`, and all
-    four stack **through one mechanism** — `comeni_core.layered.stack()`, parameterised by a
-    `Kind` that declares only how its files parse, key and merge. Four hand-written loaders
-    disagreeing on six axes is what audit root B was. Load a stack through
+    **directory** holding one subdirectory per `DeclaredKind` — `contracts/`, `rules/`,
+    `vocabularies/`, `measurements/` and, since Plan 1.15, `roles/` — and every one of them
+    stacks **through one mechanism** — `comeni_core.layered.stack()`, parameterised by a
+    `Kind` that declares only how its files parse, key and merge. Hand-written loaders
+    disagreeing on six axes is what audit root B was.
+    **The count lives in `DeclaredKind` and not in this sentence.** It said "four" from Plan
+    1.9 to Plan 1.15 and would have been wrong the day a fifth kind arrived, which is A33's
+    lesson and A71/A72's: a number repeated in prose is a number that goes stale while
+    everything around it stays true. `len(DeclaredKind)` is the honest count, and
+    `_every_file_is_claimed` now derives its message from it for the same reason. Load a stack through
     `mendel_resolver.layers.load()`, never by hand: the kinds are not independent, and the
     wrong order fails inside a contract rather than at the caller. Every loader takes **layer
     roots**, never a `contracts/` or `measurements/` directory: a loader handed a slice of a
@@ -382,14 +388,14 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-registry/      contracts/ rules/ vocabularies/ measurements/ + registry.yml — THE LAYER
+registry/      contracts/ rules/ vocabularies/ measurements/ roles/ + registry.yml — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 frontend/      React + TS + Vite + Tailwind SPA
 ```
 
-**The registry is its own layer, in `registry/`, ready to extract.** It holds `contracts/`,
-`rules/`, `vocabularies/` and `measurements/` under CC-BY-4.0, plus a `registry.yml` manifest
+**The registry is its own layer, in `registry/`, ready to extract.** It holds one directory per
+`DeclaredKind` under CC-BY-4.0, plus a `registry.yml` manifest
 naming itself — because a layer that moves to its own repository cannot rely on the directory
 it happened to be checked out into. `comeni-registry` is where it lives publicly, with signed
 tags. Loading it from anywhere is a test, so the move is a path change and nothing else.
@@ -546,7 +552,7 @@ uv run mendel profile --have fastq.reads --out profile-build/
 uv run python tools/generate_types.py
 
 # same build, with the lab's private contracts stacked over the public registry
-# a layer is a DIRECTORY holding contracts/, rules/, vocabularies/ and measurements/
+# a layer is a DIRECTORY holding one subdirectory per DeclaredKind
 uv run mendel build --goal examples/rnaseq-goal.yml \
   --registry registry/ --registry ./lab-registry --out build/
 
