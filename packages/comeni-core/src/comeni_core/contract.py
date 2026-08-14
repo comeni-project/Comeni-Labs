@@ -173,6 +173,22 @@ class Param(BaseModel):
         return self
 
 
+class ContractExtArgs(BaseModel):
+    """Baseline flags a module always needs, and the premise that makes them right.
+
+    `because` is a **premise**, not a fact about a neighbouring module, and the difference is
+    the whole of A82. STAR's `--readFilesCommand zcat` was justified by *"TrimGalore emits
+    `.fq.gz`"*; one goal edit removes TrimGalore and the flag survives, its stated reason
+    naming a module that is not in the pipeline. A premise about the *reads* stays true when
+    the graph moves — and where it can be false, saying so is the point.
+    """
+
+    model_config = _NO_EXTRAS
+
+    template: str = ""
+    because: str = ""
+
+
 class NfInput(BaseModel):
     """One positional input of the process, and what fills it.
 
@@ -285,8 +301,13 @@ class ModuleContract(BaseModel):
     nf_inputs: list[NfInput] = Field(default_factory=list)
     """The process call signature. Empty means one channel per consumed port, in order."""
 
-    ext_args: str = ""
-    """Flags this module always needs, regardless of any decision.
+    ext_args: "str | ContractExtArgs" = ""
+    """Flags this module always needs, regardless of any decision — and why.
+
+    Two forms. A bare string is the old spelling and still parses; the record form adds
+    `because:`, which is what reaches `pipeline.yml` as the step's reason. A contract using
+    the bare form materialises with *"declared by the contract with no stated reason"*, which
+    is honest about being a gap instead of looking like an answer. Audit A82.
 
     Sits beside `nf_inputs` because both answer the same question — *how is this module
     called?* — rather than *what should be decided?*. `--readFilesCommand zcat` is not a

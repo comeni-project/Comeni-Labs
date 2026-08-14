@@ -194,8 +194,8 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
             (root / "contracts" / "nf-core" / "star-align.yml")
             .read_text()
             .replace(
-                'ext_args: "--readFilesCommand zcat"',
-                'ext_args: "--readFilesCommand zcat --outSAMattributes All"',
+                'template: "--readFilesCommand zcat"',
+                'template: "--readFilesCommand zcat --outSAMattributes All"',
             )
         ),
     )

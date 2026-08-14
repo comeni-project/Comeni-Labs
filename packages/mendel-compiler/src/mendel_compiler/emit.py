@@ -257,8 +257,8 @@ def _ext_scope(step: Step) -> list[str]:
     contract that needs no task keeps exactly the output it had.
     """
     fragments: dict[str, list[str]] = {}
-    if step.ext_args:
-        fragments.setdefault("args", []).append(step.ext_args)
+    if step.ext_args.template:
+        fragments.setdefault("args", []).append(step.ext_args.template)
 
     for setting in sorted(step.settings, key=lambda s: s.name):
         if setting.via is not Via.EXT:

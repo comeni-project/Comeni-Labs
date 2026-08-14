@@ -3,7 +3,7 @@ import pathlib
 import pytest
 from comeni_core.goal import Goal
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import ExtArgs, Pipeline
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 
@@ -291,7 +291,9 @@ def _step_carrying(setting):
     gains a field.
     """
     step = next(s for s in _pipeline().steps if s.process == "STAR_ALIGN")
-    return step.model_construct(**{**dict(step), "settings": [setting], "ext_args": None})
+    return step.model_construct(
+        **{**dict(step), "settings": [setting], "ext_args": ExtArgs.none()}
+    )
 
 
 def test_the_closure_branch_is_unreachable_from_a_raw_value():

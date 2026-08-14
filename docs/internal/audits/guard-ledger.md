@@ -893,3 +893,13 @@ over the spine, which is why it counted three where a reviewer reading a build c
 *"contains a control character. This text is written into a generated file"*. That is an
 existing guard doing its job on prose nobody had tried to put there before; the contracts use
 `>-`.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_runnable.py::test_the_ext_args_premise_survives_the_module_it_names` (A82) | STAR's `ext_args` back to the bare-string form | failed | `assert 'gzip' in 'declared by the contract with no stated reason'` |
+
+**The revert degrades to a visible gap rather than to a wrong answer**, which is the half worth
+recording. Dropping the premise does not restore the old sentence about TrimGalore; it produces
+*"declared by the contract with no stated reason"* — greppable, honest, and obviously unfinished.
+A compatibility path that invents a plausible reason would have passed this test and made the
+artifact worse.

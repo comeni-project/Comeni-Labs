@@ -687,6 +687,7 @@ SERIALISED_SHAPE = {
                  "emitted", "gate"],
     "Step": ["id", "module", "process", "include", "why", "ext_args", "inputs", "call",
              "settings"],
+    "ExtArgs": ["template", "why"],
     "Setting": ["name", "value", "via", "key", "template", "why"],
     "Why": ["tier", "source", "reason", "for_value", "from_layer", "displaced_layer"],
     "CallArg": ["ports", "literal", "empty_width", "join", "why"],
@@ -715,11 +716,19 @@ RELEASED_SCHEMA_VERSION = 1
 def test_a_schema_change_bumps_the_version():
     """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
     from comeni_core.egress import Emitted
-    from comeni_core.pipeline import SCHEMA_VERSION, CallArg, MetaEntry, Pipeline, Step
+    from comeni_core.pipeline import (
+        SCHEMA_VERSION,
+        CallArg,
+        ExtArgs,
+        MetaEntry,
+        Pipeline,
+        Step,
+    )
 
     actual = {
         "Pipeline": list(Pipeline.model_fields),
         "Step": list(Step.model_fields),
+        "ExtArgs": list(ExtArgs.model_fields),
         "Setting": list(Setting.model_fields),
         "Why": list(Why.model_fields),
         "CallArg": list(CallArg.model_fields),

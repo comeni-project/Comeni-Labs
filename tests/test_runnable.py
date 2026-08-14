@@ -177,7 +177,7 @@ def test_a_contract_can_declare_flags_its_module_always_needs(loaded):
     takes; this says which flags it takes. Both are "how is this called", and neither is
     "what should be decided" — giving it a tier would dilute what a tier means."""
     star = loaded.registry.get("nf-core/star/align@1.11.0")
-    assert "--readFilesCommand zcat" in star.ext_args
+    assert "--readFilesCommand zcat" in star.ext_args.template
 
 
 def test_ext_args_reaches_the_emitted_config(spine, loaded):
@@ -389,3 +389,70 @@ def test_every_positional_literal_says_why_it_is_that_value(loaded):
         "a positional literal must say why it is that value, not merely what it is: "
         + ", ".join(unexplained)
     )
+
+
+def _goal_with_trimmed_reads(loaded) -> Goal:
+    """The same goal, declaring the reads already trimmed. TrimGalore drops out."""
+    return Goal(
+        have=[
+            GoalInput(type_id="fastq.reads", states=frozenset({"trimmed"})),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+
+
+def test_ext_args_carries_a_reason(spine, loaded):
+    """A82 — it reached the tool with no `why` at all, and that was recorded as deliberate.
+
+    The recorded argument was *"nothing resolved it and there is no decision behind it, so
+    giving it a `why` would invent provenance"*. That conflates **tier** with **reason**: a
+    tier-1 fact still has a reason, and `NfInput.empty` already proves it by carrying a
+    tier-1 `Why` for a structurally identical thing.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.of(
+        spine, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths,
+        goal=_profiled_goal(loaded),
+    )
+    star = next(step for step in pipeline.steps if step.id == "star_align")
+
+    assert star.ext_args.template == "--readFilesCommand zcat"
+    assert star.ext_args.why.reason
+
+
+def test_the_ext_args_premise_survives_the_module_it_names(loaded):
+    """The sharp half of A82: **a recorded reason that has stopped being true**.
+
+    `--readFilesCommand zcat` was justified in the contract by *"TrimGalore emits .fq.gz — a
+    fact about the upstream module's output format."* One goal edit — declaring the reads
+    already trimmed — removes TrimGalore from the pipeline entirely, and the flag survives
+    with a justification naming a module that is not there.
+
+    Stated as a *premise about the reads* rather than a fact about a neighbour, so it stays
+    true when the graph moves and states its own limit: a laboratory supplying uncompressed
+    trimmed reads gets a wrong flag, and nothing here will catch that.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    goal = _goal_with_trimmed_reads(loaded)
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+
+    assert not any("trimgalore" in step.id for step in pipeline.steps), (
+        "this test is about a premise outliving TrimGalore; TrimGalore must be gone"
+    )
+    star = next(step for step in pipeline.steps if step.id == "star_align")
+    assert star.ext_args.template == "--readFilesCommand zcat"
+    assert "TrimGalore emits" not in star.ext_args.why.reason, (
+        "the reason must not assert a fact about a module that is not in this pipeline"
+    )
+    assert "gzip" in star.ext_args.why.reason.lower()

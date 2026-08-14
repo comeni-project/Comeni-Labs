@@ -207,6 +207,61 @@ class MetaEntry(BaseModel):
     """
 
 
+class ExtArgs(BaseModel):
+    """Flags a module always needs, and why it needs them.
+
+    Was a bare `NfTemplate`, on a recorded argument that has not survived contact: *"nothing
+    resolved it and there is no decision behind it, so giving it a `why` would invent
+    provenance."* That conflates **tier** with **reason**. A tier is about how something was
+    settled; a reason is about why it is what it is, and a tier-1 fact has one — `NfInput.empty`
+    already carries a tier-1 `Why` for a structurally identical thing. Audit A82.
+
+    The argument was also *load-bearing on a premise it did not state*. STAR's
+    `--readFilesCommand zcat` was justified by "TrimGalore emits `.fq.gz`", and one goal edit
+    removes TrimGalore while the flag survives, its stated justification naming a module that
+    is not in the pipeline. Stating the premise about the *reads* rather than about a
+    neighbour is what makes it stay true when the graph moves.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    template: NfTemplate = ""
+    why: Why
+
+    @classmethod
+    def none(cls) -> "ExtArgs":
+        """No baseline flags, said out loud.
+
+        `why` stays required rather than defaulting, so nothing can construct flags without a
+        reason. This is the one case where the reason is knowable in advance, and naming it
+        means "this module needs no baseline arguments" is an answer in the artifact rather
+        than an empty string a reader has to interpret.
+        """
+        return cls(why=_no_flags_why())
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_a_bare_template(cls, data: object) -> object:
+        """`ext_args: "--readFilesCommand zcat"` still parses.
+
+        Same split as `Constraints._accept_mapping`: the ergonomic form somebody writes and
+        the safe representation the artifact keeps are different decisions. A contract that
+        states only the flags materialises with a reason saying so — greppable, and honest
+        about being a gap rather than silently looking like an answer.
+        """
+        if isinstance(data, str):
+            return {
+                "template": data,
+                "why": {
+                    "tier": Tier.STRUCTURAL,
+                    "source": ValueSource.RESOLVER,
+                    "reason": "declared by the contract with no stated reason",
+                    "for_value": data,
+                },
+            }
+        return data
+
+
 class CallArg(BaseModel):
     """One positional input of the process.
 
@@ -275,14 +330,17 @@ class Step(BaseModel):
     process: NfIdentifier
     include: NfPath
     why: Why
-    ext_args: NfTemplate = ""
-    """Flags the module always needs, from its contract — `--readFilesCommand zcat` because
-    TrimGalore emits `.fq.gz` and STAR cannot read gzip.
+    ext_args: ExtArgs = Field(default_factory=lambda: ExtArgs(why=_no_flags_why()))
+    """Flags the module always needs, from its contract, **and why it needs them**.
 
-    Not a `Setting`: nothing resolved it and there is no decision behind it, so giving it a
-    `why` would invent provenance. Carried rather than looked up because emission must not
-    need the registry, and composed *before* the resolved settings so a contract's baseline
-    cannot be reordered by a value someone answered.
+    Still not a `Setting` — nothing resolved it and no decision was made — but that is an
+    argument about its *tier*, not about whether it has a reason. It carried none at all
+    until A82, which is how STAR's `--readFilesCommand zcat` reached `nextflow.config`
+    justified by a sentence about a module one goal edit removes.
+
+    Carried rather than looked up because emission must not need the registry, and composed
+    *before* the resolved settings so a contract's baseline cannot be reordered by a value
+    someone answered.
     """
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
@@ -628,7 +686,7 @@ class Pipeline(EgressPayload):
                     process=contract.nf_process,
                     include=contract.nf_include,
                     why=_why(node.selection),
-                    ext_args=contract.ext_args,
+                    ext_args=_ext_args(contract),
                     inputs=_inputs(ir, node, contract),
                     call=_call(contract),
                     settings=_settings(node, contract),
@@ -649,6 +707,42 @@ class Pipeline(EgressPayload):
             channels=_channels(ir, registry, vocab, measurements),
             decisions=list(ir.decisions),
         )
+
+
+def _ext_args(contract: ModuleContract) -> ExtArgs:
+    """A contract's baseline flags, with the reason it declared for them.
+
+    `ModuleContract.ext_args` accepts a bare string as well as a record, so this is where the
+    two forms become one shape. A contract that states only the flags gets a reason saying so
+    rather than an invented one — the gap stays visible and greppable. A82.
+    """
+    declared = contract.ext_args
+    if isinstance(declared, str):
+        return ExtArgs.model_validate(declared) if declared else ExtArgs(why=_no_flags_why())
+    return ExtArgs(
+        template=declared.template,
+        why=Why(
+            tier=Tier.STRUCTURAL,
+            source=ValueSource.RESOLVER,
+            reason=declared.because or "declared by the contract with no stated reason",
+            for_value=declared.template,
+        ),
+    )
+
+
+def _no_flags_why() -> Why:
+    """The `why` for a module that declares no `ext_args` at all.
+
+    A step with no flags still answers the question — "why does this module take no baseline
+    arguments" — and the answer is that its contract declares none. Saying so is cheaper than
+    a reader wondering whether the field went missing.
+    """
+    return Why(
+        tier=Tier.STRUCTURAL,
+        source=ValueSource.RESOLVER,
+        reason="this contract declares no flags its module always needs",
+        for_value="",
+    )
 
 
 def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:

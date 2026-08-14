@@ -31,8 +31,16 @@ nf_inputs:
       this module, and ignoring it would discard the splice-junction information a spliced
       aligner exists to use. Audit A81. A91 turns this into a routed parameter, after which
       the reason belongs to the setting rather than to the call.
-# TrimGalore emits .fq.gz and STAR reads plain text unless told otherwise. Not a
-# decision — a fact about the upstream module's output format.
-ext_args: "--readFilesCommand zcat"
+ext_args:
+  template: "--readFilesCommand zcat"
+  because: >-
+    The reads reaching STAR in this registry are gzipped, and STAR reads plain text unless
+    told otherwise. Stated as a premise about the *reads* rather than as a fact about
+    TrimGalore, which is how it was written before: one goal edit — declaring the reads
+    already trimmed — removes TrimGalore from the pipeline while this flag survives, and the
+    old reason then named a module that was not there. Audit A82. **Where this is false it is
+    actively wrong and nothing here will catch it**: a laboratory supplying uncompressed
+    trimmed reads needs this removed. Expressing that as a condition is issue #39's
+    `when`-expressiveness problem, not this field's.
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}
