@@ -688,7 +688,7 @@ SERIALISED_SHAPE = {
     "Step": ["id", "module", "process", "include", "why", "ext_args", "inputs", "call",
              "settings"],
     "Setting": ["name", "value", "via", "key", "template", "why"],
-    "Why": ["tier", "source", "reason", "from_layer", "displaced_layer"],
+    "Why": ["tier", "source", "reason", "for_value", "from_layer", "displaced_layer"],
     "CallArg": ["ports", "literal", "empty_width", "join", "why"],
     "MetaEntry": ["key", "value"],
     "Emitted": ["schema_version", "files", "from_digest"],
@@ -702,9 +702,14 @@ every pipeline ever archived, at once, with nobody having touched one. The versi
 lets `MD0213` tell that apart from a human edit, and a version nobody remembers to bump
 cannot.
 
-When this test fails: add your field here **and** bump `SCHEMA_VERSION`. Do not update one
-without the other — that combination is the bug.
+When this test fails: add your field here, and make sure `SCHEMA_VERSION` is ahead of
+`RELEASED_SCHEMA_VERSION`. Within one unreleased bump that is already true and the fingerprint
+is all that changes — version 2 covers every field Plan 1.14 adds. What must never happen is
+the shape moving while the version stays at what a laboratory already has on disk.
 """
+
+RELEASED_SCHEMA_VERSION = 1
+"""The highest version any archived pipeline can be carrying. Raised when a version ships."""
 
 
 def test_a_schema_change_bumps_the_version():
@@ -726,4 +731,87 @@ def test_a_schema_change_bumps_the_version():
         "moved with it, so bump SCHEMA_VERSION and update SERIALISED_SHAPE together — "
         "updating either alone is the defect Plan 1.14 Task 0 fixed."
     )
-    assert SCHEMA_VERSION == 2, "bump this alongside SERIALISED_SHAPE, never after it"
+    assert SCHEMA_VERSION > RELEASED_SCHEMA_VERSION, (
+        "the shape moved, so SCHEMA_VERSION must be ahead of the last released one. Within a "
+        "single unreleased bump, adding fields and updating SERIALISED_SHAPE is enough — "
+        "version 2 covers everything Plan 1.14 adds. What must never happen is the shape "
+        "moving while the version stays at what a laboratory already has on disk."
+    )
+
+
+# --- Plan 1.14 Task 1: a reason cannot outlive its value (A104, A105) ---------------------
+
+
+def _edit_setting_value(out, name, value):
+    """Change a resolved setting's `value:` by hand, the way the file's own header invites.
+
+    Text rather than a model round trip, for the same reason `_answer` is: the guard exists
+    for the file as somebody types it, and rewriting through Pydantic would launder the
+    mistake being watched for.
+    """
+    path = out / "pipeline.yml"
+    lines = path.read_text().splitlines(keepends=True)
+    at = next(i for i, line in enumerate(lines) if line.strip() == f"- name: {name}")
+    lines[at + 1] = f"    value: {value}\n"
+    path.write_text("".join(lines))
+
+
+def test_editing_a_value_and_leaving_its_reason_is_refused(tmp_path, capsys):
+    """A104, critical. The edit reached the tool; the reason beside it described the old value.
+
+    Reproduced by the design audit: `min_mqs` edited 0 → 30 emits `-Q 30` — reads below
+    mapping quality 30 are now discarded, a real analysis change — while the record still
+    reads `tier: 2 / source: resolver / reason: contract default for min_mqs`, all three
+    false. `mendel publish --gate lint` certified it at exit 0.
+
+    A diagnostic rather than a parse error, deliberately: the file says *"Read it; edit it"*,
+    so a person who changes a number must be **told to update the reason**, not handed a
+    stack trace for doing what the header invited.
+    """
+    out = _build(tmp_path)
+    _edit_setting_value(out, "min_mqs", 30)
+
+    code, err = _emit(out, capsys)
+
+    assert code != 0
+    assert "MD0223" in err
+    assert "0" in err and "30" in err, "name both values, or the reader cannot act"
+
+
+def test_editing_a_value_and_its_reason_together_is_accepted(tmp_path, capsys):
+    """The negative. A check that can only refuse is not a check — it is an obstacle."""
+    out = _build(tmp_path)
+    _edit_setting_value(out, "min_mqs", 30)
+    path = out / "pipeline.yml"
+    path.write_text(
+        path.read_text()
+        .replace("reason: contract default for min_mqs",
+                 "reason: lab SOP BIOINF-014 requires MAPQ >= 30")
+        .replace("for_value: 0", "for_value: 30")
+    )
+
+    code, err = _emit(out, capsys)
+
+    assert code == 0, err
+    assert "-Q 30" in (out / "nextflow.config").read_text()
+
+
+def test_a_file_written_before_for_value_still_emits(tmp_path, capsys):
+    """`for_value: null` means "written before 1.14", not "explains nothing".
+
+    An archived pipeline has no such field and must still regenerate its Nextflow. The check
+    fires only where the field is set and disagrees, which is also what gives it real
+    negatives.
+    """
+    out = _build(tmp_path)
+    path = out / "pipeline.yml"
+    path.write_text(
+        "\n".join(
+            line for line in path.read_text().splitlines() if "for_value:" not in line
+        )
+        + "\n"
+    )
+
+    code, err = _emit(out, capsys)
+
+    assert code == 0, err

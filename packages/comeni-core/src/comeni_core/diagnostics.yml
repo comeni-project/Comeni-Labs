@@ -694,6 +694,53 @@ MD0222:
 
     Audit A70. Publication is the door with no undo.
 
+MD0223:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a value was edited and the reason beside it still describes the value it replaced"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Update the setting's `why.reason` to explain the new value, and set `why.for_value` to it:
+
+        - name: min_mqs
+          value: 30
+          why:
+            tier: 2
+            source: human
+            reason: lab SOP BIOINF-014 requires MAPQ >= 30
+            for_value: 30
+
+    Or revert the value. Either is fine; what is refused is the pair disagreeing.
+  explanation: |
+    `settings[].value` is the field this file's own header points a person at — *"Read it;
+    edit it"* — so editing one is the ordinary case rather than the suspicious one. What was
+    missing is that the justification beside it did not move with it.
+
+    Measured, not theorised. `min_mqs` edited 0 → 30 emitted `ext.args = '-Q 30'`, which
+    discards every read below mapping quality 30 — a real change to which reads are counted —
+    while the record still read `tier: 2 / source: resolver / reason: contract default for
+    min_mqs`. All three false: not a contract default, not the resolver's doing, not 0. And
+    `mendel publish --gate lint` certified it at **exit 0**, through the door with no undo.
+
+    `why.for_value` records the value the reason was written about, so the disagreement is
+    representable and therefore checkable. `MD0218`/`MD0220` already did this cross-check for
+    tier-4 `ParamDecision`s — only for flagged values, and only in the direction that
+    overstates human involvement. This covers the rest.
+
+    **A diagnostic rather than a load-time refusal**, deliberately: refusing at load would
+    mean the file a reader is invited to edit cannot be edited. Being told to update the
+    reason, in the same breath as being told the edit worked, is the whole point.
+
+    `for_value: null` means "written before this field existed" and is skipped. An archived
+    pipeline must still emit, and absence is not disagreement.
+
+    Audit A104, and it is the sharpest finding in the design audit for the product claim:
+    the artifact *is* the product, and its explanation was provably false about a value that
+    changes results. Under the engine decision it is worse — a person who leaves a stale
+    reason does it occasionally and may notice; an agent tuning settings does it
+    systematically and does not.
+
 MD0300:
   emitted_by: resolver
   concern: routing

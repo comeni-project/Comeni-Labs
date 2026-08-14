@@ -98,6 +98,25 @@ class Why(BaseModel):
     tier: Tier
     source: ValueSource
     reason: Line
+    for_value: ParamValue = None
+    """The value this reason was written about. `MD0223`.
+
+    A `Why` is written once at resolution and never re-derived, so nothing noticed when the
+    value moved underneath it. `min_mqs` edited 0 → 30 reached featureCounts as `-Q 30` —
+    reads below mapping quality 30 discarded, a real analysis change — while the record still
+    said `tier: 2 / source: resolver / reason: contract default for min_mqs`, all three
+    false, and `publish` certified it at exit 0. Audit A104.
+
+    **`None` means "written before 1.14", not "explains nothing".** An archived pipeline has
+    no such field and must still emit, so the check fires only where this is set and
+    disagrees — which is also what gives it real negatives. A check that can only pass is not
+    a check.
+
+    Under the engine decision (`docs/design/mendel.md` §1) this stops being a legibility
+    defect: a human who leaves a stale reason does it occasionally and may notice, and an
+    agent tuning settings does it systematically and does not.
+    """
+
     from_layer: LayerName | None = None
     displaced_layer: LayerName | None = None
     """Set when a lower layer offered something this one beat. A5, A15 — dropped by two drafts
@@ -583,11 +602,18 @@ class Pipeline(EgressPayload):
 
 
 def _why(value) -> Why:
-    """A `ResolvedValue` seen as provenance. Field for field, no interpretation."""
+    """A `ResolvedValue` seen as provenance. Field for field, no interpretation.
+
+    `for_value` is the one field that is not simply copied, and it needs no interpretation
+    either: the reason was written about the value it arrived with, so recording that value
+    beside it is a statement of fact at the moment it is true. Everything after this point can
+    only make it false, which is exactly what `MD0223` is for. A104.
+    """
     return Why(
         tier=value.tier,
         source=value.source,
         reason=value.reason,
+        for_value=value.value,
         from_layer=value.from_layer,
         displaced_layer=value.displaced_layer,
     )
@@ -648,6 +674,7 @@ def _call(contract: ModuleContract) -> list[CallArg]:
                     tier=Tier.STRUCTURAL,
                     source=ValueSource.RESOLVER,
                     reason=spec.because,
+                    for_value=spec.literal,
                 )
                 if spec.because
                 else None

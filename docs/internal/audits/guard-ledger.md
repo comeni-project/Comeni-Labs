@@ -849,3 +849,17 @@ The lesson is not that the code was wrong; it was right and untested. It is that
 guard and *watching it fail* are different acts, and only the second one tells you which of them
 you actually wrote. `test_emit_does_not_call_a_schema_change_an_edit_either` is the missing half,
 and the row above it is kept as the record that it was missing.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_pipeline_file.py::test_editing_a_value_and_leaving_its_reason_is_refused` (A104) | `for_value=value.value` in `_why` | failed | `assert code != 0` — emit accepted the edit again |
+| 2026-08-14 | `test_publish.py::test_publish_refuses_to_certify_a_value_whose_reason_is_false` | the same line | failed | publish certified it at exit 0, which is A104 exactly |
+| 2026-08-14 | `test_pipeline_file.py::test_emit_clears_the_gate_verdict_when_the_file_was_edited` | nothing — a walrus named `stale` shadowed the `MD0213` boolean | **failed unprompted** | `assert 'lint' is None` |
+
+**The third row is not a revert either, and it is the useful one.** Writing `MD0223` as
+`if stale := stale_reasons(pipeline)` shadowed a boolean read twelve lines below to decide
+whether a `publish`ed gate verdict survives an edit — so an edited pipeline kept its
+certification. Nobody staged that; an existing A47 guard caught it on the first `make verify`
+after the change. Two unprompted catches in two plans (`test_purity.py` in 1.13, this in 1.14),
+both from guards written for something else, is the argument for running the *whole* gate rather
+than the tests you think you touched.

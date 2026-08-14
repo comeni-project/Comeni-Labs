@@ -166,6 +166,31 @@ def is_stale(pipeline: Pipeline) -> bool:
     return pipeline.emitted.from_digest != pipeline.content_digest()
 
 
+def stale_reasons(pipeline: Pipeline) -> list[str]:
+    """Settings whose value moved and whose reason did not. `MD0223`.
+
+    The file's own header says *"Read it; edit it"*, and `settings[].value` is what it points
+    a person at. Editing one is therefore the ordinary case, not the suspicious one — and
+    until this check existed the edit reached the tool while the justification beside it went
+    on describing the value it replaced. `min_mqs` 0 → 30 emitted `-Q 30` under
+    `reason: contract default for min_mqs`, and `publish` certified it at exit 0. Audit A104.
+
+    A **diagnostic rather than a validator**, deliberately. Refusing at load would mean the
+    file a reader is invited to edit cannot be edited; what is wanted is to be told to update
+    the reason, in the same breath as being told the edit worked.
+
+    Skipped where `for_value` is `None` — a file written before 1.14 has no such field, and
+    absence is not disagreement.
+    """
+    return [
+        f"{step.id}.{setting.name}: value is {setting.value!r}, but the reason beside it was "
+        f"written about {setting.why.for_value!r} — {setting.why.reason}"
+        for step in pipeline.steps
+        for setting in step.settings
+        if setting.why.for_value is not None and setting.why.for_value != setting.value
+    ]
+
+
 def predates_schema(pipeline: Pipeline) -> bool:
     """Was this file's digest taken under an older `SCHEMA_VERSION`?
 

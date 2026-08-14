@@ -348,3 +348,25 @@ def test_upgrade_reports_a_missing_emitted_record_rather_than_refusing(tmp_path,
     assert code == 0, "upgrade refused where it should report"
     assert "MD0222" not in err
     assert "predates the emitted-artifact record" in err
+
+
+def test_publish_refuses_to_certify_a_value_whose_reason_is_false(tmp_path, capsys):
+    """A104's sharp end. `publish` is the door with no undo, and it stamped this at exit 0.
+
+    The audit edited `min_mqs` 0 → 30, emitted `-Q 30`, and `mendel publish --gate lint`
+    certified a pipeline whose record said `tier: 2 / source: resolver / reason: contract
+    default for min_mqs` — all three false about the value that reached the tool.
+    """
+    out = tmp_path / "p"
+    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+
+    path = out / "pipeline.yml"
+    lines = path.read_text().splitlines(keepends=True)
+    at = next(i for i, line in enumerate(lines) if line.strip() == "- name: min_mqs")
+    lines[at + 1] = "    value: 30\n"
+    path.write_text("".join(lines))
+
+    code = main(["publish", str(path), "--root", str(ROOT)])
+
+    assert code != 0
+    assert "MD0223" in capsys.readouterr().err
