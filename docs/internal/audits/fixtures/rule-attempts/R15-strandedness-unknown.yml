@@ -1,0 +1,11 @@
+# R15 — when strandedness has NOT been measured, infer it rather than assume it.
+# nf-core/rnaseq does exactly this (`--strandedness auto` -> salmon/RSeQC inference).
+# The condition is the ABSENCE of a measurement.
+version: 1
+decisions:
+  - decides: {param: min_length}
+    because: "placeholder target; the condition is what is being tested"
+    cite: "Wang et al. 2012, doi:10.1093/bioinformatics/bts356 (RSeQC infer_experiment)"
+    rows:
+      - {when: {strandedness: null}, then: 20}
+      - {when: {},                    then: 20}

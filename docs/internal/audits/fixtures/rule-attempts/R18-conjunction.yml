@@ -1,0 +1,10 @@
+# R18 — a two-condition conjunction, the control for AND-within-a-row.
+# Long paired-end reads justify a larger STAR intron bound.
+version: 1
+decisions:
+  - decides: {param: sjdb_overhang}
+    because: "paired long reads span more junction sequence"
+    cite: "Dobin et al. 2013 (STAR manual 2.2.2)"
+    rows:
+      - {when: {paired: true, read_length: ">= 100"}, then: 99}
+      - {when: {},                                     then: 49}

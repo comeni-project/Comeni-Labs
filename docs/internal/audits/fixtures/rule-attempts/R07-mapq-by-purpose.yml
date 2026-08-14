@@ -1,0 +1,10 @@
+# R7 — minimum mapping quality. Expression counting tolerates MAPQ >= 10; anything feeding
+# variant interpretation wants >= 30. Same measurement, different answer by purpose.
+version: 1
+decisions:
+  - decides: {param: min_mqs}
+    because: "the MAPQ floor depends on what the counts are used for"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656; GATK Best Practices"
+    rows:
+      - {when: {want: variant.calls}, then: 30}
+      - {when: {},                    then: 10}

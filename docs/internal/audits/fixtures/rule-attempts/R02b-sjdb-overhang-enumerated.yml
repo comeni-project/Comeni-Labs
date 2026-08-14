@@ -1,0 +1,16 @@
+# R2b — the same rule, enumerated. The only form the format admits.
+# One row per read length the registry anticipates. This is the contortion.
+version: 1
+decisions:
+  - decides: {param: sjdb_overhang}
+    because: "STAR splice-junction database overhang is max(read length) - 1"
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635 (STAR manual 2.2.2)"
+    rows:
+      - {when: {read_length: 36},  then: 35}
+      - {when: {read_length: 50},  then: 49}
+      - {when: {read_length: 75},  then: 74}
+      - {when: {read_length: 100}, then: 99}
+      - {when: {read_length: 125}, then: 124}
+      - {when: {read_length: 150}, then: 149}
+      - {when: {read_length: 250}, then: 249}
+      - {when: {read_length: 300}, then: 299}

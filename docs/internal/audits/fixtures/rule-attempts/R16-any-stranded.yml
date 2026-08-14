@@ -1,0 +1,10 @@
+# R16 — "any stranded library". One condition, negated, over an enum. The alternative is
+# to enumerate every stranded value — which is fine for three and not for an extensible enum.
+version: 1
+decisions:
+  - decides: {param: min_mqs}
+    because: "stranded libraries resolve overlapping antisense features, so a lower MAPQ floor is safe"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - {when: {strandedness: "!= unstranded"}, then: 0}
+      - {when: {},                               then: 10}

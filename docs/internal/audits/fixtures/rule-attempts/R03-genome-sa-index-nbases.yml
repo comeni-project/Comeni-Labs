@@ -1,0 +1,11 @@
+# R3 — STAR --genomeSAindexNbases. STAR manual 2.2.5:
+#   "min(14, log2(GenomeLength)/2 - 1)"
+# A documented closed-form function of a measured quantity. Tier 3 by every definition
+# this project uses.
+version: 1
+decisions:
+  - decides: {param: genome_sa_index_nbases}
+    because: "STAR suffix-array index size scales with genome length"
+    cite: "Dobin et al. 2013 (STAR manual 2.2.5)"
+    rows:
+      - {when: {}, then: "min(14, log2(genome_length)/2 - 1)"}

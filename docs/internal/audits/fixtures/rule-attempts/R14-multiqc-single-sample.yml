@@ -1,0 +1,13 @@
+# R14 — MultiQC aggregates across samples. With one sample it produces a report of one
+# thing and the per-tool reports already say it. So: include MULTIQC only when n_samples > 1.
+#
+# Again a step-presence decision. The nearest legal attempt is a producer_of over the QC
+# report type with a `null` branch.
+version: 1
+decisions:
+  - decides: {producer_of: qc.report}
+    because: "a cross-sample aggregate report is not informative for a single sample"
+    cite: "Ewels et al. 2016, doi:10.1093/bioinformatics/btw354"
+    rows:
+      - {when: {n_samples: "> 1"}, then: nf-core/multiqc@1.35}
+      - {when: {},                  then: null}

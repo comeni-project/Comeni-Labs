@@ -1,0 +1,12 @@
+# R12 — STAR needs ~10 bytes per reference base; a 3.1 Gb genome needs >30 GB RAM. On a
+# node with less, HISAT2 is the correct aligner regardless of read length.
+# Conditions on the EXECUTION ENVIRONMENT, not the data.
+version: 1
+decisions:
+  - decides: {producer_of: alignment.bam}
+    because: "STAR's index does not fit in memory on small nodes"
+    cite: "Dobin et al. 2013 (STAR manual 3.2.2); Kim et al. 2019, doi:10.1038/s41587-019-0201-4"
+    rows:
+      - {when: {genome_length: "> 3000000000", available_ram_gb: "< 32"}, then: nf-core/hisat2/align@2.2.2}
+      - {when: {read_length: ">= 70"},                                    then: nf-core/star/align@1.11.0}
+      - {when: {read_length: "< 70"},                                     then: nf-core/hisat2/align@2.2.2}

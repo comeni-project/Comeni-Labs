@@ -1,0 +1,10 @@
+# R5 — TrimGalore --clip_R1. Takara SMARTer / Nextera-style preps carry a 5' bias from
+# template switching; the protocol says clip the first 3 bases.
+version: 1
+decisions:
+  - decides: {param: clip_r1}
+    because: "template-switching preps carry a non-templated 5' bias"
+    cite: "Takara SMARTer Stranded Total RNA-Seq Kit v3 user manual"
+    rows:
+      - {when: {library_prep: rnaseq_total}, then: 3}
+      - {when: {},                           then: 0}

@@ -1,0 +1,13 @@
+# R6 — STAR --twopassMode Basic. Worth its cost when novel splice junctions matter
+# (annotation-poor organism, or junction discovery is the point); wasteful for routine DE
+# against a well-annotated genome.
+#
+# The condition is the GOAL'S PURPOSE, not a property of the data.
+version: 1
+decisions:
+  - decides: {param: twopass_mode}
+    because: "two-pass mapping improves novel junction sensitivity at ~2x runtime"
+    cite: "Dobin et al. 2013 (STAR manual 8); Engstrom et al. 2013, doi:10.1038/nmeth.2722"
+    rows:
+      - {when: {purpose: junction_discovery}, then: Basic}
+      - {when: {},                            then: None}

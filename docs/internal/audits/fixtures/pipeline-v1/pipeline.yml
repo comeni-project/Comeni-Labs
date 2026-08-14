@@ -1,0 +1,314 @@
+# This pipeline, in full. Read it; edit it; then rebuild the Nextflow from it:
+#
+#     mendel emit pipeline.yml --out .
+#
+# Every value carries a `why:` — the tier it exited at, who settled it, which registry layer
+# it came from, and the citation behind it. That is the point of the file: one place that
+# answers "what settings does this pipeline use, and why".
+#
+# `goal:` is INERT to `mendel emit`. It is the input to *resolution*, and the facts emission
+# needs are already materialised into `channels[].meta`, so editing `profile:` or `want:`
+# changes nothing until `mendel upgrade` re-resolves against a registry.
+#
+# `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
+# this file — that digest is what notices if you edit here and forget to re-emit.
+
+version: 1
+goal:
+  have:
+  - type_id: fastq.reads
+    states: []
+  - type_id: annotation.gtf
+    states: []
+  - type_id: genome.fasta
+    states: []
+  want:
+  - counts.matrix
+  constraints:
+    required_states:
+    - type_id: counts.matrix
+      states:
+      - gene_level
+    params: []
+  profile:
+    measurements:
+    - measurement: n_samples
+      value: 12
+      source: goal
+      by: null
+    - measurement: paired
+      value: true
+      source: goal
+      by: null
+    - measurement: read_length
+      value: 150
+      source: goal
+      by: null
+    - measurement: strandedness
+      value: reverse
+      source: goal
+      by: null
+registry:
+  layers:
+  - name: comeni-registry-examples
+    digest: sha256:69af59e30816fd2541e3feb14fc400afe74f26d48ea5ef56fd8eac9680d03f9c
+  displaced: []
+  unverified: []
+steps:
+- id: trimgalore
+  module:
+    contract_id: nf-core/trimgalore@0.6.10
+    digest: sha256:e40bc013220a17224ec8962e7a6ac4b5ac324744062681e79e7df4611528b3b3
+    container: community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363
+  process: TRIMGALORE
+  include: modules/nf-core/trimgalore/main
+  why:
+    tier: 1
+    source: resolver
+    reason: the only contract that produces this
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+  ext_args: ''
+  inputs:
+  - port: reads
+    source: null
+    channel: fastq.reads
+    states: []
+  call:
+  - ports:
+    - reads
+    literal: null
+    empty_width: null
+    why: null
+  settings: []
+- id: star_genomegenerate
+  module:
+    contract_id: nf-core/star/genomegenerate@1.11.0
+    digest: sha256:23591418765a9f12c8df413e854cd535c8a3d77050ce1421236616dfb1526cfb
+    container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+  process: STAR_GENOMEGENERATE
+  include: modules/nf-core/star/genomegenerate/main
+  why:
+    tier: 1
+    source: resolver
+    reason: the only contract that produces this
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+  ext_args: ''
+  inputs:
+  - port: fasta
+    source: null
+    channel: genome.fasta
+    states: []
+  - port: gtf
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - fasta
+    literal: null
+    empty_width: null
+    why: null
+  - ports:
+    - gtf
+    literal: null
+    empty_width: null
+    why: null
+  settings: []
+- id: star_align
+  module:
+    contract_id: nf-core/star/align@1.11.0
+    digest: sha256:6591741c355858d7d56ca2e3506a32217bafec844ade7cd9ce3abdd081f33654
+    container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+  process: STAR_ALIGN
+  include: modules/nf-core/star/align/main
+  why:
+    tier: 3
+    source: resolver
+    reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: Dobin et al. 2013,
+      doi:10.1093/bioinformatics/bts635'
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+  ext_args: --readFilesCommand zcat
+  inputs:
+  - port: reads
+    source: trimgalore.reads
+    channel: null
+    states:
+    - trimmed
+  - port: index
+    source: star_genomegenerate.index
+    channel: null
+    states: []
+  - port: gtf
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - reads
+    literal: null
+    empty_width: null
+    why: null
+  - ports:
+    - index
+    literal: null
+    empty_width: null
+    why: null
+  - ports:
+    - gtf
+    literal: null
+    empty_width: null
+    why: null
+  - ports: []
+    literal: false
+    empty_width: null
+    why: null
+  settings:
+  - name: seq_platform
+    value: null
+    via: ext
+    key: args
+    template: --outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'
+    why:
+      tier: 4
+      source: resolver
+      reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement
+        — please review
+      from_layer: null
+      displaced_layer: null
+- id: samtools_sort
+  module:
+    contract_id: nf-core/samtools/sort@1.21.0
+    digest: sha256:3994f04fd9c019d3c25ec8ea5c2617f08f2e348bdd0b27db35fab11b55af51e2
+    container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
+  process: SAMTOOLS_SORT
+  include: modules/nf-core/samtools/sort/main
+  why:
+    tier: 1
+    source: resolver
+    reason: the only contract that produces this
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+  ext_args: ''
+  inputs:
+  - port: bam
+    source: star_align.bam
+    channel: null
+    states: []
+  call:
+  - ports:
+    - bam
+    literal: null
+    empty_width: null
+    why: null
+  - ports: []
+    literal: null
+    empty_width: 3
+    why:
+      tier: 1
+      source: resolver
+      reason: the reference is only needed to write CRAM; this emits BAM
+      from_layer: null
+      displaced_layer: null
+  - ports: []
+    literal: bai
+    empty_width: null
+    why: null
+  settings: []
+- id: subread_featurecounts
+  module:
+    contract_id: nf-core/subread/featurecounts@2.0.6
+    digest: sha256:42a11b89393306587a26cef58509a5bd682db1bce061565aed124027f68fa8c1
+    container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
+  process: SUBREAD_FEATURECOUNTS
+  include: modules/nf-core/subread/featurecounts/main
+  why:
+    tier: 1
+    source: resolver
+    reason: the only contract that produces this
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+  ext_args: ''
+  inputs:
+  - port: bam
+    source: samtools_sort.bam
+    channel: null
+    states:
+    - coordinate_sorted
+  - port: annotation
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - bam
+    - annotation
+    literal: null
+    empty_width: null
+    why: null
+  settings:
+  - name: min_mqs
+    value: 0
+    via: ext
+    key: args
+    template: -Q {value}
+    why:
+      tier: 2
+      source: resolver
+      reason: contract default for min_mqs
+      from_layer: null
+      displaced_layer: null
+channels:
+- type_id: annotation.gtf
+  params:
+  - gtf
+  expression: 'Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName],
+    gtf ] }'
+  meta: []
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genes.gtf
+- type_id: fastq.reads
+  params:
+  - input
+  expression: '( params.input instanceof List ? Channel.of([ [id: ''test''], params.input.collect
+    { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map
+    { id, reads -> [ [id: id], reads ] } )'
+  meta:
+  - key: single_end
+    value: false
+  - key: strandedness
+    value: reverse
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_1.fastq.gz
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_2.fastq.gz
+- type_id: genome.fasta
+  params:
+  - fasta
+  expression: 'Channel.fromPath(params.fasta, checkIfExists: true).map { f -> [ [id: f.baseName],
+    f ] }'
+  meta: []
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genome.fasta
+decisions:
+- key: star_align.seq_platform
+  subject: seq_platform
+  reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement — please
+    review
+  confidence: 0.0
+  resolved_by: flag-only
+  tier: 4
+  kind: param
+  candidates:
+  - null
+  chosen: null
+  human_override: null
+emitted:
+  files:
+  - name: main.nf
+    digest: sha256:76355bbf9f10d6e6cfc0eb9f1c60b60f24a5197339e7372699d42016909cee7e
+  - name: nextflow.config
+    digest: sha256:72ddb081638edf760887ab21a26416f17dc3180889742da5f4bfb8e8959a472d
+  from_digest: sha256:2a68a4ac192806d81388e115beef39aba8e7e375ebe3bd2872134062252a4324
+gate: null

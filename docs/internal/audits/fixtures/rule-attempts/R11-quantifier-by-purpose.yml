@@ -1,0 +1,11 @@
+# R11 — quantifier choice. Transcript-level quantification wants a selective-alignment
+# quantifier (Salmon); gene-level counting from a genomic alignment wants featureCounts.
+# Both produce counts.matrix; the discriminator is the requested STATE and the purpose.
+version: 1
+decisions:
+  - decides: {producer_of: counts.matrix}
+    because: "transcript-level estimates need an EM quantifier, not an interval counter"
+    cite: "Patro et al. 2017, doi:10.1038/nmeth.4197; Liao et al. 2014"
+    rows:
+      - {when: {required_state: transcript_level}, then: nf-core/salmon/quant@1.10.1}
+      - {when: {},                                  then: nf-core/subread/featurecounts@2.0.6}

@@ -1,0 +1,11 @@
+# R19 — STAR's manual says max(ReadLength)-1, across the whole cohort. `read_length` is a
+# single scalar. A twelve-sample study with mixed run lengths has no single read_length,
+# and the rule needs the MAXIMUM, not the mean or the median.
+version: 1
+decisions:
+  - decides: {param: sjdb_overhang}
+    because: "the overhang must cover the longest read in the cohort"
+    cite: "Dobin et al. 2013 (STAR manual 2.2.2)"
+    rows:
+      - {when: {read_length_max: ">= 150"}, then: 149}
+      - {when: {},                           then: 99}
