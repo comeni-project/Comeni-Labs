@@ -800,6 +800,22 @@ before emitting, and no genuinely-built pipeline reaches publish with unchecked 
 | 2026-08-14 | `test_audit_regressions.py::test_a118_…` | `_computed_over(...)` → `None` in `_validate` | failed | `DID NOT RAISE RuleValidationError` — and the two negatives kept passing, which is the half that matters |
 | 2026-08-14 | `test_purity.py` (unplanned) | nothing — `import re` was added to `mendel-resolver` for MD0300 | **failed unprompted** | `rules.py imports re, which is not on this package's allowlist` |
 
+| 2026-08-14 | `test_egress.py::test_every_tier_four_question_can_actually_cross_the_door` | `candidates: list[CandidateRef]` → `list[ContractId]` | failed | `Input should be a valid string … input_value=None` |
+
+**A129's revert is the clearest single result in this table, because of what did *not* fail.**
+With the defect restored, both tests ran:
+
+```
+test_every_ambiguity_field_can_cross_the_door               PASSED
+test_every_tier_four_question_can_actually_cross_the_door   FAILED
+```
+
+The pre-existing test compares field *names*, and names were never the problem — every field had
+somewhere to go while two of the three question kinds could not get through on their **values**.
+That is the shape A14 is about: a guard that cannot fail for the defect it appears to cover. Both
+are kept. The name test catches a *new* field with nowhere to land, which is the quiet half of
+A32 and still worth having; the new one catches a payload that cannot be built.
+
 **`test_purity.py` failed without being reverted, which is the strongest evidence in this
 table.** Nobody set out to test it: Task 4 needed `re` for `_computed_over`, and the allowlist
 caught the addition on the next `make verify` and named the file and the module. That is a guard
