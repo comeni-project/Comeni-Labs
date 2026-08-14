@@ -172,6 +172,24 @@ class Emitted(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    schema_version: int = 1
+    """The `SCHEMA_VERSION` `from_digest` was taken under. **Not the file's version.**
+
+    `from_digest` hashes the model dump, so **any field added to the artifact moves it** —
+    for every pipeline ever archived, at once, without anybody touching one. Plan 1.13 added
+    `CallArg.join` and `MD0213` began reporting every pre-1.13 file as edited by a human,
+    while its `main.nf` and `nextflow.config` still hashed exactly to their records. The
+    pipeline had not changed; the reader had.
+
+    Recording the version the digest was taken under is what lets `is_stale` distinguish "you
+    edited this" from "the schema moved" — two very different things that were one message.
+    Defaulting to `1` is correct rather than convenient: a file with no such field *was*
+    written under version 1, which is precisely the claim being made.
+
+    Found while executing Plan 1.13, not by the design audit. The fixture that demonstrates
+    it is `docs/internal/audits/fixtures/pipeline-v1/`.
+    """
+
     files: list[EmittedFile] = []
     from_digest: Digest | None = None
     """The digest of the pipeline content these files were generated **from**.
@@ -194,7 +212,11 @@ class Emitted(BaseModel):
 
     @classmethod
     def of(
-        cls, directory: Path, names: Sequence[str], from_digest: Digest | None = None
+        cls,
+        directory: Path,
+        names: Sequence[str],
+        from_digest: Digest | None = None,
+        schema_version: int = 1,
     ) -> "Emitted":
         return cls(
             files=[
@@ -202,6 +224,7 @@ class Emitted(BaseModel):
                 for name in sorted(names)
             ],
             from_digest=from_digest,
+            schema_version=schema_version,
         )
 
 

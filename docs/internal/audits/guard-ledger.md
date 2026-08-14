@@ -829,3 +829,23 @@ two samples and asserts `join` gives 2 correctly-paired outputs while `combine` 
 carries the wrong branch as a parametrised case *on purpose*, so the two are proven to differ
 rather than merely asserted to. That is not a revert-and-watch; it is the failing observation
 itself, kept. It runs in 6s with no Docker, because the process it builds has no container.
+
+## Plan 1.14 — the explanation
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_upgrade.py::test_a_pipeline_written_before_a_schema_change_…` | `predates_schema` branch in `cli._check_directory` → `if False:` | failed | `assert "MD0213" not in err` — names the file it claimed was edited |
+| 2026-08-14 | `pipeline_file.is_stale`'s `predates_schema` short-circuit | removed | **nothing failed — the guard was inert** | see below |
+| 2026-08-14 | `test_upgrade.py::test_emit_does_not_call_a_schema_change_an_edit_either` | the same short-circuit, once the test existed | failed | `assert 'MD0213' not in '5 modules, …enerating.'` |
+
+**An inert guard, found in code written the same hour, which is the whole of A14 in one row.**
+Task 0 put the schema check in two places: `cli`'s `upgrade` branch and `pipeline_file.is_stale`.
+Reverting the `is_stale` half changed nothing — `upgrade` returns at the `cli` branch and never
+reaches it — so that half was protecting the `emit` verb, which nothing tested. Without it an
+archived pipeline would be told it had been edited every time somebody regenerated it, **by the
+one verb whose job is to cure exactly that**.
+
+The lesson is not that the code was wrong; it was right and untested. It is that *writing* a
+guard and *watching it fail* are different acts, and only the second one tells you which of them
+you actually wrote. `test_emit_does_not_call_a_schema_change_an_edit_either` is the missing half,
+and the row above it is kept as the record that it was missing.

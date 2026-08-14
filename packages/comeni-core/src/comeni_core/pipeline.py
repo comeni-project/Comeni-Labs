@@ -51,9 +51,24 @@ from comeni_core.marks import (
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.tiers import Tier, ValueSource
 
-SCHEMA_VERSION = 1
-"""What this Mendel writes and the highest it will read. Bumped only by a change that an
-older Mendel would misread — a section it would ignore, or a field whose meaning moved."""
+SCHEMA_VERSION = 2
+"""What this Mendel writes and the highest it will read.
+
+The rule was "bumped only by a change that an older Mendel would misread — a section it would
+ignore, or a field whose meaning moved", and it was **too narrow in a way that cost a
+diagnostic**. Plan 1.13 added `CallArg.join` and did not bump, reasoning that `extra="forbid"`
+makes an older Mendel *refuse* a file carrying the new field rather than misread it. That is
+true, and it answers the wrong direction: forward compatibility was fine, while every
+**archived** pipeline's `emitted.from_digest` moved, because that digest hashes the model dump.
+`MD0213` then reported thousands of untouched files as edited by a human.
+
+So the rule is now: **bump whenever the serialised shape changes at all**, because the digest is
+part of the shape. `tests/test_pipeline_file.py::test_a_schema_change_bumps_the_version` holds
+the current dump's fingerprint and fails when a field is added without one, so the next person
+is told rather than trusted to remember.
+
+2 is this bump — it covers `CallArg.join`, shipped in 1.13 without one, and everything Plan 1.14
+adds after it."""
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -351,7 +366,11 @@ class Pipeline(EgressPayload):
     a finished pipeline, and evidence should not be edited in place.
     """
 
-    version: int = 1
+    version: int = SCHEMA_VERSION
+    """What this file is written as. Defaults to what this Mendel writes rather than to a
+    literal, because a literal is a second place the version lives and the two drifted the
+    moment `SCHEMA_VERSION` moved without it."""
+
     goal: Goal
     """What was asked for. **Inert to `emit`** — it is input to *resolution*, and the facts
     emission needs are already materialised into `channels[].meta`.

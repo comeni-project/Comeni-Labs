@@ -12,7 +12,7 @@ from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import SCHEMA_VERSION, Pipeline
 from mendel_resolver import layers
 from mendel_resolver.diff import diff_pipeline
 from mendel_resolver.goal import Goal, GoalInput
@@ -547,6 +547,21 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
             file=sys.stderr,
         )
         return 2
+    if pipeline_file.predates_schema(previous):
+        # Not an error, and deliberately not `MD0213`. The digest was taken under an older
+        # SCHEMA_VERSION, so it cannot match — for every archived pipeline at once, with
+        # nobody having touched one. Saying "this file has changed" would send a laboratory
+        # looking for an edit that does not exist. The generated files are still checked
+        # above by `hand_edited`, which is the corruption that actually matters.
+        print(
+            f"note: {source} predates the current schema (written under version "
+            f"{previous.emitted.schema_version}, this Mendel writes {SCHEMA_VERSION}), so its "
+            f"content digest cannot match.\n"
+            f"  Its generated files are unaffected and were checked. Run `mendel emit "
+            f"{source} --out {directory}` to restamp it.",
+            file=sys.stderr,
+        )
+        return None
     if pipeline_file.is_stale(previous):
         print(
             f"mendel: MD0213: {source} has changed since the Nextflow was generated from "

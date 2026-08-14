@@ -452,6 +452,22 @@ MD0213:
     computed over the model with `emitted:` excluded, and this fires when the file no longer
     digests to it.
 
+    **It does not fire when the schema moved rather than the file.** `from_digest` hashes the
+    model dump, so adding one field to the artifact moves it for every pipeline ever archived,
+    at once, with nobody having touched one. Plan 1.13 added `CallArg.join` and this began
+    reporting untouched files as edited — while their `main.nf` and `nextflow.config` still
+    hashed exactly to their records, which is what said the pipeline had not changed.
+
+    `emitted.schema_version` records the `SCHEMA_VERSION` the digest was taken under, so that
+    case is now a note rather than this code: *predates the current schema … its generated
+    files are unaffected and were checked … run `mendel emit` to restamp it.*
+
+    **The honest limitation:** for a file written under an older schema the digest cannot match
+    either way, so a hand edit and the schema move are indistinguishable *by this mechanism*
+    until it is restamped. `MD0214` still checks the generated files against their own
+    digests, which is the corruption that actually matters, and it is unaffected by schema
+    version. Audit-adjacent, but found while executing Plan 1.13 rather than by the audit.
+
 MD0214:
   emitted_by: compiler
   concern: pipeline-file

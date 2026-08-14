@@ -512,3 +512,109 @@ def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
     code = main(["upgrade", str(out / "pipeline.yml"), "--registry", str(ROOT / "registry"),
                  "--out", "p", "--root", str(ROOT)])
     assert code == 2, "a relative --out onto the source is still in-place"
+
+
+V1_FIXTURE = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1"
+
+
+def _archived(tmp_path):
+    """A pipeline.yml written before Plan 1.13, with the files it emitted.
+
+    Committed rather than built, and that is the whole point: a fixture produced by the code
+    under test cannot demonstrate anything about reading what a laboratory archived. See the
+    README beside it.
+    """
+    out = tmp_path / "archived"
+    shutil.copytree(V1_FIXTURE, out)
+    (out / "README.md").unlink()
+    # A directory a laboratory archived has its vendored modules beside the artifact; the
+    # fixture does not carry them because they are ~1 MB of nf-core source that is already in
+    # the tree. `emit` refuses without them (`MD0210`), and rightly.
+    build = tmp_path / "for-modules"
+    assert main(["build", "--goal", str(GOAL), "--out", str(build), "--root", str(ROOT)]) == 0
+    shutil.copytree(build / "modules", out / "modules")
+    return out / "pipeline.yml"
+
+
+def test_a_pipeline_written_before_a_schema_change_is_not_reported_as_edited(tmp_path, capsys):
+    """The file did not change. The schema did. Say which.
+
+    Found while executing Plan 1.13: `emitted.from_digest` hashes the model dump, so adding
+    one field (`CallArg.join`) moved it for **every** archived pipeline and `MD0213` reported
+    the file as edited by a human. A laboratory reading that goes looking for an edit nobody
+    made — and this plan adds six more fields on top of it.
+
+    The asymmetry is the test: the artifact's self-digest moves while the emitted files still
+    hash exactly to their records, which is what says the pipeline did not change.
+    """
+    archived = _archived(tmp_path)
+
+    code = main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
+                 "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert "MD0213" not in err, err
+    assert "predates the current schema" in err
+    assert code == 0
+
+
+def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsys):
+    """The negative. A check that can only pass is not a check.
+
+    A pipeline written under the **current** schema, edited by hand. `MD0213` must still fire:
+    that is the case it exists for, and buying compatibility by going blind would be a worse
+    bug than the one being fixed.
+    """
+    bundle = _published(tmp_path)
+    data = yaml.safe_load(bundle.read_text())
+    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    main(["upgrade", str(bundle), "--registry", str(ROOT / "registry"),
+          "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    assert "MD0213" in capsys.readouterr().err
+
+
+def test_an_edit_to_a_pre_schema_pipeline_is_not_detectable_and_that_is_stated(tmp_path, capsys):
+    """The limitation, asserted rather than left to be discovered.
+
+    For a file written under an older schema the content digest cannot match **either way**,
+    so a hand edit and the schema moving are indistinguishable by that mechanism. Nothing can
+    recover the distinction after the fact; pretending otherwise would be the dishonest half
+    of this repair.
+
+    What still holds is the half that matters: the generated files are checked against their
+    own recorded digests (`MD0214`), so an edited `main.nf` is caught regardless of schema.
+    And the note tells the reader to restamp, after which edits are detectable again.
+    """
+    archived = _archived(tmp_path)
+    data = yaml.safe_load(archived.read_text())
+    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    archived.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
+          "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert "predates the current schema" in err
+    assert "to restamp it" in err
+
+
+def test_emit_does_not_call_a_schema_change_an_edit_either(tmp_path, capsys):
+    """The other half, and it was **inert** until this test existed.
+
+    `is_stale` and `cli`'s `upgrade` branch both handle this case, and reverting the
+    `is_stale` short-circuit changed nothing — the `upgrade` path never reaches it. `emit`
+    does: it prints `MD0213` and then cures it, so without this an archived pipeline would be
+    told it had been edited every time somebody regenerated it, by the one verb whose job is
+    to fix exactly that.
+
+    Found by reverting a guard written in the same session and watching nothing fail. A14.
+    """
+    archived = _archived(tmp_path)
+
+    code = main(["emit", str(archived), "--out", str(tmp_path / "archived")])
+
+    assert code == 0
+    assert "MD0213" not in capsys.readouterr().err
