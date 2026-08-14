@@ -21,7 +21,16 @@ params:
 # citation once the rule format lands.
 priority: 10
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, gtf) | val ignore_sjdbgtf
-nf_inputs: [{ports: [reads]}, {ports: [index]}, {ports: [gtf]}, {literal: false}]
+nf_inputs:
+  - {ports: [reads]}
+  - {ports: [index]}
+  - {ports: [gtf]}
+  - literal: false
+    because: >-
+      `star_ignore_sjdbgtf = false` — align *with* the annotation. The GTF is routed into
+      this module, and ignoring it would discard the splice-junction information a spliced
+      aligner exists to use. Audit A81. A91 turns this into a routed parameter, after which
+      the reason belongs to the setting rather than to the call.
 # TrimGalore emits .fq.gz and STAR reads plain text unless told otherwise. Not a
 # decision — a fact about the upstream module's output format.
 ext_args: "--readFilesCommand zcat"

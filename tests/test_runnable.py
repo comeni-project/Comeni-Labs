@@ -366,3 +366,26 @@ def test_an_asserted_fact_and_a_measured_one_are_distinguishable(loaded):
 
     assert meta["strandedness"].why.source is ValueSource.GOAL
     assert "goal" in meta["strandedness"].why.reason.lower()
+
+
+def test_every_positional_literal_says_why_it_is_that_value(loaded):
+    """A81 — `'bai'` and `false` are analysis decisions wearing the costume of plumbing.
+
+    `SAMTOOLS_SORT(…, 'bai')` picks BAI over CSI, which constrains which genomes the pipeline
+    works on. `STAR_ALIGN(…, false)` decides whether alignment is GTF-guided. Both reached the
+    tools with `why: null`, in no `decisions:` block and no review queue, and
+    `pipeline-schema.md` documented a `literal` + `why` pair the registry could not produce.
+
+    Same shape as the `empty` guard above and for the same reason: `empty` was the placeholder
+    everyone worried about, so the *values* went unexamined.
+    """
+    unexplained = [
+        f"{contract.id} input {position} = {spec.literal!r}"
+        for contract in loaded.registry.all()
+        for position, spec in enumerate(contract.input_signature())
+        if spec.literal is not None and not spec.because
+    ]
+    assert unexplained == [], (
+        "a positional literal must say why it is that value, not merely what it is: "
+        + ", ".join(unexplained)
+    )

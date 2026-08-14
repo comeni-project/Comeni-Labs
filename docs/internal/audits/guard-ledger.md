@@ -878,3 +878,18 @@ refuses.
 That fixture was committed an hour earlier for a different reason entirely (Task 0's digest
 test). It has now caught a second, unrelated compatibility break. Committing it was the cheapest
 thing in this plan.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_runnable.py::test_every_positional_literal_says_why_it_is_that_value` (A81) | `because:` on samtools/sort's `literal: bai` | failed | `a positional literal must say why it is that value … nf-core/samtools/sort@1.21.0 input 2 = 'bai'` |
+
+**The guard found a third literal the audit missed.** A81 named two — `SAMTOOLS_SORT(…, 'bai')`
+and `STAR_ALIGN(…, false)` — because those are what the *shipped spine* routes.
+`nf-core/hisat2/align` has one too (`save_unaligned`), and it only appears in a pipeline when
+the measured read length is under 70 bp. Written as a sweep over `registry.all()` rather than
+over the spine, which is why it counted three where a reviewer reading a build counted two.
+
+`Why.reason` is a `Line`, so YAML's `>` folded scalar broke the build on its trailing newline —
+*"contains a control character. This text is written into a generated file"*. That is an
+existing guard doing its job on prose nobody had tried to put there before; the contracts use
+`>-`.
