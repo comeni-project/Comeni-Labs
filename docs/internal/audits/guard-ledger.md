@@ -935,3 +935,27 @@ on arrival. What was still broken is the part that matters to a reader: `from_la
 value an overlay supplied, and a reason — `contract default for min_mqs` — that names the field
 it is explaining rather than justifying it. Worth recording, because "the test passes" and "the
 finding is closed" came apart here, and only writing the assertions separately showed it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a91_a_positional_parameter_…` | the `from_setting` branch in `emit._argument` | failed | `STAR_ALIGN(…, ch_annotation_gtf, null)` — the answered value vanishing, which is what `MD0224` refuses |
+| 2026-08-14 | `test_emit.py::test_every_via_member_emits_or_is_refused` (A38) | nothing — `Via.POSITIONAL` was added | **failed unprompted** | `emit.py handles {EXT, META, DIRECTIVE}; Via also has {POSITIONAL}` |
+| 2026-08-14 | `test_audit_regressions.py::test_a_binding_with_no_declared_param_…` | nothing — `samtools/sort` gained a param | **failed unprompted** | `the fixture needs a param-less one` |
+
+**A38's tripwire is the best-designed guard in this repository and it proved it here.** It exists
+so that adding a `Via` member forces a decision — wire it into `emit.py` or refuse it at load,
+never leave it recording a value that reaches no tool. Adding `POSITIONAL` failed it immediately,
+before any of this task's own tests existed. Updating it was a deliberate edit with a stated
+reason rather than a widening.
+
+**And a fixture that guards its own assumption caught a second thing.** `test_a_binding_with_no_
+declared_param_refuses_instead_of_vanishing` asserts *"the fixture needs a param-less one"*
+before using `samtools/sort` — which stopped being param-less the moment `index_format` became
+routable. Naming the requirement instead of assuming it turned a confusing downstream failure
+into one line.
+
+**`MD0108`'s new meta arm refused a test fixture on arrival**, which is the check having real
+negatives: A38's `via: meta` test routed an invented `tag` that featureCounts never reads —
+precisely the deadness the arm exists to catch, and precisely where A91 hid. The fixture now
+routes `single_end`, a key the module does read, with a goal that supplies no `paired`
+measurement so the key is free.

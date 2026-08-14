@@ -288,6 +288,13 @@ class CallArg(BaseModel):
     ports: list[PortName] = Field(default_factory=list)
     literal: ParamValue = None
     empty_width: int | None = None
+    from_setting: PortName | None = None
+    """The name of the `settings[]` entry whose value fills this position. `via: positional`.
+
+    Carried on the artifact rather than resolved at emit, for the reason everything else here
+    is: `mendel emit` runs with no registry and cannot ask a contract which parameter belongs
+    in slot 3. Audit A91.
+    """
     join: Join | None = None
     """How `ports` are matched when there is more than one. Mirrors `NfInput.join`.
 
@@ -864,6 +871,7 @@ def _call(contract: ModuleContract) -> list[CallArg]:
             ports=list(spec.ports),
             literal=spec.literal,
             empty_width=spec.empty or None,
+            from_setting=spec.param or None,
             join=spec.join,
             why=(
                 Why(

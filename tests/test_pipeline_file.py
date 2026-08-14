@@ -314,9 +314,25 @@ def test_via_directive_reaches_nextflow_config(tmp_path):
 
 
 def test_via_meta_reaches_the_channel_meta_map(tmp_path):
-    ov = _overlay_with(tmp_path, "  - {name: tag, default: forward, via: meta}\n")
-    out = _build_with_overlay(tmp_path, ov)
-    assert "tag: 'forward'" in (out / "main.nf").read_text()
+    """A38, with a legal key since Plan 1.14.
+
+    This used to route an invented `tag`, which `MD0108`'s meta arm now refuses — a param in
+    `meta` that the module never reads is the deadness issue #10 was about, and is exactly
+    where A91 hid. featureCounts reads `id`, `single_end` and `strandedness`, so the route
+    has to name one of those; `single_end` is free only when the goal states no `paired`
+    measurement, which is what this goal does.
+    """
+    goal = tmp_path / "goal.yml"
+    goal.write_text(
+        (ROOT / "examples" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", "")
+    )
+    ov = _overlay_with(tmp_path, "  - {name: single_end, default: false, via: meta}\n")
+    out = tmp_path / "b"
+    assert (
+        main(["build", "--goal", str(goal), "--registry", str(ROOT / "registry"),
+              "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+    )
+    assert "single_end: false" in (out / "main.nf").read_text()
 
 
 # --- A51: displacements of all four kinds reach the artifact, not just contracts+measurements ---
@@ -691,7 +707,7 @@ SERIALISED_SHAPE = {
     "Setting": ["name", "value", "via", "key", "template", "why"],
     "Why": ["tier", "source", "reason", "for_value", "axis_reason", "from_layer",
             "displaced_layer"],
-    "CallArg": ["ports", "literal", "empty_width", "join", "why"],
+    "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "why"],
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
 }

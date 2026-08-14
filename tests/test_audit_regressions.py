@@ -1754,7 +1754,10 @@ def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
-    contract_id = "nf-core/samtools/sort@1.21.0"
+    # `samtools/sort` until Plan 1.14, which routed its `index_format` (A91). The assertion
+    # below is what caught that, and it is why the fixture names its requirement rather than
+    # assuming it.
+    contract_id = "nf-core/fastqc@0.12.1"
     assert loaded.registry.get(contract_id).params == [], "the fixture needs a param-less one"
 
     node = IRNode(
@@ -2183,3 +2186,91 @@ def test_a128_a_priority_win_says_why_the_registry_ranks_it_there(tmp_path):
     assert "nf-core/rnaseq" in node.selection.axis_reason, (
         "and now the reason the registry ranks it there"
     )
+
+
+def test_a91_a_positional_parameter_reaches_the_call_and_nothing_else(tmp_path):
+    """A91, critical — one call carrying **two values of the same name, disagreeing**.
+
+    `Via` had three members and none emitted into a call position, so three of ten vendored
+    modules took a bare `val` that no route could reach. Routing STAR's own
+    `star_ignore_sjdbgtf` the only way the design permitted — `via: meta` — produced:
+
+        STAR_ALIGN((TRIMGALORE.out.reads).map { it -> [ it[0] + [star_ignore_sjdbgtf: true] ]
+                   + it[1..-1] }, STAR_GENOMEGENERATE.out.index, ch_annotation_gtf, false)
+
+    The documented, tier-4, human-answered value landed in `meta`, where `main.nf:47` never
+    looks. The one STAR reads is the trailing `false`. `pipeline.yml` said the GTF was being
+    ignored; the pipeline used it.
+    """
+    from comeni_core.pipeline import Pipeline
+    from mendel_compiler.emit import emit
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput, ParamOverride
+    from mendel_resolver.resolve import resolve
+
+    root = Path(__file__).parent.parent
+    loaded = layers.load(root / "registry")
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={
+            "required_states": {"counts.matrix": ["gene_level"]},
+            "params": [ParamOverride(name="star_ignore_sjdbgtf", value=True)],
+        },
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+    call = next(
+        line for line in emit(pipeline).splitlines() if "STAR_ALIGN(" in line
+    )
+
+    assert call.count("star_ignore_sjdbgtf") == 0, (
+        "it is positional; the module reads it by position and no name is emitted"
+    )
+    assert call.rstrip().endswith("true)"), call
+
+
+def test_a91_a_meta_route_to_a_key_the_module_never_reads_is_refused():
+    """The other half of A91: the route that let it hide.
+
+    `MD0108` exists to refuse a route the module does not read, and gated on
+    `via is not Via.EXT` — its own docstring conceded meta and directive were unchecked. So
+    routing a parameter to `meta` produced a value STAR never looks at, no diagnostic fired,
+    and the artifact recorded a documented, human-answered decision that reached nothing.
+    """
+    from mendel_compiler import conformance
+    from mendel_resolver import layers
+
+    root = Path(__file__).parent.parent
+    loaded = layers.load(root / "registry")
+    contract = loaded.registry.get("nf-core/star/align@1.11.0")
+    # Reroute the positional parameter to `meta`, which is exactly what the audit did and
+    # what nothing refused.
+    # `model_validate` rather than `model_copy`: the latter skips validation and leaves
+    # `via` as the *string* "meta", which `is Via.META` then misses — A62's shape, and it
+    # would have made this test pass for the wrong reason had the check used `==`.
+    raw = contract.model_dump()
+    for entry in raw["params"]:
+        if entry["name"] == "star_ignore_sjdbgtf":
+            entry.update(via="meta", key=None, template=None)
+    rerouted = type(contract).model_validate(raw)
+    registry = loaded.registry
+    registry.contracts[contract.id] = rerouted
+
+    # `module_root` is the vendor directory, not the repo root: `module_path` joins it with
+    # `nf_include`, which is where a module lands in the *generated* pipeline.
+    found = conformance.check(registry, root / "vendor")
+    codes = {(d.code, d.where) for d in found}
+
+    assert any(
+        code == "MD0108" and "star_ignore_sjdbgtf" in where for code, where in codes
+    ), codes

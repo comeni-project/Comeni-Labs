@@ -156,6 +156,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0221` | an untemplated `via: ext` value is outside the substitutable class |
 | `MD0222` | this pipeline records no `emitted:` block, so its directory cannot be certified |
 | `MD0223` | a value was edited and the reason beside it still describes the value it replaced |
+| `MD0224` | a setting fills a positional argument and is unanswered, so the call would read `null` |
 
 #### Routing and resolution
 

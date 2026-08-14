@@ -16,6 +16,15 @@ params:
     via: ext
     key: args
     template: "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'"
+  - name: star_ignore_sjdbgtf
+    default: false
+    because: >-
+      Align *with* the annotation. The GTF is routed into this module, and ignoring it would
+      discard the splice-junction information a spliced aligner exists to use. A laboratory
+      aligning against a genome whose annotation it does not trust wants this true. Audit
+      A91: it was a hardcoded `false` in the call, outside the tier ladder and answerable by
+      nobody, because no route reached a bare `val`.
+    via: positional
 # STAR is the nf-core/rnaseq default aligner, so this registry prefers it by
 # convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
 # citation once the rule format lands.
@@ -30,12 +39,7 @@ nf_inputs:
   - {ports: [reads]}
   - {ports: [index]}
   - {ports: [gtf]}
-  - literal: false
-    because: >-
-      `star_ignore_sjdbgtf = false` — align *with* the annotation. The GTF is routed into
-      this module, and ignoring it would discard the splice-junction information a spliced
-      aligner exists to use. Audit A81. A91 turns this into a routed parameter, after which
-      the reason belongs to the setting rather than to the call.
+  - {param: star_ignore_sjdbgtf}
 ext_args:
   template: "--readFilesCommand zcat"
   because: >-

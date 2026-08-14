@@ -229,6 +229,21 @@ class NfInput(BaseModel):
     literal: Any = None
     """A plain value for a `val` input that carries no data dependency."""
 
+    param: str = ""
+    """The name of a `params` entry that fills this slot — the `via: positional` route.
+
+    Declared **here rather than as an index on `Param`**, correcting the plan, which proposed
+    `Param.slot: int`. A position stored in two places is two places that can disagree, and
+    `MD0102` already counts `nf_inputs` entries against the module's inputs — so keeping the
+    slot on this side means a routed parameter still occupies its position and the arity check
+    goes on working untouched.
+
+    Replaces a `literal` for a value somebody should be able to decide: `star_ignore_sjdbgtf`
+    was a hardcoded `false` in the call, outside the tier ladder and in no review queue, while
+    the only route the design allowed put the answered value in `meta` where STAR never looks.
+    Audit A91.
+    """
+
     because: str = ""
     """Why `empty` is empty. Required whenever it is set.
 

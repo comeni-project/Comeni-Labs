@@ -741,6 +741,38 @@ MD0223:
     reason does it occasionally and may notice; an agent tuning settings does it
     systematically and does not.
 
+MD0224:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting fills a positional argument and is unanswered, so the call would read `null`"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Answer the setting in `pipeline.yml`, the same way any tier-4 value is answered:
+
+        - name: star_ignore_sjdbgtf
+          value: false
+          via: positional
+
+    Or give the parameter a `default:` in its contract, if there is a defensible one.
+  explanation: |
+    `via: positional` puts a resolved value straight into the process call — the fourth
+    destination, for a bare `val` in a module's input block that has no name at the call site.
+    An unanswered one would emit `STAR_ALIGN(reads, index, gtf, null)`, and Nextflow fails at
+    launch with a message naming neither the setting nor the step.
+
+    This refuses rather than emitting, unlike an unanswered `ext` setting — which contributes
+    no fragment and is merely flagged, because tier 4 is *flagged, not fatal* (invariant 6).
+    The difference is that an `ext` value's absence leaves a working pipeline missing a flag,
+    while a positional one's absence leaves a pipeline that cannot start. Arity is not
+    optional.
+
+    Audit A91. Before the positional route existed, these values were contract constants: a
+    hardcoded `false` in the call, outside the tier ladder, in no review queue, with no reason
+    recorded. Routing one the only way the design then permitted — `via: meta` — produced a
+    call carrying two values of the same name that disagreed, and `MD0108` did not catch it
+    because it checked `ext` keys only.
+
 MD0301:
   emitted_by: resolver
   concern: routing
