@@ -110,14 +110,41 @@ distinguishes the two cases it currently conflates:
   unaffected. Refuse only if the *emitted files* also fail their digests, which is the real
   corruption this diagnostic exists for.
 
-- [ ] **Step 4: Commit a real v1 fixture**
+- [ ] **Step 4: Commit a real v1 fixture, and land the audit's evidence while you are here**
 
-`docs/internal/audits/fixtures/pipeline-v1.yml` — a pipeline built at `346eeac`, before any of
-1.13. **Do not hand-write it and do not regenerate it later**: its value is entirely that no
-current code produced it, which is the only way a compatibility claim means anything. The one
-used to find this is at
-`.audit-artifacts/stream-4-probes-2026-08-14/` in the session that ran the audit; if that is
-gone, `git stash` the working tree, check out `346eeac`, build, and keep the output.
+This step closes a loose end the design audit left open, by the operator's decision on
+2026-08-14: **the audit's probe artifacts live untracked at `.audit-artifacts/` and nothing
+protects them.** Two of the four probe sets are irreplaceable inputs to work that has not
+happened yet, and both are needed by this plan or the one after it. Commit those two; let the
+rest go.
+
+**Keep — `docs/internal/audits/fixtures/pipeline-v1.yml`.** A pipeline built at `346eeac`,
+before any of Plan 1.13. **Do not hand-write it and do not regenerate it later**: its value is
+entirely that no current code produced it, which is the only way a compatibility claim means
+anything. A genuine one is at
+`.audit-artifacts/stream-4-probes-2026-08-14/` (and the session that ran the audit left another
+under its scratchpad). If both are gone, make a WIP commit, check out `346eeac`, build, and keep
+the output — do **not** take a current build and edit the version field, which produces a file
+that proves nothing.
+
+**Keep — `docs/internal/audits/fixtures/rule-attempts/`.** The twenty rules from
+`.audit-artifacts/stream-4-probes-2026-08-14/attempts/`, `R01`–`R20`, exactly as the reviewer
+wrote them. Six load cleanly, four load and are wrong, one needed contortion, and **nine cannot
+be written at all** — and the nine *are* the specification for the rule-format reform (root 5,
+issues [#38](https://github.com/comeni-project/Comeni-Labs/issues/38) and
+[#39](https://github.com/comeni-project/Comeni-Labs/issues/39)). Recreating them is the expensive
+part of that work, and they are the difference between §13 being an argument and being evidence.
+
+Commit them with a `README.md` beside them recording which category each falls in and what
+breaks, so a reader does not have to re-run twenty loads to find out. **These are evidence, not
+tests** — do not wire them into `pytest` and do not "fix" the eleven that fail. A future task
+that repairs the format will turn them into tests; until then their whole value is that they
+record what the format could not express on 2026-08-14.
+
+**Drop the rest.** Four probe sets of build directories, Nextflow work trees and `.nextflow.log`
+files, ~40 MB. They are reproducible from the two fixtures above plus the stream reports, which
+carry every command. Once these two are committed, `.audit-artifacts/` can be deleted — say so
+in the commit message so nobody later assumes it was pruned by accident.
 
 - [ ] **Step 5: Run, verify, watch it fail, record it, commit**
 

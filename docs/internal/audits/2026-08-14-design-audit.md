@@ -529,3 +529,12 @@ stream-2-2026-08-13/           the first stream-2 run's artifacts, before it die
 `attempts/` is the one to keep regardless of what happens to the rest: twenty real cited rules
 written against the format, with the nine that cannot be expressed. Recreating them is the
 expensive part of Root 5.
+
+**Decided 2026-08-14: two of these are committed as fixtures and the rest are deleted.**
+`attempts/` becomes `docs/internal/audits/fixtures/rule-attempts/`, and a genuine pre-1.13
+`pipeline.yml` becomes `docs/internal/audits/fixtures/pipeline-v1.yml` — the only honest input to
+the schema-migration test that Plan 1.13's execution turned up. The work is
+[Plan 1.14](../plans/2026-08-14-the-explanation.md) Task 0 Step 4. Everything else here is
+build directories and Nextflow work trees, reproducible from those two plus the stream reports,
+which carry every command. **Until that step runs, `.audit-artifacts/` is untracked and nothing
+protects it.**
