@@ -3,7 +3,15 @@
 # A sibling checkout of github.com/comeni-project/comeni-registry, if you have one.
 # `make drift` skips when it is absent rather than failing: a target that breaks over a
 # missing optional checkout is a target people stop running.
-REGISTRY ?= ../comeni-registry
+# Sibling of the MAIN checkout, not of the current directory. `../comeni-registry` was
+# relative to `$(CURDIR)`, so from `.worktrees/<plan>` it resolved to
+# `.worktrees/comeni-registry` and never existed — and `drift` prints "skipped" rather than
+# failing when the path is absent. CLAUDE.md requires every plan to be executed in a
+# worktree, so this gate was structurally inert for exactly the work most likely to change
+# `registry/`: Plan 1.15 Task 0 edited all twelve contracts under a green `make verify`.
+# `--git-common-dir` is the main repository's `.git` from inside a worktree.
+_MAIN_ROOT := $(dir $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)))
+REGISTRY ?= $(_MAIN_ROOT)comeni-registry
 
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20

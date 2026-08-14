@@ -32,6 +32,21 @@ Read it before Task 0; every task below argues from a numbered section of it.
 - **`make verify`, not `make check`.** This plan touches `resolve.py`, `router.py`, `rules.py` and
   `pipeline.py` — four of the six files `CLAUDE.md` names as unverifiable by `make check` alone.
   Every task ends on `make verify`.
+- **`make drift` is expected RED from Task 0 until Task 11, and that is the only gate that may
+  be.** `registry/` here is the `comeni-registry` layer, and the twelve contracts gain `roles:`
+  in Task 0. Publishing that early is not an option: an older Mendel loading a layer containing
+  a directory it does not know **refuses outright** — `registry layer … contains roles/roles.yml,
+  which nothing reads` (A26, verified against `84814f8` on 2026-08-15) — so `roles/` would
+  hard-break every existing consumer. It crosses when this plan does.
+  **Closing condition: Task 11 is not complete until `make drift` is green.** A gate that is red
+  for a stated reason with a named closing condition is fine; one that is red for unexamined
+  reasons trains everybody to ignore it, which is how `make check` came to be run in place of
+  `make verify` for a whole plan (see A14).
+  The drift gate was **structurally inert until 2026-08-15**: `REGISTRY ?= ../comeni-registry` was
+  relative to `$(CURDIR)`, so from `.worktrees/<plan>` it resolved to `.worktrees/comeni-registry`,
+  never existed, and `drift` prints *"skipped"* rather than failing when the path is absent — so
+  the check was off for exactly the work `CLAUDE.md` requires to happen in a worktree. It now
+  derives the sibling of the **main** checkout from `--git-common-dir`.
 - **Every guard is watched failing.** Each task's final step reverts its own guard, watches it
   fail, restores it, and appends a row to `docs/internal/audits/guard-ledger.md`. That is A14's
   closure condition and it is measured per **guard**, not per file (A69).
@@ -1542,6 +1557,26 @@ still passes.
 `rule-tables-and-port-logic.md` §13's three reasoned limits are now closed or renamed; say which.
 `CLAUDE.md`'s tier table gains the **Produces** column, because dropping it is what let the tiers
 drift. Add a journal entry.
+
+- [ ] **Step 6: Sync `comeni-registry`, and make drift green**
+
+`registry/` here IS the published layer. `roles/`, the `roles:` field on twelve contracts, and
+the rewritten `rules/rnaseq.yml` all cross now — not earlier, because A26 makes an unknown
+directory a fatal load error for any Mendel that predates this plan.
+
+```bash
+make drift                      # expect: the roles: additions, and rules/rnaseq.yml
+cp -r registry/roles       ../../../comeni-registry/roles
+cp -r registry/contracts/. ../../../comeni-registry/contracts/
+cp    registry/rules/*.yml ../../../comeni-registry/rules/
+make drift                      # expect: no drift
+```
+
+Commit in `comeni-registry` **saying which way the copy went and why** — the two repositories
+have no shared history, so nothing else records it. Tag it, since consumers pin tags.
+
+**This is a breaking change to the published layer**, and the commit must say so: a layer
+containing `roles/` cannot be loaded by a released Mendel older than Plan 1.15.
 
 - [ ] **Step 7: Final commit**
 
