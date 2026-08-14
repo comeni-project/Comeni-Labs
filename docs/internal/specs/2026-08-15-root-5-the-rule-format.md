@@ -87,6 +87,37 @@ not measured") and R19 ("max read length across the cohort") do not conclude any
 pipeline — **their output is a measurement value.** Today they must be crammed into a decision
 format, which is exactly why R15 loads dead (A122) and R19 cannot be written at all.
 
+### 2.1 Both layers live in `rules/`, and there is one of it
+
+A layer's `rules/` directory holds both. A file may carry `derives:`, `decisions:`, or both, and
+is parsed by one `Kind[str, Derivation | Decision]` — the same union shape
+`Kind[str, Measurement | MeasurementDelta]` already uses, so this is not a new pattern.
+
+**One directory, for three reasons.** A reader asking *"what decides the aligner"* has one place
+to look, and a second directory would require knowing which half of the design a thing belongs to
+before being able to find it. A derivation and the decision consuming it are usually one thought —
+`adapter_free` exists solely to feed `presence: trimming`, and splitting them means a reviewer
+reads half an argument. And the stacking machinery is per key rather than per file, so nothing is
+gained by separating them physically.
+
+**Keys are namespaced**, because `stack()` has one key space per kind:
+
+| | key |
+|---|---|
+| a derivation | `derive:adapter_free` |
+| presence | `presence:trimming` |
+| implementation | `implementation:alignment` |
+| a param | `param:quantification:min_mqs` |
+
+`Policy.REPLACE` applies **per key, not per file**. A lab overlaying `derive:adapter_free`
+replaces that derivation and leaves `presence:trimming` alone even when the base declared both in
+one file. That is the property the A119 repair rests on: two things written together are still two
+independently replaceable units, and a rule about one subject can no longer delete a rule about
+another.
+
+**The twenty rule attempts under `docs/internal/audits/fixtures/rule-attempts/` are not a layer.**
+They are evidence, they are not loaded, and Task 11 of the plan is what turns them into tests.
+
 **A fact-only format was considered and rejected.** Under it, R09 reads well — the rule concludes
 *"rRNA carry-over is high"* citing Kopylova 2012, and the contract says SortMeRNA removes rRNA.
 But run R01 through it: the fact is *"reads are long"*, and something must still say **long reads

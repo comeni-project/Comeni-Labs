@@ -73,8 +73,16 @@ stop after Task 7** — the repository would hold two rule formats, which is wor
 | `packages/mendel-resolver/src/mendel_resolver/resolve.py` | **modify** — consume effects instead of `value_for`/`producer_for` |
 | `packages/mendel-resolver/src/mendel_resolver/router.py` | **modify** — honour a `presence` effect; conventional state requirements |
 | `packages/comeni-core/src/comeni_core/pipeline.py` | **modify** — `SCHEMA_VERSION = 3`, `Why.premise` |
-| `registry/roles.yml` | **new** — the closed role vocabulary |
+| `registry/roles/roles.yml` | **new** — the closed role vocabulary. A *directory*, because `stack()` reads `layer.path / kind.which.value` |
 | `registry/rules/rnaseq.yml` | **rewrite** — into the new format |
+
+**Where rules are stored — spec §2.1.** Both layers live in the existing `rules/` directory; a
+file may carry `derives:`, `decisions:` or both, parsed by one `Kind[str, Derivation | Decision]`
+(the union shape `Kind[str, Measurement | MeasurementDelta]` already uses). Keys are namespaced —
+`derive:<fact>`, `presence:<role>`, `implementation:<role>`, `param:<role>:<name>` — because
+`stack()` has one key space per kind, and `Policy.REPLACE` applies **per key, not per file**, so
+an overlay replacing a derivation leaves the decision beside it untouched. No new `DeclaredKind`
+beyond Task 0's `ROLES`.
 
 ---
 
