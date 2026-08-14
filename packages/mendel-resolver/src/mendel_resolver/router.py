@@ -313,10 +313,17 @@ def _choose(
             ValueSource.RESOLVER,
         )
 
+    # Only the candidates that actually tied. `ordered` is *every* candidate ranked by
+    # (surplus, -priority, id), and handing all of them to a resolver that takes
+    # `candidates[0]` let a contract the registry ranked **last** win on alphabetical order:
+    # adding one aligner at STAR's priority installed HISAT2 at priority 0, which was not in
+    # the tie at all. The artifact then said "nothing distinguishes" three contracts that
+    # `priority` distinguishes deliberately. Audit A125.
+    tied = [contract for contract in ordered if rank(contract)[:2] == best[:2]]
     ambiguity = ProducerAsked(
-        node_id=_node_id(ordered[0]),
+        node_id=_node_id(tied[0]),
         subject=f"producer:{type_id}",
-        candidates=sorted(c.id for c in ordered),
+        candidates=sorted(c.id for c in tied),
         states=sorted(states),
     )
     resolution = resolver.resolve(ambiguity)
@@ -330,7 +337,7 @@ def _choose(
     # Falling back to `ordered[0]` when the answer is not a candidate keeps the same
     # posture `ReplayResolver._still_applies` already takes towards a record whose options
     # have moved: a forged or stale answer is not trusted, it is ignored.
-    chosen = next((c for c in ordered if c.id == resolution.chosen), ordered[0])
+    chosen = next((c for c in tied if c.id == resolution.chosen), tied[0])
     plan.decisions.append(
         ProducerDecision(
             key=ambiguity.key(),

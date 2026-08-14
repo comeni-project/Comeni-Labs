@@ -1793,3 +1793,77 @@ def test_a_binding_the_contract_does_declare_is_carried():
     )
     pipeline = _pipe(PipelineIR(nodes=[node]), loaded)
     assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]
+
+
+MINIMAP2 = """id: nf-core/minimap2/align@2.28.0
+nf_process: MINIMAP2_ALIGN
+nf_include: modules/nf-core/minimap2/align/main
+consumes:
+  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+priority: 10
+nf_inputs:
+  - {ports: [reads]}
+container: community.wave.seqera.io/library/minimap2:2.28--audit
+provenance: {source: audit, drafted_by: audit, approved_by: audit, approved_at: "2026-08-14"}
+"""
+
+
+def _tying_layer(tmp_path: Path) -> Path:
+    """One aligner at STAR's priority, so `alignment.bam` has a genuine two-way tie.
+
+    Inline rather than a committed fixture: the finding is entirely about *ranking*, so the
+    only thing that has to be true of this contract is `priority: 10`, and a reader should
+    not have to open a second file to see that. Audit A125.
+    """
+    layer = tmp_path / "tie-layer"
+    (layer / "contracts" / "nf-core").mkdir(parents=True)
+    (layer / "contracts" / "nf-core" / "minimap2-align.yml").write_text(MINIMAP2)
+    (layer / "registry.yml").write_text('name: tie-layer\nversion: "0"\n')
+    return layer
+
+
+def _aligner_ir(*roots):
+    """Resolve an aligner with no `read_length`, so the tier-3 rule cannot pin one."""
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(list(roots))
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["alignment.bam"],
+        profile=loaded.measurements.profile({"strandedness": "reverse"}),
+    )
+    return resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
+
+
+def test_a125_a_tie_offers_only_the_candidates_that_tied(tmp_path):
+    """A125 — adding one contract installed the aligner the registry ranked *last*.
+
+    STAR and MINIMAP2 both sit at priority 10, so the tie is between those two. HISAT2 is at
+    priority 0 and lost outright. `_choose` handed the resolver *every* candidate sorted by
+    id and `FlagOnlyResolver` takes `candidates[0]`, so `hisat2` won on the letter h — and
+    the artifact then reported that nothing distinguished three contracts that `priority`
+    distinguishes deliberately.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+    ir = _aligner_ir(registry_root, _tying_layer(tmp_path))
+
+    asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
+    assert len(asked) == 1, [d.subject for d in ir.decisions]
+    assert asked[0].candidates == [
+        "nf-core/minimap2/align@2.28.0",
+        "nf-core/star/align@1.11.0",
+    ]
+    assert "hisat2" not in asked[0].chosen
