@@ -1957,3 +1957,62 @@ def test_a126_a_legacy_record_narrowed_by_a125_goes_stale_rather_than_orphaned()
     assert resolver.stale_overrides == ["producer:alignment.bam"]
     assert resolver.orphaned == []
     assert resolver.replayed == []
+
+
+def _rule_layer(tmp_path: Path, body: str) -> Path:
+    layer = tmp_path / "rules-layer"
+    (layer / "rules").mkdir(parents=True)
+    (layer / "rules" / "probe.yml").write_text(body)
+    (layer / "registry.yml").write_text('name: rules-layer\nversion: "0"\n')
+    return layer
+
+
+COMPUTED = """version: 1
+decisions:
+  - decides: {param: seq_platform}
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+    rows:
+      - {when: {}, then: "read_length-1"}
+"""
+
+
+def test_a118_a_computed_then_is_refused_at_load(tmp_path):
+    """A118 — it loaded, resolved at tier 3, carried a real citation, and was not flagged.
+
+    `then: "read_length - 1"` was refused, but only by `MD0201` — a *shell-injection*
+    character class that happens to exclude spaces. Removing them was enough to reach the
+    tool: `ext.args2 = '--sjdbOverhang read_length-1'`, tier 3, cited to Dobin et al., absent
+    from the review list. STAR received the literal string.
+    """
+    from mendel_resolver import layers
+    from mendel_resolver.rules import RuleValidationError
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    with pytest.raises(RuleValidationError) as caught:
+        layers.load([registry_root, _rule_layer(tmp_path, COMPUTED)])
+
+    assert "MD0300" in str(caught.value)
+    assert "read_length-1" in str(caught.value)
+
+
+def test_a118_a_literal_then_still_loads(tmp_path):
+    """The check must have real negatives. A check that can only pass is not a check."""
+    from mendel_resolver import layers
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    body = COMPUTED.replace('"read_length-1"', "illumina")
+    assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None
+
+
+def test_a118_a_value_that_merely_contains_a_measurement_name_still_loads(tmp_path):
+    """`paired-end` is not arithmetic, and `paired` is a declared measurement.
+
+    A substring check would refuse this. The rule is that a measurement has to sit next to an
+    operator *and a number* — that is what makes a value an expression rather than a word with
+    a hyphen in it.
+    """
+    from mendel_resolver import layers
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    body = COMPUTED.replace('"read_length-1"', '"paired-end"')
+    assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None

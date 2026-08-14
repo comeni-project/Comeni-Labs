@@ -677,3 +677,38 @@ MD0222:
     report a person reads, where publish stamps a verdict onto the artifact itself.
 
     Audit A70. Publication is the door with no undo.
+
+MD0300:
+  emitted_by: resolver
+  concern: routing
+  says: "a rule's `then` reads as arithmetic, and `then` is emitted verbatim"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Write one row per range with a literal `then`:
+
+        rows:
+          - {when: {read_length: ">= 100"}, then: 99}
+          - {when: {read_length: ">= 70"},  then: 69}
+
+    If the rule genuinely needs arithmetic over a measurement, that is a change to the rule
+    format rather than a value — issue #39, and `docs/design/rule-tables-and-port-logic.md`
+    §13.2 is the argument.
+  explanation: |
+    `then` is a value, not a formula. Nothing between the rule table and `nextflow.config`
+    evaluates it, so `then: "read_length-1"` reached the tool as the literal string
+    `read_length-1` — resolved at tier 3, cited to a real paper, and left out of the review
+    list because a rule had matched. `pipeline.yml` said the splice-junction overhang was
+    set; STAR received a word.
+
+    **What used to catch this, and why it was not enough.** Only `MD0201`, a shell-injection
+    character class, and only on the spaced spelling `"read_length - 1"`: the class permits
+    `-`, so removing the spaces was enough to pass. It also covers one route of three —
+    `via: directive` emitted `cpus = 'genome_length / 1000000000 * 4'` unchecked.
+
+    A value that merely *contains* a measurement's name is not refused. `paired-end` is a
+    word with a hyphen in it, and `paired` is a declared measurement; what makes a string an
+    expression is a measurement sitting next to an operator and a number.
+
+    Audit A118. §13.2 called this case unwritable; it was writable and unrefused, which is
+    the more dangerous of the two.

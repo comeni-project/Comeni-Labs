@@ -156,6 +156,12 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0221` | an untemplated `via: ext` value is outside the substitutable class |
 | `MD0222` | this pipeline records no `emitted:` block, so its directory cannot be certified |
 
+#### Routing and resolution
+
+| Code | Says |
+|---|---|
+| `MD0300` | a rule's `then` reads as arithmetic, and `then` is emitted verbatim |
+
 <!-- END GENERATED DIAGNOSTICS -->
 
 Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's

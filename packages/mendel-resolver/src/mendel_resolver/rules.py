@@ -13,6 +13,7 @@ the five rules shipped in `examples/` had never once executed.
 """
 
 import operator
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -269,6 +270,38 @@ class RuleTable(BaseModel):
         return self._for(f"producer_of:{type_id}", profile)
 
 
+def _computed_over(then: object, measurement_ids: list[str]) -> str | None:
+    """The measurement this `then` reads as arithmetic over, or `None` if it is a value.
+
+    `MD0300`. `DecisionRow.then` is emitted **verbatim** — nothing between the rule table and
+    `nextflow.config` evaluates it — so `then: "read_length-1"` reached STAR as the literal
+    string `read_length-1`, at tier 3, cited to Dobin et al. 2013, and absent from the review
+    list. The only thing that ever refused it was `MD0201`, a shell-injection character class
+    that permits `-`, and only on the spaced spelling. Audit A118.
+
+    **A substring test is too loose and would be worse than nothing.** `paired` is a declared
+    measurement, so `then: "paired-end"` would be refused by one — a legitimate value, killed
+    by a check nobody could disable. What makes a string an expression is a measurement
+    sitting next to an operator *and a number*, or two measurements combined. That is what is
+    tested here, and `test_a118_a_value_that_merely_contains_a_measurement_name_still_loads`
+    is the negative that keeps it honest.
+    """
+    if not isinstance(then, str):
+        return None
+    named = [m for m in measurement_ids if re.search(rf"\b{re.escape(m)}\b", then)]
+    if not named:
+        return None
+    for measurement in named:
+        bounded = rf"\b{re.escape(measurement)}\b"
+        if re.search(rf"{bounded}\s*[-+*/]\s*\d", then) or re.search(
+            rf"\d\s*[-+*/]\s*{bounded}", then
+        ):
+            return measurement
+    if len(named) > 1 and re.search(r"[-+*/]", then):
+        return named[0]
+    return None
+
+
 def _validate(
     decision: Decision,
     path: Path,
@@ -287,6 +320,17 @@ def _validate(
                 f"{path}, decision {target.key()}\n"
                 f"  No contract in the registry declares a parameter named {target.param!r}.\n"
                 f"  Parameters that do exist: {', '.join(declared) or '(none)'}"
+            )
+        for row in decision.rows:
+            over = _computed_over(row.then, measurements.ids())
+            if over is None:
+                continue
+            raise RuleValidationError(
+                f"MD0300: {path}, decision {target.key()}\n"
+                f"  `then: {row.then!r}` reads as an expression over {over!r}, and `then` is\n"
+                f"  emitted verbatim — the tool would receive the string {row.then!r}.\n"
+                f"  Write one row per range with a literal `then`. If the rule genuinely\n"
+                f"  needs arithmetic, that is issue #39 and a format change, not a value."
             )
     else:
         if target.producer_of not in vocabulary.types:

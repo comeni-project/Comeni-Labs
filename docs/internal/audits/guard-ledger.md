@@ -797,6 +797,15 @@ before emitting, and no genuinely-built pipeline reaches publish with unchecked 
 | 2026-08-14 | `test_join.py::test_by_sample_emits_join` (A92) | `if arg.join is Join.BY_SAMPLE:` in `emit._argument`, so both branches combine | failed | `assert '.join(' in 'SAMTOOLS_SORT.out.bam.combine(ch_annotation_gtf.map { it[1] })'` — names the expression it got |
 | 2026-08-14 | `test_audit_regressions.py::test_a125_…` | `tied = [c for c in ordered if rank(c)[:2] == best[:2]]` → `tied = ordered` | failed | `At index 0 diff: 'nf-core/hisat2/align@2.2.2' != 'nf-core/minimap2/align@2.28.0'` — names the contract that should not have been offered |
 | 2026-08-14 | `test_audit_regressions.py::test_a126_…` ×2 | `ProducerAsked.key()` back to `f"{node_id}.{subject}"` | both failed | `assert ['minimap2_al...lignment.bam'] == ['producer:alignment.bam']`, and the legacy record stopped replaying |
+| 2026-08-14 | `test_audit_regressions.py::test_a118_…` | `_computed_over(...)` → `None` in `_validate` | failed | `DID NOT RAISE RuleValidationError` — and the two negatives kept passing, which is the half that matters |
+| 2026-08-14 | `test_purity.py` (unplanned) | nothing — `import re` was added to `mendel-resolver` for MD0300 | **failed unprompted** | `rules.py imports re, which is not on this package's allowlist` |
+
+**`test_purity.py` failed without being reverted, which is the strongest evidence in this
+table.** Nobody set out to test it: Task 4 needed `re` for `_computed_over`, and the allowlist
+caught the addition on the next `make verify` and named the file and the module. That is a guard
+demonstrating it is live in the course of ordinary work rather than under a staged revert — the
+distinction A14 is about. The widening was then argued for in a comment beside the entry rather
+than slipped in, which is what the allowlist exists to force.
 
 **The A92 guard has two halves and only one of them is a revert.** The emitter half is above. The
 other half is `test_two_samples_join_pairwise_and_combine_cross_products`, which runs Nextflow on
