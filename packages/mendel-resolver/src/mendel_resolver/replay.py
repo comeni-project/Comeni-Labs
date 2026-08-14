@@ -21,6 +21,24 @@ from comeni_core.tiers import ValueSource
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 
 
+def _canonical_key(record: DecisionRecord) -> str:
+    """A pre-1.13 producer key carried the winning module's node id in front. Audit A126.
+
+    Normalised at **ingest** rather than matched at lookup, because the key is used in three
+    places and matching only the lookup would leave the other two disagreeing: `_asked`
+    collects the keys questions were asked under, and `orphaned()` is the complement of that
+    against `_records`. A legacy record found by a lenient lookup would still be reported
+    orphaned by the sweep — the exact bug A126 is, re-entering through the fix for it.
+
+    An artifact written before 1.13 is still a valid file and must still replay. Rewriting
+    the key here means every downstream comparison sees one spelling and nothing else has to
+    know this migration happened.
+    """
+    if record.subject.startswith("producer:") and record.key.endswith(f".{record.subject}"):
+        return record.subject
+    return record.key
+
+
 class ReplayResolver:
     """Answers from a prior run's records; asks the fallback for anything new."""
 
@@ -33,7 +51,7 @@ class ReplayResolver:
         # and picking arbitrarily between them would be the coin flip invariant 8 forbids.
         self._records: dict[str, DecisionRecord] = {}
         for record in records:
-            self._records.setdefault(record.key, record)
+            self._records.setdefault(_canonical_key(record), record)
         self._fallback = fallback or FlagOnlyResolver()
         self._asked: set[str] = set()
         self.replayed: list[DecisionKey] = []

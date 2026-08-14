@@ -1867,3 +1867,93 @@ def test_a125_a_tie_offers_only_the_candidates_that_tied(tmp_path):
         "nf-core/star/align@1.11.0",
     ]
     assert "hisat2" not in asked[0].chosen
+
+
+def test_a126_a_producer_decision_key_names_the_question_not_the_winner(tmp_path):
+    """A126 — the key was `<winning module>.producer:<type>`, so it moved when the registry did.
+
+    Installing one more contract renamed the question, `upgrade` found no record under the new
+    name and reported the curator's recorded override as `ORPHANED — your edit no longer
+    applies to anything`, while asking the identical question one line above.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+    ir = _aligner_ir(registry_root, _tying_layer(tmp_path))
+
+    producer_keys = [d.key for d in ir.decisions if d.subject.startswith("producer:")]
+    assert producer_keys == ["producer:alignment.bam"]
+
+
+def _legacy_producer_record(candidates: list[str]):
+    """A pre-1.13 producer record: the key carries the winning module's node id in front."""
+    from comeni_core.decision import ProducerDecision
+
+    return ProducerDecision(
+        key="star_align.producer:alignment.bam",
+        subject="producer:alignment.bam",
+        reason="the lab standardised on STAR",
+        resolved_by="human",
+        candidates=candidates,
+        chosen="nf-core/star/align@1.11.0",
+        human_override="nf-core/star/align@1.11.0",
+    )
+
+
+def _asked_producer(candidates: list[str]):
+    from comeni_core.decision import ProducerAsked
+
+    return ProducerAsked(
+        node_id="minimap2_align",
+        subject="producer:alignment.bam",
+        candidates=candidates,
+    )
+
+
+def test_a126_a_legacy_producer_key_still_replays():
+    """A pre-1.13 artifact carries the node-prefixed key and must still replay.
+
+    A126 is what made the prefix meaningless, not what made those files unreadable. Without
+    the canonicalisation every archived pipeline reports its producer override orphaned on
+    first upgrade — the exact bug, re-entering through the fix for it.
+    """
+    from mendel_resolver.replay import ReplayResolver
+
+    same = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    resolver = ReplayResolver([_legacy_producer_record(same)])
+
+    resolution = resolver.resolve(_asked_producer(same))
+
+    assert resolution.chosen == "nf-core/star/align@1.11.0"
+    assert resolver.replayed == ["producer:alignment.bam"]
+    assert resolver.orphaned == []
+
+
+def test_a126_a_legacy_record_narrowed_by_a125_goes_stale_rather_than_orphaned():
+    """Where A125 narrowed the offered set, the recorded answer is re-asked — and *said*.
+
+    An interaction between this plan's own two fixes, found by testing it rather than by
+    reasoning about it. Before A125 a producer record listed **every** candidate; after it,
+    only those that tied. So a legacy record's candidate list genuinely differs and
+    `_still_applies` rejects it.
+
+    That rejection is correct: the question really did change, and replaying an answer
+    chosen from a wider set would assert a decision between options that were never offered.
+    What matters is that it lands in `stale_overrides` — "a person's answer was thrown away,
+    here it is" — rather than in `orphaned`, which claims the edit applied to nothing. The
+    honest report was the whole point of A126.
+    """
+    from mendel_resolver.replay import ReplayResolver
+
+    before_a125 = [
+        "nf-core/hisat2/align@2.2.2",
+        "nf-core/minimap2/align@2.28.0",
+        "nf-core/samtools/sort@1.21.0",
+        "nf-core/star/align@1.11.0",
+    ]
+    after_a125 = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    resolver = ReplayResolver([_legacy_producer_record(before_a125)])
+
+    resolver.resolve(_asked_producer(after_a125))
+
+    assert resolver.stale_overrides == ["producer:alignment.bam"]
+    assert resolver.orphaned == []
+    assert resolver.replayed == []

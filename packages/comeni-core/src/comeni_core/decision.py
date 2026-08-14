@@ -86,6 +86,23 @@ class ProducerAsked(Ambiguity):
     candidates: list[ContractId] = Field(default_factory=list)
     states: list[StateName] = Field(default_factory=list)
 
+    def key(self) -> str:
+        """What is being decided, never who won it.
+
+        The inherited key is `node_id.subject`, and a producer question's `node_id` is the
+        *winning candidate's* process name — so installing one more contract renamed the
+        question. `upgrade` found no record under the new name, reported a curator's recorded
+        override as `ORPHANED — your edit no longer applies to anything`, and asked the
+        identical question one line above under the new name. Audit A126.
+
+        `subject` is already `producer:<type_id>`, which identifies the question uniquely
+        within a pipeline: a contract appears at most once (A97), so there is exactly one
+        producer question per type. `ParamAsked` and `SourceAsked` keep the inherited form,
+        because those genuinely are per-step — two steps may ask about the same parameter
+        name and mean different things.
+        """
+        return self.subject
+
 
 class SourceAsked(Ambiguity):
     """Two upstream outputs could feed one port, equally well."""
