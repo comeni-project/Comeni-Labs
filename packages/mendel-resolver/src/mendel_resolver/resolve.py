@@ -109,6 +109,7 @@ def resolve(
                 tier=step.selection_tier,
                 source=step.selection_source,
                 reason=step.selection_reason,
+                axis_reason=step.selection_axis_reason,
                 from_layer=step.from_layer,
                 displaced_layer=step.displaced_layer,
             ),
@@ -274,7 +275,14 @@ def _resolve_param(
         return ResolvedValue(
             value=pin.value,
             tier=Tier.DATA_PROFILED,
-            reason=f"rule {pin.decision.decides.key()}: {pin.because()}",
+            # No trailing colon when the row has nothing of its own to add. A row may be
+            # justified entirely by its block (a one-row rule often is), and `MD0301` allows
+            # that — but "rule param:strandedness: " reads as a truncation rather than as an
+            # absence, which is half of what A78 was.
+            reason=pin.reason_line(),
+            # The block's methodology, kept apart from the row's choice. One field carried
+            # both and printed the axis citation as the row's reason. A79, A107.
+            axis_reason=pin.axis_because(),
             # Provenance arrives *with* the value rather than beside it. It was two
             # lookups on the table a caller had to remember to make, which is how the
             # other consumer of the same table forgot both. Audit A15, A22.

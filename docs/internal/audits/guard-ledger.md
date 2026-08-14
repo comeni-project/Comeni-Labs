@@ -903,3 +903,22 @@ recording. Dropping the premise does not restore the old sentence about TrimGalo
 *"declared by the contract with no stated reason"* — greppable, honest, and obviously unfinished.
 A compatibility path that invents a plausible reason would have passed this test and made the
 artifact worse.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a79_…` | `because()` back to taking the block's `cite` | failed | `assert 'Dobin' not in 'rule producer_of:alignment.bam matched {'read_length': '< 70'}: Kim …; Dobin …'` |
+| 2026-08-14 | `test_egress.py::test_free_text_lives_only_where_declared` | nothing — `axis_reason` was added to two payload-reachable models | **failed unprompted** | `Extra items in the left set: ('Why', 'axis_reason'), ('ResolvedValue', 'axis_reason')` |
+| 2026-08-14 | `packages/mendel-resolver/tests/test_rules.py` ×8 + `test_resolve.py` | nothing — `MD0301` was added | **failed unprompted** | eleven fixtures had no `because` or `cite` at all |
+
+**The egress guard made the free-text count something somebody had to argue for**, which is
+exactly what invariant 14's literal list is for. Two fields were added, taking the count from
+seven to nine — the fourth time it has moved, and the fourth time by a *refactor* rather than by
+a new kind of string crossing: this is one field splitting in two, same author, same source,
+same door. `CLAUDE.md`'s count was updated with the reasoning rather than the number alone,
+since that sentence is the one the invariant itself admits drifts (A33).
+
+**`MD0301` failed eleven fixtures on arrival**, and that is the check having real negatives
+rather than a problem. Each was a minimal rule written before a justification was required; all
+eleven now carry one. The one in `test_resolve.py` was more interesting — it asserted the
+block's `because` appeared in the row's `reason`, which is precisely the conflation A79 is, so
+the assertion moved to `axis_reason` rather than being deleted.

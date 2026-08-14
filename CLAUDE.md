@@ -266,14 +266,18 @@ Violating any of these breaks the product claim, not just a test.
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
-    **seven** fields across the whole surface may hold free text: `PromptRequest.prompt`,
-    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind, and
-    `Why.reason` — the citation beside every value in `pipeline.yml`.
-    This said "exactly two" for a plan and a half while the guard held four, then six, and now
-    seven; the guard is the honest count and this sentence is the one that drifts (A33). Every
-    increase so far arrived by a refactor rather than by a new kind of string crossing — A16
-    splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly what
-    a literal list exists to make somebody look at.
+    **nine** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
+    `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
+    `axis_reason` on `Why` and `ResolvedValue`.
+    This said "exactly two" for a plan and a half while the guard held four, then six, seven,
+    and now nine; the guard is the honest count and this sentence is the one that drifts (A33).
+    Every increase so far arrived by a refactor rather than by a new kind of string crossing —
+    A16 splitting `DecisionRecord` into three, `Pipeline` taking door 4, and Plan 1.14 splitting
+    `reason` in two because it was answering both *why this axis* and *why this answer*, which
+    is how the registry came to cite the STAR paper as the reason HISAT2 was chosen (A79/A107).
+    That is exactly what a literal list exists to make somebody look at, and it has now made
+    somebody look four times.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in

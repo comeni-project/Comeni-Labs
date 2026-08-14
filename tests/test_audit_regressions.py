@@ -2016,3 +2016,77 @@ def test_a118_a_value_that_merely_contains_a_measurement_name_still_loads(tmp_pa
     registry_root = Path(__file__).parent.parent / "registry"
     body = COMPUTED.replace('"read_length-1"', '"paired-end"')
     assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None
+
+
+def _spine_with_read_length(read_length: int):
+    """Build the shipped spine at a given read length, so the aligner rule picks a row."""
+    from comeni_core.pipeline import Pipeline
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(Path(__file__).parent.parent / "registry")
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile(
+            {"read_length": read_length, "strandedness": "reverse"}
+        ),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    return Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+
+
+def test_a79_the_shipped_registry_does_not_cite_the_wrong_paper():
+    """A79 — reachable by changing one number in `examples/rnaseq-goal.yml`.
+
+    `Pin.because()` was `row.cite or decision.cite or row.because or decision.because` under a
+    docstring claiming *"row before block"*. Two bugs in one line: the precedence is
+    cite-first, and a **block** `cite` justifies the decision *axis* — "read length determines
+    which aligner is appropriate", for which Dobin et al. is fair — while being printed as the
+    reason for a **row**. So the shipped registry said HISAT2 was chosen because of the paper
+    describing STAR.
+    """
+    hisat2 = next(s for s in _spine_with_read_length(50).steps if s.id == "hisat2_align")
+
+    assert "Dobin" not in hisat2.why.reason, hisat2.why.reason
+    assert "Kim" in hisat2.why.reason, "HISAT2's own paper is Kim et al. 2019"
+
+
+def test_a107_authoring_a_citation_does_not_delete_the_sentence():
+    """A107 — the same function from the other end, found by a different reviewer.
+
+    A `cite` shadowed a `because`, so the registry's only plain-English explanation of its
+    only tier-3 decision never reached the artifact. A reader got a DOI where a sentence
+    belonged.
+    """
+    star = next(s for s in _spine_with_read_length(150).steps if s.id == "star_align")
+
+    assert "read length" in star.why.axis_reason.lower(), star.why.axis_reason
+    assert star.why.reason and star.why.reason != star.why.axis_reason
+    assert "seed" in star.why.reason.lower() or "long read" in star.why.reason.lower()
+
+
+def test_a78_a_rule_row_that_justifies_nothing_is_refused(tmp_path):
+    """A78 — it loaded, fired, and emitted a reason ending in a bare colon."""
+    from mendel_resolver import layers
+    from mendel_resolver.rules import RuleValidationError
+
+    body = """version: 1
+decisions:
+  - decides: {param: seq_platform}
+    rows:
+      - {when: {}, then: illumina}
+"""
+    with pytest.raises(RuleValidationError) as caught:
+        layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])
+    assert "MD0301" in str(caught.value)

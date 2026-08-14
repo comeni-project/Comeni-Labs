@@ -47,6 +47,10 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
+    selection_axis_reason: str = ""
+    """Why this *kind* of decision is made this way, where `selection_reason` is why this
+    contract won. A rule block's citation justifies the axis and was being printed as the
+    row's reason. A79, A107."""
     selection_source: ValueSource = ValueSource.RESOLVER
     """Who settled it. `HUMAN` when a replayed record carried a `human_override`.
 
@@ -190,6 +194,9 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
+                    # The pin carries the block's methodology; a non-rule selection has no
+                    # axis to state and leaves this empty rather than inventing one.
+                    selection_axis_reason=pin.axis_because() if pin is not None else "",
                     selection_source=source,
                     # A rule that fired decided this, so the rule's layer is the answer —
                     # not the layer the winning contract happens to sit in. Those differ
@@ -265,8 +272,7 @@ def _choose(
             return (
                 match[0],
                 Tier.DATA_PROFILED,
-                f"rule {pinned.decision.decides.key()} matched {pinned.row.when}: "
-                f"{pinned.because()}",
+                pinned.reason_line(pinned.row.when),
                 pinned.row.when,
                 pinned,
                 ValueSource.RESOLVER,

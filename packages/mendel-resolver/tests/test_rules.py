@@ -83,6 +83,7 @@ def test_row_order_decides(world):
 version: 1
 decisions:
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {strandedness: reverse}, then: 99}
       - {when: {strandedness: reverse}, then: 2}
@@ -95,6 +96,7 @@ def test_a_comparison_string_works(world):
 version: 1
 decisions:
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70", strandedness: reverse}, then: 2}
 """)
@@ -112,6 +114,7 @@ def test_a_rule_for_a_parameter_no_contract_declares_will_not_load(world):
 version: 1
 decisions:
   - decides: {param: aligner}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70"}, then: star}
 """)
@@ -126,6 +129,7 @@ def test_a_rule_naming_an_undeclared_measurement_will_not_load(world):
 version: 1
 decisions:
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {organism: human}, then: 2}
 """)
@@ -137,6 +141,7 @@ def test_a_producer_rule_must_name_a_contract_that_exists(world):
 version: 1
 decisions:
   - decides: {producer_of: counts.matrix}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: "< 70"}, then: nf-core/hisat2/align@2.2.2}
 """)
@@ -147,6 +152,7 @@ def test_a_producer_rule_returns_the_pinned_contract(world):
 version: 1
 decisions:
   - decides: {producer_of: counts.matrix}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
 """)
@@ -163,6 +169,7 @@ def test_a_producer_rule_naming_a_contract_that_produces_something_else(world):
 version: 1
 decisions:
   - decides: {producer_of: alignment.bam}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
 """)
@@ -178,6 +185,7 @@ def test_two_decisions_for_one_target_in_one_layer_is_an_error(world):
     with pytest.raises(ValueError, match="declared twice"):
         _rules(world, GOOD + """
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {strandedness: reverse}, then: 3}
 """)
@@ -189,6 +197,7 @@ def test_a_comparison_on_an_enum_will_not_load(world):
 version: 1
 decisions:
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {strandedness: ">= 70"}, then: 2}
 """)
@@ -200,6 +209,7 @@ def test_a_decision_must_decide_exactly_one_thing(world):
 version: 1
 decisions:
   - decides: {param: strandedness, producer_of: counts.matrix}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {strandedness: reverse}, then: 2}
 """)
@@ -215,6 +225,7 @@ def test_a_higher_layer_replaces_a_whole_decision_block(world, tmp_path):
 version: 1
 decisions:
   - decides: {param: strandedness}
+    because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {strandedness: reverse}, then: 0}
 """)

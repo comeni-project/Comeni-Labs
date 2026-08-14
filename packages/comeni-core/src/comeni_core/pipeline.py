@@ -117,6 +117,19 @@ class Why(BaseModel):
     agent tuning settings does it systematically and does not.
     """
 
+    axis_reason: Line = ""
+    """Why this decision is made this way **at all**, where `reason` is why this answer won.
+
+    A tier-3 rule block carries a methodology — "read length determines which aligner is
+    appropriate", cited to Dobin et al. 2013 — and each row carries a choice made under it.
+    One field was serving both, so the block's citation was printed as the row's reason and
+    the shipped registry stated that HISAT2 was chosen because of the paper describing STAR.
+    Audit A79 and A107, the same defect found from opposite ends.
+
+    Empty for a decision with no axis to state — a contract default has no methodology behind
+    it beyond itself, and inventing one would be the circularity A76 is about.
+    """
+
     from_layer: LayerName | None = None
     displaced_layer: LayerName | None = None
     """Set when a lower layer offered something this one beat. A5, A15 — dropped by two drafts
@@ -795,6 +808,7 @@ def _why(value) -> Why:
         tier=value.tier,
         source=value.source,
         reason=value.reason,
+        axis_reason=value.axis_reason,
         for_value=value.value,
         from_layer=value.from_layer,
         displaced_layer=value.displaced_layer,

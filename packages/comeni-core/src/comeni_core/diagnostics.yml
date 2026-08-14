@@ -741,6 +741,44 @@ MD0223:
     reason does it occasionally and may notice; an agent tuning settings does it
     systematically and does not.
 
+MD0301:
+  emitted_by: resolver
+  concern: routing
+  says: "a rule row justifies nothing — no `because` and no `cite`, on the row or the block"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Give the row a `because:` saying why *this* answer, a `cite:` naming the evidence, or
+    both — they are joined rather than chosen between:
+
+        rows:
+          - when: {read_length: "< 70"}
+            then: nf-core/hisat2/align@2.2.2
+            because: >-
+              HISAT2 handles short reads with a far smaller index and memory footprint.
+            cite: "Kim et al. 2019, doi:10.1038/s41587-019-0201-4"
+
+    A `because` or `cite` on the enclosing block satisfies this too, but answers a different
+    question — see the explanation.
+  explanation: |
+    Tier 3 is **advisory**, and `CLAUDE.md` says what that means: *"the machinery worked,
+    check the premise."* A row with no premise gives a reader nothing to check, and it
+    emitted a reason ending in a bare colon — `rule producer_of:alignment.bam matched
+    {'read_length': '< 70'}: ` — which reads as a truncation rather than as an absence.
+
+    **A block justifies the axis; a row justifies the choice.** "Read length determines which
+    aligner is appropriate" is the axis, and Dobin et al. 2013 is a fair citation for it.
+    "HISAT2, because it handles short reads with a smaller index" is the row. One field
+    carried both, so the block's citation was printed as the row's reason and the shipped
+    registry stated that HISAT2 was chosen because of the paper describing STAR — reachable
+    by changing one number in `examples/rnaseq-goal.yml`. Audit A79 and A107, found from
+    opposite ends by two reviewers who could not confer.
+
+    `Why.axis_reason` now carries the block's justification beside the row's, so a reader can
+    tell the methodology from the choice made under it.
+
+    Audit A78.
+
 MD0300:
   emitted_by: resolver
   concern: routing

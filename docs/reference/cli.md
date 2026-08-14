@@ -162,6 +162,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | Code | Says |
 |---|---|
 | `MD0300` | a rule's `then` reads as arithmetic, and `then` is emitted verbatim |
+| `MD0301` | a rule row justifies nothing — no `because` and no `cite`, on the row or the block |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

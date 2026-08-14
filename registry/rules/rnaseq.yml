@@ -11,5 +11,20 @@ decisions:
     because: "read length determines which aligner is appropriate"
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
-      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
+      # Each row states its own choice and cites its own tool. The block above states the
+      # *axis* — why read length is the thing to look at — and Dobin et al. is a citation for
+      # that claim. Printing the block's citation as a row's reason is how this registry came
+      # to say HISAT2 was chosen because of the paper describing STAR (audit A79/A107), which
+      # was reachable by changing one number in examples/rnaseq-goal.yml.
+      - when: {read_length: ">= 70"}
+        then: nf-core/star/align@1.11.0
+        because: >-
+          STAR's seed-and-extend search is built for long reads and is nf-core/rnaseq's
+          default aligner; the index cost it pays back over reads this length.
+        cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+      - when: {read_length: "< 70"}
+        then: nf-core/hisat2/align@2.2.2
+        because: >-
+          HISAT2 handles short reads with a far smaller index and memory footprint, which is
+          what makes it the better answer below this length rather than merely a cheaper one.
+        cite: "Kim et al. 2019, doi:10.1038/s41587-019-0201-4"
