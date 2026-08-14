@@ -38,6 +38,16 @@ Read it before Task 0; every task below argues from a numbered section of it.
   a directory it does not know **refuses outright** — `registry layer … contains roles/roles.yml,
   which nothing reads` (A26, verified against `84814f8` on 2026-08-15) — so `roles/` would
   hard-break every existing consumer. It crosses when this plan does.
+  **So `make verify` exits non-zero for Tasks 0–10, and the executor must read *why*.** `drift`
+  runs last, after `check`, `slow` and `guards` have all passed, so the permitted failure looks
+  exactly like this and nothing else:
+
+  ```
+  12 file(s) drifted   ← the twelve contracts, from `roles:`, plus rules/rnaseq.yml after Task 11
+  ```
+
+  Any other file in that list, or a failure before `drift`, is a real failure. Do not paper over
+  it with `make check`.
   **Closing condition: Task 11 is not complete until `make drift` is green.** A gate that is red
   for a stated reason with a named closing condition is fine; one that is red for unexamined
   reasons trains everybody to ignore it, which is how `make check` came to be run in place of
