@@ -20,6 +20,9 @@ params:
     key: args
     template: "-Q {value}"
 priority: 0
-nf_inputs: [{ports: [bam, annotation]}]
+# The GTF is one annotation for every sample, so pairing each BAM against it is exactly what
+# is wanted and `broadcast` says so out loud. This was the emitter's unconditional default:
+# correct here, and silently a cross product for any second *per-sample* port. Audit A92.
+nf_inputs: [{ports: [bam, annotation], join: broadcast}]
 container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

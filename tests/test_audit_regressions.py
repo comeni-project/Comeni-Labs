@@ -1793,3 +1793,226 @@ def test_a_binding_the_contract_does_declare_is_carried():
     )
     pipeline = _pipe(PipelineIR(nodes=[node]), loaded)
     assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]
+
+
+MINIMAP2 = """id: nf-core/minimap2/align@2.28.0
+nf_process: MINIMAP2_ALIGN
+nf_include: modules/nf-core/minimap2/align/main
+consumes:
+  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+priority: 10
+nf_inputs:
+  - {ports: [reads]}
+container: community.wave.seqera.io/library/minimap2:2.28--audit
+provenance: {source: audit, drafted_by: audit, approved_by: audit, approved_at: "2026-08-14"}
+"""
+
+
+def _tying_layer(tmp_path: Path) -> Path:
+    """One aligner at STAR's priority, so `alignment.bam` has a genuine two-way tie.
+
+    Inline rather than a committed fixture: the finding is entirely about *ranking*, so the
+    only thing that has to be true of this contract is `priority: 10`, and a reader should
+    not have to open a second file to see that. Audit A125.
+    """
+    layer = tmp_path / "tie-layer"
+    (layer / "contracts" / "nf-core").mkdir(parents=True)
+    (layer / "contracts" / "nf-core" / "minimap2-align.yml").write_text(MINIMAP2)
+    (layer / "registry.yml").write_text('name: tie-layer\nversion: "0"\n')
+    return layer
+
+
+def _aligner_ir(*roots):
+    """Resolve an aligner with no `read_length`, so the tier-3 rule cannot pin one."""
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(list(roots))
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["alignment.bam"],
+        profile=loaded.measurements.profile({"strandedness": "reverse"}),
+    )
+    return resolve(
+        goal,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
+
+
+def test_a125_a_tie_offers_only_the_candidates_that_tied(tmp_path):
+    """A125 — adding one contract installed the aligner the registry ranked *last*.
+
+    STAR and MINIMAP2 both sit at priority 10, so the tie is between those two. HISAT2 is at
+    priority 0 and lost outright. `_choose` handed the resolver *every* candidate sorted by
+    id and `FlagOnlyResolver` takes `candidates[0]`, so `hisat2` won on the letter h — and
+    the artifact then reported that nothing distinguished three contracts that `priority`
+    distinguishes deliberately.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+    ir = _aligner_ir(registry_root, _tying_layer(tmp_path))
+
+    asked = [d for d in ir.decisions if d.subject == "producer:alignment.bam"]
+    assert len(asked) == 1, [d.subject for d in ir.decisions]
+    assert asked[0].candidates == [
+        "nf-core/minimap2/align@2.28.0",
+        "nf-core/star/align@1.11.0",
+    ]
+    assert "hisat2" not in asked[0].chosen
+
+
+def test_a126_a_producer_decision_key_names_the_question_not_the_winner(tmp_path):
+    """A126 — the key was `<winning module>.producer:<type>`, so it moved when the registry did.
+
+    Installing one more contract renamed the question, `upgrade` found no record under the new
+    name and reported the curator's recorded override as `ORPHANED — your edit no longer
+    applies to anything`, while asking the identical question one line above.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+    ir = _aligner_ir(registry_root, _tying_layer(tmp_path))
+
+    producer_keys = [d.key for d in ir.decisions if d.subject.startswith("producer:")]
+    assert producer_keys == ["producer:alignment.bam"]
+
+
+def _legacy_producer_record(candidates: list[str]):
+    """A pre-1.13 producer record: the key carries the winning module's node id in front."""
+    from comeni_core.decision import ProducerDecision
+
+    return ProducerDecision(
+        key="star_align.producer:alignment.bam",
+        subject="producer:alignment.bam",
+        reason="the lab standardised on STAR",
+        resolved_by="human",
+        candidates=candidates,
+        chosen="nf-core/star/align@1.11.0",
+        human_override="nf-core/star/align@1.11.0",
+    )
+
+
+def _asked_producer(candidates: list[str]):
+    from comeni_core.decision import ProducerAsked
+
+    return ProducerAsked(
+        node_id="minimap2_align",
+        subject="producer:alignment.bam",
+        candidates=candidates,
+    )
+
+
+def test_a126_a_legacy_producer_key_still_replays():
+    """A pre-1.13 artifact carries the node-prefixed key and must still replay.
+
+    A126 is what made the prefix meaningless, not what made those files unreadable. Without
+    the canonicalisation every archived pipeline reports its producer override orphaned on
+    first upgrade — the exact bug, re-entering through the fix for it.
+    """
+    from mendel_resolver.replay import ReplayResolver
+
+    same = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    resolver = ReplayResolver([_legacy_producer_record(same)])
+
+    resolution = resolver.resolve(_asked_producer(same))
+
+    assert resolution.chosen == "nf-core/star/align@1.11.0"
+    assert resolver.replayed == ["producer:alignment.bam"]
+    assert resolver.orphaned == []
+
+
+def test_a126_a_legacy_record_narrowed_by_a125_goes_stale_rather_than_orphaned():
+    """Where A125 narrowed the offered set, the recorded answer is re-asked — and *said*.
+
+    An interaction between this plan's own two fixes, found by testing it rather than by
+    reasoning about it. Before A125 a producer record listed **every** candidate; after it,
+    only those that tied. So a legacy record's candidate list genuinely differs and
+    `_still_applies` rejects it.
+
+    That rejection is correct: the question really did change, and replaying an answer
+    chosen from a wider set would assert a decision between options that were never offered.
+    What matters is that it lands in `stale_overrides` — "a person's answer was thrown away,
+    here it is" — rather than in `orphaned`, which claims the edit applied to nothing. The
+    honest report was the whole point of A126.
+    """
+    from mendel_resolver.replay import ReplayResolver
+
+    before_a125 = [
+        "nf-core/hisat2/align@2.2.2",
+        "nf-core/minimap2/align@2.28.0",
+        "nf-core/samtools/sort@1.21.0",
+        "nf-core/star/align@1.11.0",
+    ]
+    after_a125 = ["nf-core/minimap2/align@2.28.0", "nf-core/star/align@1.11.0"]
+    resolver = ReplayResolver([_legacy_producer_record(before_a125)])
+
+    resolver.resolve(_asked_producer(after_a125))
+
+    assert resolver.stale_overrides == ["producer:alignment.bam"]
+    assert resolver.orphaned == []
+    assert resolver.replayed == []
+
+
+def _rule_layer(tmp_path: Path, body: str) -> Path:
+    layer = tmp_path / "rules-layer"
+    (layer / "rules").mkdir(parents=True)
+    (layer / "rules" / "probe.yml").write_text(body)
+    (layer / "registry.yml").write_text('name: rules-layer\nversion: "0"\n')
+    return layer
+
+
+COMPUTED = """version: 1
+decisions:
+  - decides: {param: seq_platform}
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+    rows:
+      - {when: {}, then: "read_length-1"}
+"""
+
+
+def test_a118_a_computed_then_is_refused_at_load(tmp_path):
+    """A118 — it loaded, resolved at tier 3, carried a real citation, and was not flagged.
+
+    `then: "read_length - 1"` was refused, but only by `MD0201` — a *shell-injection*
+    character class that happens to exclude spaces. Removing them was enough to reach the
+    tool: `ext.args2 = '--sjdbOverhang read_length-1'`, tier 3, cited to Dobin et al., absent
+    from the review list. STAR received the literal string.
+    """
+    from mendel_resolver import layers
+    from mendel_resolver.rules import RuleValidationError
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    with pytest.raises(RuleValidationError) as caught:
+        layers.load([registry_root, _rule_layer(tmp_path, COMPUTED)])
+
+    assert "MD0300" in str(caught.value)
+    assert "read_length-1" in str(caught.value)
+
+
+def test_a118_a_literal_then_still_loads(tmp_path):
+    """The check must have real negatives. A check that can only pass is not a check."""
+    from mendel_resolver import layers
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    body = COMPUTED.replace('"read_length-1"', "illumina")
+    assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None
+
+
+def test_a118_a_value_that_merely_contains_a_measurement_name_still_loads(tmp_path):
+    """`paired-end` is not arithmetic, and `paired` is a declared measurement.
+
+    A substring check would refuse this. The rule is that a measurement has to sit next to an
+    operator *and a number* — that is what makes a value an expression rather than a word with
+    a hyphen in it.
+    """
+    from mendel_resolver import layers
+
+    registry_root = Path(__file__).parent.parent / "registry"
+    body = COMPUTED.replace('"read_length-1"', '"paired-end"')
+    assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None

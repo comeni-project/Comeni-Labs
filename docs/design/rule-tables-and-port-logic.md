@@ -504,6 +504,25 @@ measured input, a documented mapping, a real consequence if wrong. It cannot be 
 only be *enumerated* — one row per read length the registry anticipates — which turns a rule
 into a lookup table and quietly changes what "the rule matched" means.
 
+> **Corrected 2026-08-14 by the design audit (A118), and the correction is the important part.**
+> The paragraph above said the rule "cannot be written". It could be written, and it was **not
+> refused** — which is the more dangerous of the two failures, because "cannot" implies something
+> stops you.
+>
+> `then: "read_length-1"` loaded, resolved at **tier 3**, carried a real citation to Dobin et al.
+> 2013, stayed **out of the review list** because a rule had matched, and reached
+> `nextflow.config` as `ext.args2 = '--sjdbOverhang read_length-1'`. STAR received the literal
+> string. `pipeline.yml` recorded a splice-junction overhang that was a word.
+>
+> The only thing that ever caught it was `MD0201` — a **shell-injection character class**, not a
+> type check — and only on the spaced spelling `"read_length - 1"`, because the class permits
+> `-`. It also covers one route of three: `via: directive` emitted
+> `cpus = 'genome_length / 1000000000 * 4'` unchecked.
+>
+> **`MD0300` now refuses it at load** (Plan 1.13). The expressive limit below is real and
+> unchanged; what was wrong was calling it a limit rather than a hole. A limit is a thing the
+> format declines to express. A hole is a thing it expresses wrongly and says nothing about.
+
 **What a repair costs.** A computed `then` introduces an expression language into declared data,
 and that is a larger decision than it looks: an expression is code, code in the registry is code
 a stranger authored, and invariant 1 exists because code from elsewhere is exactly what the pure

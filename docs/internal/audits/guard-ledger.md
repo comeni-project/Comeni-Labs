@@ -789,3 +789,43 @@ oversight somebody "fixes" later.
 holds. It does — `build`, `upgrade` and `profile` all run `conformance.check` unconditionally
 before emitting, and no genuinely-built pipeline reaches publish with unchecked contracts. A70 is
 `main.nf` ↔ `pipeline.yml` correspondence, a different question, and A50 is not reopened.
+
+## Plan 1.13 — closing the design audit's correctness findings
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_join.py::test_by_sample_emits_join` (A92) | `if arg.join is Join.BY_SAMPLE:` in `emit._argument`, so both branches combine | failed | `assert '.join(' in 'SAMTOOLS_SORT.out.bam.combine(ch_annotation_gtf.map { it[1] })'` — names the expression it got |
+| 2026-08-14 | `test_audit_regressions.py::test_a125_…` | `tied = [c for c in ordered if rank(c)[:2] == best[:2]]` → `tied = ordered` | failed | `At index 0 diff: 'nf-core/hisat2/align@2.2.2' != 'nf-core/minimap2/align@2.28.0'` — names the contract that should not have been offered |
+| 2026-08-14 | `test_audit_regressions.py::test_a126_…` ×2 | `ProducerAsked.key()` back to `f"{node_id}.{subject}"` | both failed | `assert ['minimap2_al...lignment.bam'] == ['producer:alignment.bam']`, and the legacy record stopped replaying |
+| 2026-08-14 | `test_audit_regressions.py::test_a118_…` | `_computed_over(...)` → `None` in `_validate` | failed | `DID NOT RAISE RuleValidationError` — and the two negatives kept passing, which is the half that matters |
+| 2026-08-14 | `test_purity.py` (unplanned) | nothing — `import re` was added to `mendel-resolver` for MD0300 | **failed unprompted** | `rules.py imports re, which is not on this package's allowlist` |
+
+| 2026-08-14 | `test_egress.py::test_every_tier_four_question_can_actually_cross_the_door` | `candidates: list[CandidateRef]` → `list[ContractId]` | failed | `Input should be a valid string … input_value=None` |
+
+**A129's revert is the clearest single result in this table, because of what did *not* fail.**
+With the defect restored, both tests ran:
+
+```
+test_every_ambiguity_field_can_cross_the_door               PASSED
+test_every_tier_four_question_can_actually_cross_the_door   FAILED
+```
+
+The pre-existing test compares field *names*, and names were never the problem — every field had
+somewhere to go while two of the three question kinds could not get through on their **values**.
+That is the shape A14 is about: a guard that cannot fail for the defect it appears to cover. Both
+are kept. The name test catches a *new* field with nowhere to land, which is the quiet half of
+A32 and still worth having; the new one catches a payload that cannot be built.
+
+**`test_purity.py` failed without being reverted, which is the strongest evidence in this
+table.** Nobody set out to test it: Task 4 needed `re` for `_computed_over`, and the allowlist
+caught the addition on the next `make verify` and named the file and the module. That is a guard
+demonstrating it is live in the course of ordinary work rather than under a staged revert — the
+distinction A14 is about. The widening was then argued for in a comment beside the entry rather
+than slipped in, which is what the allowlist exists to force.
+
+**The A92 guard has two halves and only one of them is a revert.** The emitter half is above. The
+other half is `test_two_samples_join_pairwise_and_combine_cross_products`, which runs Nextflow on
+two samples and asserts `join` gives 2 correctly-paired outputs while `combine` gives 4 — it
+carries the wrong branch as a parametrised case *on purpose*, so the two are proven to differ
+rather than merely asserted to. That is not a revert-and-watch; it is the failing observation
+itself, kept. It runs in 6s with no Docker, because the process it builds has no container.

@@ -33,10 +33,24 @@ CLOSED_PACKAGES = {
         "typing", "pydantic", "yaml", "comeni_core",
     },
     "mendel-resolver": {
-        "collections", "collections.abc", "operator", "pathlib", "typing",
+        "collections", "collections.abc", "operator", "pathlib", "re", "typing",
         "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
 }
+# `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
+# exists because the guard is supposed to make an addition something somebody argues for.
+#
+# It is stdlib, does no I/O, and executes no caller-supplied code — `re` compiles patterns,
+# it does not evaluate them as expressions, which is the distinction that matters here: the
+# whole point of MD0300 is to keep an *expression* out of declared data, so implementing it
+# with something that evaluates expressions would be self-defeating. `mendel-compiler`
+# already allows it (`modulespec.py` parses `main.nf` with it), so this is a package catching
+# up rather than a new capability in the pure set.
+#
+# The alternative considered and rejected: hand-rolled string scanning, to leave the
+# allowlist untouched. Rejected because the check has to distinguish `read_length-1` from
+# `paired-end` — a false positive kills a legitimate rule with a diagnostic nobody can turn
+# off — and that precision is exactly what a hand-rolled scanner gets subtly wrong.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 

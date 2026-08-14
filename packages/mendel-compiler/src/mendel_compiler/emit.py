@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 from comeni_core.marks import substitutable
 from comeni_core.pipeline import Pipeline, Step
-from comeni_core.routes import Via
+from comeni_core.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -103,9 +103,20 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     if len(expressions) == 1:
         return expressions[0]
     # Several semantic ports share one channel — featurecounts wants
-    # tuple(meta, bams, annotation). Combine drops the second tuple's meta.
+    # tuple(meta, bams, annotation). The contract says how they meet, because the emitter
+    # cannot know: `.combine()` pairs every sample against one shared reference and drops the
+    # second tuple's meta, `.join()` matches two per-sample channels on the meta map.
+    #
+    # This combined unconditionally until A92. That is right for the one multi-port entry the
+    # shipped registry has, and a Cartesian product for any second per-sample port — two
+    # samples in gave four processes, half of them pairing one sample's data with another's,
+    # and Nextflow exited 0. `--gate test` cannot see the class: the nf-core dataset has one
+    # sample, so 1 x 1 == 1.
     head, *rest = expressions
-    joined = "".join(f".combine({expr}.map {{ it[1] }})" for expr in rest)
+    if arg.join is Join.BY_SAMPLE:
+        joined = "".join(f".join({expr})" for expr in rest)
+    else:
+        joined = "".join(f".combine({expr}.map {{ it[1] }})" for expr in rest)
     return f"{head}{joined}"
 
 

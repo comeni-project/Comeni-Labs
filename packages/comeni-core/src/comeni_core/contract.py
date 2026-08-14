@@ -23,7 +23,7 @@ from comeni_core.marks import (
     PortName,
     TypeId,
 )
-from comeni_core.routes import TEMPLATED, ExtKey, Via
+from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.vocabulary import Vocabulary
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
@@ -222,6 +222,34 @@ class NfInput(BaseModel):
     `[[:], []]` handed to `tuple val(meta), path(fasta), path(fai)` fails with "Path
     value cannot be null". `samtools/sort` wants 3; most want 2.
     """
+
+    join: Join | None = None
+    """How this entry's ports are matched when there is more than one.
+
+    Required whenever `ports` holds two or more, and there is deliberately no default.
+    `emit` used to combine unconditionally — a Cartesian product — which is right for the
+    one multi-port entry the shipped registry has and silently wrong for any second
+    per-sample port. Audit A92.
+    """
+
+    @model_validator(mode="after")
+    def _join_declared_when_it_matters(self) -> "NfInput":
+        """Two ports in one channel have to say how they meet.
+
+        There is no safe default to fall back on: guessing `broadcast` cross-products two
+        per-sample channels and Nextflow calls it success, which is how two samples became
+        four analyses with half of them mixing samples. Guessing `by_sample` would drop the
+        shipped spine's annotation, which has no per-sample key to join on. Only the contract
+        knows. Audit A92.
+        """
+        if len(self.ports) > 1 and self.join is None:
+            raise ValueError(
+                f"an nf_inputs entry with two or more ports ({', '.join(self.ports)}) must "
+                f"declare `join:` — `broadcast` if the later ports are one thing every sample "
+                f"is paired against, `by_sample` if they are per-sample and must match. There "
+                f"is no default: guessing wrong produces a green run with wrong results."
+            )
+        return self
 
 
 class Provenance(BaseModel):

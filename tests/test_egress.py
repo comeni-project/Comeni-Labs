@@ -412,6 +412,47 @@ def test_every_ambiguity_field_can_cross_the_door():
     assert Ambiguity.model_config.get("extra") == "forbid"
 
 
+def test_every_tier_four_question_can_actually_cross_the_door():
+    """A129 — the test above compares field *names*, and names were not the problem.
+
+    `AmbiguityRequest` is documented as "the union of what the three `*Asked` types carry",
+    and it accepted **one** of the three. Two failed on their *values*:
+
+        ParamAsked  candidates=[None]                Input should be a valid string
+        SourceAsked candidates=['star_align.bam']    not a contract id
+
+    Door 2 is exactly what Plan 2 Task 5 opens, so today only producer questions can be asked
+    of a model. A name-shaped assertion could never see it: every field had somewhere to go,
+    and two kinds still could not get through. Construct one of each instead.
+    """
+
+    from comeni_core.decision import ParamAsked, ProducerAsked, SourceAsked
+    from comeni_core.egress import AmbiguityRequest
+
+    for asked in (
+        ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None]),
+        # Shaped exactly as `resolve.py:215` builds one — `type_id` and `required` included,
+        # because a source question that does not say what type it is asking about is not a
+        # question anybody asks. Omitting them here produced a second, spurious failure and
+        # would have made this test assert something the resolver never emits.
+        SourceAsked(
+            node_id="samtools_sort",
+            subject="source:reads",
+            candidates=["star_align.bam", "trimgalore.reads"],
+            type_id="alignment.bam",
+            required=["coordinate_sorted"],
+        ),
+        ProducerAsked(
+            node_id="star_align",
+            subject="producer:alignment.bam",
+            candidates=["nf-core/star/align@1.11.0"],
+        ),
+    ):
+        payload = asked.model_dump()
+        payload.pop("kind", None)
+        AmbiguityRequest(**payload)
+
+
 # --- Plan 1.10 Task 11: Pipeline is door 4's payload ----------------------------------
 
 

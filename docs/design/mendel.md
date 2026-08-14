@@ -26,6 +26,52 @@ still be able to follow.
 
 Mendel is the pipeline builder — the first and load-bearing component.
 
+### Mendel is the engine, and the AI is its primary operator
+
+**Decided 2026-08-14, after the design audit, and recorded here because everything below reads
+differently without it.**
+
+Everything built through Plan 1 — the resolver, the compiler, the registry, `pipeline.yml` — is
+the **engine**. A human can drive it directly, and the CLI is built so they can. But the intended
+operator is the AI: it takes the researcher's plain language, drives the engine, and hands back a
+pipeline that is reproducible *because* the engine resolved it rather than because the model was
+careful.
+
+This is the inverse of the usual arrangement, and the inversion is the product. A chat window has
+the model produce the pipeline and asks the researcher to trust it. Here the model produces only a
+**goal**, and a deterministic engine produces the pipeline — so the same goal gives the same
+pipeline whichever model asked, however many times, at whatever temperature. The model's
+unreliability is confined to a typed input; it cannot reach the output.
+
+**`pipeline.yml` is a save file, and that is what makes this efficient.** The AI does not hold a
+pipeline in its context. It writes one, sets it down, picks it up later, tunes a setting and
+re-emits — and every one of those steps is a file operation against an artifact that carries its
+own justification and its own digests. An agent that must re-derive a pipeline from conversation
+each time is neither reproducible nor cheap; an agent that reads `pipeline.yml` is both.
+
+**This does not add a fourth runtime AI point, and invariant 3 is unchanged.** An agent driving
+`mendel build`, editing `pipeline.yml` and running `mendel emit` is a *user of the CLI*, outside
+the engine, exactly as a human at a terminal is. Invariant 3 constrains what **Mendel** calls; it
+says nothing about who calls Mendel. The three declared points — goal extraction, tier-4
+resolution, compiler repair — are where a model is reached *from inside*, and they stay three.
+
+**What it does change is the standard the artifact is held to**, and the 2026-08-14 design audit
+had already found the gap before this was written down:
+
+- A human who edits a value and leaves a stale `why:` beside it does so occasionally and may
+  notice. An agent doing it does so **systematically and does not notice** — `why:` not tracking
+  its value (audit root 2, A104/A105/A77) stops being a legibility defect and becomes a
+  correctness one.
+- A human reading a value with no reason attached sees a blank. **A model sees a blank and fills
+  it** from its own knowledge. Five of six values reaching the tools carry no `why:` at all (A106),
+  which makes the missing-explanation findings *more* urgent under this reading, not less.
+- **Nothing distinguishes a model-authored `why.reason` from a human-authored one** (A130). Under
+  `guarded` and `sealed`, where attribution is required, that distinction is load-bearing and does
+  not currently exist.
+
+The honest summary: the engine framing is the right one, it costs no invariant, and it raises the
+bar on exactly the half of the artifact the design audit found unfinished.
+
 ### The product claim
 
 > Given the same goal, Mendel produces the same pipeline, and every decision in it

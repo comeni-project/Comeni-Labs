@@ -23,6 +23,7 @@ from comeni_core.ir import PipelineIR
 from comeni_core.marks import (
     ContractId,
     Digest,
+    EdgeRef,
     NfPath,
     NodeId,
     StateName,
@@ -30,6 +31,24 @@ from comeni_core.marks import (
     Text,
     TypeId,
 )
+
+CandidateRef = ContractId | EdgeRef | None
+"""What a tier-4 question can offer a model. **A closed union, not a widening.**
+
+Three shapes because there are three kinds of question, and the door is documented as their
+union: a producer question offers contract ids, a source question offers `<node>.<port>` edge
+references, and a parameter question offers `[None]` — the honest spelling of "no default was
+ever written", which is A83 and not this alias's to fix. `None` stays until a `Param` has a
+declared domain (Plan 2 Task 11).
+
+It was `list[ContractId]`, so **two of the three kinds could not cross their own door**: a
+`ParamAsked` failed on `None` and a `SourceAsked` on `star_align.bam` not being a contract id.
+`test_every_ambiguity_field_can_cross_the_door` was green throughout, because it compares field
+*names* and names were never the problem. Audit A129, and the same family as #32/A68.
+
+**No bare `str`.** Every member is a declared alias, because a bare `str` bypasses the marker
+in one line and a prompt fits in it perfectly — invariant 14's whole argument.
+"""
 
 
 def _publication_payload() -> type[BaseModel]:
@@ -103,7 +122,7 @@ class AmbiguityRequest(EgressPayload):
 
     node_id: NodeId
     subject: Subject
-    candidates: list[ContractId] = []
+    candidates: list[CandidateRef] = []
     states: list[StateName] = []
     """States required of the thing being chosen. Was `list[TypeId]`, which is a different
     vocabulary — nothing had ever put a value in it, so nothing disagreed."""
