@@ -45,6 +45,88 @@ model reading a blank fills it.**
 
 ---
 
+## Task 0: a schema addition must not invalidate an archived pipeline
+
+**Found while executing Plan 1.13, not by the audit.** Task 3's step 6 — "verify against a
+pipeline this code did not write" — upgraded an artifact built before 1.13 existed and got:
+
+```
+recorded from_digest: sha256:e0fe1d12…
+recomputed          : sha256:b96a7f4b…
+→ MD0213: pipeline.yml has changed since the Nextflow was generated from it
+```
+
+The emitted `main.nf` and `nextflow.config` hashed **exactly** to their recorded digests. The
+pipeline had not changed; the *reader* had. `from_digest` hashes the model dump, so **any new
+field with a default moves it** — 1.13 added one (`CallArg.join`) and this plan adds six.
+
+Two things are wrong, and only one of them is the digest:
+
+- **The diagnostic lies.** `MD0213` says the file changed. It did not. A laboratory reading that
+  goes looking for an edit nobody made. The recovery path (`mendel emit` first, then re-stamp)
+  works and produces byte-identical Nextflow, so nothing is lost — but nothing says so.
+- **There is no migration story at all**, and this plan bumps `version: 1 → 2`. Doing five more
+  field additions on top of that without one multiplies the same false alarm.
+
+**Do this first.** Everything below adds fields, and each one re-triggers it.
+
+**Files:**
+- Modify: `packages/comeni-core/src/comeni_core/pipeline.py` — `SCHEMA_VERSION`, and record it
+  beside `from_digest`
+- Modify: `packages/mendel-compiler/src/mendel_compiler/pipeline_file.py` — `MD0213`'s branch
+- Modify: `packages/comeni-core/src/comeni_core/diagnostics.yml` — `MD0213`'s text, and `MD0223`
+- Test: `tests/test_upgrade.py`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+LEGACY = "docs/internal/audits/fixtures/pipeline-v1.yml"   # commit one; see step 4
+
+
+def test_a_pipeline_written_before_a_schema_change_is_not_reported_as_edited(tmp_path):
+    """The file did not change. The schema did. Say which.
+
+    Found executing Plan 1.13: adding `CallArg.join` moved `from_digest` for every archived
+    artifact, and MD0213 reported it as a human edit.
+    """
+    built = restore_legacy(tmp_path, LEGACY)
+    result = upgrade(built, dry_run=True)
+
+    assert result.diagnostics == []
+    assert "predates the current schema" in result.notes
+```
+
+- [ ] **Step 2: Run it — expect `MD0213` in `result.diagnostics`**
+
+- [ ] **Step 3: Record the schema version the digest was taken under**
+
+Add `Emitted.schema_version: int = 1` and stamp `SCHEMA_VERSION` into it at emit. `MD0213` then
+distinguishes the two cases it currently conflates:
+
+- `emitted.schema_version == SCHEMA_VERSION` and the digest differs → **the file was edited.**
+  Today's message, which is correct for this case.
+- `emitted.schema_version < SCHEMA_VERSION` → **the schema moved.** Not an error: say the artifact
+  predates the current schema, re-emit to restamp, and note that the generated files are
+  unaffected. Refuse only if the *emitted files* also fail their digests, which is the real
+  corruption this diagnostic exists for.
+
+- [ ] **Step 4: Commit a real v1 fixture**
+
+`docs/internal/audits/fixtures/pipeline-v1.yml` — a pipeline built at `346eeac`, before any of
+1.13. **Do not hand-write it and do not regenerate it later**: its value is entirely that no
+current code produced it, which is the only way a compatibility claim means anything. The one
+used to find this is at
+`.audit-artifacts/stream-4-probes-2026-08-14/` in the session that ran the audit; if that is
+gone, `git stash` the working tree, check out `346eeac`, build, and keep the output.
+
+- [ ] **Step 5: Run, verify, watch it fail, record it, commit**
+
+```bash
+git commit -m "fix(core): a schema change is not a human edit (MD0213)"
+```
+
+---
+
 ## Task 1: `Why.for_value` — a reason cannot outlive its value
 
 **The defect (A104, critical; A105).** A hand-edited `settings[].value` keeps the `why:` written
