@@ -266,18 +266,26 @@ Violating any of these breaks the product claim, not just a test.
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
-    **nine** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    **ten** fields across the whole surface may hold free text: `PromptRequest.prompt`,
     `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
     `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
-    `axis_reason` on `Why` and `ResolvedValue`.
+    `axis_reason` on `Why` and `ResolvedValue` plus `ParamDecision.override_reason`.
+    **The tenth is the first genuinely new author**: the nine before it are written by a
+    contract author, a rule author or the resolver, and `override_reason` is written by the
+    person answering a tier-4 question, in the artifact, after resolution. It exists because
+    until Plan 1.14 that person had nowhere to say why, and `upgrade` replaced what they wrote
+    with "selected the first of 1 candidates without judgement" (A77).
     This said "exactly two" for a plan and a half while the guard held four, then six, seven,
-    and now nine; the guard is the honest count and this sentence is the one that drifts (A33).
-    Every increase so far arrived by a refactor rather than by a new kind of string crossing —
-    A16 splitting `DecisionRecord` into three, `Pipeline` taking door 4, and Plan 1.14 splitting
-    `reason` in two because it was answering both *why this axis* and *why this answer*, which
-    is how the registry came to cite the STAR paper as the reason HISAT2 was chosen (A79/A107).
-    That is exactly what a literal list exists to make somebody look at, and it has now made
-    somebody look four times.
+    and now ten; the guard is the honest count and this sentence is the one that drifts (A33).
+    **Every increase up to the ninth arrived by a refactor rather than by a new kind of string
+    crossing** — A16 splitting `DecisionRecord` into three, `Pipeline` taking door 4, and Plan
+    1.14 splitting `reason` in two because it was answering both *why this axis* and *why this
+    answer*, which is how the registry came to cite the STAR paper as the reason HISAT2 was
+    chosen (A79/A107). **The tenth broke that run**, and it is written down here rather than
+    absorbed: `override_reason` is a new author writing at a new moment, and the argument for
+    it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
+    holds is the sort of thing a literal list exists to put in front of somebody, and it has
+    now done so five times.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in

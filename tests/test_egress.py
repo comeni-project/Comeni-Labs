@@ -67,6 +67,19 @@ FREE_TEXT_FIELDS = {
     # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
     ("ResolvedValue", "axis_reason"),
     ("Why", "axis_reason"),
+    # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
+    # split of something already crossing. The nine above are written by a contract author, a
+    # rule author, or the resolver. This one is written by *the person answering a tier-4
+    # question*, in the artifact, after resolution — a new author, and the only free-text
+    # field in the system a reviewer fills in themselves.
+    #
+    # It is listed rather than exempted for exactly that reason. Tier 4 is the honesty
+    # mechanism and the one tier where a person supplies the answer, and until now they had
+    # nowhere to say why: `upgrade` replaced a hand-written sentence with "selected the first
+    # of 1 candidates without judgement" under `source: human` (A77). The alternative to this
+    # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
+    # more declared string crossing a door somebody has to argue for.
+    ("ParamDecision", "override_reason"),
 }
 
 

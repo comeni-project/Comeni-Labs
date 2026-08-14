@@ -710,6 +710,8 @@ SERIALISED_SHAPE = {
     "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "why"],
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
+    "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
+                      "kind", "candidates", "chosen", "human_override", "override_reason"],
 }
 """The artifact's serialised field order, as of `SCHEMA_VERSION = 2`.
 
@@ -732,6 +734,7 @@ RELEASED_SCHEMA_VERSION = 1
 
 def test_a_schema_change_bumps_the_version():
     """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
+    from comeni_core.decision import ParamDecision
     from comeni_core.egress import Emitted
     from comeni_core.pipeline import (
         SCHEMA_VERSION,
@@ -751,6 +754,7 @@ def test_a_schema_change_bumps_the_version():
         "CallArg": list(CallArg.model_fields),
         "MetaEntry": list(MetaEntry.model_fields),
         "Emitted": list(Emitted.model_fields),
+        "ParamDecision": list(ParamDecision.model_fields),
     }
     assert actual == SERIALISED_SHAPE, (
         "the artifact's shape moved. Every archived pipeline's `emitted.from_digest` just "

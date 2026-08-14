@@ -176,6 +176,21 @@ class ParamDecision(_Decided):
     parameter has no declared domain to check against. Audit A3, and still a stopgap —
     the other two kinds no longer need one, which is the difference a type makes."""
 
+    override_reason: Line = ""
+    """Why the person answered it that way. **The field that did not exist.**
+
+    Tier 4 is the honesty mechanism and the declared difference from a chat window, and it is
+    the one tier where a *person* supplies the answer — with nowhere to say why. `why.reason`
+    is re-derived from the resolver's `Resolution.reason` on every re-materialisation, so a
+    hand-written sentence was replaced by *"selected the first of 1 candidates without
+    judgement — please review"* under `source: human`, and `upgrade` reported "1 decisions
+    replayed" without mentioning the loss. Audit A77.
+
+    Empty means a person answered and gave no reason, which is legal and is said in those
+    words rather than by falling back to the flag-only text — that text describes what
+    happened *before* the person arrived, which is A111.
+    """
+
 
 class ProducerDecision(_Decided):
     """Which contract produces a type here."""

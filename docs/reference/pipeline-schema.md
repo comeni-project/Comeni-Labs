@@ -232,6 +232,20 @@ value is refused (`MD0218`) rather than silently preferred by whichever verb rea
 that claims `why.source: human` must have a matching non-null `human_override` — a review cleared
 by assertion, with no recorded answer behind it, is refused (`MD0220`).
 
+**So answering a tier-4 question is two edits and neither of them is `human_override`.** Change
+`settings[].value`, and change the `why.reason` beside it to say why you chose that — then
+re-emit. `upgrade` promotes the answer, sets `source: human`, and **keeps the sentence you
+wrote**, recording it as `override_reason` on the decision. Leave `why.source` alone: setting it
+by hand is what `MD0220` refuses, because a claim that a person decided must be backed by the
+record of a person deciding.
+
+Until Plan 1.14 the sentence did not survive. `why.reason` was re-derived from the resolver on
+every re-materialisation, so a hand-written *"our sequencer is an Illumina NovaSeq X; lab SOP
+BIOINF-014"* was replaced by *"selected the first of 1 candidates without judgement — please
+review"* under `source: human` — the artifact telling a stranger that a value a human chose was
+picked without judgement (A77, A111). `MD0220`'s own message used to say *"set the decision's
+human_override"*, contradicting the paragraph above it; that was A112, and it now points here.
+
 Two things can happen to a recorded answer when the registry moves, and they are not the same
 event:
 

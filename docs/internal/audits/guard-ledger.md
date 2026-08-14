@@ -959,3 +959,23 @@ negatives: A38's `via: meta` test routed an invented `tag` that featureCounts ne
 precisely the deadness the arm exists to catch, and precisely where A91 hid. The fixture now
 routes `single_end`, a key the module does read, with a goal that supplies no `paired`
 measurement so the key is free.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_upgrade.py::test_a77_…` and `::test_a111_…` | `_replayed_reason(record)` back to `record.reason` | both failed | the hand-written sentence replaced by *"selected the first of 1 candidates without judgement — please review"* under `source: human` |
+| 2026-08-14 | `test_egress.py::test_free_text_lives_only_where_declared` | nothing — `override_reason` was added | **failed unprompted** | `('ParamDecision', 'override_reason')` |
+
+**The tenth free-text field is the first that is not a refactor**, and the guard is what forced
+that to be noticed and argued rather than absorbed. The nine before it are written by a contract
+author, a rule author or the resolver; this one is written by *the person answering a tier-4
+question*, in the artifact, after resolution — a new author at a new moment. The sentence in
+`CLAUDE.md` claiming every increase had been a refactor was true when written and is now false,
+so it was corrected rather than left to drift, which is A33's own lesson applied to A33's own
+paragraph.
+
+**Writing the test walked straight into A112**, before the task reached it. Setting
+`why.source: human` by hand was refused by `MD0220` — whose message said *"set the decision's
+human_override to the value"*, contradicting `pipeline-schema.md`'s *"it is not where you write
+one"* two paragraphs above. The test could not be written correctly by following the diagnostic.
+Both now say the same thing: edit `settings[].value` and the reason beside it, and leave `source`
+alone.

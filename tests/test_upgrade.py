@@ -636,3 +636,84 @@ def test_a_v1_file_says_its_provenance_was_never_recorded(tmp_path):
     assert reasons, "the fixture carries meta entries, or this asserts nothing"
     assert all("was not recorded" in reason for reason in reasons)
     assert all("predates schema 2" in reason for reason in reasons)
+
+
+def _set(bundle, name, **fields):
+    """Edit one setting's fields, the way the file's own header invites.
+
+    `source:` is deliberately never set here. `MD0220` refuses a `source: human` that no
+    decision backs, and the documented flow is to answer the *value* and let `upgrade`
+    promote it — which is the flow A77 is about.
+    """
+    data = yaml.safe_load(bundle.read_text())
+    for step in data["steps"]:
+        for setting in step["settings"]:
+            if setting["name"] != name:
+                continue
+            if "value" in fields:
+                setting["value"] = fields["value"]
+                setting["why"]["for_value"] = fields["value"]
+            if "reason" in fields:
+                setting["why"]["reason"] = fields["reason"]
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def _answered_then_upgraded(tmp_path):
+    """Steps 1-2 of A77: answer the question, emit, upgrade. `source` becomes `human`."""
+    bundle = _published(tmp_path)
+    _set(bundle, "seq_platform", value="illumina")
+    assert main(["emit", str(bundle), "--out", str(bundle.parent)]) == 0
+    assert main(["upgrade", str(bundle), "--out", str(tmp_path / "up"),
+                 "--root", str(ROOT)]) == 0
+    return tmp_path / "up" / "pipeline.yml"
+
+
+def _setting_why(path, name):
+    data = yaml.safe_load(path.read_text())
+    return next(
+        s["why"] for step in data["steps"] for s in step["settings"] if s["name"] == name
+    )
+
+
+REASON = "our sequencer is an Illumina NovaSeq X; lab SOP BIOINF-014"
+
+
+def test_a77_a_human_reason_survives_upgrade(tmp_path, capsys):
+    """A77, critical — `upgrade` **deleted** the reason a person wrote.
+
+    Tier 4 is the honesty mechanism and the declared difference from a chat window, and it is
+    the one tier where a *person* supplies the answer. There was no field in which that person
+    could say why: `Setting.why.reason` is re-derived from the resolver's `Resolution.reason`
+    on every re-materialisation, so a hand-written sentence was replaced by *"selected the
+    first of 1 candidates without judgement — please review"* under `source: human`.
+
+    `upgrade` then reported "1 decisions replayed" and said nothing about the loss, because
+    every axis it compares is generated code.
+    """
+    answered = _answered_then_upgraded(tmp_path)
+
+    # Step 3: write the real reason, in the only free-text field there is.
+    _set(answered, "seq_platform", reason=REASON)
+    assert main(["emit", str(answered), "--out", str(answered.parent)]) == 0
+
+    # Step 4: the documented verb, which `CLAUDE.md` says "replays every recorded decision".
+    assert main(["upgrade", str(answered), "--out", str(tmp_path / "up2"),
+                 "--root", str(ROOT)]) == 0
+
+    why = _setting_why(tmp_path / "up2" / "pipeline.yml", "seq_platform")
+    assert why["reason"] == REASON, why
+    assert why["source"] == "human"
+
+
+def test_a111_an_answered_question_does_not_ask_for_review_of_itself(tmp_path):
+    """A111 — `source: human` sat on "selected without judgement — please review".
+
+    The reason described what the flag-only resolver did **before** a person answered. The
+    artifact told a stranger that a value a human chose was picked without judgement, and
+    asked them to review something already reviewed.
+    """
+    why = _setting_why(_answered_then_upgraded(tmp_path), "seq_platform")
+
+    assert why["source"] == "human"
+    assert "without judgement" not in why["reason"], why["reason"]
+    assert "please review" not in why["reason"], why["reason"]

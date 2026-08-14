@@ -616,9 +616,10 @@ class Pipeline(EgressPayload):
                     raise ValueError(
                         f"MD0220: {key} says source: human, but no decision records a person "
                         f"answering it — its human_override is null or absent. `source: human` "
-                        f"clears the review, so it must be backed by the answer it claims. Set "
-                        f"the decision's human_override to the value, or restore the source that "
-                        f"resolution gave it. `mendel explain MD0220`."
+                        f"clears the review, so it must be backed by the answer it claims.\n"
+                        f"  Edit `settings[].value` and leave `source` alone: `upgrade` "
+                        f"promotes the answer and sets `source: human` itself. Or restore the "
+                        f"source that resolution gave it. `mendel explain MD0220`."
                     )
         return self
 
@@ -626,6 +627,19 @@ class Pipeline(EgressPayload):
         """`{step.id}.{setting.name}` → value, the key a `ParamDecision` carries."""
         return {
             f"{step.id}.{setting.name}": setting.value
+            for step in self.steps
+            for setting in step.settings
+        }
+
+    def _param_setting_reasons(self) -> dict[str, str]:
+        """The same keys → the reason written beside each value.
+
+        A hand-edited reason travels the route a hand-edited value already does. Anything
+        else and the answer survives `upgrade` while the sentence explaining it does not,
+        which is A77 exactly.
+        """
+        return {
+            f"{step.id}.{setting.name}": setting.why.reason
             for step in self.steps
             for setting in step.settings
         }
@@ -644,16 +658,48 @@ class Pipeline(EgressPayload):
         so the value and any existing override agree by the time this runs.
         """
         values = self._param_setting_values()
+        reasons = self._param_setting_reasons()
         replayable = []
         for record in self.decisions:
             value = values.get(record.key)
             if (
                 getattr(record, "kind", None) is DecisionKind.PARAM
+                and record.human_override is not None
+                and reasons.get(record.key, "") not in ("", record.reason)
+            ):
+                # Already overridden, and the reason beside the value has since been edited.
+                # The promotion branch below only fires the *first* time a value is answered,
+                # so without this a reason written after the answer — the ordinary order,
+                # since `upgrade` is what reveals the machine text worth replacing — would
+                # never reach the record. A77.
+                replayable.append(
+                    record.model_copy(
+                        update={"override_reason": reasons[record.key]}
+                    )
+                )
+            elif (
+                getattr(record, "kind", None) is DecisionKind.PARAM
                 and record.human_override is None
                 and value is not None
                 and value != record.chosen
             ):
-                replayable.append(record.model_copy(update={"human_override": value}))
+                # The reason travels with the answer. A person who edits the value and the
+                # sentence beside it has written both; carrying only the first is how
+                # `upgrade` came to replace *"our sequencer is an Illumina NovaSeq X; lab SOP
+                # BIOINF-014"* with "selected the first of 1 candidates without judgement".
+                # Only when it differs from the resolver's own text, which is not a reason a
+                # person wrote. A77.
+                written = reasons.get(record.key, "")
+                replayable.append(
+                    record.model_copy(
+                        update={
+                            "human_override": value,
+                            "override_reason": (
+                                written if written != record.reason else ""
+                            ),
+                        }
+                    )
+                )
             else:
                 replayable.append(record)
         return replayable

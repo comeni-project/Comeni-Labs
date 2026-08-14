@@ -126,6 +126,21 @@ def _setting_changes(step_id: str, old, new) -> list[Change]:
                     reason=setting.why.reason,
                 )
             )
+        elif previous.why.reason != setting.why.reason:
+            # Same value, same tier, different justification — and until A77 that was the
+            # shape of a person's sentence being replaced by the resolver's. Reported rather
+            # than performed in silence: the answer that was dropped is exactly the thing a
+            # reader needs told, which is the argument `_still_applies` already makes about
+            # discarded overrides one level up.
+            changes.append(
+                Change(
+                    what=f"{what} (reason)",
+                    before=previous.why.reason,
+                    after=setting.why.reason,
+                    tier=setting.why.tier,
+                    reason="the value is unchanged; what it is justified by is not",
+                )
+            )
     for name in sorted(set(was) - {s.name for s in new.settings}):
         changes.append(
             Change(
