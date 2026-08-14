@@ -30,10 +30,23 @@ reason sees a blank and asks; a model sees a blank and fills it.
 **Plans 1, the measurements plan, and 1.5 through 1.12 are complete.** A17–A35, round three's
 A38–A54 and round four's criticals (A55, A57, A58, A59) plus A56 and A70 are closed; **A14 and
 A36 remain**, along with fifteen carried round-four findings filed as issues. 1.12 was the last
-*audit-driven* plan, decided 2026-08-13. **What is next is the design audit** — a different
-question from rounds one to four: not "does the code match the design" but "does the design
-deliver the claim", after eleven plans built on a design approved on day one. See
-`docs/internal/audits/2026-08-14-design-audit-brief.md`. **Then Plan 2.** 608 fast tests green,
+*audit-driven* plan, decided 2026-08-13.
+
+**The design audit ran on 2026-08-14 — all four streams, 44 findings, A76–A131. Verdict: it
+holds with named repairs.** It asked a different question from rounds one to four: not "does the
+code match the design" but "does the design deliver the claim". The answer split the product
+claim in two, and that split is the most useful thing it produced. *"Same goal in → same
+pipeline out"* **holds**, and is stronger than `ARCHITECTURE.md` §8 claims. *"Nothing was
+guessed silently"* **does not**: five of the six values reaching the generated Nextflow carried
+no `why:` at all. Read `docs/internal/audits/2026-08-14-design-audit.md`; the four stream reports
+beside it are its evidence.
+
+**Plan 1.13 is complete** and closed the five findings that produce wrong output or block Plan 2
+— A92, A118, A125, A126, A129. **Plan 1.14 is written and not started**: roots 1–3, the
+explanation repairs, which bump `pipeline.yml` to `version: 2`. Its **Task 0 was found while
+executing 1.13** — adding a field moves an archived pipeline's `from_digest`, so `MD0213`
+reports a schema change as a human edit. Do that first or the other six additions multiply it.
+**Then Plan 2.** 621 fast tests green,
 `ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
@@ -434,7 +447,7 @@ conversation is a loose end lost.
 
 | # | What | Blocked on |
 |---|---|---|
-| 1 | routing ties should ask a human; scoring should vary by purpose | nothing — needs design |
+| 1 | routing ties should ask a human; scoring should vary by purpose | nothing — needs design. **Narrowed, not closed, by Plan 1.13**: A125 fixed *which* candidates a tie offers (only those that tied), which is not the same as asking a person. The design audit reached this issue independently from two directions and turned it from a question into a demonstrated defect — adding one contract installed the aligner the registry ranked last |
 | 2 | `sealed` must block tier-3 decisions on asserted measurements | Plan 2's `ProfilePolicy` |
 | 3 | generated `.d.ts` and a `/measurements` endpoint | Plan 3's `mendel-api` |
 | ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
