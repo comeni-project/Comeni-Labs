@@ -1,0 +1,10 @@
+# R17 — reference build follows the organism. Enum in, literal out, one row per value.
+# The archetype of a rule this format is good at.
+version: 1
+decisions:
+  - decides: {param: genome_build}
+    because: "the current Ensembl primary assembly for each organism"
+    cite: "Ensembl release 112"
+    rows:
+      - {when: {organism: homo_sapiens}, then: GRCh38}
+      - {when: {organism: mus_musculus}, then: GRCm39}

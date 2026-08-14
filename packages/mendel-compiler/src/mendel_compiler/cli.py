@@ -12,7 +12,7 @@ from comeni_core.layer import layer_name
 from comeni_core.layered import Displacement
 from comeni_core.lockfile import Lockfile
 from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import SCHEMA_VERSION, Pipeline
 from mendel_resolver import layers
 from mendel_resolver.diff import diff_pipeline
 from mendel_resolver.goal import Goal, GoalInput
@@ -445,6 +445,24 @@ def _emit_verb(target: Path, out: Path) -> int:
     # refusal must leave nothing behind, the posture `upgrade` already takes.
     main_nf = emit(pipeline)
     config = emit_config(pipeline)
+
+    # After the render and before the write. Rendering first keeps `MD0201` — a value that
+    # would execute as Groovy on the pipeline host — ahead of this one: both refuse the same
+    # edit, and a person who has written an injection needs to hear about that rather than
+    # about their citation. Nothing has been written at this point either way. A104.
+    # Named `mismatched`, not `stale`: `stale` is the MD0213 boolean above and is read
+    # twelve lines below to decide whether the gate verdict survives. Shadowing it with a
+    # list made an edited pipeline keep its certification, which `test_emit_clears_the_gate_
+    # verdict_when_the_file_was_edited` caught immediately.
+    if mismatched := pipeline_file.stale_reasons(pipeline):
+        print(
+            "mendel: MD0223: a value was edited and the reason beside it was not.\n  "
+            + "\n  ".join(mismatched)
+            + "\n  Update `why.reason` to explain the new value and set `why.for_value` to "
+            "it, or revert the value — `mendel explain MD0223`.",
+            file=sys.stderr,
+        )
+        return 2
     if source.resolve() != out.resolve():
         shutil.copytree(source / "modules", out / "modules", dirs_exist_ok=True)
     (out / "main.nf").write_text(main_nf)
@@ -547,6 +565,34 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
             file=sys.stderr,
         )
         return 2
+    # Before the digest checks, because this one is about the *document* rather than about
+    # whether the generated files match it. A value carrying a justification that is false
+    # about it is exactly what `publish` must not certify — the door with no undo stamped one
+    # at exit 0 for as long as this check did not exist. A104.
+    if stale := pipeline_file.stale_reasons(previous):
+        print(
+            f"mendel: MD0223: a value in {source} was edited and the reason beside it was "
+            "not.\n  " + "\n  ".join(stale)
+            + "\n  Update `why.reason` to explain the new value and set `why.for_value` to "
+            "it, or revert the value — `mendel explain MD0223`.",
+            file=sys.stderr,
+        )
+        return 2
+    if pipeline_file.predates_schema(previous):
+        # Not an error, and deliberately not `MD0213`. The digest was taken under an older
+        # SCHEMA_VERSION, so it cannot match — for every archived pipeline at once, with
+        # nobody having touched one. Saying "this file has changed" would send a laboratory
+        # looking for an edit that does not exist. The generated files are still checked
+        # above by `hand_edited`, which is the corruption that actually matters.
+        print(
+            f"note: {source} predates the current schema (written under version "
+            f"{previous.emitted.schema_version}, this Mendel writes {SCHEMA_VERSION}), so its "
+            f"content digest cannot match.\n"
+            f"  Its generated files are unaffected and were checked. Run `mendel emit "
+            f"{source} --out {directory}` to restamp it.",
+            file=sys.stderr,
+        )
+        return None
     if pipeline_file.is_stale(previous):
         print(
             f"mendel: MD0213: {source} has changed since the Nextflow was generated from "

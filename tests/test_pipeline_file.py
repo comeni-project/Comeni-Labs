@@ -12,7 +12,7 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import Pipeline, Setting, StepInput, Why
+from comeni_core.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
 from comeni_core.routes import ExtKey, Via
 from comeni_core.tiers import Tier, ValueSource
 from mendel_compiler.cli import main
@@ -165,7 +165,14 @@ def test_a_newer_version_is_refused(tmp_path, capsys):
     """
     out = _build(tmp_path)
     path = out / "pipeline.yml"
-    path.write_text(path.read_text().replace("version: 1", "version: 2", 1))
+    # Relative to what this Mendel writes, never a literal: pinning `version: 2` here made
+    # this test assert nothing the moment SCHEMA_VERSION reached 2, and it would have gone on
+    # passing for a version that is no longer newer than anything. Plan 1.14 Task 0.
+    path.write_text(
+        path.read_text().replace(
+            f"version: {SCHEMA_VERSION}", f"version: {SCHEMA_VERSION + 1}", 1
+        )
+    )
     code, err = _emit(out, capsys)
     assert code != 0 and "MD0207" in err
 
@@ -219,7 +226,7 @@ def test_the_file_carries_every_provenance_a_reader_needs(tmp_path):
     Four files answered it before, and one of the four mechanisms carried nothing at all.
     """
     raw = yaml.safe_load((_build(tmp_path) / "pipeline.yml").read_text())
-    assert raw["version"] == 1
+    assert raw["version"] == SCHEMA_VERSION
     assert set(raw) == {
         "version",
         "goal",
@@ -307,9 +314,25 @@ def test_via_directive_reaches_nextflow_config(tmp_path):
 
 
 def test_via_meta_reaches_the_channel_meta_map(tmp_path):
-    ov = _overlay_with(tmp_path, "  - {name: tag, default: forward, via: meta}\n")
-    out = _build_with_overlay(tmp_path, ov)
-    assert "tag: 'forward'" in (out / "main.nf").read_text()
+    """A38, with a legal key since Plan 1.14.
+
+    This used to route an invented `tag`, which `MD0108`'s meta arm now refuses — a param in
+    `meta` that the module never reads is the deadness issue #10 was about, and is exactly
+    where A91 hid. featureCounts reads `id`, `single_end` and `strandedness`, so the route
+    has to name one of those; `single_end` is free only when the goal states no `paired`
+    measurement, which is what this goal does.
+    """
+    goal = tmp_path / "goal.yml"
+    goal.write_text(
+        (ROOT / "examples" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", "")
+    )
+    ov = _overlay_with(tmp_path, "  - {name: single_end, default: false, via: meta}\n")
+    out = tmp_path / "b"
+    assert (
+        main(["build", "--goal", str(goal), "--registry", str(ROOT / "registry"),
+              "--registry", str(ov), "--out", str(out), "--root", str(ROOT)]) == 0
+    )
+    assert "single_end: false" in (out / "main.nf").read_text()
 
 
 # --- A51: displacements of all four kinds reach the artifact, not just contracts+measurements ---
@@ -671,3 +694,154 @@ def test_an_unanswered_raw_ext_value_still_loads():
         why=_why(),
     )
     assert setting.value is None
+
+
+# --- Plan 1.14 Task 0: a schema change must announce itself -------------------------------
+
+SERIALISED_SHAPE = {
+    "Pipeline": ["version", "goal", "registry", "steps", "channels", "decisions",
+                 "emitted", "gate"],
+    "Step": ["id", "module", "process", "include", "why", "ext_args", "inputs", "call",
+             "settings"],
+    "ExtArgs": ["template", "why"],
+    "Setting": ["name", "value", "via", "key", "template", "why"],
+    "Why": ["tier", "source", "reason", "for_value", "axis_reason", "from_layer",
+            "displaced_layer"],
+    "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "why"],
+    "MetaEntry": ["key", "value", "why"],
+    "Emitted": ["schema_version", "files", "from_digest"],
+    "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
+                      "kind", "candidates", "chosen", "human_override", "override_reason"],
+}
+"""The artifact's serialised field order, as of `SCHEMA_VERSION = 2`.
+
+**This is a fingerprint, not a specification.** It exists to fail when somebody adds a field
+without bumping the version — which is exactly what happened in Plan 1.13 and is why Task 0
+exists. `emitted.from_digest` hashes the model dump, so *any* addition moves the digest of
+every pipeline ever archived, at once, with nobody having touched one. The version is what
+lets `MD0213` tell that apart from a human edit, and a version nobody remembers to bump
+cannot.
+
+When this test fails: add your field here, and make sure `SCHEMA_VERSION` is ahead of
+`RELEASED_SCHEMA_VERSION`. Within one unreleased bump that is already true and the fingerprint
+is all that changes — version 2 covers every field Plan 1.14 adds. What must never happen is
+the shape moving while the version stays at what a laboratory already has on disk.
+"""
+
+RELEASED_SCHEMA_VERSION = 1
+"""The highest version any archived pipeline can be carrying. Raised when a version ships."""
+
+
+def test_a_schema_change_bumps_the_version():
+    """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
+    from comeni_core.decision import ParamDecision
+    from comeni_core.egress import Emitted
+    from comeni_core.pipeline import (
+        SCHEMA_VERSION,
+        CallArg,
+        ExtArgs,
+        MetaEntry,
+        Pipeline,
+        Step,
+    )
+
+    actual = {
+        "Pipeline": list(Pipeline.model_fields),
+        "Step": list(Step.model_fields),
+        "ExtArgs": list(ExtArgs.model_fields),
+        "Setting": list(Setting.model_fields),
+        "Why": list(Why.model_fields),
+        "CallArg": list(CallArg.model_fields),
+        "MetaEntry": list(MetaEntry.model_fields),
+        "Emitted": list(Emitted.model_fields),
+        "ParamDecision": list(ParamDecision.model_fields),
+    }
+    assert actual == SERIALISED_SHAPE, (
+        "the artifact's shape moved. Every archived pipeline's `emitted.from_digest` just "
+        "moved with it, so bump SCHEMA_VERSION and update SERIALISED_SHAPE together — "
+        "updating either alone is the defect Plan 1.14 Task 0 fixed."
+    )
+    assert SCHEMA_VERSION > RELEASED_SCHEMA_VERSION, (
+        "the shape moved, so SCHEMA_VERSION must be ahead of the last released one. Within a "
+        "single unreleased bump, adding fields and updating SERIALISED_SHAPE is enough — "
+        "version 2 covers everything Plan 1.14 adds. What must never happen is the shape "
+        "moving while the version stays at what a laboratory already has on disk."
+    )
+
+
+# --- Plan 1.14 Task 1: a reason cannot outlive its value (A104, A105) ---------------------
+
+
+def _edit_setting_value(out, name, value):
+    """Change a resolved setting's `value:` by hand, the way the file's own header invites.
+
+    Text rather than a model round trip, for the same reason `_answer` is: the guard exists
+    for the file as somebody types it, and rewriting through Pydantic would launder the
+    mistake being watched for.
+    """
+    path = out / "pipeline.yml"
+    lines = path.read_text().splitlines(keepends=True)
+    at = next(i for i, line in enumerate(lines) if line.strip() == f"- name: {name}")
+    lines[at + 1] = f"    value: {value}\n"
+    path.write_text("".join(lines))
+
+
+def test_editing_a_value_and_leaving_its_reason_is_refused(tmp_path, capsys):
+    """A104, critical. The edit reached the tool; the reason beside it described the old value.
+
+    Reproduced by the design audit: `min_mqs` edited 0 → 30 emits `-Q 30` — reads below
+    mapping quality 30 are now discarded, a real analysis change — while the record still
+    reads `tier: 2 / source: resolver / reason: contract default for min_mqs`, all three
+    false. `mendel publish --gate lint` certified it at exit 0.
+
+    A diagnostic rather than a parse error, deliberately: the file says *"Read it; edit it"*,
+    so a person who changes a number must be **told to update the reason**, not handed a
+    stack trace for doing what the header invited.
+    """
+    out = _build(tmp_path)
+    _edit_setting_value(out, "min_mqs", 30)
+
+    code, err = _emit(out, capsys)
+
+    assert code != 0
+    assert "MD0223" in err
+    assert "0" in err and "30" in err, "name both values, or the reader cannot act"
+
+
+def test_editing_a_value_and_its_reason_together_is_accepted(tmp_path, capsys):
+    """The negative. A check that can only refuse is not a check — it is an obstacle."""
+    out = _build(tmp_path)
+    _edit_setting_value(out, "min_mqs", 30)
+    path = out / "pipeline.yml"
+    path.write_text(
+        path.read_text()
+        .replace("reason: contract default for min_mqs",
+                 "reason: lab SOP BIOINF-014 requires MAPQ >= 30")
+        .replace("for_value: 0", "for_value: 30")
+    )
+
+    code, err = _emit(out, capsys)
+
+    assert code == 0, err
+    assert "-Q 30" in (out / "nextflow.config").read_text()
+
+
+def test_a_file_written_before_for_value_still_emits(tmp_path, capsys):
+    """`for_value: null` means "written before 1.14", not "explains nothing".
+
+    An archived pipeline has no such field and must still regenerate its Nextflow. The check
+    fires only where the field is set and disagrees, which is also what gives it real
+    negatives.
+    """
+    out = _build(tmp_path)
+    path = out / "pipeline.yml"
+    path.write_text(
+        "\n".join(
+            line for line in path.read_text().splitlines() if "for_value:" not in line
+        )
+        + "\n"
+    )
+
+    code, err = _emit(out, capsys)
+
+    assert code == 0, err

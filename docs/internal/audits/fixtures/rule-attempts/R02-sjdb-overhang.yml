@@ -1,0 +1,9 @@
+# R2 — STAR --sjdbOverhang. STAR manual 2.2.2: "ideally equal to max(ReadLength)-1".
+# What we want to write:  then: read_length - 1
+version: 1
+decisions:
+  - decides: {param: sjdb_overhang}
+    because: "STAR splice-junction database overhang is max(read length) - 1"
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635 (STAR manual 2.2.2)"
+    rows:
+      - {when: {}, then: "read_length - 1"}

@@ -452,6 +452,22 @@ MD0213:
     computed over the model with `emitted:` excluded, and this fires when the file no longer
     digests to it.
 
+    **It does not fire when the schema moved rather than the file.** `from_digest` hashes the
+    model dump, so adding one field to the artifact moves it for every pipeline ever archived,
+    at once, with nobody having touched one. Plan 1.13 added `CallArg.join` and this began
+    reporting untouched files as edited — while their `main.nf` and `nextflow.config` still
+    hashed exactly to their records, which is what said the pipeline had not changed.
+
+    `emitted.schema_version` records the `SCHEMA_VERSION` the digest was taken under, so that
+    case is now a note rather than this code: *predates the current schema … its generated
+    files are unaffected and were checked … run `mendel emit` to restamp it.*
+
+    **The honest limitation:** for a file written under an older schema the digest cannot match
+    either way, so a hand edit and the schema move are indistinguishable *by this mechanism*
+    until it is restamped. `MD0214` still checks the generated files against their own
+    digests, which is the corruption that actually matters, and it is unaffected by schema
+    version. Audit-adjacent, but found while executing Plan 1.13 rather than by the audit.
+
 MD0214:
   emitted_by: compiler
   concern: pipeline-file
@@ -677,6 +693,123 @@ MD0222:
     report a person reads, where publish stamps a verdict onto the artifact itself.
 
     Audit A70. Publication is the door with no undo.
+
+MD0223:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a value was edited and the reason beside it still describes the value it replaced"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Update the setting's `why.reason` to explain the new value, and set `why.for_value` to it:
+
+        - name: min_mqs
+          value: 30
+          why:
+            tier: 2
+            source: human
+            reason: lab SOP BIOINF-014 requires MAPQ >= 30
+            for_value: 30
+
+    Or revert the value. Either is fine; what is refused is the pair disagreeing.
+  explanation: |
+    `settings[].value` is the field this file's own header points a person at — *"Read it;
+    edit it"* — so editing one is the ordinary case rather than the suspicious one. What was
+    missing is that the justification beside it did not move with it.
+
+    Measured, not theorised. `min_mqs` edited 0 → 30 emitted `ext.args = '-Q 30'`, which
+    discards every read below mapping quality 30 — a real change to which reads are counted —
+    while the record still read `tier: 2 / source: resolver / reason: contract default for
+    min_mqs`. All three false: not a contract default, not the resolver's doing, not 0. And
+    `mendel publish --gate lint` certified it at **exit 0**, through the door with no undo.
+
+    `why.for_value` records the value the reason was written about, so the disagreement is
+    representable and therefore checkable. `MD0218`/`MD0220` already did this cross-check for
+    tier-4 `ParamDecision`s — only for flagged values, and only in the direction that
+    overstates human involvement. This covers the rest.
+
+    **A diagnostic rather than a load-time refusal**, deliberately: refusing at load would
+    mean the file a reader is invited to edit cannot be edited. Being told to update the
+    reason, in the same breath as being told the edit worked, is the whole point.
+
+    `for_value: null` means "written before this field existed" and is skipped. An archived
+    pipeline must still emit, and absence is not disagreement.
+
+    Audit A104, and it is the sharpest finding in the design audit for the product claim:
+    the artifact *is* the product, and its explanation was provably false about a value that
+    changes results. Under the engine decision it is worse — a person who leaves a stale
+    reason does it occasionally and may notice; an agent tuning settings does it
+    systematically and does not.
+
+MD0224:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting fills a positional argument and is unanswered, so the call would read `null`"
+  fires_on: [emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Answer the setting in `pipeline.yml`, the same way any tier-4 value is answered:
+
+        - name: star_ignore_sjdbgtf
+          value: false
+          via: positional
+
+    Or give the parameter a `default:` in its contract, if there is a defensible one.
+  explanation: |
+    `via: positional` puts a resolved value straight into the process call — the fourth
+    destination, for a bare `val` in a module's input block that has no name at the call site.
+    An unanswered one would emit `STAR_ALIGN(reads, index, gtf, null)`, and Nextflow fails at
+    launch with a message naming neither the setting nor the step.
+
+    This refuses rather than emitting, unlike an unanswered `ext` setting — which contributes
+    no fragment and is merely flagged, because tier 4 is *flagged, not fatal* (invariant 6).
+    The difference is that an `ext` value's absence leaves a working pipeline missing a flag,
+    while a positional one's absence leaves a pipeline that cannot start. Arity is not
+    optional.
+
+    Audit A91. Before the positional route existed, these values were contract constants: a
+    hardcoded `false` in the call, outside the tier ladder, in no review queue, with no reason
+    recorded. Routing one the only way the design then permitted — `via: meta` — produced a
+    call carrying two values of the same name that disagreed, and `MD0108` did not catch it
+    because it checked `ext` keys only.
+
+MD0301:
+  emitted_by: resolver
+  concern: routing
+  says: "a rule row justifies nothing — no `because` and no `cite`, on the row or the block"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Give the row a `because:` saying why *this* answer, a `cite:` naming the evidence, or
+    both — they are joined rather than chosen between:
+
+        rows:
+          - when: {read_length: "< 70"}
+            then: nf-core/hisat2/align@2.2.2
+            because: >-
+              HISAT2 handles short reads with a far smaller index and memory footprint.
+            cite: "Kim et al. 2019, doi:10.1038/s41587-019-0201-4"
+
+    A `because` or `cite` on the enclosing block satisfies this too, but answers a different
+    question — see the explanation.
+  explanation: |
+    Tier 3 is **advisory**, and `CLAUDE.md` says what that means: *"the machinery worked,
+    check the premise."* A row with no premise gives a reader nothing to check, and it
+    emitted a reason ending in a bare colon — `rule producer_of:alignment.bam matched
+    {'read_length': '< 70'}: ` — which reads as a truncation rather than as an absence.
+
+    **A block justifies the axis; a row justifies the choice.** "Read length determines which
+    aligner is appropriate" is the axis, and Dobin et al. 2013 is a fair citation for it.
+    "HISAT2, because it handles short reads with a smaller index" is the row. One field
+    carried both, so the block's citation was printed as the row's reason and the shipped
+    registry stated that HISAT2 was chosen because of the paper describing STAR — reachable
+    by changing one number in `examples/rnaseq-goal.yml`. Audit A79 and A107, found from
+    opposite ends by two reviewers who could not confer.
+
+    `Why.axis_reason` now carries the block's justification beside the row's, so a reader can
+    tell the methodology from the choice made under it.
+
+    Audit A78.
 
 MD0300:
   emitted_by: resolver

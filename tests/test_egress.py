@@ -55,6 +55,31 @@ FREE_TEXT_FIELDS = {
     # It is listed rather than exempted for the reason the whole list is literal: widening
     # the boundary should mean editing a file that says *these are all the ways data leaves*.
     ("Why", "reason"),
+    # Eighth and ninth, Plan 1.14 Task 5, and they are **one field splitting in two** rather
+    # than a new kind of string crossing — the same pattern as A16 turning four `reason`
+    # entries into six. `reason` was answering two questions at once: why this decision is
+    # made this way at all (a rule block's methodology) and why *this answer* won (the row's
+    # choice). Carrying both in one field is how the shipped registry came to cite the STAR
+    # paper as the reason HISAT2 was chosen — A79 and A107.
+    #
+    # Same author, same source, same door: registry data written by a contract or rule
+    # author, reaching this set through `RepairRequest.ir` and `Pipeline` exactly as
+    # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
+    ("ResolvedValue", "axis_reason"),
+    ("Why", "axis_reason"),
+    # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
+    # split of something already crossing. The nine above are written by a contract author, a
+    # rule author, or the resolver. This one is written by *the person answering a tier-4
+    # question*, in the artifact, after resolution — a new author, and the only free-text
+    # field in the system a reviewer fills in themselves.
+    #
+    # It is listed rather than exempted for exactly that reason. Tier 4 is the honesty
+    # mechanism and the one tier where a person supplies the answer, and until now they had
+    # nowhere to say why: `upgrade` replaced a hand-written sentence with "selected the first
+    # of 1 candidates without judgement" under `source: human` (A77). The alternative to this
+    # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
+    # more declared string crossing a door somebody has to argue for.
+    ("ParamDecision", "override_reason"),
 }
 
 

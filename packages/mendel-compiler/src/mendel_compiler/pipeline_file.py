@@ -12,7 +12,7 @@ import yaml
 from comeni_core import yaml_strict
 from comeni_core.digest import digest_of_bytes
 from comeni_core.egress import Emitted
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import SCHEMA_VERSION, Pipeline
 
 FILENAME = "pipeline.yml"
 
@@ -110,7 +110,12 @@ def stamp(directory: Path, pipeline: Pipeline, gate=None) -> Pipeline:
     stamped = stamped.model_copy(
         update={
             "emitted": Emitted.of(
-                directory, EMITTED_FILES, from_digest=stamped.content_digest()
+                directory,
+                EMITTED_FILES,
+                from_digest=stamped.content_digest(),
+                # The version the digest was taken under, so a later Mendel can tell its own
+                # schema moving from a person editing the file. See `predates_schema`.
+                schema_version=SCHEMA_VERSION,
             )
         }
     )
@@ -142,7 +147,56 @@ def is_stale(pipeline: Pipeline) -> bool:
     `None` means no evidence — a build whose gate failed, or a file from before this field
     existed. It must never read as "identical", so it is not stale either; there is simply
     nothing to compare.
+
+    **A digest taken under an older schema is not evidence of an edit.** `from_digest` hashes
+    the model dump, so adding one field to the artifact moves it for every pipeline ever
+    archived, at once, with nobody touching one — which is what Plan 1.13's `CallArg.join`
+    did. Reporting that as "you changed this file" sends a laboratory looking for an edit that
+    does not exist, and the recovery it suggests is right for the wrong reason.
+
+    `predates_schema` is the honest reading of that case, and it is deliberately *not*
+    stale-ness: the generated files are unaffected and `files_changed` still checks them, so
+    the real corruption this diagnostic exists for is still caught. Found while executing
+    Plan 1.13; the fixture is `docs/internal/audits/fixtures/pipeline-v1/`.
     """
     if pipeline.emitted is None or pipeline.emitted.from_digest is None:
         return False
+    if predates_schema(pipeline):
+        return False
     return pipeline.emitted.from_digest != pipeline.content_digest()
+
+
+def stale_reasons(pipeline: Pipeline) -> list[str]:
+    """Settings whose value moved and whose reason did not. `MD0223`.
+
+    The file's own header says *"Read it; edit it"*, and `settings[].value` is what it points
+    a person at. Editing one is therefore the ordinary case, not the suspicious one — and
+    until this check existed the edit reached the tool while the justification beside it went
+    on describing the value it replaced. `min_mqs` 0 → 30 emitted `-Q 30` under
+    `reason: contract default for min_mqs`, and `publish` certified it at exit 0. Audit A104.
+
+    A **diagnostic rather than a validator**, deliberately. Refusing at load would mean the
+    file a reader is invited to edit cannot be edited; what is wanted is to be told to update
+    the reason, in the same breath as being told the edit worked.
+
+    Skipped where `for_value` is `None` — a file written before 1.14 has no such field, and
+    absence is not disagreement.
+    """
+    return [
+        f"{step.id}.{setting.name}: value is {setting.value!r}, but the reason beside it was "
+        f"written about {setting.why.for_value!r} — {setting.why.reason}"
+        for step in pipeline.steps
+        for setting in step.settings
+        if setting.why.for_value is not None and setting.why.for_value != setting.value
+    ]
+
+
+def predates_schema(pipeline: Pipeline) -> bool:
+    """Was this file's digest taken under an older `SCHEMA_VERSION`?
+
+    Only meaningful where there is a digest to have been taken. A file with no `emitted`
+    record predates the record itself, which `upgrade` already reports in its own words.
+    """
+    if pipeline.emitted is None or pipeline.emitted.from_digest is None:
+        return False
+    return pipeline.emitted.schema_version < SCHEMA_VERSION

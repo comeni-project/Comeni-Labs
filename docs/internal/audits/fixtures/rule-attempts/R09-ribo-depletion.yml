@@ -1,0 +1,13 @@
+# R9 — insert in-silico rRNA depletion (SortMeRNA) when rRNA carry-over is high.
+# nf-core/rnaseq: `--remove_ribo_rna`. Again a decision about WHETHER A STEP EXISTS.
+#
+# Nearest legal attempt: make it a producer_of decision over fastq.reads, which forces
+# the depletion step to be modelled as a producer of a state nobody asked for.
+version: 1
+decisions:
+  - decides: {producer_of: fastq.reads}
+    because: "rRNA carry-over above ~40% wastes sequencing depth on uninformative reads"
+    cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"
+    rows:
+      - {when: {rrna_fraction: "> 0.4"}, then: nf-core/sortmerna@4.3.6}
+      - {when: {},                        then: nf-core/trimgalore@0.6.10}

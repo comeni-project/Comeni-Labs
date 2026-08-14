@@ -97,6 +97,28 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
 def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     if arg.empty_width:
         return _empty(arg.empty_width)
+    if arg.from_setting is not None:
+        # `via: positional` — a resolved value in a call position, the fourth destination.
+        # A bare `val` in a module's input block has no name at the call site, so nothing in
+        # `ext`, `meta` or `directive` could reach it and three real analysis decisions lived
+        # as contract constants outside the tier ladder. A91.
+        setting = next(
+            (s for s in step.settings if s.name == arg.from_setting), None
+        )
+        if setting is None:
+            raise ValueError(
+                f"MD0224: {step.id} declares a positional slot filled by "
+                f"{arg.from_setting!r}, and no such setting exists. This pipeline cannot be "
+                f"emitted — `mendel explain MD0224`."
+            )
+        if setting.value is None:
+            raise ValueError(
+                f"MD0224: {step.id}.{arg.from_setting} fills a positional argument and is "
+                f"unanswered, so the call would read `null`. Nextflow fails at launch with a "
+                f"message naming neither this setting nor this step. Answer it in "
+                f"`pipeline.yml` — `mendel explain MD0224`."
+            )
+        return _render_literal(setting.value)
     if not arg.ports:
         return _render_literal(arg.literal)
     expressions = [_port_expression(pipeline, step, name) for name in arg.ports]
@@ -257,8 +279,8 @@ def _ext_scope(step: Step) -> list[str]:
     contract that needs no task keeps exactly the output it had.
     """
     fragments: dict[str, list[str]] = {}
-    if step.ext_args:
-        fragments.setdefault("args", []).append(step.ext_args)
+    if step.ext_args.template:
+        fragments.setdefault("args", []).append(step.ext_args.template)
 
     for setting in sorted(step.settings, key=lambda s: s.name):
         if setting.via is not Via.EXT:

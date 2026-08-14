@@ -21,6 +21,20 @@ from comeni_core.tiers import ValueSource
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 
 
+def _replayed_reason(record: DecisionRecord) -> str:
+    """The reason a replayed decision carries.
+
+    A person's own words where they wrote any; otherwise a sentence saying a person answered
+    and gave none. Never the resolver's pre-answer text, which describes the moment before
+    the decision was made. A77, A111.
+    """
+    if getattr(record, "human_override", None) is None:
+        return record.reason
+    return getattr(record, "override_reason", "") or (
+        "answered by a human, who gave no reason"
+    )
+
+
 def _canonical_key(record: DecisionRecord) -> str:
     """A pre-1.13 producer key carried the winning module's node id in front. Audit A126.
 
@@ -81,18 +95,24 @@ class ReplayResolver:
             self.replayed.append(key)
             return Resolution(
                 chosen=_chosen(record),
-                # The recorded reason, verbatim. Prefixing it with "replayed from a
-                # recorded decision" was the plan's wording, and it cannot survive:
-                # `reason` is emitted into `main.nf` as the comment above the parameter,
-                # so prefixing it makes an upgraded pipeline differ from the published one
-                # by exactly that string — and federation §4.1 says loading a locked
-                # pipeline reproduces *byte-identical* Nextflow.
+                # **A person's reason where there is one, the record's otherwise.**
                 #
-                # Nothing is lost. The comment answers "why is this value what it is",
-                # which replaying did not change. That this run replayed rather than
-                # decided is a fact about the run, and it lives in `resolved_by`, in the
-                # decision record, and in the count `mendel upgrade` prints.
-                reason=record.reason,
+                # Prefixing it with "replayed from a recorded decision" was the plan's
+                # wording and was rejected on the grounds that `reason` is emitted into
+                # `main.nf` as a comment, so a prefix would break federation §4.1's
+                # byte-identity. **That justification expired.** No reason string has
+                # reached `main.nf` or `nextflow.config` since Plan 1.10 — verified, and it
+                # is audit A111. The conclusion survives its reasoning: the reason answers
+                # "why is this value what it is", which replaying did not change, and that
+                # this run replayed lives in `resolved_by` and in the count `upgrade` prints.
+                #
+                # What was wrong is narrower and worse. `record.reason` on an *overridden*
+                # decision is the flag-only resolver's text — "selected the first of 1
+                # candidates without judgement — please review" — which describes what
+                # happened **before** the person arrived. So the artifact carried
+                # `source: human` beside a sentence saying nobody had judged it, and asked a
+                # reader to review something already reviewed. A77, A111.
+                reason=_replayed_reason(record),
                 confidence=record.confidence,
                 resolved_by="replay",
                 # Who settled it, which `resolved_by` cannot say: the implementation

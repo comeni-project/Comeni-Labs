@@ -14,12 +14,19 @@ params:
     via: ext
     key: args
     template: "--rg-id ${meta.id} --rg SM:${meta.id} --rg PL:{value}"
+  - name: save_unaligned
+    default: false
+    because: >-
+      Unmapped reads are not written out. This spine counts what aligned, and keeping the
+      unmapped FASTQs would roughly double output size for something no downstream step
+      reads. A laboratory investigating a poor alignment rate wants this true. Audit A91.
+    via: positional
 priority: 0
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, splicesites) | val save_unaligned
 nf_inputs:
   - {ports: [reads]}
   - {ports: [index]}
   - {empty: 2, because: "splicesites are optional; HISAT2_EXTRACTSPLICESITES is not vendored"}
-  - {literal: false}
+  - {param: save_unaligned}
 container: community.wave.seqera.io/library/hisat2_samtools:6ca0ef72b662d5c8
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

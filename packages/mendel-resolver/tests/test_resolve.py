@@ -98,7 +98,14 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
     assert node.param("strandedness").value == 2
     assert node.param("strandedness").tier is Tier.DATA_PROFILED
     assert node.param("strandedness").review_level is ReviewLevel.ADVISORY
-    assert "featureCounts -s 2" in node.param("strandedness").reason
+    # The block's justification is the **axis** — why strandedness decides `-s` at all —
+    # and it now lands in `axis_reason` rather than being printed as the row's own reason.
+    # That split is A79/A107: one field answering both questions is how the shipped registry
+    # came to cite the STAR paper as the reason HISAT2 was chosen.
+    assert "featureCounts -s 2" in node.param("strandedness").axis_reason
+    assert node.param("strandedness").reason == "rule param:strandedness", (
+        "a row with no justification of its own must not emit a dangling colon (A78)"
+    )
 
 
 def test_rule_miss_demotes_to_tier_4_and_flags(setup):

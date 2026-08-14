@@ -41,12 +41,24 @@ guessed silently"* **does not**: five of the six values reaching the generated N
 no `why:` at all. Read `docs/internal/audits/2026-08-14-design-audit.md`; the four stream reports
 beside it are its evidence.
 
-**Plan 1.13 is complete** and closed the five findings that produce wrong output or block Plan 2
-— A92, A118, A125, A126, A129. **Plan 1.14 is written and not started**: roots 1–3, the
-explanation repairs, which bump `pipeline.yml` to `version: 2`. Its **Task 0 was found while
-executing 1.13** — adding a field moves an archived pipeline's `from_digest`, so `MD0213`
-reports a schema change as a human edit. Do that first or the other six additions multiply it.
-**Then Plan 2.** 621 fast tests green,
+**Plans 1.13 and 1.14 are both complete.** 1.13 closed the five findings that produce wrong
+output or block Plan 2 — A92, A118, A125, A126, A129. **1.14 closed roots 1–3, the explanation
+repairs**, and bumped `pipeline.yml` to `version: 2`: A76, A77, A78, A79, A80, A81, A82, A91,
+A104, A107, A111, A112, A128, plus A90 and A106 in substance.
+
+**The headline number moved from one in six to six in six.** The design audit's sharpest finding
+was that five of the six values reaching the generated Nextflow carried no `why:` at all; every
+one now carries a reason a reader can act on, and the artifact's own header — *"Every value
+carries a `why:`"* — was false when written and is now true. `strandedness: reverse`, which
+becomes featureCounts' `-s 2`, says it was **asserted rather than measured** and cites Signal et
+al. 2022. The shipped registry no longer cites the STAR paper as the reason HISAT2 was chosen.
+
+**A108 and A130 are explicitly NOT closed.** A108 is that a tier-3 decision carries no premise;
+1.14 Task 2 split `MEASURED` from `GOAL`, which is its foundation and nothing more. A130 is that
+nothing distinguishes a model-authored reason from a human-authored one — promoted by the engine
+decision from medium to a gap in the protection profiles, and carried.
+
+**Then Plan 2.** 645 fast tests green,
 `ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
@@ -266,14 +278,26 @@ Violating any of these breaks the product claim, not just a test.
     work on our infrastructure is a design error.
 14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
     resolution, compiler repair, publication. Each carries one declared payload type, and
-    **seven** fields across the whole surface may hold free text: `PromptRequest.prompt`,
-    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind, and
-    `Why.reason` — the citation beside every value in `pipeline.yml`.
-    This said "exactly two" for a plan and a half while the guard held four, then six, and now
-    seven; the guard is the honest count and this sentence is the one that drifts (A33). Every
-    increase so far arrived by a refactor rather than by a new kind of string crossing — A16
-    splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly what
-    a literal list exists to make somebody look at.
+    **ten** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
+    `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
+    `axis_reason` on `Why` and `ResolvedValue` plus `ParamDecision.override_reason`.
+    **The tenth is the first genuinely new author**: the nine before it are written by a
+    contract author, a rule author or the resolver, and `override_reason` is written by the
+    person answering a tier-4 question, in the artifact, after resolution. It exists because
+    until Plan 1.14 that person had nowhere to say why, and `upgrade` replaced what they wrote
+    with "selected the first of 1 candidates without judgement" (A77).
+    This said "exactly two" for a plan and a half while the guard held four, then six, seven,
+    and now ten; the guard is the honest count and this sentence is the one that drifts (A33).
+    **Every increase up to the ninth arrived by a refactor rather than by a new kind of string
+    crossing** — A16 splitting `DecisionRecord` into three, `Pipeline` taking door 4, and Plan
+    1.14 splitting `reason` in two because it was answering both *why this axis* and *why this
+    answer*, which is how the registry came to cite the STAR paper as the reason HISAT2 was
+    chosen (A79/A107). **The tenth broke that run**, and it is written down here rather than
+    absorbed: `override_reason` is a new author writing at a new moment, and the argument for
+    it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
+    holds is the sort of thing a literal list exists to put in front of somebody, and it has
+    now done so five times.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in

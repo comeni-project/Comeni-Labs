@@ -114,6 +114,20 @@ class Decision(BaseModel):
     cite: str | None = None
 
 
+def _joined(*parts: str | None) -> str:
+    """A sentence and its citation, in one line, without `one.; Kim et al.`
+
+    The trailing stop is dropped from every part but the last, because a rule author writes
+    prose that ends in a full stop and a citation that does not, and the two meet here rather
+    than in the file either of them was written in.
+    """
+    kept = [part.strip() for part in parts if part and part.strip()]
+    return "; ".join(
+        part.rstrip(".") if index < len(kept) - 1 else part
+        for index, part in enumerate(kept)
+    )
+
+
 class Pin(BaseModel):
     """A rule fired, and everything that follows from it — including where it came from.
 
@@ -136,14 +150,54 @@ class Pin(BaseModel):
     row: DecisionRow
 
     def because(self) -> str:
-        """The most specific justification available, row before block."""
-        return (
-            self.row.cite
-            or self.decision.cite
-            or self.row.because
-            or self.decision.because
-            or ""
-        )
+        """Why **this row** won — the specific choice, never the axis.
+
+        Was `row.cite or decision.cite or row.because or decision.because`, under a docstring
+        that said *"row before block"*. Two bugs in one line, and each was found by a
+        different reviewer from a different direction:
+
+        - **The precedence was cite-first, not row-first** (A107). A `cite` shadowed a
+          `because`, so the registry's only plain-English explanation of its only tier-3
+          decision never reached the artifact. A reader got a DOI where a sentence belonged.
+        - **A block `cite` answers a different question** (A79). It justifies the decision
+          *axis* — "read length determines which aligner is appropriate", for which Dobin et
+          al. is a fair citation — and it was printed as the reason for a *row*. So the
+          shipped registry said HISAT2 was chosen because of the paper describing STAR,
+          reachable by changing one number in `examples/rnaseq-goal.yml`.
+
+        The second is why this is not a reordering. The field was answering two questions, so
+        it becomes two: this one, and `axis_because` below.
+
+        **A citation and a sentence are joined, never chosen between.** Preferring one was the
+        A107 half of this bug, and writing `row.because or row.cite` here would have repeated
+        it exactly one level down — the sentence would have shadowed the row's own paper
+        instead of the reverse. A reader wants the claim and the evidence for it.
+        """
+        return _joined(self.row.because, self.row.cite)
+
+    def reason_line(self, matched: object = None) -> str:
+        """`rule <key>[ matched <when>][: <row justification>]`, with no dangling colon.
+
+        On `Pin` rather than in `resolve`, because `router` needs it too and importing
+        `resolve` from `router` is a cycle — and because every input it formats is already
+        here. A row may be justified entirely by its block (a one-row rule often is) and
+        `MD0301` allows that, but `rule param:strandedness: ` with nothing after the colon
+        reads as a truncation rather than as an absence, which is half of what A78 was.
+        """
+        head = f"rule {self.decision.decides.key()}"
+        if matched is not None:
+            head = f"{head} matched {matched}"
+        because = self.because()
+        return f"{head}: {because}" if because else head
+
+    def axis_because(self) -> str:
+        """Why this decision is made this way **at all** — the block's justification.
+
+        Kept separate rather than concatenated, because a reader wants to know both and to be
+        able to tell which is which: the axis is the methodology, the row is the choice made
+        under it. A79, A107.
+        """
+        return _joined(self.decision.because, self.decision.cite)
 
 
 class RuleTable(BaseModel):
@@ -351,6 +405,17 @@ def _validate(
                 raise RuleValidationError(
                     f"{path}: {contract_id!r} does not produce {target.producer_of!r}"
                 )
+
+    for index, row in enumerate(decision.rows):
+        if not (row.because or row.cite or decision.because or decision.cite):
+            raise RuleValidationError(
+                f"MD0301: {path}, decision {target.key()}, row {index}\n"
+                f"  This row justifies nothing — no `because` and no `cite`, on the row or\n"
+                f"  on the block. It fires at tier 3, whose review level is *advisory*, which\n"
+                f"  means 'the machinery worked, check the premise'. A reader given no\n"
+                f"  premise cannot. It also emitted a reason ending in a bare colon.\n"
+                f"  Add `because:` saying why this answer, or `cite:` naming the evidence."
+            )
 
     for row in decision.rows:
         for measurement_id, expected in row.when.items():

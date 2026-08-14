@@ -16,14 +16,40 @@ params:
     via: ext
     key: args
     template: "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'"
+  - name: star_ignore_sjdbgtf
+    default: false
+    because: >-
+      Align *with* the annotation. The GTF is routed into this module, and ignoring it would
+      discard the splice-junction information a spliced aligner exists to use. A laboratory
+      aligning against a genome whose annotation it does not trust wants this true. Audit
+      A91: it was a hardcoded `false` in the call, outside the tier ladder and answerable by
+      nobody, because no route reached a bare `val`.
+    via: positional
 # STAR is the nf-core/rnaseq default aligner, so this registry prefers it by
 # convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
 # citation once the rule format lands.
 priority: 10
+priority_because: >-
+  nf-core/rnaseq's default aligner, so this registry prefers it by convention where no
+  measurement distinguishes the candidates. Ranked above HISAT2 rather than beside it: the
+  tier-3 rule below decides on read length where one is measured, and this is what answers
+  when none is.
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, gtf) | val ignore_sjdbgtf
-nf_inputs: [{ports: [reads]}, {ports: [index]}, {ports: [gtf]}, {literal: false}]
-# TrimGalore emits .fq.gz and STAR reads plain text unless told otherwise. Not a
-# decision — a fact about the upstream module's output format.
-ext_args: "--readFilesCommand zcat"
+nf_inputs:
+  - {ports: [reads]}
+  - {ports: [index]}
+  - {ports: [gtf]}
+  - {param: star_ignore_sjdbgtf}
+ext_args:
+  template: "--readFilesCommand zcat"
+  because: >-
+    The reads reaching STAR in this registry are gzipped, and STAR reads plain text unless
+    told otherwise. Stated as a premise about the *reads* rather than as a fact about
+    TrimGalore, which is how it was written before: one goal edit — declaring the reads
+    already trimmed — removes TrimGalore from the pipeline while this flag survives, and the
+    old reason then named a module that was not there. Audit A82. **Where this is false it is
+    actively wrong and nothing here will catch it**: a laboratory supplying uncompressed
+    trimmed reads needs this removed. Expressing that as a condition is issue #39's
+    `when`-expressiveness problem, not this field's.
 container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

@@ -19,6 +19,22 @@ class Via(StrEnum):
     """`channel.map { meta + [k: v], files }` — where a module reads a fact about the sample."""
     DIRECTIVE = "directive"
     """`process { withName: X { cpus = 12 } }` — resources and execution."""
+    POSITIONAL = "positional"
+    """A bare `val` in the module's input block — a value with **no name** at the call site.
+
+    The fourth destination, and the one the closed set was missing. Three of the ten vendored
+    modules take one, and each is a real analysis decision: `star_ignore_sjdbgtf` turns off
+    GTF-guided alignment, `index_format` picks BAI or CSI, `save_unaligned` decides whether
+    unmapped reads survive. None could be routed, so all three lived as contract constants —
+    outside the tier ladder, with no reason, in no review queue.
+
+    Routing one the only way the design previously allowed produced **one call carrying two
+    values of the same name, disagreeing**: the documented, human-answered one in `meta` where
+    the module never looks, and the one it actually reads sitting untouched at the end of the
+    call. `pipeline.yml` said the GTF was being ignored; the pipeline used it. Audit A91.
+
+    Which slot it fills is declared on `NfInput`, not here — see `NfInput.param`.
+    """
 
 
 class ExtKey(StrEnum):

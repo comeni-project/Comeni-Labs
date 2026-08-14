@@ -1,0 +1,11 @@
+# R4 — TrimGalore --length. Discard reads shorter than 20 bp after trimming; on short-read
+# libraries that threshold discards most of the library, so drop it to 18.
+# Straight comparison + literal `then`. This should work.
+version: 1
+decisions:
+  - decides: {param: min_length}
+    because: "reads below this length after trimming are not confidently mappable"
+    cite: "Krueger, TrimGalore user guide"
+    rows:
+      - {when: {read_length: "< 50"}, then: 18}
+      - {when: {},                    then: 20}

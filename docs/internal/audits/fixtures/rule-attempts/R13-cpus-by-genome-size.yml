@@ -1,0 +1,10 @@
+# R13 — resource scaling. nf-core encodes this as process labels; expressed as a rule it
+# is "a big genome gets more CPUs".
+version: 1
+decisions:
+  - decides: {param: cpus}
+    because: "alignment against a large genome parallelises and is the pipeline's long pole"
+    cite: "nf-core process resource labels (process_high)"
+    rows:
+      - {when: {genome_length: "> 1000000000"}, then: 12}
+      - {when: {},                               then: 4}

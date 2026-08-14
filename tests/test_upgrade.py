@@ -194,8 +194,8 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
             (root / "contracts" / "nf-core" / "star-align.yml")
             .read_text()
             .replace(
-                'ext_args: "--readFilesCommand zcat"',
-                'ext_args: "--readFilesCommand zcat --outSAMattributes All"',
+                'template: "--readFilesCommand zcat"',
+                'template: "--readFilesCommand zcat --outSAMattributes All"',
             )
         ),
     )
@@ -512,3 +512,208 @@ def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
     code = main(["upgrade", str(out / "pipeline.yml"), "--registry", str(ROOT / "registry"),
                  "--out", "p", "--root", str(ROOT)])
     assert code == 2, "a relative --out onto the source is still in-place"
+
+
+V1_FIXTURE = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1"
+
+
+def _archived(tmp_path):
+    """A pipeline.yml written before Plan 1.13, with the files it emitted.
+
+    Committed rather than built, and that is the whole point: a fixture produced by the code
+    under test cannot demonstrate anything about reading what a laboratory archived. See the
+    README beside it.
+    """
+    out = tmp_path / "archived"
+    shutil.copytree(V1_FIXTURE, out)
+    (out / "README.md").unlink()
+    # A directory a laboratory archived has its vendored modules beside the artifact; the
+    # fixture does not carry them because they are ~1 MB of nf-core source that is already in
+    # the tree. `emit` refuses without them (`MD0210`), and rightly.
+    build = tmp_path / "for-modules"
+    assert main(["build", "--goal", str(GOAL), "--out", str(build), "--root", str(ROOT)]) == 0
+    shutil.copytree(build / "modules", out / "modules")
+    return out / "pipeline.yml"
+
+
+def test_a_pipeline_written_before_a_schema_change_is_not_reported_as_edited(tmp_path, capsys):
+    """The file did not change. The schema did. Say which.
+
+    Found while executing Plan 1.13: `emitted.from_digest` hashes the model dump, so adding
+    one field (`CallArg.join`) moved it for **every** archived pipeline and `MD0213` reported
+    the file as edited by a human. A laboratory reading that goes looking for an edit nobody
+    made — and this plan adds six more fields on top of it.
+
+    The asymmetry is the test: the artifact's self-digest moves while the emitted files still
+    hash exactly to their records, which is what says the pipeline did not change.
+    """
+    archived = _archived(tmp_path)
+
+    code = main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
+                 "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert "MD0213" not in err, err
+    assert "predates the current schema" in err
+    assert code == 0
+
+
+def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsys):
+    """The negative. A check that can only pass is not a check.
+
+    A pipeline written under the **current** schema, edited by hand. `MD0213` must still fire:
+    that is the case it exists for, and buying compatibility by going blind would be a worse
+    bug than the one being fixed.
+    """
+    bundle = _published(tmp_path)
+    data = yaml.safe_load(bundle.read_text())
+    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    main(["upgrade", str(bundle), "--registry", str(ROOT / "registry"),
+          "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    assert "MD0213" in capsys.readouterr().err
+
+
+def test_an_edit_to_a_pre_schema_pipeline_is_not_detectable_and_that_is_stated(tmp_path, capsys):
+    """The limitation, asserted rather than left to be discovered.
+
+    For a file written under an older schema the content digest cannot match **either way**,
+    so a hand edit and the schema moving are indistinguishable by that mechanism. Nothing can
+    recover the distinction after the fact; pretending otherwise would be the dishonest half
+    of this repair.
+
+    What still holds is the half that matters: the generated files are checked against their
+    own recorded digests (`MD0214`), so an edited `main.nf` is caught regardless of schema.
+    And the note tells the reader to restamp, after which edits are detectable again.
+    """
+    archived = _archived(tmp_path)
+    data = yaml.safe_load(archived.read_text())
+    data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
+    archived.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
+          "--out", str(tmp_path / "up"), "--root", str(ROOT)])
+
+    err = capsys.readouterr().err
+    assert "predates the current schema" in err
+    assert "to restamp it" in err
+
+
+def test_emit_does_not_call_a_schema_change_an_edit_either(tmp_path, capsys):
+    """The other half, and it was **inert** until this test existed.
+
+    `is_stale` and `cli`'s `upgrade` branch both handle this case, and reverting the
+    `is_stale` short-circuit changed nothing — the `upgrade` path never reaches it. `emit`
+    does: it prints `MD0213` and then cures it, so without this an archived pipeline would be
+    told it had been edited every time somebody regenerated it, by the one verb whose job is
+    to fix exactly that.
+
+    Found by reverting a guard written in the same session and watching nothing fail. A14.
+    """
+    archived = _archived(tmp_path)
+
+    code = main(["emit", str(archived), "--out", str(tmp_path / "archived")])
+
+    assert code == 0
+    assert "MD0213" not in capsys.readouterr().err
+
+
+def test_a_v1_file_says_its_provenance_was_never_recorded(tmp_path):
+    """The backfill must make a claim a reader can act on, not fill a hole quietly.
+
+    Plan 1.14 made `channels[].meta[].why` required so nothing can construct a fact without
+    saying where it came from. A document written before that field existed cannot answer, and
+    the honest answer is *"this was never recorded"* rather than an invented citation or a
+    parse failure. Task 2.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.model_validate(yaml.safe_load(_archived(tmp_path).read_text()))
+    reasons = {entry.why.reason for channel in pipeline.channels for entry in channel.meta}
+
+    assert reasons, "the fixture carries meta entries, or this asserts nothing"
+    assert all("was not recorded" in reason for reason in reasons)
+    assert all("predates schema 2" in reason for reason in reasons)
+
+
+def _set(bundle, name, **fields):
+    """Edit one setting's fields, the way the file's own header invites.
+
+    `source:` is deliberately never set here. `MD0220` refuses a `source: human` that no
+    decision backs, and the documented flow is to answer the *value* and let `upgrade`
+    promote it — which is the flow A77 is about.
+    """
+    data = yaml.safe_load(bundle.read_text())
+    for step in data["steps"]:
+        for setting in step["settings"]:
+            if setting["name"] != name:
+                continue
+            if "value" in fields:
+                setting["value"] = fields["value"]
+                setting["why"]["for_value"] = fields["value"]
+            if "reason" in fields:
+                setting["why"]["reason"] = fields["reason"]
+    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def _answered_then_upgraded(tmp_path):
+    """Steps 1-2 of A77: answer the question, emit, upgrade. `source` becomes `human`."""
+    bundle = _published(tmp_path)
+    _set(bundle, "seq_platform", value="illumina")
+    assert main(["emit", str(bundle), "--out", str(bundle.parent)]) == 0
+    assert main(["upgrade", str(bundle), "--out", str(tmp_path / "up"),
+                 "--root", str(ROOT)]) == 0
+    return tmp_path / "up" / "pipeline.yml"
+
+
+def _setting_why(path, name):
+    data = yaml.safe_load(path.read_text())
+    return next(
+        s["why"] for step in data["steps"] for s in step["settings"] if s["name"] == name
+    )
+
+
+REASON = "our sequencer is an Illumina NovaSeq X; lab SOP BIOINF-014"
+
+
+def test_a77_a_human_reason_survives_upgrade(tmp_path, capsys):
+    """A77, critical — `upgrade` **deleted** the reason a person wrote.
+
+    Tier 4 is the honesty mechanism and the declared difference from a chat window, and it is
+    the one tier where a *person* supplies the answer. There was no field in which that person
+    could say why: `Setting.why.reason` is re-derived from the resolver's `Resolution.reason`
+    on every re-materialisation, so a hand-written sentence was replaced by *"selected the
+    first of 1 candidates without judgement — please review"* under `source: human`.
+
+    `upgrade` then reported "1 decisions replayed" and said nothing about the loss, because
+    every axis it compares is generated code.
+    """
+    answered = _answered_then_upgraded(tmp_path)
+
+    # Step 3: write the real reason, in the only free-text field there is.
+    _set(answered, "seq_platform", reason=REASON)
+    assert main(["emit", str(answered), "--out", str(answered.parent)]) == 0
+
+    # Step 4: the documented verb, which `CLAUDE.md` says "replays every recorded decision".
+    assert main(["upgrade", str(answered), "--out", str(tmp_path / "up2"),
+                 "--root", str(ROOT)]) == 0
+
+    why = _setting_why(tmp_path / "up2" / "pipeline.yml", "seq_platform")
+    assert why["reason"] == REASON, why
+    assert why["source"] == "human"
+
+
+def test_a111_an_answered_question_does_not_ask_for_review_of_itself(tmp_path):
+    """A111 — `source: human` sat on "selected without judgement — please review".
+
+    The reason described what the flag-only resolver did **before** a person answered. The
+    artifact told a stranger that a value a human chose was picked without judgement, and
+    asked them to review something already reviewed.
+    """
+    why = _setting_why(_answered_then_upgraded(tmp_path), "seq_platform")
+
+    assert why["source"] == "human"
+    assert "without judgement" not in why["reason"], why["reason"]
+    assert "please review" not in why["reason"], why["reason"]

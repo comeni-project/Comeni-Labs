@@ -3,7 +3,7 @@ import pathlib
 import pytest
 from comeni_core.goal import Goal
 from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.pipeline import Pipeline
+from comeni_core.pipeline import ExtArgs, Pipeline
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 
@@ -40,7 +40,14 @@ def _ir():
                 params={
                     "seq_platform": ResolvedValue(
                         value="illumina", tier=Tier.CONVENTION, reason="contract default"
-                    )
+                    ),
+                    # `resolve()` binds *every* declared param; this fixture writes an IR by
+                    # hand and so has to as well. `star_ignore_sjdbgtf` became a routed
+                    # parameter in Plan 1.14 (A91) — it fills STAR's fourth call slot, and
+                    # leaving it unbound is a pipeline that cannot start, which MD0224 says.
+                    "star_ignore_sjdbgtf": ResolvedValue(
+                        value=False, tier=Tier.CONVENTION, reason="contract default"
+                    ),
                 },
             ),
         ],
@@ -276,7 +283,12 @@ def test_every_via_member_emits_or_is_refused():
     """
     from comeni_core.routes import Via
 
-    emitted = {Via.EXT, Via.META, Via.DIRECTIVE}
+    # `POSITIONAL` joined in Plan 1.14 and is wired in `_argument`, not in a scope block:
+    # it emits into the process *call* rather than into `process { withName: … }`. That is
+    # the whole point of the member — a bare `val` has no name at the call site, which is why
+    # none of the other three could reach it (A91). This tripwire is what made that a decision
+    # rather than an omission, so it is updated deliberately and not widened.
+    emitted = {Via.EXT, Via.META, Via.DIRECTIVE, Via.POSITIONAL}
     assert set(Via) == emitted, (
         f"emit.py handles {emitted}; Via also has {set(Via) - emitted}, which would record a "
         "value that reaches no tool. Wire it into emit.py or refuse it at load."
@@ -291,7 +303,9 @@ def _step_carrying(setting):
     gains a field.
     """
     step = next(s for s in _pipeline().steps if s.process == "STAR_ALIGN")
-    return step.model_construct(**{**dict(step), "settings": [setting], "ext_args": None})
+    return step.model_construct(
+        **{**dict(step), "settings": [setting], "ext_args": ExtArgs.none()}
+    )
 
 
 def test_the_closure_branch_is_unreachable_from_a_raw_value():

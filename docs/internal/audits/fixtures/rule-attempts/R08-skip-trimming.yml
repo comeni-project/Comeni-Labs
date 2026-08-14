@@ -1,0 +1,14 @@
+# R8 — skip adapter trimming when there is no adapter to trim. nf-core/rnaseq exposes this
+# as `--skip_trimming`; the decision is whether the TRIMGALORE STEP EXISTS AT ALL.
+#
+# `decides:` admits exactly two targets: {param: X} and {producer_of: T}. Neither says
+# "this step should not be in the pipeline". The nearest legal attempt is to decide the
+# producer of trimmed reads — but "untrimmed" is not a producer, it is the absence of one.
+version: 1
+decisions:
+  - decides: {producer_of: fastq.reads}
+    because: "trimming costs a pass over the data and gains nothing below ~1% adapter"
+    cite: "nf-core/rnaseq --skip_trimming; Krueger, TrimGalore user guide"
+    rows:
+      - {when: {adapter_content: "< 0.01"}, then: null}
+      - {when: {},                          then: nf-core/trimgalore@0.6.10}

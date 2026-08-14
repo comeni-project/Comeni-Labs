@@ -12,6 +12,7 @@ import pathlib
 
 import pytest
 from comeni_core.contract import NfInput
+from comeni_core.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -176,7 +177,7 @@ def test_a_contract_can_declare_flags_its_module_always_needs(loaded):
     takes; this says which flags it takes. Both are "how is this called", and neither is
     "what should be decided" — giving it a tier would dilute what a tier means."""
     star = loaded.registry.get("nf-core/star/align@1.11.0")
-    assert "--readFilesCommand zcat" in star.ext_args
+    assert "--readFilesCommand zcat" in star.ext_args.template
 
 
 def test_ext_args_reaches_the_emitted_config(spine, loaded):
@@ -296,3 +297,162 @@ def test_two_ports_in_one_channel_must_declare_a_join():
 
 def test_one_port_needs_no_join():
     assert NfInput(ports=["bam"]).join is None
+
+
+def _profiled_goal(loaded) -> Goal:
+    """The `spine_with_profile` goal, reconstructed. Its measurements are asserted, not
+    measured: a plain mapping in a goal file is a claim by whoever typed it."""
+    return Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile(
+            {"read_length": 150, "strandedness": "reverse", "paired": True}
+        ),
+    )
+
+
+def test_a_measured_fact_carries_where_it_came_from(spine_with_profile, loaded):
+    """A80 — `-s 2` is this project's worked example of the system working.
+
+    `strandedness: reverse` becomes featureCounts' `-s 2`, and getting it wrong is the classic
+    way to a matrix of zeroes. It reached the tool with **no `why` of any kind**, while the
+    measurement's own declared `cite` stopped at the registry. `MetaEntry` was key + value.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.of(
+        spine_with_profile,
+        loaded.registry,
+        loaded.vocabulary,
+        loaded.measurements,
+        loaded.paths,
+        goal=_profiled_goal(loaded),
+    )
+    meta = {entry.key: entry for channel in pipeline.channels for entry in channel.meta}
+
+    assert meta["strandedness"].why.reason, "a fact reaching a tool with no reason is A80"
+    assert meta["strandedness"].why.for_value == meta["strandedness"].value
+
+
+def test_an_asserted_fact_and_a_measured_one_are_distinguishable(loaded):
+    """The foundation of A108, and nothing more than that.
+
+    A profiler naming itself and a person typing a number into a goal file are both
+    legitimate; only one is checkable, and `sealed` is meant to refuse a tier-3 decision
+    resting on the second (issue #2). Until now the artifact could not tell them apart at all.
+
+    This does **not** close A108 — the tier-3 *decision* still carries no premise. It makes
+    the premise recordable, which is the part that has to exist first.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    asserted = _profiled_goal(loaded)
+    ir = resolve(
+        asserted,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=asserted
+    )
+    meta = {entry.key: entry for channel in pipeline.channels for entry in channel.meta}
+
+    assert meta["strandedness"].why.source is ValueSource.GOAL
+    assert "goal" in meta["strandedness"].why.reason.lower()
+
+
+def test_every_positional_literal_says_why_it_is_that_value(loaded):
+    """A81 — `'bai'` and `false` are analysis decisions wearing the costume of plumbing.
+
+    `SAMTOOLS_SORT(…, 'bai')` picks BAI over CSI, which constrains which genomes the pipeline
+    works on. `STAR_ALIGN(…, false)` decides whether alignment is GTF-guided. Both reached the
+    tools with `why: null`, in no `decisions:` block and no review queue, and
+    `pipeline-schema.md` documented a `literal` + `why` pair the registry could not produce.
+
+    Same shape as the `empty` guard above and for the same reason: `empty` was the placeholder
+    everyone worried about, so the *values* went unexamined.
+    """
+    unexplained = [
+        f"{contract.id} input {position} = {spec.literal!r}"
+        for contract in loaded.registry.all()
+        for position, spec in enumerate(contract.input_signature())
+        if spec.literal is not None and not spec.because
+    ]
+    assert unexplained == [], (
+        "a positional literal must say why it is that value, not merely what it is: "
+        + ", ".join(unexplained)
+    )
+
+
+def _goal_with_trimmed_reads(loaded) -> Goal:
+    """The same goal, declaring the reads already trimmed. TrimGalore drops out."""
+    return Goal(
+        have=[
+            GoalInput(type_id="fastq.reads", states=frozenset({"trimmed"})),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+
+
+def test_ext_args_carries_a_reason(spine, loaded):
+    """A82 — it reached the tool with no `why` at all, and that was recorded as deliberate.
+
+    The recorded argument was *"nothing resolved it and there is no decision behind it, so
+    giving it a `why` would invent provenance"*. That conflates **tier** with **reason**: a
+    tier-1 fact still has a reason, and `NfInput.empty` already proves it by carrying a
+    tier-1 `Why` for a structurally identical thing.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.of(
+        spine, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths,
+        goal=_profiled_goal(loaded),
+    )
+    star = next(step for step in pipeline.steps if step.id == "star_align")
+
+    assert star.ext_args.template == "--readFilesCommand zcat"
+    assert star.ext_args.why.reason
+
+
+def test_the_ext_args_premise_survives_the_module_it_names(loaded):
+    """The sharp half of A82: **a recorded reason that has stopped being true**.
+
+    `--readFilesCommand zcat` was justified in the contract by *"TrimGalore emits .fq.gz — a
+    fact about the upstream module's output format."* One goal edit — declaring the reads
+    already trimmed — removes TrimGalore from the pipeline entirely, and the flag survives
+    with a justification naming a module that is not there.
+
+    Stated as a *premise about the reads* rather than a fact about a neighbour, so it stays
+    true when the graph moves and states its own limit: a laboratory supplying uncompressed
+    trimmed reads gets a wrong flag, and nothing here will catch that.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    goal = _goal_with_trimmed_reads(loaded)
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+
+    assert not any("trimgalore" in step.id for step in pipeline.steps), (
+        "this test is about a premise outliving TrimGalore; TrimGalore must be gone"
+    )
+    star = next(step for step in pipeline.steps if step.id == "star_align")
+    assert star.ext_args.template == "--readFilesCommand zcat"
+    assert "TrimGalore emits" not in star.ext_args.why.reason, (
+        "the reason must not assert a fact about a module that is not in this pipeline"
+    )
+    assert "gzip" in star.ext_args.why.reason.lower()

@@ -829,3 +829,153 @@ two samples and asserts `join` gives 2 correctly-paired outputs while `combine` 
 carries the wrong branch as a parametrised case *on purpose*, so the two are proven to differ
 rather than merely asserted to. That is not a revert-and-watch; it is the failing observation
 itself, kept. It runs in 6s with no Docker, because the process it builds has no container.
+
+## Plan 1.14 — the explanation
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_upgrade.py::test_a_pipeline_written_before_a_schema_change_…` | `predates_schema` branch in `cli._check_directory` → `if False:` | failed | `assert "MD0213" not in err` — names the file it claimed was edited |
+| 2026-08-14 | `pipeline_file.is_stale`'s `predates_schema` short-circuit | removed | **nothing failed — the guard was inert** | see below |
+| 2026-08-14 | `test_upgrade.py::test_emit_does_not_call_a_schema_change_an_edit_either` | the same short-circuit, once the test existed | failed | `assert 'MD0213' not in '5 modules, …enerating.'` |
+
+**An inert guard, found in code written the same hour, which is the whole of A14 in one row.**
+Task 0 put the schema check in two places: `cli`'s `upgrade` branch and `pipeline_file.is_stale`.
+Reverting the `is_stale` half changed nothing — `upgrade` returns at the `cli` branch and never
+reaches it — so that half was protecting the `emit` verb, which nothing tested. Without it an
+archived pipeline would be told it had been edited every time somebody regenerated it, **by the
+one verb whose job is to cure exactly that**.
+
+The lesson is not that the code was wrong; it was right and untested. It is that *writing* a
+guard and *watching it fail* are different acts, and only the second one tells you which of them
+you actually wrote. `test_emit_does_not_call_a_schema_change_an_edit_either` is the missing half,
+and the row above it is kept as the record that it was missing.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_pipeline_file.py::test_editing_a_value_and_leaving_its_reason_is_refused` (A104) | `for_value=value.value` in `_why` | failed | `assert code != 0` — emit accepted the edit again |
+| 2026-08-14 | `test_publish.py::test_publish_refuses_to_certify_a_value_whose_reason_is_false` | the same line | failed | publish certified it at exit 0, which is A104 exactly |
+| 2026-08-14 | `test_pipeline_file.py::test_emit_clears_the_gate_verdict_when_the_file_was_edited` | nothing — a walrus named `stale` shadowed the `MD0213` boolean | **failed unprompted** | `assert 'lint' is None` |
+
+**The third row is not a revert either, and it is the useful one.** Writing `MD0223` as
+`if stale := stale_reasons(pipeline)` shadowed a boolean read twelve lines below to decide
+whether a `publish`ed gate verdict survives an edit — so an edited pipeline kept its
+certification. Nobody staged that; an existing A47 guard caught it on the first `make verify`
+after the change. Two unprompted catches in two plans (`test_purity.py` in 1.13, this in 1.14),
+both from guards written for something else, is the argument for running the *whole* gate rather
+than the tests you think you touched.
+| 2026-08-14 | `test_runnable.py::test_an_asserted_fact_and_a_measured_one_are_distinguishable` (A80) | the asserted branch in `_meta_entry` reworded to `"measured"` | failed | `assert 'goal' in 'measured; signal et al. 2022 …'` — the artifact claiming a profiling run that never happened |
+| 2026-08-14 | `test_upgrade.py` ×3 + `test_pipeline_file.py::test_a_schema_change_…` | nothing — `MetaEntry.why` was made required | **failed unprompted** | the committed v1 fixture stopped parsing, which is a required field breaking archived pipelines |
+
+**A third unprompted catch, and this one came from a fixture rather than a guard.** Making
+`MetaEntry.why` required is right for construction and wrong for *reading*: a document written
+before the field existed cannot answer, and requiring it of one asserts that the provenance is
+missing rather than that it was never recorded. The committed pre-1.13 pipeline caught that
+within a minute of the change. The backfill says so in the file — *"provenance was not recorded:
+this pipeline predates schema 2"* — and `test_a_v1_file_says_its_provenance_was_never_recorded`
+pins the claim, because a migration that quietly invents a citation is worse than one that
+refuses.
+
+That fixture was committed an hour earlier for a different reason entirely (Task 0's digest
+test). It has now caught a second, unrelated compatibility break. Committing it was the cheapest
+thing in this plan.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_runnable.py::test_every_positional_literal_says_why_it_is_that_value` (A81) | `because:` on samtools/sort's `literal: bai` | failed | `a positional literal must say why it is that value … nf-core/samtools/sort@1.21.0 input 2 = 'bai'` |
+
+**The guard found a third literal the audit missed.** A81 named two — `SAMTOOLS_SORT(…, 'bai')`
+and `STAR_ALIGN(…, false)` — because those are what the *shipped spine* routes.
+`nf-core/hisat2/align` has one too (`save_unaligned`), and it only appears in a pipeline when
+the measured read length is under 70 bp. Written as a sweep over `registry.all()` rather than
+over the spine, which is why it counted three where a reviewer reading a build counted two.
+
+`Why.reason` is a `Line`, so YAML's `>` folded scalar broke the build on its trailing newline —
+*"contains a control character. This text is written into a generated file"*. That is an
+existing guard doing its job on prose nobody had tried to put there before; the contracts use
+`>-`.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_runnable.py::test_the_ext_args_premise_survives_the_module_it_names` (A82) | STAR's `ext_args` back to the bare-string form | failed | `assert 'gzip' in 'declared by the contract with no stated reason'` |
+
+**The revert degrades to a visible gap rather than to a wrong answer**, which is the half worth
+recording. Dropping the premise does not restore the old sentence about TrimGalore; it produces
+*"declared by the contract with no stated reason"* — greppable, honest, and obviously unfinished.
+A compatibility path that invents a plausible reason would have passed this test and made the
+artifact worse.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a79_…` | `because()` back to taking the block's `cite` | failed | `assert 'Dobin' not in 'rule producer_of:alignment.bam matched {'read_length': '< 70'}: Kim …; Dobin …'` |
+| 2026-08-14 | `test_egress.py::test_free_text_lives_only_where_declared` | nothing — `axis_reason` was added to two payload-reachable models | **failed unprompted** | `Extra items in the left set: ('Why', 'axis_reason'), ('ResolvedValue', 'axis_reason')` |
+| 2026-08-14 | `packages/mendel-resolver/tests/test_rules.py` ×8 + `test_resolve.py` | nothing — `MD0301` was added | **failed unprompted** | eleven fixtures had no `because` or `cite` at all |
+
+**The egress guard made the free-text count something somebody had to argue for**, which is
+exactly what invariant 14's literal list is for. Two fields were added, taking the count from
+seven to nine — the fourth time it has moved, and the fourth time by a *refactor* rather than by
+a new kind of string crossing: this is one field splitting in two, same author, same source,
+same door. `CLAUDE.md`'s count was updated with the reasoning rather than the number alone,
+since that sentence is the one the invariant itself admits drifts (A33).
+
+**`MD0301` failed eleven fixtures on arrival**, and that is the check having real negatives
+rather than a problem. Each was a minimal rule written before a justification was required; all
+eleven now carry one. The one in `test_resolve.py` was more interesting — it asserted the
+block's `because` appeared in the row's `reason`, which is precisely the conflation A79 is, so
+the assertion moved to `axis_reason` rather than being deleted.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a76_…` | `from_layer=from_layer` on the tier-2 branch | failed | `tier 2 must say which layer documented it` / `assert None == 'acme-lab'` |
+| 2026-08-14 | `test_audit_regressions.py::test_a128_…` | the `chosen.priority_because` fallback in `_choose`'s caller | failed | `assert 'nf-core/rnaseq' in ''` |
+
+**Task 1 had already half-closed A76 without either of us noticing.** The finding is that a
+value moving 0 → 30 produced a *byte-identical* `why:`; `Why.for_value` (Task 1) made the two
+blocks differ before this task touched anything, so the `base.why != lab.why` assertion passed
+on arrival. What was still broken is the part that matters to a reader: `from_layer: null` on a
+value an overlay supplied, and a reason — `contract default for min_mqs` — that names the field
+it is explaining rather than justifying it. Worth recording, because "the test passes" and "the
+finding is closed" came apart here, and only writing the assertions separately showed it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a91_a_positional_parameter_…` | the `from_setting` branch in `emit._argument` | failed | `STAR_ALIGN(…, ch_annotation_gtf, null)` — the answered value vanishing, which is what `MD0224` refuses |
+| 2026-08-14 | `test_emit.py::test_every_via_member_emits_or_is_refused` (A38) | nothing — `Via.POSITIONAL` was added | **failed unprompted** | `emit.py handles {EXT, META, DIRECTIVE}; Via also has {POSITIONAL}` |
+| 2026-08-14 | `test_audit_regressions.py::test_a_binding_with_no_declared_param_…` | nothing — `samtools/sort` gained a param | **failed unprompted** | `the fixture needs a param-less one` |
+
+**A38's tripwire is the best-designed guard in this repository and it proved it here.** It exists
+so that adding a `Via` member forces a decision — wire it into `emit.py` or refuse it at load,
+never leave it recording a value that reaches no tool. Adding `POSITIONAL` failed it immediately,
+before any of this task's own tests existed. Updating it was a deliberate edit with a stated
+reason rather than a widening.
+
+**And a fixture that guards its own assumption caught a second thing.** `test_a_binding_with_no_
+declared_param_refuses_instead_of_vanishing` asserts *"the fixture needs a param-less one"*
+before using `samtools/sort` — which stopped being param-less the moment `index_format` became
+routable. Naming the requirement instead of assuming it turned a confusing downstream failure
+into one line.
+
+**`MD0108`'s new meta arm refused a test fixture on arrival**, which is the check having real
+negatives: A38's `via: meta` test routed an invented `tag` that featureCounts never reads —
+precisely the deadness the arm exists to catch, and precisely where A91 hid. The fixture now
+routes `single_end`, a key the module does read, with a goal that supplies no `paired`
+measurement so the key is free.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_upgrade.py::test_a77_…` and `::test_a111_…` | `_replayed_reason(record)` back to `record.reason` | both failed | the hand-written sentence replaced by *"selected the first of 1 candidates without judgement — please review"* under `source: human` |
+| 2026-08-14 | `test_egress.py::test_free_text_lives_only_where_declared` | nothing — `override_reason` was added | **failed unprompted** | `('ParamDecision', 'override_reason')` |
+
+**The tenth free-text field is the first that is not a refactor**, and the guard is what forced
+that to be noticed and argued rather than absorbed. The nine before it are written by a contract
+author, a rule author or the resolver; this one is written by *the person answering a tier-4
+question*, in the artifact, after resolution — a new author at a new moment. The sentence in
+`CLAUDE.md` claiming every increase had been a refactor was true when written and is now false,
+so it was corrected rather than left to drift, which is A33's own lesson applied to A33's own
+paragraph.
+
+**Writing the test walked straight into A112**, before the task reached it. Setting
+`why.source: human` by hand was refused by `MD0220` — whose message said *"set the decision's
+human_override to the value"*, contradicting `pipeline-schema.md`'s *"it is not where you write
+one"* two paragraphs above. The test could not be written correctly by following the diagnostic.
+Both now say the same thing: edit `settings[].value` and the reason beside it, and leave `source`
+alone.

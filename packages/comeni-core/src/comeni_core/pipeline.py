@@ -51,9 +51,24 @@ from comeni_core.marks import (
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.tiers import Tier, ValueSource
 
-SCHEMA_VERSION = 1
-"""What this Mendel writes and the highest it will read. Bumped only by a change that an
-older Mendel would misread — a section it would ignore, or a field whose meaning moved."""
+SCHEMA_VERSION = 2
+"""What this Mendel writes and the highest it will read.
+
+The rule was "bumped only by a change that an older Mendel would misread — a section it would
+ignore, or a field whose meaning moved", and it was **too narrow in a way that cost a
+diagnostic**. Plan 1.13 added `CallArg.join` and did not bump, reasoning that `extra="forbid"`
+makes an older Mendel *refuse* a file carrying the new field rather than misread it. That is
+true, and it answers the wrong direction: forward compatibility was fine, while every
+**archived** pipeline's `emitted.from_digest` moved, because that digest hashes the model dump.
+`MD0213` then reported thousands of untouched files as edited by a human.
+
+So the rule is now: **bump whenever the serialised shape changes at all**, because the digest is
+part of the shape. `tests/test_pipeline_file.py::test_a_schema_change_bumps_the_version` holds
+the current dump's fingerprint and fails when a field is added without one, so the next person
+is told rather than trusted to remember.
+
+2 is this bump — it covers `CallArg.join`, shipped in 1.13 without one, and everything Plan 1.14
+adds after it."""
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -83,6 +98,38 @@ class Why(BaseModel):
     tier: Tier
     source: ValueSource
     reason: Line
+    for_value: ParamValue = None
+    """The value this reason was written about. `MD0223`.
+
+    A `Why` is written once at resolution and never re-derived, so nothing noticed when the
+    value moved underneath it. `min_mqs` edited 0 → 30 reached featureCounts as `-Q 30` —
+    reads below mapping quality 30 discarded, a real analysis change — while the record still
+    said `tier: 2 / source: resolver / reason: contract default for min_mqs`, all three
+    false, and `publish` certified it at exit 0. Audit A104.
+
+    **`None` means "written before 1.14", not "explains nothing".** An archived pipeline has
+    no such field and must still emit, so the check fires only where this is set and
+    disagrees — which is also what gives it real negatives. A check that can only pass is not
+    a check.
+
+    Under the engine decision (`docs/design/mendel.md` §1) this stops being a legibility
+    defect: a human who leaves a stale reason does it occasionally and may notice, and an
+    agent tuning settings does it systematically and does not.
+    """
+
+    axis_reason: Line = ""
+    """Why this decision is made this way **at all**, where `reason` is why this answer won.
+
+    A tier-3 rule block carries a methodology — "read length determines which aligner is
+    appropriate", cited to Dobin et al. 2013 — and each row carries a choice made under it.
+    One field was serving both, so the block's citation was printed as the row's reason and
+    the shipped registry stated that HISAT2 was chosen because of the paper describing STAR.
+    Audit A79 and A107, the same defect found from opposite ends.
+
+    Empty for a decision with no axis to state — a contract default has no methodology behind
+    it beyond itself, and inventing one would be the circularity A76 is about.
+    """
+
     from_layer: LayerName | None = None
     displaced_layer: LayerName | None = None
     """Set when a lower layer offered something this one beat. A5, A15 — dropped by two drafts
@@ -156,6 +203,76 @@ class MetaEntry(BaseModel):
 
     key: NfIdentifier
     value: ParamValue
+    why: Why
+    """Where this fact came from. **Required, no default** — the A48 principle: a record that
+    cannot be constructed without answering the question is the fix that lasts.
+
+    A measured fact is a decision the pipeline rests on. `strandedness` becomes featureCounts'
+    `-s`, and getting it wrong is the classic way to a matrix of zeroes — this repository uses
+    `-s 2` as its worked example of the system working. It reached the tool carrying nothing
+    at all, and the measurement's own declared `cite` stopped at the registry. Audit A80.
+
+    `source` separates a profiler that named itself (`MEASURED`) from a number somebody typed
+    into a goal file (`GOAL`). Both are legitimate; only one is checkable, and `sealed` is
+    meant to refuse a tier-3 decision resting on the second — issue #2. **That distinction
+    starts here and is not finished here**: A108 is that the tier-3 *decision* carries no
+    premise, and this only makes the premise recordable.
+    """
+
+
+class ExtArgs(BaseModel):
+    """Flags a module always needs, and why it needs them.
+
+    Was a bare `NfTemplate`, on a recorded argument that has not survived contact: *"nothing
+    resolved it and there is no decision behind it, so giving it a `why` would invent
+    provenance."* That conflates **tier** with **reason**. A tier is about how something was
+    settled; a reason is about why it is what it is, and a tier-1 fact has one — `NfInput.empty`
+    already carries a tier-1 `Why` for a structurally identical thing. Audit A82.
+
+    The argument was also *load-bearing on a premise it did not state*. STAR's
+    `--readFilesCommand zcat` was justified by "TrimGalore emits `.fq.gz`", and one goal edit
+    removes TrimGalore while the flag survives, its stated justification naming a module that
+    is not in the pipeline. Stating the premise about the *reads* rather than about a
+    neighbour is what makes it stay true when the graph moves.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    template: NfTemplate = ""
+    why: Why
+
+    @classmethod
+    def none(cls) -> "ExtArgs":
+        """No baseline flags, said out loud.
+
+        `why` stays required rather than defaulting, so nothing can construct flags without a
+        reason. This is the one case where the reason is knowable in advance, and naming it
+        means "this module needs no baseline arguments" is an answer in the artifact rather
+        than an empty string a reader has to interpret.
+        """
+        return cls(why=_no_flags_why())
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_a_bare_template(cls, data: object) -> object:
+        """`ext_args: "--readFilesCommand zcat"` still parses.
+
+        Same split as `Constraints._accept_mapping`: the ergonomic form somebody writes and
+        the safe representation the artifact keeps are different decisions. A contract that
+        states only the flags materialises with a reason saying so — greppable, and honest
+        about being a gap rather than silently looking like an answer.
+        """
+        if isinstance(data, str):
+            return {
+                "template": data,
+                "why": {
+                    "tier": Tier.STRUCTURAL,
+                    "source": ValueSource.RESOLVER,
+                    "reason": "declared by the contract with no stated reason",
+                    "for_value": data,
+                },
+            }
+        return data
 
 
 class CallArg(BaseModel):
@@ -171,6 +288,13 @@ class CallArg(BaseModel):
     ports: list[PortName] = Field(default_factory=list)
     literal: ParamValue = None
     empty_width: int | None = None
+    from_setting: PortName | None = None
+    """The name of the `settings[]` entry whose value fills this position. `via: positional`.
+
+    Carried on the artifact rather than resolved at emit, for the reason everything else here
+    is: `mendel emit` runs with no registry and cannot ask a contract which parameter belongs
+    in slot 3. Audit A91.
+    """
     join: Join | None = None
     """How `ports` are matched when there is more than one. Mirrors `NfInput.join`.
 
@@ -226,14 +350,17 @@ class Step(BaseModel):
     process: NfIdentifier
     include: NfPath
     why: Why
-    ext_args: NfTemplate = ""
-    """Flags the module always needs, from its contract — `--readFilesCommand zcat` because
-    TrimGalore emits `.fq.gz` and STAR cannot read gzip.
+    ext_args: ExtArgs = Field(default_factory=lambda: ExtArgs(why=_no_flags_why()))
+    """Flags the module always needs, from its contract, **and why it needs them**.
 
-    Not a `Setting`: nothing resolved it and there is no decision behind it, so giving it a
-    `why` would invent provenance. Carried rather than looked up because emission must not
-    need the registry, and composed *before* the resolved settings so a contract's baseline
-    cannot be reordered by a value someone answered.
+    Still not a `Setting` — nothing resolved it and no decision was made — but that is an
+    argument about its *tier*, not about whether it has a reason. It carried none at all
+    until A82, which is how STAR's `--readFilesCommand zcat` reached `nextflow.config`
+    justified by a sentence about a module one goal edit removes.
+
+    Carried rather than looked up because emission must not need the registry, and composed
+    *before* the resolved settings so a contract's baseline cannot be reordered by a value
+    someone answered.
     """
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
@@ -351,7 +478,46 @@ class Pipeline(EgressPayload):
     a finished pipeline, and evidence should not be edited in place.
     """
 
-    version: int = 1
+    @model_validator(mode="before")
+    @classmethod
+    def _backfill_provenance_a_v1_file_never_had(cls, data: object) -> object:
+        """An archived pipeline has no `channels[].meta[].why`, and must still load.
+
+        Plan 1.14 makes that field required — the A48 principle, so nothing can construct a
+        fact without saying where it came from. **Requiring it of a document written before it
+        existed would be a different claim**: that the provenance is missing, rather than that
+        it was never recorded. So a `version: 1` document is backfilled with a `why` that says
+        exactly that, and says it in the file rather than in a release note.
+
+        Deliberately here and not on `MetaEntry`, because the *version* is what licenses the
+        backfill and only this model knows it. A `MetaEntry` validator would fill the gap for
+        a version-2 document too, which would make the requirement decorative — the failure
+        mode `Constraints._accept_mapping` avoids by keeping the ergonomic form and the safe
+        representation separate decisions.
+        """
+        if not isinstance(data, dict) or data.get("version", SCHEMA_VERSION) >= 2:
+            return data
+        legacy = {
+            "tier": Tier.STRUCTURAL,
+            "source": ValueSource.GOAL,
+            "reason": (
+                "provenance was not recorded: this pipeline predates schema 2, which is when "
+                "measured facts began carrying where they came from"
+            ),
+        }
+        data = dict(data)
+        data["channels"] = [
+            {**channel, "meta": [{**entry, "why": entry.get("why") or legacy}
+                                 for entry in channel.get("meta") or []]}
+            for channel in data.get("channels") or []
+        ]
+        return data
+
+    version: int = SCHEMA_VERSION
+    """What this file is written as. Defaults to what this Mendel writes rather than to a
+    literal, because a literal is a second place the version lives and the two drifted the
+    moment `SCHEMA_VERSION` moved without it."""
+
     goal: Goal
     """What was asked for. **Inert to `emit`** — it is input to *resolution*, and the facts
     emission needs are already materialised into `channels[].meta`.
@@ -450,9 +616,10 @@ class Pipeline(EgressPayload):
                     raise ValueError(
                         f"MD0220: {key} says source: human, but no decision records a person "
                         f"answering it — its human_override is null or absent. `source: human` "
-                        f"clears the review, so it must be backed by the answer it claims. Set "
-                        f"the decision's human_override to the value, or restore the source that "
-                        f"resolution gave it. `mendel explain MD0220`."
+                        f"clears the review, so it must be backed by the answer it claims.\n"
+                        f"  Edit `settings[].value` and leave `source` alone: `upgrade` "
+                        f"promotes the answer and sets `source: human` itself. Or restore the "
+                        f"source that resolution gave it. `mendel explain MD0220`."
                     )
         return self
 
@@ -460,6 +627,19 @@ class Pipeline(EgressPayload):
         """`{step.id}.{setting.name}` → value, the key a `ParamDecision` carries."""
         return {
             f"{step.id}.{setting.name}": setting.value
+            for step in self.steps
+            for setting in step.settings
+        }
+
+    def _param_setting_reasons(self) -> dict[str, str]:
+        """The same keys → the reason written beside each value.
+
+        A hand-edited reason travels the route a hand-edited value already does. Anything
+        else and the answer survives `upgrade` while the sentence explaining it does not,
+        which is A77 exactly.
+        """
+        return {
+            f"{step.id}.{setting.name}": setting.why.reason
             for step in self.steps
             for setting in step.settings
         }
@@ -478,16 +658,48 @@ class Pipeline(EgressPayload):
         so the value and any existing override agree by the time this runs.
         """
         values = self._param_setting_values()
+        reasons = self._param_setting_reasons()
         replayable = []
         for record in self.decisions:
             value = values.get(record.key)
             if (
                 getattr(record, "kind", None) is DecisionKind.PARAM
+                and record.human_override is not None
+                and reasons.get(record.key, "") not in ("", record.reason)
+            ):
+                # Already overridden, and the reason beside the value has since been edited.
+                # The promotion branch below only fires the *first* time a value is answered,
+                # so without this a reason written after the answer — the ordinary order,
+                # since `upgrade` is what reveals the machine text worth replacing — would
+                # never reach the record. A77.
+                replayable.append(
+                    record.model_copy(
+                        update={"override_reason": reasons[record.key]}
+                    )
+                )
+            elif (
+                getattr(record, "kind", None) is DecisionKind.PARAM
                 and record.human_override is None
                 and value is not None
                 and value != record.chosen
             ):
-                replayable.append(record.model_copy(update={"human_override": value}))
+                # The reason travels with the answer. A person who edits the value and the
+                # sentence beside it has written both; carrying only the first is how
+                # `upgrade` came to replace *"our sequencer is an Illumina NovaSeq X; lab SOP
+                # BIOINF-014"* with "selected the first of 1 candidates without judgement".
+                # Only when it differs from the resolver's own text, which is not a reason a
+                # person wrote. A77.
+                written = reasons.get(record.key, "")
+                replayable.append(
+                    record.model_copy(
+                        update={
+                            "human_override": value,
+                            "override_reason": (
+                                written if written != record.reason else ""
+                            ),
+                        }
+                    )
+                )
             else:
                 replayable.append(record)
         return replayable
@@ -540,7 +752,7 @@ class Pipeline(EgressPayload):
                     process=contract.nf_process,
                     include=contract.nf_include,
                     why=_why(node.selection),
-                    ext_args=contract.ext_args,
+                    ext_args=_ext_args(contract),
                     inputs=_inputs(ir, node, contract),
                     call=_call(contract),
                     settings=_settings(node, contract),
@@ -563,12 +775,94 @@ class Pipeline(EgressPayload):
         )
 
 
+def _ext_args(contract: ModuleContract) -> ExtArgs:
+    """A contract's baseline flags, with the reason it declared for them.
+
+    `ModuleContract.ext_args` accepts a bare string as well as a record, so this is where the
+    two forms become one shape. A contract that states only the flags gets a reason saying so
+    rather than an invented one — the gap stays visible and greppable. A82.
+    """
+    declared = contract.ext_args
+    if isinstance(declared, str):
+        return ExtArgs.model_validate(declared) if declared else ExtArgs(why=_no_flags_why())
+    return ExtArgs(
+        template=declared.template,
+        why=Why(
+            tier=Tier.STRUCTURAL,
+            source=ValueSource.RESOLVER,
+            reason=declared.because or "declared by the contract with no stated reason",
+            for_value=declared.template,
+        ),
+    )
+
+
+def _no_flags_why() -> Why:
+    """The `why` for a module that declares no `ext_args` at all.
+
+    A step with no flags still answers the question — "why does this module take no baseline
+    arguments" — and the answer is that its contract declares none. Saying so is cheaper than
+    a reader wondering whether the field went missing.
+    """
+    return Why(
+        tier=Tier.STRUCTURAL,
+        source=ValueSource.RESOLVER,
+        reason="this contract declares no flags its module always needs",
+        for_value="",
+    )
+
+
+def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:
+    """One `meta` key, with where its value came from. A80.
+
+    The provenance is the profile's, not this function's invention: `Measured.source` already
+    separates a profiling run that named itself from a number somebody typed into a goal file,
+    and `Measured.by` already names the contract that produced it. Both stopped at the goal.
+
+    Tier 1 throughout, and that is not a cop-out. A measurement is not a *decision* — nothing
+    chose it, the data either says this or it does not — so "no choice exists" is the honest
+    tier. What varies is `source`, and that is the field a reader and `sealed` both need.
+    """
+    entry = next(
+        (m for m in profile.measurements if m.measurement == measurement.id), None
+    )
+    source = entry.source if entry is not None else ValueSource.GOAL
+    by = entry.by if entry is not None else None
+
+    if source is ValueSource.MEASURED:
+        reason = f"measured by {by}" if by else "measured"
+    else:
+        reason = "asserted in the goal; no profiling run established it"
+    if measurement.cite:
+        reason = f"{reason}; {measurement.cite}"
+    if measurement.description:
+        reason = f"{reason} — {measurement.description}"
+
+    return MetaEntry(
+        key=key,
+        value=value,
+        why=Why(
+            tier=Tier.STRUCTURAL,
+            source=source,
+            reason=reason,
+            for_value=value,
+        ),
+    )
+
+
 def _why(value) -> Why:
-    """A `ResolvedValue` seen as provenance. Field for field, no interpretation."""
+    """A `ResolvedValue` seen as provenance. Field for field, no interpretation.
+
+    `for_value` is the one field that is not simply copied, and it needs no interpretation
+    either: the reason was written about the value it arrived with, so recording that value
+    beside it is a statement of fact at the moment it is true. Everything after this point can
+    only make it false, which is exactly what `MD0223` is for. A104.
+    """
     return Why(
         tier=value.tier,
         source=value.source,
         reason=value.reason,
+        axis_reason=value.axis_reason,
+        for_value=value.value,
         from_layer=value.from_layer,
         displaced_layer=value.displaced_layer,
     )
@@ -623,12 +917,14 @@ def _call(contract: ModuleContract) -> list[CallArg]:
             ports=list(spec.ports),
             literal=spec.literal,
             empty_width=spec.empty or None,
+            from_setting=spec.param or None,
             join=spec.join,
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,
                     source=ValueSource.RESOLVER,
                     reason=spec.because,
+                    for_value=spec.literal,
                 )
                 if spec.because
                 else None
@@ -680,7 +976,7 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
 
     channels = []
     for type_id in sorted(needed):
-        entries = measurements.meta_for(type_id, ir.profile) if measurements else {}
+        sourced = measurements.meta_sources_for(type_id, ir.profile) if measurements else {}
         expression = vocab.entry_channels.get(type_id) or _default_entry(type_id)
         declared = vocab.test_data.get(type_id)
         channels.append(
@@ -688,7 +984,9 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
                 type_id=type_id,
                 params=_param_refs(expression),
                 expression=expression,
-                meta=[MetaEntry(key=key, value=entries[key]) for key in sorted(entries)],
+                meta=[
+                    _meta_entry(key, *sourced[key], ir.profile) for key in sorted(sourced)
+                ],
                 test_data=[declared] if isinstance(declared, str) else list(declared or []),
             )
         )

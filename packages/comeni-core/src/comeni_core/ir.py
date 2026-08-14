@@ -68,6 +68,14 @@ class ResolvedValue(BaseModel):
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""
 
+    axis_reason: Line = ""
+    """Why this decision is made this way at all, where `reason` is why this answer won.
+
+    A tier-3 rule block states a methodology and its rows state choices under it. One field
+    carried both, so a block citation was printed as a row's reason and the shipped registry
+    said HISAT2 was chosen because of the paper describing STAR. Audit A79, A107.
+    """
+
     from_layer: LayerName | None = None
     """Which registry layer supplied the thing this value came from.
 

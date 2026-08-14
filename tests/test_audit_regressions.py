@@ -1754,7 +1754,10 @@ def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
-    contract_id = "nf-core/samtools/sort@1.21.0"
+    # `samtools/sort` until Plan 1.14, which routed its `index_format` (A91). The assertion
+    # below is what caught that, and it is why the fixture names its requirement rather than
+    # assuming it.
+    contract_id = "nf-core/fastqc@0.12.1"
     assert loaded.registry.get(contract_id).params == [], "the fixture needs a param-less one"
 
     node = IRNode(
@@ -2016,3 +2019,258 @@ def test_a118_a_value_that_merely_contains_a_measurement_name_still_loads(tmp_pa
     registry_root = Path(__file__).parent.parent / "registry"
     body = COMPUTED.replace('"read_length-1"', '"paired-end"')
     assert layers.load([registry_root, _rule_layer(tmp_path, body)]) is not None
+
+
+def _spine_with_read_length(read_length: int):
+    """Build the shipped spine at a given read length, so the aligner rule picks a row."""
+    from comeni_core.pipeline import Pipeline
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(Path(__file__).parent.parent / "registry")
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile(
+            {"read_length": read_length, "strandedness": "reverse"}
+        ),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    return Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+
+
+def test_a79_the_shipped_registry_does_not_cite_the_wrong_paper():
+    """A79 — reachable by changing one number in `examples/rnaseq-goal.yml`.
+
+    `Pin.because()` was `row.cite or decision.cite or row.because or decision.because` under a
+    docstring claiming *"row before block"*. Two bugs in one line: the precedence is
+    cite-first, and a **block** `cite` justifies the decision *axis* — "read length determines
+    which aligner is appropriate", for which Dobin et al. is fair — while being printed as the
+    reason for a **row**. So the shipped registry said HISAT2 was chosen because of the paper
+    describing STAR.
+    """
+    hisat2 = next(s for s in _spine_with_read_length(50).steps if s.id == "hisat2_align")
+
+    assert "Dobin" not in hisat2.why.reason, hisat2.why.reason
+    assert "Kim" in hisat2.why.reason, "HISAT2's own paper is Kim et al. 2019"
+
+
+def test_a107_authoring_a_citation_does_not_delete_the_sentence():
+    """A107 — the same function from the other end, found by a different reviewer.
+
+    A `cite` shadowed a `because`, so the registry's only plain-English explanation of its
+    only tier-3 decision never reached the artifact. A reader got a DOI where a sentence
+    belonged.
+    """
+    star = next(s for s in _spine_with_read_length(150).steps if s.id == "star_align")
+
+    assert "read length" in star.why.axis_reason.lower(), star.why.axis_reason
+    assert star.why.reason and star.why.reason != star.why.axis_reason
+    assert "seed" in star.why.reason.lower() or "long read" in star.why.reason.lower()
+
+
+def test_a78_a_rule_row_that_justifies_nothing_is_refused(tmp_path):
+    """A78 — it loaded, fired, and emitted a reason ending in a bare colon."""
+    from mendel_resolver import layers
+    from mendel_resolver.rules import RuleValidationError
+
+    body = """version: 1
+decisions:
+  - decides: {param: seq_platform}
+    rows:
+      - {when: {}, then: illumina}
+"""
+    with pytest.raises(RuleValidationError) as caught:
+        layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])
+    assert "MD0301" in str(caught.value)
+
+
+def _mapq_overlay(tmp_path: Path) -> Path:
+    """A laboratory that discards reads below MAPQ 30, and says why it does.
+
+    Shares featureCounts' module key, so it *displaces* the base contract rather than tying
+    with it — invariant 11. Written out in full rather than patched from the base file,
+    because `extra="forbid"` makes a clever textual edit fail as a parse error that reads
+    like the finding.
+    """
+    layer = tmp_path / "acme-lab"
+    (layer / "contracts" / "nf-core").mkdir(parents=True)
+    base = (Path(__file__).parent.parent / "registry" / "contracts" / "nf-core"
+            / "subread-featurecounts.yml").read_text()
+    body = base.replace("    default: 0", "    default: 30").replace(
+        "featureCounts' own documented default",
+        "lab SOP BIOINF-014",
+    )
+    (layer / "contracts" / "nf-core" / "subread-featurecounts.yml").write_text(body)
+    (layer / "registry.yml").write_text('name: acme-lab\nversion: "0"\n')
+    return layer
+
+
+def _min_mqs_why(*roots):
+    from comeni_core.pipeline import Pipeline
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(list(roots))
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+    step = next(s for s in pipeline.steps if s.id == "subread_featurecounts")
+    return next(s for s in step.settings if s.name == "min_mqs")
+
+
+def test_a76_an_overlay_default_is_distinguishable_from_the_base_default(tmp_path):
+    """A76, critical — value 0 and value 30 produced a **byte-identical** `why:`.
+
+    Raising featureCounts' `-Q` from 0 to 30 discards every read below mapping quality 30.
+    That is a real change to which reads are counted, and the record said exactly the same
+    thing before and after: `tier: 2 / source: resolver / reason: contract default for
+    min_mqs`, `from_layer: null` — while the step above it correctly attributed its layer.
+
+    Tier 2 is defined as *"a documented default exists"* and the design had nowhere to put
+    the document: the overlay author's justification was a YAML comment, dropped at parse.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+
+    base = _min_mqs_why(registry_root)
+    lab = _min_mqs_why(registry_root, _mapq_overlay(tmp_path))
+
+    assert base.value == 0 and lab.value == 30
+    assert base.why != lab.why, "a different value with an identical justification is A76"
+    assert lab.why.from_layer == "acme-lab", "tier 2 must say which layer documented it"
+    assert "SOP" in lab.why.reason
+    assert base.why.reason != "contract default for min_mqs", (
+        "a reason naming the field it explains is circular — it says who, not why"
+    )
+
+
+def test_a128_a_priority_win_says_why_the_registry_ranks_it_there(tmp_path):
+    """A128 — `priority` is a bare integer and the selection said only what it did.
+
+    *"registry priority 10, over nf-core/hisat2/align@2.2.2"* states the mechanism, not the
+    reason. Tier 2 promises "a documented default exists", and the document was a YAML
+    comment the loader discards — A76's exact shape, one field over.
+
+    Reached by giving the goal no `read_length`, so the tier-3 rule cannot fire and priority
+    is what decides.
+    """
+    ir = _aligner_ir(Path(__file__).parent.parent / "registry")
+    node = next(n for n in ir.nodes if n.id == "star_align")
+
+    assert node.selection.tier is Tier.CONVENTION
+    assert "priority 10" in node.selection.reason, "the mechanism is still worth stating"
+    assert "nf-core/rnaseq" in node.selection.axis_reason, (
+        "and now the reason the registry ranks it there"
+    )
+
+
+def test_a91_a_positional_parameter_reaches_the_call_and_nothing_else(tmp_path):
+    """A91, critical — one call carrying **two values of the same name, disagreeing**.
+
+    `Via` had three members and none emitted into a call position, so three of ten vendored
+    modules took a bare `val` that no route could reach. Routing STAR's own
+    `star_ignore_sjdbgtf` the only way the design permitted — `via: meta` — produced:
+
+        STAR_ALIGN((TRIMGALORE.out.reads).map { it -> [ it[0] + [star_ignore_sjdbgtf: true] ]
+                   + it[1..-1] }, STAR_GENOMEGENERATE.out.index, ch_annotation_gtf, false)
+
+    The documented, tier-4, human-answered value landed in `meta`, where `main.nf:47` never
+    looks. The one STAR reads is the trailing `false`. `pipeline.yml` said the GTF was being
+    ignored; the pipeline used it.
+    """
+    from comeni_core.pipeline import Pipeline
+    from mendel_compiler.emit import emit
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput, ParamOverride
+    from mendel_resolver.resolve import resolve
+
+    root = Path(__file__).parent.parent
+    loaded = layers.load(root / "registry")
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={
+            "required_states": {"counts.matrix": ["gene_level"]},
+            "params": [ParamOverride(name="star_ignore_sjdbgtf", value=True)],
+        },
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+    call = next(
+        line for line in emit(pipeline).splitlines() if "STAR_ALIGN(" in line
+    )
+
+    assert call.count("star_ignore_sjdbgtf") == 0, (
+        "it is positional; the module reads it by position and no name is emitted"
+    )
+    assert call.rstrip().endswith("true)"), call
+
+
+def test_a91_a_meta_route_to_a_key_the_module_never_reads_is_refused():
+    """The other half of A91: the route that let it hide.
+
+    `MD0108` exists to refuse a route the module does not read, and gated on
+    `via is not Via.EXT` — its own docstring conceded meta and directive were unchecked. So
+    routing a parameter to `meta` produced a value STAR never looks at, no diagnostic fired,
+    and the artifact recorded a documented, human-answered decision that reached nothing.
+    """
+    from mendel_compiler import conformance
+    from mendel_resolver import layers
+
+    root = Path(__file__).parent.parent
+    loaded = layers.load(root / "registry")
+    contract = loaded.registry.get("nf-core/star/align@1.11.0")
+    # Reroute the positional parameter to `meta`, which is exactly what the audit did and
+    # what nothing refused.
+    # `model_validate` rather than `model_copy`: the latter skips validation and leaves
+    # `via` as the *string* "meta", which `is Via.META` then misses — A62's shape, and it
+    # would have made this test pass for the wrong reason had the check used `==`.
+    raw = contract.model_dump()
+    for entry in raw["params"]:
+        if entry["name"] == "star_ignore_sjdbgtf":
+            entry.update(via="meta", key=None, template=None)
+    rerouted = type(contract).model_validate(raw)
+    registry = loaded.registry
+    registry.contracts[contract.id] = rerouted
+
+    # `module_root` is the vendor directory, not the repo root: `module_path` joins it with
+    # `nf_include`, which is where a module lands in the *generated* pipeline.
+    found = conformance.check(registry, root / "vendor")
+    codes = {(d.code, d.where) for d in found}
+
+    assert any(
+        code == "MD0108" and "star_ignore_sjdbgtf" in where for code, where in codes
+    ), codes

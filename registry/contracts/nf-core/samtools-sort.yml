@@ -3,12 +3,20 @@ nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
 produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
-params: []
+params:
+  - name: index_format
+    default: bai
+    because: >-
+      BAI, not CSI. Every downstream tool in this spine reads BAI and it is nf-core's own
+      default; CSI is required only for chromosomes above 512 Mbp, which no reference this
+      registry supports has. A laboratory working on such a genome must change this, which
+      is why it is a decision somebody can answer rather than a string in the call. Audit A91.
+    via: positional
 priority: 0
 # tuple(meta, bam) | tuple(meta2, fasta, fai) | val index_format
 nf_inputs:
   - {ports: [bam]}
   - {empty: 3, because: "the reference is only needed to write CRAM; this emits BAM"}
-  - {literal: bai}
+  - {param: index_format}
 container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}

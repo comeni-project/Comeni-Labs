@@ -1,0 +1,14 @@
+# R10 — duplicate handling. Three-way: UMIs present -> umi_tools dedup; no UMIs and a
+# PCR-amplified library -> Picard MarkDuplicates (mark, do not remove); amplicon -> neither,
+# because every read is a duplicate by construction.
+#
+# The third branch is "no step". See R8.
+version: 1
+decisions:
+  - decides: {producer_of: alignment.bam}
+    because: "duplicate handling depends on whether duplicates are informative"
+    cite: "Smith et al. 2017, doi:10.1101/gr.209601.116; Picard MarkDuplicates docs"
+    rows:
+      - {when: {umi_present: true},              then: nf-core/umitools/dedup@1.1.5}
+      - {when: {library_prep: amplicon},         then: null}
+      - {when: {},                                then: nf-core/picard/markduplicates@3.1.1}

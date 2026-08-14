@@ -1,0 +1,9 @@
+# R20 — a rule naming a contract the local stack does not hold. A laboratory writing rules
+# for its own overlay against a registry it does not control hits this immediately.
+version: 1
+decisions:
+  - decides: {producer_of: counts.matrix}
+    because: "selective alignment is faster and handles multi-mapping transcripts correctly"
+    cite: "Srivastava et al. 2020, doi:10.1186/s13059-020-02151-8"
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/salmon/quant@1.10.1}

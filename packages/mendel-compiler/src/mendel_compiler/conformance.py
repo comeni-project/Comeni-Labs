@@ -330,6 +330,33 @@ def _dead_ext_routes(contract: ModuleContract, spec: ModuleSpec, path: Path) -> 
                 fix="drop `ext_args`, or vendor a module that reads it",
             )
         )
+    # The `meta` arm, added by Plan 1.14. `MD0108` gated on `via is not Via.EXT` and its own
+    # docstring conceded that meta and directive were unchecked — which is exactly the gap
+    # A91 hid in: routing `star_ignore_sjdbgtf` to `meta` produced a value the module never
+    # reads, no diagnostic fired, and the artifact recorded a documented, human-answered
+    # decision that reached nothing. `meta_reads` was already parsed out of `main.nf` for
+    # `MD0106`, so this costs a comparison rather than a parser.
+    read_keys = {read.key for read in spec.meta_reads}
+    for param in contract.params:
+        if param.via is Via.META and spec.meta_reads and param.name not in read_keys:
+            found.append(
+                Diagnostic(
+                    code="MD0108",
+                    where=f"{contract.id}.params[{param.name}]",
+                    summary=(
+                        f"{param.name} routes to `meta.{param.name}`, which this module "
+                        f"never reads"
+                    ),
+                    detail=(
+                        f"    {path}   reads {', '.join(sorted(read_keys)) or '(no meta keys)'}"
+                    ),
+                    fix=(
+                        "route it somewhere the module reads. A bare `val` in the input "
+                        "block takes `via: positional`; a flag takes `via: ext`. A value in "
+                        "`meta` that nothing reads is the deadness issue #10 was about."
+                    ),
+                )
+            )
     for param in contract.params:
         if param.via is not Via.EXT or not dead(param.key):
             continue
