@@ -201,6 +201,58 @@ for a finding rather than a fix:
 **The guard ledger has five new sections** (Tasks 6–11) and `docs/internal/audits/guard-ledger.md`
 is where every probe is recorded, including the ones that found nothing.
 
+### Mendel is the engine and the AI is its primary operator — decided 2026-08-14
+
+**The decision:** everything built through Plan 1 is the engine. A human can drive it and the CLI
+is built so they can, but the intended operator is the AI — it turns plain language into a goal,
+drives the engine, and `pipeline.yml` is the **save file** it sets down and picks back up, tunes
+and re-emits, rather than carrying a pipeline in its context. The full statement is
+`docs/design/mendel.md` §1; this records that it was decided and why it needed deciding.
+
+**Why it needed deciding.** The 2026-08-14 design audit's synthesis compared the artifact to a
+chat window and asked whether a bench scientist could follow it. The operator's correction was
+that this compares a substrate to a product: through Plan 1 there is no AI layer at all, so the
+comparison was category-confused. The repository had been documenting both readings at once —
+`CLAUDE.md` calls a pipeline "a shareable artifact… the file a reader opens", the artifact's own
+header says "Read it; edit it" — without ever saying which one is primary. Two readings implying
+different amounts of work is exactly the shape of thing this file exists to settle.
+
+**It costs no invariant, and the check matters more than the conclusion.** An agent running
+`mendel build`, editing `pipeline.yml` and running `mendel emit` is a *user of the CLI*, outside
+the engine, exactly as a human at a terminal is. Invariant 3 constrains what **Mendel** calls, not
+who calls Mendel; the three runtime AI points stay three and the four doors stay four. If a later
+design does put a model inside the engine to tune an artifact, that is a fourth point and a new
+door, and it must be argued on its own rather than inherited from this decision.
+
+**What it changes: three audit findings get promoted.** Under a human-primary reading these are
+legibility defects; under this one they are correctness defects, because the failure mode is a
+machine's rather than a person's.
+
+- **A104/A105/A77 — `why:` does not track its value.** A human who edits a value and leaves a
+  stale reason beside it does it occasionally and may notice. An agent does it systematically and
+  does not.
+- **A106 — five of six values reaching the tools carry no `why:`.** A person reading a blank asks;
+  **a model reading a blank fills it** from its own knowledge, with a deterministic pipeline
+  standing behind the guess lending it credibility. That is the exact failure this design exists
+  to prevent, arriving through the component meant to prevent it.
+- **A130 — nothing distinguishes a model-authored `why.reason` from a human-authored one.** Under
+  `guarded` and `sealed`, where attribution is required, that distinction is load-bearing. It was
+  a medium finding; under this decision it is a gap in the protection profiles.
+
+**The argument against, recorded because it is real.** "The AI is the primary operator" is a
+claim about a component that does not exist yet — Plan 2 Task 3 is the only thing that will make
+it true, and it has been deferred four times. Deciding the shape of an interface around a consumer
+nobody has built is how the four-file bundle got designed, and `docs/internal/plans/` is full of
+plans written against types that turned out not to exist. There is a real risk that "what the
+agent needs" is guessed here and guessed wrong.
+
+**The counter, which is why the decision stands.** It does not add machinery for a hypothetical
+consumer; it *raises the standard* on fields the artifact already has and the design audit already
+found wanting, and every one of the promoted findings is a defect under the human reading too —
+they only change severity. Nothing is built speculatively. And leaving it undecided was itself a
+choice with a cost: the audit spent a stream's worth of judgement on a question the documents
+could have answered.
+
 ### On the numbering
 
 `1.5`, `1.6` and `1.7` are the deterministic core: no AI, no network, no new dependency.

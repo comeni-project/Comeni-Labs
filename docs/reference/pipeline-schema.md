@@ -15,6 +15,15 @@ A `pipeline.yml` is **generated, never hand-authored from nothing**. Resolution 
 registry and always will. This is the output of resolution that you may then edit; it is not a
 second way in. `mendel build --goal` is the only way to make one.
 
+**It is a save file, and you are not its only reader.** Mendel is the engine and the AI is its
+primary operator (`docs/design/mendel.md` §1, decided 2026-08-14): an agent writes one of these,
+sets it down, picks it up later, tunes a setting and re-emits, rather than carrying a pipeline
+around in its context. So every field here has two audiences — a person deciding whether to trust
+this pipeline, and a machine deciding what to change. Where those pull apart, the machine's need
+is the stricter one: a person reading a value with no reason beside it sees a blank and asks; a
+model sees a blank and fills it. That is why a missing `why:` is a defect here rather than an
+omission.
+
 ## What a pipeline directory holds
 
 ```

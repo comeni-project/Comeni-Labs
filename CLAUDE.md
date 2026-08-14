@@ -8,6 +8,18 @@ The product claim, which every design decision serves:
 
 > Same goal in → same pipeline out, and nothing was guessed silently.
 
+**Mendel is the engine, and the AI is its primary operator** — decided 2026-08-14, see
+`docs/design/mendel.md` §1. A human can drive it and the CLI is built so they can, but the
+intended operator is the AI: it turns plain language into a goal, drives the engine, and
+`pipeline.yml` is the **save file** it sets down, picks up, tunes and re-emits rather than
+carrying a pipeline in its context. That is the inversion the product rests on — a chat window
+has the model produce the pipeline, here the model produces only a *goal* and a deterministic
+engine produces the pipeline, so the model's unreliability is confined to a typed input and
+cannot reach the output. **It changes no invariant**: an agent driving the CLI is a user of it,
+outside the engine, and invariant 3 constrains what Mendel calls rather than who calls Mendel.
+What it does change is the standard the artifact is held to — a person reading a value with no
+reason sees a blank and asks; a model sees a blank and fills it.
+
 ## Current state
 
 > **Start with the latest entry in [`docs/internal/journal/`](docs/internal/journal/).**
