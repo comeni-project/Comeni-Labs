@@ -48,7 +48,7 @@ from comeni_core.marks import (
     TypeId,
     substitutable,
 )
-from comeni_core.routes import TEMPLATED, ExtKey, Via
+from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.tiers import Tier, ValueSource
 
 SCHEMA_VERSION = 1
@@ -171,6 +171,13 @@ class CallArg(BaseModel):
     ports: list[PortName] = Field(default_factory=list)
     literal: ParamValue = None
     empty_width: int | None = None
+    join: Join | None = None
+    """How `ports` are matched when there is more than one. Mirrors `NfInput.join`.
+
+    Carried on the artifact rather than read back from the contract because `mendel emit`
+    runs with **no registry and no network** — it has this file and nothing else, so a fact
+    the emitter needs has to be in it. Audit A92.
+    """
     why: Why | None = None
     """A positional literal is as much a decision as a flag is. `NfInput.empty` already
     requires a `because`; this carries the whole provenance instead, because "every choice
@@ -616,6 +623,7 @@ def _call(contract: ModuleContract) -> list[CallArg]:
             ports=list(spec.ports),
             literal=spec.literal,
             empty_width=spec.empty or None,
+            join=spec.join,
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,

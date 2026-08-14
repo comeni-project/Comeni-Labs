@@ -789,3 +789,16 @@ oversight somebody "fixes" later.
 holds. It does — `build`, `upgrade` and `profile` all run `conformance.check` unconditionally
 before emitting, and no genuinely-built pipeline reaches publish with unchecked contracts. A70 is
 `main.nf` ↔ `pipeline.yml` correspondence, a different question, and A50 is not reopened.
+
+## Plan 1.13 — closing the design audit's correctness findings
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_join.py::test_by_sample_emits_join` (A92) | `if arg.join is Join.BY_SAMPLE:` in `emit._argument`, so both branches combine | failed | `assert '.join(' in 'SAMTOOLS_SORT.out.bam.combine(ch_annotation_gtf.map { it[1] })'` — names the expression it got |
+
+**The A92 guard has two halves and only one of them is a revert.** The emitter half is above. The
+other half is `test_two_samples_join_pairwise_and_combine_cross_products`, which runs Nextflow on
+two samples and asserts `join` gives 2 correctly-paired outputs while `combine` gives 4 — it
+carries the wrong branch as a parametrised case *on purpose*, so the two are proven to differ
+rather than merely asserted to. That is not a revert-and-watch; it is the failing observation
+itself, kept. It runs in 6s with no Docker, because the process it builds has no container.
