@@ -12,6 +12,7 @@ import pathlib
 
 import pytest
 from comeni_core.contract import NfInput
+from comeni_core.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -296,3 +297,72 @@ def test_two_ports_in_one_channel_must_declare_a_join():
 
 def test_one_port_needs_no_join():
     assert NfInput(ports=["bam"]).join is None
+
+
+def _profiled_goal(loaded) -> Goal:
+    """The `spine_with_profile` goal, reconstructed. Its measurements are asserted, not
+    measured: a plain mapping in a goal file is a claim by whoever typed it."""
+    return Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile(
+            {"read_length": 150, "strandedness": "reverse", "paired": True}
+        ),
+    )
+
+
+def test_a_measured_fact_carries_where_it_came_from(spine_with_profile, loaded):
+    """A80 — `-s 2` is this project's worked example of the system working.
+
+    `strandedness: reverse` becomes featureCounts' `-s 2`, and getting it wrong is the classic
+    way to a matrix of zeroes. It reached the tool with **no `why` of any kind**, while the
+    measurement's own declared `cite` stopped at the registry. `MetaEntry` was key + value.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.of(
+        spine_with_profile,
+        loaded.registry,
+        loaded.vocabulary,
+        loaded.measurements,
+        loaded.paths,
+        goal=_profiled_goal(loaded),
+    )
+    meta = {entry.key: entry for channel in pipeline.channels for entry in channel.meta}
+
+    assert meta["strandedness"].why.reason, "a fact reaching a tool with no reason is A80"
+    assert meta["strandedness"].why.for_value == meta["strandedness"].value
+
+
+def test_an_asserted_fact_and_a_measured_one_are_distinguishable(loaded):
+    """The foundation of A108, and nothing more than that.
+
+    A profiler naming itself and a person typing a number into a goal file are both
+    legitimate; only one is checkable, and `sealed` is meant to refuse a tier-3 decision
+    resting on the second (issue #2). Until now the artifact could not tell them apart at all.
+
+    This does **not** close A108 — the tier-3 *decision* still carries no premise. It makes
+    the premise recordable, which is the part that has to exist first.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    asserted = _profiled_goal(loaded)
+    ir = resolve(
+        asserted,
+        loaded.registry,
+        loaded.rules,
+        loaded.measurements,
+        vocabulary=loaded.vocabulary,
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=asserted
+    )
+    meta = {entry.key: entry for channel in pipeline.channels for entry in channel.meta}
+
+    assert meta["strandedness"].why.source is ValueSource.GOAL
+    assert "goal" in meta["strandedness"].why.reason.lower()

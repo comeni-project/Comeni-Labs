@@ -618,3 +618,21 @@ def test_emit_does_not_call_a_schema_change_an_edit_either(tmp_path, capsys):
 
     assert code == 0
     assert "MD0213" not in capsys.readouterr().err
+
+
+def test_a_v1_file_says_its_provenance_was_never_recorded(tmp_path):
+    """The backfill must make a claim a reader can act on, not fill a hole quietly.
+
+    Plan 1.14 made `channels[].meta[].why` required so nothing can construct a fact without
+    saying where it came from. A document written before that field existed cannot answer, and
+    the honest answer is *"this was never recorded"* rather than an invented citation or a
+    parse failure. Task 2.
+    """
+    from comeni_core.pipeline import Pipeline
+
+    pipeline = Pipeline.model_validate(yaml.safe_load(_archived(tmp_path).read_text()))
+    reasons = {entry.why.reason for channel in pipeline.channels for entry in channel.meta}
+
+    assert reasons, "the fixture carries meta entries, or this asserts nothing"
+    assert all("was not recorded" in reason for reason in reasons)
+    assert all("predates schema 2" in reason for reason in reasons)

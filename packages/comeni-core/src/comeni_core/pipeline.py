@@ -190,6 +190,21 @@ class MetaEntry(BaseModel):
 
     key: NfIdentifier
     value: ParamValue
+    why: Why
+    """Where this fact came from. **Required, no default** — the A48 principle: a record that
+    cannot be constructed without answering the question is the fix that lasts.
+
+    A measured fact is a decision the pipeline rests on. `strandedness` becomes featureCounts'
+    `-s`, and getting it wrong is the classic way to a matrix of zeroes — this repository uses
+    `-s 2` as its worked example of the system working. It reached the tool carrying nothing
+    at all, and the measurement's own declared `cite` stopped at the registry. Audit A80.
+
+    `source` separates a profiler that named itself (`MEASURED`) from a number somebody typed
+    into a goal file (`GOAL`). Both are legitimate; only one is checkable, and `sealed` is
+    meant to refuse a tier-3 decision resting on the second — issue #2. **That distinction
+    starts here and is not finished here**: A108 is that the tier-3 *decision* carries no
+    premise, and this only makes the premise recordable.
+    """
 
 
 class CallArg(BaseModel):
@@ -384,6 +399,41 @@ class Pipeline(EgressPayload):
     rather than assigned, which is the right shape for them anyway — both are evidence about
     a finished pipeline, and evidence should not be edited in place.
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _backfill_provenance_a_v1_file_never_had(cls, data: object) -> object:
+        """An archived pipeline has no `channels[].meta[].why`, and must still load.
+
+        Plan 1.14 makes that field required — the A48 principle, so nothing can construct a
+        fact without saying where it came from. **Requiring it of a document written before it
+        existed would be a different claim**: that the provenance is missing, rather than that
+        it was never recorded. So a `version: 1` document is backfilled with a `why` that says
+        exactly that, and says it in the file rather than in a release note.
+
+        Deliberately here and not on `MetaEntry`, because the *version* is what licenses the
+        backfill and only this model knows it. A `MetaEntry` validator would fill the gap for
+        a version-2 document too, which would make the requirement decorative — the failure
+        mode `Constraints._accept_mapping` avoids by keeping the ergonomic form and the safe
+        representation separate decisions.
+        """
+        if not isinstance(data, dict) or data.get("version", SCHEMA_VERSION) >= 2:
+            return data
+        legacy = {
+            "tier": Tier.STRUCTURAL,
+            "source": ValueSource.GOAL,
+            "reason": (
+                "provenance was not recorded: this pipeline predates schema 2, which is when "
+                "measured facts began carrying where they came from"
+            ),
+        }
+        data = dict(data)
+        data["channels"] = [
+            {**channel, "meta": [{**entry, "why": entry.get("why") or legacy}
+                                 for entry in channel.get("meta") or []]}
+            for channel in data.get("channels") or []
+        ]
+        return data
 
     version: int = SCHEMA_VERSION
     """What this file is written as. Defaults to what this Mendel writes rather than to a
@@ -601,6 +651,44 @@ class Pipeline(EgressPayload):
         )
 
 
+def _meta_entry(key: str, measurement, value, profile) -> MetaEntry:
+    """One `meta` key, with where its value came from. A80.
+
+    The provenance is the profile's, not this function's invention: `Measured.source` already
+    separates a profiling run that named itself from a number somebody typed into a goal file,
+    and `Measured.by` already names the contract that produced it. Both stopped at the goal.
+
+    Tier 1 throughout, and that is not a cop-out. A measurement is not a *decision* — nothing
+    chose it, the data either says this or it does not — so "no choice exists" is the honest
+    tier. What varies is `source`, and that is the field a reader and `sealed` both need.
+    """
+    entry = next(
+        (m for m in profile.measurements if m.measurement == measurement.id), None
+    )
+    source = entry.source if entry is not None else ValueSource.GOAL
+    by = entry.by if entry is not None else None
+
+    if source is ValueSource.MEASURED:
+        reason = f"measured by {by}" if by else "measured"
+    else:
+        reason = "asserted in the goal; no profiling run established it"
+    if measurement.cite:
+        reason = f"{reason}; {measurement.cite}"
+    if measurement.description:
+        reason = f"{reason} — {measurement.description}"
+
+    return MetaEntry(
+        key=key,
+        value=value,
+        why=Why(
+            tier=Tier.STRUCTURAL,
+            source=source,
+            reason=reason,
+            for_value=value,
+        ),
+    )
+
+
 def _why(value) -> Why:
     """A `ResolvedValue` seen as provenance. Field for field, no interpretation.
 
@@ -726,7 +814,7 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
 
     channels = []
     for type_id in sorted(needed):
-        entries = measurements.meta_for(type_id, ir.profile) if measurements else {}
+        sourced = measurements.meta_sources_for(type_id, ir.profile) if measurements else {}
         expression = vocab.entry_channels.get(type_id) or _default_entry(type_id)
         declared = vocab.test_data.get(type_id)
         channels.append(
@@ -734,7 +822,9 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
                 type_id=type_id,
                 params=_param_refs(expression),
                 expression=expression,
-                meta=[MetaEntry(key=key, value=entries[key]) for key in sorted(entries)],
+                meta=[
+                    _meta_entry(key, *sourced[key], ir.profile) for key in sorted(sourced)
+                ],
                 test_data=[declared] if isinstance(declared, str) else list(declared or []),
             )
         )

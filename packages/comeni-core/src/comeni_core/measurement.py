@@ -317,7 +317,25 @@ class MeasurementRegistry(BaseModel):
         a `meta` key with a made-up value is worse than an absent one, because the module
         will use it.
         """
-        found: dict[str, ParamValue] = {}
+        return {key: value for key, (_, value) in self.meta_sources_for(type_id, profile).items()}
+
+    def meta_sources_for(
+        self, type_id: str, profile: DataProfile
+    ) -> dict[str, tuple["Measurement", ParamValue]]:
+        """The same entries, each with the measurement that produced it.
+
+        `meta_for` answers *what value* and is what emission needs. This answers *on whose
+        authority*, which is what the artifact needs and did not have: `strandedness: reverse`
+        becomes featureCounts' `-s 2` — the classic way to a matrix of zeroes — and it reached
+        the tool with no provenance of any kind while the measurement's own declared `cite`
+        stopped at the registry. Audit A80.
+
+        Two accessors rather than one richer return, because the callers want different
+        things and `meta_for`'s three test callers assert on a plain mapping. This is the
+        provenance-carrying one; that one stays the value-carrying one and is now derived from
+        it, so they cannot disagree about which entries exist.
+        """
+        found: dict[str, tuple[Measurement, ParamValue]] = {}
         for measurement_id in self.ids():
             measurement = self.get(measurement_id)
             if measurement.describes != type_id or not measurement.meta_key:
@@ -329,5 +347,5 @@ class MeasurementRegistry(BaseModel):
                 if translation.when == value:
                     value = translation.then
                     break
-            found[measurement.meta_key] = value
+            found[measurement.meta_key] = (measurement, value)
         return found

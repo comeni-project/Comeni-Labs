@@ -863,3 +863,18 @@ certification. Nobody staged that; an existing A47 guard caught it on the first 
 after the change. Two unprompted catches in two plans (`test_purity.py` in 1.13, this in 1.14),
 both from guards written for something else, is the argument for running the *whole* gate rather
 than the tests you think you touched.
+| 2026-08-14 | `test_runnable.py::test_an_asserted_fact_and_a_measured_one_are_distinguishable` (A80) | the asserted branch in `_meta_entry` reworded to `"measured"` | failed | `assert 'goal' in 'measured; signal et al. 2022 …'` — the artifact claiming a profiling run that never happened |
+| 2026-08-14 | `test_upgrade.py` ×3 + `test_pipeline_file.py::test_a_schema_change_…` | nothing — `MetaEntry.why` was made required | **failed unprompted** | the committed v1 fixture stopped parsing, which is a required field breaking archived pipelines |
+
+**A third unprompted catch, and this one came from a fixture rather than a guard.** Making
+`MetaEntry.why` required is right for construction and wrong for *reading*: a document written
+before the field existed cannot answer, and requiring it of one asserts that the provenance is
+missing rather than that it was never recorded. The committed pre-1.13 pipeline caught that
+within a minute of the change. The backfill says so in the file — *"provenance was not recorded:
+this pipeline predates schema 2"* — and `test_a_v1_file_says_its_provenance_was_never_recorded`
+pins the claim, because a migration that quietly invents a citation is worse than one that
+refuses.
+
+That fixture was committed an hour earlier for a different reason entirely (Task 0's digest
+test). It has now caught a second, unrelated compatibility break. Committing it was the cheapest
+thing in this plan.

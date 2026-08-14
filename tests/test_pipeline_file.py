@@ -690,7 +690,7 @@ SERIALISED_SHAPE = {
     "Setting": ["name", "value", "via", "key", "template", "why"],
     "Why": ["tier", "source", "reason", "for_value", "from_layer", "displaced_layer"],
     "CallArg": ["ports", "literal", "empty_width", "join", "why"],
-    "MetaEntry": ["key", "value"],
+    "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
 }
 """The artifact's serialised field order, as of `SCHEMA_VERSION = 2`.
