@@ -20,6 +20,11 @@ params:
 # convention (tier 2). A tier-3 rule keyed on read_length supersedes this with a
 # citation once the rule format lands.
 priority: 10
+priority_because: >-
+  nf-core/rnaseq's default aligner, so this registry prefers it by convention where no
+  measurement distinguishes the candidates. Ranked above HISAT2 rather than beside it: the
+  tier-3 rule below decides on read length where one is measured, and this is what answers
+  when none is.
 # tuple(meta, reads) | tuple(meta2, index) | tuple(meta3, gtf) | val ignore_sjdbgtf
 nf_inputs:
   - {ports: [reads]}

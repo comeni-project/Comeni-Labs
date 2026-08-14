@@ -2090,3 +2090,96 @@ decisions:
     with pytest.raises(RuleValidationError) as caught:
         layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])
     assert "MD0301" in str(caught.value)
+
+
+def _mapq_overlay(tmp_path: Path) -> Path:
+    """A laboratory that discards reads below MAPQ 30, and says why it does.
+
+    Shares featureCounts' module key, so it *displaces* the base contract rather than tying
+    with it — invariant 11. Written out in full rather than patched from the base file,
+    because `extra="forbid"` makes a clever textual edit fail as a parse error that reads
+    like the finding.
+    """
+    layer = tmp_path / "acme-lab"
+    (layer / "contracts" / "nf-core").mkdir(parents=True)
+    base = (Path(__file__).parent.parent / "registry" / "contracts" / "nf-core"
+            / "subread-featurecounts.yml").read_text()
+    body = base.replace("    default: 0", "    default: 30").replace(
+        "featureCounts' own documented default",
+        "lab SOP BIOINF-014",
+    )
+    (layer / "contracts" / "nf-core" / "subread-featurecounts.yml").write_text(body)
+    (layer / "registry.yml").write_text('name: acme-lab\nversion: "0"\n')
+    return layer
+
+
+def _min_mqs_why(*roots):
+    from comeni_core.pipeline import Pipeline
+    from mendel_resolver import layers
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    loaded = layers.load(list(roots))
+    goal = Goal(
+        have=[
+            GoalInput(type_id="fastq.reads"),
+            GoalInput(type_id="annotation.gtf"),
+            GoalInput(type_id="genome.fasta"),
+        ],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+        profile=loaded.measurements.profile({"read_length": 150, "strandedness": "reverse"}),
+    )
+    ir = resolve(
+        goal, loaded.registry, loaded.rules, loaded.measurements, vocabulary=loaded.vocabulary
+    )
+    pipeline = Pipeline.of(
+        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal
+    )
+    step = next(s for s in pipeline.steps if s.id == "subread_featurecounts")
+    return next(s for s in step.settings if s.name == "min_mqs")
+
+
+def test_a76_an_overlay_default_is_distinguishable_from_the_base_default(tmp_path):
+    """A76, critical — value 0 and value 30 produced a **byte-identical** `why:`.
+
+    Raising featureCounts' `-Q` from 0 to 30 discards every read below mapping quality 30.
+    That is a real change to which reads are counted, and the record said exactly the same
+    thing before and after: `tier: 2 / source: resolver / reason: contract default for
+    min_mqs`, `from_layer: null` — while the step above it correctly attributed its layer.
+
+    Tier 2 is defined as *"a documented default exists"* and the design had nowhere to put
+    the document: the overlay author's justification was a YAML comment, dropped at parse.
+    """
+    registry_root = Path(__file__).parent.parent / "registry"
+
+    base = _min_mqs_why(registry_root)
+    lab = _min_mqs_why(registry_root, _mapq_overlay(tmp_path))
+
+    assert base.value == 0 and lab.value == 30
+    assert base.why != lab.why, "a different value with an identical justification is A76"
+    assert lab.why.from_layer == "acme-lab", "tier 2 must say which layer documented it"
+    assert "SOP" in lab.why.reason
+    assert base.why.reason != "contract default for min_mqs", (
+        "a reason naming the field it explains is circular — it says who, not why"
+    )
+
+
+def test_a128_a_priority_win_says_why_the_registry_ranks_it_there(tmp_path):
+    """A128 — `priority` is a bare integer and the selection said only what it did.
+
+    *"registry priority 10, over nf-core/hisat2/align@2.2.2"* states the mechanism, not the
+    reason. Tier 2 promises "a documented default exists", and the document was a YAML
+    comment the loader discards — A76's exact shape, one field over.
+
+    Reached by giving the goal no `read_length`, so the tier-3 rule cannot fire and priority
+    is what decides.
+    """
+    ir = _aligner_ir(Path(__file__).parent.parent / "registry")
+    node = next(n for n in ir.nodes if n.id == "star_align")
+
+    assert node.selection.tier is Tier.CONVENTION
+    assert "priority 10" in node.selection.reason, "the mechanism is still worth stating"
+    assert "nf-core/rnaseq" in node.selection.axis_reason, (
+        "and now the reason the registry ranks it there"
+    )

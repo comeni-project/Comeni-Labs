@@ -18,6 +18,7 @@ from comeni_core.vocabulary import UnknownTypeError, Vocabulary
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
+from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
 
@@ -121,6 +122,12 @@ def resolve(
                 param_name=param.name,
                 tier_hint=param.tier_hint,
                 default=param.default,
+                because=param.because,
+                # The layer the *contract* came from, which is not `step.from_layer`: that is
+                # the layer whose rule decided the *selection*, and the two differ whenever an
+                # overlay's rule reroutes to a base-layer module. A22's distinction, applied
+                # to the value rather than to the module.
+                from_layer=_layer_of(registry, contract.id),
                 goal=goal,
                 rules=rules,
                 resolver=resolver,
@@ -253,6 +260,8 @@ def _resolve_param(
     param_name: str,
     tier_hint: int | None,
     default: object,
+    because: str,
+    from_layer: str | None,
     goal: Goal,
     rules: RuleTable,
     resolver: AmbiguityResolver,
@@ -292,10 +301,16 @@ def _resolve_param(
 
     # Tier 2 — a documented default exists for this context.
     if default is not None:
+        # The *document*, and the layer that wrote it. Both were missing: the reason was
+        # `contract default for {name}`, which names the field it is explaining rather than
+        # justifying it, and `from_layer` stayed null even when an overlay supplied the
+        # value — so a laboratory raising featureCounts' `-Q` from 0 to 30, discarding every
+        # read below mapping quality 30, produced a byte-identical justification. A76, A128.
         return ResolvedValue(
             value=default,
             tier=Tier.CONVENTION,
-            reason=f"contract default for {param_name}",
+            reason=because or "the contract declares this default and states no reason",
+            from_layer=from_layer,
         )
 
     # Tier 4 — nothing decided it. Ask the port, record it, flag it.

@@ -922,3 +922,16 @@ rather than a problem. Each was a minimal rule written before a justification wa
 eleven now carry one. The one in `test_resolve.py` was more interesting — it asserted the
 block's `because` appeared in the row's `reason`, which is precisely the conflation A79 is, so
 the assertion moved to `axis_reason` rather than being deleted.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-14 | `test_audit_regressions.py::test_a76_…` | `from_layer=from_layer` on the tier-2 branch | failed | `tier 2 must say which layer documented it` / `assert None == 'acme-lab'` |
+| 2026-08-14 | `test_audit_regressions.py::test_a128_…` | the `chosen.priority_because` fallback in `_choose`'s caller | failed | `assert 'nf-core/rnaseq' in ''` |
+
+**Task 1 had already half-closed A76 without either of us noticing.** The finding is that a
+value moving 0 → 30 produced a *byte-identical* `why:`; `Why.for_value` (Task 1) made the two
+blocks differ before this task touched anything, so the `base.why != lab.why` assertion passed
+on arrival. What was still broken is the part that matters to a reader: `from_layer: null` on a
+value an overlay supplied, and a reason — `contract default for min_mqs` — that names the field
+it is explaining rather than justifying it. Worth recording, because "the test passes" and "the
+finding is closed" came apart here, and only writing the assertions separately showed it.

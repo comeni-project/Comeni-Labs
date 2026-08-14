@@ -128,6 +128,19 @@ class Param(BaseModel):
     name: NfIdentifier
     tier_hint: int | None = None
     default: Any = None
+    because: str = ""
+    """Why this default is this value — the *document* tier 2 claims exists.
+
+    Tier 2 is defined as "a documented default exists", and there was nowhere to put the
+    document. A laboratory raising featureCounts' `-Q` from 0 to 30 — discarding every read
+    below mapping quality 30, a real change to which reads are counted — produced a
+    **byte-identical** `why:` block, because the justification lived in a YAML comment the
+    loader drops. Audit A76.
+
+    Empty is legal and materialises as *"no reason was declared"* rather than as the old
+    circular text: `contract default for min_mqs` names the field it is explaining, which
+    says who settled it and not why.
+    """
     via: Via
     """Which emission site carries this. No default: a setting with no route is the defect."""
     key: ExtKey | None = None
@@ -289,6 +302,18 @@ class ModuleContract(BaseModel):
     produces: list[OutputPort] = Field(default_factory=list)
     params: list[Param] = Field(default_factory=list)
     priority: int = 0
+    priority_because: str = ""
+    """Why this contract ranks where it does — the same missing document as `Param.because`.
+
+    A tier-2 module selection reads *"registry priority 10, over …"*, which states the
+    mechanism and not the reason. `priority` is a bare integer, and the justification for the
+    shipped one lives in a YAML comment the loader discards: exactly A76's shape, one field
+    over. Audit A128.
+
+    Reaches the artifact as the selection's `axis_reason` — *why is priority the thing
+    deciding here* — leaving `reason` to say which contract won and by what margin.
+    """
+
     container: ContainerRef | None = None
     """The container URI as the module declares it, tag and all.
 

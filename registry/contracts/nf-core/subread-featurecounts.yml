@@ -9,13 +9,14 @@ produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
 # `meta.strandedness`, which this module already translates into `-s`. A Param for it would
 # resolve to a value that reaches nothing, which is the defect this registry exists after.
 #
-# `min_mqs` is a genuine setting and is declared rather than left to the tool: featureCounts
-# discards reads below this mapping quality, so a laboratory comparing two runs needs it
-# written down. 0 is featureCounts' own documented default, so declaring it changes no
-# number — it makes the threshold part of the record instead of part of the tool.
 params:
   - name: min_mqs
     default: 0
+    because: >-
+      featureCounts' own documented default, so declaring it changes no number — it makes the
+      mapping-quality threshold part of the record instead of part of the tool. featureCounts
+      discards reads below it, so a laboratory comparing two runs needs it written down, and
+      a laboratory that raises it is making a real change to which reads are counted.
     via: ext
     key: args
     template: "-Q {value}"

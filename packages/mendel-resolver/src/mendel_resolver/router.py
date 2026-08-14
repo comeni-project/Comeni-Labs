@@ -194,9 +194,16 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
-                    # The pin carries the block's methodology; a non-rule selection has no
-                    # axis to state and leaves this empty rather than inventing one.
-                    selection_axis_reason=pin.axis_because() if pin is not None else "",
+                    # Two sources, because there are two ways a selection acquires an axis.
+                    # A rule pin carries its block's methodology. A tier-2 win carries the
+                    # registry's reason for ranking this contract where it does — `priority`
+                    # is a bare integer and *"registry priority 10, over …"* states the
+                    # mechanism, not the reason (A128, which is A76 one field over).
+                    # Anything else genuinely has no axis and says nothing rather than
+                    # inventing one.
+                    selection_axis_reason=(
+                        pin.axis_because() if pin is not None else chosen.priority_because
+                    ),
                     selection_source=source,
                     # A rule that fired decided this, so the rule's layer is the answer —
                     # not the layer the winning contract happens to sit in. Those differ
