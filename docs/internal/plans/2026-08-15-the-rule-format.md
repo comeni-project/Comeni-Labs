@@ -39,6 +39,20 @@ Read it before Task 0; every task below argues from a numbered section of it.
   `MD0300`–`MD0399` band is routing and resolution. Every new code gets a `diagnostics.yml` entry
   and `make docs` regenerates the table in `docs/reference/cli.md`.
 - **Line length 100.** `uv run ruff check .` clean at every commit.
+- **Everything here is written by a person and read by one — tiers, rules, and decisions alike.**
+  Operator's requirement, 2026-08-15; spec §4.7 and §6. It binds every task, not the two that
+  mention it:
+  - **No structured value is a reader's only account of itself.** A mapping is what a policy
+    reads. Wherever one reaches `pipeline.yml` or a diagnostic, a sentence goes beside it. The
+    live counter-example is the shipped `reason:` carrying `{''read_length'': ''>= 70''}` — a
+    dict repr in YAML, naming the predicate and not the value.
+  - **A refusal names the offending thing *and* what would have been right.** Every code from
+    `MD0302` to `MD0311`. Already this repository's practice; here it is a requirement.
+  - **A rule reads as a claim about the world.** `presence: trimming` and
+    `implementation: alignment` are English; `producer_of: fastq.reads` with `then: null` — the
+    old way to spell *"do not trim"* — is not.
+  - **A number that means something carries its meaning.** `tier: 3` gains `review: advisory`
+    (Task 7 Step 5), so the artifact stops requiring `CLAUDE.md` open beside it.
 
 ## Scope note
 
@@ -232,46 +246,110 @@ git commit -m "feat(core): a contract declares the roles it fills (A119, A123)"
 - Test: `packages/mendel-resolver/tests/test_premises.py`
 
 **Interfaces:**
-- Consumes: `MeasurementRegistry` (Task 0 unchanged), `DataProfile`, `Goal`.
+- Consumes: `MeasurementRegistry`, `DataProfile`, `Goal`.
 - Produces: `PremiseOrigin` (StrEnum: `MEASURED`, `ASSERTED`, `GOAL`, `DERIVED`, `UNMEASURED`);
   `Premise(id, value, origin, because, cite, derived_from)`;
-  `build_premises(*, profile, goal, derivations, measurements) -> dict[str, Premise]`.
+  `build_premises(*, goal, derivations, measurements) -> dict[str, Premise]`.
+
+> **Corrected 2026-08-15, against the code rather than against the draft.** The first version of
+> this task was wrong in four ways, and the fourth changed the design for the better.
+>
+> 1. **`DataProfile` has `measurements: list[Measured]`** — not `values` and `sources`. `Measured`
+>    is `(measurement, value, source, by)`, so **provenance is per entry**, which is what lets one
+>    profile mix a measured `read_length` with an asserted `strandedness`. Read `DataProfile.get`.
+> 2. **`required_states` lives on `Goal.constraints`**, not on `Goal`. `Goal` has exactly `have`,
+>    `want`, `constraints`, `profile`.
+> 3. **`build_premises` takes the `Goal`, not a profile** — the profile is `goal.profile`, and
+>    passing both invites them to disagree.
+> 4. **`purpose` is a declared measurement, not a new `Goal` field.** See spec §4.6. Adding a
+>    field to `Goal` would widen a door-1 *and* door-4 payload and pull in the egress guard and
+>    invariant 14's literal list; a declared measurement asserted with `ValueSource.GOAL` needs
+>    none of that and gets validation from `MeasurementRegistry.profile()`. `n_samples` is the
+>    precedent — a measurement describing the study, with no `describes`.
+>
+> **`tests/test_construction.py` scans `packages/*/src` only**, so a test may construct a
+> `DataProfile` directly. Prefer `measurements.profile({...})` anyway: it is the validated path
+> and it is what every other test in this repository does.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-resolver/tests/test_premises.py
-from comeni_core.profile import DataProfile
+import pathlib
+
+from comeni_core.tiers import ValueSource
+from mendel_resolver import layers
+from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.premises import PremiseOrigin, build_premises
 
+ROOT = pathlib.Path(__file__).parents[3]
+LOADED = layers.load(ROOT / "registry")
 
-def test_a_measured_fact_says_it_was_measured(measurements, a_goal):
+
+def _goal(**measured) -> Goal:
+    """A goal whose profile carries `measured`, through the one validated constructor."""
+    return Goal(
+        have=[GoalInput(type_id="fastq.reads")],
+        want=["counts.matrix"],
+        profile=LOADED.measurements.profile(measured, source=ValueSource.MEASURED),
+    )
+
+
+def test_a_measured_fact_says_it_was_measured():
     premises = build_premises(
-        profile=DataProfile(values={"read_length": 150}, sources={"read_length": "measured"}),
-        goal=a_goal, derivations=[], measurements=measurements,
+        goal=_goal(read_length=150), derivations=[], measurements=LOADED.measurements
     )
     assert premises["read_length"].value == 150
     assert premises["read_length"].origin is PremiseOrigin.MEASURED
 
 
-def test_a_goal_fact_is_a_premise_and_says_so(measurements, a_goal):
-    premises = build_premises(
-        profile=DataProfile(values={}, sources={}), goal=a_goal,
-        derivations=[], measurements=measurements,
+def test_an_asserted_fact_is_not_a_measured_one():
+    """The distinction `sealed` exists to act on (issue #2). `Measured.source` is per entry,
+    so one profile can carry both and the premise layer must not flatten them."""
+    goal = Goal(
+        have=[GoalInput(type_id="fastq.reads")],
+        want=["counts.matrix"],
+        profile=LOADED.measurements.profile(
+            {"strandedness": "reverse"}, source=ValueSource.GOAL
+        ),
     )
-    assert premises["purpose"].origin is PremiseOrigin.GOAL
+    premises = build_premises(goal=goal, derivations=[], measurements=LOADED.measurements)
+    assert premises["strandedness"].origin is PremiseOrigin.ASSERTED
 
 
-def test_a_goal_fact_may_not_shadow_a_measurement(measurements, a_goal):
-    """A goal that could overwrite a measured fact would make `sealed` uncheckable."""
-    import pytest
-    from mendel_resolver.premises import PremiseError
-    with pytest.raises(PremiseError, match="collides"):
-        build_premises(
-            profile=DataProfile(values={"purpose": "x"}, sources={"purpose": "measured"}),
-            goal=a_goal, derivations=[], measurements=measurements,
-        )
+def test_a_goal_declared_purpose_is_a_premise():
+    """Spec §4.6: `purpose` is a declared measurement, so it needs no field on `Goal`."""
+    premises = build_premises(
+        goal=_goal(purpose="variant_calling"), derivations=[], measurements=LOADED.measurements
+    )
+    assert premises["purpose"].value == "variant_calling"
+
+
+def test_required_states_reach_the_premise_set():
+    """A120's cheaper half — the router already consults these, and `when` could not."""
+    goal = Goal(
+        have=[GoalInput(type_id="fastq.reads")],
+        want=["counts.matrix"],
+        constraints={"required_states": {"counts.matrix": ["gene_level"]}},
+    )
+    premises = build_premises(goal=goal, derivations=[], measurements=LOADED.measurements)
+    assert "gene_level" in premises["required_states"].value
 ```
+
+**`purpose` must be declared before this test passes.** Add
+`registry/measurements/purpose.yml`:
+
+```yaml
+kind: enum
+values: [expression, variant_calling, junction_discovery, transcript_assembly]
+extensible: true
+description: "What the analysis is for — the question the pipeline answers"
+cite: "nf-core/rnaseq usage; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8"
+```
+
+No `describes` and no `meta_key`: `purpose` is a property of the study rather than of a read, and
+nothing carries it into a module's `meta` map. `extensible: true` because the list of things
+sequencing is for cannot be enumerated, which is the same call `organism` gets.
 
 - [ ] **Step 2: Run it and watch it fail**
 
@@ -318,36 +396,67 @@ class Premise(BaseModel):
     derived_from: list[str] = Field(default_factory=list)
 
 
-_GOAL_FACTS = ("purpose", "required_states")
+_BY_SOURCE = {
+    ValueSource.MEASURED: PremiseOrigin.MEASURED,
+    ValueSource.GOAL: PremiseOrigin.ASSERTED,
+    ValueSource.HUMAN: PremiseOrigin.ASSERTED,
+}
+"""`ValueSource` answers *who settled this*; `PremiseOrigin` answers *how good is it as a
+premise*, and the two are not the same question. A goal assertion and a human override are
+different authors and identical evidence: nobody looked at the data. Collapsing them here
+rather than at the point of use is what keeps `sealed` a single check."""
+
+_RESERVED = "required_states"
 
 
-def build_premises(*, profile, goal, derivations, measurements) -> dict[str, Premise]:
+def build_premises(*, goal, derivations, measurements) -> dict[str, Premise]:
     """Measured, then asserted, then goal, then derived. One pass, no fixpoint.
 
     Ordered rather than iterated to a fixpoint because a fixpoint makes the premise set a
     function of evaluation order, and two rules could then disagree about the same fact
     depending on which loaded first. One pass is what keeps `same goal in -> same pipeline
     out` a property of the data rather than of the loader.
+
+    Takes the `Goal` rather than a goal and a profile: the profile is `goal.profile`, and a
+    signature that accepts both invites a caller to pass two that disagree.
     """
     premises: dict[str, Premise] = {}
-    for key, value in profile.values.items():
-        origin = (PremiseOrigin.MEASURED if profile.sources.get(key) == "measured"
-                  else PremiseOrigin.ASSERTED)
-        premises[key] = Premise(id=key, value=value, origin=origin)
-    for fact in _GOAL_FACTS:
-        value = getattr(goal, fact, None)
-        if value is None:
-            continue
-        if fact in premises:
-            raise PremiseError(
-                f"MD0303: goal fact {fact!r} collides with a measurement of the same name."
-            )
-        premises[fact] = Premise(id=fact, value=value, origin=PremiseOrigin.GOAL)
+    for entry in goal.profile.measurements:
+        premises[entry.measurement] = Premise(
+            id=entry.measurement,
+            value=entry.value,
+            origin=_BY_SOURCE.get(entry.source, PremiseOrigin.ASSERTED),
+        )
+    # `required_states` is the goal's own shape rather than a measurement, so it cannot
+    # collide with one: `MeasurementRegistry.profile()` would have refused an undeclared key,
+    # and nothing may declare a measurement by this name (checked below).
+    if _RESERVED in measurements.ids():
+        raise PremiseError(
+            f"MD0303: a measurement is declared named {_RESERVED!r}, which is the goal's "
+            f"own shape and cannot also be measured."
+        )
+    premises[_RESERVED] = Premise(
+        id=_RESERVED,
+        value=sorted(
+            state
+            for required in goal.constraints.required_states
+            for state in required.states
+        ),
+        origin=PremiseOrigin.GOAL,
+    )
     return premises
 ```
 
+`purpose` needs no special case: it is a declared measurement, so it arrives through
+`goal.profile` with whatever source it was asserted under. That is the whole benefit of spec
+§4.6, and it is why this function is shorter than the draft that had a `_GOAL_FACTS` tuple.
+
 Derivations are the argument and are unused until Task 2; that is deliberate, so Task 2 adds
 behaviour rather than a parameter.
+
+`MeasurementRegistry` exposes `get`, `ids`, `check`, `profile`, `to_measure`, `meta_for` and
+`meta_sources_for` — **and no `all()`**, which an earlier draft of this task called. Checked
+2026-08-15.
 
 - [ ] **Step 4: Run the tests**
 
@@ -1007,7 +1116,43 @@ records: the step's **presence** at `Tier.STRUCTURAL` citing the consumer's requ
 Run: `uv run pytest packages/mendel-resolver/tests/test_earned_tiers.py -v && make verify`
 Expected: PASS
 
-- [ ] **Step 5: Confirm the review queue did not grow**
+- [ ] **Step 5: A tier says what it means, in the artifact (spec §6.2)**
+
+`tier: 3` is a number whose meaning lives in a table in another document. `review_level_for` is
+already a function of the tier, so carry the answer:
+
+```python
+def test_a_decision_states_its_own_review_level():
+    """A reader should not need CLAUDE.md open to learn what tier 3 obliges them to do."""
+    ir = build(a_goal)
+    why = ir.step("star_align").why
+    assert why.tier is Tier.DATA_PROFILED
+    assert why.review is ReviewLevel.ADVISORY
+
+
+def test_the_review_level_is_derived_and_cannot_disagree_with_the_tier():
+    """Two fields that can disagree is a field that will. Computed, never stored."""
+    assert Why(tier=Tier.CONVENTION, ...).review is ReviewLevel.NONE
+```
+
+`pipeline.py` imports neither `ReviewLevel` nor `review_level_for` today — both live in
+`comeni_core.tiers` beside `Tier`, which it already imports. On `Why`, as a `@computed_field` so
+it serialises into `pipeline.yml` and cannot drift from the tier it describes:
+
+```python
+    @computed_field
+    @property
+    def review(self) -> ReviewLevel:
+        """What this tier obliges a reader to do, beside the tier itself.
+
+        Derived rather than stored: a stored copy is a second source of truth for one fact,
+        and `Why` already learned that lesson once — `for_value` exists because a reason
+        could outlive the value it explained (A104).
+        """
+        return review_level_for(self.tier)
+```
+
+- [ ] **Step 6: Confirm the review queue did not grow**
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml --registry registry/ --out /tmp/t --gate lint
@@ -1016,7 +1161,7 @@ uv run mendel build --goal examples/rnaseq-goal.yml --registry registry/ --out /
 Expected: still `1 requiring review` (`star_align.seq_platform`). Tier 1 is silent and tier 2 is
 green; if this number moved, the split is wrong and the plan must stop here.
 
-- [ ] **Step 6: Watch the guard fail, then commit**
+- [ ] **Step 7: Watch the guard fail, then commit**
 
 Change `tier_of_row(row.when) is Tier.CONVENTION` to `False`. Confirm
 `test_a_tier_2_row_must_carry_a_citation` fails. Restore, record, then:
@@ -1093,13 +1238,55 @@ following the shape already in `pipeline.py` around line 489.
 Run: `uv run pytest packages/comeni-core/tests -v && make verify`
 Expected: PASS
 
-- [ ] **Step 5: Check the digest did not move for archived pipelines**
+- [ ] **Step 5: The premise reads as prose, not as a dict repr (spec §6.1)**
+
+A mapping is what a policy reads; it is not what a person reads. Today's artifact says
+
+```yaml
+reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: STAR''s …'
+```
+
+— a Python dict repr embedded in YAML with doubled quotes, reporting the **predicate** and never
+the **value**. A reader learns the rule tested `>= 70` and never learns `read_length` was 150, or
+that anything measured it. The premise is the one thing tier 3 asks a reviewer to check.
+
+```python
+def test_the_reason_states_the_premise_value_not_the_predicate():
+    ir = build(goal_with(read_length=150))
+    reason = ir.step("star_align").why.reason
+    assert "read_length is 150, measured" in reason
+    assert "{" not in reason, "no dict repr reaches a sentence a person reads"
+    assert ">= 70" not in reason, "the predicate is the rule's business, not the reader's"
+
+
+def test_an_inferred_premise_says_so_in_the_sentence():
+    """Scenario B of the spec: nothing measured strandedness."""
+    ir = build(goal_with_no_strandedness())
+    reason = ir.setting("hisat2_align", "save_unaligned").why.reason
+    assert "strandedness is reverse, inferred" in reason
+    assert "nothing measured it" in reason
+```
+
+Replace `Pin.reason_line`'s `f"{head} matched {matched}"` — where `matched` is the raw `when`
+mapping — with a clause built from the premises actually read. `_ORIGIN_PROSE` maps
+`MEASURED -> "measured"`, `ASSERTED -> "asserted, not measured"`,
+`GOAL -> "declared in the goal"`, `DERIVED -> "inferred — nothing measured it"`, and
+`_premise_clause` joins `f"{p.id} is {p.value}, {_ORIGIN_PROSE[p.origin]}"` with `"; "`.
+
+The value comes first because it is what a reviewer checks against the sample sheet; the origin
+comes second because it is what tells them whether checking is worth their time.
+
+`premise` and `premise_origin` stay as the machine-readable companion — `ProfilePolicy` reads
+those. Neither replaces the other: shipping only the mapping repeats, one level up, the exact
+defect this plan exists to fix.
+
+- [ ] **Step 6: Check the digest did not move for archived pipelines**
 
 This is Plan 1.14's Task 0 lesson: adding a field moves an archived pipeline's `from_digest`, so
 `MD0213` reports a schema change as a human edit. Run
 `uv run pytest -k "digest or stale" -v` and confirm the v2 fixture still verifies.
 
-- [ ] **Step 6: Watch the guard fail, then commit**
+- [ ] **Step 7: Watch the guard fail, then commit**
 
 Delete `premise_origin` from the `Why` written in `resolve.py`. Confirm
 `test_a_tier_3_decision_records_the_premise_it_rested_on` fails on the origin assertion. Restore,

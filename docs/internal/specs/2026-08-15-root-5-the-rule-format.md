@@ -232,6 +232,35 @@ validation and then fails to fire.
 Measurements, derived facts, **and goal facts** — `purpose` and `required_states`. That is A120,
 and `required_states` is the half the router already consults, which closes R11 alone.
 
+**`purpose` is a declared measurement, not a new field on `Goal`.** Checked against the code on
+2026-08-15: `Goal` carries `have`, `want`, `constraints` and `profile`, and adding a field to it
+would widen a door-1 *and* door-4 payload, pulling in the egress guard and invariant 14's literal
+list. None of that is necessary. `Measured` already records a per-entry `source`, and
+`ValueSource.GOAL` already means *"asserted by whoever wrote the goal"* — so a goal file writing
+`profile: {purpose: variant_calling}` gets validation from `MeasurementRegistry.profile()` and
+provenance for free. `n_samples` is the precedent: a measurement that describes the *study*
+rather than a read, with no `describes` and no `meta_key`.
+
+That the answer costs nothing is a consequence of the premise layer, not a coincidence. Once
+`when` reads *premises* rather than *measurements*, "the goal said so" is just another origin.
+
+### 4.7 A rule is written by a person, and read by one
+
+Every part of this format is authored by hand in YAML and read back in a diff. That is a
+constraint on the design, not a presentation concern applied afterwards.
+
+**Authoring.** `decides: {effect: presence, of: trimming}` says what it does in the words a
+biologist would use. The format it replaces did not: `decides: {producer_of: fastq.reads}` with
+`then: null` was how one had to spell *"do not trim"*, and the refusal it earned —
+`'None' is not in the registry` — blamed a misspelled contract. A role and an effect are English;
+a type id and a null are not.
+
+**Every refusal names the offending thing and what would have been right.** That rule is already
+this repository's practice (`MD0104`, `MD0300`) and §5 holds every new code to it. A message that
+says only what is wrong makes the author guess, and guessing is what the whole product opposes.
+
+**No structured value is a reader's only account of itself.** See §6.
+
 ---
 
 ## 5. Everything is refused at load
@@ -256,7 +285,7 @@ wrong until reordering. The least specific check must run last; this is A74/A75'
 
 ---
 
-## 6. What reaches `pipeline.yml`
+## 6. What reaches `pipeline.yml`, and how it reads
 
 Every decision records the premises it read, with each one's origin. In scenario B of §8, a build
 where nothing measured strandedness:
@@ -268,6 +297,46 @@ The artifact states that this rested on an **inferred** value. That is A108 — 
 "check the premise", and the artifact carries no premise* — arriving as a consequence rather than
 as separate work, and it is the hook `ProfilePolicy` needs for issue #2, where `sealed` must
 refuse a tier-3 decision resting on an assertion.
+
+### 6.1 The premise is prose first and a mapping second
+
+A mapping is what a policy reads. It is not what a person reads, and shipping only the mapping
+repeats the defect this spec exists to fix one level up. Here is a real tier-3 decision in the
+artifact today:
+
+```yaml
+reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: STAR''s
+  seed-and-extend search is built for long reads …'
+```
+
+That is a Python dict repr embedded in YAML with doubled quotes. Worse, it reports the
+**predicate** and not the **value**: a reader learns the rule tested `>= 70` and never learns that
+`read_length` was 150, or that anything measured it. The premise is the one thing tier 3 asks a
+reviewer to check, and it is the one thing the sentence omits.
+
+So `Why.reason` renders the premise as a clause, with the value and its origin:
+
+```yaml
+reason: read_length is 150, measured — STAR's seed-and-extend search is built for long reads
+  and is nf-core/rnaseq's default aligner; the index cost it pays back over reads this length.
+  Dobin et al. 2013, doi:10.1093/bioinformatics/bts635
+review: advisory
+premise: {read_length: 150}
+premise_origin: {read_length: measured}
+```
+
+and scenario B's inferred strandedness reads *"strandedness is reverse, inferred — nothing
+measured it"*, which is a sentence a biologist can disagree with.
+
+### 6.2 A tier says what it means, where it is used
+
+`tier: 3` is a number whose meaning lives in a table in another document. `review_level_for` is
+already a function of the tier, so the artifact can carry `review:` beside it and stop requiring
+the reader to hold `CLAUDE.md` open. This costs one field and removes a lookup from every reading
+of every decision.
+
+It also makes §1's claim checkable by a person and not only by a test: a decision that says
+`tier: 3` and `review: advisory` and then shows an empty premise is visibly wrong on the page.
 
 ---
 
