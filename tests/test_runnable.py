@@ -11,9 +11,11 @@ checks arity, and an empty placeholder has the same arity as a real channel.
 import pathlib
 
 import pytest
+from comeni_core.contract import NfInput
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
+from pydantic import ValidationError
 
 ROOT = pathlib.Path(__file__).parent.parent
 
@@ -279,3 +281,18 @@ def _pipe(ir, loaded):
     from comeni_core.pipeline import Pipeline
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
+
+
+def test_two_ports_in_one_channel_must_declare_a_join():
+    """A cross product where a per-sample join belongs is a wrong result from a green run.
+
+    Audit A92: two samples in, four processes out, half of them pairing sample 1's data with
+    sample 2's. Nextflow reports success and exits 0. `--gate test` cannot catch it because
+    the nf-core RNA-seq test dataset has one sample, so `1 x 1 == 1`.
+    """
+    with pytest.raises(ValidationError, match="two or more ports"):
+        NfInput(ports=["bam", "annotation"])
+
+
+def test_one_port_needs_no_join():
+    assert NfInput(ports=["bam"]).join is None

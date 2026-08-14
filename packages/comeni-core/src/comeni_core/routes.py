@@ -49,3 +49,23 @@ TEMPLATED: frozenset[ExtKey] = frozenset({ExtKey.ARGS, ExtKey.ARGS2, ExtKey.ARGS
 "--cpus 12"` is not a thing, which is why a template on those routes is refused rather than
 ignored.
 """
+
+
+class Join(StrEnum):
+    """How two channels filling one process input are matched.
+
+    Closed for the same reason `Via` is: each member needs its own line in the emitter.
+
+    **There is no default, and that absence is the finding.** `emit` combined
+    unconditionally, which is correct only while the second channel carries one thing every
+    sample is paired against — true of the shipped spine, where the second port is a single
+    GTF, and false of BAM + BAI, tumour + matched normal, or reads plus a per-sample adapter
+    file. `.combine()` is a Cartesian product: two samples in gave four processes, half of
+    them pairing one sample's data with another's, and Nextflow exited 0. `--gate test` is
+    structurally blind to it because the nf-core test dataset has one sample. Audit A92.
+    """
+
+    BROADCAST = "broadcast"
+    """`.combine()` — the later ports are one thing every sample is paired against."""
+    BY_SAMPLE = "by_sample"
+    """`.join()` — the later ports are per-sample and match on the meta map."""
