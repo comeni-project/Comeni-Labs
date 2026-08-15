@@ -9,11 +9,16 @@ minutes.
 - Docker and [Nextflow](https://www.nextflow.io/) — only for the `stub` gate at the end
 
 ```bash
-git clone https://github.com/comeni-project/Comeni-Labs
+git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
 cd Comeni-Labs
 uv sync
 uv run pytest -q
 ```
+
+`--recurse-submodules` matters: the registry is [its own
+repository](https://github.com/comeni-project/comeni-registry) mounted at `registry/`, and
+without it that directory is empty. If you already cloned without it, run `git submodule update
+--init`.
 
 ## Build something
 

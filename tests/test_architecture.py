@@ -107,3 +107,33 @@ def test_no_document_or_tool_still_says_docs_internal():
     assert stale == [], (
         "these still name `docs/internal`, which no longer exists:\n  " + "\n  ".join(stale)
     )
+
+
+def test_every_documented_clone_command_gets_the_submodule():
+    """A `git clone` in the docs without `--recurse-submodules` hands a stranger an empty
+    `registry/`.
+
+    `registry/` became a git submodule in issue #46. The refusal in `layers.load()` and the
+    `make check` prerequisite both name the fix, so nobody is stuck — but a documented
+    command that produces a broken checkout is a documented command that is wrong, and the
+    person reading the README is the person least able to tell.
+
+    Checked rather than trusted because this is prose, and the two places that were wrong
+    after the move were both prose: the README's quickstart had no clone line at all, and
+    its registry paragraph still called `registry/` "the copy here".
+    """
+    root = pathlib.Path(__file__).parent.parent
+    offenders = []
+    for path in sorted(root.glob("*.md")) + sorted((root / "docs").rglob("*.md")):
+        for number, line in enumerate(path.read_text().splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped.startswith("git clone"):
+                continue
+            if "Comeni-Labs" not in stripped:
+                continue  # cloning some other repository is not our business
+            if "--recurse-submodules" not in stripped:
+                offenders.append(f"{path.relative_to(root)}:{number}: {stripped}")
+    assert offenders == [], (
+        "these clone Comeni-Labs without --recurse-submodules, so registry/ would be empty:\n    "
+        + "\n    ".join(offenders)
+    )

@@ -1890,3 +1890,13 @@ spend seventy seconds arriving at the wrong diagnosis.
 **`any`, not `all`, and the second row is why that needs a guard.** An overlay carrying three
 contracts and nothing else is the normal private-layer case; `all` would refuse every real
 overlay while passing every test written against the public base, which has all five kinds.
+
+| 2026-08-16 | `test_architecture.py::test_every_documented_clone_command_gets_the_submodule` | `--recurse-submodules` removed from README's quickstart | failed | names the file and line |
+
+**It failed on its first run, before anything was reverted, and that is the point.** Issue #46's
+prose was updated by hand and by grep, and two `git clone` lines survived both —
+`docs/guides/contributing.md` and, worse, `docs/guides/getting-started.md`, which is the first
+thing a stranger reads. Each would have handed a new user an empty `registry/`.
+
+A guard that finds real offenders the moment it is written is a guard that was needed. Hand-fixing
+prose finds the instances you thought of; the sentence a reader actually follows is elsewhere.

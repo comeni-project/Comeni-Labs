@@ -11,7 +11,7 @@ Two stores, and it is worth being exact because the answer differs by kind:
 
 | | Where | What |
 |---|---|---|
-| **Registry data** | `registry/`, one directory per `DeclaredKind` | contracts, rules, vocabularies, measurements, roles — human-authored, cited, reviewed, stacked |
+| **Registry data** | `registry/` — a git submodule of [`comeni-registry`](https://github.com/comeni-project/comeni-registry), one directory per `DeclaredKind` | contracts, rules, vocabularies, measurements, roles — human-authored, cited, reviewed, stacked |
 | **Diagnostics** | `packages/comeni-core/src/comeni_core/diagnostics.yml` | every code, its `says`, its long-form explanation |
 
 Everything else that *looks* like a table in this repository is not data. `_OPS`, `_REDUCERS`,

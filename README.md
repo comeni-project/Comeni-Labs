@@ -65,7 +65,14 @@ publication and lockfiles (Plan 1.7).
 Requires [`uv`](https://docs.astral.sh/uv/), Python 3.12+, and — for the `stub` gate — Nextflow
 and Docker.
 
+**Clone with `--recurse-submodules`**: the registry is a separate repository mounted at
+`registry/`, and without it that directory is empty. Already cloned without it? Run
+`git submodule update --init`. Either way `make check` says so in one sentence rather than
+failing about missing contracts.
+
 ```bash
+git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
+cd Comeni-Labs
 uv sync
 uv run pytest -v
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/
@@ -164,10 +171,11 @@ configured still ingests a goal, routes it, resolves it and emits Nextflow; tier
 of guessing, which is behaviour the product promises anyway.
 
 The public registry lives in its own repository under CC-BY-4.0:
-[comeni-registry](https://github.com/comeni-project/comeni-registry). The copy under
-`registry/` here is that same layer — hand-written data sufficient to build and test the
-RNA-seq spine, and explicitly **not** a curated registry: every contract in it is a test
-fixture that happens to be true. `examples/` holds an example goal and nothing else.
+[comeni-registry](https://github.com/comeni-project/comeni-registry). `registry/` here is
+**that repository, as a git submodule** — not a copy of it, since 2026-08-16. It is
+hand-written data sufficient to build and test the RNA-seq spine, and explicitly **not** a
+curated registry: every contract in it is a test fixture that happens to be true. `examples/`
+holds an example goal and nothing else.
 
 ---
 

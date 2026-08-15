@@ -27,19 +27,12 @@ short, and it explains why several things that look wrong are deliberate.
 
 ## Setup
 
-**Clone with the submodule**, or `registry/` will be empty:
+Already cloned without `--recurse-submodules`? `git submodule update --init`. `make check`
+refuses in one sentence if you forget, rather than failing thirty-three times about missing
+contracts.
 
 ```bash
 git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
-# already cloned without it?
-git submodule update --init
-```
-
-`make check` refuses in one sentence if you forget, rather than failing thirty-three times about
-missing contracts.
-
-```bash
-git clone https://github.com/comeni-project/Comeni-Labs
 cd Comeni-Labs
 uv sync
 make check     # ruff, pytest, and the generated-stub freshness check
