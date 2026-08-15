@@ -282,6 +282,12 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
 def _with_override(bundle, key, subject, value, node_exists=True):
     """Answer a recorded flag in `pipeline.yml`, the way a reviewer would.
 
+    **Also updates the setting's `why`, because that is what a reviewer does since issue
+    #48.** Answering a tier-4 question and leaving the resolver's *"no rule covered … please
+    review"* beside the value is refused by `MD0223`: the reasoning goes in `override_reason`,
+    and the reason a reader meets first must stop being the resolver's. A helper that answered
+    only half of that would be testing an edit the CLI rejects.
+
     **Fills in the existing record for that key rather than appending one.** Appending was
     the first draft and it silently did nothing: `ReplayResolver` takes the *first* record
     per key — two for one key is a corrupt bundle rather than a choice — so the duplicate
@@ -289,6 +295,12 @@ def _with_override(bundle, key, subject, value, node_exists=True):
     the question, which is also what a person handed this file would do.
     """
     data = yaml.safe_load(bundle.read_text())
+    for step in data["steps"]:
+        for setting in step.get("settings", []):
+            if f"{step['id']}.{setting['name']}" == key:
+                setting["value"] = value
+                setting["why"]["reason"] = f"answered by a human override: {value}"
+                setting["why"]["for_value"] = value
     existing = next((d for d in data["decisions"] if d["key"] == key), None)
     if existing is not None:
         existing["human_override"] = value

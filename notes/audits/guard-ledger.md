@@ -1981,3 +1981,31 @@ rather than an obstacle: `SERIALISED_SHAPE`, the `Pipeline` field list, `_PIPELI
 malformed `ai:` is blamed on the pipeline file rather than the goal), and the two
 `set(raw) == {...}` assertions in `test_pipeline_file` and `test_publish`. A new section of the
 artifact has to be declared in five places, and all five said so.
+
+## Issue #48 — `MD0223` sees an answered tier-4 setting (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_pipeline_file.py::test_MD0223_sees_a_tier_four_setting_answered_by_hand` | the whole `#48` branch removed | failed |
+| 2026-08-16 | `…::test_an_unanswered_tier_four_setting_is_not_flagged` | the `key in answered` condition dropped | failed, **and eleven others with it** |
+| 2026-08-16 | `…::test_human_source_with_a_matching_override_is_accepted` | the `Tier.AMBIGUOUS` condition dropped | failed |
+
+**Three conditions, three different tests, and none of them is decoration.** Dropping
+`key in answered` turns the check into a nag that fires on every *unanswered* tier-4 setting —
+which is correct output saying "please review" — and eleven tests failed, because that is the
+state a normal build is in. Dropping the tier condition flags any pre-1.14 field. Dropping the
+branch loses the finding.
+
+**Two existing tests refused after the fix, and both were completing a premise rather than
+absorbing a regression.** `test_human_source_with_a_matching_override_is_accepted` said *"the
+value, the `human` source and the decision's override all agree — a person answered, and the
+record proves it"* — while leaving `why.reason` reading *"no rule covered … please review"*. The
+record did not prove it, and that is issue #48 stated as a docstring nobody had re-read.
+`_with_override` in `test_upgrade.py` had the same shape: it claimed to answer *"the way a
+reviewer would"* and answered half.
+
+**The behaviour change is user-visible and is documented rather than left to be discovered.**
+Answering a tier-4 question is now a two-part edit — `override_reason` in `decisions:`, and the
+setting's own `why.reason` and `why.for_value` — and the one-part edit exits 2.
+`docs/guides/driving-mendel.md` §6 was written when the one-part edit worked and now shows the
+refusal and the cure.

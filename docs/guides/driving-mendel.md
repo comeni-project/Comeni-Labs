@@ -180,11 +180,26 @@ artifact, after resolution — the tenth and newest free-text field on the egres
 (invariant 14). Before it existed, `upgrade` replaced what a reviewer wrote with *"selected the
 first of 1 candidates without judgement"* (audit A77).
 
-**One rough edge, stated rather than smoothed over:** the setting's own `why.reason` still reads
-*"no rule covered 'seq_platform' … please review"* until the next `upgrade` propagates the
-override. `MD0223` does not catch it, because `for_value` is `null` on a value nothing resolved
-and absence is not disagreement. Write the override reason in `decisions:`, and read the setting's
-`why` as the resolver's account rather than yours.
+**The setting's own `why.reason` must be updated too, and `MD0223` insists on it.** Setting
+`value:` and leaving the resolver's *"no rule covered … please review"* beside it is refused:
+
+```
+mendel: MD0223: a value was edited and the reason beside it was not.
+  star_align.seq_platform: a human answered this tier-4 question with 'ILLUMINA', and the
+  reason beside it is still the resolver's — "no rule covered 'seq_platform'; selected the
+  first of 1 candidates without judgement — please review". Put your reasoning in the
+  decision's `override_reason`, and make `why.reason` say the override answered it.
+```
+
+So the answer is written in **two places, deliberately**: `override_reason` in `decisions:` is
+your reasoning, preserved across `upgrade`; `why.reason` beside the value is what a reader meets
+first, and it must not still be the resolver's. Set `why.for_value` to the value you chose, and
+`emit` accepts it.
+
+Until 2026-08-16 it did not insist. `MD0223` skipped any setting whose `for_value` was `null` —
+which a pre-1.14 file has, and so does a tier-4 value nothing resolved — so the one case where a
+human is most likely to be editing was the one case the check could not see. That was
+[issue #48](https://github.com/comeni-project/Comeni-Labs/issues/48).
 
 ## 7. Re-resolve against a moved registry
 
