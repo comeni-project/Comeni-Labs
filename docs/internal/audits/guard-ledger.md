@@ -1382,3 +1382,46 @@ quotes, reporting the **predicate** and never the value. A reader learned the ru
 and never learned that `read_length` was 150, or that nothing had measured it. Both forms ship:
 the sentence for a person, the records for `ProfilePolicy` (issue #2). Shipping only the mapping
 would have repeated, one level up, the exact defect this plan exists to fix.
+
+## Plan 1.15 Task 9 — completeness is checked against the declared domain (A124)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_a_gap_in_an_ordered_domain_is_refused` (+2) | the `_check_exhaustive` call | **3 failed** | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_gap_in_an_ordered_domain_is_refused` | the interval comparison, always `None` | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_an_extensible_enum_still_needs_a_catch_all` | the `measurement.extensible` branch | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_an_enum_missing_a_value_is_refused` | the missing-values raise | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_rows_over_several_premises_are_not_checked_for_completeness` | `_sole_premise`'s `any(len(row.when) > 1 …)` clause | **nothing failed** | — the clause is unreachable |
+| 2026-08-15 | the same test (+2) | `_sole_premise`'s `len(tested) != 1` guard | **3 failed** | `MD0311` refusing a legitimate two-premise table |
+
+**An unreachable condition, found the same hour it was written.** `_sole_premise` read
+`if len(tested) != 1 or any(len(row.when) > 1 for row in rows)`, and the second clause cannot be
+true when the first is false: a row carrying two keys puts two facts in `tested`, so the length
+check already catches it. Reverting it changed nothing. Deleted rather than kept as reassurance —
+**an unreachable condition reads to the next person as a case somebody thought about**, which is
+worse than its absence. Same shape as `stack()`'s `origin[key] != layer.index` in Plan 1.9, and
+the fifth time this repository has found one by reverting.
+
+The corrected revert, against the clause that does the work, refuses a legitimate two-premise
+table and fails three tests — including one that exists only to pin that this is *out of scope*
+rather than approximated.
+
+**Six shipped fixtures were incomplete tables**, in four files. That is the largest fixture
+consequence of any task in this plan, and it is the finding rather than an inconvenience: every
+one of them was a rule that answered part of its premise's domain and demoted silently to tier 4
+for the rest. `test_resolve.py`'s strandedness rule answered `reverse` and neither of the other
+two declared values; three audit-regression fixtures tested `>= 70` with nothing below it.
+
+**Completing them did not break the one test that needs a miss.**
+`test_rule_miss_demotes_to_tier_4_and_flags` carries an *empty* profile, so every row fails its
+own predicate whatever the table covers. A complete table and a miss are different things, which
+is exactly the distinction `MD0311` exists to keep — and it was worth checking rather than
+assuming, because a completeness check that made misses unreachable would have removed tier 4's
+own test.
+
+**The obvious fix would have been worse than the defect**, which is why the check reads the
+declared domain rather than demanding a catch-all. A catch-all tests no premise positively, so it
+earns tier 2 under `MD0313` — demanding one on every decision would have demoted the shipped
+aligner rule's last branch from tier 3 to tier 2 and taken Kim et al. 2019 with it. A124 asking
+for completeness and §6.1 asking for a premise are in tension, and the declared domain is what
+resolves it.

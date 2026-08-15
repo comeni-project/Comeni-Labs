@@ -355,6 +355,9 @@ def _stacked(tmp_path):
         "    because: 'the base registry sequences on Illumina'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: ILLUMINA}\n"
+        # The complementary branch. `MD0311` refuses a table with a hole: a profile
+        # below the boundary would match nothing and demote to tier 4 silently.
+        "      - {when: {read_length: '< 70'}, then: ILLUMINA}\n"
     )
 
     lab = tmp_path / "lab-registry"
@@ -382,6 +385,7 @@ def _stacked(tmp_path):
         "    because: 'this lab runs BGI'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: BGI}\n"
+        "      - {when: {read_length: '< 70'}, then: BGI}\n"
     )
     return base, lab
 
@@ -923,6 +927,7 @@ def test_a22_a_rule_pinned_reroute_names_the_layer_that_decided(tmp_path):
         "    because: 'this lab has a HISAT2 index and no STAR index'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 50'}, then: nf-core/hisat2/align@2.2.2}\n"
+        "      - {when: {read_length: '< 50'}, then: nf-core/hisat2/align@2.2.2}\n"
     )
 
     ir = _resolve_stacked_from(layers_mod.load([base, lab]))
@@ -2093,6 +2098,7 @@ decisions:
   - decides: {effect: param, of: alignment, name: seq_platform}
     rows:
       - {when: {read_length: ">= 70"}, then: illumina}
+      - {when: {read_length: "< 70"}, then: illumina}
 """
     with pytest.raises(RuleValidationError) as caught:
         layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])

@@ -173,6 +173,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0308` | a param decision sets a value some filler of the role does not declare |
 | `MD0309` | two decisions in one file decide the same key |
 | `MD0310` | a `when` clause names a premise nothing supplies, or compares one that cannot be ordered |
+| `MD0311` | a decision's rows do not cover the domain of the premise they test |
 | `MD0312` | a scalar comparison is applied to a per-sample measurement |
 | `MD0313` | a row exits at tier 2 and cites nothing |
 

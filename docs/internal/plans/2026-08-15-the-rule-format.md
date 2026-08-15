@@ -1638,9 +1638,29 @@ Make `_exhaustive` return `None` unconditionally. Confirm `test_a_gap_in_an_orde
 fails. Restore, record, then:
 
 ```bash
-git add packages/mendel-resolver
+git add -A
 git commit -m "feat(resolver): completeness is checked against the declared domain (A124)"
 ```
+
+> **Corrected 2026-08-15, on execution. Four things.**
+>
+> 1. **Six shipped fixtures were incomplete tables**, across four files — the largest fixture
+>    consequence in this plan, and the finding rather than an inconvenience. Each answered part
+>    of its premise's domain and demoted silently to tier 4 for the rest.
+> 2. **Completing them does not break the miss test.**
+>    `test_rule_miss_demotes_to_tier_4_and_flags` carries an empty profile, so every row fails
+>    its own predicate whatever the table covers. Worth checking rather than assuming: a
+>    completeness check that made misses unreachable would have removed tier 4's own test.
+> 3. **Overlaps are legal and are not gaps**, and a test says so. `>= 50` beside `< 70` covers
+>    the line twice; first-match-wins already settles it, and refusing it would be enforcing a
+>    different property under completeness' name.
+> 4. **Checked after the stack is assembled**, like `MD0310`: `add_values` lets an overlay
+>    extend an enum, so a table exhaustive against the base layer alone is not exhaustive
+>    against the stack it will run under.
+>
+> `_sole_premise`'s first draft carried an unreachable clause — `any(len(row.when) > 1 …)`
+> cannot be true when `len(tested) != 1` is false. Found by reverting it and watching nothing
+> fail; deleted rather than kept.
 
 ---
 

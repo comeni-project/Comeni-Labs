@@ -538,12 +538,14 @@ class RuleTable(BaseModel):
             )
         self._no_target_is_decided_twice()
         for decision in self.decisions:
+            where = f"decision {decision.key()}"
             _check_when(
-                decision.rows,
-                f"decision {decision.key()}",
-                measurements=measurements,
-                facts=facts,
+                decision.rows, where, measurements=measurements, facts=facts
             )
+            # After the stack, like everything else here: `add_values` lets an overlay extend
+            # an enum, so a table exhaustive against the base layer alone is not exhaustive
+            # against the stack it will actually run under. Checking per file would pass it.
+            _check_exhaustive(decision, where, measurements=measurements)
 
     def _no_target_is_decided_twice(self) -> None:
         """No two decisions in the assembled table land on the same target.
@@ -873,6 +875,121 @@ def _validate_rows(
                 f"  premise cannot. It also emitted a reason ending in a bare colon.\n"
                 f"  Add `because:` saying why this answer, or `cite:` naming the evidence."
             )
+
+def _sole_premise(rows: Sequence[DecisionRow]) -> str | None:
+    """The one fact every non-catch-all row tests, or `None` if there is not exactly one.
+
+    Completeness over a **product** of domains is a different and much larger claim, and a
+    check that half-computed it would refuse legitimate tables — which is worse than not
+    checking, because the author cannot argue with a refusal nobody can explain. So a
+    decision whose rows test two facts, or different facts, is not checked at all, and
+    `test_rows_over_several_premises_are_not_checked_for_completeness` says so out loud.
+    """
+    tested = {fact for row in rows if row.when for fact in row.when}
+    if len(tested) != 1:
+        return None
+    return tested.pop()
+
+    # An earlier version read `if len(tested) != 1 or any(len(row.when) > 1 for row in rows)`.
+    # The second clause cannot be true when the first is false: a row with two keys puts two
+    # facts in `tested`, so `len(tested) != 1` already catches it. Reverting it changed
+    # nothing, which is how it was found — same shape as `stack()`'s `origin[key] !=
+    # layer.index` in Plan 1.9. Deleted rather than kept as reassurance, because an
+    # unreachable condition reads to the next person as a case somebody thought about.
+
+
+def _uncovered_interval(rows: Sequence[DecisionRow]) -> str | None:
+    """What an ordered domain's rows leave out, or `None` if they cover the line.
+
+    `>= x` and `< x` are complementary **by construction**, so a pair at the same boundary is
+    exhaustive with no bound declared anywhere. That is the whole point of checking this way:
+    A124 asks for completeness and the obvious fix — demand a catch-all — would demote the
+    shipped aligner rule's last branch from tier 3 to tier 2 and take Kim et al. with it.
+
+    Overlaps are legal and are not gaps. `>= 50` beside `< 70` covers the line twice between
+    50 and 70, and first-match-wins already settles which row applies; refusing it would be
+    enforcing a different property under completeness' name.
+    """
+    lower: list[float] = []   # `>= x` / `> x`: covers upward from x
+    upper: list[float] = []   # `<= x` / `< x`: covers downward from x
+    for row in rows:
+        if not row.when:
+            return None  # a catch-all covers everything that is left
+        expected = next(iter(row.when.values()))
+        comparison = _comparison(expected)
+        if comparison is None:
+            return None  # an equality test over an ordered kind: not a partition claim
+        symbol, literal = comparison
+        (lower if symbol in (">=", ">") else upper).append(literal)
+    if not lower and not upper:
+        return None
+    if not upper:
+        return f"everything below {min(lower):g}"
+    if not lower:
+        return f"everything from {max(upper):g} upwards"
+    highest_covered_below, lowest_covered_above = max(upper), min(lower)
+    if lowest_covered_above <= highest_covered_below:
+        return None
+    return f"between {highest_covered_below:g} and {lowest_covered_above:g}"
+
+
+def _uncovered_values(rows: Sequence[DecisionRow], measurement) -> str | None:
+    """Which of an enum's values no row matches, or `None` if the rows cover them all."""
+    if any(not row.when for row in rows):
+        return None
+    covered = {next(iter(row.when.values())) for row in rows}
+    missing = [value for value in measurement.values if value not in covered]
+    return ", ".join(missing) if missing else None
+
+
+def _check_exhaustive(
+    decision: Decision, where: str, *, measurements: MeasurementRegistry
+) -> None:
+    """Every value the premise can take is answered by some row. A124.
+
+    Refused rather than warned, because a rule with a hole does not fail — it *demotes*. The
+    premise falls through every row, no rule matches, and the decision exits at tier 4 with
+    "no rule matched" beside it. A reviewer reads that as an ambiguity the registry has not
+    got to yet, when what it means is that somebody wrote three branches of a four-branch
+    table and nothing said so.
+    """
+    fact = _sole_premise(decision.rows)
+    if fact is None or fact not in measurements.ids():
+        return
+    measurement = measurements.get(fact)
+    if measurement.kind in _ORDERED:
+        gap = _uncovered_interval(decision.rows)
+        if gap is None:
+            return
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  The rows over {fact!r} leave {gap} uncovered, so a profile there matches\n"
+            f"  nothing and the decision silently demotes to tier 4.\n"
+            f"  Two complementary comparisons at one boundary — `>= 70` and `< 70` — are\n"
+            f"  exhaustive without any bound being declared. A catch-all `when: {{}}` also\n"
+            f"  works, but exits at tier 2 and needs a `cite:`."
+        )
+    if measurement.kind is not MeasurementKind.ENUM:
+        return
+    missing = _uncovered_values(decision.rows, measurement)
+    if measurement.extensible:
+        if any(not row.when for row in decision.rows):
+            return
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  {fact!r} is declared `extensible: true`, so an overlay may add a value and\n"
+            f"  coverage today is not coverage tomorrow. Add a catch-all `when: {{}}` row\n"
+            f"  with a `cite:` — it exits at tier 2, which is what a default is."
+        )
+    if missing:
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  No row matches {fact} = {missing}, so a profile carrying one matches nothing\n"
+            f"  and the decision silently demotes to tier 4.\n"
+            f"  {fact!r} declares {len(measurement.values)} values and is not extensible, so\n"
+            f"  covering them all is exhaustive and needs no catch-all."
+        )
+
 
 def _validate(
     decision: Decision,

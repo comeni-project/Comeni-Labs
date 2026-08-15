@@ -1187,3 +1187,49 @@ MD0313:
     and no source. A row can satisfy `MD0301` and fail this.
 
     Spec §4.4; audit A76, A128, A113.
+
+MD0311:
+  emitted_by: resolver
+  concern: routing
+  says: "a decision's rows do not cover the domain of the premise they test"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Cover the rest of the domain. Two complementary comparisons at one boundary are
+    exhaustive with no bound declared anywhere:
+
+        rows:
+          - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0,  cite: "…"}
+          - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2, cite: "…"}
+
+    For an enum, cover its declared values — or, where it is `extensible: true`, add a
+    catch-all `when: {}` row with a `cite:`, because an overlay may add a value later.
+  explanation: |
+    **A rule with a hole does not fail. It demotes.** The premise falls through every row,
+    nothing matches, and the decision exits at tier 4 with *"no rule matched"* beside it. A
+    reviewer reads that as an ambiguity the registry has not got to yet, when what it means
+    is that somebody wrote three branches of a four-branch table and nothing said so. Audit
+    A124.
+
+    **The obvious fix would have been worse than the defect.** Demanding a catch-all on every
+    decision demotes its last branch from tier 3 to tier 2 — a catch-all tests no premise
+    positively, so it earns tier 2 by `MD0313`'s own rule — and takes that branch's premise
+    and citation with it. The shipped aligner rule would have lost Kim et al. 2019 to satisfy
+    a completeness check. So completeness is checked against the **declared domain** instead:
+    `>= 70` and `< 70` are complementary by construction, and `Measurement` already declares
+    `kind`, `values`, `minimum`, `maximum` and `extensible`. No new types were needed.
+
+    **Overlaps are legal and are not gaps.** `>= 50` beside `< 70` covers the line twice, and
+    first-match-wins already settles which row applies. Refusing that would be enforcing a
+    different property under completeness' name.
+
+    **Rows testing more than one premise are not checked**, deliberately. Completeness over a
+    product of domains is a much larger claim, and a check that half-computed it would refuse
+    legitimate tables — worse than not checking, because the author cannot argue with a
+    refusal nobody can explain.
+
+    Checked after the whole stack is assembled: `add_values` lets an overlay extend an enum,
+    so a table exhaustive against the base layer alone is not exhaustive against the stack it
+    will run under.
+
+    Spec §5, §7.1.

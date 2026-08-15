@@ -41,6 +41,13 @@ decisions:
     cite: "featureCounts -s 2 for reverse-stranded libraries"
     rows:
       - {when: {strandedness: reverse}, then: 2}
+      # The other two branches exist to satisfy `MD0311` — `strandedness` declares exactly
+      # three values and is not extensible, so covering them is exhaustive. The miss test
+      # below still misses: it carries no strandedness at all, so every row fails its own
+      # predicate and the decision demotes to tier 4. A complete table and a miss are
+      # different things, which is the distinction `MD0311` exists to keep.
+      - {when: {strandedness: forward}, then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
 """
 MEASUREMENTS = {
     "strandedness.yml": "kind: enum\nvalues: [forward, reverse, unstranded]\n",

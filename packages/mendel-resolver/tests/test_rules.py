@@ -98,6 +98,10 @@ decisions:
     rows:
       - {when: {strandedness: reverse}, then: 99}
       - {when: {strandedness: reverse}, then: 2}
+      # The other two branches exist only to satisfy MD0311 — the point under test is that
+      # the *first* matching row wins, which needs two rows that both match.
+      - {when: {strandedness: forward}, then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
 """)
     pin = table.value_for(["quantification"], "strandedness", P(strandedness="reverse"))
     assert pin.value == 99
@@ -187,6 +191,8 @@ decisions:
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.0.6}
+      # MD0311: `>= 70` alone leaves everything below it matching nothing.
+      - {when: {read_length: "< 70"}, then: nf-core/subread/featurecounts@2.0.6}
 """)
     pin = table.implementation_for("quantification", P(read_length=150))
     assert pin.value == "nf-core/subread/featurecounts@2.0.6"
@@ -308,7 +314,9 @@ decisions:
   - decides: {effect: param, of: quantification, name: strandedness}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {strandedness: reverse}, then: 0}
+      - {when: {strandedness: reverse}, then: 10}
+      - {when: {strandedness: forward}, then: 11}
+      - {when: {strandedness: unstranded}, then: 12}
 """)
     table = RuleTable.load(
         [world["layer"], overlay],
@@ -316,8 +324,16 @@ decisions:
         vocabulary=world["vocabulary"],
         measurements=world["measurements"],
     )
-    assert table.value_for(["quantification"], "strandedness", P(strandedness="reverse")).value == 0
-    assert table.value_for(["quantification"], "strandedness", P(strandedness="forward")) is None
+    # Every value comes from the overlay's block, none from the base's. The original
+    # discriminator was `forward` resolving to `None` — the base had a row for it and the
+    # overlay did not — which stopped working when `MD0311` made the overlay cover the whole
+    # enum. Distinct values are the better test anyway: they prove which block answered,
+    # where an absence only proved that one row was gone.
+    answers = {
+        state: table.value_for(["quantification"], "strandedness", P(strandedness=state)).value
+        for state in ("reverse", "forward", "unstranded")
+    }
+    assert answers == {"reverse": 10, "forward": 11, "unstranded": 12}
 
 
 def test_goal_has_nowhere_to_put_a_sample_identifier():
@@ -372,7 +388,14 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 def two_roles(world):
     """A second contract, so a decision can land on two roles at once."""
     (world["layer"] / "vocabularies" / "fastq.reads.yml").write_text("states: [trimmed]\n")
+    # An extensible enum, so `test_an_extensible_enum_still_needs_a_catch_all` has a domain
+    # that can grow. The shipped `purpose` is declared the same way and for the same reason.
+    (world["layer"] / "measurements" / "purpose.yml").write_text(
+        "kind: enum\nvalues: [expression, variant_calling, junction_discovery, "
+        "transcript_assembly]\nextensible: true\n"
+    )
     (world["layer"] / "contracts" / "star.yml").write_text(ALIGNER)
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
     world["vocabulary"] = Vocabulary.load(world["layer"])
     world["registry"] = Registry.load(world["layer"], world["vocabulary"])
     return world
@@ -436,3 +459,114 @@ decisions:
 """)
     with pytest.raises(RuleValidationError, match="MD0309"):
         _rules(two_roles, TWO_TOOLS)
+
+
+# --- Task 9: exhaustiveness over a declared domain (A124) --------------------------------
+
+
+def _decision(rows: str, *, target: str = "{effect: implementation, of: alignment}") -> str:
+    return f"""
+version: 1
+decisions:
+  - decides: {target}
+    because: "a fixture; every row cites its own tool"
+    rows:
+{rows}
+"""
+
+
+STAR = "nf-core/star/align@1.11.0"
+FC = "nf-core/subread/featurecounts@2.0.6"
+
+
+def test_two_complementary_comparisons_are_exhaustive(two_roles):
+    """The shipped aligner rule: `>= 70` and `< 70`, no catch-all.
+
+    A124 asks for completeness, and the obvious fix — demand a catch-all — would demote Kim
+    et al.'s branch from tier 3 to tier 2 and take its premise with it. A pair of comparisons
+    at the same boundary is exhaustive *by construction*, with no bound declared anywhere.
+    """
+    table = _rules(two_roles, _decision(
+        f'      - {{when: {{read_length: ">= 70"}}, then: {STAR}, cite: "Dobin 2013"}}\n'
+        f'      - {{when: {{read_length: "< 70"}},  then: {STAR}, cite: "Kim 2019"}}'
+    ))
+    assert len(table.decisions) == 1
+
+
+def test_a_gap_in_an_ordered_domain_is_refused(two_roles):
+    with pytest.raises(RuleValidationError, match="between 50 and 70"):
+        _rules(two_roles, _decision(
+            f'      - {{when: {{read_length: ">= 70"}}, then: {STAR}, cite: "a"}}\n'
+            f'      - {{when: {{read_length: "< 50"}},  then: {STAR}, cite: "b"}}'
+        ))
+
+
+def test_an_overlap_is_not_a_gap(two_roles):
+    """`>= 50` and `< 70` overlap between 50 and 70. First-match-wins makes that legal and
+    the rows still cover the line, so completeness has nothing to say about it — a check
+    that refused this would be enforcing a different property under the same name."""
+    table = _rules(two_roles, _decision(
+        f'      - {{when: {{read_length: ">= 50"}}, then: {STAR}, cite: "a"}}\n'
+        f'      - {{when: {{read_length: "< 70"}},  then: {STAR}, cite: "b"}}'
+    ))
+    assert len(table.decisions) == 1
+
+
+def test_an_enum_is_exhaustive_when_the_rows_cover_its_values(two_roles):
+    """`strandedness` has exactly three values and `extensible` is false, so three rows are
+    the whole domain and no catch-all is needed."""
+    table = _rules(two_roles, _decision(
+        f'      - {{when: {{strandedness: forward}},    then: {FC}, cite: "a"}}\n'
+        f'      - {{when: {{strandedness: reverse}},    then: {FC}, cite: "b"}}\n'
+        f'      - {{when: {{strandedness: unstranded}}, then: {FC}, cite: "c"}}',
+        target="{effect: implementation, of: quantification}",
+    ))
+    assert len(table.decisions) == 1
+
+
+def test_an_enum_missing_a_value_is_refused(two_roles):
+    with pytest.raises(RuleValidationError, match="unstranded"):
+        _rules(two_roles, _decision(
+            f'      - {{when: {{strandedness: forward}}, then: {FC}, cite: "a"}}\n'
+            f'      - {{when: {{strandedness: reverse}}, then: {FC}, cite: "b"}}',
+            target="{effect: implementation, of: quantification}",
+        ))
+
+
+def test_an_extensible_enum_still_needs_a_catch_all(two_roles):
+    """An overlay may add a value, so coverage today is not coverage tomorrow. `purpose` is
+    `extensible: true` for the same reason `organism` is — the list of things sequencing is
+    for cannot be enumerated."""
+    with pytest.raises(RuleValidationError, match="extensible"):
+        _rules(two_roles, _decision(
+            f'      - {{when: {{purpose: expression}},           then: {FC}, cite: "a"}}\n'
+            f'      - {{when: {{purpose: variant_calling}},      then: {FC}, cite: "b"}}\n'
+            f'      - {{when: {{purpose: junction_discovery}},   then: {FC}, cite: "c"}}\n'
+            f'      - {{when: {{purpose: transcript_assembly}},  then: {FC}, cite: "d"}}',
+            target="{effect: implementation, of: quantification}",
+        ))
+
+
+def test_a_catch_all_is_still_exhaustive(two_roles):
+    """Still legal, just no longer *required*. That is the whole distinction A124's obvious
+    fix would have lost."""
+    table = _rules(two_roles, _decision(
+        f'      - {{when: {{read_length: ">= 70"}}, then: {STAR}, cite: "a"}}\n'
+        f'      - {{when: {{}},                     then: {STAR}, cite: "b"}}'
+    ))
+    assert len(table.decisions) == 1
+
+
+def test_rows_over_several_premises_are_not_checked_for_completeness(two_roles):
+    """Deliberately out of scope rather than approximated.
+
+    Completeness over a *product* of domains is a different and much larger claim, and a
+    check that half-computed it would refuse legitimate tables — which is worse than not
+    checking, because the author cannot argue with it. Recorded here so the gap is a
+    decision rather than an oversight.
+    """
+    table = _rules(two_roles, _decision(
+        f'      - {{when: {{read_length: ">= 70", strandedness: reverse}}, then: {STAR}, '
+        f'cite: "a"}}'
+    ))
+    assert len(table.decisions) == 1
