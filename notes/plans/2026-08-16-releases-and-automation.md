@@ -44,13 +44,27 @@ the workflow, then the documentation that tells a human how to use any of it.
 
 ---
 
-## Task 1: the Actions are current, pinned, and stay that way
+## Task 1: the Actions are current, pinned, and stay that way — **done**
+
+> **Corrections, 2026-08-16.** Step 5 could not run as written: CI triggers on `main` and on a
+> pull request, so a push to this branch produced no run at all. Dispatched with
+> `gh workflow run ci.yml --ref release-automation` instead.
+>
+> **And the evidence it produced was narrower than the step claimed.** Zero deprecation warnings,
+> but from `ci.yml` — which never uses `nf-core/setup-nextflow`. That action is a **composite**
+> with no Node runtime of its own, and its internals are where the old warning came from. Verified
+> by reading its manifest at the pinned SHA: its `subaction` and the `actions/setup-java` it pins
+> are both `node24`, as are checkout, upload-artifact and setup-uv.
+>
+> **`tests/test_workflow_pins.py` was added and the plan did not call for it.** Bumping pins by
+> hand once is not a mechanism; three guards hold the pinning, the version comment, and the fact
+> that the scan reached anything.
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`, `.github/workflows/nightly.yml`
 - Create: `.github/dependabot.yml`
 
-- [ ] **Step 1: Confirm the SHAs before pinning them**
+- [x] **Step 1: Confirm the SHAs before pinning them**
 
 Resolved 2026-08-16. **Re-resolve rather than trusting this table** — a plan is written before it
 runs, and a SHA copied from a stale note is worse than a tag:
@@ -69,7 +83,7 @@ done
 | `astral-sh/setup-uv` | v10.0.1 | `20cfd1bf945f4377ade1205e4dbc17946fc9a30d` |
 | `nf-core/setup-nextflow` | v3.0.1 | `893c28b667aedeba26e37f296d260ccc5bc4d914` |
 
-- [ ] **Step 2: Rewrite every `uses:` as a pinned SHA**
+- [x] **Step 2: Rewrite every `uses:` as a pinned SHA**
 
 Each becomes, exactly:
 
@@ -82,7 +96,7 @@ Each becomes, exactly:
 Both files, every occurrence. The trailing comment is not decoration: it is what makes the line
 readable and what Dependabot rewrites when it bumps the pin.
 
-- [ ] **Step 3: Check the workflows still parse and still name real jobs**
+- [x] **Step 3: Check the workflows still parse and still name real jobs**
 
 ```bash
 uv run python -c "
@@ -100,7 +114,7 @@ print('every action is pinned by SHA')
 
 Expected: both files list their jobs, and `every action is pinned by SHA`.
 
-- [ ] **Step 4: Write `.github/dependabot.yml`**
+- [x] **Step 4: Write `.github/dependabot.yml`**
 
 ```yaml
 # Without this the Actions go stale by exactly the mechanism that produced them being three to
@@ -132,12 +146,12 @@ updates:
       prefix: "build"
 ```
 
-- [ ] **Step 5: Push and read the run**
+- [x] **Step 5: Push and read the run**
 
 CI must pass **and** the Node 20 deprecation warnings must be gone. That warning is the symptom
 this task exists to clear, so read the log rather than only the green tick.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -146,7 +160,17 @@ git commit -m "build: every action current and pinned by SHA, plus dependabot"
 
 ---
 
-## Task 2: `emitted_by` names the package that raises
+## Task 2: `emitted_by` names the package that raises — **done**
+
+> **Correction, 2026-08-16.** The plan's pattern matched only a code *leading* a string, which
+> put all nine conformance codes into `UNLOCATABLE` — the list meant for codes nothing can see,
+> where they would have sat unexamined. They use `code="MD0100"` on a `Diagnostic` object.
+> Widening the pattern shrank that list from fifteen entries to one, and `MD0202` is the
+> survivor: the only code with `refuses: false`, printed as a report line without a colon.
+>
+> The colon is what separates a mention from an emission, and that assumption got its own test
+> rather than a comment. Twenty-three labels were relabelled from the guard's own output rather
+> than a hand-copied list.
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.py`, `diagnostics.yml`
@@ -155,7 +179,7 @@ git commit -m "build: every action current and pinned by SHA, plus dependabot"
 **Interfaces:**
 - Produces: `EmittedBy.CORE`; a corrected registry; `_raising_package(code) -> str | None`.
 
-- [ ] **Step 1: Write the guard first, and let it report the truth**
+- [x] **Step 1: Write the guard first, and let it report the truth**
 
 `tests/test_diagnostics_ownership.py`:
 
@@ -225,13 +249,13 @@ def test_the_unlocatable_codes_are_a_known_list():
 
 `UNLOCATABLE` is filled in at Step 3, from what the run actually reports.
 
-- [ ] **Step 2: Run it and read the report**
+- [x] **Step 2: Run it and read the report**
 
 Run: `uv run pytest tests/test_diagnostics_ownership.py -v`
 Expected: the first test **FAILS** with roughly twenty lines. Keep that output — it is the work
 list for Step 4, and it is also the evidence for the ledger row.
 
-- [ ] **Step 3: Add `EmittedBy.CORE`**
+- [x] **Step 3: Add `EmittedBy.CORE`**
 
 ```python
     CORE = "core"
@@ -247,12 +271,12 @@ list for Step 4, and it is also the evidence for the ledger row.
 
 Then fill `UNLOCATABLE` from Step 2's run, sorted.
 
-- [ ] **Step 4: Correct every label the guard names**
+- [x] **Step 4: Correct every label the guard names**
 
 One `emitted_by:` per entry. **No message, band, or `says` changes** — this is a label repair and
 mixing it with wording changes would make the diff unreviewable.
 
-- [ ] **Step 5: Run, watch pass, then regenerate the docs**
+- [x] **Step 5: Run, watch pass, then regenerate the docs**
 
 ```bash
 uv run pytest tests/test_diagnostics_ownership.py -v
@@ -264,18 +288,18 @@ Expected: tests pass, and **`docs/reference/diagnostics.md` is unchanged** — t
 groups by `concern`, not by `emitted_by`. If that file moves, something other than a label
 changed and the diff needs reading.
 
-- [ ] **Step 6: Watch both guards fail**
+- [x] **Step 6: Watch both guards fail**
 
 Set one corrected code back to its wrong package → the first test fails and names it. Add a code
 to `diagnostics.yml` with no raise site → the second fails saying the unlocatable set moved. Two
 ledger rows.
 
-- [ ] **Step 7: Fix the stale header while here**
+- [x] **Step 7: Fix the stale header while here**
 
 `diagnostics.yml`'s comment still says *"`docs/reference/cli.md`'s table is GENERATED from this
 file"*. It has been `docs/reference/diagnostics.md` since issue #41. One line.
 
-- [ ] **Step 8: `make verify`, commit**
+- [x] **Step 8: `make verify`, commit**
 
 ```bash
 git add -A
@@ -284,13 +308,13 @@ git commit -m "fix: emitted_by names the package that raises the code"
 
 ---
 
-## Task 3: a released package declares what it needs
+## Task 3: a released package declares what it needs — **done**
 
 **Files:**
 - Modify: `packages/mendel-resolver/pyproject.toml`, `packages/mendel-compiler/pyproject.toml`
 - Create: `tests/test_packaging.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """A released package must declare a version for every workspace package it imports.
@@ -318,12 +342,12 @@ def test_every_workspace_dependency_carries_a_lower_bound():
     )
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Expected: FAIL, naming `mendel-resolver: 'comeni-core'` and `mendel-compiler: 'comeni-core'`,
 `'mendel-resolver'`.
 
-- [ ] **Step 3: Add the bounds**
+- [x] **Step 3: Add the bounds**
 
 ```toml
 dependencies = ["comeni-core>=0.1.0", "pydantic>=2.9", "pyyaml>=6.0"]
@@ -342,7 +366,7 @@ dependencies = [
 **A lower bound and no upper.** A cap on a package released from this same repository would be a
 promise to bump it in lockstep, which is the thing independent versioning exists to avoid.
 
-- [ ] **Step 4: Run, watch pass, and confirm the lock still resolves**
+- [x] **Step 4: Run, watch pass, and confirm the lock still resolves**
 
 ```bash
 uv run pytest tests/test_packaging.py -v
@@ -352,11 +376,11 @@ uv sync --locked
 `--locked` is the point: if `uv.lock` needs regenerating, that is a change to commit rather than
 one to discover in CI.
 
-- [ ] **Step 5: Watch the guard fail**
+- [x] **Step 5: Watch the guard fail**
 
 Drop `>=0.1.0` from one dependency, confirm the test names it, restore. Ledger row.
 
-- [ ] **Step 6: Confirm each package still builds and tests alone**
+- [x] **Step 6: Confirm each package still builds and tests alone**
 
 ```bash
 for p in comeni-core mendel-resolver mendel-compiler; do
@@ -368,7 +392,7 @@ done
 Expected: three sdists and three wheels, and 172 / 162 / 28 passing. This is the claim
 per-package releases rest on, and it is checked here rather than assumed.
 
-- [ ] **Step 7: `make verify`, commit**
+- [x] **Step 7: `make verify`, commit**
 
 ```bash
 git add -A
@@ -377,13 +401,13 @@ git commit -m "build: workspace dependencies carry version bounds"
 
 ---
 
-## Task 4: the release workflow
+## Task 4: the release workflow — **done**
 
 **Files:**
 - Create: `.github/workflows/release.yml`, `tools/changelog_section.py`
 - Create: `tests/test_changelog_section.py`
 
-- [ ] **Step 1: Write `tools/changelog_section.py` test-first**
+- [x] **Step 1: Write `tools/changelog_section.py` test-first**
 
 ```python
 def test_it_extracts_one_package_section(tmp_path):
@@ -406,13 +430,13 @@ def test_a_missing_section_is_an_error_not_an_empty_release(tmp_path):
         section(changelog, "mendel-resolver", "0.2.0")
 ```
 
-- [ ] **Step 2: Implement it, run, watch pass**
+- [x] **Step 2: Implement it, run, watch pass**
 
 Read the file, find `## [<version>]`, then the `### <package>` heading under it, return the lines
 until the next heading at the same level or above. Exit non-zero with a message naming both the
 package and the version when there is no such section.
 
-- [ ] **Step 3: Write `.github/workflows/release.yml`**
+- [x] **Step 3: Write `.github/workflows/release.yml`**
 
 ```yaml
 name: Release
@@ -483,7 +507,7 @@ jobs:
 workflow already covers it. A release blocked on a container pull is a release people stop
 cutting. Record that as a decision rather than an omission.
 
-- [ ] **Step 4: Prove the refusal without cutting a release**
+- [x] **Step 4: Prove the refusal without cutting a release**
 
 The version check is the part most worth testing and the hardest to test in CI. Do it locally:
 
@@ -498,11 +522,11 @@ PY
 Expected: `0.1.0`. Then confirm the shell comparison in the workflow rejects `0.2.0` against it —
 run the two lines by hand with `steps.tag.outputs.version` substituted.
 
-- [ ] **Step 5: Check the workflow parses and is pinned**
+- [x] **Step 5: Check the workflow parses and is pinned**
 
 Re-run Task 1 Step 3's script. It must now cover three files.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -511,13 +535,13 @@ git commit -m "build: a tag cuts a release, and refuses if it disagrees with the
 
 ---
 
-## Task 5: the documentation, and the changelog
+## Task 5: the documentation, and the changelog — **done**
 
 **Files:**
 - Create: `docs/guides/releasing.md`
 - Modify: `CHANGELOG.md`, `docs/guides/contributing.md`, `docs/guides/README.md`, `CLAUDE.md`
 
-- [ ] **Step 1: Write `docs/guides/releasing.md`**
+- [x] **Step 1: Write `docs/guides/releasing.md`**
 
 Two halves, and the policy comes **first** because it is the part people get wrong:
 
@@ -541,7 +565,7 @@ so a wrong bump is a review comment rather than a failing check.
 Then the procedure: edit `CHANGELOG.md`, bump the `pyproject.toml`, commit, tag
 `<package>-v<version>`, push the tag, watch the workflow.
 
-- [ ] **Step 2: Give `CHANGELOG.md` per-package sections, and fix two stale claims**
+- [x] **Step 2: Give `CHANGELOG.md` per-package sections, and fix two stale claims**
 
 `[Unreleased]` gains `### comeni-core` / `### mendel-resolver` / `### mendel-compiler`
 subheadings, which is the shape `changelog_section.py` reads.
@@ -550,21 +574,21 @@ Two sentences in the header are wrong: registry data *"moves to its own reposito
 — it moved on 2026-08-16 in issue #46 — and it *"lives in `examples/`"*, which stopped being true
 several plans ago.
 
-- [ ] **Step 3: Link it from where a contributor looks**
+- [x] **Step 3: Link it from where a contributor looks**
 
 `docs/guides/contributing.md` and `docs/guides/README.md` both gain a line. A guide nothing links
 to is a guide nobody reads, which is what issue #41 was about.
 
-- [ ] **Step 4: `CLAUDE.md` — the tag scheme and the bump policy**
+- [x] **Step 4: `CLAUDE.md` — the tag scheme and the bump policy**
 
 Short, in Distribution: tags are `<package>-v<version>`, versions are independent, the bump rule
 in one line, and a pointer to the guide. **No counts.**
 
-- [ ] **Step 5: Final gate**
+- [x] **Step 5: Final gate**
 
 Run: `uv run ruff check . && make verify && make links`
 
-- [ ] **Step 6: One PR**
+- [x] **Step 6: One PR**
 
 Nothing deferred. Anything a task finds and does not fix is filed as its own issue.
 

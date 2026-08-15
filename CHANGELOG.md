@@ -5,11 +5,45 @@ All notable changes to this project are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Registry data — contracts, rules, vocabularies, measurements — moves to its own repository
-at Plan 1.7 and will version separately. Until then it lives in `examples/` as test
-fixtures rather than as a shipped registry.
+**Registry data moved out on 2026-08-16** ([issue #46](https://github.com/comeni-project/Comeni-Labs/issues/46)).
+It lives in [`comeni-registry`](https://github.com/comeni-project/comeni-registry) under
+CC-BY-4.0, versions separately, and is mounted here as a git submodule at `registry/`. Its
+changes are recorded in its own repository, not below.
+
+**Every package versions independently and is tagged on its own** —
+`comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`. Entries below sit under a `###` heading naming
+the package they belong to, which is what the release workflow reads to fill a Release's notes.
+Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
 
 ## [Unreleased]
+
+### comeni-core
+
+- **`emitted_by` names the package that raises a code**, and `EmittedBy` gained `core`. Twenty-
+  three entries named a package that does not raise them, all of them raised in `comeni-core` —
+  the vocabulary had no way to say so. `tests/test_diagnostics_ownership.py` derives the answer
+  from the source.
+- **`MD0001`–`MD0009`** — loading declared data refuses with a code, a file name and a fix
+  rather than a Pydantic traceback.
+- **`ai:` and `MD0225`** — the artifact can state that no model was consulted, and refuses a
+  value claiming one when none was available. `pipeline.yml` is at version 4.
+
+### mendel-resolver
+
+- No changes since the last release.
+
+### mendel-compiler
+
+- **`MD0223` sees a tier-4 setting answered by hand.** Answering a tier-4 question is now a
+  two-part edit — the override *and* the reason beside the value — and the one-part edit exits 2.
+
+### Repository
+
+Not part of any package's version: build and documentation changes.
+
+- Every GitHub Action is current and pinned by commit SHA; Dependabot watches them weekly.
+- A tag-driven release workflow, and [`docs/guides/releasing.md`](docs/guides/releasing.md).
+- Workspace dependencies carry lower bounds, so an independent version means something.
 
 ### Changed
 

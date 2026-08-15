@@ -447,6 +447,20 @@ both: **cost-raising, not a proof.** A determined author of code in this reposit
 reach the network from a pure package. What they cannot do is reach it *by accident*, or
 reach it and have the tests say nothing.
 
+**Releases are per package, and versions are independent.** Tags are
+`<package>-v<version>` — `comeni-core-v0.2.0` — and pushing one runs
+`.github/workflows/release.yml`, which refuses if the tag and that package's `pyproject.toml`
+disagree. **`0.0.x` for a fix, `0.x.0` for a feature, `x.0.0` for a break**; a new diagnostic
+code is a *feature*, because a runbook can cite it, and a `SCHEMA_VERSION` bump is always a
+break for `comeni-core`. The bump is judged, not derived — read
+`docs/guides/releasing.md` before cutting one. GitHub Releases only; no PyPI, decided
+2026-08-16.
+
+**Every GitHub Action is pinned by commit SHA with its version in a trailing comment**, and
+Dependabot rewrites both. A mutable `@v7` can be repointed by whoever controls the action, which
+is the one part of the supply chain invariant 1's posture had not reached. `tests/test_workflow_pins.py`
+holds it.
+
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0, in `comeni-registry` with
 its own `LICENSE` — contracts cite papers, so attribution matters. Root `LICENSE-DATA` was
 deleted with issue #46: a licence file for content the repository no longer holds is a claim

@@ -14,3 +14,4 @@ the whole loop, and the other guides are steps inside it done properly.
 | [`writing-a-rule.md`](writing-a-rule.md) | make a choice depend on measured data — tier 3 |
 | [`registry-layers.md`](registry-layers.md) | ship your laboratory's own contracts and rules |
 | [`contributing.md`](contributing.md) | how a change gets in, and what this project expects |
+| [`releasing.md`](releasing.md) | which number to move, and how a tag becomes a release |

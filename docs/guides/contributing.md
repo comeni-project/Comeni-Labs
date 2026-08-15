@@ -123,6 +123,15 @@ The PR template asks two questions, and they are the ones that matter:
 See [`SECURITY.md`](../../SECURITY.md). A hole in the egress boundary or a way to get patient
 data into a `Goal` is a security issue, not a bug report.
 
+## Releasing
+
+Every package versions independently and is tagged on its own — `comeni-core-v0.2.0`. Which
+number to move is a judgement, and [`releasing.md`](releasing.md) is the rule this project
+holds itself to: `0.0.x` for a fix, `0.x.0` for a feature, `x.0.0` for a break.
+
+Your pull request is where a version bump gets reviewed. Nothing mechanical can tell a fix from
+a feature.
+
 ## Licensing
 
 Code is Apache-2.0 ([`LICENSE`](../../LICENSE)). Registry data is CC-BY-4.0 and lives in
