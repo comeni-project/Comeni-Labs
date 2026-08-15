@@ -547,9 +547,11 @@ uv run ruff check .              # lint (line length 100)
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
-# why anything was refused, at length. MD0100–MD0108 conformance, MD0200–MD0222 the
-# pipeline file — the generated page is the count. docs/reference/diagnostics.md is generated
-# from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
+# why anything was refused, at length. The bands are in diagnostics.yml; the generated page
+# is the count. docs/reference/diagnostics.md is generated from comeni_core/diagnostics.yml —
+# `make docs` regenerates it, and CI checks it. A code is DECLARED there and EMITTED through
+# `coded()`, and both directions are tested: emitted-but-undeclared, and declared-but-never-
+# emitted. Never write a code into a string by hand.
 uv run mendel explain MD0104
 
 # vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)

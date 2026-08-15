@@ -123,6 +123,34 @@ The PR template asks two questions, and they are the ones that matter:
 See [`SECURITY.md`](../../SECURITY.md). A hole in the egress boundary or a way to get patient
 data into a `Goal` is a security issue, not a bug report.
 
+## Adding a diagnostic code
+
+A code is declared in exactly one place and emitted through exactly one function, and both
+directions are tested — so the two cannot drift.
+
+1. **Declare it** in `packages/comeni-core/src/comeni_core/diagnostics.yml`, in the band for its
+   concern, with `emitted_by` naming the package that will raise it. `says` is one line; `fix` is
+   what to write instead; `explanation` is the long form `mendel explain` prints.
+2. **Emit it** through `coded()`:
+
+   ```python
+   from comeni_core.diagnostics import coded
+
+   raise ValueError(coded("MD0002", f"{path} is not a valid contract"))
+   ```
+
+   Never write the code into the string yourself. `coded()` checks it against the registry, so a
+   typo raises here rather than printing to a user and then failing `mendel explain`.
+3. **Run `make docs`.** `docs/reference/diagnostics.md` is generated in full; CI fails if it is
+   stale, and hand-editing it is refused.
+4. **Do not declare a code you are not going to raise.** A test fails on it. A code that cannot
+   happen still appears in the generated page and still answers `mendel explain`, which makes it
+   documentation of a refusal that does not exist. Reserving a *band* is fine — that is a comment
+   in `diagnostics.yml`, not an entry.
+
+**A code is never renumbered once published**, because a laboratory runbook can cite it. That is
+also why adding one is a *feature* rather than a fix — see [`releasing.md`](releasing.md).
+
 ## Releasing
 
 Every package versions independently and is tagged on its own — `comeni-core-v0.2.0`. Which

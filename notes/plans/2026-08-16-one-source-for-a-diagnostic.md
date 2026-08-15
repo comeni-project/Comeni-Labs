@@ -37,7 +37,7 @@ last.
 
 ---
 
-## Task 1: `coded()`
+## Task 1: `coded()` — **done**
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.py`
@@ -47,7 +47,7 @@ last.
 - Produces: `comeni_core.diagnostics.coded(code: str, message: str) -> str`, returning
   `f"{code}: {message}"` and raising `UnknownDiagnosticError` for an undeclared code.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_coded_prefixes_the_message_with_the_code():
@@ -74,12 +74,12 @@ def test_coded_leaves_the_message_alone():
     assert coded("MD0001", message) == f"MD0001: {message}"
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `uv run pytest packages/comeni-core/tests/test_diagnostics_registry.py -k coded -v`
 Expected: FAIL, `cannot import name 'coded'`.
 
-- [ ] **Step 3: Implement it**
+- [x] **Step 3: Implement it**
 
 In `diagnostics.py`, beside `spec_for` and `explain`, which already do this lookup:
 
@@ -111,18 +111,18 @@ def coded(code: str, message: str) -> str:
     return f"{code}: {message}"
 ```
 
-- [ ] **Step 4: Run, watch pass, then watch the guard fail**
+- [x] **Step 4: Run, watch pass, then watch the guard fail**
 
 Remove the `if code not in REGISTRY` block; `test_coded_refuses_an_undeclared_code` and
 `test_coded_refuses_a_near_miss` must both fail. Restore. Ledger row.
 
-- [ ] **Step 5: Export it**
+- [x] **Step 5: Export it**
 
 `comeni_core/__init__.py` re-exports the package's public surface; add `coded` beside `explain`
 and `spec_for` if they are listed there. If they are not, do not add it — the resolver and
 compiler import from `comeni_core.diagnostics` directly.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -131,14 +131,31 @@ git commit -m "feat: coded() — one place a diagnostic code becomes text"
 
 ---
 
-## Task 2: every emission goes through it
+## Task 2: every emission goes through it — **done**
+
+> **Corrections, 2026-08-16.** Three mechanical failures, all producing syntactically plausible
+> output, all caught by Step 2's "read the diff before converting the other sixteen":
+>
+> 1. A regex cannot do this — the messages are implicit multi-line concatenations, so the closing
+>    paren belongs after the last literal. The AST knows the extent.
+> 2. `ast` column offsets are UTF-8 **bytes** and these files are full of em dashes; slicing by
+>    character duplicated the tail of every long message.
+> 3. A `Constant` inside a `JoinedStr` matches the same test as the `JoinedStr`, so seventeen
+>    messages got one replacement nested inside another.
+>
+> **The plan converted per file and this ran per package**, which was a deliberate trade after
+> the hardest file (17 sites, multi-line) converted cleanly — three suite runs rather than
+> seventeen. The corrections above were all found in that first file, so the trade held.
+>
+> `marks.py` takes **function-local imports**: `diagnostics.py` imports `Line` and `Text` from
+> it, which the plan did not anticipate and that file's own docstring warns about.
 
 **Files:** ~12, across three packages. Largest first, so the shape is settled before it is
 repeated: `mendel_resolver/rules/validate.py` (17), `comeni_core/artifact/pipeline.py` (12),
 `mendel_compiler/cli/artifact_verbs.py` (7), `comeni_core/declared/contract.py` (6),
 `mendel_resolver/rules/format.py` (5), `comeni_core/spell/marks.py` (5), then the rest.
 
-- [ ] **Step 1: Record the canary before touching anything**
+- [x] **Step 1: Record the canary before touching anything**
 
 ```bash
 sha256sum docs/reference/diagnostics.md
@@ -150,7 +167,7 @@ Both must be unchanged at the end. The generated page must not move at all — n
 changes what a code *says* — and a built pipeline must not move either, since no successful build
 emits a diagnostic.
 
-- [ ] **Step 2: Convert one file and read the diff**
+- [x] **Step 2: Convert one file and read the diff**
 
 Start with `mendel_resolver/rules/validate.py`. Each site:
 
@@ -163,17 +180,17 @@ Start with `mendel_resolver/rules/validate.py`. Each site:
 no space after the colon, or one where the code was mid-string; both change the output, and this
 plan's constraint is that output does not change.
 
-- [ ] **Step 3: Run the suite after that one file**
+- [x] **Step 3: Run the suite after that one file**
 
 Run: `uv run pytest -q -m "not slow"`
 Expected: PASS. Several tests assert message text; they are the check that the conversion is
 faithful.
 
-- [ ] **Step 4: Convert the remaining files, running the suite after each**
+- [x] **Step 4: Convert the remaining files, running the suite after each**
 
 Per file, not per package: a failure after eleven files is eleven files to bisect.
 
-- [ ] **Step 5: The CLI's `mendel: ` prefix**
+- [x] **Step 5: The CLI's `mendel: ` prefix**
 
 `artifact_verbs.py` writes `f"mendel: MD0210: {source}/modules is absent…"`. The prefix stays
 outside:
@@ -182,13 +199,13 @@ outside:
 f"mendel: {coded('MD0210', f'{source}/modules is absent…')}"
 ```
 
-- [ ] **Step 6: `MD0202`, the one intended output change**
+- [x] **Step 6: `MD0202`, the one intended output change**
 
 Currently `f"  MD0202  {line}"` — two spaces either side, aligned as a report. It becomes
 `coded("MD0202", line)`, so `MD0202: {line}`. **A test asserts that report's shape**; find it,
 update it, and say in the commit message that the format moved and why. Spec §5 predicted this.
 
-- [ ] **Step 7: Check the canary**
+- [x] **Step 7: Check the canary**
 
 ```bash
 sha256sum docs/reference/diagnostics.md    # must equal Step 1
@@ -196,7 +213,7 @@ uv run mendel build --goal examples/rnaseq-goal.yml --out /tmp/after --gate lint
 diff /tmp/before/pipeline.yml /tmp/after/pipeline.yml    # must be empty
 ```
 
-- [ ] **Step 8: Confirm nothing was missed**
+- [x] **Step 8: Confirm nothing was missed**
 
 ```bash
 grep -rnE '["'"'"'][^"'"'"']*MD[0-9]{4}:' --include='*.py' packages/*/src | grep -v "coded(" | grep -v "code="
@@ -204,15 +221,15 @@ grep -rnE '["'"'"'][^"'"'"']*MD[0-9]{4}:' --include='*.py' packages/*/src | grep
 
 Expected: **no output**. Any line here is an emission that still writes its own code.
 
-- [ ] **Step 9: `make verify`, commit**
+- [x] **Step 9: `make verify`, commit**
 
 ---
 
-## Task 3: both directions, and `UNLOCATABLE` goes
+## Task 3: both directions, and `UNLOCATABLE` goes — **done**
 
 **Files:** `tests/test_diagnostics_ownership.py`
 
-- [ ] **Step 1: Rewrite `_raising_packages` against the two real shapes**
+- [x] **Step 1: Rewrite `_raising_packages` against the two real shapes**
 
 With the conversion done there are exactly two: `coded("MD0001"` and `code="MD0100"`. The
 three-pattern guess and its `UNLOCATABLE` exemption both go.
@@ -230,7 +247,7 @@ def _emitted() -> dict[str, set[str]]:
     return found
 ```
 
-- [ ] **Step 2: Write the two new tests**
+- [x] **Step 2: Write the two new tests**
 
 ```python
 def test_every_emitted_code_is_declared():
@@ -250,44 +267,44 @@ def test_every_declared_code_is_emitted():
     assert unemitted == [], f"declared but never emitted: {unemitted}"
 ```
 
-- [ ] **Step 3: Delete `UNLOCATABLE` and the test that pinned it**
+- [x] **Step 3: Delete `UNLOCATABLE` and the test that pinned it**
 
 Both exist only because three emission shapes had to be matched by pattern. With one shape there
 is nothing to exempt. Say so in the commit rather than deleting silently.
 
-- [ ] **Step 4: Run, watch pass**
+- [x] **Step 4: Run, watch pass**
 
 Expected: PASS, with `test_every_locatable_code_is_owned_by_the_package_that_raises_it` still
 green — the ownership check now reads the same `_emitted()` map.
 
-- [ ] **Step 5: Watch all three fail**
+- [x] **Step 5: Watch all three fail**
 
 Add `coded("MD9998", "x")` to a source file → `test_every_emitted_code_is_declared` fails. Add an
 entry to `diagnostics.yml` that nothing emits → `test_every_declared_code_is_emitted` fails.
 Change one `emitted_by` → the ownership test fails. Three ledger rows.
 
-- [ ] **Step 6: `make verify`, commit**
+- [x] **Step 6: `make verify`, commit**
 
 ---
 
-## Task 4: how to add a code, written down
+## Task 4: how to add a code, written down — **done**
 
-- [ ] **Step 1: `docs/guides/contributing.md` gains a short section**
+- [x] **Step 1: `docs/guides/contributing.md` gains a short section**
 
 Four steps: declare it in `diagnostics.yml` with `emitted_by` naming the package that will raise
 it; emit it through `coded()`; run `make docs`; and know that declaring without emitting fails a
 test, because a code nothing raises is a promise nothing keeps.
 
-- [ ] **Step 2: `CLAUDE.md`'s diagnostics line**
+- [x] **Step 2: `CLAUDE.md`'s diagnostics line**
 
 It currently says the page is generated and CI checks it. Add that a code is *emitted* through
 `coded()` and that both directions are tested. One or two lines; no counts.
 
-- [ ] **Step 3: Journal**
+- [x] **Step 3: Journal**
 
 What the conversion found, whether the canary held, and the `MD0202` format change.
 
-- [ ] **Step 4: Final gate, one PR**
+- [x] **Step 4: Final gate, one PR**
 
 ```bash
 uv run ruff check . && make verify && make links
