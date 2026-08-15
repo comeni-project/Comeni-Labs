@@ -28,6 +28,49 @@ from pydantic import BaseModel, ConfigDict
 from comeni_core.declared.layer import layer_name
 from comeni_core.spell.marks import AnyKey, LayerName
 
+MANIFEST = "registry.yml"
+"""A layer's account of itself. Part of the layer, so a rename or a relicence is covered."""
+
+
+def declared_entries(path: Path) -> list[Path]:
+    """The files that *are* layer data: the `DeclaredKind` directories, and the manifest.
+
+    **One definition, used by everything that reads a layer as a whole** — the layer digest
+    in `comeni_core.artifact.digest` and the symlink refusal in `mendel_resolver.layers`.
+    Both used to walk `path.rglob("*")`, and issue #46 showed why that is wrong: `registry/`
+    became a git submodule, which puts a `.git` *file* beside the kinds reading
+    `gitdir: ../../../.git/worktrees/<name>/modules/registry`. That names the worktree and
+    the checkout location, so the layer digest became **machine-dependent** — two clones of
+    the same pinned commit pinned different digests, with `make verify` green throughout
+    because nothing compares a digest across machines.
+
+    **An allowlist, not a list of things to skip.** A blocklist would have to name `.git`,
+    then `.github`, then whatever the next layer repository carries. `DeclaredKind` already
+    *is* the definition of a layer's contents (invariant 11), so a kind declared later is
+    covered the day it is declared. Same reasoning that turned `test_egress.py` into an
+    allowlist after `object`, `Path` and `Any` arrived one audit apart.
+
+    **What this deliberately stops covering: anything outside a declared kind.** A symlink
+    at the layer root is no longer refused, and it no longer needs to be — nothing loads it
+    and nothing digests it, so it cannot reroute a pipeline or move a digest. Audit A9's
+    exploit was a symlinked *contract*, which lives under `contracts/` and is still refused
+    at both sites. Walking a real `.git` directory was also a cost nobody had measured:
+    `--registry ../comeni-registry` against an ordinary clone rglobbed the object store.
+    """
+    found: list[Path] = []
+    for root in [path / kind.value for kind in DeclaredKind] + [path / MANIFEST]:
+        if root.is_symlink():
+            # Returned rather than skipped, so the caller's refusal fires. `is_dir()`
+            # *follows* a link, so a `contracts/` symlinked out of the layer would
+            # otherwise be walked as an ordinary directory and its target hashed — which
+            # is precisely A9 arriving through the allowlist written after it.
+            found.append(root)
+        elif root.is_dir():
+            found += [p for p in root.rglob("*") if p.is_symlink() or p.is_file()]
+        elif root.is_file():
+            found.append(root)
+    return found
+
 
 class DeclaredKind(StrEnum):
     """The kinds of declared data. Invariant 11 says every one of them stacks.

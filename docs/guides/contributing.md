@@ -10,10 +10,33 @@ valuable kind and needs no Python. It is a YAML file plus a citation. Start with
 [`docs/guides/writing-a-contract.md`](writing-a-contract.md) or
 [`docs/guides/writing-a-rule.md`](writing-a-rule.md).
 
+**It goes to a different repository:**
+[`comeni-project/comeni-registry`](https://github.com/comeni-project/comeni-registry). Since
+issue #46 the registry is its own layer with its own version and its own signed tags, and
+`registry/` here is that repository mounted as a git submodule.
+
+**The cost of that split, stated rather than discovered:** a change touching both the engine and
+the registry is **two pull requests**, and the engine one cannot merge until the registry one
+does and the submodule pointer is bumped. That is the price of the registry being independently
+versionable — a laboratory pinning a registry version without pinning an engine version — and it
+is deliberate. If your change is registry-only, which most valuable ones are, none of it applies:
+open one pull request there and never touch this repository.
+
 **Code** changes the machinery. Read [`ARCHITECTURE.md`](../../ARCHITECTURE.md) first — it is
 short, and it explains why several things that look wrong are deliberate.
 
 ## Setup
+
+**Clone with the submodule**, or `registry/` will be empty:
+
+```bash
+git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
+# already cloned without it?
+git submodule update --init
+```
+
+`make check` refuses in one sentence if you forget, rather than failing thirty-three times about
+missing contracts.
 
 ```bash
 git clone https://github.com/comeni-project/Comeni-Labs
@@ -109,10 +132,10 @@ data into a `Goal` is a security issue, not a bug report.
 
 ## Licensing
 
-Code is Apache-2.0 ([`LICENSE`](../../LICENSE)). Registry data is CC-BY-4.0
-([`LICENSE-DATA`](../../LICENSE-DATA)) because contracts cite papers and attribution matters.
-Vendored `nf-core` modules keep their own licence. By contributing you agree your work is
-released under whichever applies.
+Code is Apache-2.0 ([`LICENSE`](../../LICENSE)). Registry data is CC-BY-4.0 and lives in
+[`comeni-registry`](https://github.com/comeni-project/comeni-registry), which carries its own
+`LICENSE` — contracts cite papers and attribution matters. Vendored `nf-core` modules keep their
+own licence. By contributing you agree your work is released under whichever applies.
 
 ## Conduct
 

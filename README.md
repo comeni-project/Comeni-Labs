@@ -174,9 +174,10 @@ fixture that happens to be true. `examples/` holds an example goal and nothing e
 ## Licences
 
 - **Code:** Apache-2.0 — see [`LICENSE`](LICENSE)
-- **Registry data** (`contracts/`, `rules/`, `vocabularies/`): CC-BY-4.0 — see
-  [`LICENSE-DATA`](LICENSE-DATA). Contracts and rules cite papers; attribution is the currency of
-  the field.
+- **Registry data** lives in its own repository,
+  [`comeni-registry`](https://github.com/comeni-project/comeni-registry), under CC-BY-4.0 with
+  its own `LICENSE`. `registry/` here is that repository as a git submodule. Contracts and rules
+  cite papers; attribution is the currency of the field.
 - **Vendored `nf-core` modules** under `vendor/` retain their own licences and notices.
 
 ---

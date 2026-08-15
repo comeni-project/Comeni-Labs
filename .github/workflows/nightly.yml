@@ -17,35 +17,6 @@ permissions:
   contents: read
 
 jobs:
-  registry-drift:
-    # `registry/` here and comeni-registry hold the same layer today and are meant to
-    # diverge — the published one grows into a real registry while this repo keeps
-    # fixtures. What must never happen is a file existing in both and disagreeing: a
-    # contract fix applied once and forgotten. The two repositories share no history and
-    # no CI, so each stays green while drifting apart, and nothing else would say so.
-    #
-    # Here rather than in the pull-request lane because it needs the network, and that
-    # lane is deliberately offline.
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check out the published registry
-        uses: actions/checkout@v4
-        with:
-          repository: comeni-project/comeni-registry
-          path: .comeni-registry
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Shared registry files agree across both repositories
-        run: uv run python tools/check_registry_drift.py .comeni-registry
-
   generated-docs:
     # `make check` runs this on every pull request, so drift cannot merge. This catches the
     # case that skips that lane entirely — a direct push, or a merge that bypassed checks.
@@ -59,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -74,6 +47,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

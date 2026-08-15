@@ -13,6 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from comeni_core.declared.layered import declared_entries
 from comeni_core.spell.marks import Digest
 
 _ALGORITHM = "sha256"
@@ -120,7 +121,7 @@ def digest_of_directory(path: Path) -> Digest:
     """
     parts: list[str] = []
     if path.exists():
-        for entry in sorted(p for p in path.rglob("*") if p.is_symlink() or p.is_file()):
+        for entry in sorted(declared_entries(path)):
             name = entry.relative_to(path).as_posix()
             if entry.is_symlink():
                 raise ValueError(

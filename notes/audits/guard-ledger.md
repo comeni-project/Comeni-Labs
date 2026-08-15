@@ -1821,3 +1821,72 @@ correctly `skipif`-guarded and skip on CI, so the stub finding them is an artefa
 **The general shape, for the third time in this plan:** a check can pass because of something
 about the machine it ran on. A67 is the version where a rename disables a guard; this is the
 version where an installed tool does. `make check` being green is evidence about one environment.
+
+## Issue #46 — the layer digest, after `registry/` became a submodule
+
+| date | guard | reverted | result | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_digest.py::test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it` | `declared_entries` back to `path.rglob("*")` | failed | two digests differ |
+| 2026-08-16 | `test_digest.py::test_a_symlinked_directory_is_refused_too` | the `root.is_symlink()` branch disabled | failed | no `ValueError` raised |
+| 2026-08-16 | `test_digest.py::test_the_allowlist_did_not_make_the_digest_constant` | `registry.yml` dropped from the allowlist | failed | two layers with different manifests digest alike |
+
+**The defect these were written for was found by comparing artifacts, not by a test.** Adding the
+submodule put three entries beside the declared kinds — `LICENSE`, `README.md`, and a `.git`
+*file* reading `gitdir: ../../../.git/worktrees/issues-43-46/modules/registry`. That path names
+the worktree and the checkout location, so `digest_of_directory` — which walked `rglob("*")` —
+made the **layer digest machine-dependent**. Two clones of the same pinned commit would pin
+different digests, and `pipeline.yml` would record whichever machine ran the build.
+
+**`make verify` was green the whole time**: 814 fast, 5 slow, 73 guards, no drift. Nothing in the
+repository compares a digest across machines, and nothing compared `pipeline.yml` before and
+after a change that was supposed to be a pure relocation. What caught it was building the spine
+on both `main` and the branch and diffing the two artifacts — the same technique
+`tools/refactor_oracle.py` used for issue #41, applied by hand a day after that tool was deleted.
+
+**The closing check is stronger than the guards above**, and is worth repeating for any change
+that claims to be a relocation: `pipeline.yml` built from the submodule is now **byte-identical**
+to `pipeline.yml` built on `main`, layer digest included.
+
+**The remedy is an allowlist, and the third row is why it needs its own guard.** Naming what a
+layer *is* — `DeclaredKind` plus `registry.yml` — rather than listing what to skip means the next
+thing a layer repository carries is covered without an edit. The failure mode of an allowlist is
+that it covers too little and the digest quietly becomes constant, which is what row three
+watches.
+
+**One narrowing, recorded rather than absorbed:** a symlink outside a declared kind is no longer
+refused. Nothing loads it and nothing digests it, so it cannot reroute a pipeline or move a
+digest; A9's exploit was a symlinked *contract*, which lives under `contracts/` and is still
+refused at both sites. A symlinked *kind directory* is still refused, and row two exists because
+`is_dir()` follows a link — the allowlist written after A9 would otherwise have reintroduced it.
+
+## Issue #46 — an unchecked-out submodule
+
+| date | guard | reverted | result | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_registry_submodule.py::test_an_empty_layer_directory_names_the_submodule` | the refusal in `layers.load()` removed | failed | no `ValueError` raised |
+| 2026-08-16 | `test_registry_submodule.py::test_a_layer_with_one_kind_is_not_mistaken_for_an_empty_one` | `any(` → `all(` | failed | a one-kind overlay refused as empty |
+| 2026-08-16 | `test_registry_submodule.py::test_the_message_counts_the_kinds_rather_than_asserting_a_number` | the refusal removed | failed | no message to count in |
+| 2026-08-16 | `make check`'s `registry-present` | `registry/` moved aside and replaced with an empty directory | **failed, in under a second** | the message below |
+
+```
+registry/ holds no registry data — it is a git submodule and was not checked out.
+
+    git submodule update --init
+
+'git clone --recurse-submodules' avoids this. See docs/guides/contributing.md.
+```
+
+**The last row is the one that mattered, and it is the hardest kind of state to test: one that
+only ever occurs on somebody else's machine.** A contributor cloning without
+`--recurse-submodules` gets a `registry/` that exists and is empty, so every path check passes
+and the failure surfaces thirty-three times as missing contracts. The state was produced here by
+hand — `mv registry /tmp/... && mkdir registry` — because otherwise the message would ship
+unread, which is exactly A14's finding in its purest form.
+
+**Two sites, one sentence.** `layers.load()` catches a direct `mendel build`; the Makefile
+prerequisite catches `make check`, which is a contributor's first command and would otherwise
+spend seventy seconds arriving at the wrong diagnosis.
+
+**`any`, not `all`, and the second row is why that needs a guard.** An overlay carrying three
+contracts and nothing else is the normal private-layer case; `all` would refuse every real
+overlay while passing every test written against the public base, which has all five kinds.

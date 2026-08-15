@@ -116,6 +116,7 @@ written against the types that exist.
 | [`docs/design/federation.md`](docs/design/federation.md) | provider access, registry stacking, publication, licensing |
 | [`docs/design/clinical-data-protection.md`](docs/design/clinical-data-protection.md) | clinical use, the egress boundary, the protection profiles |
 | [`docs/design/conformance.md`](docs/design/conformance.md) | whether "if it compiles, it runs" is reachable |
+| [`docs/design/declared-data.md`](docs/design/declared-data.md) | why declared data is files and not a database, and where an index would be legitimate |
 | [`docs/design/rule-tables-and-port-logic.md`](docs/design/rule-tables-and-port-logic.md) | the **superseded** rule format. Plan 1.15 replaced it |
 | [`notes/specs/2026-08-13-the-rule-drafter.md`](notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
 
@@ -358,7 +359,7 @@ packages/
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-registry/      one directory per DeclaredKind + registry.yml — THE LAYER
+registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
@@ -374,11 +375,23 @@ stable. `mendel_resolver.rules` and `mendel_compiler.cli` were single modules an
 in the same change — `rules/__init__.py` re-exports, because a package's `__init__` is its own
 surface rather than a second spelling of something else's.
 
-**The registry is its own layer, in `registry/`, ready to extract.** It holds one directory per
-`DeclaredKind` under CC-BY-4.0, plus a `registry.yml` manifest
-naming itself — because a layer that moves to its own repository cannot rely on the directory
-it happened to be checked out into. `comeni-registry` is where it lives publicly, with signed
-tags. Loading it from anywhere is a test, so the move is a path change and nothing else.
+**The registry left, on 2026-08-16 (issue #46).** `registry/` is a **git submodule** of
+[`comeni-registry`](https://github.com/comeni-project/comeni-registry), pinned to a commit and
+mounted at the path it already occupied — so every test that loads `ROOT / "registry"` is
+unchanged, and `git clone --recurse-submodules` is how you get it. Forget, and `make check` and
+`layers.load()` each refuse in one sentence naming `git submodule update --init`.
+
+**It was predicted to be "a path change and nothing else", and it was not.** The submodule puts
+`LICENSE`, `README.md` and a `.git` *file* beside the declared kinds, and `.git` holds
+`gitdir: …/worktrees/<name>/modules/registry` — so `digest_of_directory`, which walked
+`rglob("*")`, made the **layer digest machine-dependent**. `make verify` was green throughout;
+what caught it was building the spine on both branches and diffing `pipeline.yml`. A layer's
+digest now covers an **allowlist** — `declared_entries()`: the `DeclaredKind` directories plus
+`registry.yml`, which is what invariant 11 already says a layer *is*. Same definition is what
+`layers.load()` scans for symlinks, so there is one answer to "what are a layer's files".
+
+**Drift is gone rather than checked.** There is one copy now, so
+`tools/check_registry_drift.py`, `make drift` and the nightly job were deleted with it.
 
 It is **not a curated registry**: every contract in it is a test fixture that happens to be
 true. `Registry.load()` globs `*.yml` recursively under each layer, so `registry/contracts/`
@@ -426,8 +439,10 @@ both: **cost-raising, not a proof.** A determined author of code in this reposit
 reach the network from a pure package. What they cannot do is reach it *by accident*, or
 reach it and have the tests say nothing.
 
-**Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0 (`LICENSE-DATA`) —
-contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
+**Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0, in `comeni-registry` with
+its own `LICENSE` — contracts cite papers, so attribution matters. Root `LICENSE-DATA` was
+deleted with issue #46: a licence file for content the repository no longer holds is a claim
+about nothing. Vendored nf-core modules keep their own.
 
 **Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
 2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING` (a root stub pointing at
@@ -659,6 +674,13 @@ already been wrong once, when it named a gate that could not pass.
   `PROCESS.out.<name>` — it is not a name for the semantic thing, which is what `type_id`
   carries. Three contracts got this wrong and MD0105 found all three; each was latent only
   because no goal had yet routed to that port.
+- **Declared data is files, and a database is a design error — `docs/design/declared-data.md`.**
+  Decided 2026-08-16 (issue #43). Every comparable catalogue — nixpkgs, Homebrew, conda-forge,
+  nf-core modules — keeps human-curated data as files in git, because a database has no diff,
+  blame, review, signature or merge, and those five *are* what a reviewed, cited registry sells.
+  `diagnostics.yml` is the TypeScript/Rust shape already: one declarative file, generated
+  consumers. A database is legitimate only as a **derived, gitignored index** once loading is
+  measurably slow, which at 37 files it is not.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy
