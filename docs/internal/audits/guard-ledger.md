@@ -1721,3 +1721,29 @@ the gate at the end of a build, `artifact_verbs` runs it when certifying a direc
 already exists. One `setattr` covered both while they shared a file, which meant **nothing
 recorded that the gate is invoked from two places.** The split made a fact about the code visible
 in a test that had been silently averaging over it.
+
+## Issue #41 Task 5 — a guard that names a path must name one that exists
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_construction.py::test_every_exempted_path_names_a_file_that_exists` | an `ALLOWED` key pointed at the pre-move path | **2 failed** | names the path that exempts nothing, *and* the guard it stopped exempting |
+| 2026-08-16 | the same | a `PIPELINE_READERS` key misspelled | **2 failed** | the same pair |
+| 2026-08-16 | `test_purity.py::test_the_attribute_exemption_names_a_file_that_exists` | `ATTRIBUTE_EXEMPT_PATH` pointed at a path `yaml_strict.py` does not have | **3 failed** | the exemption covers nothing, and `yaml_strict.py` fails the rule it exists to satisfy |
+| 2026-08-16 | `test_purity_runtime.py::test_every_required_frame_path_names_a_file_that_exists` | a required frame path pointed at the pre-move path | failed | *"requires files that do not exist, so it can only fail"* |
+
+**Every one of the four failed *two* tests, and that pairing is the point.** The new guard names
+the broken key; the old guard fails for a reason that reads like something else entirely. Before
+Task 5 only the second half existed, so an operator would have seen
+`test_pipeline_is_constructed_in_one_place` fail on code that has been correct for months and
+gone looking in the wrong file.
+
+**The runtime one is the exception, and it is the dangerous shape.** A required frame path that
+names nothing makes the assertion **unsatisfiable** rather than unmet — it fails for a reason
+that has nothing to do with coverage, so the message *"the watched region has narrowed"* is
+false, and a reader debugging it is debugging the wrong thing. Its new guard is what says the
+real reason.
+
+**A67 is now closed in both directions.** Task 1 hit it live in the safe direction — an exemption
+stopped matching and a guard fired on permitted code, which somebody notices. These four cover
+the other direction, where an exemption covers nothing, the scan quietly finds less to check, and
+the gate goes green faster.

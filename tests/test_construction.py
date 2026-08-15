@@ -298,3 +298,25 @@ def test_the_only_caller_of_materialise_of_is_pipeline_of():
         "the guard above names and the only one the documentation describes:\n  "
         + "\n  ".join(callers)
     )
+
+
+def test_every_exempted_path_names_a_file_that_exists():
+    """A67's shape, in the file that *exempts* spellings rather than the one that scans them.
+
+    `ALLOWED`, `PIPELINE_ALLOWED` and `PIPELINE_READERS` all key on a repository-relative path.
+    A key that matches no file exempts nothing — and the failure is silent in the direction
+    nobody investigates: the scan finds fewer things to check and the gate goes green *faster*.
+    The reviewer who found A67 mistyped two package keys and got `1 passed` in 0.04s.
+
+    Issue #41 moved every module in `comeni-core`, which is the day it would have happened.
+    It did happen, in the *other* direction — the exemption for
+    `MeasurementRegistry.profile()` stopped matching and the guard fired on the code it exists
+    to permit, which is the outcome somebody notices. This is what covers the other one.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    keyed = sorted(ALLOWED | PIPELINE_ALLOWED | set(PIPELINE_READERS))
+    missing = [key for key in keyed if not (root / key).exists()]
+    assert missing == [], (
+        "these exempted paths name files that do not exist, so they exempt nothing:\n  "
+        + "\n  ".join(missing)
+    )

@@ -221,3 +221,36 @@ def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
             f"narrowed, and the stage that reads stranger-authored files is what it "
             f"dropped. Covered: {sorted(covered)}"
         )
+
+
+def test_every_required_frame_path_names_a_file_that_exists():
+    """The watched-region check names three files by path, and a path that names nothing
+    would make the assertion unsatisfiable rather than unmet.
+
+    The distinction matters: an unmet assertion says the region narrowed, which is the finding
+    it exists to report. An *unsatisfiable* one says nothing at all — it fails for a reason
+    that has nothing to do with coverage, and the next reader debugs the wrong thing.
+
+    A67, issue #41. `comeni_core/layered.py` became `comeni_core/declared/layered.py` when the
+    package was regrouped, and this is what would have said so directly.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    required = (
+        "comeni_core/declared/layered.py",
+        "comeni_core/yaml_strict.py",
+        "mendel_resolver/layers.py",
+    )
+    packages = {
+        "comeni_core": "comeni-core",
+        "mendel_resolver": "mendel-resolver",
+        "mendel_compiler": "mendel-compiler",
+    }
+    missing = [
+        name
+        for name in required
+        if not (root / "packages" / packages[name.split("/")[0]] / "src" / name).exists()
+    ]
+    assert missing == [], (
+        "the watched-region check requires files that do not exist, so it can only fail:\n  "
+        + "\n  ".join(missing)
+    )
