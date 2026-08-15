@@ -18,6 +18,7 @@ behind it.
 from comeni_core.artifact.load import _param_refs
 from comeni_core.artifact.lockfile import Lockfile
 from comeni_core.artifact.pipeline import (
+    AiProvenance,
     CallArg,
     Channel,
     ExtArgs,
@@ -90,6 +91,14 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
             displaced=list(ir.displaced),
             unverified=list(ir.unverified),
         ),
+        # **Empty lists are a measurement, not a placeholder.** Through Plan 1 there is no
+        # AI path at all — `mendel-ai` does not exist and nothing implements the resolver
+        # ports — so no declared AI point had an adapter and none answered. Writing `[]`
+        # rather than leaving the field defaulted is the difference between the artifact
+        # *stating* that no model was consulted and merely not mentioning it, which is A130.
+        # Plan 2 fills these from what was actually configured. Do not "fix" them to a
+        # default: `None` means a file written before the question existed.
+        ai=AiProvenance(available=[], used=[]),
         steps=steps,
         channels=_channels(ir, registry, vocab, measurements),
         decisions=list(ir.decisions),

@@ -1502,3 +1502,40 @@ MD0009:
     has always required stopped existing; the loader can, because it stacked the vocabulary a
     moment earlier. Without that join the build blamed the contract for an overlay's edit, and
     the person reading it went looking in the wrong file.
+MD0225:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a value records a model settled it, and the build records that none was available"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    One of the two is false, and the artifact cannot say which. Either the value was not
+    settled by a model — correct `why.source` — or the build did have an AI point wired and
+    `ai.available` is wrong.
+
+        ai:
+          available: []      # nothing was wired to a model
+          used: []
+
+    `available: []` is a positive statement, not an absence. A file that predates the question
+    has no `ai:` section at all and is not checked.
+  explanation: |
+    A130, the checkable half. The design audit found that the artifact could not state that no
+    model was consulted: `resolved_by` and `confidence` are the resolver's claims about itself,
+    and `source: resolver` on every value is evidence of nothing, because a resolver sets its
+    own source.
+
+    `ai.available` is different in kind — it is a fact about how the build was *configured*,
+    not a self-report about a decision. If nothing was wired to a model then no value can have
+    been settled by one, and a file claiming otherwise has been edited or built by something
+    that lied.
+
+    **The other direction is not checkable and is documented rather than implied.** A
+    model-backed build whose adapter writes `source: resolver` on every value is
+    indistinguishable from a deterministic one. This code closes the direction that can be
+    proven; `AiProvenance`'s docstring states the limit, because a field implying more than it
+    delivers is worse than no field.
+
+    Under the engine decision of 2026-08-14 this stops being a legibility gap: `guarded` and
+    `sealed` both require attribution, so a model-authored reason that cannot be told from a
+    human-authored one is a gap in the protection profiles.

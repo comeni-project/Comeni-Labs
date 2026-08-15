@@ -270,6 +270,7 @@ def test_the_file_carries_every_provenance_a_reader_needs(tmp_path):
         "version",
         "goal",
         "registry",
+        "ai",
         "steps",
         "channels",
         "decisions",
@@ -740,7 +741,7 @@ def test_an_unanswered_raw_ext_value_still_loads():
 # --- Plan 1.14 Task 0: a schema change must announce itself -------------------------------
 
 SERIALISED_SHAPE = {
-    "Pipeline": ["version", "goal", "registry", "steps", "channels", "decisions",
+    "Pipeline": ["version", "goal", "registry", "ai", "steps", "channels", "decisions",
                  "emitted", "gate"],
     "Step": ["id", "module", "process", "include", "why", "presence", "ext_args", "inputs",
              "call", "settings"],

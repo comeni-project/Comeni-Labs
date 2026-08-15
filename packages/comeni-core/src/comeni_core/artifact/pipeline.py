@@ -19,6 +19,8 @@ Two rules govern what is in here, and they are converse:
   accepted on condition that nothing rides along.
 """
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from comeni_core.artifact.digest import digest_of
@@ -57,7 +59,7 @@ from comeni_core.spell.marks import (
 )
 from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 """What this Mendel writes and the highest it will read.
 
 The rule was "bumped only by a change that an older Mendel would misread — a section it would
@@ -558,6 +560,57 @@ class RegistryProvenance(BaseModel):
     unverified: list[ContractId] = Field(default_factory=list)
 
 
+
+class AiPoint(StrEnum):
+    """The three declared runtime AI points. Invariant 3 says there are exactly these.
+
+    Adding a fourth is not a schema change to wave through — it is a change to invariant 3,
+    and `tests/test_ai_provenance.py` asserts this list so somebody has to say so out loud.
+    """
+
+    PROMPT = "prompt"
+    """Prompt → goal extraction. The user corrects the result before anything runs."""
+    TIER_4 = "tier-4"
+    """Resolution of an ambiguity the ladder could not settle. Always flagged (invariant 6)."""
+    REPAIR = "repair"
+    """Compiler repair, bounded to three attempts. Patches the IR, never the `.nf` text."""
+
+
+class AiProvenance(BaseModel):
+    """What could have been consulted for this build, and what was. A130.
+
+    **`available` is the field that makes "no model" mean something.** `used` is derivable from
+    the decisions; `available` is a fact about how the build was *configured* — which AI points
+    had an adapter — and it is the one a reader cannot get any other way. Both empty is a
+    positive statement: nothing was wired to a model, so nothing could have been consulted.
+
+    Without it, the only evidence was `source: resolver` on every value, which is the
+    resolver's claim about itself. Round three recorded that `Resolution.source` can be set
+    untruthfully by any resolver, including a future model adapter, and put it on the same
+    standing as `confidence` and `reason`.
+
+    **`None` is not `[]`.** `None` means the file predates the question — a `version: 3`
+    artifact, written when nothing asked. `[]` means somebody looked and there was nothing
+    wired. Reading the first as the second would invent a statement nobody made, and `MD0225`
+    would then enforce it. That is `MD0223`'s lesson (`for_value`) one field over, and it is
+    why this is a nullable list rather than a list with an empty default.
+
+    **The limit, stated here rather than implied.** This proves the negative and not the
+    positive. A build with an adapter configured *will* say so; a model-backed build whose
+    adapter writes `source: resolver` on every value is indistinguishable from a deterministic
+    one. A130 closes in the direction that can be checked, and the other direction needs the
+    adapter to be honest — which no field can make it. A field that implied more than that
+    would be worse than no field.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    available: list[AiPoint] | None = None
+    """Which of the three declared points had an adapter. `[]` = none were wired."""
+    used: list[AiPoint] | None = None
+    """Which actually answered. A subset of `available`, and empty whenever that is."""
+
+
 class Pipeline(EgressPayload):
     """The pipeline. Read this; edit this; `mendel emit` rebuilds the Nextflow from it.
 
@@ -624,6 +677,10 @@ class Pipeline(EgressPayload):
     Editing it takes effect on
     `mendel upgrade`, and the emitted file says so in a comment."""
     registry: RegistryProvenance = Field(default_factory=RegistryProvenance)
+    ai: AiProvenance = Field(default_factory=AiProvenance)
+    """Which of the three declared AI points were reachable for this build, and which
+    answered. A130. Defaults to *stating nothing*, which is what a file predating the
+    question means; `Pipeline.of` records `[]`/`[]`, which is a measurement."""
     steps: list[Step] = Field(default_factory=list)
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
@@ -654,6 +711,22 @@ class Pipeline(EgressPayload):
                 f"MD0212: two steps share the id {', '.join(repeated)}. A step id is what "
                 f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous."
             )
+        # A130. `== []` and not falsy: `None` means the file predates the question and makes
+        # no claim, so it cannot contradict one. Only an explicit "nothing was wired" can.
+        if self.ai.available == []:
+            claimed = sorted(
+                f"{step.id}.{setting.name}"
+                for step in self.steps
+                for setting in step.settings
+                if setting.why.source is ValueSource.MODEL
+            )
+            if claimed:
+                raise ValueError(
+                    f"MD0225: {', '.join(claimed)} record that a model settled them, and this "
+                    "build records that no AI point was available. One of the two is false. "
+                    "`ai.available: []` means nothing was wired to a model, so nothing could "
+                    "have been consulted."
+                )
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:
             shadow = sorted(

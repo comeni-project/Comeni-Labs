@@ -47,7 +47,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 3
+version: 4
 
 goal:                          # what was asked for
   have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
@@ -56,6 +56,10 @@ goal:                          # what was asked for
   profile:
     measurements:
       - {measurement: strandedness, value: reverse, source: goal, by: null}
+
+ai:                            # what could have been consulted, and what was
+  available: []                # nothing was wired to a model
+  used: []
 
 registry:                      # provenance. NOT a dependency of `emit`.
   layers: [{name: comeni-registry-examples, digest: sha256:1a4f…}]
@@ -138,7 +142,8 @@ ignoring a section a newer one added is how a pipeline gets emitted without what
 section carried.
 
 An **older** file is read, and its new fields come back empty rather than absent-and-fatal. A
-pipeline written before version 3 has no `presence` and no `premise`, and requiring them of one
+pipeline written before version 4 has no `ai:`; one written before version 3 has no `presence`
+and no `premise`. Requiring either of one
 would assert the reason is *missing* rather than *never recorded* — a document written before a
 field existed cannot answer for it. `MD0213` is the check that would otherwise report a schema
 change as a human edit.
@@ -336,6 +341,38 @@ Only `--gate test` runs the tools on data. Conformance, `nextflow lint`, `-previ
 Requiring `test` to publish was considered and rejected — minutes, Docker and network per
 publish is too high a floor — so the file carries the evidence instead and a curator may
 decline a pipeline that never ran the gate which checks wiring.
+
+### `ai`
+
+**What could have been consulted for this build, and what was.**
+
+```yaml
+ai:
+  available: []      # which of the three declared AI points had an adapter
+  used: []           # which of them actually answered
+```
+
+Both empty is a **positive statement**: nothing was wired to a model, so nothing could have been
+consulted. Through Plan 1 that is always the case — `mendel-ai` does not exist — and writing it
+down is the difference between the file saying so and merely not mentioning it.
+
+**Why this exists rather than trusting `why.source`.** A value settled by a model records
+`source: model`, and that is the answer for a reader who wants to know *who decided this one
+thing*. But `source` is set by the resolver about itself, so its absence proves nothing: an
+adapter that writes `resolver` on every value is indistinguishable from the deterministic ladder.
+`ai.available` is a different kind of fact — how the build was configured — and it is what makes
+"no model" checkable at all. `MD0225` refuses a file whose values claim a model while
+`available` says none was wired.
+
+**The limit, so the field is not read as more than it is.** This proves the negative and not the
+positive. It cannot catch a dishonest adapter, and it does not try to; that would need an
+attestation, which is a different design. Same standing as `confidence` and `reason` —
+declared vocabulary rather than proof.
+
+**`[]` and absence are different.** A file with no `ai:` section was written before the question
+existed and states nothing; `MD0225` does not apply to it. A file with `available: []` states
+that somebody looked and nothing was wired. Collapsing the two would invent a statement nobody
+made.
 
 ## Editing it safely
 

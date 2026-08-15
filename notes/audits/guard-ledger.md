@@ -1954,3 +1954,30 @@ model would be the same defect wearing a number.
 and they wrap `kind.parse(path)` inside `stack()` because that is the one place every kind loads
 through (invariant 11) and the only place the path is still in scope. `MD0005` is the refusal
 issue #46 added yesterday as a bare `ValueError`.
+
+## A130 — the artifact states that no model was consulted (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_ai_provenance.py::test_MD0225_…` | the `MD0225` block removed | failed |
+| 2026-08-16 | `…::test_a_pre_ai_file_claiming_a_model_is_not_refused` | `== []` → `not self.ai.available` | failed |
+| 2026-08-16 | `…::test_a_file_from_before_the_question_states_nothing` | `available: list \| None = None` → `list = []` | failed (two tests) |
+| 2026-08-16 | `…::test_a_build_states_that_no_model_was_consulted` | `materialise` stops writing `ai=AiProvenance(available=[], used=[])` | failed (two tests) |
+
+**The second and third rows are the finding, not ceremony.** `MD0225` refuses a value claiming a
+model when the build says none was available — and the natural spelling, `if not
+self.ai.available`, also fires on `None`, which means *"this file predates the question"*. That
+would refuse every version-3 artifact for contradicting a statement it never made. `== []` is the
+whole difference, and row two is what holds it.
+
+Row three is the same distinction one level up: defaulting `available` to `[]` turns absence into
+a statement, so an old file would load as *"somebody looked and nothing was wired"* when nobody
+looked. **This is `MD0223`'s lesson (`for_value is None` means "written before 1.14", not
+"disagrees") arriving in a second field**, which is why the spec called it out before the code
+was written rather than after.
+
+**Four totality guards caught the new model on the way in**, and each is a guard doing its job
+rather than an obstacle: `SERIALISED_SHAPE`, the `Pipeline` field list, `_PIPELINE_MODELS` (so a
+malformed `ai:` is blamed on the pipeline file rather than the goal), and the two
+`set(raw) == {...}` assertions in `test_pipeline_file` and `test_publish`. A new section of the
+artifact has to be declared in five places, and all five said so.
