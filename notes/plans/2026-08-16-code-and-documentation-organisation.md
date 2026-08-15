@@ -1129,7 +1129,21 @@ git commit -m "docs: write down the loop, and clear the root (#41)"
 
 ---
 
-## Task 10: `CLAUDE.md`, and closing out
+## Task 10: `CLAUDE.md`, and closing out — **done**
+
+> **Correction, 2026-08-16.** Step 1's four conditions were checked and three needed work beyond
+> a path rewrite. *Current state* was 156 lines duplicating `notes/README.md` and the journal —
+> the section that opens by telling a reader the journal is the handoff — with two paragraphs
+> saying the same thing about `pipeline.yml` twice and a thirty-row reading table duplicating
+> three directory READMEs Task 8 had just written. It is 90 lines now.
+>
+> **The no-counts rule had gone stale again**, which is the finding rather than the fix: *"748
+> fast tests green"* was written three plans ago and the number is 814. A71 and A72 are about
+> exactly this, and their lesson was recorded *inside* the section it governs where nobody
+> checking a number would meet it. It is stated at the top now.
+>
+> **An empty `cli_pkg/` directory was left behind by Task 4.** Untracked, so git never saw it and
+> no gate could have; removed by hand.
 
 **Spec:** Part three. 723 lines, the largest file in the repository and the file most likely to
 be read *in full* by an agent — so the same complaint applies to it.
@@ -1139,7 +1153,7 @@ be read *in full* by an agent — so the same complaint applies to it.
 - Delete: `tools/refactor_oracle.py`
 - Create: `notes/journal/2026-08-16-evening.md`
 
-- [ ] **Step 1: Restructure `CLAUDE.md` with the skill**
+- [x] **Step 1: Restructure `CLAUDE.md` with the skill**
 
 **REQUIRED SUB-SKILL:** `claude-md-management:revise-claude-md`. This is the operator's
 instruction, given 2026-08-16.
@@ -1153,7 +1167,7 @@ mean writing it twice. What must be true when it is done:
 - no count is asserted in prose that a tool could derive — `len(DeclaredKind)`,
   `make residue`, `tests/test_egress.py`'s literal list
 
-- [ ] **Step 2: Delete the oracle**
+- [x] **Step 2: Delete the oracle**
 
 ```bash
 git rm tools/refactor_oracle.py
@@ -1162,7 +1176,7 @@ git rm tools/refactor_oracle.py
 Run it one last time before deleting, and paste the three digests into the journal entry: they
 are the evidence that eleven tasks of relocation changed nothing.
 
-- [ ] **Step 3: Write the journal entry**
+- [x] **Step 3: Write the journal entry**
 
 `notes/journal/2026-08-16-evening.md`. What it must carry: the three digests, unmoved; what the
 oracle caught if anything; the `cli.py` correction (the design said one module per verb and the
@@ -1170,7 +1184,7 @@ code said otherwise); the link-checker count before and after; and what is *not*
 `ARCHITECTURE.md` still describes five stages that now have directories, and whether those two
 should be generated from each other is a question this plan did not answer.
 
-- [ ] **Step 4: Final verification**
+- [x] **Step 4: Final verification**
 
 ```bash
 uv run ruff check . && make verify && make links
@@ -1178,7 +1192,7 @@ uv run ruff check . && make verify && make links
 
 Expected: PASS. The oracle is gone by now, so this is the last gate.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
