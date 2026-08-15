@@ -95,3 +95,40 @@ def test_the_generated_table_is_current():
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+# --- `coded()`: the one place a code becomes text ---
+
+
+def test_coded_prefixes_the_message_with_the_code():
+    from comeni_core.diagnostics import coded
+
+    assert coded("MD0001", "a thing went wrong") == "MD0001: a thing went wrong"
+
+
+def test_coded_refuses_an_undeclared_code():
+    """The whole point: a string literal cannot be wrong about this any more."""
+    from comeni_core.diagnostics import UnknownDiagnosticError, coded
+
+    with pytest.raises(UnknownDiagnosticError) as caught:
+        coded("MD9999", "a thing went wrong")
+    assert "MD9999" in str(caught.value)
+
+
+def test_coded_refuses_a_near_miss():
+    """`MD00001` is the realistic typo — one digit too many, and it reads right."""
+    from comeni_core.diagnostics import UnknownDiagnosticError, coded
+
+    with pytest.raises(UnknownDiagnosticError):
+        coded("MD00001", "a thing went wrong")
+
+
+def test_coded_leaves_the_message_alone():
+    """No wrapping, no rstrip, no reflow.
+
+    A message that changes shape is a message whose tests start asserting the formatter rather
+    than the text — and several of these messages are multi-line with deliberate indentation.
+    """
+    from comeni_core.diagnostics import coded
+
+    message = "line one\n  line two, indented\n"
+    assert coded("MD0001", message) == f"MD0001: {message}"
