@@ -2100,3 +2100,31 @@ commit rather than a surprise in CI.
 **Each package was built and tested alone** — two artifacts each, and 172 / 162 / 28 passing.
 That is the claim per-package releases rest on, and it is cheap enough to check that assuming it
 would have been the wrong trade.
+
+## The release workflow (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_release_workflow.py::test_the_notes_are_extracted_before_the_build` | the build step moved above the notes step | failed |
+| 2026-08-16 | `…::test_the_workflow_only_fires_on_a_package_tag` | `tags: ["*-v*"]` → `["*"]` | failed |
+| 2026-08-16 | `test_changelog_section.py::test_a_missing_package_section_is_refused` | the `LookupError` replaced with `return ""` | failed |
+| 2026-08-16 | `…::test_the_tool_exists` | — | see below |
+
+**Three of the changelog tests passed before the tool was written**, because they assert a
+non-zero exit and a *missing script* produces one. `test_the_tool_exists` is what closes that,
+and it is the second time this week a test has been green for a reason unrelated to its subject
+— the first was `assert "MD0004" in message` matching pytest's own `tmp_path` name.
+
+**Both are the same mistake**: asserting on a signal that something *other than the code under
+test* can produce. Worth naming as a class, because it is not caught by any amount of care about
+the assertion itself — only by asking what else could satisfy it.
+
+**The workflow's two tag checks are exercised without cutting a release.** Splitting
+`comeni-core-v0.1.0` and comparing against `pyproject.toml` are the two steps that only ever run
+on a tag push, and testing them by pushing a tag would mean publishing something to find out. The
+shell parameter expansions are reproduced in Python and asserted against the real manifests.
+
+**The `make check` decision is asserted rather than only commented.** The workflow gates on
+`make check`, not `make verify`, because `verify` needs Docker and the slow lane and nightly
+already covers `main`. The test requires the workflow to still mention `make verify` — so the
+reason survives in the file where the decision was made, not only in a plan nobody re-reads.
