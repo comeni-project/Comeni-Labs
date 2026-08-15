@@ -45,7 +45,7 @@ schema is settled.
 
 ---
 
-## Task 1: `_FILE`'s claim becomes checkable — A36
+## Task 1: `_FILE`'s claim becomes checkable — A36 — **done**
 
 **Files:**
 - Modify: `packages/comeni-core/tests/test_digest.py`
@@ -54,7 +54,7 @@ schema is settled.
 - Produces: nothing importable. This task adds a test and changes no behaviour, which is the
   point — the digest must not move.
 
-- [ ] **Step 1: Record the layer digest, for every later task to check against**
+- [x] **Step 1: Record the layer digest, for every later task to check against**
 
 ```bash
 uv run python -c "
@@ -69,7 +69,7 @@ Expected: `sha256:6209f7e115fea05dbead941feb9ef6c85022e4fc77084766c83942199dc070
 Write it down. If any task moves it, that task is wrong: a layer digest is what a published
 `pipeline.yml` pins, and `comeni-registry` is tagged `v0.2.0`.
 
-- [ ] **Step 2: Write the test that can fail**
+- [x] **Step 2: Write the test that can fail**
 
 The audit's option 3. `_FILE` claims to keep a second entry kind from hashing alike; there is
 currently one kind, so the claim is untested. Invent the second kind *in the test*:
@@ -106,7 +106,7 @@ def test_the_file_tag_separates_entry_kinds(tmp_path):
     assert as_file == hashlib.sha256(module._FILE + payload).hexdigest()
 ```
 
-- [ ] **Step 3: Watch it fail**
+- [x] **Step 3: Watch it fail**
 
 Set `_FILE = b""` in `digest.py`, run `uv run pytest packages/comeni-core/tests/test_digest.py -v`.
 
@@ -115,11 +115,11 @@ separates nothing"*. Restore `_FILE`.
 
 This is the assertion A36 says did not exist: the whole suite passed with `_FILE = b""`.
 
-- [ ] **Step 4: Confirm the digest did not move**
+- [x] **Step 4: Confirm the digest did not move**
 
 Re-run Step 1's command. Expected: the same digest.
 
-- [ ] **Step 5: Ledger and commit**
+- [x] **Step 5: Ledger and commit**
 
 Add the revert to `notes/audits/guard-ledger.md`, with the note that option 1 (deletion) was
 priced out by publication rather than rejected on principle.
@@ -131,7 +131,14 @@ git commit -m "test: _FILE's domain separation is checkable now (A36)"
 
 ---
 
-## Task 2: `MD0001`–`MD0009` — the loading stage refuses with a code
+## Task 2: `MD0001`–`MD0009` — the loading stage refuses with a code — **done**
+
+> **Correction, 2026-08-16.** Two of the nine tests were green on their first run, before any code
+> existed. `pytest` names `tmp_path` after the test that asked for it, so a refusal quoting the
+> layer path contains the literal string `MD0004`, and `assert "MD0004" in message` passed against
+> a message with no code in it. A68's shape. `_refusal()` scrubs the path now, and the plan's
+> Step 2 should have said so — asserting a code against a string that contains the test's own name
+> is a trap this plan walked into while writing tests *for* legibility.
 
 **Files:**
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.yml`
@@ -144,7 +151,7 @@ git commit -m "test: _FILE's domain separation is checkable now (A36)"
   against the registry at construction — so an undeclared code cannot be raised.
 - Produces: nine codes. Later tasks do not depend on them.
 
-- [ ] **Step 1: Add a `loading` concern and the nine entries**
+- [x] **Step 1: Add a `loading` concern and the nine entries**
 
 `diagnostics.yml` entries take `emitted_by`, `concern`, `says`, `fires_on`, `refuses`, `fix`.
 Add `loading` to `HEADINGS` in `tools/generate_diagnostics_doc.py`, **first**, since it is the
@@ -161,7 +168,7 @@ HEADINGS: dict[str, str] = {
 The generator raises if a concern has no heading, so forgetting this fails rather than renders
 nothing.
 
-- [ ] **Step 2: Write one failing test per code**
+- [x] **Step 2: Write one failing test per code**
 
 `tests/test_loading_diagnostics.py`. Each builds the smallest layer that produces the failure and
 asserts the code and the **file name** appear:
@@ -179,13 +186,13 @@ def test_MD0001_a_file_that_is_not_yaml(tmp_path):
 Nine of these. The `assert "<name>.yml" in ...` is not decoration: issue #49's whole complaint is
 that a Pydantic error names a class and a field path rather than a file.
 
-- [ ] **Step 3: Run them and watch every one fail**
+- [x] **Step 3: Run them and watch every one fail**
 
 Run: `uv run pytest tests/test_loading_diagnostics.py -v`
 Expected: **9 failed** — six raise uncoded `ValueError`s, and `MD0001`/`MD0002` raise
 `ValidationError` or `yaml.YAMLError` with no file name at all.
 
-- [ ] **Step 4: Wrap `kind.parse` for `MD0001` and `MD0002`**
+- [x] **Step 4: Wrap `kind.parse` for `MD0001` and `MD0002`**
 
 In `stack()`, the per-file parse is `for entry in kind.parse(path)` and `path` is in scope — which
 is the whole reason this belongs here rather than in each kind:
@@ -215,7 +222,7 @@ is the whole reason this belongs here rather than in each kind:
 `list(...)` before the loop, deliberately: `kind.parse` returns an `Iterable`, and a generator
 would raise inside the body where `path` is still in scope but the `try` is not.
 
-- [ ] **Step 5: Give the seven existing refusals their codes**
+- [x] **Step 5: Give the seven existing refusals their codes**
 
 Prefix each message. No logic changes:
 
@@ -229,18 +236,18 @@ Prefix each message. No logic changes:
 | `layers.py` — "holds no registry data" | `MD0005` |
 | `layers.py` — `_every_file_is_claimed`, "which nothing reads" | `MD0003` |
 
-- [ ] **Step 6: Run and watch all nine pass**
+- [x] **Step 6: Run and watch all nine pass**
 
 Run: `uv run pytest tests/test_loading_diagnostics.py -v`
 Expected: **9 passed.**
 
-- [ ] **Step 7: Watch each code fail on its own subject**
+- [x] **Step 7: Watch each code fail on its own subject**
 
 For each of the nine, remove the code from the message it was added to and confirm exactly that
 test fails. Nine reverts, nine ledger rows. This is the step that takes the longest and is the
 reason the task exists as its own task.
 
-- [ ] **Step 8: Regenerate the docs and check the digest**
+- [x] **Step 8: Regenerate the docs and check the digest**
 
 ```bash
 make docs && make links
@@ -254,7 +261,7 @@ print(digest_of_directory(Path('registry')))
 Expected: `docs/reference/diagnostics.md` gains a *Loading declared registry data* section
 **first**, and the digest is unchanged from Task 1 Step 1.
 
-- [ ] **Step 9: `make verify`, then commit**
+- [x] **Step 9: `make verify`, then commit**
 
 ```bash
 git add -A
@@ -263,7 +270,7 @@ git commit -m "feat: loading declared data refuses with a code (#49)"
 
 ---
 
-## Task 3: `ai:` and `ValueSource.MODEL` — A130
+## Task 3: `ai:` and `ValueSource.MODEL` — A130 — **done**
 
 **Files:**
 - Modify: `comeni_core/plan/tiers.py`, `comeni_core/artifact/pipeline.py`,
@@ -274,7 +281,7 @@ git commit -m "feat: loading declared data refuses with a code (#49)"
 - Produces: `ValueSource.MODEL`; `AiProvenance(available: list[AiPoint], used: list[AiPoint])`;
   `Pipeline.ai: AiProvenance`; `SCHEMA_VERSION = 4`; `MD0225`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_ai_provenance.py`:
 
@@ -317,12 +324,12 @@ Note the third: `available` is `list | None`, not `list`. `None` is *"this file 
 question"*; `[]` is *"nothing was wired"*. Collapsing them is exactly the defect #48 is about,
 one field over.
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `uv run pytest tests/test_ai_provenance.py -v`
 Expected: FAIL — `Pipeline` has no `ai`.
 
-- [ ] **Step 3: Add `ValueSource.MODEL`**
+- [x] **Step 3: Add `ValueSource.MODEL`**
 
 In `comeni_core/plan/tiers.py`, beside `HUMAN` and `MEASURED`:
 
@@ -344,7 +351,7 @@ In `comeni_core/plan/tiers.py`, beside `HUMAN` and `MEASURED`:
     """
 ```
 
-- [ ] **Step 4: Add `AiProvenance` and `Pipeline.ai`**
+- [x] **Step 4: Add `AiProvenance` and `Pipeline.ai`**
 
 ```python
 class AiPoint(StrEnum):
@@ -391,7 +398,7 @@ On `Pipeline`, beside `registry`:
     """Which of the three declared AI points were reachable, and which answered. A130."""
 ```
 
-- [ ] **Step 5: `MD0225` on the model validator**
+- [x] **Step 5: `MD0225` on the model validator**
 
 In `_readable_and_unambiguous`, after the `MD0212` block:
 
@@ -413,25 +420,25 @@ In `_readable_and_unambiguous`, after the `MD0212` block:
 
 `== []` and not falsy: `None` must not trigger it, because a v3 file makes no claim either way.
 
-- [ ] **Step 6: `SCHEMA_VERSION = 4`, and set `ai` where the build writes it**
+- [x] **Step 6: `SCHEMA_VERSION = 4`, and set `ai` where the build writes it**
 
 `Pipeline.of` records `available=[]` — through Plan 1 nothing is wired — and `used=[]`. A comment
 must say the empty list is a measurement rather than a placeholder, or the next reader will
 "fix" it to a default.
 
-- [ ] **Step 7: Run, watch pass, then watch each guard fail**
+- [x] **Step 7: Run, watch pass, then watch each guard fail**
 
 Three reverts: drop the `MD0225` block; change `available: list | None = None` to `= []`
 (which makes the v3 test fail, since absence becomes a statement); change `== []` to `not
 self.ai.available` (which makes the v3 file refuse). Three ledger rows.
 
-- [ ] **Step 8: Document `ai:` in the schema reference**
+- [x] **Step 8: Document `ai:` in the schema reference**
 
 `docs/reference/pipeline-schema.md` gains an `ai:` section and its version bumps to 4. It must
 carry §3.3's limitation in the reader-facing words, not only in the docstring — the schema page
 is what a stranger opens.
 
-- [ ] **Step 9: `make verify`, digest check, commit**
+- [x] **Step 9: `make verify`, digest check, commit**
 
 ```bash
 git add -A
@@ -440,7 +447,15 @@ git commit -m "feat: the artifact can state that no model was consulted (A130)"
 
 ---
 
-## Task 4: `MD0223` sees an answered tier-4 setting — #48
+## Task 4: `MD0223` sees an answered tier-4 setting — #48 — **done**
+
+> **Correction, 2026-08-16.** Two existing tests refused after the fix and the plan did not
+> predict either. Both were completing their own premise rather than absorbing a regression:
+> `test_human_source_with_a_matching_override_is_accepted` claimed *"the value, the `human`
+> source and the decision's override all agree — the record proves it"* while leaving
+> `why.reason` reading *"no rule covered … please review"*, and `_with_override` in
+> `test_upgrade.py` claimed to answer *"the way a reviewer would"* and answered half. Issue #48
+> was written as a docstring in this repository a plan and a half before anyone filed it.
 
 **Files:**
 - Modify: `packages/mendel-compiler/src/mendel_compiler/pipeline_file.py`
@@ -450,7 +465,7 @@ git commit -m "feat: the artifact can state that no model was consulted (A130)"
 - Consumes: `Pipeline` at `version: 4` from Task 3.
 - Produces: a widened `stale_reasons(pipeline) -> list[str]`. Signature unchanged.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_MD0223_sees_a_tier_four_setting_answered_by_hand(tmp_path):
@@ -472,13 +487,13 @@ def test_an_unanswered_tier_four_setting_is_not_flagged():
     assert stale_reasons(_built()) == []
 ```
 
-- [ ] **Step 2: Run and watch the first fail, the second pass**
+- [x] **Step 2: Run and watch the first fail, the second pass**
 
 Run: `uv run pytest tests/test_pipeline_file.py -k MD0223 -v`
 Expected: the first FAILS, the second PASSES. The second passing *now* is what proves the
 widening does not simply flag everything.
 
-- [ ] **Step 3: Widen the check**
+- [x] **Step 3: Widen the check**
 
 ```python
     answered = {
@@ -504,16 +519,16 @@ widening does not simply flag everything.
     ]
 ```
 
-- [ ] **Step 4: Run and watch both pass**
+- [x] **Step 4: Run and watch both pass**
 
-- [ ] **Step 5: Watch the widening fail on its subject**
+- [x] **Step 5: Watch the widening fail on its subject**
 
 Drop the third condition (`in answered`) and confirm
 `test_an_unanswered_tier_four_setting_is_not_flagged` fails — that is the condition that keeps it
 from being a nag. Then drop the whole second clause and confirm the first test fails. Two ledger
 rows.
 
-- [ ] **Step 6: Reproduce the original report end to end**
+- [x] **Step 6: Reproduce the original report end to end**
 
 The issue was found by hand in `docs/guides/driving-mendel.md` §6. Redo it:
 
@@ -527,7 +542,7 @@ Expected: `MD0223` now fires and names `override_reason`. **Then update §6 of t
 currently documents the defect as a rough edge — it says the reason "stays stale until the next
 `upgrade`", and that will no longer be true.
 
-- [ ] **Step 7: `make verify`, digest check, commit**
+- [x] **Step 7: `make verify`, digest check, commit**
 
 ```bash
 git add -A
@@ -536,15 +551,15 @@ git commit -m "fix: MD0223 sees a tier-4 setting answered by hand (#48)"
 
 ---
 
-## Task 5: closing out
+## Task 5: closing out — **done**
 
-- [ ] **Step 1: Journal entry**
+- [x] **Step 1: Journal entry**
 
 `notes/journal/2026-08-16-evening.md` gains a third section. What it must carry: the layer digest
 unmoved through all four tasks; what each revert found; and whether anything here should have been
 caught earlier.
 
-- [ ] **Step 2: `CLAUDE.md`'s two stale claims**
+- [x] **Step 2: `CLAUDE.md`'s two stale claims**
 
 Found while surveying, and unrelated to these four — fix them here rather than leaving them:
 
@@ -553,11 +568,11 @@ Found while surveying, and unrelated to these four — fix them here rather than
   contradicts itself.
 - The issue table has no rows for **#43, #46, #49**.
 
-- [ ] **Step 3: Final gate**
+- [x] **Step 3: Final gate**
 
 Run: `uv run ruff check . && make verify && make links`
 
-- [ ] **Step 4: One PR, closing #48 and #49**
+- [x] **Step 4: One PR, closing #48 and #49**
 
 A36 and A130 have no issues; the PR body records them, and `CLAUDE.md`'s *What is open* section
 loses both.
