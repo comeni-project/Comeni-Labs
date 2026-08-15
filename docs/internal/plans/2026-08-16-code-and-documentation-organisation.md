@@ -44,13 +44,13 @@ Read it before Task 1; every task below argues from a section of it.
 
 ---
 
-## Task 0: the oracle
+## Task 0: the oracle — **done**
 
 **Already done** — `tools/refactor_oracle.py` is committed with the spec, and it has been watched
 failing (changing featureCounts' `min_mqs` default moved `pipeline.yml` and `nextflow.config` and
 correctly left `main.nf` alone).
 
-- [ ] **Step 1: Confirm it agrees before anything moves**
+- [x] **Step 1: Confirm it agrees before anything moves**
 
 Run: `uv run python tools/refactor_oracle.py`
 Expected: exit 0, three digests matching `f1f2d7e5e9cca6a3`, `76355bbf9f10d6e6`,
@@ -61,7 +61,7 @@ needs re-recording with a stated reason before this plan is safe to run.
 
 ---
 
-## Task 1: `comeni-core`'s five packages
+## Task 1: `comeni-core`'s five packages — **done**
 
 **Spec:** Part one. 24 flat modules, 5,541 lines, no grouping.
 
@@ -88,7 +88,7 @@ needs re-recording with a stated reason before this plan is safe to run.
 > *replaces* its module rather than adding to it, so a stub left behind makes the module it
 > describes invisible.
 
-- [ ] **Step 1: Create the packages**
+- [x] **Step 1: Create the packages**
 
 ```bash
 cd packages/comeni-core/src/comeni_core
@@ -98,7 +98,7 @@ for pkg in declared goal plan artifact spell; do
 done
 ```
 
-- [ ] **Step 2: Move the modules**
+- [x] **Step 2: Move the modules**
 
 ```bash
 cd packages/comeni-core/src/comeni_core
@@ -112,7 +112,7 @@ git mv marks.py routes.py directives.py spell/
 
 Leaves `__init__.py`, `yaml_strict.py`, `diagnostics.py`, `diagnostics.yml`, `py.typed`.
 
-- [ ] **Step 3: Write each package's `__init__.py`**
+- [x] **Step 3: Write each package's `__init__.py`**
 
 Each is a docstring and nothing else — **no re-exports**, or the shim ban is broken one
 directory down. Example, `declared/__init__.py`:
@@ -144,7 +144,7 @@ Write the other four in the same shape:
 - `spell/` — "How a value is written down: the marked string types, the routes that carry a
   value to a tool, and the directives Nextflow accepts."
 
-- [ ] **Step 4: Rewrite every import**
+- [x] **Step 4: Rewrite every import**
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -182,7 +182,7 @@ PY
 
 Expected: `79 files rewritten`.
 
-- [ ] **Step 5: Fix the path-shaped strings this script cannot see**
+- [x] **Step 5: Fix the path-shaped strings this script cannot see**
 
 `tools/generate_types.py` and `tests/test_generated_types.py` name
 `packages/comeni-core/src/comeni_core/profile.pyi`; it is now under `goal/`.
@@ -194,14 +194,14 @@ for Task 5**, which reverts and watches each one.
 sed -i 's|comeni_core/profile.pyi|comeni_core/goal/profile.pyi|' tools/generate_types.py tests/test_generated_types.py
 ```
 
-- [ ] **Step 6: Run everything**
+- [x] **Step 6: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, and **three digests unmoved**.
 
 If a digest moved, the rewrite changed behaviour — `git diff` the non-import lines and stop.
 
-- [ ] **Step 7: Name the directory in each of `ARCHITECTURE.md` §1's five stages**
+- [x] **Step 7: Name the directory in each of `ARCHITECTURE.md` §1's five stages**
 
 The five stages and the five packages are now the same five things, and the whole argument for
 this layout is that a reader's document and their directory agree. Add the package to each
@@ -217,7 +217,7 @@ heading:
 Where §1's stage names do not map one-to-one, say so in the sentence rather than forcing the
 heading: the point is that a reader can get from one to the other, not that the words match.
 
-- [ ] **Step 8: Hold it with a test**
+- [x] **Step 8: Hold it with a test**
 
 `tests/test_architecture.py`:
 
@@ -250,12 +250,35 @@ def test_every_package_architecture_names_exists():
 Watch it fail: rename one heading's path to `comeni_core/nowhere/`, confirm it names that path,
 restore. Record the row in the guard ledger.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A
 git commit -m "refactor(core): five packages by lifecycle stage, not 24 flat modules (#41)"
 ```
+
+> **Corrected 2026-08-16, on execution. Four things.**
+>
+> 1. **Step 4's script misses `from comeni_core import egress`.** It rewrites dotted paths and
+>    that form imports a *module through the package*, so `tests/test_egress.py` failed to
+>    collect. `yaml_strict` and `diagnostics` did not move, which is why most instances of the
+>    form were already correct and the gap looked smaller than it was. A second pass fixes the
+>    three that moved.
+> 2. **The path repairs belong here, not in Task 5.** Four guards fail the moment a module
+>    moves, and a task cannot end green if a later task fixes what it breaks. Task 5 keeps the
+>    guard-of-the-guard and the deliberate reverts, which is the part that needed its own task.
+> 3. **Ruff reordered the generated `profile.pyi`.** Fixing the file would be undone by the next
+>    `generate_types.py` run, so `make types` and `make lint` would disagree forever, each
+>    correct. Fixed in the generator's `_HEADER` instead.
+> 4. **Five lines went over 100 characters** because the rewrite lengthened them inside prose —
+>    `comeni_core.pipeline` is 20 characters and `comeni_core.artifact.pipeline` is 29. Reflowed.
+>
+> **A67 happened, in the lucky direction.** `test_construction.py` exempts permitted spellings
+> *by path*, so moving `measurement.py` made the exemption match nothing and the guard fired on
+> the code it exists to permit. The same rename in `PIPELINE_READERS` would have made an
+> exemption cover nothing and the scan would have gone **quiet** — which is the failure A67
+> describes and the one nobody investigates. Recorded in the ledger with the three other guards
+> that failed unprompted for the same cause.
 
 ---
 
