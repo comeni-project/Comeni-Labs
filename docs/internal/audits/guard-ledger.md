@@ -1673,3 +1673,22 @@ looked plausible — three plausible names is exactly how a bad guard survives r
 `Step.ext_args` calls it in a `default_factory` — so it belongs with the model, and ruff's
 `F821` said so before any test ran. The line between "builds a model" and "is part of a model's
 declaration" is not where the section headings suggest.
+
+## Issue #41 Task 3 — `rules.py` splits into format, table and validate
+
+No guard failed and none was reverted, which is the honest entry: this is a **package
+boundary** change and `rules/__init__.py` re-exports every name the nineteen importers use, so
+nothing outside the package could observe it. The evidence is the whole suite passing with zero
+callers edited, plus the three digests unmoved.
+
+**Two constants moved between the split modules, and ruff found both before any test ran.**
+`_GOAL_FACTS` went to `format.py` because both `table.check_premise_names` and
+`validate._check_when` read it and it is part of what a `when` may name; `_ORDERED` went to
+`validate.py` because only the validator asks whether a comparison is meaningful over a kind.
+Neither placement was in the plan, and `F821` is what made the question concrete.
+
+**`_comparison` and `_computed_over` are re-exported as `X as X` and left out of `__all__`.**
+They are private and two test files reach them — `test_rules.py` for the comparison predicate,
+`test_audit_regressions.py` for A118's computed-`then` check. The redundant alias tells ruff the
+import is deliberate; the absence from `__all__` says it is still not public. Inventing public
+names for them to satisfy a linter would have been the linter designing the interface.
