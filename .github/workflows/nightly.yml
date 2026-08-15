@@ -64,30 +64,25 @@ jobs:
       - name: Build the RNA-seq spine and run the stub gate
         run: uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
-      - name: Run the spine on the nf-core test dataset
-        run: uv run mendel build --goal examples/rnaseq-goal.yml --out test-build/ --gate test
-        # The gate that answers "does this produce a counts matrix", as opposed to
-        # `stub`, which answers "does the DAG execute". nf-core stubs never read their
-        # inputs, so only this one can catch a process wired to an empty tuple — which
-        # is how the missing reference genome survived a green suite (issue #8).
-        #
-        # The dataset is pinned to a commit in the vocabulary's `test_data`, so a result
-        # from today is comparable to a result from next year.
-
-      - name: The run produced a counts matrix with counts in it
-        run: |
-          matrix=$(find test-build/ -name '*.featureCounts.txt' | head -1)
-          test -n "$matrix" || { echo "no counts matrix was produced"; exit 1; }
-          rows=$(grep -vc '^#' "$matrix")
-          echo "counts matrix: $matrix ($rows rows)"
-          test "$rows" -gt 1 || { echo "counts matrix has no rows"; exit 1; }
-          head -3 "$matrix"
-
-      - name: The spine counts correctly on the test dataset
+      - name: The spine runs on the nf-core test dataset and counts correctly
         run: uv run pytest -m slow -v
-        # `make check` excludes these; they need Docker and about ten minutes. This is the
-        # only gate that can catch a pipeline which runs and computes the wrong numbers —
-        # -stub-run cannot, because nf-core stubs never read their inputs.
+        # The gate that answers "does this produce a counts matrix", as opposed to `stub`,
+        # which answers "does the DAG execute". nf-core stubs never read their inputs, so only
+        # this one can catch a process wired to an empty tuple — which is how the missing
+        # reference genome survived a green suite (issue #8). `make check` excludes these;
+        # they need Docker and about ten minutes.
+        #
+        # The dataset is pinned to a commit in the vocabulary's `test_data`, so a result from
+        # today is comparable to a result from next year.
+        #
+        # **This step used to be preceded by a hand-rolled shell version of the same
+        # assertion**, which globbed `*.featureCounts.txt`. The vendored module emits
+        # `*.featureCounts.tsv` and always has, so the shell step asserted a filename that
+        # cannot exist — it failed every night from 2026-08-11 or earlier, and because it ran
+        # *first*, this step was skipped and the real check never ran at all. `test_counts.py`
+        # was corrected to accept both spellings in `f93b4df`; the workflow was not, because
+        # nothing tied them together. One assertion now, in the tests, where it can be run
+        # locally by `make verify`.
 
       - name: Emit a profiling pipeline
         run: uv run mendel profile --have fastq.reads --out profile-build/
@@ -100,13 +95,14 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: generated-pipelines
+          # `test-build/` is gone with the hand-rolled assertion above: the slow tests build
+          # into pytest's own temporary directory, so there is no fixed path to collect. What
+          # is uploaded is what a fixed path still produces. If you need a `--gate test` tree
+          # to look at, `make verify` builds one locally in about two minutes.
           path: |
             build/main.nf
             build/nextflow.config
             build/pipeline.yml
-            test-build/main.nf
-            test-build/pipeline.yml
-            test-build/results/
             profile-build/
           retention-days: 14
 
