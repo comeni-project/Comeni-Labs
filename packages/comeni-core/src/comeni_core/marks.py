@@ -43,6 +43,7 @@ class Mark(StrEnum):
     TYPE_ID = "type-id"
     NODE_ID = "node-id"
     SUBJECT = "subject"
+    ANY_KEY = "any-key"
     PORT_NAME = "port-name"
     STATE_NAME = "state-name"
     DECISION_KEY = "decision-key"
@@ -420,18 +421,118 @@ Marked rather than validated because the whole point is that a laboratory can br
 the compiler has never seen and say how it arrives. Root B reports when an overlay replaces
 one (A24); root C makes it the only field of this kind."""
 
+
+
+def _identifier(what: str):
+    """A validator refusing anything that is not a bare snake-case identifier.
+
+    A64, issue #28. Nine aliases were `Annotated[str, Mark.X]` with **no** `AfterValidator`,
+    so invariant 14's *"a declared ID alias or marked `Mark.FREE_TEXT`"* meant, for those
+    nine, "a `str` with a label". On the unmodified tree a reviewer crossed door 2 with a
+    patient identifier as a `node_id` and clinical notes with an embedded newline as a
+    `state`, and door 4 with `digest='not-a-digest: PT-4471023'`.
+
+    Every one of these is derived from the registry — a process name lowercased, a port name
+    a contract declared, a state a vocabulary lists — so the shape is free: nothing this
+    repository writes has ever had a space in it. That is what makes the check costless in
+    the way `ctypes`' ban is, and unlike a check somebody would have to disable.
+    """
+
+    def check(value: str) -> str:
+        if not value:
+            raise ValueError(f"a {what} cannot be empty")
+        if not value.replace("_", "").isalnum() or not value[0].isalpha():
+            raise ValueError(
+                f"{value!r} is not a {what}: it must start with a letter and hold only "
+                f"letters, digits and underscores. A payload string that is not a declared "
+                f"shape is how a patient identifier crosses a door (A64)."
+            )
+        return value
+
+    return check
+
+
+def _joined_identifier(what: str, separators: str = ".:"):
+    """The same, permitting identifier segments joined by declared separators.
+
+    A `Subject` is `producer:alignment.bam`, `source:reads`, or a bare parameter name — three
+    shapes `decision.py`'s own module docstring writes out — and a `DecisionKey` is
+    `<node>.<subject>`, so it carries both. The separators are the whole of the permission: a
+    key may hold a colon because the code puts one there, and may not hold a space because
+    nothing does.
+    """
+    segment = _identifier(what)
+
+    def check(value: str) -> str:
+        # Split by hand rather than with `re`. The first draft normalised the separators to
+        # `"\n"` and split on that, so an actual newline in the value read as a separator and
+        # `"a\nb"` passed the check written to refuse it — caught by the probe, which is the
+        # argument for writing the probe first. `re.split` fixes that and is not on
+        # `comeni-core`'s purity allowlist; widening the allowlist for a two-line loop is a
+        # worse trade than the loop.
+        part = ""
+        for character in value:
+            if character in separators:
+                segment(part)
+                part = ""
+            else:
+                part += character
+        segment(part)
+        return value
+
+    return check
+
+
+def _slashed(what: str):
+    """A registry key: `nf-core/star/align`. Slashes and hyphens, no spaces, no newlines."""
+
+    def check(value: str) -> str:
+        if not value:
+            raise ValueError(f"a {what} cannot be empty")
+        allowed = set(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/"
+        )
+        bad = sorted(set(value) - allowed)
+        if bad:
+            raise ValueError(
+                f"{value!r} is not a {what}: it may not contain {', '.join(map(repr, bad))}"
+            )
+        return value
+
+    return check
+
+
+def _digest(value: str) -> str:
+    """`sha256:` and sixty-four hex characters, and nothing else.
+
+    The one alias where the shape is fully determined, so there is no judgement in it —
+    which is why it was worth having and why its absence was worth finding. `Emitted` is the
+    self-verification evidence and `EmittedFile.digest` is what a reader checks a file
+    against; a digest field holding prose is a check that cannot fail.
+    """
+    prefix, _, body = value.partition(":")
+    if prefix != "sha256" or len(body) != 64 or any(c not in "0123456789abcdef" for c in body):
+        raise ValueError(
+            f"{value!r} is not a digest: it must be `sha256:` followed by 64 lowercase hex "
+            f"characters"
+        )
+    return value
+
+
 ContractId = Annotated[str, Mark.CONTRACT_ID, AfterValidator(_contract_id)]
 TypeId = Annotated[str, Mark.TYPE_ID, AfterValidator(_type_id)]
-NodeId = Annotated[str, Mark.NODE_ID]
-Subject = Annotated[str, Mark.SUBJECT]
-PortName = Annotated[str, Mark.PORT_NAME]
-StateName = Annotated[str, Mark.STATE_NAME]
-DecisionKey = Annotated[str, Mark.DECISION_KEY]
+NodeId = Annotated[str, Mark.NODE_ID, AfterValidator(_identifier("node id"))]
+Subject = Annotated[str, Mark.SUBJECT, AfterValidator(_joined_identifier("subject"))]
+PortName = Annotated[str, Mark.PORT_NAME, AfterValidator(_identifier("port name"))]
+StateName = Annotated[str, Mark.STATE_NAME, AfterValidator(_identifier("state name"))]
+DecisionKey = Annotated[
+    str, Mark.DECISION_KEY, AfterValidator(_joined_identifier("decision key"))
+]
 ResolverId = Annotated[str, Mark.RESOLVER_ID, AfterValidator(_single_line)]
 """Who answered a tier-4 question — `flag-only`, `replay`, `human`, or a model adapter's
 own name. Single-line, because it is supplied by whatever implements the port (an impure
 package, in Plan 2) and lands in a publish bundle and in `mendel build`'s output."""
-MeasurementId = Annotated[str, Mark.MEASUREMENT_ID]
+MeasurementId = Annotated[str, Mark.MEASUREMENT_ID, AfterValidator(_identifier("measurement id"))]
 
 ParamValue = int | float | bool | Annotated[str, Mark.PARAM_LITERAL] | None
 """What a resolved parameter or a decision may hold.
@@ -466,7 +567,7 @@ this alias.
 """
 
 
-Digest = Annotated[str, Mark.DIGEST]
+Digest = Annotated[str, Mark.DIGEST, AfterValidator(_digest)]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
 
@@ -512,7 +613,7 @@ metacharacters that make that an injection are refused. The scheme is still the 
 choose, because the vocabulary is where it says how a type it brought arrives.
 """
 
-LayerName = Annotated[str, Mark.LAYER_NAME]
+LayerName = Annotated[str, Mark.LAYER_NAME, AfterValidator(_slashed("layer name"))]
 """A registry layer's declared name. Never a filesystem path — a path is meaningless on
 another machine and is exactly what invariant 15 keeps out of a shareable artifact."""
 
@@ -524,7 +625,7 @@ a path, a tag — not prose a person wrote. It must never join `FREE_TEXT_FIELDS
 the two lists mean different things and the egress guard reads both literally.
 """
 
-ModuleKey = Annotated[str, Mark.MODULE_KEY]
+ModuleKey = Annotated[str, Mark.MODULE_KEY, AfterValidator(_slashed("module key"))]
 
 RoleName = Annotated[str, Mark.ROLE_NAME, AfterValidator(_role_name)]
 """The job a contract does, and the only thing a tier-3 rule may target.
@@ -536,3 +637,59 @@ once in the vocabulary and once on the contract — and a role that differs by a
 the one it meant is a rule that silently targets nothing."""
 """A contract ID minus its `@version`. Shadowing is decided on this, not the full ID —
 a lab pinning `@1.22.0` over `@1.21.0` is a version bump, not an ambiguity."""
+
+
+def _any_key(value: str) -> str:
+    """A key of *some* declared kind, whichever kind that is.
+
+    `Displacement` records what an overlay replaced across every `DeclaredKind`, so its keys
+    are contract ids, decision keys, measurement ids and vocabulary type ids at once — five
+    shapes, one field. It has now borrowed two aliases and been broken by both: it was
+    `ContractId` until root C gave that a validator and it started refusing the synthetic keys
+    `test_layered.py` stacks, and it became `Subject` — which A64 has just given a validator
+    of its own, refusing `nf-core/samtools/sort@1.21.0`.
+
+    **Twice is the argument for its own alias.** What is actually true of every key is the
+    minimum: no whitespace, no control character, not empty. That refuses a patient identifier
+    and clinical notes — which is what invariant 14 asks of a declared shape — and refuses
+    nothing any kind legitimately keys on.
+    """
+    if not value:
+        raise ValueError("a key cannot be empty")
+    if any(character.isspace() or ord(character) < 32 for character in value):
+        raise ValueError(
+            f"{value!r} is not a key: it may not contain whitespace or control characters. "
+            f"A payload string that is not a declared shape is how clinical notes cross a "
+            f"door (A64)."
+        )
+    return value
+
+
+AnyKey = Annotated[str, Mark.ANY_KEY, AfterValidator(_any_key)]
+"""A key of whichever `DeclaredKind` a record is about. See `_any_key`."""
+
+
+LABEL_ONLY: frozenset[str] = frozenset({"Text", "GroovyExpression", "ContainerRef"})
+"""Declared ID aliases that carry a `Mark` and no validator, each because somebody decided so.
+
+`test_every_mark_carries_a_validator_or_is_listed_as_a_label` is what keeps it honest. A64
+(issue #28) was **nine** aliases sitting here implicitly: invariant 14 promises every payload
+string is *"a declared ID alias or marked `Mark.FREE_TEXT`"*, and for those nine the first
+half meant "a `str` with a label". A reviewer crossed door 2 with a patient identifier as a
+`node_id` and clinical notes with a newline as a `state`, on the unmodified tree.
+
+The three that remain are each a decision:
+
+- **`Text`** is `Mark.FREE_TEXT` and multi-line by definition — it is the marked half of
+  invariant 14's sentence, not the declared half, and validating it would be validating prose.
+- **`GroovyExpression`** is a channel expression the compiler emits verbatim. It cannot be
+  shape-checked without parsing Groovy, and `MD0201`'s injection class plus `MD0211`'s
+  params-versus-expression check are what guard it instead — both of which read the
+  *expression*, which is the right level.
+- **`ContainerRef`** is an OCI reference: registry host, path, tag or digest, with rules this
+  repository does not own. A partial validator would refuse a legal reference somebody needs,
+  which is `_computed_over`'s `paired-end` lesson.
+
+Each of the three is guarded somewhere other than its shape, which is what makes leaving them
+a decision rather than a gap. A fourth arriving without one fails this test.
+"""

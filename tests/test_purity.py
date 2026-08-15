@@ -19,6 +19,8 @@ import ast
 import pathlib
 import sys
 
+import pytest
+
 # Two shapes, because the packages genuinely differ. `comeni-core` and `mendel-resolver`
 # import almost nothing, so their permitted set can be *closed* — an allowlist has no
 # unknown unknowns, and a banlist can only ever forbid what somebody thought of, which is
@@ -70,6 +72,21 @@ CLOSED_PACKAGES = {
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
+IMPURE_PACKAGES: list[str] = []
+"""Packages this file deliberately does not guard, named so that *not* guarding them is a
+decision rather than an omission.
+
+**Empty today**, because `mendel-ai`, `mendel-forge` and `mendel-api` do not exist yet —
+Plan 2 and Plan 3 create them. Listing them here in advance would be the same defect one
+step ahead: a name in a classification list that matches no directory is a guard nobody is
+running, and `test_every_package_is_classified` refuses that too.
+
+A67, issue #31: the scan globs `packages/<name>/src`, and a missing directory yields nothing
+while the assertion runs over an empty list — so a package intended pure but renamed carries
+no guard, and the gate goes green *faster*, which is the direction nobody investigates.
+`test_every_package_is_classified` is what makes a new package fail until somebody decides
+which of the three lists it belongs in."""
+
 BANNED_PREFIXES = (
     # web frameworks
     "fastapi", "starlette", "django", "flask",
@@ -83,6 +100,21 @@ BANNED_PREFIXES = (
     # urllib.request is every bit an HTTP client.
     "urllib", "http", "socket", "ssl", "ftplib", "smtplib", "telnetlib", "asyncio",
     "xmlrpc", "webbrowser",
+    # A61, issue #25. The comment above claimed "stdlib transports" and the list named six of
+    # them, which is what an enumeration always does — it forbids what somebody thought of.
+    # `logging.handlers.HTTPHandler` is a complete HTTP POST client, and `SocketHandler`,
+    # `DatagramHandler` and `SMTPHandler` sit beside it; `socketserver` is exact membership so
+    # `socket` never covered it; `multiprocessing.connection.Client` opens a socket by another
+    # name. The egress guard learned this lesson and became an allowlist (invariant 14); this
+    # one cannot, because the stdlib a pure package legitimately uses is open-ended — so the
+    # honest version is a longer list with the reason for each entry written down.
+    "logging", "poplib", "imaplib", "socketserver", "multiprocessing", "wsgiref",
+    "nntplib", "select", "selectors", "ssl", "email",
+    # A60's other half, issue #24. Resolving the alias below catches the *call*; banning the
+    # module stops the name being bound at all, and neither has to be complete because both
+    # run. `importlib.metadata` stays reachable through `DOTTED_ALLOWED` — it reads installed
+    # package versions and transports nothing.
+    "importlib",
     # Foreign function interface. `ctypes.CDLL("libc.so.6")` reaches `socket`, `connect` and
     # `send` without touching Python's socket module, so no Python-level audit event fires
     # and the runtime guard sees nothing either. A pure package has no legitimate FFI need —
@@ -92,6 +124,12 @@ BANNED_PREFIXES = (
 )
 
 # Naming a module at runtime defeats any import-statement check.
+#
+# **Matched through the alias resolver, never against a spelling.** A60: this was compared
+# straight against `node.func.id`/`.attr`, so `from importlib import import_module as _load`
+# bound the importer under a name the tuple does not contain and `_load('urllib.request')`
+# walked past with the scan green. That is A18's defect — and the alias resolver that fixes it
+# was already in this file, imported *from here* by `test_construction.py`.
 DYNAMIC_IMPORTERS = ("__import__", "import_module")
 
 # `exec` and `eval` need no import at all, and `compile` builds what they run. A pure
@@ -160,10 +198,26 @@ def _imported_names(tree: ast.AST) -> set[str]:
     return bound
 
 
+def _local_to_imported(tree: ast.AST) -> dict[str, str]:
+    """Local name -> the symbol it was imported as, for `from x import y as z`.
+
+    Separate from `_imported_names` because that one answers *is this name a module* and this
+    answers *what was this name originally called*. A60 needed the second question and only
+    the first was being asked.
+    """
+    return {
+        alias.asname or alias.name: alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+
+
 def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
     tree = ast.parse(path.read_text())
     where = path.relative_to(root)
     bound = _imported_names(tree)
+    aliased = _local_to_imported(tree)
     modules = _bound_modules(tree)
     exempt = str(where) == ATTRIBUTE_EXEMPT_PATH
     found: list[str] = []
@@ -190,6 +244,8 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
             ]
         elif isinstance(node, ast.Call):
             called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            # Resolved before matching, so a rename is not a disguise. A60.
+            called = aliased.get(called, called)
             if called in DYNAMIC_IMPORTERS:
                 found.append(f"{where} calls {called}() — imports must be statically visible")
             elif called in CODE_EXECUTORS and isinstance(node.func, ast.Name):
@@ -232,7 +288,16 @@ def _violations(path: pathlib.Path, root: pathlib.Path) -> list[str]:
             continue
         else:
             continue
-        found += [f"{where} imports {n}" for n in names if n.split(".")[0] in BANNED_PREFIXES]
+        # `DOTTED_ALLOWED` carves out the submodules a banned root legitimately carries.
+        # `importlib` is banned because `import_module` obtains any module by name, and
+        # `importlib.metadata` reads installed package versions and transports nothing — so
+        # the carve-out has to apply to the import rule too, not only to the attribute rule
+        # below it. It applied to one of the two until A60's ban made the difference visible.
+        found += [
+            f"{where} imports {n}"
+            for n in names
+            if n.split(".")[0] in BANNED_PREFIXES and n not in DOTTED_ALLOWED
+        ]
     return found
 
 
@@ -313,3 +378,91 @@ def test_a_loader_imported_as_a_bare_name_is_caught(tmp_path):
     probe = tmp_path / "beacon.py"
     probe.write_text("from yaml import unsafe_load\ndef go():\n    return unsafe_load('x')\n")
     assert _violations(probe, tmp_path), "a bare-name loader import walked past the check"
+
+
+# --- Round four's carried purity findings: A60, A61, A63, A67 -----------------------------
+
+
+def test_an_aliased_dynamic_importer_is_caught(tmp_path):
+    """A60, issue #24. `DYNAMIC_IMPORTERS` was compared against `node.func.id`/`.attr`, so
+    the importer could be bound under any name — which is A18's defect exactly, in the one
+    rule that had not learned it. `test_purity.py` already held the alias resolver that fixes
+    it, and `test_construction.py` imports that resolver *from this file*.
+
+    Reviewer's probe reached `urlopen` from `mendel-compiler` with the guard green.
+    """
+    probe = tmp_path / "beacon.py"
+    probe.write_text(
+        "from importlib import import_module as _load\n"
+        "def go(p):\n"
+        "    _load('urllib.request').urlopen('http://127.0.0.1:9/c', data=p.encode())\n"
+    )
+    assert _violations(probe, tmp_path), "an aliased importer obtained urllib with the scan green"
+
+
+def test_importlib_itself_is_banned(tmp_path):
+    """The other half of A60. Resolving the alias catches the call; banning the module stops
+    it being bound at all, and the two together mean neither has to be complete."""
+    probe = tmp_path / "beacon.py"
+    probe.write_text("import importlib\ndef go():\n    return importlib.import_module('socket')\n")
+    assert _violations(probe, tmp_path)
+
+
+def test_importlib_metadata_is_still_reachable(tmp_path):
+    """The negative that keeps the ban honest. `importlib.metadata` reads installed package
+    versions and opens nothing; refusing it would be a check nobody could disable for a
+    module that cannot transport anything."""
+    probe = tmp_path / "beacon.py"
+    probe.write_text(
+        "import importlib.metadata\ndef v():\n    return importlib.metadata.version('x')\n"
+    )
+    assert _violations(probe, tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "module, why",
+    [
+        ("logging.handlers", "HTTPHandler is a complete HTTP POST client"),
+        ("poplib", "a mail transport"),
+        ("imaplib", "a mail transport"),
+        ("socketserver", "exact membership, so `socket` does not cover it"),
+        ("multiprocessing", "multiprocessing.connection.Client opens a socket"),
+        ("wsgiref", "a server"),
+    ],
+)
+def test_a_stdlib_transport_is_banned(tmp_path, module, why):
+    """A61, issue #25. The banlist claimed to cover "stdlib transports" and enumerated some
+    of them — and an enumeration can only forbid what somebody named, which is the same
+    lesson the egress guard learned when it became an allowlist."""
+    probe = tmp_path / "beacon.py"
+    probe.write_text(f"import {module}\ndef go():\n    return {module}\n")
+    assert _violations(probe, tmp_path), f"{module} — {why}"
+
+
+def test_every_package_is_classified(): 
+    """A67, issue #31. `test_purity.py` and `test_construction.py` glob
+    `packages/<name>/src`; a missing directory yields nothing and the assertion runs over an
+    empty list. The reviewer mistyped both package keys and got `1 passed` in 0.04s.
+
+    **A package intended pure but renamed silently carries no guard**, and the failure is
+    silent in the direction nobody investigates: the gate goes green faster.
+    `test_purity_runtime.py` has this guard-of-the-guard and the other two did not.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    on_disk = {p.name for p in (root / "packages").iterdir() if p.is_dir()}
+    classified = set(CLOSED_PACKAGES) | set(BANLIST_PACKAGES) | set(IMPURE_PACKAGES)
+    assert on_disk == classified, (
+        "every package must be classified pure, banlist or explicitly impure — a package "
+        "this file has never heard of is a package it is not guarding:\n"
+        f"  on disk, unclassified: {sorted(on_disk - classified)}\n"
+        f"  classified, not on disk: {sorted(classified - on_disk)}"
+    )
+
+
+def test_each_guarded_package_has_source_to_scan():
+    """The other half. A directory that exists and holds no Python is the same silence."""
+    root = pathlib.Path(__file__).parent.parent
+    for pkg in [*CLOSED_PACKAGES, *BANLIST_PACKAGES]:
+        src = root / "packages" / pkg / "src"
+        assert src.is_dir(), f"{pkg} is guarded and has no src/ — the scan would find nothing"
+        assert list(src.rglob("*.py")), f"{pkg}/src holds no Python; the scan is running on air"

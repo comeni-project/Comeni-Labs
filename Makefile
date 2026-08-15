@@ -1,4 +1,4 @@
-.PHONY: help check verify slow guards drift test lint fmt types docs static stub profile clean
+.PHONY: help check verify slow guards residue drift test lint fmt types docs static stub profile clean
 
 # A sibling checkout of github.com/comeni-project/comeni-registry, if you have one.
 # `make drift` skips when it is absent rather than failing: a target that breaks over a
@@ -34,6 +34,9 @@ slow:           ## the counts-matrix tests: --gate test on real data (Docker, ~4
 guards:         ## purity, egress and construction — the tests that hold the invariants
 	uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
 	  tests/test_egress.py tests/test_construction.py -v
+
+residue:        ## how much of A14 is left, counted per guard (A69). --list for the names
+	@uv run python tools/guard_residue.py $(ARGS)
 
 drift:          ## registry/ against a comeni-registry checkout, if one is present
 	@if [ -d "$(REGISTRY)" ]; then \

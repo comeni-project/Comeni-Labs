@@ -10,10 +10,12 @@ import types
 import typing
 from collections import abc
 
+import pytest
 from _walk import reachable
 from comeni_core import egress
 from comeni_core.marks import Mark
-from pydantic import BaseModel, computed_field
+from comeni_core.tiers import Tier, ValueSource
+from pydantic import BaseModel, ValidationError, computed_field
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
 
@@ -286,6 +288,26 @@ def _leaf_problems(
         return []
     if isinstance(annotation, type):
         if issubclass(annotation, enum.Enum):
+            # **A closed vocabulary, and "closed" is a claim about the class.** `_missing_`
+            # is the documented hook for accepting an *undeclared* value and can synthesise
+            # a member from anything, so an enum that defines one is an open vocabulary
+            # wearing a closed one's type. A63: a reviewer added such a field to `GateFailure`
+            # and crossed an arbitrary path string with fifteen tests passing.
+            #
+            # Every class below `Enum` is checked, not only this one — a `_missing_` on a base
+            # is the same hook one level up, and `vars(cls)` alone would miss it.
+            opened = [
+                base.__name__
+                for base in annotation.__mro__
+                if base not in (enum.Enum, enum.StrEnum, enum.IntEnum, str, int, object)
+                and "_missing_" in vars(base)
+            ]
+            if opened:
+                return [
+                    f"{where}: `{annotation.__name__}` defines `_missing_` "
+                    f"(on {', '.join(opened)}), so it accepts undeclared values — that is an "
+                    "open vocabulary with a closed one's type"
+                ]
             return []
         if issubclass(annotation, BaseModel) and annotation in models:
             return []
@@ -578,3 +600,188 @@ def test_no_payload_replaces_its_own_dump():
             "longer corresponds to the fields this file checks, so nothing here can see what "
             "crosses the door"
         )
+
+
+# --- Round four's carried egress findings: A63, A65, A66 ---------------------------------
+
+
+def test_an_enum_with_a_missing_hook_is_not_a_declared_shape():
+    """A63, issue #27. `_leaf_problems` returned `[]` for any `Enum`, on the premise that an
+    enum is closed vocabulary. `Enum._missing_` is the documented hook for accepting
+    *undeclared* values and can synthesise a member from anything — the reviewer added such a
+    field to `GateFailure` (door 3) and crossed an arbitrary path string with 15 passed.
+
+    So "an enum is closed" is a claim about a class, not about the type, and the check has to
+    read the class to know which it has.
+    """
+
+    class Sneaky(enum.StrEnum):
+        KNOWN = "known"
+
+        @classmethod
+        def _missing_(cls, value):  # pragma: no cover — never called; its presence is the point
+            return cls.KNOWN
+
+    assert _leaf_problems(Sneaky, "Probe.field", set()), "an open enum passed as closed vocabulary"
+
+
+def test_an_ordinary_enum_is_still_a_declared_shape():
+    """The negative. Every closed vocabulary in this repository is a `StrEnum`, and refusing
+    them would be a check nobody could satisfy."""
+    assert _leaf_problems(Tier, "Probe.field", set()) == []
+    assert _leaf_problems(ValueSource, "Probe.field", set()) == []
+
+
+def test_a_missing_hook_on_a_base_class_is_caught_too():
+    """`_missing_` inherited from a base below `Enum` is the same hook one level up, and a
+    check that reads only `vars(cls)` would miss it."""
+
+    class OpenBase(enum.StrEnum):
+        @classmethod
+        def _missing_(cls, value):  # pragma: no cover
+            return None
+
+    class Derived(OpenBase):
+        KNOWN = "known"
+
+    assert _leaf_problems(Derived, "Probe.field", set())
+
+
+def test_the_ambiguity_kinds_tuple_is_the_subclass_set():
+    """A65, issue #29. The door-totality test loops over a literal tuple in `decision.py`,
+    and its docstring claims "a fourth kind added without a slot would fail" — true only if
+    the author also edits the tuple. The reviewer added a fourth `Ambiguity` subclass not in
+    the tuple and got 15 passed: the check is live and its input was incomplete.
+    """
+    from comeni_core.decision import Ambiguity, AmbiguityKinds
+
+    assert set(AmbiguityKinds) == set(Ambiguity.__subclasses__()), (
+        "a kind exists that the totality check never sees"
+    )
+
+
+BUILDERS = frozenset({"PipelineIR", "IRNode", "IREdge", "ParamBinding", "ResolvedValue"})
+"""The IR, which is door **3**'s payload and is deliberately mutable.
+
+A66 says every payload-reachable model should be frozen, and that is right for door 4 and
+wrong for door 3 — because door 3's payload is *the thing being repaired*. `RepairRequest.ir`
+is handed to a model precisely so the IR can change, and invariant 5 says repair patches the
+IR and re-emits. Freezing these breaks 109 tests, which is the resolver saying the same thing
+less politely: it builds an `IRNode` and then fills its parameters in.
+
+So the rule is scoped to the door it is about. `Pipeline` is door 4 — publication, the door
+with no undo — and what a person reviewed must be what is sent. An IR that changes between
+review and repair is the mechanism working."""
+
+
+def test_every_publication_payload_model_is_frozen():
+    """A66, issue #30. `EgressPayload` was frozen and every nested model was a plain
+    `BaseModel`, so `Emitted.files[0].digest` could be reassigned after review — on the one
+    field that *is* the self-verification evidence.
+
+    `test_the_publication_payload_is_frozen` asserted the top level and generalised in its
+    docstring to "what was reviewed is what is sent". Publication is the door with no undo,
+    so the gap between the claim and the check mattered most exactly there.
+    """
+    mutable = sorted(
+        model.__name__
+        for model in reachable(egress.DOORS["publication"])
+        if not model.model_config.get("frozen", False)
+    )
+    assert mutable == [], (
+        "these models are reachable from the publication payload and can be mutated after "
+        f"review; that door has no undo:\n  {', '.join(mutable)}"
+    )
+
+
+def test_the_only_unfrozen_payload_models_are_the_ir_builders():
+    """The residue, named so it is a decision rather than an oversight — and pinned, so a
+    *new* mutable model cannot join them quietly."""
+    mutable = {
+        model.__name__
+        for model in _payload_types()
+        if not model.model_config.get("frozen", False)
+    }
+    assert mutable == BUILDERS, (
+        "the unfrozen set moved. Anything outside the IR that a payload can reach must be "
+        f"frozen, or listed in BUILDERS with its reason:\n  {sorted(mutable ^ BUILDERS)}"
+    )
+
+
+# --- A64, issue #28: a declared ID alias that validates nothing is a `str` with a label ---
+
+
+@pytest.mark.parametrize(
+    "alias, bad, why",
+    [
+        ("NodeId", "patient PT-4471, /data/S1_R1.fastq.gz", "a path and an identifier"),
+        ("PortName", "dx: carcinoma", "a colon and a space"),
+        ("StateName", "dx: carcinoma\nnotes: see /mnt/phi/4471.pdf", "a newline"),
+        ("MeasurementId", "/data/patients/PT-4471023/S1.fastq.gz", "a path"),
+        ("ModuleKey", "notes: see /mnt/phi/4471.pdf", "a path"),
+        ("Digest", "not-a-digest: PT-4471023", "not a digest at all"),
+        ("Subject", "dx: carcinoma\nnotes: /mnt/phi/4471.pdf", "a newline"),
+        ("DecisionKey", "a\nb", "a newline"),
+        ("LayerName", "x\ny", "a newline"),
+    ],
+)
+def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
+    """A64, issue #28. Invariant 14 says every string on a payload is *"a declared ID alias
+    or marked `Mark.FREE_TEXT`"*, and nine of the aliases were `Annotated[str, Mark.X]` with
+    no `AfterValidator` — so "a declared ID alias" meant "a `str` with a label".
+
+    On the **unmodified tree** the reviewer crossed door 2 with a patient identifier as a
+    `node_id`, a variant as a `subject` and clinical notes with an embedded newline as a
+    `state`, and door 4 with `digest='not-a-digest: PT-4471023'`. All serialised verbatim.
+    This generalises A3, which was recorded for `PARAM_LITERAL` alone.
+    """
+    from comeni_core import marks
+    from pydantic import TypeAdapter
+
+    with pytest.raises(ValidationError):
+        TypeAdapter(getattr(marks, alias)).validate_python(bad)
+
+
+@pytest.mark.parametrize(
+    "alias, good",
+    [
+        ("NodeId", "star_align"),
+        ("PortName", "reads"),
+        ("StateName", "coordinate_sorted"),
+        ("MeasurementId", "read_length"),
+        ("ModuleKey", "nf-core/star/align"),
+        ("Digest", "sha256:" + "a" * 64),
+        ("Subject", "seq_platform"),
+        ("DecisionKey", "star_align.seq_platform"),
+        ("LayerName", "comeni-registry-examples"),
+    ],
+)
+def test_a_declared_id_alias_accepts_what_the_repository_writes(alias, good):
+    """The negative that keeps every validator above honest. A shape check tight enough to
+    refuse a real value is a check somebody has to disable, and a disabled check is worse
+    than none — which is `_computed_over`'s `paired-end` lesson, one layer down."""
+    from comeni_core import marks
+    from pydantic import TypeAdapter
+
+    assert TypeAdapter(getattr(marks, alias)).validate_python(good) == good
+
+
+def test_every_mark_carries_a_validator_or_is_listed_as_a_label():
+    """The residue, pinned. A `Mark` with no validator is legitimate only if somebody decided
+    it, and this is what turns that into a decision."""
+    from comeni_core import marks
+
+    unvalidated = sorted(
+        name
+        for name, alias in vars(marks).items()
+        if name[0].isupper()
+        and typing.get_origin(alias) is typing.Annotated
+        and any(isinstance(m, Mark) for m in getattr(alias, "__metadata__", ()))
+        and not any(
+            type(m).__name__ == "AfterValidator" for m in getattr(alias, "__metadata__", ())
+        )
+    )
+    assert unvalidated == sorted(marks.LABEL_ONLY), (
+        "a declared ID alias with no validator is a `str` with a label. Give it one, or add "
+        f"it to `marks.LABEL_ONLY` with the reason:\n  {unvalidated}"
+    )

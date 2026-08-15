@@ -971,3 +971,54 @@ def test_the_reason_says_whether_the_premise_was_measured(tmp_path):
     them whether checking is worth their time. Both, or the sentence is half a claim."""
     assert "asserted, not measured" in _star_why(_build(tmp_path)).reason
     assert "measured" in _star_why(_build_measured(tmp_path)).reason
+
+
+def test_a_pipeline_defect_blames_the_pipeline_file(tmp_path, capsys):
+    """A74, issue #35. `emit` and `upgrade` take a `pipeline.yml`, not a goal — the artifact's
+    own header says `goal:` is inert to `emit` — and a `Pipeline`-family validation failure
+    was reported as *"this goal is not valid"*.
+
+    Exit 2 was right and the sentence was not: a reader who had just edited `steps:` was sent
+    to the one section that could not have caused it. That is the exact shape the round-four
+    brief named — a real failure reported as a bad goal when the goal was fine.
+    """
+    out = _build(tmp_path)
+    path = out / "pipeline.yml"
+    raw = yaml.safe_load(path.read_text())
+    raw["steps"].append(raw["steps"][0])
+    path.write_text(yaml.safe_dump(raw))
+    code, err = _emit(out, capsys)
+    assert code == 2
+    assert "this pipeline file is not valid" in err, err
+    assert "this goal" not in err
+
+
+def test_every_pipeline_model_blames_the_pipeline_file():
+    """The set is derived-checked, not trusted. A model added to the artifact tomorrow gets
+    the right blame or this fails — which is what makes it not a third special case."""
+    from _walk import reachable
+    from comeni_core.pipeline import Pipeline
+    from mendel_compiler.cli import _PIPELINE_MODELS, _blame
+
+    unlisted = sorted(
+        model.__name__
+        for model in reachable(Pipeline)
+        if model.__name__ not in _PIPELINE_MODELS and model.__name__ not in _GOAL_MODELS
+    )
+    assert unlisted == [], (
+        "these models are part of `pipeline.yml` and would be blamed on the goal:\n  "
+        + "\n  ".join(unlisted)
+    )
+    assert _blame("Step") == "this pipeline file"
+    assert _blame("Goal") == "this goal"
+    assert _blame("ModuleContract") == "contract"
+
+
+_GOAL_MODELS = frozenset(
+    {"Goal", "GoalInput", "Constraints", "RequiredStates", "ParamOverride",
+     "DataProfile", "Measured", "ParamDecision", "ProducerDecision", "SourceDecision",
+     "Displacement"}
+)
+"""Models `Pipeline` carries that are genuinely the goal's or a decision's, so blaming the
+goal for one is right. `Goal` failing on an `emit` really is the goal — it is recorded in the
+file, and a hand-edit to `goal:` is a hand-edit to a goal."""

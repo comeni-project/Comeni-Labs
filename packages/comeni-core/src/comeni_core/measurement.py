@@ -27,7 +27,7 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import MeasurementId, ParamValue
+from comeni_core.marks import MeasurementId, ParamValue, TypeId
 from comeni_core.profile import DataProfile, Measured
 from comeni_core.tiers import ValueSource
 
@@ -96,8 +96,15 @@ class Measurement(BaseModel):
     description: str = ""
     cite: str | None = None
     edam: str | None = None
-    describes: MeasurementId | None = None
+    describes: TypeId | None = None
     """Which type this is a property of, e.g. `fastq.reads`.
+
+    **A `TypeId`, not a `MeasurementId`** — it was annotated as the latter, and nothing
+    noticed because neither alias validated anything. A64 (issue #28) gave both a shape and
+    the mismatch failed on the first load: `fastq.reads` is a type id and is not a
+    measurement id. Two declared aliases that accept the same strings are two labels, and a
+    label applied to the wrong kind of value is exactly what invariant 14's *"a declared ID
+    alias"* was supposed to rule out.
 
     Only measurements that describe something can be carried into that thing's `meta` map.
     `n_samples` describes the study rather than a read, so it has no `describes` and is

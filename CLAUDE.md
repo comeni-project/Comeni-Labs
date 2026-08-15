@@ -119,10 +119,13 @@ revert. **`docs/internal/audits/guard-ledger.md` is that record.**
 
 **Its residue is measured per *guard*, not per file** — that is A69, and the distinction matters
 because the file-level number reads as nearly done and is not. Every test *file* now has at least
-one recorded revert (`test_pipeline_totality.py`, the last, gained rows in round four), while
-roughly a fifth of the individual guards do. **No count is repeated in this file**: two numbers
-here were stale for three plans because nothing counts them (A71, A72), and the ledger is the
-thing that can be counted. Plan 1.9 found three more inert guards while
+one recorded revert (`test_pipeline_totality.py`, the last, gained rows in round four), while a
+minority of the individual guards do. **No count is repeated in this file**: two numbers here were
+stale for three plans because nothing counts them (A71, A72), and the ledger is the thing that can
+be counted. **`make residue` is what counts it** — per guard, derived from the ledger and the test
+files, with `ARGS=--list` for the names. A69 closed when the number became derivable rather than
+asserted; the number itself is not written here, for the reason this paragraph gives.
+Plan 1.9 found three more inert guards while
 closing round two, two of them in code written that same day: `stack()`'s
 `origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
 `producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
@@ -494,19 +497,19 @@ conversation is a loose end lost.
 
 | # | What | Blocked on |
 |---|---|---|
-| 1 | routing ties should ask a human; scoring should vary by purpose | nothing — needs design. **Narrowed, not closed, by Plan 1.13**: A125 fixed *which* candidates a tie offers (only those that tied), which is not the same as asking a person. The design audit reached this issue independently from two directions and turned it from a question into a demonstrated defect — adding one contract installed the aligner the registry ranked last |
-| 2 | `sealed` must block tier-3 decisions on asserted measurements | Plan 2's `ProfilePolicy` |
-| 3 | generated `.d.ts` and a `/measurements` endpoint | Plan 3's `mendel-api` |
+| ~~1~~ | routing ties should ask a human; scoring should vary by purpose | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
+| ~~2~~ | `sealed` must block tier-3 decisions on asserted measurements | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
+| ~~3~~ | generated `.d.ts` and a `/measurements` endpoint | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
-| 7 | goal extraction: what crosses door 1, per protection profile | v1 answer decided — run the agent locally |
+| ~~7~~ | goal extraction: what crosses door 1, per protection profile | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~8~~ | ~~the emitted spine is not runnable~~ | **done** — Plan 1.5 |
 | ~~10~~ | ~~answering a tier-4 parameter clears the flag without changing the pipeline~~ | **done** — Plan 1.10. `via:` carries the value to the tool, and an override keeps its tier while leaving `needs_review()` |
-| 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
-| 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
-| 18 | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | nothing — sized at ~3 dev-days by round four. Count it with `grep`, never from prose (A73) |
+| ~~11~~ | revise the v1 criterion — the module count measures surface area | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
+| ~~16~~ | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
+| ~~18~~ | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | 38 | the measurement vocabulary has no author, and it gates every tier-3 rule | nothing — and the twenty rules now exist as `tests/fixtures/rule-corpus/`, so the derivation has its input |
 | 39 | **narrowed by Plan 1.15 to arithmetic alone.** `when` now reads goal facts and derived facts, completeness is checked against the declared domain, and `then` is type-checked — what remains unwritable is a computed `then` such as `read_length - 1`, refused by `MD0300`. R02 and R03 in `tests/fixtures/rule-corpus/` are the evidence | nothing — needs a design for expressions that does not reintroduce a solver |
-| 24–36 | round four's thirteen carried findings, A60–A69 and A73–A75 | nothing — deliberately carried past Plan 1.12. **#26 (A62)** and **#32 (A68)** are the two to read before Plan 2 touches the same code |
+| ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 
 ## Commands
 
