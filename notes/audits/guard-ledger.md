@@ -1754,6 +1754,8 @@ the gate goes green faster.
 |---|---|---|---|---|
 | 2026-08-16 | `make links` | a link in `docs/README.md` pointed at `../notes-nowhere/` | failed, exit 2 | `docs/README.md -> ../notes-nowhere/` |
 | 2026-08-16 | `test_architecture.py::test_no_document_or_tool_still_says_docs_internal` | `guard_residue.py`'s ledger path put back to `docs/internal` | failed | names the tool |
+| 2026-08-16 | `test_architecture.py::test_no_document_or_tool_still_says_docs_internal` | a link in `docs/README.md` put back to `docs/internal/` | failed | names the document |
+| 2026-08-16 | `test_architecture.py::test_no_document_or_tool_still_says_docs_internal` | `scanned = ()` — the roots emptied | **passed, then failed** | see below |
 | 2026-08-16 | the same | a `docs/` link put back to `docs/internal` | failed | names the document |
 | 2026-08-16 | the same | its skip filter put back to `set(path.parts)` | **passed** | — the proof it was inert |
 
@@ -1777,3 +1779,17 @@ gate. The test above covers both spellings for that reason.
 **`make links` was written and run *before* the move**, which is what makes its six-link report
 afterwards attributable. A checker introduced after a repair can only confirm the repair somebody
 already believed in.
+
+**The guard scans named roots and asserts it reached them, because the first version could be
+switched off by emptying one tuple.** It scanned everything under `root` and filtered `notes/`
+out by exemption; setting `scanned = ()` — or, before that, any filter that happened to match —
+left a scan of zero files reporting zero findings and passing. `assert len(paths) > 100` is what
+makes the empty scan loud, and reverting the roots now fails with *"the scan reached only 7
+files; it is not scanning"* rather than green.
+
+**`notes/` is not scanned at all**, which is a scope decision rather than an exemption pile: the
+record legitimately names things that no longer exist, and the row directly above this paragraph
+says `docs/internal` correctly and for ever. Same reasoning as `make links`, which does not
+check `notes/` either. Three files were exempted individually before this; two of them were the
+record doing its job, and only `test_architecture.py` — which holds the string it searches for —
+is a genuine exception.

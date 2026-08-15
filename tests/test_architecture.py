@@ -67,35 +67,43 @@ def test_no_document_or_tool_still_says_docs_internal():
     appears in it correctly.
     """
     root = pathlib.Path(__file__).parent.parent
-    exempt = {
-        # describes the move, so `git mv docs/internal notes` appears in it correctly
-        "notes/plans/2026-08-16-code-and-documentation-organisation.md",
-        # says where the notes used to live, which is the point of saying it
-        "notes/README.md",
-        # holds the string it searches for
-        "tests/test_architecture.py",
-    }
+    # `notes/` is not scanned, for the same reason `make links` does not check it: the record
+    # legitimately names things that no longer exist. The guard ledger's own row about this
+    # move says `docs/internal`, correctly and for ever.
+    #
+    # What *is* scanned is everything a reader or a tool follows now: `docs/`, the root,
+    # `packages/`, `tests/`, `tools/`.
+    scanned = ("docs", "packages", "tests", "tools")
+    exempt = {"tests/test_architecture.py"}  # holds the string it searches for
+    paths = [
+        path
+        for top in scanned
+        for pattern in ("*.md", "*.py")
+        for path in sorted((root / top).rglob(pattern))
+    ] + sorted(root.glob("*.md"))
+    # A scan that reaches nothing reports nothing and passes. Emptying `scanned` was watched
+    # doing exactly that, which is the same defect the comment above describes — so the count
+    # is asserted rather than trusted.
+    assert len(paths) > 100, f"the scan reached only {len(paths)} files; it is not scanning"
+
     stale = []
-    for pattern in ("*.md", "*.py"):
-        for path in sorted(root.rglob(pattern)):
-            relative = path.relative_to(root)
-            # **Skipped by their position under `root`, not by `path.parts`.** The first
-            # version tested `{".venv", ".worktrees", …} & set(path.parts)` — and this
-            # repository's plans are executed in `.worktrees/<name>/`, so every path contained
-            # `.worktrees` and the scan skipped the entire repository. It reported zero and
-            # passed, including on a file that holds the string it searches for.
-            #
-            # Same defect as `make drift`'s `REGISTRY ?= ../comeni-registry`, which resolved to
-            # `.worktrees/comeni-registry` and silently skipped: a check written against the
-            # repository root is a check that does nothing in the one place `CLAUDE.md`
-            # requires the work to happen.
-            if {".venv", ".git", "node_modules", "build"} & set(relative.parts):
-                continue
-            if str(relative) in exempt:
-                continue
-            text = path.read_text()
-            if "docs/internal" in text or '"docs" / "internal"' in text:
-                stale.append(str(relative))
+    for path in paths:
+        relative = path.relative_to(root)
+        # **Enumerated from named roots, not filtered out of an rglob of everything.** The
+        # first version scanned the whole tree and skipped by `{".venv", ".worktrees", …} &
+        # set(path.parts)` — and this repository's plans are executed in `.worktrees/<name>/`,
+        # so every path contained `.worktrees`, the scan skipped the entire repository, and it
+        # passed while sitting on a file that holds the string it searches for.
+        #
+        # Same defect as `make drift`'s `REGISTRY ?= ../comeni-registry`, which resolved to
+        # `.worktrees/comeni-registry` and printed "skipped": a check written against the
+        # repository root does nothing in the one place `CLAUDE.md` requires the work to
+        # happen. Naming the roots removes the question rather than answering it carefully.
+        if str(relative) in exempt:
+            continue
+        text = path.read_text()
+        if "docs/internal" in text or '"docs" / "internal"' in text:
+            stale.append(str(relative))
     assert stale == [], (
         "these still name `docs/internal`, which no longer exists:\n  " + "\n  ".join(stale)
     )
