@@ -18,7 +18,14 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dependencies = ["comeni-core", "mendel-resolver", "pydantic>=2.9", "jinja2>=3.1", "pyyaml>=6.0"]
+# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
+dependencies = [
+  "comeni-core>=0.1.0",
+  "mendel-resolver>=0.1.0",
+  "pydantic>=2.9",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"

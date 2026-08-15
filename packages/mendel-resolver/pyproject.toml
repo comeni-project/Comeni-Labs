@@ -18,7 +18,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dependencies = ["comeni-core", "pydantic>=2.9", "pyyaml>=6.0"]
+# A lower bound and no cap. The bound is what makes an independent version mean something:
+# without it a released wheel accepts any comeni-core, including one predating a type it
+# imports. A cap would be a promise to bump in lockstep, which is what independent versioning
+# exists to avoid — see docs/guides/releasing.md.
+dependencies = ["comeni-core>=0.1.0", "pydantic>=2.9", "pyyaml>=6.0"]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"

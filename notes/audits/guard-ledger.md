@@ -2073,3 +2073,30 @@ must.
 labels changed, because the generated page groups by `concern`. That is what made this a safe
 repair rather than a churn of the public reference, and it was predicted in the spec before it
 was checked.
+
+## Packaging — a released package declares what it needs (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_packaging.py::test_every_workspace_dependency_carries_a_lower_bound` | `comeni-core>=0.1.0` → `comeni-core` | failed, naming package and requirement |
+| 2026-08-16 | `…::test_no_workspace_dependency_carries_an_upper_bound` | `,<0.2.0` added | failed |
+| 2026-08-16 | `…::test_there_are_packages_to_check` | — | asserts ≥3 manifests were found |
+
+**Three of three were unbounded before this.** `mendel-compiler` declared
+`dependencies = ["comeni-core", "mendel-resolver"]` and `mendel-resolver` declared
+`["comeni-core"]`. In a `uv` workspace that resolves to the checkout and nothing is wrong; as a
+released wheel it accepts *any* version, including one predating a type it imports. The defect
+was invisible precisely because the workspace hid it, which is why it needed a test rather than
+a reading.
+
+**The cap guard is the less obvious half.** A cap on a package released from this same repository
+is a promise to bump in lockstep — `mendel-compiler` pinning `comeni-core<0.3` means every
+`comeni-core` minor release breaks the compiler until somebody edits a file. That is lockstep
+wearing a different hat, and lockstep is the thing the operator rejected on 2026-08-16.
+
+**`uv sync --locked` was run after the change**, so a lock needing regeneration is a change to
+commit rather than a surprise in CI.
+
+**Each package was built and tested alone** — two artifacts each, and 172 / 162 / 28 passing.
+That is the claim per-package releases rest on, and it is cheap enough to check that assuming it
+would have been the wrong trade.
