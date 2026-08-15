@@ -282,7 +282,7 @@ git commit -m "refactor(core): five packages by lifecycle stage, not 24 flat mod
 
 ---
 
-## Task 2: split `pipeline.py`
+## Task 2: split `pipeline.py` — **done**
 
 **Spec:** Part one, the three splits. 1,116 lines doing three jobs.
 
@@ -301,7 +301,7 @@ git commit -m "refactor(core): five packages by lifecycle stage, not 24 flat mod
 > — which is a change to what the guard guards, not to where code lives. The classmethod becomes
 > a two-line delegation to `materialise.of`.
 
-- [ ] **Step 1: Create `artifact/materialise.py`**
+- [x] **Step 1: Create `artifact/materialise.py`**
 
 Move these, unchanged, out of `pipeline.py`: `_ext_args`, `_no_flags_why`, `_meta_entry`,
 `_why`, `_settings`, `_call`, `_inputs`, `_channels`, `_default_entry`, and the body of
@@ -321,7 +321,7 @@ behind it.
 """
 ```
 
-- [ ] **Step 2: Create `artifact/load.py`**
+- [x] **Step 2: Create `artifact/load.py`**
 
 Move `_param_refs`, `_IDENT_CHARS`, and the validators that refuse a *file* rather than
 describing a model — `_backfill_provenance_a_v1_file_never_had` and `_readable_and_unambiguous`
@@ -338,7 +338,7 @@ refusals a reader meets are actually written.
 """
 ```
 
-- [ ] **Step 3: Reduce `Pipeline.of` to a delegation**
+- [x] **Step 3: Reduce `Pipeline.of` to a delegation**
 
 ```python
     @classmethod
@@ -360,17 +360,35 @@ refusals a reader meets are actually written.
 The function-local import is deliberate and is the one in this plan: `materialise` imports
 `Pipeline`, so a module-level import here is a cycle. Say so in a comment.
 
-- [ ] **Step 4: Run everything**
+- [x] **Step 4: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, digests unmoved.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
 git commit -m "refactor(core): pipeline.py was doing three jobs (#41)"
 ```
+
+> **Corrected 2026-08-16, on execution. Three things.**
+>
+> 1. **`_no_flags_why` is a model default, not materialisation.** `Step.ext_args` calls it in a
+>    `default_factory`, so it stays in `pipeline.py`. Ruff's `F821` said so before any test ran.
+>    The line between "builds a model" and "is part of a model's declaration" is not where the
+>    section headings suggest.
+> 2. **`materialise.py` is exempted from the construction guard as a *file*, not a spelling** —
+>    it *is* the materialisation, and exempting one spelling would pretend it is a reader that
+>    happens to need a constructor. That gives up the assurance that nothing else reaches
+>    `materialise.of`, so `test_the_only_caller_of_materialise_of_is_pipeline_of` holds it.
+> 3. **That new guard's first version prose-matched** and named three innocent files that merely
+>    mention materialisation in a docstring. It parses imports now. Recorded because three
+>    plausible names is exactly how a bad guard survives review.
+>
+> **Final shape:** `pipeline.py` 827, `materialise.py` 313, `load.py` 44. The models file is
+> still the largest of the three and that is right — it is a schema, and a schema's length is
+> its field count.
 
 ---
 
