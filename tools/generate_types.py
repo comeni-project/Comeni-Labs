@@ -16,6 +16,7 @@ would have voided the paragraph above.
 """
 
 import sys
+import textwrap
 from pathlib import Path
 
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
@@ -60,22 +61,49 @@ def _returns(measurement) -> str:
     return _RETURN[measurement.kind]
 
 
+def _wrapped(returns: str) -> list[str]:
+    """`Literal["a", "b", …] | None` broken across lines that fit inside 100 characters.
+
+    Broken inside the brackets `Literal[` already provides, so no continuation marker and no
+    change of meaning — the alternative, shortening a declared value to fit a line limit,
+    would let a formatting constraint edit the vocabulary.
+    """
+    head, _, rest = returns.partition("[")
+    values, _, tail = rest.rpartition("]")
+    return [
+        f"{head}[",
+        *(f"    {line}" for line in textwrap.wrap(values, width=100 - 12)),
+        f"]{tail}",
+    ]
+
+
 def generate_stub(registry: MeasurementRegistry) -> str:
     lines = _HEADER.splitlines()
     for measurement_id in registry.ids():
         argument = f'measurement_id: Literal["{measurement_id}"]'
         returns = _returns(registry.get(measurement_id))
         one_line = f"    def get(self, {argument}) -> {returns}: ..."
+        split = f"    ) -> {returns}: ..."
         # An enum with several values overruns the line limit, and a generated file that
         # fails `ruff check` is a generated file somebody edits by hand.
+        #
+        # Three forms rather than two: splitting the signature was assumed to be enough and
+        # was not. `purpose`'s four values make the *return* 101 characters on a line of its
+        # own, so the second form failed the check the first form exists to pass — found by
+        # adding the measurement, not by reading this. The third wraps inside `Literal[`,
+        # which has no length at which it stops working.
         lines.append("    @overload")
         if len(one_line) <= 100:
             lines.append(one_line)
+        elif len(split) <= 100:
+            lines += ["    def get(", f"        self, {argument}", split]
         else:
             lines += [
                 "    def get(",
                 f"        self, {argument}",
-                f"    ) -> {returns}: ...",
+                "    ) -> (",
+                *(f"        {part}" for part in _wrapped(returns)),
+                "    ): ...",
             ]
     lines += [
         "    @overload",

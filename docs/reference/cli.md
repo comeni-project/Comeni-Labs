@@ -164,6 +164,8 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 |---|---|
 | `MD0300` | a rule's `then` reads as arithmetic, and `then` is emitted verbatim |
 | `MD0301` | a rule row justifies nothing — no `because` and no `cite`, on the row or the block |
+| `MD0302` | a contract declares a role no layer in the stack declares |
+| `MD0303` | a measurement is declared named `required_states`, which is the goal's own shape |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

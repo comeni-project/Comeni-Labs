@@ -19,13 +19,19 @@ def test_the_layer_describes_itself():
     manifest = yaml.safe_load((ROOT / "registry" / "registry.yml").read_text())
     assert manifest["name"]
     assert manifest["licence"] == "CC-BY-4.0"
-    assert manifest["kinds"] == ["contracts", "measurements", "rules", "vocabularies"]
+    assert manifest["kinds"] == ["contracts", "measurements", "roles", "rules", "vocabularies"]
 
 
 def test_the_layer_loads_from_its_new_home():
     loaded = layers.load(ROOT / "registry")
     assert len(loaded.registry.all()) >= 12
-    assert loaded.measurements.ids() == ["n_samples", "paired", "read_length", "strandedness"]
+    assert loaded.measurements.ids() == [
+        "n_samples",
+        "paired",
+        "purpose",
+        "read_length",
+        "strandedness",
+    ]
 
 
 def test_the_layer_loads_from_anywhere(tmp_path):

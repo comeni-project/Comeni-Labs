@@ -1019,3 +1019,60 @@ than from what happens to live in `egress.py`"*.
 vocabulary-side validation cut the file mid-block and produced a collection error rather than a
 test failure. A guard that "fails" because the module will not import has not been watched — it
 was redone with valid syntax, and the row above is the valid one.
+
+## Plan 1.15 Task 1 — the premise layer (A108, A120)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_an_asserted_fact_is_not_a_measured_one`, `…_a_human_override_is_evidence_of_the_same_quality_…`, `…_a_goal_declared_purpose_is_a_premise` | `origin=_BY_SOURCE[entry.source]` → always `PremiseOrigin.MEASURED` | **3 failed** | `assert <PremiseOrigin.MEASURED: 'measured'> is <PremiseOrigin.ASSERTED: 'asserted'>` |
+| 2026-08-15 | `test_premises.py::test_nothing_may_declare_a_measurement_named_required_states` | the `_RESERVED in measurements.ids()` refusal | failed | `DID NOT RAISE PremiseError` |
+| 2026-08-15 | `test_premises.py::test_required_states_is_present_and_empty_rather_than_absent` | writing the premise only when the goal named states | failed | `KeyError: 'required_states'` |
+| 2026-08-15 | `tests/test_purity.py::test_pure_packages_import_nothing_impure` | nothing — `premises.py` imports `enum` | **failed unprompted** | `premises.py imports enum, which is not on this package's allowlist` |
+| 2026-08-15 | `make types` (`tools/generate_types.py --check`) | nothing — `registry/measurements/purpose.yml` was added | **failed unprompted** | `profile.pyi is stale` |
+| 2026-08-15 | `tests/test_registry_layer.py::test_the_layer_loads_from_its_new_home` | nothing — the same file | **failed unprompted** | `At index 2 diff: 'purpose' != 'read_length'` |
+
+**The plan predicted the wrong outcome for its own guard, and the prediction was pessimistic.**
+Step 5 said to collapse the provenance mapping, confirm the measured case still passes, and
+confirm that *"no test fails — the asserted case has no guard yet, which is Task 8's."* Three
+tests failed. That sentence was written against the four-test draft of this task; the corrected
+version added the human-override and `purpose` cases, and each of them pins the asserted side
+independently. **A stale prediction of inertness is the one kind that costs nothing to be wrong
+about**, because the revert is run either way — which is the argument for running it rather than
+reasoning about it, in the same shape as A14 itself.
+
+**Two guards failed unprompted for the same one-line cause**, and the pair is the useful part:
+`registry/measurements/purpose.yml` is *data*, and adding it broke a generated stub and a
+literal list in a test. Neither is in `mendel-resolver`, and neither would have been found by
+running the task's own test file. `make check` is what found them, which is the case for
+running the whole gate on a change that looks confined to one package.
+
+**`test_purity.py`'s allowlist did what its own comment asks of it.** `re` was added on
+2026-08-14 with a written argument, and the comment beside it says the guard *"is supposed to
+make an addition something somebody argues for"*. `enum` is the second such addition and got
+the same treatment: `PremiseOrigin` is a closed vocabulary and every other one in this
+repository is a `StrEnum`, so the alternative — bare string constants — would have made an
+undeclared origin representable and would have cost `_BY_SOURCE` its totality. This is the first
+time `mendel-resolver` has *declared* a vocabulary rather than read one from `comeni-core`,
+which is why the entry was not already there.
+
+**`tools/generate_types.py` had two line-wrapping forms and needed three.** `purpose`'s four
+enum values make the return annotation 101 characters on a line of its own, so the fallback that
+exists to keep the generated stub lint-clean produced a stub that failed `ruff check` — the
+exact outcome its own comment names as the thing to avoid (*"a generated file that fails `ruff
+check` is a generated file somebody edits by hand"*). Latent since the generator was written;
+reachable only by declaring a measurement with long values. The third form wraps inside
+`Literal[`, which has no length at which it stops working. **Shortening the declared values to
+fit would have let a line limit edit the vocabulary**, which is why it was fixed in the tool.
+
+**Task 0 residue, found by a test rather than by review.** `registry/registry.yml` still said
+`kinds: [contracts, measurements, rules, vocabularies]` while `registry/roles/` sat beside it.
+Nothing reads that field — `tests/test_registry_layer.py` pins it and nothing else — and that is
+the point of it: it is the layer's account of itself to a stranger who opens the directory, and
+a self-description that drifts is worse than none.
+
+**`MD0302` shipped in Task 0 with no `diagnostics.yml` entry**, which the plan's own Global
+Constraints require of every new code. It was invisible because `tests/test_diagnostics_registry.py`
+validates codes passed to `Diagnostic(...)`, and `roles.py` raises a bare `ValueError` with the
+code in the string — so the registry could not see it. Both `MD0302` and this task's `MD0303`
+are declared now. The general case is issue #18, the half-declared error surface, and this is
+one more instance of it: a code in an f-string is a code no registry knows about.

@@ -43,8 +43,16 @@ Read it before Task 0; every task below argues from a numbered section of it.
   exactly like this and nothing else:
 
   ```
-  12 file(s) drifted   ← the twelve contracts, from `roles:`, plus rules/rnaseq.yml after Task 11
+  13 file(s) drifted   ← the twelve contracts, from `roles:`, plus registry.yml:kinds
+    only in Comeni-Labs      measurements/purpose.yml
   ```
+
+  and, after Task 11, `rules/rnaseq.yml` as a fourteenth. **The count grew from twelve on
+  execution** and the two additions are recorded rather than absorbed, because a permitted
+  failure whose shape nobody wrote down is a failure nobody checks: `registry.yml:kinds` gained
+  `roles` (Task 0 shipped `roles/` and left the manifest naming four kinds), and
+  `measurements/purpose.yml` is Task 1's, reported under *only in Comeni-Labs* rather than as
+  drift because the other repository has no such file.
 
   Any other file in that list, or a failure before `drift`, is a real failure. Do not paper over
   it with `make check`.
@@ -359,7 +367,8 @@ def test_a_goal_declared_purpose_is_a_premise():
 
 
 def test_required_states_reach_the_premise_set():
-    """A120's cheaper half — the router already consults these, and `when` could not."""
+    """A120's cheaper half — the router already consults these, and `when` could not.
+    R11 (Salmon for transcript-level, featureCounts for gene-level) dies on exactly this."""
     goal = Goal(
         have=[GoalInput(type_id="fastq.reads")],
         want=["counts.matrix"],
@@ -367,7 +376,46 @@ def test_required_states_reach_the_premise_set():
     )
     premises = build_premises(goal=goal, derivations=[], measurements=LOADED.measurements)
     assert "gene_level" in premises["required_states"].value
+    assert premises["required_states"].origin is PremiseOrigin.GOAL
+
+
+def test_a_human_override_is_evidence_of_the_same_quality_as_a_goal_assertion():
+    """Different authors, identical evidence: in neither case did anything look at the data.
+    Collapsing them here rather than at each point of use keeps `sealed` a single check."""
+    premises = build_premises(
+        goal=_goal(ValueSource.HUMAN, strandedness="forward"),
+        derivations=[], measurements=LOADED.measurements,
+    )
+    assert premises["strandedness"].origin is PremiseOrigin.ASSERTED
+
+
+def test_required_states_is_present_and_empty_rather_than_absent():
+    """So `when: {required_states: absent}` means "the goal asked for no states" and not
+    "this build predates the field". A premise that vanishes when empty cannot be tested."""
+    premises = build_premises(
+        goal=_goal(read_length=150), derivations=[], measurements=LOADED.measurements
+    )
+    assert premises["required_states"].value == []
+
+
+def test_nothing_may_declare_a_measurement_named_required_states():
+    """It is the goal's own shape. A measurement of that name would silently shadow it, and
+    which won would depend on what the loader reached first."""
+    class _Shadowing:
+        def ids(self): return ["required_states"]
+
+    with pytest.raises(PremiseError, match="MD0303"):
+        build_premises(
+            goal=Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"]),
+            derivations=[], measurements=_Shadowing(),
+        )
 ```
+
+`_goal` is a helper building the profile through `LOADED.measurements.profile(measured,
+source=source)` — the validated constructor — rather than `DataProfile(...)`. The construction
+guard scans `packages/*/src` and not `tests/`, so a direct build would pass; it would also skip
+the validation that makes an undeclared measurement impossible, which is why that constructor
+exists.
 
 **`purpose` must be declared before this test passes.** Add
 `registry/measurements/purpose.yml`:
@@ -494,19 +542,46 @@ behaviour rather than a parameter.
 - [ ] **Step 4: Run the tests**
 
 Run: `uv run pytest packages/mendel-resolver/tests/test_premises.py -v`
-Expected: PASS (3 passed)
+Expected: PASS (7 passed — the corrected test list above, not the four the draft had)
+
+Then **`make check`**, not only that file. Four things outside `mendel-resolver` move here and
+three of them are found by nothing else: see the corrections below.
 
 - [ ] **Step 5: Watch the guard fail, then commit**
 
-Change `PremiseOrigin.MEASURED if profile.sources.get(key) == "measured"` to always
-`PremiseOrigin.MEASURED`. Confirm `test_a_measured_fact_says_it_was_measured` still passes and
-that **no test fails** — the asserted case has no guard yet, which is Task 8's. Record the row.
-Restore, then:
+Change `origin=_BY_SOURCE[entry.source]` to always `PremiseOrigin.MEASURED`. Confirm
+`test_a_measured_fact_says_it_was_measured` still passes.
+
+**Three tests fail, and this step predicted none.** Record the row, restore, then revert the
+`_RESERVED in measurements.ids()` refusal and the `required_states` premise in turn — each has
+its own test and each was watched. Then:
 
 ```bash
-git add packages/mendel-resolver
-git commit -m "feat(resolver): a premise carries where it came from (A108)"
+git add packages/mendel-resolver registry tools tests docs
+git commit -m "feat(resolver): a premise carries where it came from (A108, A120)"
 ```
+
+> **Corrected 2026-08-15, on execution. Five things, and only the first is in this package.**
+>
+> 1. **Step 5's prediction was wrong.** It said to confirm *"no test fails — the asserted case
+>    has no guard yet, which is Task 8's"*, which was true of the four-test draft. The
+>    corrected test list pins the asserted side three times over, so collapsing the mapping
+>    fails three tests. The guard is live, and the revert is what said so.
+> 2. **`registry/measurements/purpose.yml` makes `make types` fail** — `tools/generate_types.py`
+>    generates `profile.pyi` from the declared measurements, and `make check` runs it with
+>    `--check`. Regenerate it in the same commit.
+> 3. **And it makes the generator emit a line over 100 characters.** `purpose`'s four values
+>    put the return annotation at 101 on a line of its own, past both of the generator's
+>    line-wrapping forms, so the generated stub failed `ruff check` — which the generator's own
+>    comment exists to prevent. A third form was added, wrapping inside `Literal[`. Shortening
+>    the declared values instead would have let a line limit edit the vocabulary.
+> 4. **`enum` is not on `mendel-resolver`'s purity allowlist.** `PremiseOrigin` is the first
+>    vocabulary this package *declares* rather than reads from `comeni-core`. Added with a
+>    written argument, in the shape the `re` entry established on 2026-08-14.
+> 5. **`MD0303` needs a `diagnostics.yml` entry, and so did Task 0's `MD0302`**, which shipped
+>    without one — the Global Constraints require it and nothing enforces it, because a code
+>    inside an f-string is invisible to `Diagnostic`'s validation. Both are declared now.
+>    Task 0 also left `registry/registry.yml` naming four kinds beside a `roles/` directory.
 
 ---
 

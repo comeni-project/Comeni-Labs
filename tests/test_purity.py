@@ -33,7 +33,7 @@ CLOSED_PACKAGES = {
         "typing", "pydantic", "yaml", "comeni_core",
     },
     "mendel-resolver": {
-        "collections", "collections.abc", "operator", "pathlib", "re", "typing",
+        "collections", "collections.abc", "enum", "operator", "pathlib", "re", "typing",
         "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
 }
@@ -51,6 +51,22 @@ CLOSED_PACKAGES = {
 # allowlist untouched. Rejected because the check has to distinguish `read_length-1` from
 # `paired-end` — a false positive kills a legitimate rule with a diagnostic nobody can turn
 # off — and that precision is exactly what a hand-rolled scanner gets subtly wrong.
+#
+# `enum` was added 2026-08-15 for `premises.PremiseOrigin` (Plan 1.15 Task 1, audit A108),
+# and this note exists for the same reason the one above does.
+#
+# It is stdlib, does no I/O, executes nothing caller-supplied, and reaches no module this
+# file cannot see. `comeni-core` has allowed it since the guard was written, and every closed
+# vocabulary in this repository is a `StrEnum` — `Tier`, `ValueSource`, `MeasurementKind`,
+# `Via`. `PremiseOrigin` is one more of those; this is the first time `mendel-resolver` has
+# needed to *declare* a vocabulary rather than read one from `comeni-core`, which is why the
+# entry was not already here.
+#
+# The alternative considered and rejected: string constants. Rejected because an undeclared
+# origin then becomes representable — `origin="mesured"` is a live value rather than an
+# error — and because `premises._BY_SOURCE` is deliberately total over `ValueSource` and read
+# with `[]`, so a new member trips rather than defaulting. That tripwire needs both sides to
+# be enums. Same argument as A38's `Via` guard, which earned itself in Plan 1.14.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 

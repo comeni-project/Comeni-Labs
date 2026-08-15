@@ -23,6 +23,14 @@ class DataProfile(BaseModel):
     @overload
     def get(self, measurement_id: Literal["paired"]) -> bool | None: ...
     @overload
+    def get(
+        self, measurement_id: Literal["purpose"]
+    ) -> (
+        Literal[
+            "expression", "variant_calling", "junction_discovery", "transcript_assembly"
+        ] | None
+    ): ...
+    @overload
     def get(self, measurement_id: Literal["read_length"]) -> int | None: ...
     @overload
     def get(

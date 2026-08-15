@@ -845,3 +845,67 @@ MD0300:
 
     Audit A118. §13.2 called this case unwritable; it was writable and unrefused, which is
     the more dangerous of the two.
+
+MD0302:
+  emitted_by: resolver
+  concern: routing
+  says: "a contract declares a role no layer in the stack declares"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare the role, or use one that exists:
+
+        # <layer>/roles/roles.yml
+        roles:
+          - id: alignment
+            description: "Placing reads against a reference"
+
+    A lab that needs a role the public registry does not have declares it in its own overlay;
+    `roles/` stacks like every other kind, so an overlay may add to the base without
+    replacing it.
+  explanation: |
+    Invariant 7 — vocabularies are closed — and `roles:` is a vocabulary. An undeclared role
+    is not a smaller version of a declared one: nothing else in the stack can route to it,
+    no rule can name it in a `presence:` or `implementation:` decision, and the misspelling
+    that produced it would otherwise sit in a contract looking exactly like a step somebody
+    decided not to build a rule for.
+
+    A role is the thing a decision is *about* — `presence: trimming` says whether a trimming
+    step exists at all, which the shipped format could only spell as
+    `producer_of: fastq.reads` with `then: null`. Keying decisions on a declared role rather
+    than on a type id is what lets a rule say a step should not exist without also deleting
+    an unrelated decision that happened to share the type.
+
+    Audit A119 and A123.
+
+MD0303:
+  emitted_by: resolver
+  concern: routing
+  says: "a measurement is declared named `required_states`, which is the goal's own shape"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Rename the measurement. A property of the data that happens to concern states is a
+    different fact from the states the goal asked for:
+
+        # not this
+        <layer>/measurements/required_states.yml
+        # this
+        <layer>/measurements/detected_states.yml
+  explanation: |
+    The premise set is one namespace over measurements, goal facts and derived facts, so a
+    rule author has one thing to learn rather than three. One namespace means collisions are
+    possible, and the only defence against a silent one is to refuse it at load.
+
+    `required_states` is the goal's own shape — what the user asked the output to carry — and
+    a rule reading `when: {required_states: …}` is asking about the request, not about the
+    data. A measurement of the same name would answer that question with a fact about the
+    data instead, and which of the two won would depend on which the loader reached first.
+    Neither answer is wrong in isolation; the ambiguity is.
+
+    Refused rather than resolved by precedence because a precedence rule here would be
+    correct and invisible: the rule author reading their own table would have no way to see
+    which fact their row was testing. Same argument as invariant 8 — a tie is ambiguity, not
+    a coin flip.
+
+    Audit A120.
