@@ -714,7 +714,7 @@ git commit -m "test: a guard that names a path must name one that exists (#41)"
 > **Each revert fails two tests**, and that pairing is what the task buys: the new guard names
 > the broken key, and the old one fails for a reason that reads like something else entirely.
 
-## Task 6: `notes/` becomes `notes/`
+## Task 6: `docs/internal/` becomes `notes/` — **done**
 
 **Spec:** Part two, the tree and the link cost. 69 of the 94 markdown files under `docs/`.
 
