@@ -33,6 +33,7 @@ from comeni_core.artifact.pipeline import (
     _no_flags_why,
 )
 from comeni_core.declared.contract import ModuleContract
+from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier, ValueSource
 
 
@@ -206,9 +207,9 @@ def _settings(node, contract: ModuleContract) -> list[Setting]:
     orphaned = sorted({b.name for b in node.params} - set(routes))
     if orphaned:
         raise ValueError(
-            f"MD0216: {node.id} carries resolved value(s) for {', '.join(orphaned)}, which "
+            coded("MD0216", f"{node.id} carries resolved value(s) for {', '.join(orphaned)}, which "
             f"{contract.id} does not declare as a parameter, so nothing would carry them to "
-            f"the tool. `mendel explain MD0216`."
+            f"the tool. `mendel explain MD0216`.")
         )
     return [
         Setting(

@@ -106,6 +106,36 @@ def spec_for(code: str) -> DiagnosticSpec:
     return REGISTRY[code]
 
 
+def coded(code: str, message: str) -> str:
+    """A message with its diagnostic code on the front, checked against the registry.
+
+    **This is the one place a code becomes text.** Before it, seventy-eight emissions were
+    string literals — `f"MD0001: {where} is not valid YAML"` — with nothing tying the code to
+    `diagnostics.yml`. A typo shipped, a `raise` outliving its registry entry shipped, and both
+    printed to a user while failing `mendel explain` and never appearing in the generated page.
+    Every code in source happened to be declared, which is correctness by vigilance.
+
+    **A string builder rather than an exception factory.** Twelve exception types carry codes —
+    `ValueError` at sixty-five, `RuleValidationError` at nineteen — so a factory returning an
+    exception would have to take the type as an argument, which reads worse than the `raise` it
+    replaces. And several emissions are not raises at all: the CLI prints `mendel: MD0210: …`
+    and `MD0202` is a report line. One function serves every site, changes no exception class,
+    and leaves `raise` visible where control flow is decided.
+
+    **Checked at call time, which is the error path.** That is weaker than import time and it is
+    deliberately not the whole answer: `tests/test_diagnostics_ownership.py` scans the literals
+    and runs whether or not anything fails. What this buys is that a bad code cannot reach a
+    user — the emission raises here instead, naming the code and the known set.
+    """
+    if code not in REGISTRY:
+        raise UnknownDiagnosticError(
+            f"{code} is not a declared diagnostic. Declare it in "
+            f"comeni_core/diagnostics.yml, or fix the code.\n"
+            f"Known: {', '.join(sorted(REGISTRY))}"
+        )
+    return f"{code}: {message}"
+
+
 def explain(code: str) -> str:
     """Long-form, after `rustc --explain`.
 

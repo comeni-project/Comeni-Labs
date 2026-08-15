@@ -2128,3 +2128,49 @@ shell parameter expansions are reproduced in Python and asserted against the rea
 `make check`, not `make verify`, because `verify` needs Docker and the slow lane and nightly
 already covers `main`. The test requires the workflow to still mention `make verify` — so the
 reason survives in the file where the decision was made, not only in a plan nobody re-reads.
+
+## One source for a diagnostic code (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_diagnostics_registry.py::test_coded_refuses_an_undeclared_code` | the registry check removed from `coded()` | failed, with the near-miss test |
+| 2026-08-16 | `test_diagnostics_ownership.py::test_every_emitted_code_is_declared` | one `coded("MD0001"` changed to `"MD9998"` | failed |
+| 2026-08-16 | `…::test_every_declared_code_is_emitted` | a code added to `diagnostics.yml` that nothing emits | failed, naming it |
+| 2026-08-16 | `…::test_every_code_is_owned_by_the_package_that_emits_it` | `MD0001`'s `emitted_by` set to `compiler` | failed |
+| 2026-08-16 | `…::test_the_scan_reached_the_sources` | the emission pattern made to match nothing | failed |
+
+**`coded()` is the runtime half and the scan is the static half, and neither is sufficient
+alone.** `coded()` cannot fire until an error path runs, and a diagnostic's error path is by
+definition the one that does not run in a green suite — which is A14's argument, arriving at the
+one place in this repository that is *only* error paths. The scan runs always and knows nothing
+about whether the code is reachable. Each covers the other's blind spot.
+
+**The conversion itself was where the mistakes were, and there were three.** A regex left
+unbalanced parentheses, because the messages are implicit multi-line concatenations and the
+closing paren belongs after the *last* literal. `ast` column offsets are UTF-8 **bytes**, and
+these files are full of em dashes, so slicing by character silently duplicated the tail of every
+long message. And a `Constant` inside a `JoinedStr` matches the same test as the `JoinedStr`
+itself, so seventeen messages got one replacement nested inside another.
+
+**All three were caught by reading the diff of one file before converting the other sixteen**,
+which is the step the plan insisted on and the only reason they were caught at all — every one of
+them produced *syntactically plausible* output that a later `pytest` run would have blamed on
+something else.
+
+**`UNLOCATABLE` is deleted rather than emptied.** It held `MD0202`, and it existed only because
+three emission shapes had to be matched by pattern. With one shape there is nothing to exempt —
+the list was a symptom of the thing this change removes.
+
+**The canary held.** `docs/reference/diagnostics.md` is byte-identical across seventy-eight
+converted sites, and so is a built `pipeline.yml`. Nothing about what a code *says* moved, which
+is the whole claim.
+
+**A revert-and-watch loop left stale bytecode, and it cost twenty minutes.** Restoring a file
+byte-for-byte can produce the same size and mtime it had before, so CPython reuses the cached
+`.pyc` and the *reverted* code keeps running. `test_MD0001` failed against a message containing
+`MD9998` while the source on disk plainly said `MD0001`.
+
+Worth knowing for every future revert-and-watch, which is the method this whole ledger is built
+on: **`find . -name __pycache__ -type d -exec rm -rf {} +` after a loop that restores files.** A
+guard reported failing for the right reason and then reported failing for a reason that had been
+undone, which is the least useful state a check can be in.

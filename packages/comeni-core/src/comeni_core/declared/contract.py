@@ -15,6 +15,7 @@ from pydantic import (
 from comeni_core import yaml_strict
 from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.diagnostics import coded
 from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.spell.marks import (
     ContainerRef,
@@ -268,30 +269,36 @@ class Param(BaseModel):
         directive name Nextflow would ignore.
         """
         if self.via is Via.EXT and self.key is None:
-            raise ValueError(f"MD0205: {self.name} declares via: ext without a key")
+            raise ValueError(coded("MD0205", f"{self.name} declares via: ext without a key"))
         if self.via is not Via.EXT and self.key is not None:
             raise ValueError(
-                f"MD0205: {self.name} declares key: {self.key} on via: {self.via}, which has "
-                "no keyspace"
+                coded(
+                    "MD0205",
+                    f"{self.name} declares key: {self.key} on via: {self.via}, which has "
+                    "no keyspace")
             )
         if self.via is Via.DIRECTIVE and self.name not in LEGAL_DIRECTIVES:
             raise ValueError(
-                f"MD0209: {self.name} is not a process directive Nextflow {NEXTFLOW_VERSION} "
-                "accepts. An unknown directive inside a `withName` block is silently ignored, "
-                "so this would be a setting that does nothing."
+                coded(
+                    "MD0209",
+                    f"{self.name} is not a process directive Nextflow {NEXTFLOW_VERSION} "
+                    "accepts. An unknown directive inside a `withName` block is silently ignored, "
+                "so this would be a setting that does nothing.")
             )
 
         composes = self.via is Via.EXT and self.key in TEMPLATED
         if composes and (self.template is None or "{value}" not in self.template):
             raise ValueError(
-                f"MD0204: {self.name} routes to ext.{self.key} but its template does not "
+                coded("MD0204", f"{self.name} routes to ext.{self.key} but its template does not "
                 "mention {value}, so the resolved value would be discarded while real flags "
-                "were emitted"
+                "were emitted")
             )
         if not composes and self.template is not None:
             raise ValueError(
-                f"MD0204: {self.name} routes to {self.via}, which takes one typed value rather "
-                "than an argument string, so a template has nothing to compose into"
+                coded(
+                    "MD0204",
+                    f"{self.name} routes to {self.via}, which takes one typed value rather "
+                    "than an argument string, so a template has nothing to compose into")
             )
         return self
 
@@ -545,9 +552,11 @@ class ModuleContract(BaseModel):
                 if isinstance(idx, int) and idx < len(params) and isinstance(params[idx], dict):
                     name = params[idx].get("name", "<unnamed>")
                 return ValueError(
-                    f"MD0200: contract {cid} parameter {name!r} declares no via:, so nothing "
-                    f"would carry its value. Add via: naming where it lands — ext with a key, "
-                    f"meta, or directive. `mendel explain MD0200`."
+                    coded(
+                        "MD0200",
+                        f"contract {cid} parameter {name!r} declares no via:, so nothing "
+                        f"would carry its value. Add via: naming where it lands — ext with a key, "
+                    f"meta, or directive. `mendel explain MD0200`.")
                 )
         return None
 

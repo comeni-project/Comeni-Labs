@@ -23,6 +23,7 @@ from pathlib import Path
 from comeni_core.declared.contract import ParamDomain
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
+from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier
 
 from mendel_resolver.predicates import tier_of_row
@@ -109,26 +110,26 @@ def _validate_target(
     fillers = fillers_by_role.get(target.of, [])
     if not fillers:
         raise RuleValidationError(
-            f"MD0306: {path}, decision {target.key()}\n"
+            coded("MD0306", f"{path}, decision {target.key()}\n"
             f"  No contract in this stack fills role {target.of!r}, so this decision can\n"
             f"  never apply.\n"
-            f"  Roles that are filled: {', '.join(sorted(fillers_by_role)) or '(none)'}"
+            f"  Roles that are filled: {', '.join(sorted(fillers_by_role)) or '(none)'}")
         )
 
     if target.effect is Effect.PARAM:
         if target.name is None:
             raise RuleValidationError(
-                f"MD0307: {path}, decision {target.key()}\n"
+                coded("MD0307", f"{path}, decision {target.key()}\n"
                 f"  A `param` effect decides a named parameter and this one names none.\n"
-                f"  Write `decides: {{effect: param, of: {target.of}, name: <parameter>}}`."
+                f"  Write `decides: {{effect: param, of: {target.of}, name: <parameter>}}`.")
             )
         narrowed = target.when_implementation or fillers
         outside = sorted(set(target.when_implementation) - set(fillers))
         if outside:
             raise RuleValidationError(
-                f"MD0306: {path}, decision {target.key()}\n"
+                coded("MD0306", f"{path}, decision {target.key()}\n"
                 f"  `when_implementation` names {', '.join(outside)}, which do not fill role\n"
-                f"  {target.of!r}. Fillers of that role: {', '.join(fillers)}"
+                f"  {target.of!r}. Fillers of that role: {', '.join(fillers)}")
             )
         declared_by = {
             contract_id: {p.name for p in registry.get(contract_id).params}
@@ -137,26 +138,26 @@ def _validate_target(
         missing = sorted(c for c, names in declared_by.items() if target.name not in names)
         if missing:
             raise RuleValidationError(
-                f"MD0308: {path}, decision {target.key()}\n"
+                coded("MD0308", f"{path}, decision {target.key()}\n"
                 f"  {target.name!r} is not declared by {', '.join(missing)}, which can fill\n"
                 f"  role {target.of!r}. The value would be dead whenever one of those wins.\n"
                 f"  Narrow with `when_implementation:`, or decide a parameter they all\n"
-                f"  declare."
+                f"  declare.")
             )
     elif target.name is not None:
         raise RuleValidationError(
-            f"MD0307: {path}, decision {target.key()}\n"
+            coded("MD0307", f"{path}, decision {target.key()}\n"
             f"  A `{target.effect}` effect decides the role itself and carries no `name`.\n"
-            f"  Drop `name:`, or make this a `param` effect."
+            f"  Drop `name:`, or make this a `param` effect.")
         )
 
     if target.key() in seen:
         raise RuleValidationError(
-            f"MD0309: {path}, decision {target.key()}\n"
+            coded("MD0309", f"{path}, decision {target.key()}\n"
             f"  Two decisions in the same layer both decide {target.key()!r}: this one and\n"
             f"  {seen[target.key()]}.\n"
             f"  A higher layer replaces a whole block by key, so one of these would silently\n"
-            f"  displace the other rather than both applying. Audit A119."
+            f"  displace the other rather than both applying. Audit A119.")
         )
     seen[target.key()] = str(path)
 
@@ -205,21 +206,21 @@ def _validate_rows(
                 if refusal is None:
                     continue
                 raise RuleValidationError(
-                    f"MD0300: {path}, decision {target.key()}\n"
+                    coded("MD0300", f"{path}, decision {target.key()}\n"
                     f"  {refusal}.\n"
                     f"  `then` is emitted verbatim — nothing between the rule table and\n"
                     f"  `nextflow.config` evaluates it, so the tool would receive\n"
-                    f"  {row.then!r} exactly as written."
+                    f"  {row.then!r} exactly as written.")
                 )
             over = _computed_over(row.then, measurements.ids())
             if over is None:
                 continue
             raise RuleValidationError(
-                f"MD0300: {path}, decision {target.key()}\n"
+                coded("MD0300", f"{path}, decision {target.key()}\n"
                 f"  `then: {row.then!r}` reads as an expression over {over!r}, and `then` is\n"
                 f"  emitted verbatim — the tool would receive the string {row.then!r}.\n"
                 f"  Write one row per range with a literal `then`. If the rule genuinely\n"
-                f"  needs arithmetic, that is issue #39 and a format change, not a value."
+                f"  needs arithmetic, that is issue #39 and a format change, not a value.")
             )
     elif target.effect is Effect.IMPLEMENTATION:
         fillers = fillers_by_role[target.of]
@@ -232,18 +233,18 @@ def _validate_rows(
                     else f"it fills {', '.join(registry.get(contract_id).roles) or 'no role'}"
                 )
                 raise RuleValidationError(
-                    f"MD0306: {path}, decision {target.key()}\n"
+                    coded("MD0306", f"{path}, decision {target.key()}\n"
                     f"  {contract_id!r} does not fill role {target.of!r} — {known}.\n"
-                    f"  Contracts that do: {', '.join(fillers)}"
+                    f"  Contracts that do: {', '.join(fillers)}")
                 )
     elif target.effect is Effect.PRESENCE:
         for row in decision.rows:
             if row.then not in ("present", "absent"):
                 raise RuleValidationError(
-                    f"MD0307: {path}, decision {target.key()}\n"
+                    coded("MD0307", f"{path}, decision {target.key()}\n"
                     f"  `then: {row.then!r}` — a presence effect says `present` or `absent`\n"
                     f"  and nothing else. It is a claim about whether the step exists, which\n"
-                    f"  is why it reads as English rather than as `then: null`."
+                    f"  is why it reads as English rather than as `then: null`.")
                 )
 
     for index, row in enumerate(decision.rows):
@@ -254,20 +255,20 @@ def _validate_rows(
         # once rather than the pair fixed twice.
         if tier_of_row(row.when) is Tier.CONVENTION and not (row.cite or decision.cite):
             raise RuleValidationError(
-                f"MD0313: {path}, decision {target.key()}, row {index}\n"
+                coded("MD0313", f"{path}, decision {target.key()}, row {index}\n"
                 f"  This row tests no premise positively, so it exits at tier 2 — a\n"
                 f"  documented default. Tier 2 produces `value + citation` and this row has\n"
                 f"  neither a row `cite` nor a block one.\n"
-                f"  A `because` states the value; a `cite` is the document tier 2 claims."
+                f"  A `because` states the value; a `cite` is the document tier 2 claims.")
             )
         if not (row.because or row.cite or decision.because or decision.cite):
             raise RuleValidationError(
-                f"MD0301: {path}, decision {target.key()}, row {index}\n"
+                coded("MD0301", f"{path}, decision {target.key()}, row {index}\n"
                 f"  This row justifies nothing — no `because` and no `cite`, on the row or\n"
                 f"  on the block. It fires at tier 3, whose review level is *advisory*, which\n"
                 f"  means 'the machinery worked, check the premise'. A reader given no\n"
                 f"  premise cannot. It also emitted a reason ending in a bare colon.\n"
-                f"  Add `because:` saying why this answer, or `cite:` naming the evidence."
+                f"  Add `because:` saying why this answer, or `cite:` naming the evidence.")
             )
 
 def _sole_premise(rows: Sequence[DecisionRow]) -> str | None:
@@ -356,12 +357,12 @@ def _check_exhaustive(
         if gap is None:
             return
         raise RuleValidationError(
-            f"MD0311: {where}\n"
+            coded("MD0311", f"{where}\n"
             f"  The rows over {fact!r} leave {gap} uncovered, so a profile there matches\n"
             f"  nothing and the decision silently demotes to tier 4.\n"
             f"  Two complementary comparisons at one boundary — `>= 70` and `< 70` — are\n"
             f"  exhaustive without any bound being declared. A catch-all `when: {{}}` also\n"
-            f"  works, but exits at tier 2 and needs a `cite:`."
+            f"  works, but exits at tier 2 and needs a `cite:`.")
         )
     if measurement.kind is not MeasurementKind.ENUM:
         return
@@ -370,18 +371,18 @@ def _check_exhaustive(
         if any(not row.when for row in decision.rows):
             return
         raise RuleValidationError(
-            f"MD0311: {where}\n"
+            coded("MD0311", f"{where}\n"
             f"  {fact!r} is declared `extensible: true`, so an overlay may add a value and\n"
             f"  coverage today is not coverage tomorrow. Add a catch-all `when: {{}}` row\n"
-            f"  with a `cite:` — it exits at tier 2, which is what a default is."
+            f"  with a `cite:` — it exits at tier 2, which is what a default is.")
         )
     if missing:
         raise RuleValidationError(
-            f"MD0311: {where}\n"
+            coded("MD0311", f"{where}\n"
             f"  No row matches {fact} = {missing}, so a profile carrying one matches nothing\n"
             f"  and the decision silently demotes to tier 4.\n"
             f"  {fact!r} declares {len(measurement.values)} values and is not extensible, so\n"
-            f"  covering them all is exhaustive and needs no catch-all."
+            f"  covering them all is exhaustive and needs no catch-all.")
         )
 
 
@@ -438,19 +439,19 @@ def _check_when(
         for fact, expected in row.when.items():
             if fact not in facts:
                 raise RuleValidationError(
-                    f"MD0310: {where}\n"
+                    coded("MD0310", f"{where}\n"
                     f"  {fact!r} is not a premise anything supplies, so this row can never\n"
                     f"  fire.\n"
                     f"  Declared measurements: {', '.join(measurements.ids()) or '(none)'}\n"
                     f"  Derived facts: {', '.join(derived) or '(none)'}\n"
-                    f"  Goal facts: {', '.join(sorted(_GOAL_FACTS))}"
+                    f"  Goal facts: {', '.join(sorted(_GOAL_FACTS))}")
                 )
             if expected in ("absent", "present") or fact not in measurements.ids():
                 continue
             measurement = measurements.get(fact)
             if _comparison(expected) is not None and measurement.kind not in _ORDERED:
                 raise RuleValidationError(
-                    f"MD0310: {where}\n"
+                    coded("MD0310", f"{where}\n"
                     f"  {fact!r} is an {measurement.kind}, so it can only be compared with\n"
-                    f"  equality, `in` or `not` — never {expected!r}."
+                    f"  equality, `in` or `not` — never {expected!r}.")
                 )

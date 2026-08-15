@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from comeni_core.artifact.pipeline import Pipeline, Step
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -107,16 +108,16 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
         )
         if setting is None:
             raise ValueError(
-                f"MD0224: {step.id} declares a positional slot filled by "
+                coded("MD0224", f"{step.id} declares a positional slot filled by "
                 f"{arg.from_setting!r}, and no such setting exists. This pipeline cannot be "
-                f"emitted — `mendel explain MD0224`."
+                f"emitted — `mendel explain MD0224`.")
             )
         if setting.value is None:
             raise ValueError(
-                f"MD0224: {step.id}.{arg.from_setting} fills a positional argument and is "
+                coded("MD0224", f"{step.id}.{arg.from_setting} fills a positional argument and is "
                 f"unanswered, so the call would read `null`. Nextflow fails at launch with a "
                 f"message naming neither this setting nor this step. Answer it in "
-                f"`pipeline.yml` — `mendel explain MD0224`."
+                f"`pipeline.yml` — `mendel explain MD0224`.")
             )
         return _render_literal(setting.value)
     if not arg.ports:
@@ -309,10 +310,12 @@ def _ext_scope(step: Step) -> list[str]:
             # was handed was validated.
             if not substitutable(setting.value):
                 raise ValueError(
-                    f"MD0221: {step.id}.{setting.name} is {setting.value!r} on an untemplated "
-                    f"`ext.{setting.key.value}` route, so it would be written into Nextflow "
+                    coded(
+                        "MD0221",
+                        f"{step.id}.{setting.name} is {setting.value!r} on an untemplated "
+                        f"`ext.{setting.key.value}` route, so it would be written into Nextflow "
                     "config verbatim. Use letters, digits and _ . : + - only, or a number, or "
-                    "true/false — `mendel explain MD0221`."
+                    "true/false — `mendel explain MD0221`.")
                 )
             raw = (
                 str(setting.value).lower()
@@ -323,10 +326,12 @@ def _ext_scope(step: Step) -> list[str]:
             continue
         if not substitutable(setting.value):
             raise ValueError(
-                f"MD0201: {step.id}.{setting.name} is {setting.value!r}, which is outside the "
-                "substitutable class. Use letters, digits and _ . : + - only, or a number, or "
+                coded(
+                    "MD0201",
+                    f"{step.id}.{setting.name} is {setting.value!r}, which is outside the "
+                    "substitutable class. Use letters, digits and _ . : + - only, or a number, or "
                 "true/false. If your value legitimately needs a space or a slash, that is a "
-                "case we assumed did not exist — please report it."
+                "case we assumed did not exist — please report it.")
             )
         rendered = (
             str(setting.value).lower()

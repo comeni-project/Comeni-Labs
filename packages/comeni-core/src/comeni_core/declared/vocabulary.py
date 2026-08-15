@@ -16,6 +16,7 @@ from comeni_core.declared.layered import (
     layers_of,
     stack,
 )
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import GroovyExpression, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
@@ -83,8 +84,8 @@ def _parse_type(path: Path) -> list[TypeDeclaration | TypeExtension]:
     if added is not None:
         if data:
             raise ValueError(
-                f"MD0007: {path}: `add_states` extends a declaration and cannot carry "
-                f"{', '.join(sorted(data))} as well. Declare the whole type to change those."
+                coded("MD0007", f"{path}: `add_states` extends a declaration and cannot carry "
+                f"{', '.join(sorted(data))} as well. Declare the whole type to change those.")
             )
         return [TypeExtension(id=type_id, add_states=added)]
     return [TypeDeclaration(id=type_id, **data)]
@@ -160,7 +161,7 @@ class Vocabulary(BaseModel):
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
                 raise ValueError(
-                f"MD0008: add_states for {type_id!r}, which no layer declares"
+                coded("MD0008", f"add_states for {type_id!r}, which no layer declares")
             )
             types[type_id] = entry.states
             if entry.entry_channel:
@@ -220,8 +221,8 @@ class Vocabulary(BaseModel):
         for state in states:
             if state not in allowed:
                 raise UnknownStateError(
-                    f"MD0009: {state!r} is not a declared state for {type_id!r}; "
-                    f"allowed: {sorted(allowed)}",
+                    coded("MD0009", f"{state!r} is not a declared state for {type_id!r}; "
+                    f"allowed: {sorted(allowed)}"),
                     type_id=type_id,
                     state=state,
                 )

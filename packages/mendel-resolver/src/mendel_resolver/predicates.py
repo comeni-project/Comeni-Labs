@@ -14,6 +14,7 @@ it exists and what its `value` is.
 import operator
 from typing import TYPE_CHECKING, Any
 
+from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier
 
 if TYPE_CHECKING:
@@ -77,9 +78,11 @@ def _one(fact: str, expected: Any, premise: "Premise | None") -> bool:
         if "in" in expected:
             return actual in expected["in"]
         raise PredicateError(
-            f"MD0305: {fact!r} is tested with {sorted(expected)}, which is not a predicate. "
-            f"The mapping predicates are {', '.join(_MAPPING_PREDICATES)} — write "
-            f"`{{not: <value>}}` or `{{in: [<value>, …]}}`."
+            coded(
+                "MD0305",
+                f"{fact!r} is tested with {sorted(expected)}, which is not a predicate. "
+                f"The mapping predicates are {', '.join(_MAPPING_PREDICATES)} — write "
+            f"`{{not: <value>}}` or `{{in: [<value>, …]}}`.")
         )
 
     if isinstance(expected, str):
@@ -104,10 +107,12 @@ def _comparable(fact: str, actual: Any, literal: str, expected: str) -> tuple[An
     """
     if isinstance(actual, list):
         raise PredicateError(
-            f"MD0312: {fact!r} is a cohort of {len(actual)} values and {expected!r} compares "
-            f"one. Reduce it first with a `derives:` aggregate — "
+            coded(
+                "MD0312",
+                f"{fact!r} is a cohort of {len(actual)} values and {expected!r} compares "
+                f"one. Reduce it first with a `derives:` aggregate — "
             f"`aggregate: {{measurement: {fact}, over: cohort, using: max}}` — and test the "
-            f"derived fact, so the file says which sample the rule meant."
+            f"derived fact, so the file says which sample the rule meant.")
         )
     try:
         return actual, type(actual)(literal) if isinstance(actual, int | float) else literal

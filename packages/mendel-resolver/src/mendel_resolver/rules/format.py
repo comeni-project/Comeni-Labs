@@ -20,6 +20,7 @@ from enum import StrEnum
 from typing import Literal
 
 from comeni_core.declared.measurement import MeasurementKind
+from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
 from comeni_core.plan.tiers import Tier
@@ -251,11 +252,11 @@ class Transform(BaseModel):
     def _operand_matches_the_op(self) -> "Transform":
         needs = self.op != "log2"
         if needs and self.by is None:
-            raise ValueError(f"MD0304: `{self.op}` needs a `by:`")
+            raise ValueError(coded("MD0304", f"`{self.op}` needs a `by:`"))
         if not needs and self.by is not None:
-            raise ValueError(f"MD0304: `{self.op}` takes no `by:`, and one was given")
+            raise ValueError(coded("MD0304", f"`{self.op}` takes no `by:`, and one was given"))
         if self.op == "divide" and self.by == 0:
-            raise ValueError("MD0304: `divide` by zero")
+            raise ValueError(coded("MD0304", "`divide` by zero"))
         return self
 
 
@@ -314,17 +315,19 @@ class Derivation(BaseModel):
         if len(declared) != 1:
             has = f"{', '.join(declared)}" if declared else "none of them"
             raise ValueError(
-                f"MD0304: derivation {self.fact!r} declares {has}, and needs exactly one of "
-                f"`rows`, `aggregate` and `transform`. A derivation that can produce nothing "
+                coded(
+                    "MD0304",
+                    f"derivation {self.fact!r} declares {has}, and needs exactly one of "
+                    f"`rows`, `aggregate` and `transform`. A derivation that can produce nothing "
                 f"still reads as a fact the registry supplies; one that could produce two "
-                f"would resolve by a precedence no reader of the file can see."
+                f"would resolve by a precedence no reader of the file can see.")
             )
         if bool(self.transform) != (self.source is not None):
             raise ValueError(
-                f"MD0304: derivation {self.fact!r} declares "
+                coded("MD0304", f"derivation {self.fact!r} declares "
                 f"{'a `transform` with no `source`' if self.transform else 'a `source` with no '
                  '`transform`'}. A chain with nothing to chain from computes nothing and reads "
-                f"as a fact the registry supplies."
+                f"as a fact the registry supplies.")
             )
         return self
 
