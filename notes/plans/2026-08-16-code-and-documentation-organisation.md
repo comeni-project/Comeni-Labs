@@ -723,7 +723,7 @@ git commit -m "test: a guard that names a path must name one that exists (#41)"
 - Create: `tools/check_links.py`
 - Modify: `Makefile` (`check` gains `links`), and every file with a link that crosses the move
 
-- [ ] **Step 1: Write the link checker first**
+- [x] **Step 1: Write the link checker first**
 
 It has to exist *before* the move, or the move is verified by hand and nobody can re-verify it.
 
@@ -792,7 +792,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: Run it on the tree as it stands**
+- [x] **Step 2: Run it on the tree as it stands**
 
 Run: `uv run python tools/check_links.py`
 
@@ -800,13 +800,13 @@ Record the count. **If it is not zero, fix those links in this step and commit t
 separately** — a pre-existing break repaired inside the move commit is a break nobody can tell
 from one the move caused.
 
-- [ ] **Step 3: Move**
+- [x] **Step 3: Move**
 
 ```bash
 git mv docs/internal notes
 ```
 
-- [ ] **Step 4: Repair**
+- [x] **Step 4: Repair**
 
 Run the checker, fix what it names. The pattern: links that crossed *out* of `internal/` lost a
 level (`../../design/x.md` → `../docs/design/x.md`), sibling links inside are unchanged.
@@ -818,7 +818,7 @@ grep -rln "docs/internal" --include='*.md' --include='*.py' . | grep -v .worktre
   | xargs sed -i 's|notes/|notes/|g'
 ```
 
-- [ ] **Step 5: Write `notes/README.md`**
+- [x] **Step 5: Write `notes/README.md`**
 
 ```markdown
 # Working notes
@@ -838,7 +838,7 @@ It moved out of `docs/` on 2026-08-16 (issue #41): 69 of 94 markdown files lived
 docs/` showed the working notes before it showed anything a reader wanted.
 ```
 
-- [ ] **Step 6: Wire the checker into `make check`**
+- [x] **Step 6: Wire the checker into `make check`**
 
 ```makefile
 check: lint test types docs links  ## everything CI runs on a pull request (~1 min, no Docker)
@@ -849,17 +849,17 @@ links:          ## every relative markdown link resolves
 
 Add `links` to `.PHONY`.
 
-- [ ] **Step 7: Watch it fail**
+- [x] **Step 7: Watch it fail**
 
 Break one link deliberately, run `make links`, confirm it names the file and the target, restore.
 Record the row in the guard ledger.
 
-- [ ] **Step 8: Run everything**
+- [x] **Step 8: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, digests unmoved (no Python moved in this task).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -867,6 +867,22 @@ git commit -m "docs: the working notes leave docs/, and links are checked (#41)"
 ```
 
 ---
+
+> **Corrected 2026-08-16, on execution. Three things.**
+>
+> 1. **Four references were invisible to the text substitution**, because they are built from
+>    path *segments*: `ROOT / "docs" / "internal" / "audits"` in two tests and in
+>    `guard_residue.py`. The last would have gone unnoticed indefinitely — `make residue` is not
+>    a gate — so `test_no_document_or_tool_still_says_docs_internal` covers both spellings.
+> 2. **That new guard was inert when written.** Its skip filter tested
+>    `{".venv", ".worktrees", …} & set(path.parts)`, and plans run in `.worktrees/<name>/`, so
+>    every path contained `.worktrees` and the scan skipped the whole repository — passing while
+>    sitting on the file that holds the string it searches for. Skipping is by position under
+>    `root` now. **Same defect as `make drift`'s `REGISTRY ?=` in Plan 1.15 Task 0**, and worth
+>    the second write-up: a check written against the repository root does nothing in the one
+>    place `CLAUDE.md` requires the work to happen.
+> 3. **`notes/README.md` was rewritten, not replaced.** One already existed and was good; it
+>    needed its links re-levelled and a note on why the directory moved.
 
 ## Task 7: the diagnostics get their own page
 
