@@ -1900,3 +1900,23 @@ thing a stranger reads. Each would have handed a new user an empty `registry/`.
 
 A guard that finds real offenders the moment it is written is a guard that was needed. Hand-fixing
 prose finds the instances you thought of; the sentence a reader actually follows is elsewhere.
+
+## A36 — `_FILE`'s domain separation, made checkable (2026-08-16)
+
+| date | guard | reverted | result | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_digest.py::test_the_file_tag_separates_entry_kinds` | `_FILE = b""` | failed | *"the tag is empty, so it separates nothing (A36)"* |
+
+**This is the assertion A36 said did not exist.** Round two set `_FILE` to `b""` and ran the whole
+suite: 436 passed. A line that cannot be wrong reads exactly like a line that is untested, and
+that is A14's thesis stated about one byte.
+
+**The audit's option 1 — delete the tag — was priced out rather than argued down.** It said
+changing `_FILE` is *"free today and expensive after the first lockfile a stranger holds"*.
+`comeni-registry` is now published and tagged `v0.2.0`, and a layer digest is what a
+`pipeline.yml` pins, so deleting the tag would move every layer digest in every existing artifact.
+Option 3 — make the claim checkable — moves nothing, and is the only option that changes the tag's
+status from asserted to tested.
+
+**The second entry kind is invented in the test, not in the code.** Adding one to `digest.py` to
+justify the separator would be building a feature to test a byte.
