@@ -1,0 +1,90 @@
+name: Release
+
+# **Tag-driven, one package per tag** — `comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`. The tag
+# *is* the request; nothing here decides a version. Versions are independent per package, and
+# which number to move is a judgement documented in docs/guides/releasing.md rather than a rule
+# a workflow could apply: nothing mechanical can tell a fix from a feature.
+#
+# What this *can* check is that the tag and the package's own `pyproject.toml` agree. A tag is a
+# claim about a version, and the two disagreeing is the release-time shape of `MD0223` — an
+# edit whose record was not updated with it.
+#
+# GitHub Releases only, no PyPI (decided 2026-08-16). `uv` installs straight from a git tag, and
+# a published PyPI version cannot be withdrawn, only yanked. That is a v1 decision.
+
+on:
+  push:
+    tags: ["*-v*"]
+
+permissions:
+  contents: write   # cutting a Release writes to the repository; nothing else here needs more
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a half-cut release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Split the tag into a package and a version
+        id: tag
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          echo "package=${ref%-v*}" >> "$GITHUB_OUTPUT"
+          echo "version=${ref##*-v}" >> "$GITHUB_OUTPUT"
+
+      - name: The package must exist
+        run: |
+          test -f "packages/${{ steps.tag.outputs.package }}/pyproject.toml" || {
+            echo "no such package: ${{ steps.tag.outputs.package }}"
+            echo "the tag format is <package>-v<version>, e.g. comeni-core-v0.2.0"
+            exit 1
+          }
+
+      - name: The tag and the package's own version must agree
+        run: |
+          declared=$(python -c "
+          import tomllib, pathlib
+          path = pathlib.Path('packages/${{ steps.tag.outputs.package }}/pyproject.toml')
+          print(tomllib.loads(path.read_text())['project']['version'])
+          ")
+          if [ "$declared" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "the tag says ${{ steps.tag.outputs.version }} and pyproject.toml says $declared."
+            echo "A tag is a claim about a version. Fix one of them and re-tag."
+            exit 1
+          fi
+
+      # `make check`, not `make verify`. `verify` needs Docker and the slow lane, which the
+      # nightly workflow already runs against `main`; a release blocked on a container pull is
+      # a release people stop cutting. Recorded as a decision, not an omission.
+      - name: The gate, before anything is published
+        run: make check
+
+      - name: Notes, from the changelog — before building, so a missing section fails early
+        run: |
+          uv run python tools/changelog_section.py \
+            "${{ steps.tag.outputs.package }}" "${{ steps.tag.outputs.version }}" > NOTES.md
+          cat NOTES.md
+
+      - name: Build
+        run: uv build --package "${{ steps.tag.outputs.package }}" --out-dir dist
+
+      - name: Cut it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${{ steps.tag.outputs.package }} ${{ steps.tag.outputs.version }}" \
+            --notes-file NOTES.md

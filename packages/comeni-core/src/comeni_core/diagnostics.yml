@@ -1,6 +1,6 @@
 # The diagnostic registry. One entry per code.
 #
-# `docs/reference/cli.md`'s table is GENERATED from this file — do not edit it by hand.
+# `docs/reference/diagnostics.md` is GENERATED from this file — do not edit it by hand.
 # Regenerate with: uv run python tools/generate_diagnostics_doc.py
 #
 # `MD` is Mendel's deterministic core: the three packages that may not reach the network.
@@ -169,7 +169,7 @@ MD0108:
     already guards directive names against the same class of mistake.
 
 MD0200:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a setting declares no `via:`, so nothing would carry its value"
   fires_on: [build, emit, upgrade]
@@ -274,7 +274,7 @@ MD0203:
     longer exists is nothing at all, and nobody is owed a report about it.
 
 MD0204:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a `template:` never mentions `{value}`, or sits on a route that takes none"
   fires_on: [build, emit, upgrade]
@@ -293,7 +293,7 @@ MD0204:
     typed value; `cpus = "--cpus 12"` is not a thing.
 
 MD0205:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "`via:`/`key:` are not a legal pair — including `key: when`"
   fires_on: [build, emit, upgrade]
@@ -331,7 +331,7 @@ MD0206:
     an IR back until now.
 
 MD0207:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "`version:` is newer than this Mendel understands"
   fires_on: [emit, upgrade, publish]
@@ -349,7 +349,7 @@ MD0207:
     first key in the file.
 
 MD0209:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "`via: directive` names something Nextflow silently ignores"
   fires_on: [build, emit, upgrade]
@@ -389,7 +389,7 @@ MD0210:
     a reason, applied to the directory instead of to a channel.
 
 MD0211:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "`channels[].params` disagrees with what its `expression` references"
   fires_on: [build, emit, upgrade, publish]
@@ -409,7 +409,7 @@ MD0211:
     compared instead.
 
 MD0212:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "two steps share an `id`, or two settings on one step share a `name`"
   fires_on: [build, emit, upgrade, publish]
@@ -489,7 +489,7 @@ MD0214:
     `pipeline.yml`. A diagnostic that only forbids is half a diagnostic.
 
 MD0215:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "an input names neither `source` nor `channel`, or names both"
   fires_on: [build, emit, upgrade, publish]
@@ -508,7 +508,7 @@ MD0215:
     silently miswired pipeline rather than a parse error.
 
 MD0216:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a resolved binding names a parameter its contract does not declare"
   fires_on: [build, emit, upgrade, publish]
@@ -532,7 +532,7 @@ MD0216:
     exist in the Nextflow.
 
 MD0217:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a test_data reference contains a character that would inject into the generated config"
   fires_on: [build, emit, upgrade]
@@ -555,7 +555,7 @@ MD0217:
     surface is refused, not the shape.
 
 MD0208:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes"
   fires_on: [build, emit, upgrade]
@@ -583,7 +583,7 @@ MD0208:
     overwrite costs a wrong result.
 
 MD0218:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a tier-4 answer is written in two places that disagree"
   fires_on: [build, emit, upgrade]
@@ -601,7 +601,7 @@ MD0218:
     silently preferred by whichever verb runs.
 
 MD0219:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "two decision records share one key"
   fires_on: [build, emit, upgrade]
@@ -619,7 +619,7 @@ MD0219:
     it is refused at load rather than resolved by first-wins.
 
 MD0220:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a setting claims source: human with no override recording the answer"
   fires_on: [build, emit, upgrade]
@@ -847,7 +847,7 @@ MD0300:
     the more dangerous of the two.
 
 MD0302:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a contract declares a role no layer in the stack declares"
   fires_on: [build, upgrade, profile]
@@ -1270,7 +1270,7 @@ MD0314:
     Added with issue #39's `transform`, which is the arithmetic the format was missing.
 
 MD0315:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a measurement's `assertion_only` and its reason disagree"
   fires_on: [build, upgrade, profile]
@@ -1310,7 +1310,7 @@ MD0315:
     `tests/test_measurement_vocabulary.py` checks the declaration against the registry, so a
     measurement that gains a profiler and forgets to drop the flag fails too.
 MD0001:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "a declared file is not valid YAML"
   fires_on: [build, upgrade, profile, publish]
@@ -1330,7 +1330,7 @@ MD0001:
     one place every kind loads through (invariant 11) and it is where the path is still in
     scope. Five hand-written loaders each catching their own errors is what audit root B was.
 MD0002:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "a declared file does not match the schema for its kind"
   fires_on: [build, upgrade, profile, publish]
@@ -1428,7 +1428,7 @@ MD0005:
     nothing else is the normal private-layer case, and demanding all of them would refuse every
     real overlay while passing every test written against the public base.
 MD0006:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "a key is declared twice inside one layer"
   fires_on: [build, upgrade, profile, publish]
@@ -1446,7 +1446,7 @@ MD0006:
     `(-priority, id)` ties demote to tier 4 rather than being settled by whichever file the
     filesystem returned first.
 MD0007:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "`add_states` carries other fields as well"
   fires_on: [build, upgrade, profile, publish]
@@ -1464,7 +1464,7 @@ MD0007:
     invariant 11's closing sentence is never to let an installed overlay reroute a pipeline
     silently, and an ambiguous verb is how that happens quietly.
 MD0008:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "`add_states` names a type no layer declares"
   fires_on: [build, upgrade, profile, publish]
@@ -1480,7 +1480,7 @@ MD0008:
     Refused rather than treated as a declaration, because silently promoting an extension to a
     declaration would let a typo invent a type that routing then matches against.
 MD0009:
-  emitted_by: resolver
+  emitted_by: core
   concern: loading
   says: "a contract requires a state no layer declares"
   fires_on: [build, upgrade, profile, publish]
@@ -1503,7 +1503,7 @@ MD0009:
     moment earlier. Without that join the build blamed the contract for an overlay's edit, and
     the person reading it went looking in the wrong file.
 MD0225:
-  emitted_by: compiler
+  emitted_by: core
   concern: pipeline-file
   says: "a value records a model settled it, and the build records that none was available"
   fires_on: [build, emit, upgrade, publish]

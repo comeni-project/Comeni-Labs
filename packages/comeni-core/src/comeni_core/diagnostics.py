@@ -41,6 +41,18 @@ class EmittedBy(StrEnum):
     """Which subsystem raises it. The prefix carries this too, but the prefix is one letter
     pair for a whole product and this is what the generated document groups by."""
 
+    CORE = "core"
+    """`comeni-core` — the types, the declared-data loaders, and `pipeline.yml` itself.
+
+    **Missing until 2026-08-16, and its absence is why twenty-three entries named the wrong
+    package.** `comeni_core.artifact.pipeline` holds the artifact's validators, so `MD0207`,
+    `MD0212`, `MD0225` and the rest raise here while being *about* a file the compiler writes;
+    `declared/` holds the loaders, so `MD0001`–`MD0009` raise here too. With no truthful option
+    the label drifted to whichever subsystem the code felt like it belonged to.
+
+    A vocabulary that cannot express the truth is a vocabulary that teaches people to lie to it,
+    and it did — including in the six codes added the same week this was fixed.
+    """
     COMPILER = "compiler"
     RESOLVER = "resolver"
     FORGE = "forge"

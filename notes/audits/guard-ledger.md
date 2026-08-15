@@ -2009,3 +2009,122 @@ Answering a tier-4 question is now a two-part edit — `override_reason` in `dec
 setting's own `why.reason` and `why.for_value` — and the one-part edit exits 2.
 `docs/guides/driving-mendel.md` §6 was written when the one-part edit worked and now shows the
 refusal and the cure.
+
+## Release automation — the action pins (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_workflow_pins.py::test_every_action_is_pinned_by_commit_sha` | `@v7` in place of the SHA | failed, naming file and value |
+| 2026-08-16 | `…::test_every_pin_carries_the_version_it_came_from` | the `# v7.0.1` comment dropped | failed, naming file and line |
+| 2026-08-16 | `…::test_there_are_workflows_to_check` | — | asserts the scan reached ≥2 workflows and ≥8 `uses:` |
+
+**The third row is not ceremony.** A scan that reaches nothing reports nothing and passes; that
+is the defect `test_architecture.py` shipped with earlier the same week, and writing a second
+scanning guard without the count assertion would have been repeating it four days later.
+
+**Node 24 was verified by hand, not by this guard, and the docstring says so.** Checking a
+runtime means fetching each action's `action.yml` from GitHub, and `make check` is deliberately
+offline. At the pinned SHAs: `actions/checkout`, `actions/upload-artifact` and
+`astral-sh/setup-uv` all declare `node24`; `nf-core/setup-nextflow` is a **composite** with no
+runtime of its own, and both of its internals — its `subaction` and the `actions/setup-java` it
+pins — are `node24` too. **That last pair is where the old warning actually came from**, and it
+is the pair a check of the top-level workflow would never have looked at.
+
+**One gap in the evidence, recorded rather than glossed:** the CI run showing zero deprecation
+warnings was `ci.yml`, which never uses `setup-nextflow` — only `nightly.yml` does. The
+composite's clean bill comes from reading its manifest at the pinned SHA, not from a run.
+
+## `emitted_by` names the package that raises (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_diagnostics_ownership.py::test_every_locatable_code_is_owned_by_the_package_that_raises_it` | `MD0225` put back to `compiler` | failed, naming the code and both packages |
+| 2026-08-16 | `…::test_the_unlocatable_codes_are_a_known_list` | a code with no raise site added to the registry | failed, naming it under `new:` |
+| 2026-08-16 | `…::test_a_mention_is_not_an_emission` | the source list emptied | failed |
+| 2026-08-16 | `…::test_the_scan_reached_the_sources` | the source list emptied | failed |
+
+**The guard found twenty-three wrong labels on its first run, and every one said "raised in
+comeni-core".** That uniformity is the diagnosis: `EmittedBy` had `compiler | resolver | forge |
+api` and **no `core`**, so every code raised inside `comeni-core` — the declared-data loaders,
+and `pipeline.py`'s validators — had to claim a package that does not raise it. A vocabulary that
+cannot express the truth teaches people to lie to it, and it did: six of the nine codes added
+four days earlier were wrong the same way, written by someone who checked the enum and found no
+better option.
+
+**The relabelled set was derived from the guard's own output rather than hand-copied.** A
+twenty-three item list transcribed by hand is a list with a typo in it.
+
+**Two forms of emission, and the second was nearly missed.** A first pattern matched only a code
+leading a string, which put all nine conformance codes into `UNLOCATABLE` — where they would have
+sat unexamined, because that list is *meant* to hold the ones nothing can see. They use
+`code="MD0100"` on a `Diagnostic` object. Widening the pattern shrank `UNLOCATABLE` from fifteen
+entries to one.
+
+**`MD0202` is that one, and it is the only code with `refuses: false`.** It is printed as a
+report line — `f"  MD0202  {line}"`, two spaces, no colon — because it tells a reader what was
+carried forward rather than refusing anything.
+
+**The colon is what separates a mention from an emission**, and that assumption has its own test
+rather than living in a comment: `materialise.py` says *"which is exactly what `MD0223` is for"*
+and must not count, while `artifact_verbs.py` writes `"mendel: MD0223: a value was edited"` and
+must.
+
+**Nothing published moved.** `docs/reference/diagnostics.md` is byte-identical after twenty-three
+labels changed, because the generated page groups by `concern`. That is what made this a safe
+repair rather than a churn of the public reference, and it was predicted in the spec before it
+was checked.
+
+## Packaging — a released package declares what it needs (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_packaging.py::test_every_workspace_dependency_carries_a_lower_bound` | `comeni-core>=0.1.0` → `comeni-core` | failed, naming package and requirement |
+| 2026-08-16 | `…::test_no_workspace_dependency_carries_an_upper_bound` | `,<0.2.0` added | failed |
+| 2026-08-16 | `…::test_there_are_packages_to_check` | — | asserts ≥3 manifests were found |
+
+**Three of three were unbounded before this.** `mendel-compiler` declared
+`dependencies = ["comeni-core", "mendel-resolver"]` and `mendel-resolver` declared
+`["comeni-core"]`. In a `uv` workspace that resolves to the checkout and nothing is wrong; as a
+released wheel it accepts *any* version, including one predating a type it imports. The defect
+was invisible precisely because the workspace hid it, which is why it needed a test rather than
+a reading.
+
+**The cap guard is the less obvious half.** A cap on a package released from this same repository
+is a promise to bump in lockstep — `mendel-compiler` pinning `comeni-core<0.3` means every
+`comeni-core` minor release breaks the compiler until somebody edits a file. That is lockstep
+wearing a different hat, and lockstep is the thing the operator rejected on 2026-08-16.
+
+**`uv sync --locked` was run after the change**, so a lock needing regeneration is a change to
+commit rather than a surprise in CI.
+
+**Each package was built and tested alone** — two artifacts each, and 172 / 162 / 28 passing.
+That is the claim per-package releases rest on, and it is cheap enough to check that assuming it
+would have been the wrong trade.
+
+## The release workflow (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_release_workflow.py::test_the_notes_are_extracted_before_the_build` | the build step moved above the notes step | failed |
+| 2026-08-16 | `…::test_the_workflow_only_fires_on_a_package_tag` | `tags: ["*-v*"]` → `["*"]` | failed |
+| 2026-08-16 | `test_changelog_section.py::test_a_missing_package_section_is_refused` | the `LookupError` replaced with `return ""` | failed |
+| 2026-08-16 | `…::test_the_tool_exists` | — | see below |
+
+**Three of the changelog tests passed before the tool was written**, because they assert a
+non-zero exit and a *missing script* produces one. `test_the_tool_exists` is what closes that,
+and it is the second time this week a test has been green for a reason unrelated to its subject
+— the first was `assert "MD0004" in message` matching pytest's own `tmp_path` name.
+
+**Both are the same mistake**: asserting on a signal that something *other than the code under
+test* can produce. Worth naming as a class, because it is not caught by any amount of care about
+the assertion itself — only by asking what else could satisfy it.
+
+**The workflow's two tag checks are exercised without cutting a release.** Splitting
+`comeni-core-v0.1.0` and comparing against `pyproject.toml` are the two steps that only ever run
+on a tag push, and testing them by pushing a tag would mean publishing something to find out. The
+shell parameter expansions are reproduced in Python and asserted against the real manifests.
+
+**The `make check` decision is asserted rather than only commented.** The workflow gates on
+`make check`, not `make verify`, because `verify` needs Docker and the slow lane and nightly
+already covers `main`. The test requires the workflow to still mention `make verify` — so the
+reason survives in the file where the decision was made, not only in a plan nobody re-reads.

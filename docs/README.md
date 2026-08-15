@@ -26,6 +26,7 @@ pipeline, reading what it decided, and tuning it.
    writing code
 9. [Contributing](guides/contributing.md) — registry data needs no Python and is the most
    valuable contribution
+10. [Releasing](guides/releasing.md) — which number to move, and how a tag becomes a release
 10. [Writing a contract](guides/writing-a-contract.md) · [a rule](guides/writing-a-rule.md) ·
     [a registry layer](guides/registry-layers.md)
 11. [The design arguments](design/) — why it works this way, and what was rejected
