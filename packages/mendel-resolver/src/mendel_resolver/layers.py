@@ -22,7 +22,14 @@ nothing above it depends on a role.
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.declared.layered import DeclaredKind, Displacement, Layer, layers_of, stack
+from comeni_core.declared.layered import (
+    DeclaredKind,
+    Displacement,
+    Layer,
+    declared_entries,
+    layers_of,
+    stack,
+)
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
@@ -73,7 +80,11 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         layers = [layers]
     layers = [Path(layer) for layer in layers]
     for layer in layers:
-        for entry in sorted(layer.rglob("*")):
+        # `declared_entries`, not `rglob("*")`: since issue #46 `registry/` is a git
+        # submodule, so a bare walk descends into git metadata — and against an ordinary
+        # clone passed as `--registry ../comeni-registry`, into the whole object store.
+        # One definition of what a layer's files are, shared with the layer digest.
+        for entry in sorted(declared_entries(layer)):
             if entry.is_symlink():
                 # `digest_of_directory` refuses this too, but that is publish time and
                 # publication is the door with no undo — by then the reroute has already

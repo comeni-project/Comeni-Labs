@@ -7,6 +7,7 @@ spuriously dirty and the reproducibility claim worthless.
 
 import hashlib
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -123,10 +124,10 @@ def test_a_directory_digest_covers_its_files(tmp_path):
 def test_a_directory_digest_covers_file_names_too(tmp_path):
     """Renaming a file changes the layer, even if every byte is the same."""
     layer = tmp_path / "layer"
-    layer.mkdir()
-    (layer / "a.yml").write_text("x: 1\n")
+    (layer / "contracts").mkdir(parents=True)
+    (layer / "contracts" / "a.yml").write_text("x: 1\n")
     before = digest_of_directory(layer)
-    (layer / "a.yml").rename(layer / "b.yml")
+    (layer / "contracts" / "a.yml").rename(layer / "contracts" / "b.yml")
     assert digest_of_directory(layer) != before
 
 
@@ -134,13 +135,13 @@ def test_a_directory_digest_ignores_traversal_order(tmp_path):
     """Two directories with the same contents digest the same, whatever order they were built."""
     one, two = tmp_path / "one", tmp_path / "two"
     for d in (one, two):
-        (d / "sub").mkdir(parents=True)
+        (d / "contracts" / "sub").mkdir(parents=True)
     for name in ("a.yml", "b.yml", "c.yml"):
-        (one / name).write_text(name)
+        (one / "contracts" / name).write_text(name)
     for name in ("c.yml", "a.yml", "b.yml"):
-        (two / name).write_text(name)
-    (one / "sub" / "d.yml").write_text("d")
-    (two / "sub" / "d.yml").write_text("d")
+        (two / "contracts" / name).write_text(name)
+    (one / "contracts" / "sub" / "d.yml").write_text("d")
+    (two / "contracts" / "sub" / "d.yml").write_text("d")
     assert digest_of_directory(one) == digest_of_directory(two)
 
 
@@ -166,14 +167,14 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
     guarding a computation the code does not perform.
     """
     honest, forged = tmp_path / "honest", tmp_path / "forged"
-    honest.mkdir()
-    forged.mkdir()
-    (honest / "a.yml").write_text("alpha")
-    (honest / "b.yml").write_text("beta")
+    (honest / "contracts").mkdir(parents=True)
+    (forged / "contracts").mkdir(parents=True)
+    (honest / "contracts" / "a.yml").write_text("alpha")
+    (honest / "contracts" / "b.yml").write_text("beta")
 
     # Exactly what the code writes for an honest first entry, asked of the code.
-    impersonated = entry_hash("a.yml", content_hash(b"alpha"))
-    (forged / f"{impersonated}\nb.yml").write_text("beta")
+    impersonated = entry_hash("contracts/a.yml", content_hash(b"alpha"))
+    (forged / "contracts" / f"{impersonated}\nb.yml").write_text("beta")
 
     assert digest_of_directory(honest) != digest_of_directory(forged)
 
@@ -182,9 +183,10 @@ def test_the_streaming_and_in_memory_content_hashes_agree(tmp_path):
     """Two spellings of one hash is how the forgery test came to guard a computation the
     code does not perform. If these ever disagree, `content_hash` is a lie and every
     forgery built through it is testing nothing."""
-    (tmp_path / "a.yml").write_text("alpha")
+    (tmp_path / "contracts").mkdir()
+    (tmp_path / "contracts" / "a.yml").write_text("alpha")
     honest = digest_of_directory(tmp_path)
-    one_entry = entry_hash("a.yml", content_hash(b"alpha"))
+    one_entry = entry_hash("contracts/a.yml", content_hash(b"alpha"))
     rebuilt = f"sha256:{hashlib.sha256(one_entry.encode()).hexdigest()}"
     assert honest == rebuilt
 
@@ -209,10 +211,10 @@ def test_a_layer_may_not_contain_a_symlink(tmp_path):
     branch it protected. `_FILE` stays; there is no longer a second kind to be confused with.
     """
     layer = tmp_path / "layer"
-    layer.mkdir()
+    (layer / "contracts").mkdir(parents=True)
     outside = tmp_path / "outside.yml"
     outside.write_text("v1")
-    (layer / "link.yml").symlink_to(outside)
+    (layer / "contracts" / "link.yml").symlink_to(outside)
 
     with pytest.raises(ValueError, match="symlink"):
         digest_of_directory(layer)
@@ -234,3 +236,53 @@ def test_a_symlinked_directory_is_refused_too(tmp_path):
 
     with pytest.raises(ValueError, match="symlink"):
         digest_of_directory(layer)
+
+
+def _layer(root: pathlib.Path) -> pathlib.Path:
+    """A minimal but real layer: one declared kind with one file, and a manifest."""
+    (root / "contracts").mkdir(parents=True)
+    (root / "contracts" / "a.yml").write_text("id: nf-core/a@1.0.0\n")
+    (root / "registry.yml").write_text("name: example\n")
+    return root
+
+
+def test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it(tmp_path):
+    """A submodule's `.git` file holds a machine-specific path, and it is not layer data.
+
+    `registry/` became a git submodule in issue #46, which put three entries beside the
+    declared kinds: `LICENSE`, `README.md` and a `.git` *file* reading
+    `gitdir: ../../../.git/worktrees/<name>/modules/registry`. That path contains the
+    worktree's name and the checkout's location, so an `rglob("*")` digest made the layer
+    digest **machine-dependent** — two clones of the same pinned commit pinned different
+    digests, and `pipeline.yml` recorded whichever machine built it.
+
+    The remedy is an allowlist rather than a list of things to skip: a layer's digest covers
+    the `DeclaredKind` directories and `registry.yml`, which is exactly what invariant 11
+    says a layer *is*. A blocklist would have to name `.git`, then `.github`, then whatever
+    the next layer repository happens to carry — the same reasoning that made
+    `test_egress.py` an allowlist after `object`, `Path` and `Any` each arrived one audit
+    apart.
+    """
+    bare = _layer(tmp_path / "bare")
+    dressed = _layer(tmp_path / "dressed")
+    (dressed / ".git").write_text("gitdir: ../../../.git/worktrees/some-plan/modules/registry\n")
+    (dressed / "LICENSE").write_text("CC-BY-4.0\n")
+    (dressed / "README.md").write_text("# the layer\n")
+    (dressed / ".github").mkdir()
+    (dressed / ".github" / "ci.yml").write_text("on: push\n")
+
+    assert digest_of_directory(bare) == digest_of_directory(dressed)
+
+
+def test_the_allowlist_did_not_make_the_digest_constant(tmp_path):
+    """The obvious way to break the test above is to digest nothing at all."""
+    one = _layer(tmp_path / "one")
+    two = _layer(tmp_path / "two")
+    assert digest_of_directory(one) == digest_of_directory(two)
+
+    (two / "contracts" / "a.yml").write_text("id: nf-core/a@2.0.0\n")
+    assert digest_of_directory(one) != digest_of_directory(two)
+
+    (two / "contracts" / "a.yml").write_text("id: nf-core/a@1.0.0\n")
+    (two / "registry.yml").write_text("name: other\n")
+    assert digest_of_directory(one) != digest_of_directory(two), "registry.yml must count"
