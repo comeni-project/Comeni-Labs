@@ -392,7 +392,7 @@ git commit -m "refactor(core): pipeline.py was doing three jobs (#41)"
 
 ---
 
-## Task 3: split `rules.py`
+## Task 3: split `rules.py` — **done**
 
 **Spec:** Part one. 1,170 lines; the validator alone is ~450 of them.
 
@@ -413,7 +413,7 @@ git commit -m "refactor(core): pipeline.py was doing three jobs (#41)"
   is the module's own surface rather than a second spelling of a third module's. 19 files import
   `from mendel_resolver.rules import …` and every one of them keeps working.
 
-- [ ] **Step 1: Turn the module into a package**
+- [x] **Step 1: Turn the module into a package**
 
 ```bash
 cd packages/mendel-resolver/src/mendel_resolver
@@ -421,7 +421,7 @@ mkdir rules
 git mv rules.py rules/format.py
 ```
 
-- [ ] **Step 2: Move `RuleTable` and stacking into `table.py`**
+- [x] **Step 2: Move `RuleTable` and stacking into `table.py`**
 
 Cut from `format.py`: `_key_of`, `class RuleTable`, `_premises_read`, `_applies_to`, `_GOAL_FACTS`.
 
@@ -435,7 +435,7 @@ key, and the key space is namespaced — `derive:<fact>`, `presence:<role>`,
 """
 ```
 
-- [ ] **Step 3: Move every refusal into `validate.py`**
+- [x] **Step 3: Move every refusal into `validate.py`**
 
 Cut from `format.py`: `RuleValidationError`, `_comparison`, `_computed_over`,
 `_fillers_by_role`, `_validate_target`, `_domain_of`, `_validate_rows`, `_sole_premise`,
@@ -455,7 +455,7 @@ predicate is how a rule passes validation and then fails to fire.
 """
 ```
 
-- [ ] **Step 4: Write `rules/__init__.py`**
+- [x] **Step 4: Write `rules/__init__.py`**
 
 ```python
 """Tier 3: two layers of declared data, and every way they are refused at load.
@@ -487,13 +487,13 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 5: Run everything**
+- [x] **Step 5: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, digests unmoved. No caller outside the package should need editing — if one
 does, `__init__` is missing a name.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -501,6 +501,19 @@ git commit -m "refactor(resolver): rules.py splits into format, table and valida
 ```
 
 ---
+
+> **Corrected 2026-08-16, on execution. Two placements the plan did not make.**
+>
+> `_GOAL_FACTS` went to `format.py` rather than `table.py`: both `table.check_premise_names`
+> and `validate._check_when` read it, and it is part of what a `when` may name. `_ORDERED` went
+> to `validate.py` rather than staying beside `_OPS`, because only the validator asks whether a
+> comparison is meaningful over a kind. Ruff's `F821` made both concrete before a test ran.
+>
+> `_comparison` and `_computed_over` are re-exported `X as X` and kept out of `__all__` — two
+> test files reach them, and inventing public names to satisfy a linter would be the linter
+> designing the interface.
+>
+> **Final shape:** `format.py` 435, `table.py` 364, `validate.py` 456, `__init__.py` 61.
 
 ## Task 4: split `cli.py`
 
