@@ -137,4 +137,4 @@ def test_every_shipped_rule_can_fire(registry):
     table = layers.load(ROOT / "registry").rules
     # One decision, and it is a real one. `param:strandedness` used to sit beside it and
     # was a translation the module already performs — see Plan 1.5.
-    assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]
+    assert [d.decides.key() for d in table.decisions] == ["implementation:alignment"]

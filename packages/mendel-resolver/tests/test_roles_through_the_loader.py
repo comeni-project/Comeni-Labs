@@ -55,7 +55,14 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
     """
     base = _registry_copy(tmp_path)
     star = next(base.rglob("star-align.yml"))
-    star.write_text(star.read_text().replace("roles: [alignment]", "roles: [long_read_alignment]"))
+    # Added rather than substituted. Since Task 4 the shipped `implementation: alignment`
+    # rule refuses a row naming a contract that does not fill that role, so replacing
+    # STAR's role here would make the fixture inconsistent and this test would fail for
+    # `MD0306` rather than for anything it is about. That refusal is the point of Task 4 and
+    # it found this fixture the hour it landed.
+    star.write_text(
+        star.read_text().replace("roles: [alignment]", "roles: [alignment, long_read_alignment]")
+    )
 
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
@@ -63,3 +70,4 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
 
     loaded = layers.load([base, overlay])
     assert "long_read_alignment" in loaded.roles.names
+    assert "long_read_alignment" in loaded.registry.get("nf-core/star/align@1.11.0").roles

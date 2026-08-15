@@ -43,16 +43,23 @@ Read it before Task 0; every task below argues from a numbered section of it.
   exactly like this and nothing else:
 
   ```
-  13 file(s) drifted   ← the twelve contracts, from `roles:`, plus registry.yml:kinds
+  15 file(s) drifted   ← the twelve contracts, from `roles:`, plus measurements/read_length.yml,
+                          rules/rnaseq.yml and registry.yml:kinds
     only in Comeni-Labs      measurements/purpose.yml
   ```
 
-  and, after Task 11, `rules/rnaseq.yml` as a fourteenth. **The count grew from twelve on
-  execution** and the two additions are recorded rather than absorbed, because a permitted
-  failure whose shape nobody wrote down is a failure nobody checks: `registry.yml:kinds` gained
-  `roles` (Task 0 shipped `roles/` and left the manifest naming four kinds), and
-  `measurements/purpose.yml` is Task 1's, reported under *only in Comeni-Labs* rather than as
-  drift because the other repository has no such file.
+  **The count grew from twelve on execution**, and each addition is recorded rather than
+  absorbed, because a permitted failure whose shape nobody wrote down is a failure nobody
+  checks:
+  - `registry.yml:kinds` gained `roles` — Task 0 shipped `roles/` and left the manifest
+    naming four kinds.
+  - `measurements/purpose.yml` is Task 1's, reported under *only in Comeni-Labs* rather than
+    as drift because the other repository has no such file.
+  - `measurements/read_length.yml` gained `per_sample: true` in Task 2b.
+  - `rules/rnaseq.yml` migrated at **Task 4, not Task 11**. It had to: Task 4 changes
+    `DecisionTarget` incompatibly, and a shipped rule file that no longer parses would put
+    `make check` red for seven tasks — which the Global Constraints above forbid, and rightly.
+    Task 11 keeps the retirement and the documentation.
 
   Any other file in that list, or a failure before `drift`, is a real failure. Do not paper over
   it with `make check`.
@@ -1034,14 +1041,42 @@ def test_every_contract_in_the_registry_declares_a_role():
 
 - [ ] **Step 6: Watch the guard fail, then commit**
 
-Delete `roles:` from `star-align.yml` and confirm `test_every_contract_declares_a_role` now fails
-naming it — this closes the "nothing failed" row recorded in Task 0. Restore, append both rows,
-then:
+Delete `roles:` from `star-align.yml`. Three tests fail and ten more error — this closes the
+"nothing failed" row recorded in Task 0. Then revert `MD0309`, `MD0308` and `MD0306` in turn.
+Restore, append the rows, then:
 
 ```bash
-git add packages/mendel-resolver registry/
+git add -A
 git commit -m "feat(resolver): a decision names a role, and cannot collide (A119, A123, R20)"
 ```
+
+> **Corrected 2026-08-15, on execution. Five things, and the first is a scope move.**
+>
+> 1. **`registry/rules/rnaseq.yml` migrates here, not at Task 11.** `DecisionTarget` changes
+>    incompatibly, so leaving the shipped rule in the old format puts `make check` red for
+>    seven tasks — which the Global Constraints forbid. Task 11 keeps the retirement and the
+>    documentation. `producer_of: alignment.bam` becomes `{effect: implementation, of: alignment}`.
+> 2. **The consumers move to premises, and `route()` refuses a rule table without them.**
+>    `rules.value_for(param, profile)` becomes `value_for(roles, param, premises,
+>    implementation=…)` and `producer_for(type_id, profile)` becomes `implementation_for(role,
+>    premises)`, with the router deriving the roles in play from its candidates. `premises or {}`
+>    is deliberately *not* the default: an empty premise set makes every `when` fail, so a caller
+>    that forgot the argument would get a table that silently stops firing — A122 through a
+>    default. `resolve()` builds them once and threads them.
+> 3. **`derives:` is parsed here**, by the same `Kind`, keyed `derive:<fact>`. Task 2 built the
+>    derivation type and nothing loaded it; leaving that until Task 11 would have shipped the
+>    format's own dead-rule pathology for seven tasks.
+> 4. **`when` validation moved out of `parse` into a post-assembly pass** (`MD0310`,
+>    `RuleTable.check_premise_names`). A decision may read a fact a derivation in another file
+>    supplies, so a per-file check refuses legitimate rules by load order. Same reason
+>    `roles.check` runs after the registry is assembled.
+> 5. **`MD0307` covers two more cases than the plan gives it**: a `name` on a non-`param`
+>    effect, and a presence row whose `then` is neither `present` nor `absent`. Both would
+>    otherwise change or corrupt the key silently, which is `MD0309`'s subject one level down.
+>
+> The plan's `test_a_decision_must_decide_exactly_one_thing` is gone: `effect` is a required
+> discriminator, so the state it tested is unrepresentable. It is replaced by three tests over
+> `MD0307`.
 
 ---
 

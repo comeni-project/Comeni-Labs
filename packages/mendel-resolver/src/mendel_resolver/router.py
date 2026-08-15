@@ -152,9 +152,29 @@ def route(
     rules: RuleTable | None = None,
     resolver: AmbiguityResolver | None = None,
     max_depth: int = 10,
+    *,
+    premises: dict[str, object] | None = None,
 ) -> RoutePlan:
+    """A rule table needs the premises it will be matched against, and says so.
+
+    `premises or {}` would be the obvious spelling and is the wrong one: an empty premise
+    set makes every `when` fail, so a caller that forgot the argument would get a rule table
+    that silently stops firing rather than an error. That is A122's shape — a rule that
+    validates and never applies — arriving through a default. Building them here instead is
+    not an option: `build_premises` needs the measurement registry, and threading that into
+    the router to serve one default would put a second construction site on the one thing
+    `same goal in -> same pipeline out` rests on.
+    """
     plan = RoutePlan()
     resolver = resolver or FlagOnlyResolver()
+    if rules is not None and premises is None:
+        raise ValueError(
+            "route() was given a rule table and no premises, so every `when` would fail "
+            "and the table would appear to hold no matching row. Build them once with "
+            "`build_premises(goal=..., derivations=rules.derivations, measurements=...)` "
+            "and pass them in — `resolve()` is the caller that does."
+        )
+    premises = premises if premises is not None else {}
     emitted: set[str] = set()
 
     def satisfy(type_id: str, states: frozenset[str], depth: int, visiting: frozenset[str]) -> None:
@@ -170,7 +190,7 @@ def route(
             raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
 
         chosen, tier, reason, pinned_by, pin, source = _choose(
-            type_id, states, candidates, goal, rules, resolver, plan
+            type_id, states, candidates, goal, rules, resolver, plan, premises
         )
 
         for port in chosen.consumes:
@@ -263,6 +283,7 @@ def _choose(
     rules: RuleTable | None,
     resolver: AmbiguityResolver,
     plan: RoutePlan,
+    premises: dict[str, object],
 ) -> tuple[ModuleContract, Tier, str, dict[str, ParamValue] | None, Pin | None, ValueSource]:
     """Which contract produces `type_id` here, at which tier, why, and on whose say-so.
 
@@ -272,7 +293,18 @@ def _choose(
     answered would otherwise stay in `needs_review()` for ever, so the count never reaches
     zero and the CLI says REVIEW on a question already settled.
     """
-    pinned = rules.producer_for(type_id, goal.profile) if rules else None
+    # A decision names a **role**, not a type. The roles in play here are the ones the
+    # candidates declare, so a rule about which aligner to use is asked only where aligners
+    # compete — and a rule about duplicate handling, which used to key on the same
+    # `alignment.bam`, is a different key entirely. Audit A119.
+    #
+    # Sorted so two candidates declaring different roles cannot make the answer depend on
+    # registry iteration order, which is invariant 10.
+    roles_here = sorted({role for c in candidates for role in c.roles})
+    pinned = next(
+        (p for p in (rules.implementation_for(r, premises) for r in roles_here) if p),
+        None,
+    ) if rules else None
     if pinned is not None:
         match = [c for c in candidates if c.id == pinned.value]
         if match:

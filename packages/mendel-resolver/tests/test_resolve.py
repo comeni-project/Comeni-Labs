@@ -9,6 +9,7 @@ from mendel_resolver.rules import RuleTable
 
 COUNTS = """
 id: nf-core/subread/featurecounts@2.0.6
+roles: [quantification]
 nf_process: FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
@@ -24,6 +25,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 """
 SORT = """
 id: nf-core/samtools/sort@1.21.0
+roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
@@ -34,7 +36,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 RULES = """
 version: 1
 decisions:
-  - decides: {param: strandedness}
+  - decides: {effect: param, of: quantification, name: strandedness}
     cite: "featureCounts -s 2 for reverse-stranded libraries"
     rows:
       - {when: {strandedness: reverse}, then: 2}
@@ -103,7 +105,7 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
     # That split is A79/A107: one field answering both questions is how the shipped registry
     # came to cite the STAR paper as the reason HISAT2 was chosen.
     assert "featureCounts -s 2" in node.param("strandedness").axis_reason
-    assert node.param("strandedness").reason == "rule param:strandedness", (
+    assert node.param("strandedness").reason == "rule param:quantification:strandedness", (
         "a row with no justification of its own must not emit a dangling colon (A78)"
     )
 

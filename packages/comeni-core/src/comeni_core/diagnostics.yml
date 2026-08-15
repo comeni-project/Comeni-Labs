@@ -1010,3 +1010,144 @@ MD0312:
     the cohort is uniform, and the comparison is well defined.
 
     Spec §3.2; added with Plan 1.15's per-sample representation.
+
+MD0306:
+  emitted_by: resolver
+  concern: routing
+  says: "a decision names a role nothing fills, or a row names a contract that does not fill it"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Name a role some contract in the stack fills, and rows that fill it:
+
+        decisions:
+          - decides: {effect: implementation, of: alignment}
+            rows:
+              - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
+
+    A contract claims a role in its own file — `roles: [alignment]` — so a lab adding an
+    aligner declares it there rather than editing the rule.
+  explanation: |
+    **This is R20, the shape a lab writing overlay rules meets first**, and the improvement
+    is in what the author is told rather than in what is refused. The old format could only
+    say *"nf-core/salmon@1.10.0 is not in the registry"*, which is true and unhelpful, and it
+    gave the identical message whether the contract was absent or merely doing a different
+    job. A role names the *work*: "nothing in this stack does alignment" is a sentence about
+    a pipeline, and "salmon fills quantification, not alignment" tells the author what they
+    got wrong.
+
+    Refused rather than skipped, because a decision that can never apply is indistinguishable
+    at resolution from one nobody wrote — which is the same argument as `MD0304` and the same
+    argument as the whole of spec §5.
+
+    Audit A119, A123.
+
+MD0307:
+  emitted_by: resolver
+  concern: routing
+  says: "a decision's effect and its `name` disagree, or a presence row is not present/absent"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    A `param` effect names a parameter; the other two decide the role itself:
+
+        - decides: {effect: param, of: alignment, name: seq_platform}
+        - decides: {effect: implementation, of: alignment}
+        - decides: {effect: presence, of: trimming}
+          rows: [{when: {}, then: absent, cite: "…"}]
+  explanation: |
+    The decision key is `(effect, role[, name])`, so a `name` that should not be there
+    changes the key silently — which is exactly what `MD0309` exists to prevent one level
+    up. A target that validates loosely and keys precisely is the worst combination
+    available: two authors write what looks like the same decision and get two keys.
+
+    **A presence row says `present` or `absent` because it is a claim about the world.**
+    The shipped format spelled "do not trim" as `producer_of: fastq.reads` with
+    `then: null`, which reads as a null pointer rather than as a sentence, and which is
+    also why it could collide with an unrelated decision about the same type.
+
+    Spec §4.1.
+
+MD0308:
+  emitted_by: resolver
+  concern: routing
+  says: "a param decision sets a value some filler of the role does not declare"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Narrow the decision to the implementations that declare the parameter:
+
+        - decides:
+            effect: param
+            of: alignment
+            name: star_ignore_sjdbgtf
+            when_implementation: [nf-core/star/align@1.11.0]
+
+    Or decide a parameter every filler of the role declares.
+  explanation: |
+    `star_ignore_sjdbgtf` is STAR's alone. A rule setting it for the whole `alignment` role
+    resolves a value that reaches nothing whenever HISAT2 wins — issue #10's deadness,
+    arriving through the rule format rather than through a contract. The pipeline builds, the
+    artifact records a tier-3 decision with a citation, and the flag never reaches a tool.
+
+    **The check is stronger than the one it replaces.** The old question was "does any
+    contract in the registry declare this parameter", which one filler answering yes was
+    enough to satisfy. The question now is "does *every* contract that could fill this role
+    declare it", and `when_implementation` is how an author says which ones the value is for.
+    Saying it is the point: a reader of the rule can then see the value is conditional, where
+    before they would have had to compare two contracts' parameter lists to find out.
+
+    Audit A123.
+
+MD0309:
+  emitted_by: resolver
+  concern: routing
+  says: "two decisions in one file decide the same key"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Merge them into one block with both rows, or give them different targets. A reviewer
+    should be able to read one block and see the entire effective decision.
+  explanation: |
+    **A119, reproduced first-hand on 2026-08-15.** Two decisions sharing a key do not both
+    apply: `Policy.REPLACE` keeps one and drops the other, silently, at exit 0. Installing a
+    laboratory's duplicate-handling overlay swapped HISAT2 for STAR on a 50bp goal, and both
+    builds passed `gate lint` at exit 0.
+
+    The old key was a type id, so a rule about duplicate handling and a rule about which
+    aligner to use both had to key on `alignment.bam` — two unrelated decisions forced into
+    one key by the format. Keying on `(effect, role[, name])` is what makes them different
+    keys; this diagnostic is for the case that is still genuinely a collision.
+
+    **Per file, and `stack()` catches the per-layer case with its own message.** The two are
+    not redundant and neither can see the other's: a file is the unit an author is looking at
+    when they write the second decision, and a layer is the unit `stack()` reasons about.
+    Between *layers* a replacement is legal and is the whole of invariant 11.
+
+MD0310:
+  emitted_by: resolver
+  concern: routing
+  says: "a `when` clause names a premise nothing supplies, or compares one that cannot be ordered"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Name a declared measurement, a derived fact, or a goal fact:
+
+        when: {read_length: ">= 70"}        # a declared measurement
+        when: {cohort_max_read_length: 150} # a fact some `derives:` block supplies
+        when: {required_states: absent}     # what the goal asked the output to carry
+
+    An enum compares with equality, `in` or `not` — never with `>=`.
+  explanation: |
+    **`when` sees more than measurements now**, which is A120: the router already consulted
+    the goal's `required_states` and a rule could not, so R11 — Salmon for transcript-level
+    counts, featureCounts for gene-level — was unwritable. The premise set is one namespace
+    over measurements, goal facts and derived facts, and this diagnostic names all three
+    rather than only the one the old message knew about.
+
+    **Checked after the whole stack is assembled, not while a file is parsed.** A decision
+    may read a fact a derivation in another file supplies, so a per-file check would refuse a
+    legitimate rule for the accident of which file `stack()` reached first. Same reason
+    `roles.check` runs after the registry is built rather than inside a contract's parse.
+
+    Audit A120, A121.

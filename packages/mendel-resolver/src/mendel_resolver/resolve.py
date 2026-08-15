@@ -18,6 +18,7 @@ from comeni_core.vocabulary import UnknownTypeError, Vocabulary
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
+from mendel_resolver.premises import Premise, build_premises
 from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
@@ -73,7 +74,13 @@ def resolve(
         measurements.check(measured.measurement, measured.value)
 
     resolver = resolver or FlagOnlyResolver()
-    plan = route(goal, registry, rules, resolver)
+    # Built once, here, and threaded. Not rebuilt per decision: a premise set is a function
+    # of the goal and the derivations, so building it twice is two chances to build it
+    # differently — and `same goal in -> same pipeline out` is the claim that would pay.
+    premises = build_premises(
+        goal=goal, derivations=rules.derivations, measurements=measurements
+    )
+    plan = route(goal, registry, rules, resolver, premises=premises)
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -120,6 +127,12 @@ def resolve(
             node.set_param(param.name, _resolve_param(
                 node_id=node.id,
                 param_name=param.name,
+                # The roles this contract fills, in the order it declares them. A param
+                # decision is keyed on a role, so a value decided for `alignment` reaches
+                # STAR and does not reach a sorter that happens to declare the same name.
+                # Audit A123, at the point of use.
+                roles=contract.roles,
+                implementation=contract.id,
                 tier_hint=param.tier_hint,
                 default=param.default,
                 because=param.because,
@@ -130,6 +143,7 @@ def resolve(
                 from_layer=_layer_of(registry, contract.id),
                 goal=goal,
                 rules=rules,
+                premises=premises,
                 resolver=resolver,
                 backed=backed,
                 decisions=ir.decisions,
@@ -258,12 +272,15 @@ def _resolve_param(
     *,
     node_id: str,
     param_name: str,
+    roles: Sequence[str],
+    implementation: str,
     tier_hint: int | None,
     default: object,
     because: str,
     from_layer: str | None,
     goal: Goal,
     rules: RuleTable,
+    premises: dict[str, Premise],
     resolver: AmbiguityResolver,
     decisions: list[DecisionRecord],
     backed: dict[str, object],
@@ -279,7 +296,7 @@ def _resolve_param(
         )
 
     # Tier 3 — a declared rule matches the measured profile.
-    pin = rules.value_for(param_name, goal.profile)
+    pin = rules.value_for(roles, param_name, premises, implementation=implementation)
     if pin is not None:
         return ResolvedValue(
             value=pin.value,

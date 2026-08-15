@@ -105,6 +105,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         roles.check(contract.id, contract.roles)
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements))
     rules = RuleTable.of(decided, stacked)
+    # After assembly, so a decision may read a fact a derivation in another file
+    # supplies. Same reason `roles.check` runs here rather than inside a parse.
+    rules.check_premise_names(measurements)
     _every_file_is_claimed(
         stacked,
         measured.claimed

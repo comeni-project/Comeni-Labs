@@ -351,7 +351,7 @@ def _stacked(tmp_path):
     (base / "rules" / "platform.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {param: seq_platform}\n"
+        "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'the base registry sequences on Illumina'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: ILLUMINA}\n"
@@ -378,7 +378,7 @@ def _stacked(tmp_path):
     (lab / "rules" / "platform.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {param: seq_platform}\n"
+        "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'this lab runs BGI'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: BGI}\n"
@@ -919,7 +919,7 @@ def test_a22_a_rule_pinned_reroute_names_the_layer_that_decided(tmp_path):
     (lab / "rules" / "aligner.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {producer_of: alignment.bam}\n"
+        "  - decides: {effect: implementation, of: alignment}\n"
         "    because: 'this lab has a HISAT2 index and no STAR index'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 50'}, then: nf-core/hisat2/align@2.2.2}\n"
@@ -1972,7 +1972,7 @@ def _rule_layer(tmp_path: Path, body: str) -> Path:
 
 COMPUTED = """version: 1
 decisions:
-  - decides: {param: seq_platform}
+  - decides: {effect: param, of: alignment, name: seq_platform}
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
       - {when: {}, then: "read_length-1"}
@@ -2086,7 +2086,7 @@ def test_a78_a_rule_row_that_justifies_nothing_is_refused(tmp_path):
 
     body = """version: 1
 decisions:
-  - decides: {param: seq_platform}
+  - decides: {effect: param, of: alignment, name: seq_platform}
     rows:
       - {when: {}, then: illumina}
 """

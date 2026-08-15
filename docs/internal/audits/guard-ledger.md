@@ -1165,3 +1165,46 @@ that needs the name — and stating that in the module docstring is what stops s
 said Task 3 would replace it, and a second matcher that agrees today is the shape `_comparison`'s
 docstring already warns about: *"two copies of this predicate is how a rule passes validation and
 then fails to fire."*
+
+## Plan 1.15 Task 4 — a decision names a role, and cannot collide (A119, A123, R20)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_roles_through_the_loader.py::test_the_shipped_registry_loads_with_every_contract_classified` (+2, +10 errors) | `roles: [alignment]` deleted from `star-align.yml` | **3 failed, 10 errored** | `these contracts fill no role: ['nf-core/star/align@1.11.0']`, and `MD0306` breaking every build |
+| 2026-08-15 | `test_rules.py::test_two_decisions_for_one_target_in_one_file_is_MD0309` | the `target.key() in seen` check | failed | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_rule_for_a_parameter_no_contract_declares_will_not_load` | the `MD0308` declared-by-every-filler check | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_a_decision_on_a_role_nothing_fills_is_refused` | the `if not fillers` check | failed | `DID NOT RAISE` |
+
+**Task 0's open row is closed, and by more than the test that was written for it.** The ledger
+recorded *"`test_roles.py` ×4 — nothing failed"* against the `roles.check` loop, because those
+four tests called the function directly. Deleting `roles:` from one contract now fails three
+tests in the loader file **and errors ten more**, because the shipped `implementation: alignment`
+rule names STAR and STAR no longer fills that role — `MD0306` refuses the whole build. A role
+declaration went from a field nothing consulted to one the rule table depends on, which is what
+made the guard real rather than the guard being rewritten.
+
+**`MD0309` and `stack()`'s duplicate-key refusal are not redundant and neither can see the
+other's case.** `MD0309` is per *file*, caught in `parse`, and its message can name the file and
+the key. `stack()`'s is per *layer*, across files, and is the one mechanism shared by every kind
+— which is root B's whole point and why a per-kind exception type was not reintroduced here. Two
+tests, one for each, with the argument written into both docstrings.
+
+**A fixture went inconsistent the hour the check landed**, and this is the good version of that
+event. `test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract` *replaced* STAR's
+`alignment` role with `long_read_alignment` to prove an overlay-declared role loads. That fixture
+was fine while nothing read the role and became a contradiction the moment the rule table did —
+so the test failed for `MD0306` rather than for anything it was about. Adding the overlay role
+beside the base one is the fix, and the comment beside it says why, because the next person to
+edit that line will reach for the substitution again.
+
+**The shipped rule migrated at Task 4 rather than Task 11**, which the plan did not anticipate.
+`DecisionTarget` changes incompatibly here, so leaving `registry/rules/rnaseq.yml` in the old
+format would put `make check` red for seven tasks — and the Global Constraints say `drift` is the
+only gate that may be red, for exactly the reason A14 gives: a gate red for unexamined reasons
+trains everybody to ignore it. Migrating one block now costs nothing and keeps that rule intact.
+
+**`make verify`'s slow tests are what proved the migration.** `test_counts.py` runs the spine on
+real data and asserts featureCounts got the strandedness that was measured — so a role-keyed
+lookup that silently stopped finding the aligner rule would show up there and nowhere else in the
+686 tests. It passed, which is the evidence that `implementation:alignment` routes what
+`producer_of:alignment.bam` used to.
