@@ -630,7 +630,7 @@ git commit -m "refactor(compiler): cli.py splits by what a verb does to a pipeli
 > **Final shape:** `__init__` 193, `resolve_verbs` 308, `artifact_verbs` 238, `report` 164,
 > `parse` 72, `__main__` 14.
 
-## Task 5: the guards that name a path as a string
+## Task 5: the guards that name a path as a string — **done**
 
 **Spec:** Part one, the last subsection. A rename can disable a guard by pointing it at a file
 that no longer exists, and the gate then goes green **faster** — A67's exact shape.
@@ -641,7 +641,7 @@ that no longer exists, and the gate then goes green **faster** — A67's exact s
   Step 5 — confirm)
 - Modify: `tests/test_purity.py` (`ATTRIBUTE_EXEMPT_PATH` — confirm unchanged)
 
-- [ ] **Step 1: Update the paths**
+- [x] **Step 1: Update the paths**
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -655,7 +655,7 @@ sed -i \
   tests/test_purity_runtime.py
 ```
 
-- [ ] **Step 2: Add the guard-of-the-guard**
+- [x] **Step 2: Add the guard-of-the-guard**
 
 A path that names nothing is the defect. Add to `tests/test_construction.py`:
 
@@ -682,19 +682,19 @@ path — checked against the code on 2026-08-16, because an earlier draft of thi
 
 Add the equivalent to `tests/test_purity_runtime.py` for its frame paths.
 
-- [ ] **Step 3: Watch each one fail**
+- [x] **Step 3: Watch each one fail**
 
 For each of the four files, point one path at a name that does not exist, run the guard,
 confirm it **fails** rather than passing on an empty scan, and restore. Record a row per guard
 in `docs/internal/audits/guard-ledger.md` under a new heading
 `## Issue #41 — the guards that name a path`.
 
-- [ ] **Step 4: Run everything**
+- [x] **Step 4: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, digests unmoved.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -702,6 +702,17 @@ git commit -m "test: a guard that names a path must name one that exists (#41)"
 ```
 
 ---
+
+> **Corrected 2026-08-16, on execution.** Steps 1 and 3's path repairs were done in Task 1 —
+> a task cannot end green if a later one fixes what it breaks — so this task is Step 2's
+> guard-of-the-guard and the reverts, which is the part that needed its own task.
+>
+> **Four constants, not three.** `ALLOWED` (the `DataProfile` exemption) was not in the plan's
+> list; `PIPELINE_ALLOWED`, `PIPELINE_READERS`, `ATTRIBUTE_EXEMPT_PATH` and the runtime frame
+> list were.
+>
+> **Each revert fails two tests**, and that pairing is what the task buys: the new guard names
+> the broken key, and the old one fails for a reason that reads like something else entirely.
 
 ## Task 6: `docs/internal/` becomes `notes/`
 
