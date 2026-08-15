@@ -2009,3 +2009,27 @@ Answering a tier-4 question is now a two-part edit — `override_reason` in `dec
 setting's own `why.reason` and `why.for_value` — and the one-part edit exits 2.
 `docs/guides/driving-mendel.md` §6 was written when the one-part edit worked and now shows the
 refusal and the cure.
+
+## Release automation — the action pins (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_workflow_pins.py::test_every_action_is_pinned_by_commit_sha` | `@v7` in place of the SHA | failed, naming file and value |
+| 2026-08-16 | `…::test_every_pin_carries_the_version_it_came_from` | the `# v7.0.1` comment dropped | failed, naming file and line |
+| 2026-08-16 | `…::test_there_are_workflows_to_check` | — | asserts the scan reached ≥2 workflows and ≥8 `uses:` |
+
+**The third row is not ceremony.** A scan that reaches nothing reports nothing and passes; that
+is the defect `test_architecture.py` shipped with earlier the same week, and writing a second
+scanning guard without the count assertion would have been repeating it four days later.
+
+**Node 24 was verified by hand, not by this guard, and the docstring says so.** Checking a
+runtime means fetching each action's `action.yml` from GitHub, and `make check` is deliberately
+offline. At the pinned SHAs: `actions/checkout`, `actions/upload-artifact` and
+`astral-sh/setup-uv` all declare `node24`; `nf-core/setup-nextflow` is a **composite** with no
+runtime of its own, and both of its internals — its `subaction` and the `actions/setup-java` it
+pins — are `node24` too. **That last pair is where the old warning actually came from**, and it
+is the pair a check of the top-level workflow would never have looked at.
+
+**One gap in the evidence, recorded rather than glossed:** the CI run showing zero deprecation
+warnings was `ci.yml`, which never uses `setup-nextflow` — only `nightly.yml` does. The
+composite's clean bill comes from reading its manifest at the pinned SHA, not from a run.
