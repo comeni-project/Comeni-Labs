@@ -479,3 +479,17 @@ def test_each_guarded_package_has_source_to_scan():
         src = root / "packages" / pkg / "src"
         assert src.is_dir(), f"{pkg} is guarded and has no src/ — the scan would find nothing"
         assert list(src.rglob("*.py")), f"{pkg}/src holds no Python; the scan is running on air"
+
+
+def test_the_attribute_exemption_names_a_file_that_exists():
+    """`ATTRIBUTE_EXEMPT_PATH` is the one file allowed to name a YAML loader.
+
+    A path that matches nothing exempts nothing — which would make `yaml_strict.py` itself
+    fail the rule it exists to satisfy, loudly. That is the safe direction, and this test is
+    here for the same reason the other two are: the direction is an accident of which way the
+    check happens to be written, not something to rely on. A67, issue #41.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    assert (root / ATTRIBUTE_EXEMPT_PATH).exists(), (
+        f"{ATTRIBUTE_EXEMPT_PATH} does not exist, so the exemption covers nothing"
+    )

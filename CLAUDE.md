@@ -22,159 +22,102 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`docs/internal/journal/`](docs/internal/journal/).**
-> It is append-only and dated, so it cannot silently go stale the way this section can —
-> and it carries what is next, what was decided, and what a fresh reader gets wrong. This
-> section is a summary; the journal is the handoff.
+> **Start with the latest entry in [`notes/journal/`](notes/journal/).**
+> It is append-only and dated, so it cannot silently go stale the way this section can — and it
+> carries what is next, what was decided, and what a fresh reader gets wrong. This section holds
+> only what stays true between plans; the journal is the handoff.
+>
+> **Nothing here is a count.** Two numbers in this file were stale for three plans because
+> nothing counted them (A71, A72), and a third — "748 fast tests" — was stale again by the time
+> issue #41 rewrote this section. Counts live where a command can derive them: `make check` for
+> tests, `make residue` for guard coverage, `len(DeclaredKind)` for kinds,
+> `tests/test_egress.py` for the free-text fields.
 
-**Plans 1, the measurements plan, and 1.5 through 1.12 are complete.** A17–A35, round three's
-A38–A54 and round four's criticals (A55, A57, A58, A59) plus A56 and A70 are closed; **A14 and
-A36 remain**, along with fifteen carried round-four findings filed as issues. 1.12 was the last
-*audit-driven* plan, decided 2026-08-13.
+**Plan 1 through Plan 1.15 are complete, and the design audit has run.** Plan 2 is next. The
+ordered list of every plan, with its status and the argument for its position, is
+[`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
+section got to 156 lines.
 
-**The design audit ran on 2026-08-14 — all four streams, 44 findings, A76–A131. Verdict: it
-holds with named repairs.** It asked a different question from rounds one to four: not "does the
-code match the design" but "does the design deliver the claim". The answer split the product
-claim in two, and that split is the most useful thing it produced. *"Same goal in → same
-pipeline out"* **holds**, and is stronger than `ARCHITECTURE.md` §8 claims. *"Nothing was
-guessed silently"* **does not**: five of the six values reaching the generated Nextflow carried
-no `why:` at all. Read `docs/internal/audits/2026-08-14-design-audit.md`; the four stream reports
-beside it are its evidence.
+**The product claim is two claims, and they are not in the same state.** That split is the most
+useful thing the 2026-08-14 design audit produced.
 
-**Plan 1.15 is complete — the rule format, re-derived.** Twelve tasks. A tier-3 rule now targets
-a **role** rather than a type id, with three effects: `presence` (whether the step exists),
-`implementation` (which contract fills it), and `param`. That closes A119 and A123, which are one
-defect from two sides — the old target forced a duplicate-handling rule and an aligner rule onto
-the same `alignment.bam` key, and REPLACE stacking settled the collision by deleting one of them
-at exit 0. A **premise layer** builds the facts `when` reads, each carrying where it came from,
-which is A108 and the hook `sealed` needs for issue #2; `pipeline.yml` is at **`version: 3`** and
-a measured build and an asserted one are no longer byte-identical. Read
-`docs/internal/journal/2026-08-15-evening.md`, then `ARCHITECTURE.md` §Rule tables.
+- ***"Same goal in → same pipeline out"* holds**, and is stronger than `ARCHITECTURE.md` §8
+  claims.
+- ***"Nothing was guessed silently"* did not hold** — five of the six values reaching the
+  generated Nextflow carried no `why:` at all — and Plan 1.14 closed it. Every value now carries
+  a reason a reader can act on, so the artifact's own header is true where it was false.
 
-**Six of twenty real rules could be written before; seventeen can now**, and the four that cannot
-are refused for reasons the plan names. `tests/test_rule_corpus.py` is the assertion and
-`tests/fixtures/rule-corpus/` is the corpus;
-`docs/internal/audits/fixtures/rule-attempts/` stays frozen as the record of what broke.
+**`pipeline.yml` is the pipeline.** One artifact carrying the goal, every step and setting with a
+`why:` (the tier, who settled it, which layer, the citation, the premise a rule read), every
+contract pinned by content digest, every layer, the gate that passed and the digests of what was
+emitted — no paths, no timestamps. Every setting declares the **route** that carries it to the
+tool, so a resolved value reaching nothing is refused rather than emitted. It replaced
+`pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`. `mendel emit` rebuilds the Nextflow
+from it with **no registry and no network**; `mendel upgrade` re-resolves against the current
+registry and replays every recorded decision. Read
+[`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md), and
+[`docs/guides/driving-mendel.md`](docs/guides/driving-mendel.md) for the loop end to end.
 
-**Plans 1.13 and 1.14 are both complete.** 1.13 closed the five findings that produce wrong
-output or block Plan 2 — A92, A118, A125, A126, A129. **1.14 closed roots 1–3, the explanation
-repairs**, and bumped `pipeline.yml` to `version: 2`: A76, A77, A78, A79, A80, A81, A82, A91,
-A104, A107, A111, A112, A128, plus A90 and A106 in substance.
+**A tier-3 rule targets a role, not a type id** (Plan 1.15), with three effects — `presence`,
+`implementation`, `param` — and a **premise layer** builds the facts `when` reads, each carrying
+where it came from. `ARCHITECTURE.md` §Rule tables is the description;
+`notes/specs/2026-08-15-root-5-the-rule-format.md` is why each part is shaped that way.
+`tests/fixtures/rule-corpus/` holds twenty real rules and is the assertion that the format can
+express them.
 
-**The headline number moved from one in six to six in six.** The design audit's sharpest finding
-was that five of the six values reaching the generated Nextflow carried no `why:` at all; every
-one now carries a reason a reader can act on, and the artifact's own header — *"Every value
-carries a `why:`"* — was false when written and is now true. `strandedness: reverse`, which
-becomes featureCounts' `-s 2`, says it was **asserted rather than measured** and cites Signal et
-al. 2022. The shipped registry no longer cites the STAR paper as the reason HISAT2 was chosen.
+**`mendel build` refuses a contract that disagrees with its module**, against the vendored
+`main.nf` and `meta.yml`. `mendel explain <code>` for any diagnostic;
+[`docs/reference/diagnostics.md`](docs/reference/diagnostics.md) for all of them.
 
-**A108 closed in Plan 1.15; A130 is still open.** A108 was that a tier-3 decision carries no
-premise — `Why.premise` now records the facts a rule read and how good each one is. A130 is that
-nothing distinguishes a model-authored reason from a human-authored one — promoted by the engine
-decision from medium to a gap in the protection profiles, and carried.
+**Nothing AI-shaped is built.** `comeni-core`, `mendel-resolver` and `mendel-compiler` exist and
+are pure; `mendel-ai`, `mendel-forge` and `mendel-api` do not. Every build is already the
+`--no-ai` lane, which is why that flag has nothing to switch off until Plan 2.
 
-**Then Plan 2.** 748 fast tests green,
-`ruff check` clean, and `--gate test` runs the
-RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
-featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
-mapping quality the contract routed. `uv run pytest -m slow` is what proves that; `make check`
-excludes it and stays a one-minute gate, and **`make verify` is the one that runs both** —
-see Commands, because `make check` alone is not verification of a routing or emission change.
-`comeni-core`, `mendel-resolver` and `mendel-compiler` exist. Nothing AI-shaped is built.
+### What is open
 
-**`pipeline.yml` is the pipeline.** One artifact replacing `pipeline.ir.json`,
-`mendel.lock.yml` and `pipeline.bundle.json`: every step and setting with a `why:` — the tier,
-who settled it, which layer, the citation — plus every module digest, the gate that passed and
-the digests of what was emitted. Every setting declares the **route** that carries it to the
-tool, so a resolved value that reaches nothing is refused rather than emitted (issue #10).
-`mendel emit` rebuilds the Nextflow from it with no registry and no network. Read
-`docs/reference/pipeline-schema.md`.
+**A14 is critical and stays open.** A guard never watched failing may be **inert rather than
+merely weak**, and it closes only when every guard in `tests/` has a recorded revert.
+[`notes/audits/guard-ledger.md`](notes/audits/guard-ledger.md) is that record — append-only, one
+row per revert, with the message it printed.
 
-**`mendel build` now refuses a contract that disagrees with its module** — nine diagnostics
-(`MD0100`–`MD0108`) against the vendored `main.nf` and `meta.yml`, `mendel explain <code>` for the long form, and
-`make static` (lint + preview, no Docker) in the pull-request lane.
+**Residue is measured per *guard*, not per file** — that is A69, and the distinction matters
+because the file-level number reads as nearly done and is not. **`make residue` counts it**, with
+`ARGS=--list` for the names. A69 closed when the number became derivable rather than asserted.
 
-**A pipeline is a shareable artifact, and it is one file.** `build/pipeline.yml` carries the
-goal, every step and setting with a `why:`, every contract pinned by content digest, every
-layer, the gate that passed and the digests of what was emitted — no paths, no timestamps. It
-replaced `pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`. `mendel emit` rebuilds the
-Nextflow from it with **no registry and no network**; `mendel upgrade` re-resolves it against
-the current registry, replays every recorded decision, and reports drift, changes, stale and
-orphaned overrides separately. `mendel publish` certifies a directory rather than writing a
-bundle beside it. See `docs/reference/pipeline-schema.md`. The registry lives in
-[`comeni-registry`](https://github.com/comeni-project/comeni-registry), and `registry/` here
-is that layer.
+**A36** — `_FILE` domain separation in `stack()` cannot be observed to fail. **A130** — nothing
+distinguishes a model-authored `why.reason` from a human-authored one, which the engine decision
+promoted from a legibility gap to a gap in the protection profiles. Both carried.
 
-**Read `ARCHITECTURE.md` before writing code.** It describes the five stages, the declared data
+**Fifteen round-four findings are carried as issues**, deliberately. `#26` (A62) and `#32` (A68)
+are the two to read before Plan 2 touches the same code.
+
+**By the operator's decision on 2026-08-13, Plan 1.12 was the last audit-driven plan** — which
+overrides the fix-then-re-audit loop's own exit criterion of *no critical finding surviving a
+fresh audit*. [`notes/README.md`](notes/README.md) records that decision and the argument against
+it, as it does for every ordering here.
+
+### What to read
+
+**[`ARCHITECTURE.md`](ARCHITECTURE.md) before writing code.** The five stages, the declared data
 and its load order, routing, both tier ladders, ports versus channels, and the three guards —
 written against the types that exist.
 
-The 2026-08-03 audit's defects (C1–C4) are all closed, as are the 2026-08-06 audit's A1–A13
-and A15, and **round two's A16–A35** (Plan 1.9). **A14 is still open, and A36 and A37 are
-new.**
-
-**A14 is critical and open, and stays open.** It is that a guard never watched failing may be
-inert rather than merely weak, and it closes only when every guard in `tests/` has a recorded
-revert. **`docs/internal/audits/guard-ledger.md` is that record.**
-
-**Its residue is measured per *guard*, not per file** — that is A69, and the distinction matters
-because the file-level number reads as nearly done and is not. Every test *file* now has at least
-one recorded revert (`test_pipeline_totality.py`, the last, gained rows in round four), while a
-minority of the individual guards do. **No count is repeated in this file**: two numbers here were
-stale for three plans because nothing counts them (A71, A72), and the ledger is the thing that can
-be counted. **`make residue` is what counts it** — per guard, derived from the ledger and the test
-files, with `ARGS=--list` for the names. A69 closed when the number became derivable rather than
-asserted; the number itself is not written here, for the reason this paragraph gives.
-Plan 1.9 found three more inert guards while
-closing round two, two of them in code written that same day: `stack()`'s
-`origin[key] != layer.index` (cannot be false), `_FILE` domain separation (**A36**, open), and
-`producers_of`'s priority ordering (**A37**, fixed — the fixture agreed with itself).
-
-**Round four ran (A55–A75) and Plan 1.12 closed its four criticals plus the two Plan-2 blockers —
-A55, A56, A57, A58, A59 and A70.** The other fifteen findings are filed as issues and carried
-deliberately. **By the operator's decision on 2026-08-13, 1.12 is the last audit-driven plan and
-the design audit and then Plan 2 follow**, which overrides the loop's own exit criterion — see
-`docs/internal/README.md` for that decision and the argument against it. The design audit is not
-part of that loop and does not reopen it: it asks whether the design delivers the product claim,
-and its findings shape Plan 2 rather than becoming a Plan 1.13. Earlier rounds used the
-same revert-and-watch + cold-reviewer method in
-`docs/internal/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
-finding surviving a fresh audit. Read `docs/internal/journal/2026-08-10-evening.md` for what 1.11
-shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
-
 | Read this | For |
 |---|---|
-| `docs/design/mendel.md` | the original design rationale. `ARCHITECTURE.md` is what the code does. |
-| `docs/design/federation.md` | provider access, registry stacking, pipeline publication, licensing |
-| `docs/design/clinical-data-protection.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
-| `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
-| `docs/design/rule-tables-and-port-logic.md` | the **superseded** rule format. Plan 1.15 replaced it; read `ARCHITECTURE.md` §Rule tables and the spec below |
-| `docs/internal/specs/2026-08-15-root-5-the-rule-format.md` | **the rule format, and why each part is shaped as it is. Implemented by Plan 1.15.** |
-| `docs/internal/plans/2026-08-15-the-rule-format.md` | Plan 1.15 — twelve tasks. **Complete**, with each task's corrections recorded inline |
-| `docs/design/profiling.md` | where measurements come from. **Implemented.** |
-| `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
-| `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
-| `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
-| `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
-| `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **twelve specs. Nine per audit root, plus three design specs — the pipeline file, the rule drafter, and the rule format. Read the part's spec before starting it.** |
-| `docs/internal/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
-| `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
-| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
-| `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
-| `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
-| `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
-| `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
-| `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
-| `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
-| `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
-| `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
-| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
-| `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
-| `docs/internal/plans/2026-08-07-the-pipeline-file.md` | Plan 1.10 — 12 tasks. **Complete**, with each task's corrections recorded inline. |
-| `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
-| `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
-| `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | **how it all fits together, against real types. First.** |
+| [`docs/README.md`](docs/README.md) | the documentation front door — three doors, by what you are doing |
+| [`docs/guides/driving-mendel.md`](docs/guides/driving-mendel.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
+| [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md) | `pipeline.yml`, field by field |
+| [`notes/journal/`](notes/journal/) | **what happened, what is next, what was decided.** Newest first |
+| [`notes/README.md`](notes/README.md) | every plan in execution order, and the argument for that order |
+| [`notes/audits/README.md`](notes/audits/README.md) | the rounds, the design audit, and the guard ledger |
+| [`notes/specs/README.md`](notes/specs/README.md) | the specs — read the one behind a part before starting it |
+| [`docs/design/mendel.md`](docs/design/mendel.md) | the original rationale. `ARCHITECTURE.md` is what the code *does* |
+| [`docs/design/federation.md`](docs/design/federation.md) | provider access, registry stacking, publication, licensing |
+| [`docs/design/clinical-data-protection.md`](docs/design/clinical-data-protection.md) | clinical use, the egress boundary, the protection profiles |
+| [`docs/design/conformance.md`](docs/design/conformance.md) | whether "if it compiles, it runs" is reachable |
+| [`docs/design/rule-tables-and-port-logic.md`](docs/design/rule-tables-and-port-logic.md) | the **superseded** rule format. Plan 1.15 replaced it |
+| [`notes/specs/2026-08-13-the-rule-drafter.md`](notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
 
 ## How to start implementing — decided 2026-08-02, read this first
 
@@ -189,10 +132,10 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
-- **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
+- **Execution order lives in `notes/README.md`**, not in the filenames — two plans share
   a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
   That audit asks a question the four guard rounds never did — whether the design itself
-  delivers the claim — and `docs/internal/audits/2026-08-14-design-audit-brief.md` is its
+  delivers the claim — and `notes/audits/2026-08-14-design-audit-brief.md` is its
   method, because "revert and watch" cannot be run against a design. Round four ran and
   Plan 1.12 closed its criticals; by the operator's decision on 2026-08-13 no further audit round
   gates Plan 2, which overrides the loop's *no critical finding surviving* exit criterion. That
@@ -206,7 +149,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
 reachable.
 
-**Plan 1.7 is written** — `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md`,
+**Plan 1.7 is written** — `notes/plans/2026-08-04-publication-and-the-registry-split.md`,
 nine tasks, against the types that exist rather than the ones the spec predicted. Three of those
 predicted types did not exist and the plan creates them (`PipelineIR.registry_layers`,
 `PipelineIR.shadowed`, `PublishBundle.goal`); one did and is the key to replay
@@ -403,16 +346,33 @@ legal entities forfeits the IVDR Art. 5(5) in-house exemption.
 ```
 packages/
   comeni-core/       types, contract schema, pipeline IR, registry     PURE
+    declared/          what a registry layer holds, and how it stacks
+    goal/              what is asked for, and what was measured
+    plan/              what was decided — the IR, the tiers, the records
+    artifact/          pipeline.yml, the lockfile, the gates, the doors
+    spell/             how a value is spelled on its way to a tool
   mendel-resolver/   four-tier ladder, rules, routing, ports           PURE
+    rules/             the rule format, the tables, the validator
   mendel-compiler/   IR → Nextflow DSL2, validation gates, repair      PURE
+    cli/               the verbs — resolve_verbs, artifact_verbs, report
   mendel-ai/         LiteLLM port implementations                      impure
   mendel-forge/      ingestion, contract drafting, approval queue      impure
   mendel-api/        FastAPI surface                                   impure
-registry/      contracts/ rules/ vocabularies/ measurements/ roles/ + registry.yml — THE LAYER
+registry/      one directory per DeclaredKind + registry.yml — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
+docs/          guides/ reference/ concepts/ design/ — written for a stranger
+notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
 frontend/      React + TS + Vite + Tailwind SPA
 ```
+
+**The subpackages inside `comeni-core` are a pipeline through the system**, named for the stage
+rather than the type: what is *declared*, what is *asked*, what was *planned*, what is *emitted*,
+and how it is *spelled*. Issue #41 split them out of one flat directory of nineteen modules; the
+public surface of `comeni_core` did not change, and `comeni_core.__init__` is what holds it
+stable. `mendel_resolver.rules` and `mendel_compiler.cli` were single modules and became packages
+in the same change — `rules/__init__.py` re-exports, because a package's `__init__` is its own
+surface rather than a second spelling of something else's.
 
 **The registry is its own layer, in `registry/`, ready to extract.** It holds one directory per
 `DeclaredKind` under CC-BY-4.0, plus a `registry.yml` manifest
@@ -470,8 +430,9 @@ reach it and have the tests say nothing.
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
 
 **Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
-2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING`, `CODE_OF_CONDUCT`,
-`SECURITY` and `CHANGELOG` are in place, CI runs on every pull request, and the nightly
+2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING` (a root stub pointing at
+`docs/guides/contributing.md`, because GitHub reads the root path), `SECURITY` and `CHANGELOG`
+are in place, CI runs on every pull request, and the nightly
 workflow runs the stub gate.
 
 The org is the **umbrella**, not one of the products — `comeni-labs`, `comeni-code` and
@@ -484,7 +445,7 @@ Bare `comeni` is unavailable everywhere that matters — the GitHub user, and `c
 positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
 
 **Because it is public now**, two things follow. Write for a stranger: `docs/` is split by
-audience — `guides/`, `reference/`, `concepts/`, `design/` — and `docs/internal/` holds the
+audience — `guides/`, `reference/`, `concepts/`, `design/` — and `notes/` holds the
 plans and audits, labelled as working notes rather than documentation. And **auto-phylo is
 not discussed**: it was removed from the prior-art section on 2026-08-04 by the operator's
 decision. `pegi3s` appears only as what is useful about it — a repository of ~190
@@ -500,7 +461,7 @@ conversation is a loose end lost.
 | ~~1~~ | routing ties should ask a human; scoring should vary by purpose | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~2~~ | `sealed` must block tier-3 decisions on asserted measurements | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~3~~ | generated `.d.ts` and a `/measurements` endpoint | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
-| ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/profile.py` |
+| ~~4~~ | ~~`DataProfile` belongs in `comeni-core`~~ | **done** — it lives in `comeni_core/goal/profile.py` |
 | ~~7~~ | goal extraction: what crosses door 1, per protection profile | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~8~~ | ~~the emitted spine is not runnable~~ | **done** — Plan 1.5 |
 | ~~10~~ | ~~answering a tier-4 parameter clears the flag without changing the pipeline~~ | **done** — Plan 1.10. `via:` carries the value to the tool, and an override keeps its tier while leaving `needs_review()` |
@@ -509,21 +470,24 @@ conversation is a loose end lost.
 | ~~18~~ | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~38~~ | the measurement vocabulary has no author, and it gates every tier-3 rule | **the floor is closed, the drafter is not (2026-08-15).** Twelve measurements where there were six, derived from the twenty corpus rules, each cited and each declaring whether a tool can produce it (`assertion_only`, `MD0315`). **Five of the original six turned out to be assertion-only, including `strandedness`.** What remains open is the *drafter*: nothing writes a measurement, and the issue's sharpest point is that the drafting question and the measuring question are the same one — a contract has `meta.yml` as ground truth and a measurement has no equivalent. That is Plan 2's forge |
 | ~~39~~ | the tier-3 rule format cannot express the rules the forge will need | **closed 2026-08-15.** Plan 1.15 narrowed it to arithmetic; a `derives:` **`transform`** closes that — a chain of *named unary operations with a literal operand*, left to right. No parser, no precedence, and no way to name a second fact, which is what §13.2 asked for: arithmetic without a solver. **Nineteen of the twenty-one corpus rules load**; R02b is the contortion, newly caught by `MD0311`, and R20 is refused by design |
+| 48 | a tier-4 setting's `why.reason` stays stale after a human answers it; `MD0223` is blind to `for_value: null` | nothing — found by issue #41, filed rather than folded in |
+| ~~41~~ | code and documentation organisation | **closed 2026-08-16.** Eleven tasks, three emitted digests unmoved. `comeni_core` is five subpackages by lifecycle stage, the working notes left `docs/` for `notes/`, and `make links` checks every relative link in `docs/` and the root |
 | ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 
 ## Commands
 
 `make help` lists them. `make check` is exactly what CI runs on a pull request.
 
-**`make check` is not verification of a change to `resolve.py`, `router.py`, `rules.py`,
-`mendel_compiler/cli.py`, `mendel_compiler/emit.py` or `comeni_core/pipeline.py`.** It
+**`make check` is not verification of a change to `resolve.py`, `router.py`, `rules/`,
+`mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artifact/pipeline.py`.** It
 deselects `tests/test_counts.py` — the three tests that run `--gate test` on the nf-core
 dataset and assert the counts matrix is right, that featureCounts got the strandedness that
 was measured, and that a resolved setting reached the tool. That is the only check exercising
 the v1 criterion. Touch any of those six files and run **`make verify`**, which is `check` +
 those three + the guards + registry drift, and takes about two minutes.
 
-`emit.py` and `pipeline.py` joined the list in Plan 1.10. Rewriting `emit()`'s signature and
+`emit.py` and `pipeline.py` joined the list in Plan 1.10, and three of the six became
+directories in issue #41 — the rule holds for anything under them. Rewriting `emit()`'s signature and
 its `ext.args` composition is precisely the kind of change `make check` waves through: nothing
 outside `test_counts.py` runs a tool, so a flag that stops reaching one is invisible to every
 other test in the repository.
@@ -544,7 +508,7 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
 # why anything was refused, at length. MD0100–MD0108 conformance, MD0200–MD0222 the
-# pipeline file — the generated table is the count. The table in docs/reference/cli.md is generated
+# pipeline file — the generated page is the count. docs/reference/diagnostics.md is generated
 # from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
 uv run mendel explain MD0104
 
@@ -663,7 +627,7 @@ already been wrong once, when it named a gate that could not pass.
 - **A `.pyi` replaces its module rather than adding to it.** A stub covering half a module
   makes the other half invisible to every type checker — a correctness cost, not an
   autocomplete one. `tools/generate_types.py` emits the whole public surface of
-  `comeni_core.profile`, and a test asserts it stays complete and parses.
+  `comeni_core.goal.profile`, and a test asserts it stays complete and parses.
 - **A producer pin binds only where the pinned contract is a candidate.** featureCounts asks
   for `alignment.bam[coordinate_sorted]`, whose only producer is the sorter; the aligner rule
   applies one level down, on the sorter's own BAM input. Treating a pin as binding everywhere

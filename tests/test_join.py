@@ -14,8 +14,8 @@ import pathlib
 import subprocess
 
 import pytest
-from comeni_core.pipeline import CallArg, Pipeline
-from comeni_core.routes import Join
+from comeni_core.artifact.pipeline import CallArg, Pipeline
+from comeni_core.spell.routes import Join
 from mendel_compiler.emit import _argument
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput

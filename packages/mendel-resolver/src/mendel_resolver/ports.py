@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from comeni_core.decision import Ambiguity, Resolution
+from comeni_core.plan.decision import Ambiguity, Resolution
 
 
 class NoCandidatesError(ValueError):

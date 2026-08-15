@@ -13,7 +13,7 @@ import pathlib
 import shutil
 
 import pytest
-from comeni_core.roles import UnknownRoleError
+from comeni_core.declared.roles import UnknownRoleError
 from mendel_resolver import layers
 
 ROOT = pathlib.Path(__file__).parents[3]

@@ -10,7 +10,7 @@ import pathlib
 
 import pytest
 import yaml
-from comeni_core.layered import DeclaredKind, Displacement, Kind, Layer, Policy, stack
+from comeni_core.declared.layered import DeclaredKind, Displacement, Kind, Layer, Policy, stack
 
 
 def _write(root, layer, subdir, name, data):

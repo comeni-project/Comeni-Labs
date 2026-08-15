@@ -22,8 +22,8 @@ import hashlib
 import pathlib
 import sys
 
-from comeni_core.layer import LayerManifest
-from comeni_core.layered import DeclaredKind
+from comeni_core.declared.layer import LayerManifest
+from comeni_core.declared.layered import DeclaredKind
 
 # Only the declared kinds. A README or a licence differing between the two is expected —
 # they are different repositories with different audiences — and failing on those would

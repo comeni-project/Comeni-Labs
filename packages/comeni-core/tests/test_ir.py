@@ -1,4 +1,4 @@
-from comeni_core.ir import (
+from comeni_core.plan.ir import (
     IREdge,
     IRNode,
     PipelineIR,
@@ -67,7 +67,7 @@ def test_a_goal_supplied_value_records_its_source():
     structural — but the IR has to show Mendel did not derive it. Same distinction as
     measured-versus-asserted in the profiling spec.
     """
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.tiers import ValueSource
 
     derived = ResolvedValue(value=2, tier=Tier.DATA_PROFILED, reason="rule")
     pinned = ResolvedValue(

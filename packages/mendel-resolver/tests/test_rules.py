@@ -1,7 +1,7 @@
 import pytest
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal
 from mendel_resolver.premises import Premise, PremiseOrigin
 from mendel_resolver.rules import RuleTable, RuleValidationError

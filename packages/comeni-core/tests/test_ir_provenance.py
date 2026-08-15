@@ -7,7 +7,7 @@ becoming true.
 
 import pathlib
 
-from comeni_core.ir import PipelineIR
+from comeni_core.plan.ir import PipelineIR
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve

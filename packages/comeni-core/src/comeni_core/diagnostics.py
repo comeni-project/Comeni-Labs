@@ -1,8 +1,9 @@
 """The diagnostic registry, loaded from data.
 
 One source, two consumers. `Diagnostic` validates its `code` against this, so an undeclared
-code cannot be constructed; and `tools/generate_diagnostics_doc.py` renders the table in
-`docs/reference/cli.md` from it, so the public document cannot drift from the codes it lists.
+code cannot be constructed; and `tools/generate_diagnostics_doc.py` renders
+`docs/reference/diagnostics.md` from it, so the public page cannot drift from the codes it
+lists.
 
 Both of those were previously conventions. `EXPLANATIONS` was a Python dict beside a
 hand-maintained markdown table, and a code could exist in either one alone. The test that would
@@ -22,7 +23,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core import yaml_strict
-from comeni_core.marks import Line, Text
+from comeni_core.spell.marks import Line, Text
 
 _REGISTRY_FILE = Path(__file__).with_name("diagnostics.yml")
 

@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.vocabulary import UnknownStateError, Vocabulary
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 
 
 def test_every_declared_measurement_becomes_a_type(tmp_path):

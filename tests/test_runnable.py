@@ -11,8 +11,8 @@ checks arity, and an empty placeholder has the same arity as a real channel.
 import pathlib
 
 import pytest
-from comeni_core.contract import NfInput
-from comeni_core.tiers import ValueSource
+from comeni_core.declared.contract import NfInput
+from comeni_core.plan.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -278,8 +278,8 @@ def _pipe(ir, loaded):
     `goal` is keyword-only and required since Task 6. An empty one is honest here: these
     fixtures start from an IR and never had a goal to record.
     """
-    from comeni_core.goal import Goal
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
 
@@ -323,7 +323,7 @@ def test_a_measured_fact_carries_where_it_came_from(spine_with_profile, loaded):
     way to a matrix of zeroes. It reached the tool with **no `why` of any kind**, while the
     measurement's own declared `cite` stopped at the registry. `MetaEntry` was key + value.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     pipeline = Pipeline.of(
         spine_with_profile,
@@ -349,7 +349,7 @@ def test_an_asserted_fact_and_a_measured_one_are_distinguishable(loaded):
     This does **not** close A108 — the tier-3 *decision* still carries no premise. It makes
     the premise recordable, which is the part that has to exist first.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     asserted = _profiled_goal(loaded)
     ir = resolve(
@@ -413,7 +413,7 @@ def test_ext_args_carries_a_reason(spine, loaded):
     tier-1 fact still has a reason, and `NfInput.empty` already proves it by carrying a
     tier-1 `Why` for a structurally identical thing.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     pipeline = Pipeline.of(
         spine, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths,
@@ -437,7 +437,7 @@ def test_the_ext_args_premise_survives_the_module_it_names(loaded):
     true when the graph moves and states its own limit: a laboratory supplying uncompressed
     trimmed reads gets a wrong flag, and nothing here will catch that.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     goal = _goal_with_trimmed_reads(loaded)
     ir = resolve(

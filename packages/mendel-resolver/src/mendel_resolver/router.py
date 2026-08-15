@@ -16,13 +16,13 @@ Every selection carries a tier, which is what `RouteStep.selection_tier` is for:
 
 from collections.abc import Callable
 
-from comeni_core.contract import InputPort, ModuleContract
-from comeni_core.decision import DecisionRecord, ProducerAsked, ProducerDecision
-from comeni_core.ir import Tier
-from comeni_core.marks import ParamValue
-from comeni_core.premise import PremiseRecord
-from comeni_core.registry import Registry
-from comeni_core.tiers import ValueSource
+from comeni_core.declared.contract import InputPort, ModuleContract
+from comeni_core.declared.registry import Registry
+from comeni_core.goal.premise import PremiseRecord
+from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
+from comeni_core.plan.ir import Tier
+from comeni_core.plan.tiers import ValueSource
+from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, Field
 
 from mendel_resolver.goal import Goal

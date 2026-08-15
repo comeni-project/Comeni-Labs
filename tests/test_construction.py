@@ -26,9 +26,9 @@ from test_purity import (  # noqa: E402  — the one alias resolver and one pack
 
 ALLOWED = {
     # the one validated constructor
-    "packages/comeni-core/src/comeni_core/measurement.py",
+    "packages/comeni-core/src/comeni_core/declared/measurement.py",
     # the model's own module, where the class is defined
-    "packages/comeni-core/src/comeni_core/profile.py",
+    "packages/comeni-core/src/comeni_core/goal/profile.py",
 }
 
 BYPASSES = ("model_construct", "model_validate", "model_validate_json")
@@ -153,8 +153,18 @@ def test_data_profile_is_constructed_in_one_place():
 
 
 PIPELINE_ALLOWED = {
-    # the one validated constructor, and the module the class is defined in
-    "packages/comeni-core/src/comeni_core/pipeline.py",
+    # the module the class is defined in
+    "packages/comeni-core/src/comeni_core/artifact/pipeline.py",
+    # **and the body of the one validated constructor.** `Pipeline.of` delegates to
+    # `materialise.of`, so the `Pipeline(...)` call moved out of the class's own file when
+    # issue #41 split it — the guard caught that within the hour, which is the guard working
+    # rather than an argument for exempting the file loosely.
+    #
+    # Exempting the *file* rather than a spelling, deliberately and unlike `PIPELINE_READERS`
+    # below: this is not a reader that happens to need one constructor, it **is** the
+    # materialisation. `Pipeline.of` remains the only entry point and
+    # `test_the_only_caller_of_materialise_of_is_pipeline_of` is what keeps that true.
+    "packages/comeni-core/src/comeni_core/artifact/materialise.py",
 }
 
 PIPELINE_READERS = {
@@ -208,14 +218,17 @@ def test_an_assignment_alias_is_resolved(tmp_path):
     `pipeline_file.py`, with the guard green — a `Pipeline` built with no validation at all,
     which is the one thing `Pipeline.of` exists to prevent.
     """
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_P = Pipeline\n")
+    tree = ast.parse("from comeni_core.artifact.pipeline import Pipeline\n_P = Pipeline\n")
     assert "_P" in _aliases_of(tree, "Pipeline")
 
 
 def test_a_subclass_is_resolved(tmp_path):
     """The other spelling. A subclass is the class for construction purposes, and
     `class _P(Pipeline)` binds a name the import-only resolver never saw."""
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\nclass _P(Pipeline):\n    pass\n")
+    tree = ast.parse(
+        "from comeni_core.artifact.pipeline import Pipeline\n"
+        "class _P(Pipeline):\n    pass\n"
+    )
     assert "_P" in _aliases_of(tree, "Pipeline")
 
 
@@ -223,7 +236,7 @@ def test_an_alias_chain_is_resolved(tmp_path):
     """`_A = Pipeline` then `_B = _A`. One pass over the tree resolves the first and not the
     second, and a guard that stops after one hop is a guard with a two-line bypass."""
     tree = ast.parse(
-        "from comeni_core.pipeline import Pipeline\n_A = Pipeline\n_B = _A\n_C = _B\n"
+        "from comeni_core.artifact.pipeline import Pipeline\n_A = Pipeline\n_B = _A\n_C = _B\n"
     )
     assert {"_A", "_B", "_C"} <= _aliases_of(tree, "Pipeline")
 
@@ -231,7 +244,7 @@ def test_an_alias_chain_is_resolved(tmp_path):
 def test_an_unrelated_assignment_is_not_an_alias():
     """The negative. A guard that treats every assignment as an alias refuses code that
     never touched the class, and a refusal nobody can argue with is worse than a gap."""
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_other = SomethingElse\n")
+    tree = ast.parse("from comeni_core.artifact.pipeline import Pipeline\n_other = SomethingElse\n")
     assert _aliases_of(tree, "Pipeline") == {"Pipeline"}
 
 
@@ -243,3 +256,67 @@ def test_model_copy_is_not_in_bypasses_and_the_reason_is_written_down():
     entry reads to the next person as a case somebody covered.
     """
     assert "model_copy" not in BYPASSES
+
+
+def test_the_only_caller_of_materialise_of_is_pipeline_of():
+    """`materialise.py` is exempt as a *file*, so something has to hold its entry point.
+
+    Issue #41 split `Pipeline.of`'s body into `materialise.of`, which means the `Pipeline(...)`
+    call now lives outside the class's own module and the file is exempted wholesale. That is
+    the right exemption — it is the materialisation, not a reader that needs one constructor —
+    but it moves the question rather than answering it: what stops a second caller reaching
+    `materialise.of` and skipping `Pipeline.of` entirely?
+
+    This does. `Pipeline.of` is what `tests/test_construction.py`'s other guard names and what
+    `docs/reference/pipeline-schema.md` tells a reader to use; a second door to the same room
+    is a door nobody documented.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    callers = []
+    for package in _GUARDED:
+        for py in sorted((root / "packages" / package / "src").rglob("*.py")):
+            if py.name in ("materialise.py", "pipeline.py"):
+                continue
+            imported = {
+                alias.name
+                for node in ast.walk(ast.parse(py.read_text()))
+                if isinstance(node, ast.ImportFrom)
+                for alias in node.names
+            } | {
+                alias.name
+                for node in ast.walk(ast.parse(py.read_text()))
+                if isinstance(node, ast.Import)
+                for alias in node.names
+            }
+            # The *import*, not the word. A first version searched the file text and named
+            # three files that merely mention materialisation in a docstring — a guard whose
+            # output is mostly prose is a guard people stop reading.
+            if any(name.endswith("materialise") for name in imported):
+                callers.append(str(py.relative_to(root)))
+    assert callers == [], (
+        "these reach `materialise` directly, bypassing `Pipeline.of` — the only entry point "
+        "the guard above names and the only one the documentation describes:\n  "
+        + "\n  ".join(callers)
+    )
+
+
+def test_every_exempted_path_names_a_file_that_exists():
+    """A67's shape, in the file that *exempts* spellings rather than the one that scans them.
+
+    `ALLOWED`, `PIPELINE_ALLOWED` and `PIPELINE_READERS` all key on a repository-relative path.
+    A key that matches no file exempts nothing — and the failure is silent in the direction
+    nobody investigates: the scan finds fewer things to check and the gate goes green *faster*.
+    The reviewer who found A67 mistyped two package keys and got `1 passed` in 0.04s.
+
+    Issue #41 moved every module in `comeni-core`, which is the day it would have happened.
+    It did happen, in the *other* direction — the exemption for
+    `MeasurementRegistry.profile()` stopped matching and the guard fired on the code it exists
+    to permit, which is the outcome somebody notices. This is what covers the other one.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    keyed = sorted(ALLOWED | PIPELINE_ALLOWED | set(PIPELINE_READERS))
+    missing = [key for key in keyed if not (root / key).exists()]
+    assert missing == [], (
+        "these exempted paths name files that do not exist, so they exempt nothing:\n  "
+        + "\n  ".join(missing)
+    )

@@ -112,88 +112,13 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 `mendel explain MD0101` for the long form.
 ```
 
-<!-- BEGIN GENERATED DIAGNOSTICS -->
+**Every code, with what it says and whether it refuses, is in
+[`diagnostics.md`](diagnostics.md)** — the bands, the prefix, and what `MD0100` means. For any
+one of them:
 
-#### A contract disagrees with its module
-
-| Code | Says |
-|---|---|
-| `MD0100` | no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified` |
-| `MD0101` | `nf_process` is not the process the module declares |
-| `MD0102` | `nf_inputs` declares a different number of channels than the process takes |
-| `MD0103` | an `{empty: N}` placeholder is the wrong tuple width |
-| `MD0104` | a placeholder sits where the module declares `path(...)`, with no `because` |
-| `MD0105` | a `produces[].name` is not one of the module's `emit:` labels |
-| `MD0106` | a `meta` key the module reads that nothing declares, or a declared `meta_key` no module reads |
-| `MD0107` | `container` has drifted from the module's directive |
-| `MD0108` | a setting routes to an `ext` key this module never reads |
-
-#### The pipeline file — a setting, an override, or the format
-
-| Code | Says |
-|---|---|
-| `MD0200` | a setting declares no `via:`, so nothing would carry its value |
-| `MD0201` | a resolved value is outside the substitutable character class |
-| `MD0202` | a replayed value is frozen against a contract that has since been edited |
-| `MD0203` | an override answers a question this re-resolution never asks |
-| `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
-| `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
-| `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
-| `MD0207` | `version:` is newer than this Mendel understands |
-| `MD0208` | two writers for one destination — a non-composing `ext` key, or a meta key a measurement already writes |
-| `MD0209` | `via: directive` names something Nextflow silently ignores |
-| `MD0210` | `modules/` is absent, so the emitted `include` paths would point at nothing |
-| `MD0211` | `channels[].params` disagrees with what its `expression` references |
-| `MD0212` | two steps share an `id`, or two settings on one step share a `name` |
-| `MD0213` | `pipeline.yml` has changed since the Nextflow was generated from it |
-| `MD0214` | `main.nf` or `nextflow.config` was edited by hand since it was generated |
-| `MD0215` | an input names neither `source` nor `channel`, or names both |
-| `MD0216` | a resolved binding names a parameter its contract does not declare |
-| `MD0217` | a test_data reference contains a character that would inject into the generated config |
-| `MD0218` | a tier-4 answer is written in two places that disagree |
-| `MD0219` | two decision records share one key |
-| `MD0220` | a setting claims source: human with no override recording the answer |
-| `MD0221` | an untemplated `via: ext` value is outside the substitutable class |
-| `MD0222` | this pipeline records no `emitted:` block, so its directory cannot be certified |
-| `MD0223` | a value was edited and the reason beside it still describes the value it replaced |
-| `MD0224` | a setting fills a positional argument and is unanswered, so the call would read `null` |
-
-#### Routing and resolution
-
-| Code | Says |
-|---|---|
-| `MD0300` | a rule's `then` reads as arithmetic, and `then` is emitted verbatim |
-| `MD0301` | a rule row justifies nothing — no `because` and no `cite`, on the row or the block |
-| `MD0302` | a contract declares a role no layer in the stack declares |
-| `MD0303` | a measurement is declared named `required_states`, which is the goal's own shape |
-| `MD0304` | a derivation has no rows, so it can never fire |
-| `MD0305` | a `when` clause uses a mapping predicate nothing implements |
-| `MD0306` | a decision names a role nothing fills, or a row names a contract that does not fill it |
-| `MD0307` | a decision's effect and its `name` disagree, or a presence row is not present/absent |
-| `MD0308` | a param decision sets a value some filler of the role does not declare |
-| `MD0309` | two decisions in one file decide the same key |
-| `MD0310` | a `when` clause names a premise nothing supplies, or compares one that cannot be ordered |
-| `MD0311` | a decision's rows do not cover the domain of the premise they test |
-| `MD0312` | a scalar comparison is applied to a per-sample measurement |
-| `MD0313` | a row exits at tier 2 and cites nothing |
-| `MD0314` | a `transform` chain is applied to a per-sample measurement |
-| `MD0315` | a measurement's `assertion_only` and its reason disagree |
-
-<!-- END GENERATED DIAGNOSTICS -->
-
-Codes carry a two-letter prefix naming the subsystem that emits them. **`MD` is Mendel's
-deterministic core** — the resolver, the compiler, contracts and the pipeline file. Bands of one
-hundred group by concern: `MD01xx` is conformance. A code is never renumbered once published, so a
-full band overflows into a new one rather than shifting.
-
-**The prefix arrived on 2026-08-09**; these eight were `M0100`–`M0107` before that. Working notes
-under `docs/internal/` are append-only and were correct on their date, so entries written earlier
-still use the old spelling.
-
-`MD0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module
-directory, which is legitimate — the contract is listed under `registry.unverified` in
-`pipeline.yml`, so a shared pipeline carries which claims went unchecked and a curator may
-decline to curate one.
+```bash
+uv run mendel explain MD0101
+```
 
 ## `mendel emit`
 

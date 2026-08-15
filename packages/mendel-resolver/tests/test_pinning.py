@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.ir import Tier
-from comeni_core.measurement import MeasurementRegistry
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.plan.ir import Tier
 from mendel_resolver.router import UnroutablePinError
 
 
@@ -68,8 +68,8 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     """Invariant 8 for module choice, now visible as a tier on the node itself."""
     import pathlib
 
-    from comeni_core.registry import Registry
-    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.declared.registry import Registry
+    from comeni_core.declared.vocabulary import Vocabulary
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.resolve import resolve
     from mendel_resolver.rules import RuleTable

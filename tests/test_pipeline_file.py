@@ -12,9 +12,9 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
-from comeni_core.routes import ExtKey, Via
-from comeni_core.tiers import PremiseOrigin, Tier, ValueSource
+from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
+from comeni_core.plan.tiers import PremiseOrigin, Tier, ValueSource
+from comeni_core.spell.routes import ExtKey, Via
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 from pydantic import ValidationError
@@ -39,7 +39,7 @@ def _load(out) -> Pipeline:
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
 
 
-ARCHIVED = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1" / "pipeline.yml"
+ARCHIVED = ROOT / "notes" / "audits" / "fixtures" / "pipeline-v1" / "pipeline.yml"
 """A pipeline written before Plan 1.13, committed rather than built.
 
 A fixture produced by the code under test cannot demonstrate anything about reading what a
@@ -626,10 +626,12 @@ def test_emit_preserves_the_gate_verdict(tmp_path, capsys, monkeypatch):
     `publish` stamps the verdict and the digests together, so the file is not stale; a no-op
     `emit` afterwards must carry it through. The gate itself is stubbed so this runs in CI's
     Nextflow-free lane — the property under test is the verdict round trip, not `nextflow lint`."""
-    from mendel_compiler import cli
+    from mendel_compiler.cli import artifact_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
+    monkeypatch.setattr(
+        artifact_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
+    )
     out = _build(tmp_path)
     assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(ROOT)]) == 0
     assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
@@ -773,9 +775,8 @@ RELEASED_SCHEMA_VERSION = 1
 
 def test_a_schema_change_bumps_the_version():
     """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
-    from comeni_core.decision import ParamDecision
-    from comeni_core.egress import Emitted
-    from comeni_core.pipeline import (
+    from comeni_core.artifact.egress import Emitted
+    from comeni_core.artifact.pipeline import (
         SCHEMA_VERSION,
         CallArg,
         ExtArgs,
@@ -783,6 +784,7 @@ def test_a_schema_change_bumps_the_version():
         Pipeline,
         Step,
     )
+    from comeni_core.plan.decision import ParamDecision
 
     actual = {
         "Pipeline": list(Pipeline.model_fields),
@@ -997,7 +999,7 @@ def test_every_pipeline_model_blames_the_pipeline_file():
     """The set is derived-checked, not trusted. A model added to the artifact tomorrow gets
     the right blame or this fails — which is what makes it not a third special case."""
     from _walk import reachable
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
     from mendel_compiler.cli import _PIPELINE_MODELS, _blame
 
     unlisted = sorted(

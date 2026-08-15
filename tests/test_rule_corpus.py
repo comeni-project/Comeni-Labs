@@ -2,7 +2,7 @@
 
 Stream 4 of the 2026-08-14 design audit took twenty real tier-3 rules from the literature and
 tried to write each one. The result was **6 clean · 4 load and are wrong · 1 contortion · 9
-cannot be written**, and `docs/internal/audits/fixtures/rule-attempts/` records it. That
+cannot be written**, and `notes/audits/fixtures/rule-attempts/` records it. That
 directory says its own value is being *evidence, not tests*, and that a future task repairing
 the format would turn them into tests. This is that task — and the originals stay frozen,
 because a corpus rewritten in the new format cannot also be the record of what the old one
@@ -138,7 +138,7 @@ def test_every_attempt_has_a_rewrite_and_an_expectation():
     assert written == set(EXPECTED)
     attempts = {
         path.name.split("-")[0]
-        for path in (ROOT / "docs/internal/audits/fixtures/rule-attempts").glob("R*.yml")
+        for path in (ROOT / "notes/audits/fixtures/rule-attempts").glob("R*.yml")
     }
     assert attempts == written, "every recorded attempt has a rewrite, and no rewrite is orphaned"
 

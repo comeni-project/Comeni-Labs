@@ -1,5 +1,5 @@
 import pytest
-from comeni_core.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
+from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
 
 
 def _layer(root, **files):

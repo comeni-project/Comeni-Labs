@@ -9,17 +9,7 @@ It keeps the platform name rather than the product name because its IR is the in
 the execution layer will consume.
 """
 
-from comeni_core.contract import (
-    Alternative,
-    InputPort,
-    ModuleContract,
-    NfInput,
-    OutputPort,
-    Param,
-    Provenance,
-)
-from comeni_core.decision import Ambiguity, DecisionRecord, Resolution
-from comeni_core.egress import (
+from comeni_core.artifact.egress import (
     DOORS,
     AmbiguityRequest,
     EgressPayload,
@@ -28,21 +18,31 @@ from comeni_core.egress import (
     PromptRequest,
     RepairRequest,
 )
-from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
-from comeni_core.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
-from comeni_core.layered import DeclaredKind, Displacement, Layer
-from comeni_core.marks import Mark, ParamValue
-from comeni_core.measurement import (
+from comeni_core.declared.contract import (
+    Alternative,
+    InputPort,
+    ModuleContract,
+    NfInput,
+    OutputPort,
+    Param,
+    Provenance,
+)
+from comeni_core.declared.layered import DeclaredKind, Displacement, Layer
+from comeni_core.declared.measurement import (
     BadMeasurementValueError,
     Measurement,
     MeasurementKind,
     MeasurementRegistry,
     UnknownMeasurementError,
 )
-from comeni_core.profile import DataProfile, Measured
-from comeni_core.registry import Registry, module_key
-from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
-from comeni_core.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
+from comeni_core.declared.registry import Registry, module_key
+from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError, Vocabulary
+from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
+from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.plan.decision import Ambiguity, DecisionRecord, Resolution
+from comeni_core.plan.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
+from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
+from comeni_core.spell.marks import Mark, ParamValue
 
 __version__ = "0.1.0"
 

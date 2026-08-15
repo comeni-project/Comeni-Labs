@@ -28,9 +28,27 @@ document is the *how*; that one is the *why it may not change*.
 | load | layer directories | `Layers` | `mendel_resolver/layers.py` |
 | route | `Goal`, `Registry`, `RuleTable` | `RoutePlan` | `mendel_resolver/router.py` |
 | resolve | `RoutePlan` | `PipelineIR` | `mendel_resolver/resolve.py` |
-| materialise | `PipelineIR`, `Registry`, `Vocabulary`, measurements | `Pipeline` | `comeni_core/pipeline.py` |
+| materialise | `PipelineIR`, `Registry`, `Vocabulary`, measurements | `Pipeline` | `comeni_core/artifact/pipeline.py` |
 | emit | `Pipeline` | `str` | `mendel_compiler/emit.py` |
 | gate | a pipeline directory | `GateResult` | `mendel_compiler/gates.py` |
+
+**The stages and the packages are the same five things.** `comeni-core` is grouped by
+lifecycle stage rather than by type kind, so a reader who has followed the table above already
+knows which directory to open:
+
+| | holds |
+|---|---|
+| `comeni_core/declared/` | what a registry layer holds — contracts, measurements, vocabularies, roles, and the stacking every kind shares |
+| `comeni_core/goal/` | what was asked for, and what the data measurably looks like |
+| `comeni_core/plan/` | what was decided — the IR, each ambiguity's record, the tier ladder |
+| `comeni_core/artifact/` | what is shipped — `pipeline.yml`, its digests, and the doors it crosses |
+| `comeni_core/spell/` | how a value is written down — marked strings, routes, directives |
+
+`yaml_strict.py` and `diagnostics.py` sit above those five because every one of them uses both.
+
+`tests/test_architecture.py` asserts every path this document names exists — prose that names
+a path is prose that goes stale, which is what `CLAUDE.md`'s two stale counts were (A71, A72)
+and what `registry.yml:kinds` was until Plan 1.15.
 
 **Materialisation is why `emit` takes one argument.** Everything the emitter used to look up —
 process names, include paths, entry-channel expressions, the measured facts that ride in `meta`

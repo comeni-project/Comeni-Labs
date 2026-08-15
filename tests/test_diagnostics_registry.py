@@ -1,7 +1,7 @@
 """The code registry is data, and a code that is not declared cannot be emitted.
 
 Invariant 7's shape applied to diagnostics: a closed vocabulary. `EXPLANATIONS` was a Python
-dict beside a hand-maintained table in `docs/reference/cli.md`, and the two could disagree with
+dict beside a hand-maintained table in `docs/reference/`, and the two could disagree with
 nothing to notice — a code in one and not the other, or a `says` that drifted from the long form
 it summarises.
 

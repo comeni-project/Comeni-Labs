@@ -13,7 +13,7 @@ root: `stack()` reads `layer.path / kind.which.value`, a directory.
 import pathlib
 
 import pytest
-from comeni_core.roles import RoleVocabulary, UnknownRoleError
+from comeni_core.declared.roles import RoleVocabulary, UnknownRoleError
 from pydantic import ValidationError
 
 ROOT = pathlib.Path(__file__).parents[3]
@@ -62,7 +62,7 @@ def test_a_contract_may_fill_no_role_and_still_load(tmp_path):
 def test_a_role_name_is_snake_case_on_a_contract():
     """The validator `RoleName` carries. Watched failing 2026-08-15: removing the
     `AfterValidator` broke nothing, so this is the test that makes it mean something."""
-    from comeni_core.contract import ModuleContract
+    from comeni_core.declared.contract import ModuleContract
 
     for bad in ("Alignment", "ribo-depletion", "2pass", "_hidden", "trailing_"):
         with pytest.raises(ValidationError, match="is not a role name"):

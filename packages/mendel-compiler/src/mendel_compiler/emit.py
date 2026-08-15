@@ -3,9 +3,9 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.marks import substitutable
-from comeni_core.pipeline import Pipeline, Step
-from comeni_core.routes import Join, Via
+from comeni_core.artifact.pipeline import Pipeline, Step
+from comeni_core.spell.marks import substitutable
+from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 _TEMPLATES = Path(__file__).parent / "templates"

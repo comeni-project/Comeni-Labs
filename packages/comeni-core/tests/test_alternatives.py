@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.contract import Alternative, InputPort
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.contract import Alternative, InputPort
+from comeni_core.declared.vocabulary import Vocabulary
 
 
 def _v(root):
@@ -53,7 +53,7 @@ def test_alternatives_are_validated_against_the_vocabulary(tmp_path):
 def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
     """`check_against` used to read `port.type_id`, which an `accepts` port does not have."""
     import yaml
-    from comeni_core.contract import ModuleContract
+    from comeni_core.declared.contract import ModuleContract
 
     (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
     (_v(tmp_path) / "alignment.cram.yml").write_text("states: []\n")

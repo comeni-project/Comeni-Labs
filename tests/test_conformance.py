@@ -7,7 +7,7 @@ work. Every test here breaks one thing and asserts one code.
 import pathlib
 
 import pytest
-from comeni_core.registry import Registry
+from comeni_core.declared.registry import Registry
 from mendel_compiler.conformance import check
 from mendel_resolver import layers
 
@@ -43,7 +43,7 @@ def test_M0101_a_process_name_that_does_not_exist(registry):
 
 
 def test_M0102_wrong_number_of_channels(registry):
-    from comeni_core.contract import NfInput
+    from comeni_core.declared.contract import NfInput
 
     doctored = _doctored(
         registry, "nf-core/star/align@1.11.0", nf_inputs=[NfInput(ports=["reads"])]
@@ -52,7 +52,7 @@ def test_M0102_wrong_number_of_channels(registry):
 
 
 def test_M0103_an_empty_placeholder_of_the_wrong_width(registry):
-    from comeni_core.contract import NfInput
+    from comeni_core.declared.contract import NfInput
 
     sort = registry.get("nf-core/samtools/sort@1.21.0")
     wrong = [
@@ -67,7 +67,7 @@ def test_M0103_an_empty_placeholder_of_the_wrong_width(registry):
 
 
 def test_M0105_an_output_the_module_does_not_emit(registry):
-    from comeni_core.contract import OutputPort
+    from comeni_core.declared.contract import OutputPort
 
     doctored = _doctored(
         registry,
@@ -112,7 +112,7 @@ def test_every_diagnostic_says_what_to_write_instead(registry):
 def test_M0104_a_placeholder_where_the_module_wants_a_file(registry):
     """The missing genome. STAR_GENOMEGENERATE slot 0 is path(fasta), and for weeks the
     contract supplied an empty tuple — through a green suite and a passing stub gate."""
-    from comeni_core.contract import NfInput
+    from comeni_core.declared.contract import NfInput
 
     doctored = _doctored(
         registry,
@@ -131,7 +131,7 @@ def test_M0104_names_the_file_element_not_the_meta_map(registry):
     """`tuple val(meta), path(fasta)` documents both `meta` and `fasta` in meta.yml, and
     `meta` comes first. Reporting "path(meta)" with the Groovy-map description would send
     the reader looking for a sample map where a genome is missing."""
-    from comeni_core.contract import NfInput
+    from comeni_core.declared.contract import NfInput
 
     doctored = _doctored(
         registry,
@@ -153,7 +153,7 @@ def test_M0104_is_satisfied_by_saying_why(registry):
 def test_M0106_a_meta_key_the_module_reads_that_nothing_sets(registry, tmp_path):
     """The -s 0 defect, made unrepresentable. featurecounts reads meta.strandedness; if no
     declared measurement carries it, the module silently uses its default."""
-    from comeni_core.measurement import MeasurementRegistry
+    from comeni_core.declared.measurement import MeasurementRegistry
 
     measured = tmp_path / "measurements"
     measured.mkdir()
@@ -173,7 +173,7 @@ def test_M0106_is_satisfied_by_the_shipped_measurements(registry):
 
 def test_M0106_the_other_direction_a_meta_key_nobody_reads(registry, tmp_path):
     """A declaration with no effect. Dead code, in data."""
-    from comeni_core.measurement import MeasurementRegistry
+    from comeni_core.declared.measurement import MeasurementRegistry
 
     measured = tmp_path / "measurements"
     measured.mkdir()

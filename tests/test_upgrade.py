@@ -514,7 +514,7 @@ def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
     assert code == 2, "a relative --out onto the source is still in-place"
 
 
-V1_FIXTURE = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1"
+V1_FIXTURE = ROOT / "notes" / "audits" / "fixtures" / "pipeline-v1"
 
 
 def _archived(tmp_path):
@@ -628,7 +628,7 @@ def test_a_v1_file_says_its_provenance_was_never_recorded(tmp_path):
     the honest answer is *"this was never recorded"* rather than an invented citation or a
     parse failure. Task 2.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     pipeline = Pipeline.model_validate(yaml.safe_load(_archived(tmp_path).read_text()))
     reasons = {entry.why.reason for channel in pipeline.channels for entry in channel.meta}

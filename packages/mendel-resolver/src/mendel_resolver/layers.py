@@ -22,11 +22,11 @@ nothing above it depends on a role.
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.layered import DeclaredKind, Displacement, Layer, layers_of, stack
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.roles import RoleVocabulary
-from comeni_core.vocabulary import UnknownStateError, Vocabulary
+from comeni_core.declared.layered import DeclaredKind, Displacement, Layer, layers_of, stack
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.roles import RoleVocabulary
+from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules import RuleTable

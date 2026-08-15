@@ -79,7 +79,7 @@ def test_the_attribution_rule_recognises_a_pure_package_frame():
     """The hook is only as good as this. Asserted directly so it cannot quietly become
     a function that never matches anything — which is how a guard passes while inert."""
     assert PURE and all(p.is_dir() for p in PURE)
-    core = ROOT / "packages" / "comeni-core" / "src" / "comeni_core" / "ir.py"
+    core = ROOT / "packages" / "comeni-core" / "src" / "comeni_core" / "plan" / "ir.py"
     assert core.exists()
     assert any(str(core).startswith(str(pure)) for pure in PURE)
     assert not any(str(ROOT / "tests" / "x.py").startswith(str(pure)) for pure in PURE)
@@ -92,7 +92,7 @@ def test_a_real_build_opens_no_socket_and_spawns_no_process():
     An audit hook cannot be uninstalled, so everything is imported before arming and the
     flag is cleared afterwards; the hook is inert outside the measured region.
     """
-    from comeni_core.goal import Goal
+    from comeni_core.goal.asked import Goal
     from mendel_compiler.emit import emit
     from mendel_resolver import layers
     from mendel_resolver.resolve import resolve
@@ -151,8 +151,8 @@ def _pipe(ir, loaded):
     `goal` is keyword-only and required since Task 6. An empty one is honest here: these
     fixtures start from an IR and never had a goal to record.
     """
-    from comeni_core.goal import Goal
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
 
@@ -176,7 +176,7 @@ def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
     hoisted above the arm for convenience, say — fails here instead of going quiet. A69 is
     the same lesson at a different scale: measure the thing, not a proxy for it.
     """
-    from comeni_core.goal import Goal
+    from comeni_core.goal.asked import Goal
     from mendel_compiler.emit import emit
     from mendel_resolver import layers
     from mendel_resolver.resolve import resolve
@@ -212,7 +212,7 @@ def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
         state["armed"] = False
 
     for required in (
-        "comeni_core/layered.py",
+        "comeni_core/declared/layered.py",
         "comeni_core/yaml_strict.py",
         "mendel_resolver/layers.py",
     ):
@@ -221,3 +221,36 @@ def test_the_watched_region_covers_the_stage_that_reads_stranger_files():
             f"narrowed, and the stage that reads stranger-authored files is what it "
             f"dropped. Covered: {sorted(covered)}"
         )
+
+
+def test_every_required_frame_path_names_a_file_that_exists():
+    """The watched-region check names three files by path, and a path that names nothing
+    would make the assertion unsatisfiable rather than unmet.
+
+    The distinction matters: an unmet assertion says the region narrowed, which is the finding
+    it exists to report. An *unsatisfiable* one says nothing at all — it fails for a reason
+    that has nothing to do with coverage, and the next reader debugs the wrong thing.
+
+    A67, issue #41. `comeni_core/layered.py` became `comeni_core/declared/layered.py` when the
+    package was regrouped, and this is what would have said so directly.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    required = (
+        "comeni_core/declared/layered.py",
+        "comeni_core/yaml_strict.py",
+        "mendel_resolver/layers.py",
+    )
+    packages = {
+        "comeni_core": "comeni-core",
+        "mendel_resolver": "mendel-resolver",
+        "mendel_compiler": "mendel-compiler",
+    }
+    missing = [
+        name
+        for name in required
+        if not (root / "packages" / packages[name.split("/")[0]] / "src" / name).exists()
+    ]
+    assert missing == [], (
+        "the watched-region check requires files that do not exist, so it can only fail:\n  "
+        + "\n  ".join(missing)
+    )

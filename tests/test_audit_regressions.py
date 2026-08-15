@@ -4,7 +4,7 @@ Kept in one file rather than scattered into the suites they belong to, because t
 question a reader has is "is A9 still closed?" and the answer should not require knowing
 which module A9 was about. Each test carries the finding's one-line summary.
 
-The audit is `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; every finding
+The audit is `notes/audits/2026-08-06-plan-1-to-1.7-audit.md`; every finding
 there records how it was reproduced, which is what these tests are the standing version of.
 """
 
@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
-from comeni_core.tiers import Tier
+from comeni_core.plan.tiers import Tier
 from pydantic import ValidationError
 
 CONTRACT = {
@@ -30,7 +30,7 @@ CONTRACT = {
 
 def test_a13_a_profile_rejects_a_duplicate_measurement():
     """A13 — `get` was first-wins, so list order changed the pipeline."""
-    from comeni_core.profile import DataProfile
+    from comeni_core.goal.profile import DataProfile
 
     with pytest.raises(ValidationError, match="strandedness"):
         DataProfile.model_validate(
@@ -45,7 +45,7 @@ def test_a13_a_profile_rejects_a_duplicate_measurement():
 
 def test_a13_a_profile_sorts_so_the_same_facts_are_the_same_profile():
     """Order must not survive validation, or two equal profiles compare unequal."""
-    from comeni_core.profile import DataProfile
+    from comeni_core.goal.profile import DataProfile
 
     forward = DataProfile.model_validate(
         {"measurements": [{"measurement": "a", "value": 1}, {"measurement": "b", "value": 2}]}
@@ -58,7 +58,7 @@ def test_a13_a_profile_sorts_so_the_same_facts_are_the_same_profile():
 
 def test_a11_a_contract_rejects_a_duplicate_param_name():
     """A11 — two bindings of one name reached `sorted` and compared two ResolvedValues."""
-    from comeni_core.contract import ModuleContract
+    from comeni_core.declared.contract import ModuleContract
 
     with pytest.raises(ValidationError, match="threads"):
         ModuleContract.model_validate(
@@ -71,7 +71,7 @@ def test_a11_a_contract_rejects_a_duplicate_param_name():
 
 def test_a10_an_unknown_contract_key_is_refused():
     """A10 — dropped keys meant two different files pinned to one digest."""
-    from comeni_core.contract import ModuleContract
+    from comeni_core.declared.contract import ModuleContract
 
     with pytest.raises(ValidationError, match="clinical_use"):
         ModuleContract.model_validate({**CONTRACT, "clinical_use": "approved"})
@@ -81,7 +81,7 @@ def test_a10_an_unknown_contract_key_is_refused():
 
 def test_a10_every_model_a_contract_is_built_from_forbids_extras():
     """The nested models too: a smuggled key on a Param is as invisible as one on the top."""
-    from comeni_core import contract as contract_module
+    from comeni_core.declared import contract as contract_module
 
     for name in ("ModuleContract", "InputPort", "OutputPort", "Param", "NfInput", "Provenance"):
         model = getattr(contract_module, name)
@@ -93,8 +93,8 @@ def test_a10_every_model_a_contract_is_built_from_forbids_extras():
 
 def test_a10_two_contract_files_cannot_share_a_digest():
     """The property the lockfile actually sells: 'built against exactly this contract'."""
-    from comeni_core.contract import ModuleContract
-    from comeni_core.digest import digest_of
+    from comeni_core.artifact.digest import digest_of
+    from comeni_core.declared.contract import ModuleContract
 
     plain = ModuleContract.model_validate(CONTRACT)
     with pytest.raises(ValidationError):
@@ -109,14 +109,14 @@ def test_a12_a_layer_is_named_by_its_manifest():
     its own repository cannot rely on the directory it happened to be checked out into."
     Nothing read it.
     """
-    from comeni_core.layer import layer_name
+    from comeni_core.declared.layer import layer_name
 
     assert layer_name(Path("registry")) == "comeni-registry-examples"
 
 
 def test_a12_a_layer_without_a_manifest_falls_back_to_its_basename(tmp_path):
     """An overlay a lab made by hand is ordinary, not broken."""
-    from comeni_core.layer import layer_name
+    from comeni_core.declared.layer import layer_name
 
     (tmp_path / "lab-overlay" / "contracts").mkdir(parents=True)
     assert layer_name(tmp_path / "lab-overlay") == "lab-overlay"
@@ -131,9 +131,9 @@ def test_a12_a_renamed_checkout_is_not_drift(tmp_path):
     """
     import shutil
 
-    from comeni_core.ir import PipelineIR
-    from comeni_core.lockfile import Lockfile
-    from comeni_core.registry import Registry
+    from comeni_core.artifact.lockfile import Lockfile
+    from comeni_core.declared.registry import Registry
+    from comeni_core.plan.ir import PipelineIR
 
     original = tmp_path / "registry"
     shutil.copytree("registry", original)
@@ -150,7 +150,7 @@ def test_a12_a_layer_never_records_an_empty_name(tmp_path):
     import os
     import shutil
 
-    from comeni_core.layer import layer_name
+    from comeni_core.declared.layer import layer_name
 
     shutil.copytree("registry", tmp_path / "here")
     cwd = os.getcwd()
@@ -169,8 +169,8 @@ def test_a2_resolve_refuses_an_unvalidated_profile():
     and `resolve()` never routed through it — the check lived in `mendel build`'s own
     re-route, which `mendel upgrade` skips because it takes its goal from a bundle.
     """
-    from comeni_core.goal import Goal
-    from comeni_core.measurement import UnknownMeasurementError
+    from comeni_core.declared.measurement import UnknownMeasurementError
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -237,7 +237,7 @@ def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_pa
 def test_a2_a_declared_profile_still_resolves():
     """The refusal must not cost the normal case."""
     import yaml
-    from comeni_core.goal import Goal
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -255,7 +255,7 @@ def test_a2_a_declared_profile_still_resolves():
 
 def test_a9_a_symlinked_contract_is_refused_by_the_digest(tmp_path):
     """A9 — the registry read through it; the digest hashed its target path."""
-    from comeni_core.digest import digest_of_directory
+    from comeni_core.artifact.digest import digest_of_directory
 
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -293,7 +293,7 @@ def test_a9_an_ordinary_layer_still_digests(tmp_path):
     """The refusal must not cost the normal case."""
     import shutil
 
-    from comeni_core.digest import digest_of_directory
+    from comeni_core.artifact.digest import digest_of_directory
 
     layer = tmp_path / "plain"
     shutil.copytree("registry", layer)
@@ -317,7 +317,7 @@ def test_a11_a_duplicate_binding_is_refused_before_it_can_reach_a_compare():
     name and *joins*, so two settings called `seq_platform` were never going to be a crash.
     They were going to be two fragments concatenated into one flag string, silently.
     """
-    from comeni_core.ir import IRNode, PipelineIR, ResolvedValue, Tier
+    from comeni_core.plan.ir import IRNode, PipelineIR, ResolvedValue, Tier
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -392,8 +392,8 @@ def _stacked(tmp_path):
 
 def _resolve_stacked_from(loaded):
     import yaml
-    from comeni_core.goal import Goal
-    from comeni_core.layer import layer_name
+    from comeni_core.declared.layer import layer_name
+    from comeni_core.goal.asked import Goal
     from mendel_resolver.resolve import resolve
 
     goal = Goal.model_validate(yaml.safe_load(Path("examples/rnaseq-goal.yml").read_text()))
@@ -453,7 +453,7 @@ def test_a5_overlay_reroutes_names_both_and_needs_review_names_neither(tmp_path)
 def test_a5_a_single_layer_build_reports_nothing(tmp_path):
     """The refusal must not cost the normal case — a lab with no overlay sees no change."""
     import yaml
-    from comeni_core.goal import Goal
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -483,8 +483,8 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     import shutil
 
     import yaml
-    from comeni_core.goal import Goal
-    from comeni_core.layer import layer_name
+    from comeni_core.declared.layer import layer_name
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -527,7 +527,7 @@ def test_a6_the_egress_guard_knows_mapping_and_bytes():
     from collections.abc import Mapping, MutableMapping
     from typing import Annotated
 
-    from comeni_core.marks import MeasurementId, ParamValue
+    from comeni_core.spell.marks import MeasurementId, ParamValue
     from test_egress import _mentions_binary, _mentions_mapping
 
     assert _mentions_mapping(Mapping[MeasurementId, ParamValue])
@@ -572,7 +572,7 @@ def test_a3_a_path_shaped_parameter_is_refused(value):
     Reproduced on the unmodified tree with no monkeypatching: a patient path validated
     into a `DecisionRecord` and from there through door 4, the one with no undo.
     """
-    from comeni_core.decision import ParamDecision
+    from comeni_core.plan.decision import ParamDecision
 
     with pytest.raises(ValidationError):
         ParamDecision(
@@ -589,7 +589,7 @@ def test_a3_a_registry_shaped_parameter_still_validates(value):
     `then:` is exactly that. A blocklist that rejected it would make the registry
     unloadable.
     """
-    from comeni_core.decision import ParamDecision
+    from comeni_core.plan.decision import ParamDecision
 
     record = ParamDecision(
         key="k", subject="s", chosen=None, reason="r", resolved_by="human",
@@ -600,7 +600,7 @@ def test_a3_a_registry_shaped_parameter_still_validates(value):
 
 def test_a3_a_path_cannot_enter_through_a_goal_param_override():
     """The same value, through the door a person actually types into."""
-    from comeni_core.goal import Goal
+    from comeni_core.goal.asked import Goal
 
     with pytest.raises(ValidationError):
         Goal.model_validate(
@@ -634,7 +634,7 @@ def test_a3_an_edge_pointer_is_not_a_path_and_is_not_guarded():
     because the blocklist was scoped around it. The scoping argument still holds for
     `ParamDecision.human_override`, which is the one kind with no domain — Plan 2 Task 11.
     """
-    from comeni_core.decision import ParamDecision, SourceDecision
+    from comeni_core.plan.decision import ParamDecision, SourceDecision
 
     record = SourceDecision(
         key="dual.source:bam", subject="source:bam", candidates=["dual.bam", "solo.bam"],
@@ -657,7 +657,7 @@ def test_a4_gate_is_one_class_in_two_places():
     depend on the compiler, and the *command lines* stay in the compiler because those are
     how a gate is run and the core has no business knowing.
     """
-    from comeni_core.gates import Gate as CoreGate
+    from comeni_core.artifact.gates import Gate as CoreGate
     from mendel_compiler.gates import Gate as CompilerGate
 
     assert CoreGate is CompilerGate
@@ -674,9 +674,9 @@ def test_a4_the_artifact_records_which_gate_it_passed():
     set the precedent. The field moved from `PublishBundle` to `Pipeline` with the door in
     Plan 1.10 Task 11; the claim did not move at all.
     """
-    from comeni_core.gates import Gate
-    from comeni_core.goal import Goal
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.gates import Gate
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
 
     assert Pipeline(goal=Goal()).gate is None
     passed = Pipeline(goal=Goal(), gate=Gate.TEST)
@@ -690,11 +690,19 @@ def test_a4_the_artifact_records_which_gate_it_passed():
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
     import yaml
     from mendel_compiler import cli
+    from mendel_compiler.cli import artifact_verbs, resolve_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(
-        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
-    )
+    # **Two patches, because the gate runs twice from two modules.** `build` invokes it from
+    # `resolve_verbs` and `publish` from `artifact_verbs`, and `run_gate` is looked up in the
+    # calling module. Patching only the first left `publish` running the *real* gate — which
+    # passes on a developer machine with `nextflow` on PATH and fails in CI, where it is not
+    # installed. The test was green locally for the wrong reason, and CI is what said so.
+    def _passes(gate, out):
+        return GateResult(gate=gate, passed=True)
+
+    monkeypatch.setattr(resolve_verbs, "run_gate", _passes)
+    monkeypatch.setattr(artifact_verbs, "run_gate", _passes)
     out = tmp_path / "p"
     assert cli.main([
         "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
@@ -717,11 +725,17 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     """
     import yaml
     from mendel_compiler import cli
+    from mendel_compiler.cli import artifact_verbs, resolve_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(
-        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=False, stdout="no")
-    )
+    # **Both**, and that is the finding rather than a chore. This test builds and then
+    # publishes, and issue #41's split put those verbs in different modules — `resolve_verbs`
+    # runs the gate at the end of a build, `artifact_verbs` runs it when certifying a
+    # directory that already exists. One `monkeypatch` covered both while they shared a
+    # module, which meant nothing here recorded that the gate is invoked twice.
+    failed = lambda gate, out: GateResult(gate=gate, passed=False, stdout="no")  # noqa: E731
+    monkeypatch.setattr(resolve_verbs, "run_gate", failed)
+    monkeypatch.setattr(artifact_verbs, "run_gate", failed)
     out = tmp_path / "p"
     assert cli.main([
         "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
@@ -764,7 +778,7 @@ def test_a23_an_overlay_measurement_says_so(tmp_path):
     layer had ever declared it. Invariant 11's last line is the one this breaks: *never let
     an installed overlay reroute a pipeline silently.*
     """
-    from comeni_core.layered import DeclaredKind
+    from comeni_core.declared.layered import DeclaredKind
     from mendel_resolver import layers as layers_mod
 
     base, lab = _stacked(tmp_path)
@@ -794,7 +808,7 @@ def test_a24_an_overlay_vocabulary_says_so(tmp_path):
     a pipeline: the reviewed one reads `params.input`, and the replacement read hardcoded
     laboratory paths. The refusal is not to forbid it — it is to say it happened.
     """
-    from comeni_core.layered import DeclaredKind
+    from comeni_core.declared.layered import DeclaredKind
     from mendel_resolver import layers as layers_mod
 
     base, lab = _stacked(tmp_path)
@@ -825,7 +839,7 @@ def test_a35_an_overlay_replacing_states_names_itself(tmp_path):
     Replacement stays legal. What changes is that the loader, which knows both facts,
     joins them: the message now names the layer that removed the state.
     """
-    from comeni_core.vocabulary import UnknownStateError
+    from comeni_core.declared.vocabulary import UnknownStateError
     from mendel_resolver import layers as layers_mod
 
     base, lab = _stacked(tmp_path)
@@ -872,7 +886,7 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
     """
     import shutil
 
-    from comeni_core.layered import DeclaredKind
+    from comeni_core.declared.layered import DeclaredKind
     from mendel_resolver import layers as layers_mod
 
     base, lab = _stacked(tmp_path)
@@ -1027,8 +1041,8 @@ def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
     contracts — it is closed by the field having a type, checked at load, before conformance
     runs and before anything is emitted.
     """
-    from comeni_core.contract import ModuleContract
-    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.declared.contract import ModuleContract
+    from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
     (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
@@ -1049,8 +1063,8 @@ def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
 
 def test_a34_an_include_path_cannot_leave_the_pipeline(tmp_path):
     """The same kind, never tried. `nf_include` becomes `from './<path>'`."""
-    from comeni_core.contract import ModuleContract
-    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.declared.contract import ModuleContract
+    from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
     (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
@@ -1075,7 +1089,7 @@ def test_a34_a_vocabulary_type_id_is_a_filename_and_filenames_can_be_anything(tm
     It feeds `_channel_name()`, which replaces `.` and `-` and nothing else, so the id
     reaches an assignment target in the emitted workflow.
     """
-    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
     (tmp_path / "vocabularies" / "evil\nch_x = 1.yml").write_text("states: []\n")
@@ -1086,7 +1100,7 @@ def test_a34_a_vocabulary_type_id_is_a_filename_and_filenames_can_be_anything(tm
 
 def test_a27_a_reason_that_reaches_a_generated_file_is_one_line():
     """A27 — prose was interpolated into `// <reason>` and the second line was Groovy."""
-    from comeni_core.ir import ResolvedValue, Tier
+    from comeni_core.plan.ir import ResolvedValue, Tier
 
     with pytest.raises(ValidationError):
         ResolvedValue(value=1, tier=Tier.CONVENTION, reason="fine\nprintln 'OWNED'")
@@ -1094,7 +1108,7 @@ def test_a27_a_reason_that_reaches_a_generated_file_is_one_line():
 
 def test_a27_a_gate_message_may_still_be_many_lines():
     """The regression guard for the split: Nextflow's stderr is inherently multi-line."""
-    from comeni_core.egress import GateFailure
+    from comeni_core.artifact.egress import GateFailure
 
     failure = GateFailure(
         process="star_align",
@@ -1122,9 +1136,9 @@ def test_a27_no_resolver_prose_reaches_main_nf_at_all():
     It now bypasses every type on the way in, which is what "the emitter does not trust its
     input" actually requires — materialisation refuses this input, as the test below asserts.
     """
-    from comeni_core.pipeline import Pipeline, Setting, Step, Why
-    from comeni_core.routes import Via
-    from comeni_core.tiers import ValueSource
+    from comeni_core.artifact.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.plan.tiers import ValueSource
+    from comeni_core.spell.routes import Via
     from mendel_compiler.emit import emit
 
     why = Why.model_construct(
@@ -1165,7 +1179,7 @@ def test_a27_prose_reaching_the_pipeline_file_is_refused_at_materialisation():
     is a `Line` for the same argument `ResolvedValue.reason` is: a value smuggled past one
     type must not be carried by the next one without complaint.
     """
-    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from comeni_core.plan.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -1203,9 +1217,9 @@ def test_a27_prose_cannot_forge_a_key_even_with_every_type_bypassed():
     two surfaces for that reason. This asserts the property instead of assuming the library.
     """
     import yaml as _yaml
-    from comeni_core.pipeline import Pipeline, Setting, Step, Why
-    from comeni_core.routes import Via
-    from comeni_core.tiers import ValueSource
+    from comeni_core.artifact.pipeline import Pipeline, Setting, Step, Why
+    from comeni_core.plan.tiers import ValueSource
+    from comeni_core.spell.routes import Via
     from mendel_compiler import pipeline_file
 
     forged = "looks fine\ngate: test\nsteps: []"
@@ -1256,8 +1270,8 @@ def test_a29_a_goal_type_id_must_name_a_declared_type():
     Closing it is a side effect of doing the obvious thing: an undeclared type in a goal
     was already a user error worth a clear message, and nothing had ever asked.
     """
-    from comeni_core.goal import Goal
-    from comeni_core.vocabulary import UnknownTypeError
+    from comeni_core.declared.vocabulary import UnknownTypeError
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -1286,8 +1300,8 @@ def test_a29_a_goal_type_id_must_name_a_declared_type():
 
 def test_a29_the_same_string_through_required_states_is_refused():
     """The other door into the same field. It arrived as a *key*."""
-    from comeni_core.goal import Goal
-    from comeni_core.vocabulary import UnknownTypeError
+    from comeni_core.declared.vocabulary import UnknownTypeError
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -1311,8 +1325,8 @@ def test_a29_the_same_string_through_required_states_is_refused():
 
 def test_a29_an_undeclared_state_is_refused_too():
     """A state no type declares is a goal asking for what no contract can satisfy."""
-    from comeni_core.goal import Goal
-    from comeni_core.vocabulary import UnknownStateError
+    from comeni_core.declared.vocabulary import UnknownStateError
+    from comeni_core.goal.asked import Goal
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.resolve import resolve
 
@@ -1363,7 +1377,7 @@ def test_a16_a_decision_declares_its_kind():
     pattern-matching a string nobody designed to be parsed. Each kind now has a type and a
     domain, and the domains are what the checks read.
     """
-    from comeni_core.decision import (
+    from comeni_core.plan.decision import (
         DecisionKind,
         ParamDecision,
         ProducerDecision,
@@ -1416,7 +1430,7 @@ def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
     a reviewer reading `priority: 0` at the top and a build routing on `priority: 999` from
     the bottom are both looking at a correctly signed layer.
     """
-    from comeni_core.vocabulary import Vocabulary
+    from comeni_core.declared.vocabulary import Vocabulary
     from comeni_core.yaml_strict import DuplicateKeyError
 
     (tmp_path / "vocabularies").mkdir()
@@ -1432,7 +1446,7 @@ def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
         "priority: 999\n"
     )
 
-    from comeni_core.contract import ModuleContract
+    from comeni_core.declared.contract import ModuleContract
 
     with pytest.raises(DuplicateKeyError) as raised:
         ModuleContract.load(contract, Vocabulary.load(tmp_path))
@@ -1470,7 +1484,7 @@ def test_a32_the_seam_a_model_sits_behind_is_a_declared_type():
     projects to `AmbiguityRequest`, which is a closed payload — the closed half was
     downstream of the open half, which is no boundary at all.
     """
-    from comeni_core.decision import ParamAsked, Resolution
+    from comeni_core.plan.decision import ParamAsked, Resolution
 
     with pytest.raises(ValidationError):
         ParamAsked(node_id="n", subject="s", candidates=[], extra=1)
@@ -1498,7 +1512,7 @@ def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
     """
     import shutil
 
-    from comeni_core.decision import Resolution
+    from comeni_core.plan.decision import Resolution
     from mendel_resolver import layers as layers_mod
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.resolve import resolve
@@ -1554,7 +1568,7 @@ def test_a20_marker_metadata_is_a_closed_vocabulary():
     """
     import typing
 
-    from comeni_core.marks import ContractId, Mark
+    from comeni_core.spell.marks import ContractId, Mark
 
     # **Some** metadata element, never all. `ContractId` carries an `AfterValidator`
     # alongside its `Mark` since root C gave it a shape, exactly as `HumanParamValue`
@@ -1577,8 +1591,8 @@ def _pipe(ir, loaded):
     `goal` is keyword-only and required since Task 6. An empty one is honest here: these
     fixtures start from an IR and never had a goal to record.
     """
-    from comeni_core.goal import Goal
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
 
     return Pipeline.of(ir, loaded.registry, loaded.vocabulary, loaded.measurements, goal=Goal())
 
@@ -1590,7 +1604,7 @@ def _pipe(ir, loaded):
 
 
 def _override_record(value="illumina"):
-    from comeni_core.decision import ParamDecision
+    from comeni_core.plan.decision import ParamDecision
 
     return ParamDecision(
         key="star_align.seq_platform",
@@ -1661,7 +1675,7 @@ def test_a_human_override_on_a_parameter_is_replayed_at_all():
 
     That is issue #10's shape exactly: a mechanism that runs, records, and changes nothing.
     """
-    from comeni_core.decision import ParamAsked
+    from comeni_core.plan.decision import ParamAsked
     from mendel_resolver.replay import ReplayResolver
 
     resolver = ReplayResolver([_override_record()])
@@ -1678,7 +1692,7 @@ def test_an_override_keeps_the_tier_it_displaced():
     means and is precisely what did not happen here. Resolution met a real ambiguity and
     could not settle it; a person settled it afterwards, and a reviewer reading a curated
     pipeline needs to see that it contains a question rather than that it contains none."""
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.tiers import ValueSource
 
     value = _binding(_ir_with_override(), "seq_platform")
     assert value.value == "illumina"
@@ -1690,7 +1704,7 @@ def test_a_goal_pin_is_still_tier_one_and_still_says_goal():
     """The regression guard for the split. `ValueSource`'s docstring argues that a
     goal-pinned param is legitimately tier 1 — the user removed the ambiguity before
     anything looked at it — and that argument stays true."""
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.tiers import ValueSource
 
     def pin(raw):
         raw["constraints"] = {"params": [{"name": "seq_platform", "value": "illumina"}]}
@@ -1726,7 +1740,7 @@ def test_an_override_reaches_the_pipeline_file_as_source_human():
     `Why.source` already carried a `ValueSource`; what changed is that there is now a value
     for it to carry. Without this the file would say `source: resolver` beside a value no
     resolver chose."""
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.tiers import ValueSource
 
     pipeline = _pipe(_ir_with_override(), _loaded())
     step = next(s for s in pipeline.steps if s.id == "star_align")
@@ -1755,7 +1769,7 @@ def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
     and the guard was written after a revert probe found it inert, which is A14's finding
     happening to the person who had just written A14's ledger row.
     """
-    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from comeni_core.plan.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -1783,7 +1797,7 @@ def test_a_binding_with_no_declared_param_refuses_instead_of_vanishing():
 def test_a_binding_the_contract_does_declare_is_carried():
     """The regression guard for the refusal above: it must depend on the param being absent,
     not on a binding existing at all."""
-    from comeni_core.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
+    from comeni_core.plan.ir import IRNode, ParamBinding, PipelineIR, ResolvedValue, Tier
     from mendel_resolver import layers as layers_mod
 
     loaded = layers_mod.load("registry")
@@ -1893,7 +1907,7 @@ def test_a126_a_producer_decision_key_names_the_question_not_the_winner(tmp_path
 
 def _legacy_producer_record(candidates: list[str]):
     """A pre-1.13 producer record: the key carries the winning module's node id in front."""
-    from comeni_core.decision import ProducerDecision
+    from comeni_core.plan.decision import ProducerDecision
 
     return ProducerDecision(
         key="star_align.producer:alignment.bam",
@@ -1907,7 +1921,7 @@ def _legacy_producer_record(candidates: list[str]):
 
 
 def _asked_producer(candidates: list[str]):
-    from comeni_core.decision import ProducerAsked
+    from comeni_core.plan.decision import ProducerAsked
 
     return ProducerAsked(
         node_id="minimap2_align",
@@ -2028,7 +2042,7 @@ def test_a118_a_value_that_merely_contains_a_measurement_name_still_loads(tmp_pa
 
 def _spine_with_read_length(read_length: int):
     """Build the shipped spine at a given read length, so the aligner rule picks a row."""
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.resolve import resolve
@@ -2127,7 +2141,7 @@ def _mapq_overlay(tmp_path: Path) -> Path:
 
 
 def _min_mqs_why(*roots):
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.resolve import resolve
@@ -2212,7 +2226,7 @@ def test_a91_a_positional_parameter_reaches_the_call_and_nothing_else(tmp_path):
     looks. The one STAR reads is the trailing `false`. `pipeline.yml` said the GTF was being
     ignored; the pipeline used it.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
     from mendel_compiler.emit import emit
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput, ParamOverride

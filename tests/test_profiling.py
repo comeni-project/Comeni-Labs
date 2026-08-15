@@ -93,7 +93,7 @@ def test_a_generated_profile_claims_no_value_it_has_not_seen(tmp_path):
 def test_the_emitted_profile_is_a_profile_mendel_will_accept_back(tmp_path):
     """The round trip is the point: measure, fill the values in, build against them."""
     import yaml
-    from comeni_core.measurement import MeasurementRegistry
+    from comeni_core.declared.measurement import MeasurementRegistry
     from mendel_resolver.goal import DataProfile
 
     main(["profile", "--have", "fastq.reads", "--out", str(tmp_path / "p"), "--root", str(ROOT)])
@@ -109,7 +109,7 @@ def test_the_emitted_profile_is_a_profile_mendel_will_accept_back(tmp_path):
 
 def test_a_hand_written_profile_is_asserted():
     """A scalar in a file a person wrote is an assertion by that person."""
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.tiers import ValueSource
     from mendel_resolver.goal import DataProfile
 
     assert DataProfile(read_length=150).measurements[0].source is ValueSource.GOAL

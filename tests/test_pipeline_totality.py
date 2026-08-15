@@ -18,15 +18,15 @@ reason rather than allowed by silence.
 import typing
 
 from _walk import nested_models, reachable
-from comeni_core.decision import ParamDecision, ProducerDecision, SourceDecision
-from comeni_core.egress import Emitted, EmittedFile
-from comeni_core.goal import Goal
-from comeni_core.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
-from comeni_core.layered import Displacement
-from comeni_core.lockfile import LockedContract, LockedLayer, Lockfile
-from comeni_core.marks import Mark
-from comeni_core.pipeline import Pipeline
-from comeni_core.profile import DataProfile
+from comeni_core.artifact.egress import Emitted, EmittedFile
+from comeni_core.artifact.lockfile import LockedContract, LockedLayer, Lockfile
+from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.declared.layered import Displacement
+from comeni_core.goal.asked import Goal
+from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.decision import ParamDecision, ProducerDecision, SourceDecision
+from comeni_core.plan.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
+from comeni_core.spell.marks import Mark
 
 REPLACED = [
     PipelineIR,

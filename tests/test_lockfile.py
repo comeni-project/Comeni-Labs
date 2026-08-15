@@ -9,7 +9,7 @@ import pathlib
 
 import pytest
 import yaml
-from comeni_core.lockfile import Lockfile
+from comeni_core.artifact.lockfile import Lockfile
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
