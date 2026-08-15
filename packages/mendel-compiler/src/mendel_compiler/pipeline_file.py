@@ -14,6 +14,7 @@ from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.artifact.egress import Emitted
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier
 
 FILENAME = "pipeline.yml"
@@ -86,9 +87,9 @@ def write(directory: Path, pipeline: Pipeline) -> Pipeline:
     reparsed = load(path)
     if reparsed != pipeline:
         raise ValueError(
-            f"MD0206: {path} does not parse back to what it was written from. The pipeline "
+            coded("MD0206", f"{path} does not parse back to what it was written from. The pipeline "
             f"directory is not trustworthy and nothing further was emitted. This is a bug in "
-            f"Mendel rather than in your goal — `mendel explain MD0206`."
+            f"Mendel rather than in your goal — `mendel explain MD0206`.")
         )
     return reparsed
 

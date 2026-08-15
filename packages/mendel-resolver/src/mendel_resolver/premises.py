@@ -15,6 +15,7 @@ import math
 from typing import Any
 
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
+from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
 from comeni_core.plan.tiers import PremiseOrigin, ValueSource
 from pydantic import BaseModel, ConfigDict, Field
@@ -94,10 +95,12 @@ def build_premises(
     # and nothing may declare a measurement by this name.
     if _RESERVED in measurements.ids():
         raise PremiseError(
-            f"MD0303: a measurement is declared named {_RESERVED!r}, which is the goal's own "
-            f"shape and cannot also be measured. Rename the measurement — a property of the "
+            coded(
+                "MD0303",
+                f"a measurement is declared named {_RESERVED!r}, which is the goal's own "
+                f"shape and cannot also be measured. Rename the measurement — a property of the "
             f"data that happens to concern states is a different fact from the states the "
-            f"goal asked for, and a rule reading one must not silently get the other."
+            f"goal asked for, and a rule reading one must not silently get the other.")
         )
     premises[_RESERVED] = Premise(
         id=_RESERVED,
@@ -184,10 +187,12 @@ def _transform(premises: dict[str, Premise], derivation: Derivation) -> None:
         return
     if isinstance(source.value, list):
         raise PremiseError(
-            f"MD0314: derivation {derivation.fact!r} transforms {derivation.source!r}, which "
-            f"is a cohort of {len(source.value)} values, and arithmetic takes one. Reduce it "
+            coded(
+                "MD0314",
+                f"derivation {derivation.fact!r} transforms {derivation.source!r}, which "
+                f"is a cohort of {len(source.value)} values, and arithmetic takes one. Reduce it "
             f"first with an `aggregate:` derivation and transform the derived fact, so the "
-            f"file says which sample the rule meant."
+            f"file says which sample the rule meant.")
         )
     value = source.value
     for step in derivation.transform:

@@ -34,6 +34,7 @@ from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
+from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules import RuleTable
@@ -88,7 +89,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             # that count said "four" in prose for six plans and was wrong the day `roles/`
             # arrived (invariant 11).
             raise ValueError(
-                f"MD0005: {layer} holds no registry data — none of the "
+                coded("MD0005", f"{layer} holds no registry data — none of the "
                 f"{len(DeclaredKind)} declared "
                 "kinds is a directory in it.\n"
                 "\n"
@@ -97,7 +98,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                 "    git submodule update --init\n"
                 "\n"
                 "`git clone --recurse-submodules` avoids this. "
-                "See docs/guides/contributing.md."
+                "See docs/guides/contributing.md.")
             )
         # `declared_entries`, not `rglob("*")`: since issue #46 `registry/` is a git
         # submodule, so a bare walk descends into git metadata — and against an ordinary
@@ -111,10 +112,10 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                 # is meaningless to whoever receives it, and a link inside it is a copy
                 # with extra steps. Audit 2026-08-06, A9.
                 raise ValueError(
-                    f"MD0004: registry layer {layer} contains a symlink at "
+                    coded("MD0004", f"registry layer {layer} contains a symlink at "
                     f"{entry.relative_to(layer)}. A layer may not contain one: the loader "
                     "follows it and the layer digest cannot, so the bytes routed on would "
-                    "not be the bytes pinned."
+                    "not be the bytes pinned.")
                 )
     stacked = layers_of(layers)
     measured = stack(stacked, MeasurementRegistry.kind())
@@ -182,14 +183,14 @@ def _every_file_is_claimed(layer_values: list[Layer], claimed: set[Path]) -> Non
                 continue
             where = path.relative_to(layer.path)
             raise ValueError(
-                f"MD0003: registry layer {layer.path} contains {where}, which nothing "
+                coded("MD0003", f"registry layer {layer.path} contains {where}, which nothing "
                 f"reads.\n"
                 f"  Declared data lives in "
                 f"{', '.join(k.value + '/' for k in DeclaredKind)} — nested as deeply as "
                 f"you like, `.yml` or `.yaml`.\n"
                 f"  A file outside those is hashed into the layer digest and changes "
                 f"nothing, which is how an overlay that did nothing looked like one that "
-                f"worked."
+                f"worked.")
             )
 
 

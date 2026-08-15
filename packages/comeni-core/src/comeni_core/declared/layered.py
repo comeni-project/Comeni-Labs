@@ -27,6 +27,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from comeni_core.declared.layer import layer_name
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import AnyKey, LayerName
 
 MANIFEST = "registry.yml"
@@ -270,12 +271,12 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
                 parsed = list(kind.parse(path))
             except yaml.YAMLError as error:
                 raise ValueError(
-                    f"MD0001: {where} in layer {layer.path} is not valid YAML.\n  {error}"
+                    coded("MD0001", f"{where} in layer {layer.path} is not valid YAML.\n  {error}")
                 ) from error
             except ValidationError as error:
                 singular = kind.which.value.removesuffix("s")
                 raise ValueError(
-                    f"MD0002: {where} in layer {layer.path} is not a valid {singular}.\n"
+                    coded("MD0002", f"{where} in layer {layer.path} is not a valid {singular}.\n")
                     + "\n".join(
                         f"  {'.'.join(str(part) for part in problem['loc']) or '(root)'}: "
                         f"{problem['msg']}"
@@ -292,8 +293,8 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
                     there = first_declared[key].relative_to(layer.path)
                     place = f"twice in {here}" if here == there else f"in {here} and in {there}"
                     raise ValueError(
-                        f"MD0006: {key} is declared {place}, both under layer "
-                        f"{layer.path}. Shadowing happens between layers, not inside one."
+                        coded("MD0006", f"{key} is declared {place}, both under layer "
+                        f"{layer.path}. Shadowing happens between layers, not inside one.")
                     )
                 incoming[key] = entry
                 first_declared[key] = path

@@ -31,6 +31,7 @@ from comeni_core.declared.layered import (
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseRecord
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -238,11 +239,11 @@ class RuleTable(BaseModel):
             for target in decision.targets():
                 if target.key() in decided_by:
                     raise RuleValidationError(
-                        f"MD0309: two decisions both land on {target.key()!r} — "
+                        coded("MD0309", f"two decisions both land on {target.key()!r} — "
                         f"{decided_by[target.key()]!r} and {decision.key()!r}.\n"
                         f"  Only one of them will fire, and which one is not something a\n"
                         f"  reader of either file can work out. Merge them, or narrow one\n"
-                        f"  with `when_implementation:`."
+                        f"  with `when_implementation:`.")
                     )
                 decided_by[target.key()] = decision.key()
 

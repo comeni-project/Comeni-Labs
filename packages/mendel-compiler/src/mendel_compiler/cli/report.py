@@ -15,6 +15,7 @@ import sys
 from comeni_core.artifact.digest import digest_of, digest_of_bytes
 from comeni_core.artifact.lockfile import Lockfile
 from comeni_core.declared.layered import Displacement
+from comeni_core.diagnostics import coded
 from mendel_resolver.diff import diff_pipeline
 
 from mendel_compiler.emit import emit, emit_config
@@ -38,7 +39,10 @@ def _report_upgrade(previous, fresh, ir, registry, paths, resolver) -> int:
         print(f"  CHANGED {change}", file=sys.stderr)
 
     for line in _frozen_against_moved_contracts(previous, fresh, registry):
-        print(f"  MD0202  {line}", file=sys.stderr)
+        # `coded` rather than a literal, like every other emission since 2026-08-16. The
+        # visible change is the separator: `  MD0202  line` becomes `  MD0202: line`, because
+        # `coded` writes one format and a report line is not worth a second one.
+        print(f"  {coded('MD0202', line)}", file=sys.stderr)
 
     if resolver is None:
         return 0
@@ -65,9 +69,9 @@ def _report_upgrade(previous, fresh, ir, registry, paths, resolver) -> int:
         # nothing left to be an answer to. Dropping it quietly is the same failure as a
         # guard that silently stops guarding — A14's shape.
         print(
-            f"\nmendel: MD0203: {len(resolver.orphaned)} recorded override(s) answer "
+            "\nmendel: " + coded("MD0203", f"{len(resolver.orphaned)} recorded override(s) answer "
             f"questions this re-resolution does not ask. Nothing was written.\n"
-            f"`mendel explain MD0203` for the long form.",
+            f"`mendel explain MD0203` for the long form."),
             file=sys.stderr,
         )
         return 2

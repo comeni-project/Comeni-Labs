@@ -27,6 +27,7 @@ from comeni_core.declared.layered import (
     layers_of,
     stack,
 )
+from comeni_core.diagnostics import coded
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.tiers import ValueSource
 from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
@@ -159,15 +160,17 @@ class Measurement(BaseModel):
         """A flag with no reason is a fact nobody can act on. Issue #38."""
         if self.assertion_only and not self.assertion_only_because:
             raise ValueError(
-                f"MD0315: measurement {self.id!r} declares `assertion_only` with no "
+                coded("MD0315", f"measurement {self.id!r} declares `assertion_only` with no "
                 f"`assertion_only_because`. A reader cannot tell 'no tool exists for this' "
                 f"from 'the tool exists and nobody has vendored it', and those are "
-                f"different amounts of work."
+                f"different amounts of work.")
             )
         if self.assertion_only_because and not self.assertion_only:
             raise ValueError(
-                f"MD0315: measurement {self.id!r} explains why nothing measures it and does "
-                f"not declare `assertion_only: true`. One of the two is wrong."
+                coded(
+                    "MD0315",
+                    f"measurement {self.id!r} explains why nothing measures it and does "
+                    f"not declare `assertion_only: true`. One of the two is wrong.")
             )
         return self
 

@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import _role_name
 
 
@@ -58,7 +59,7 @@ class RoleVocabulary(BaseModel):
                 try:
                     _role_name(name)
                 except ValueError as exc:
-                    raise ValueError(f"MD0302: {path}: {exc}") from exc
+                    raise ValueError(coded("MD0302", f"{path}: {exc}")) from exc
             return declared
 
         return Kind(
@@ -84,7 +85,7 @@ class RoleVocabulary(BaseModel):
         for role in roles:
             if role not in self.names:
                 raise UnknownRoleError(
-                    f"MD0302: {contract_id} declares role {role!r}, which no layer in this "
+                    coded("MD0302", f"{contract_id} declares role {role!r}, which no layer in this "
                     f"stack declares.\n"
-                    f"  Roles that do exist: {', '.join(sorted(self.names)) or '(none)'}"
+                    f"  Roles that do exist: {', '.join(sorted(self.names)) or '(none)'}")
                 )

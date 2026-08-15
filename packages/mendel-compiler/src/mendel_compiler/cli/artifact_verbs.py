@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.diagnostics import coded
 
 from mendel_compiler import pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
@@ -42,9 +43,12 @@ def _emit_verb(target: Path, out: Path) -> int:
     source = target.parent
     if not (source / "modules").is_dir():
         print(
-            f"mendel: MD0210: {source}/modules is absent, so every `include` in the emitted "
+            "mendel: "
+            + coded(
+                "MD0210",
+                f"{source}/modules is absent, so every `include` in the emitted "
             f"workflow would point at nothing. Nothing was written. "
-            f"`mendel explain MD0210`.",
+            f"`mendel explain MD0210`."),
             file=sys.stderr,
         )
         return 2
@@ -53,11 +57,11 @@ def _emit_verb(target: Path, out: Path) -> int:
     edited = pipeline_file.hand_edited(out, pipeline)
     if edited:
         print(
-            f"mendel: MD0214: {', '.join(edited)} changed since it was generated, and "
+            "mendel: " + coded("MD0214", f"{', '.join(edited)} changed since it was generated, and "
             f"re-emitting would overwrite that.\n"
             f"  Make the change in {target} and run this again — that is the file the "
             f"pipeline is built from.\n"
-            f"  To discard it instead, delete {edited[0]} and run this again.",
+            f"  To discard it instead, delete {edited[0]} and run this again."),
             file=sys.stderr,
         )
         return 2
@@ -65,8 +69,8 @@ def _emit_verb(target: Path, out: Path) -> int:
     stale = pipeline_file.is_stale(pipeline)
     if stale:
         print(
-            f"MD0213: {target} has changed since the Nextflow was generated from it. "
-            f"Regenerating.",
+            coded("MD0213", f"{target} has changed since the Nextflow was generated from it. "
+            f"Regenerating."),
             file=sys.stderr,
         )
 
@@ -87,7 +91,7 @@ def _emit_verb(target: Path, out: Path) -> int:
     # verdict_when_the_file_was_edited` caught immediately.
     if mismatched := pipeline_file.stale_reasons(pipeline):
         print(
-            "mendel: MD0223: a value was edited and the reason beside it was not.\n  "
+            "mendel: " + coded("MD0223", "a value was edited and the reason beside it was not.\n  ")
             + "\n  ".join(mismatched)
             + "\n  Update `why.reason` to explain the new value and set `why.for_value` to "
             "it, or revert the value — `mendel explain MD0223`.",
@@ -181,18 +185,24 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
         # verdict onto the artifact itself. Only one of those is a claim about files nobody
         # checked, and only one has no undo.
         print(
-            f"mendel: MD0222: {source} records no `emitted:` block, so nothing ties the files "
+            "mendel: "
+            + coded(
+                "MD0222",
+                f"{source} records no `emitted:` block, so nothing ties the files "
             f"in {directory} to it and `{verb}` cannot certify them. Run `mendel emit "
-            f"{source} --out {directory}` first — `mendel explain MD0222`.",
+            f"{source} --out {directory}` first — `mendel explain MD0222`."),
             file=sys.stderr,
         )
         return 2
     edited = pipeline_file.hand_edited(directory, previous)
     if edited:
         print(
-            f"mendel: MD0214: {', '.join(edited)} changed since it was generated, so this "
+            "mendel: "
+            + coded(
+                "MD0214",
+                f"{', '.join(edited)} changed since it was generated, so this "
             f"directory does not describe itself. Make the change in {source} and run "
-            f"`mendel emit` — `mendel explain MD0214`.",
+            f"`mendel emit` — `mendel explain MD0214`."),
             file=sys.stderr,
         )
         return 2
@@ -202,8 +212,11 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
     # at exit 0 for as long as this check did not exist. A104.
     if stale := pipeline_file.stale_reasons(previous):
         print(
-            f"mendel: MD0223: a value in {source} was edited and the reason beside it was "
-            "not.\n  " + "\n  ".join(stale)
+            "mendel: "
+            + coded(
+                "MD0223",
+                f"a value in {source} was edited and the reason beside it was "
+            "not.\n  ") + "\n  ".join(stale)
             + "\n  Update `why.reason` to explain the new value and set `why.for_value` to "
             "it, or revert the value — `mendel explain MD0223`.",
             file=sys.stderr,
@@ -226,10 +239,13 @@ def _refuse_a_divergent_directory(source: Path, previous: Pipeline, verb: str) -
         return None
     if pipeline_file.is_stale(previous):
         print(
-            f"mendel: MD0213: {source} has changed since the Nextflow was generated from "
+            "mendel: "
+            + coded(
+                "MD0213",
+                f"{source} has changed since the Nextflow was generated from "
             f"it, so `{verb}` would report on files that are not what this file describes.\n"
             f"  Run `mendel emit {source} --out {directory}` first — "
-            f"`mendel explain MD0213`.",
+            f"`mendel explain MD0213`."),
             file=sys.stderr,
         )
         return 2

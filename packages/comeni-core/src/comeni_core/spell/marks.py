@@ -361,21 +361,28 @@ def _nf_template(value: str) -> str:
     `meta.<id>` or `task.<id>` reference, and the rest of the text is a closed character class.
     One line only: a newline would end the command rather than the flag.
     """
+    # Imported inside the call: `diagnostics` imports `Line` and `Text` from this
+    # module, so a module-level import here is the cycle this file's docstring exists
+    # to warn about. By the time a validator runs, both modules are loaded.
+    from comeni_core.diagnostics import coded
+
     if "\n" in value:
-        raise ValueError("MD0204: a template is one line — it composes into an argument string")
+        raise ValueError(
+            coded("MD0204", "a template is one line — it composes into an argument string")
+        )
     residue: list[str] = []
     i = 0
     while i < len(value):
         if value.startswith("${", i):
             end = value.find("}", i)
             if end == -1:
-                raise ValueError(f"MD0204: unterminated ${{ in template {value!r}")
+                raise ValueError(coded("MD0204", f"unterminated ${{ in template {value!r}"))
             head, _, tail = value[i + 2 : end].partition(".")
             if head not in ("meta", "task") or not _is_identifier(tail):
                 raise ValueError(
-                    f"MD0204: ${{{value[i + 2 : end]}}} is not an allowed interpolation. A "
+                    coded("MD0204", f"${{{value[i + 2 : end]}}} is not an allowed interpolation. A "
                     "template may reference only ${meta.<id>} or ${task.<id>}; anything else is "
-                    "arbitrary Groovy reaching the generated config."
+                    "arbitrary Groovy reaching the generated config.")
                 )
             i = end + 1
         elif value.startswith("{value}", i):
@@ -386,9 +393,9 @@ def _nf_template(value: str) -> str:
     bad = sorted(set(residue) - _TEMPLATE_CHARS)
     if bad:
         raise ValueError(
-            f"MD0204: a template may not contain {bad[0]!r}. The text around {{value}} is "
+            coded("MD0204", f"a template may not contain {bad[0]!r}. The text around {{value}} is "
             "composed into a shell command line; letters, digits, spaces, single quotes and "
-            "`_ . : + - / = ,` are allowed, and `{value}`, `${meta.x}`, `${task.x}` interpolate."
+            "`_ . : + - / = ,` are allowed, and `{value}`, `${meta.x}`, `${task.x}` interpolate.")
         )
     return value
 
@@ -590,12 +597,17 @@ def _test_data_ref(value: str) -> str:
     load. The URL *scheme* is deliberately not dictated — a laboratory may host its example
     anywhere — so only the metacharacters are refused, not the shape.
     """
+    # Imported inside the call: `diagnostics` imports `Line` and `Text` from this
+    # module, so a module-level import here is the cycle this file's docstring exists
+    # to warn about. By the time a validator runs, both modules are loaded.
+    from comeni_core.diagnostics import coded
+
     bad = sorted(_TEST_DATA_FORBIDDEN & set(value)) or [c for c in value if ord(c) < 32]
     if bad:
         raise ValueError(
-            f"MD0217: test_data {value!r} contains {bad[0]!r}, which would inject into the "
+            coded("MD0217", f"test_data {value!r} contains {bad[0]!r}, which would inject into the "
             "generated config. A reference is a URL pinned to a commit; remove quotes, "
-            "backticks, `$`, braces and whitespace."
+            "backticks, `$`, braces and whitespace.")
         )
     return value
 

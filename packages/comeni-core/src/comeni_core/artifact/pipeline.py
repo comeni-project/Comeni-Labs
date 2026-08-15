@@ -29,6 +29,7 @@ from comeni_core.artifact.gates import Gate
 from comeni_core.artifact.load import _param_refs
 from comeni_core.artifact.lockfile import LockedLayer
 from comeni_core.declared.layered import Displacement
+from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
@@ -262,10 +263,10 @@ class Setting(BaseModel):
             and not substitutable(self.value)
         ):
             raise ValueError(
-                f"MD0221: {self.name} routes {self.value!r} to `ext.{self.key}` with no "
+                coded("MD0221", f"{self.name} routes {self.value!r} to `ext.{self.key}` with no "
                 "template, so it is written into Nextflow config verbatim. Use letters, "
                 "digits and _ . : + - only, or a number, or true/false — "
-                "`mendel explain MD0221`."
+                "`mendel explain MD0221`.")
             )
         return self
 
@@ -412,7 +413,7 @@ class StepInput(BaseModel):
     def _exactly_one_source(self) -> "StepInput":
         if (self.source is None) == (self.channel is None):
             raise ValueError(
-                f"MD0215: input {self.port} must name exactly one of `source` or `channel`"
+                coded("MD0215", f"input {self.port} must name exactly one of `source` or `channel`")
             )
         return self
 
@@ -475,7 +476,7 @@ class Step(BaseModel):
         repeated = sorted({name for name in names if names.count(name) > 1})
         if repeated:
             raise ValueError(
-                f"MD0212: step {self.id} declares {', '.join(repeated)} more than once"
+                coded("MD0212", f"step {self.id} declares {', '.join(repeated)} more than once")
             )
         return self
 
@@ -500,8 +501,10 @@ class Step(BaseModel):
         if collided:
             key, who = collided[0]
             raise ValueError(
-                f"MD0208: step {self.id} routes {' and '.join(who)} to ext.{key.value}, which "
-                f"takes one value — a second writer silently wins. `mendel explain MD0208`."
+                coded(
+                    "MD0208",
+                    f"step {self.id} routes {' and '.join(who)} to ext.{key.value}, which "
+                    f"takes one value — a second writer silently wins. `mendel explain MD0208`.")
             )
         return self
 
@@ -541,9 +544,9 @@ class Channel(BaseModel):
         referenced = _param_refs(self.expression)
         if sorted(self.params) != referenced:
             raise ValueError(
-                f"MD0211: channel {self.type_id} declares params {sorted(self.params)} but "
+                coded("MD0211", f"channel {self.type_id} declares params {sorted(self.params)} but "
                 f"its expression references {referenced}. `params:` names what `expression:` "
-                f"reads; edit whichever of the two is wrong."
+                f"reads; edit whichever of the two is wrong.")
             )
         return self
 
@@ -700,16 +703,18 @@ class Pipeline(EgressPayload):
         """
         if self.version > SCHEMA_VERSION:
             raise ValueError(
-                f"MD0207: this pipeline.yml declares version {self.version}, and this Mendel "
-                f"understands version {SCHEMA_VERSION}. Upgrade Mendel; do not edit the "
-                f"version down, which would only move the failure somewhere less obvious."
+                coded(
+                    "MD0207",
+                    f"this pipeline.yml declares version {self.version}, and this Mendel "
+                    f"understands version {SCHEMA_VERSION}. Upgrade Mendel; do not edit the "
+                f"version down, which would only move the failure somewhere less obvious.")
             )
         ids = [step.id for step in self.steps]
         repeated = sorted({name for name in ids if ids.count(name) > 1})
         if repeated:
             raise ValueError(
-                f"MD0212: two steps share the id {', '.join(repeated)}. A step id is what "
-                f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous."
+                coded("MD0212", f"two steps share the id {', '.join(repeated)}. A step id is what "
+                f"`inputs[].source` points at, so a duplicate makes the wiring ambiguous.")
             )
         # A130. `== []` and not falsy: `None` means the file predates the question and makes
         # no claim, so it cannot contradict one. Only an explicit "nothing was wired" can.
@@ -722,10 +727,12 @@ class Pipeline(EgressPayload):
             )
             if claimed:
                 raise ValueError(
-                    f"MD0225: {', '.join(claimed)} record that a model settled them, and this "
-                    "build records that no AI point was available. One of the two is false. "
+                    coded(
+                        "MD0225",
+                        f"{', '.join(claimed)} record that a model settled them, and this "
+                        "build records that no AI point was available. One of the two is false. "
                     "`ai.available: []` means nothing was wired to a model, so nothing could "
-                    "have been consulted."
+                    "have been consulted.")
                 )
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:
@@ -736,17 +743,19 @@ class Pipeline(EgressPayload):
             )
             if shadow:
                 raise ValueError(
-                    f"MD0208: step {step.id} routes {', '.join(shadow)} to meta, but a "
+                    coded("MD0208", f"step {step.id} routes {', '.join(shadow)} to meta, but a "
                     f"measurement already writes {shadow[0]} into the meta map — the setting "
-                    f"would silently overwrite a measured fact. `mendel explain MD0208`."
+                    f"would silently overwrite a measured fact. `mendel explain MD0208`.")
                 )
         keys = [record.key for record in self.decisions]
         repeated = sorted({key for key in keys if keys.count(key) > 1})
         if repeated:
             raise ValueError(
-                f"MD0219: two decision records share the key {repeated[0]}. A key names one "
-                f"decision; a duplicate is a corrupt file, and `ReplayResolver` would keep one "
-                f"and drop the other's answer in silence. `mendel explain MD0219`."
+                coded(
+                    "MD0219",
+                    f"two decision records share the key {repeated[0]}. A key names one "
+                    f"decision; a duplicate is a corrupt file, and `ReplayResolver` would keep one "
+                f"and drop the other's answer in silence. `mendel explain MD0219`.")
             )
         values = self._param_setting_values()
         for record in self.decisions:
@@ -756,10 +765,12 @@ class Pipeline(EgressPayload):
             value = values.get(record.key)
             if override is not None and value is not None and override != value:
                 raise ValueError(
-                    f"MD0218: {record.key} is answered {value!r} in settings and {override!r} "
-                    f"in its decision's human_override — one file, two answers, and emit and "
+                    coded(
+                        "MD0218",
+                        f"{record.key} is answered {value!r} in settings and {override!r} "
+                        f"in its decision's human_override — one file, two answers, and emit and "
                     f"upgrade would read different ones. settings[].value is the writable one; "
-                    f"remove the human_override or set it equal. `mendel explain MD0218`."
+                    f"remove the human_override or set it equal. `mendel explain MD0218`.")
                 )
 
         # MD0220. `why.source: human` is a claim that a person answered an ambiguity resolution
@@ -781,12 +792,14 @@ class Pipeline(EgressPayload):
                 key = f"{step.id}.{setting.name}"
                 if overrides.get(key) is None:
                     raise ValueError(
-                        f"MD0220: {key} says source: human, but no decision records a person "
-                        f"answering it — its human_override is null or absent. `source: human` "
+                        coded(
+                            "MD0220",
+                            f"{key} says source: human, but no decision records a person "
+                            f"answering it — its human_override is null or absent. `source: human` "
                         f"clears the review, so it must be backed by the answer it claims.\n"
                         f"  Edit `settings[].value` and leave `source` alone: `upgrade` "
                         f"promotes the answer and sets `source: human` itself. Or restore the "
-                        f"source that resolution gave it. `mendel explain MD0220`."
+                        f"source that resolution gave it. `mendel explain MD0220`.")
                     )
         return self
 
