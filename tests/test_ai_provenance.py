@@ -33,9 +33,12 @@ def _built(tmp_path: pathlib.Path) -> Pipeline:
     from mendel_compiler.cli import main
 
     out = tmp_path / "build"
+    # **No `--gate`.** A gate needs Nextflow on PATH, which a developer machine has and CI
+    # does not — so `--gate lint` here was green locally and failed in CI, which is the exact
+    # mistake issue #46 recorded one day earlier. Nothing in this file is about gates.
     assert main([
         "build", "--goal", str(ROOT / "examples" / "rnaseq-goal.yml"),
-        "--out", str(out), "--root", str(ROOT), "--gate", "lint",
+        "--out", str(out), "--root", str(ROOT),
     ]) == 0
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
 

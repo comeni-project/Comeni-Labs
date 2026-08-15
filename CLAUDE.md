@@ -638,6 +638,15 @@ already been wrong once, when it named a gate that could not pass.
   `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
   ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
   guess fails in milliseconds instead of at pipeline launch.
+- **CI has no Nextflow, and a developer machine does.** `make check`'s lane installs neither
+  Nextflow nor Docker, so **any test passing `--gate` to `mendel build` is green locally and red
+  in CI** — `mendel: gate lint: FAIL / nextflow not found on PATH`, exit 1. Omit `--gate` unless
+  the test is *about* gates; `tests/test_pipeline_file.py::_build` is the shape to copy. The two
+  tests in `test_gates.py` that genuinely need it are `skipif`-guarded on
+  `shutil.which("nextflow")`. **Check it by shadowing rather than by remembering**: put a
+  `nextflow` on `PATH` that exits non-zero and run the fast suite — anything that fails and is
+  not in `test_gates.py` was relying on your machine. That is how a `run_gate` monkeypatch on the
+  wrong module was found (#41) and how a stray `--gate lint` was found the next day (#49).
 - **The stub gate needs Docker and ~900s on a cold cache.** nf-core 4.x captures versions with
   `eval()`, which runs even under `-stub-run`, so the tool must exist — hence
   `-profile stub_data,docker`. Without `docker.runOptions = '-u $(id -u):$(id -g)'` every work
