@@ -16,6 +16,7 @@ import operator
 import re
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 from comeni_core import yaml_strict
 from comeni_core.layered import (
@@ -114,6 +115,22 @@ class Decision(BaseModel):
     cite: str | None = None
 
 
+class Aggregate(BaseModel):
+    """Reduce a per-sample measurement to one value. Spec §3.2.
+
+    `over` is `cohort` and nothing else, and it is written out rather than assumed because
+    the cohort-versus-sample question is the one the shipped format could not even ask —
+    `read_length: ">= 70"` against a cohort of three has no defined meaning, and the format
+    gave a rule author no way to say which they meant.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    measurement: MeasurementId
+    over: Literal["cohort"]
+    using: Literal["max", "min", "mean"]
+
+
 class Derivation(BaseModel):
     """A fact the registry works out, rather than one a tool measured. Spec §3.1.
 
@@ -134,23 +151,30 @@ class Derivation(BaseModel):
     fact: MeasurementId
     kind: MeasurementKind
     rows: list[DecisionRow] = Field(default_factory=list)
+    aggregate: Aggregate | None = None
     because: str | None = None
     cite: str | None = None
 
     @model_validator(mode="after")
     def _can_fire(self) -> "Derivation":
-        """A derivation with no rows is A122's own shape, one layer down.
+        """Exactly one of `rows` and `aggregate`, and never neither.
 
-        It loads clean, contributes nothing, and reads to a reviewer as a fact the registry
-        supplies. Refused at load rather than reported at resolution, because by resolution
-        the fact is simply absent and nothing can tell an empty derivation from one that was
-        never written. Spec §5.
+        A derivation that can produce nothing is A122's own shape, one layer down: it loads
+        clean, contributes nothing, and reads to a reviewer as a fact the registry supplies.
+        Refused at load rather than reported at resolution, because by resolution the fact is
+        simply absent and nothing can tell an empty derivation from one that was never
+        written. Spec §5.
+
+        Both is refused rather than ordered, because an order here would be a rule nobody
+        reading the file could see — invariant 8's argument, one layer down again.
         """
-        if not self.rows:
+        if bool(self.rows) == bool(self.aggregate):
+            has = "both `rows` and `aggregate`" if self.rows else "neither `rows` nor `aggregate`"
             raise ValueError(
-                f"MD0304: derivation {self.fact!r} has no `rows`, so it can never fire. "
-                f"Give it at least one row, or delete it — a derivation that contributes "
-                f"nothing still reads as a fact the registry supplies."
+                f"MD0304: derivation {self.fact!r} declares {has}, and needs exactly one. "
+                f"A derivation that can produce nothing still reads as a fact the registry "
+                f"supplies; one that could produce two would resolve by a precedence no "
+                f"reader of the file can see."
             )
         return self
 

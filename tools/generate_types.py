@@ -45,7 +45,7 @@ from comeni_core.tiers import ValueSource
 
 class Measured(BaseModel):
     measurement: MeasurementId
-    value: ParamValue
+    value: ParamValue | list[ParamValue]
     source: ValueSource
     by: ContractId | None
 
@@ -55,10 +55,22 @@ class DataProfile(BaseModel):
 
 
 def _returns(measurement) -> str:
+    """The declared type of `DataProfile.get(<this measurement>)`.
+
+    A `per_sample` measurement may hold a scalar or a list — a scalar being the claim that
+    the cohort is uniform — so the overload has to admit both. Emitting the scalar alone
+    would be a stub that lies about a shape the loader accepts, which is the failure mode
+    this file's own header calls the expensive one: stale costs autocomplete, wrong costs
+    correctness.
+    """
     if measurement.kind is MeasurementKind.ENUM:
         values = ", ".join(f'"{v}"' for v in measurement.values)
-        return f"Literal[{values}] | None"
-    return _RETURN[measurement.kind]
+        scalar = f"Literal[{values}]"
+    else:
+        scalar = _RETURN[measurement.kind].removesuffix(" | None")
+    if measurement.per_sample:
+        return f"{scalar} | list[{scalar}] | None"
+    return f"{scalar} | None"
 
 
 def _wrapped(returns: str) -> list[str]:
@@ -107,7 +119,7 @@ def generate_stub(registry: MeasurementRegistry) -> str:
             ]
     lines += [
         "    @overload",
-        "    def get(self, measurement_id: str) -> ParamValue: ...",
+        "    def get(self, measurement_id: str) -> ParamValue | list[ParamValue]: ...",
         "",
     ]
     return "\n".join(lines)

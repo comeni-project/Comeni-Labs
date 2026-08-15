@@ -130,6 +130,9 @@ def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None
     for derivation in derivations:
         if derivation.fact in premises:
             continue
+        if derivation.aggregate is not None:
+            _aggregate(premises, derivation)
+            continue
         for row in derivation.rows:
             if not _matches(row.when, premises):
                 continue
@@ -142,6 +145,42 @@ def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None
                 derived_from=sorted(row.when),
             )
             break
+
+
+_REDUCERS = {
+    "max": max,
+    "min": min,
+    "mean": lambda values: sum(values) / len(values),
+}
+
+
+def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:
+    """Reduce a per-sample premise to one value. Spec §3.2, R19.
+
+    A scalar reduces to itself: a per-sample measurement written as one value is the claim
+    that the cohort is uniform, so the max, min and mean of it are all that value. Writing
+    it out is what stops `cohort_max_read_length` from existing for a three-sample profile
+    and vanishing for a one-sample one — a fact that appears and disappears with the shape of
+    the input is a fact no rule can be written against.
+
+    An absent source leaves the fact absent rather than raising. The premise it would have
+    reduced was optional, and a rule reading the aggregate can ask `absent` — which is the
+    whole point of the origin vocabulary carrying `unmeasured`.
+    """
+    source = premises.get(derivation.aggregate.measurement)
+    if source is None:
+        return
+    values = source.value if isinstance(source.value, list) else [source.value]
+    if not values:
+        return
+    premises[derivation.fact] = Premise(
+        id=derivation.fact,
+        value=_REDUCERS[derivation.aggregate.using](values),
+        origin=PremiseOrigin.DERIVED,
+        because=derivation.because or "",
+        cite=derivation.cite or "",
+        derived_from=[derivation.aggregate.measurement],
+    )
 
 
 def _matches(when: dict[str, Any], premises: dict[str, Premise]) -> bool:

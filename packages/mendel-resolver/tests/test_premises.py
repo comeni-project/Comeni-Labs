@@ -262,3 +262,63 @@ def test_a_derivation_never_overwrites_an_earlier_derivation_either():
         measurements=LOADED.measurements,
     )
     assert premises["strandedness"].value == "reverse"
+
+
+_COHORT_MAX = {
+    "fact": "cohort_max_read_length",
+    "kind": "integer",
+    "aggregate": {"measurement": "read_length", "over": "cohort", "using": "max"},
+    "because": "the index is built once per run, so it must suit the longest read in it",
+    "cite": "STAR manual 2.7, --sjdbOverhang",
+}
+"""R19, which the shipped format cannot express at all — and §12's cohort-versus-sample
+question, which it could not even ask."""
+
+
+def test_an_aggregate_reduces_the_cohort():
+    premises = build_premises(
+        goal=_goal(read_length=[150, 100, 150]),
+        derivations=[Derivation.model_validate(_COHORT_MAX)],
+        measurements=LOADED.measurements,
+    )
+    assert premises["cohort_max_read_length"].value == 150
+    assert premises["cohort_max_read_length"].origin is PremiseOrigin.DERIVED
+    assert premises["cohort_max_read_length"].derived_from == ["read_length"]
+
+
+def test_an_aggregate_over_a_scalar_reduces_to_that_scalar():
+    """A per-sample measurement written as one value is the claim that the cohort is
+    uniform, so its max is that value. Without this the fact would exist for a three-sample
+    profile and vanish for a one-sample one, and no rule can be written against a fact that
+    appears and disappears with the shape of the input."""
+    premises = build_premises(
+        goal=_goal(read_length=150),
+        derivations=[Derivation.model_validate(_COHORT_MAX)],
+        measurements=LOADED.measurements,
+    )
+    assert premises["cohort_max_read_length"].value == 150
+
+
+def test_an_aggregate_over_an_absent_measurement_leaves_the_fact_absent():
+    """Rather than raising. The premise it would have reduced was optional, and a rule
+    reading the aggregate can ask `absent`."""
+    premises = build_premises(
+        goal=_goal(),
+        derivations=[Derivation.model_validate(_COHORT_MAX)],
+        measurements=LOADED.measurements,
+    )
+    assert "cohort_max_read_length" not in premises
+
+
+def test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused():
+    """Ordering them would be a precedence no reader of the file could see — invariant 8's
+    argument, one layer down."""
+    with pytest.raises(ValueError, match="MD0304"):
+        Derivation.model_validate({**_COHORT_MAX, "rows": [{"when": {}, "then": 1}]})
+
+
+def test_a_list_is_refused_where_the_measurement_is_not_per_sample():
+    """`check` is what stands between a goal file and routing. A list reaching a comparison
+    predicate raises TypeError at resolution rather than a diagnostic at load."""
+    with pytest.raises(ValueError, match="per_sample"):
+        LOADED.measurements.profile({"n_samples": [1, 2, 3]})

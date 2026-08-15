@@ -74,6 +74,22 @@ class Measurement(BaseModel):
     three values and a fourth is a bug, while `organism` can never be enumerated and a
     registry that tries is wrong.
     """
+    per_sample: bool = False
+    """Whether this is a property of each sample rather than of the study.
+
+    A per-sample measurement may be written as **a scalar or a list**: a scalar says the
+    cohort is uniform in this respect, which is what every goal file written so far means by
+    `read_length: 150`, and a list gives one value per sample. Both are the same claim at
+    different resolutions, and refusing the scalar would invalidate every existing goal to
+    buy nothing — the same call `DataProfile._accept_mapping` and `Constraints._accept_mapping`
+    already make about the ergonomic form and the safe one being different decisions.
+
+    Distinct from `describes`, which says *what kind of thing* a measurement is about and
+    governs whether it can be carried into a module's `meta` map. `n_samples` describes the
+    study and is not per-sample; `read_length` is both. A rule that must reduce a cohort to
+    one number says so through a `derives:` aggregate rather than by hoping the profile
+    happened to carry a scalar.
+    """
     minimum: float | None = None
     maximum: float | None = None
     unit: str | None = None
@@ -238,9 +254,27 @@ class MeasurementRegistry(BaseModel):
             f"  To add one, declare <layer>/measurements/{measurement_id}.yml"
         )
 
-    def check(self, measurement_id: str, value: ParamValue) -> None:
-        """Raise unless `value` satisfies the declaration for `measurement_id`."""
+    def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
+        """Raise unless `value` satisfies the declaration for `measurement_id`.
+
+        A list is permitted only where the measurement declares `per_sample`, and then every
+        element is checked against the same declaration — a cohort of read lengths is a cohort
+        of read lengths, not a new kind of thing. Refusing a list everywhere else matters more
+        than it looks: `check` is what stands between a goal file and routing, and a list
+        reaching a comparison predicate raises `TypeError` at resolution rather than a
+        diagnostic at load.
+        """
         measurement = self.get(measurement_id)
+        if isinstance(value, list):
+            if not measurement.per_sample:
+                raise BadMeasurementValueError(
+                    f"{measurement_id!r} is not declared `per_sample`, so it takes one value "
+                    f"and not a list. Declare `per_sample: true` where it is declared, or "
+                    f"write the one value the whole cohort shares."
+                )
+            for element in value:
+                self.check(measurement_id, element)
+            return
         kind = measurement.kind
         if kind is MeasurementKind.ENUM:
             if value not in measurement.values:
@@ -268,7 +302,7 @@ class MeasurementRegistry(BaseModel):
 
     def profile(
         self,
-        mapping: dict[str, ParamValue],
+        mapping: dict[str, ParamValue | list[ParamValue]],
         *,
         source: ValueSource = ValueSource.GOAL,
         by: str | None = None,

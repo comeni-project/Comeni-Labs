@@ -1110,3 +1110,26 @@ make the answer depend on which file `stack()` reached first, which is invariant
 is also what `ReplayResolver` already does with duplicate keys, so this is one convention rather
 than a second one. Task 11 should refuse the duplicate at load; until it does, the resolution is
 at least not order-dependent.
+
+### Task 2b — the aggregate half (R19, spec §3.2), after the operator's call on representation
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_an_aggregate_over_a_scalar_reduces_to_that_scalar` | the scalar branch of `_aggregate`'s `values` | failed | `KeyError: 'cohort_max_read_length'` |
+| 2026-08-15 | `test_premises.py::test_a_list_is_refused_where_the_measurement_is_not_per_sample` | the `not measurement.per_sample` refusal in `check` | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_premises.py::test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused` | covered by Task 2's `_can_fire` revert | failed | `DID NOT RAISE` |
+
+**A scalar reduces to itself, and that is a decision rather than a convenience.** A per-sample
+measurement written as one value is the claim that the cohort is uniform, so its max, min and
+mean are all that value. Without the branch, `cohort_max_read_length` exists for a three-sample
+profile and vanishes for a one-sample one — **a fact that appears and disappears with the shape
+of the input is a fact no rule can be written against**, and the rule would fail by silently
+not firing rather than by any diagnostic.
+
+**The stub generator was wrong before it was stale, which is the more expensive of the two.**
+`tools/generate_types.py`'s own header says *"stale costs autocomplete, never correctness"*, and
+that guarantee held only while every measurement was scalar. With `read_length` declared
+`per_sample`, `--check` passed — the file was current — while the overload it contained said
+`int | None` for a value the loader accepts as `list[int]`. `--check` cannot see that class of
+error at all: it compares the generated file against itself. Fixed in `_returns`, and the
+fallback overload and the `Measured` declaration in the header were wrong in the same way.
