@@ -14,6 +14,7 @@ from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.artifact.egress import Emitted
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.plan.tiers import Tier
 
 FILENAME = "pipeline.yml"
 
@@ -182,14 +183,42 @@ def stale_reasons(pipeline: Pipeline) -> list[str]:
 
     Skipped where `for_value` is `None` — a file written before 1.14 has no such field, and
     absence is not disagreement.
+
+    **Except for a tier-4 setting somebody answered, which is issue #48.** A value nothing
+    resolved also has `for_value: null`, so by shape alone it is indistinguishable from a
+    pre-1.14 field — and the one case where a human is most likely to be editing a value was
+    the one case this could not see. Answering the question in the file left `why.reason`
+    reading *"no rule covered … please review"* beside a value somebody had just chosen, and
+    `emit` accepted it at exit 0.
+
+    **Three conditions, and the third is what keeps this from being a nag.** No recorded
+    value, tier 4, *and* a decision carrying a `human_override`. An **unanswered** tier-4
+    setting is supposed to say "please review" and must not be flagged for doing so; a check
+    that fires on correct output is a check people stop reading. Genuinely pre-1.14 files need
+    no special case — they are `version: 1`, and `predates_schema()` suppresses the whole
+    family for them.
     """
-    return [
-        f"{step.id}.{setting.name}: value is {setting.value!r}, but the reason beside it was "
-        f"written about {setting.why.for_value!r} — {setting.why.reason}"
-        for step in pipeline.steps
-        for setting in step.settings
-        if setting.why.for_value is not None and setting.why.for_value != setting.value
-    ]
+    answered = {
+        decision.key for decision in pipeline.decisions if decision.human_override is not None
+    }
+    stale = []
+    for step in pipeline.steps:
+        for setting in step.settings:
+            key = f"{step.id}.{setting.name}"
+            if setting.why.for_value is not None:
+                if setting.why.for_value != setting.value:
+                    stale.append(
+                        f"{key}: value is {setting.value!r}, but the reason beside it was "
+                        f"written about {setting.why.for_value!r} — {setting.why.reason}"
+                    )
+            elif setting.why.tier is Tier.AMBIGUOUS and key in answered:
+                stale.append(
+                    f"{key}: a human answered this tier-4 question with {setting.value!r}, "
+                    f"and the reason beside it is still the resolver's — "
+                    f"{setting.why.reason!r}. Put your reasoning in the decision's "
+                    f"`override_reason`, and make `why.reason` say the override answered it."
+                )
+    return stale
 
 
 def predates_schema(pipeline: Pipeline) -> bool:

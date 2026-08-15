@@ -286,3 +286,35 @@ def test_the_allowlist_did_not_make_the_digest_constant(tmp_path):
     (two / "contracts" / "a.yml").write_text("id: nf-core/a@1.0.0\n")
     (two / "registry.yml").write_text("name: other\n")
     assert digest_of_directory(one) != digest_of_directory(two), "registry.yml must count"
+
+
+def test_the_file_tag_separates_entry_kinds():
+    """`_FILE` is a domain separator, and A36 is that nothing could observe it working.
+
+    Setting it to `b""` and running the whole suite passed — 436 tests — because there is
+    exactly one entry kind, and a separator between one thing and nothing separates nothing.
+    Its sibling `_LINK` went with the symlink branch A9 removed.
+
+    **Deleting it was the audit's option 1 and is no longer free.** `comeni-registry` is
+    published and tagged `v0.2.0`, and a layer digest is what a `pipeline.yml` pins — dropping
+    the tag would move every layer digest in every existing artifact. So the tag stays and its
+    claim is made checkable instead, which is the only one of the audit's three options that
+    turns *"this line cannot be wrong"* into *"this line is tested"*.
+
+    The second entry kind is invented **here** rather than in the code. Adding one to
+    `digest.py` to justify the separator would be building a feature to test a byte.
+    """
+    from comeni_core.artifact import digest as module
+
+    payload = b"alpha"
+    as_file = content_hash(payload)
+    as_another_kind = hashlib.sha256(b"link\x00" + payload).hexdigest()
+
+    assert as_file != as_another_kind, (
+        "`_FILE` does not separate entry kinds: a second kind over the same bytes collides "
+        "with a file, which is the whole thing the tag exists to prevent"
+    )
+    assert module._FILE != b"", "the tag is empty, so it separates nothing (A36)"
+    assert as_file == hashlib.sha256(module._FILE + payload).hexdigest(), (
+        "`content_hash` no longer applies the tag it is supposed to apply"
+    )

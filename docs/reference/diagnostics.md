@@ -11,6 +11,7 @@ uv run mendel explain MD0104
 
 | band | concern |
 |---|---|
+| `MD0001`–`MD0099` | loading declared registry data |
 | `MD0100`–`MD0199` | a contract disagrees with its module |
 | `MD0200`–`MD0299` | the pipeline file — a setting, an override, or the format |
 | `MD0300`–`MD0399` | routing and resolution |
@@ -28,6 +29,20 @@ still use the old spelling.
 directory, which is legitimate — the contract is listed under `registry.unverified` in
 `pipeline.yml`, so a shared pipeline carries which claims went unchecked and a curator may
 decline to curate one.
+
+## Loading declared registry data
+
+| Code | Says |
+|---|---|
+| `MD0001` | a declared file is not valid YAML |
+| `MD0002` | a declared file does not match the schema for its kind |
+| `MD0003` | a layer holds a declared-data file that no kind reads |
+| `MD0004` | a registry layer contains a symlink |
+| `MD0005` | a layer holds no declared data at all |
+| `MD0006` | a key is declared twice inside one layer |
+| `MD0007` | `add_states` carries other fields as well |
+| `MD0008` | `add_states` names a type no layer declares |
+| `MD0009` | a contract requires a state no layer declares |
 
 ## A contract disagrees with its module
 
@@ -72,6 +87,7 @@ decline to curate one.
 | `MD0222` | this pipeline records no `emitted:` block, so its directory cannot be certified |
 | `MD0223` | a value was edited and the reason beside it still describes the value it replaced |
 | `MD0224` | a setting fills a positional argument and is unanswered, so the call would read `null` |
+| `MD0225` | a value records a model settled it, and the build records that none was available |
 
 ## Routing and resolution
 

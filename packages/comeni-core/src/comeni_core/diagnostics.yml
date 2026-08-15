@@ -9,7 +9,7 @@
 #
 # Bands of one hundred group by concern inside a prefix:
 #
-#   MD0000-MD0099  loading declared registry data          (none yet — Pydantic errors today)
+#   MD0001-MD0099  loading declared registry data          (MD0000 unallocated on purpose)
 #   MD0100-MD0199  conformance: a contract disagrees with its module
 #   MD0200-MD0299  the pipeline file: a setting, an override, or the format
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
@@ -1309,3 +1309,233 @@ MD0315:
 
     `tests/test_measurement_vocabulary.py` checks the declaration against the registry, so a
     measurement that gains a profiler and forgets to drop the flag fails too.
+MD0001:
+  emitted_by: resolver
+  concern: loading
+  says: "a declared file is not valid YAML"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    The file named in the message did not parse. The parser's own complaint follows it,
+    with the line and column.
+
+    Before this code existed the failure arrived as a `yaml.YAMLError` naming a line number
+    and no file, which is unhelpful in a layer holding thirty-seven of them.
+  explanation: |
+    Issue #49: every other stage refuses with a code, a subject and a fix; loading refused
+    with a traceback. A `yaml.YAMLError` names a line and column and no file, which is
+    unhelpful in a layer holding thirty-seven of them and useless in a stack of three layers.
+
+    The wrap lives in `stack()` rather than in each kind's `parse`, because `stack()` is the
+    one place every kind loads through (invariant 11) and it is where the path is still in
+    scope. Five hand-written loaders each catching their own errors is what audit root B was.
+MD0002:
+  emitted_by: resolver
+  concern: loading
+  says: "a declared file does not match the schema for its kind"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    The message names the file, then one line per problem: the field path, and what was
+    wrong with it.
+
+        contracts/nf-core/star-align.yml in layer registry is not a valid contract.
+          produces.0.type_id: Field required
+
+    A field this Mendel does not know is refused rather than ignored — every declared model
+    sets `extra="forbid"`, because a typo'd key that loads is an overlay that does nothing.
+  explanation: |
+    Issue #49. A Pydantic `ValidationError` names a model class and a field path — `contract`,
+    `produces.0.type_id` — which tells you what shape was expected and not which of your files
+    is the wrong shape. The file name is the information the traceback loses, and it is the
+    only part the reader needs to act.
+
+    **Refusing an undeclared field is deliberate and not part of this code's remit to soften.**
+    Every declared model sets `extra="forbid"`: a typo'd key that loads is an overlay that
+    does nothing while looking exactly like one that works, which is audit A26's shape.
+MD0003:
+  emitted_by: resolver
+  concern: loading
+  says: "a layer holds a declared-data file that no kind reads"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Declared data lives in one directory per kind, nested as deeply as you like, `.yml` or
+    `.yaml`. A file outside those is hashed into the layer digest and changes nothing.
+
+    The realistic cause is a misspelled directory — `contract/` for `contracts/` — or a file
+    dropped at the layer root. `registry.yml` is the one exception: it is the layer's own
+    manifest. Audit A26.
+  explanation: |
+    Audit A26. An overlay contract saved as `.yaml` was invisible to every loader, so the
+    build routed on the base layer and exited 0 — while the *layer digest* hashed the file.
+    The lockfile said the overlay was there and the pipeline said it was not.
+
+    Recursion and both extensions fix that specific case. This fixes the class: a layer could
+    contain a file nothing looked at and say nothing about it. The realistic version is a
+    misspelled directory rather than an exotic one.
+MD0004:
+  emitted_by: resolver
+  concern: loading
+  says: "a registry layer contains a symlink"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Replace the link with the file. A layer is a unit strangers distribute: a link out of it
+    is meaningless to whoever receives it, and a link inside it is a copy with extra steps.
+
+    Refused rather than followed because the loader follows a link and the layer digest
+    cannot, so the bytes routed on would not be the bytes pinned. A symlinked contract whose
+    target was rewritten to `priority: 999` rerouted a pipeline with a byte-identical digest
+    and no drift. Audit A9.
+  explanation: |
+    Audit 2026-08-06, A9. An earlier version hashed a symlink as its *target path* and never
+    followed it — right about the hazard, wrong about the remedy, because `Registry.load`
+    opens the same path with `read_text()`, which does follow it. The bytes routed on were not
+    the bytes pinned.
+
+    Rewriting a link's target contents rerouted a whole pipeline to `priority: 999` with a
+    byte-identical layer digest and zero drift. Refusing is smaller than resolving and it is
+    honest: a link out of a distributed layer is meaningless to whoever receives it.
+
+    A symlinked *directory* was never exploitable — `rglob` does not descend into one — and is
+    refused anyway, because "the layer contains a link" is a simpler rule to state and to
+    check than "the layer contains a link to a file". Since issue #46 the check runs over
+    `declared_entries()`, so a symlinked kind directory is refused explicitly: `is_dir()`
+    follows a link, and without that branch the allowlist written after A9 would have
+    reintroduced A9.
+MD0005:
+  emitted_by: resolver
+  concern: loading
+  says: "a layer holds no declared data at all"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    If the layer is `registry/`, it is a git submodule and was not checked out:
+
+        git submodule update --init
+
+    `git clone --recurse-submodules` avoids this. Without the code, an empty `registry/`
+    passed every path check and surfaced as thirty-three failures about missing contracts.
+  explanation: |
+    Issue #46 made `registry/` a git submodule. `git clone` without `--recurse-submodules`
+    leaves it as an **empty directory that exists**, so every path check passes, the loader
+    finds no contracts, and the failure surfaces as `cannot route this goal` or as thirty-three
+    test failures about missing contracts. None of those names the cause, and the cause is one
+    command away.
+
+    `any` of the declared kinds rather than `all`: an overlay carrying three contracts and
+    nothing else is the normal private-layer case, and demanding all of them would refuse every
+    real overlay while passing every test written against the public base.
+MD0006:
+  emitted_by: resolver
+  concern: loading
+  says: "a key is declared twice inside one layer"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Delete one of them. Shadowing happens *between* layers and is recorded as a
+    `Displacement`; twice inside one layer is a copy-paste, and settling it by glob order
+    would be the silent arbitrary pick invariant 8 exists to prevent.
+  explanation: |
+    Shadowing is a declaration and is recorded as a `Displacement` in the `OVERLAY` block, so
+    a reader can see that a higher layer replaced something. That machinery is between layers.
+
+    Twice inside one layer is a copy-paste with no such record available, and resolving it by
+    glob order would be exactly the silent arbitrary pick invariant 8 exists to prevent —
+    `(-priority, id)` ties demote to tier 4 rather than being settled by whichever file the
+    filesystem returned first.
+MD0007:
+  emitted_by: resolver
+  concern: loading
+  says: "`add_states` carries other fields as well"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    `add_states` extends a declaration another layer made. To change anything else about the
+    type, declare the whole type with `states:` — which replaces rather than extends.
+
+    The two are deliberately different verbs, so an overlay says which it means.
+  explanation: |
+    `states:` replaces a type's states and `add_states:` extends them. They are different verbs
+    so that an overlay says which it means, and a file carrying both would be saying neither.
+
+    The same pair exists for measurements as `values:` and `add_values:`, for the same reason:
+    invariant 11's closing sentence is never to let an installed overlay reroute a pipeline
+    silently, and an ambiguous verb is how that happens quietly.
+MD0008:
+  emitted_by: resolver
+  concern: loading
+  says: "`add_states` names a type no layer declares"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Extending nothing is almost always a typo in the type id, or a layer ordering mistake —
+    the layer declaring the type must be *below* the one extending it.
+  explanation: |
+    Extending nothing is a typo in the type id, or a layer ordering mistake — the layer
+    declaring a type must sit *below* the layer extending it, because a stack is applied in
+    order and a later layer cannot extend what no earlier one declared.
+
+    Refused rather than treated as a declaration, because silently promoting an extension to a
+    declaration would let a typo invent a type that routing then matches against.
+MD0009:
+  emitted_by: resolver
+  concern: loading
+  says: "a contract requires a state no layer declares"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Vocabularies are closed (invariant 7): a contract using an undeclared state fails to
+    load rather than routing on a state nothing defines.
+
+    If the state existed until you installed an overlay, the message names the layer that
+    replaced the type — a contract cannot know why a state it always required stopped
+    existing, but the loader can, because it stacked the vocabulary a moment earlier.
+    Audit A35.
+  explanation: |
+    Invariant 7: vocabularies are closed. A contract using an undeclared state fails to load
+    rather than routing on a state nothing defines — new states arrive through the forge's
+    approval queue as reviewed data changes, never as code changes.
+
+    Audit A35 is the half that makes the message useful. A contract cannot know why a state it
+    has always required stopped existing; the loader can, because it stacked the vocabulary a
+    moment earlier. Without that join the build blamed the contract for an overlay's edit, and
+    the person reading it went looking in the wrong file.
+MD0225:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a value records a model settled it, and the build records that none was available"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    One of the two is false, and the artifact cannot say which. Either the value was not
+    settled by a model — correct `why.source` — or the build did have an AI point wired and
+    `ai.available` is wrong.
+
+        ai:
+          available: []      # nothing was wired to a model
+          used: []
+
+    `available: []` is a positive statement, not an absence. A file that predates the question
+    has no `ai:` section at all and is not checked.
+  explanation: |
+    A130, the checkable half. The design audit found that the artifact could not state that no
+    model was consulted: `resolved_by` and `confidence` are the resolver's claims about itself,
+    and `source: resolver` on every value is evidence of nothing, because a resolver sets its
+    own source.
+
+    `ai.available` is different in kind — it is a fact about how the build was *configured*,
+    not a self-report about a decision. If nothing was wired to a model then no value can have
+    been settled by one, and a file claiming otherwise has been edited or built by something
+    that lied.
+
+    **The other direction is not checkable and is documented rather than implied.** A
+    model-backed build whose adapter writes `source: resolver` on every value is
+    indistinguishable from a deterministic one. This code closes the direction that can be
+    proven; `AiProvenance`'s docstring states the limit, because a field implying more than it
+    delivers is worse than no field.
+
+    Under the engine decision of 2026-08-14 this stops being a legibility gap: `guarded` and
+    `sealed` both require attribution, so a model-authored reason that cannot be told from a
+    human-authored one is a gap in the protection profiles.

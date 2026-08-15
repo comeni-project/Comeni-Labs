@@ -84,12 +84,20 @@ row per revert, with the message it printed.
 because the file-level number reads as nearly done and is not. **`make residue` counts it**, with
 `ARGS=--list` for the names. A69 closed when the number became derivable rather than asserted.
 
-**A36** — `_FILE` domain separation in `stack()` cannot be observed to fail. **A130** — nothing
-distinguishes a model-authored `why.reason` from a human-authored one, which the engine decision
-promoted from a legibility gap to a gap in the protection profiles. Both carried.
+**A36 and A130 closed on 2026-08-16**, with #48 and #49. A36's separator now has a test that can
+fail — deleting the tag was the audit's preferred option and is no longer free, because
+`comeni-registry` is published and a layer digest is what a `pipeline.yml` pins. A130 closed in
+the direction that can be proven: `Pipeline.ai.available: []` states that nothing was wired to a
+model, `MD0225` refuses a value claiming otherwise, and `ValueSource.MODEL` exists so Plan 2's
+adapter has somewhere truthful to write. **The other direction is not checkable** — an adapter
+writing `resolver` on every value is indistinguishable from the ladder — and that limit is
+documented on the field rather than implied.
 
-**Fifteen round-four findings are carried as issues**, deliberately. `#26` (A62) and `#32` (A68)
-are the two to read before Plan 2 touches the same code.
+**Round four's fifteen findings are all closed** (2026-08-15, issues #24–#36). This paragraph said
+they were carried for a day after they were not, while the table below said otherwise — which is
+the same drift A71 and A72 are about, in prose that had no counter behind it.
+
+**A14 is the only carried finding left.**
 
 **By the operator's decision on 2026-08-13, Plan 1.12 was the last audit-driven plan** — which
 overrides the fix-then-re-audit loop's own exit criterion of *no critical finding surviving a
@@ -485,7 +493,10 @@ conversation is a loose end lost.
 | ~~18~~ | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | **closed 2026-08-14** as `not planned`, in a bulk pass. Reopen it rather than rediscovering it |
 | ~~38~~ | the measurement vocabulary has no author, and it gates every tier-3 rule | **the floor is closed, the drafter is not (2026-08-15).** Twelve measurements where there were six, derived from the twenty corpus rules, each cited and each declaring whether a tool can produce it (`assertion_only`, `MD0315`). **Five of the original six turned out to be assertion-only, including `strandedness`.** What remains open is the *drafter*: nothing writes a measurement, and the issue's sharpest point is that the drafting question and the measuring question are the same one — a contract has `meta.yml` as ground truth and a measurement has no equivalent. That is Plan 2's forge |
 | ~~39~~ | the tier-3 rule format cannot express the rules the forge will need | **closed 2026-08-15.** Plan 1.15 narrowed it to arithmetic; a `derives:` **`transform`** closes that — a chain of *named unary operations with a literal operand*, left to right. No parser, no precedence, and no way to name a second fact, which is what §13.2 asked for: arithmetic without a solver. **Nineteen of the twenty-one corpus rules load**; R02b is the contortion, newly caught by `MD0311`, and R20 is refused by design |
-| 48 | a tier-4 setting's `why.reason` stays stale after a human answers it; `MD0223` is blind to `for_value: null` | nothing — found by issue #41, filed rather than folded in |
+| ~~43~~ | data storage — one SQL source, or data spread across files? | **closed 2026-08-16.** Files, and it is the modern convention rather than a local quirk — nixpkgs, Homebrew, conda-forge, Bioconda and nf-core modules all keep human-curated catalogue data as files in git. `docs/design/declared-data.md` is the argument, including why crates.io moving its index off git does not transfer |
+| ~~46~~ | move the registry completely out of this repo | **closed 2026-08-16.** `registry/` is a git submodule pinned at `v0.2.0`; all 33 test files that load `ROOT / "registry"` are unchanged, and the drift subsystem is deleted rather than repointed |
+| ~~48~~ | a tier-4 setting's `why.reason` stays stale after a human answers it; `MD0223` is blind to `for_value: null` | **closed 2026-08-16.** Three conditions — no recorded value, tier 4, and a `human_override`. Answering a tier-4 question is now a two-part edit, and the one-part edit exits 2 |
+| ~~49~~ | `MD0000`–`MD0099` reserved and empty; loading refuses with a Pydantic traceback | **closed 2026-08-16.** `MD0001`–`MD0009`. Six were existing refusals gaining a prefix; only the YAML and schema wraps are new, and both sit in `stack()` because that is the one place every kind loads through |
 | ~~41~~ | code and documentation organisation | **closed 2026-08-16.** Eleven tasks, three emitted digests unmoved. `comeni_core` is five subpackages by lifecycle stage, the working notes left `docs/` for `notes/`, and `make links` checks every relative link in `docs/` and the root |
 | ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 
@@ -627,6 +638,15 @@ already been wrong once, when it named a gate that could not pass.
   `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
   ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
   guess fails in milliseconds instead of at pipeline launch.
+- **CI has no Nextflow, and a developer machine does.** `make check`'s lane installs neither
+  Nextflow nor Docker, so **any test passing `--gate` to `mendel build` is green locally and red
+  in CI** — `mendel: gate lint: FAIL / nextflow not found on PATH`, exit 1. Omit `--gate` unless
+  the test is *about* gates; `tests/test_pipeline_file.py::_build` is the shape to copy. The two
+  tests in `test_gates.py` that genuinely need it are `skipif`-guarded on
+  `shutil.which("nextflow")`. **Check it by shadowing rather than by remembering**: put a
+  `nextflow` on `PATH` that exits non-zero and run the fast suite — anything that fails and is
+  not in `test_gates.py` was relying on your machine. That is how a `run_gate` monkeypatch on the
+  wrong module was found (#41) and how a stray `--gate lint` was found the next day (#49).
 - **The stub gate needs Docker and ~900s on a cold cache.** nf-core 4.x captures versions with
   `eval()`, which runs even under `-stub-run`, so the tool must exist — hence
   `-profile stub_data,docker`. Without `docker.runOptions = '-u $(id -u):$(id -g)'` every work

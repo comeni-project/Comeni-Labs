@@ -39,6 +39,21 @@ class ValueSource(StrEnum):
     answer, and it would erase it precisely on the pipelines most worth reviewing. So the
     tier is kept and the *review* is what clears: see `PipelineIR.overrides()`.
     """
+    MODEL = "model"
+    """A model answered an ambiguity the deterministic ladder could not settle.
+
+    Distinct from `HUMAN` for the reason `HUMAN` is distinct from `GOAL`: *who* settled a
+    thing is what a reviewer needs, and the three answers oblige different amounts of trust.
+
+    **Nothing writes this until Plan 2.** It is declared now rather than then so that a model
+    adapter has somewhere truthful to write on the day it exists, instead of the enum arriving
+    alongside the first thing that needs it — which is the moment a shortcut gets taken.
+
+    **It is a claim, not a proof.** A resolver sets its own `source`, and an adapter that
+    writes `resolver` here is indistinguishable from the deterministic ladder. Same standing as
+    `confidence` and `reason`, and recorded as such in round three's inheritance notes. What
+    *is* provable is the negative, and that lives on `Pipeline.ai` — see `AiProvenance`. A130.
+    """
     MEASURED = "measured"
     """A tool produced this value by looking at the data, and named itself.
 

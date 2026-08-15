@@ -88,7 +88,8 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             # that count said "four" in prose for six plans and was wrong the day `roles/`
             # arrived (invariant 11).
             raise ValueError(
-                f"{layer} holds no registry data — none of the {len(DeclaredKind)} declared "
+                f"MD0005: {layer} holds no registry data — none of the "
+                f"{len(DeclaredKind)} declared "
                 "kinds is a directory in it.\n"
                 "\n"
                 "If this is `registry/`, it is a git submodule and was not checked out:\n"
@@ -110,7 +111,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                 # is meaningless to whoever receives it, and a link inside it is a copy
                 # with extra steps. Audit 2026-08-06, A9.
                 raise ValueError(
-                    f"registry layer {layer} contains a symlink at "
+                    f"MD0004: registry layer {layer} contains a symlink at "
                     f"{entry.relative_to(layer)}. A layer may not contain one: the loader "
                     "follows it and the layer digest cannot, so the bytes routed on would "
                     "not be the bytes pinned."
@@ -181,7 +182,8 @@ def _every_file_is_claimed(layer_values: list[Layer], claimed: set[Path]) -> Non
                 continue
             where = path.relative_to(layer.path)
             raise ValueError(
-                f"registry layer {layer.path} contains {where}, which nothing reads.\n"
+                f"MD0003: registry layer {layer.path} contains {where}, which nothing "
+                f"reads.\n"
                 f"  Declared data lives in "
                 f"{', '.join(k.value + '/' for k in DeclaredKind)} — nested as deeply as "
                 f"you like, `.yml` or `.yaml`.\n"

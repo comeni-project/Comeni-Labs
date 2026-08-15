@@ -68,6 +68,7 @@ _PIPELINE_MODELS = frozenset(
         "Emitted",
         "EmittedFile",
         "RegistryProvenance",
+        "AiProvenance",
         "LockedLayer",
     }
 )

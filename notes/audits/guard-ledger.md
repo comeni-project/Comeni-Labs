@@ -1900,3 +1900,112 @@ thing a stranger reads. Each would have handed a new user an empty `registry/`.
 
 A guard that finds real offenders the moment it is written is a guard that was needed. Hand-fixing
 prose finds the instances you thought of; the sentence a reader actually follows is elsewhere.
+
+## A36 — `_FILE`'s domain separation, made checkable (2026-08-16)
+
+| date | guard | reverted | result | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_digest.py::test_the_file_tag_separates_entry_kinds` | `_FILE = b""` | failed | *"the tag is empty, so it separates nothing (A36)"* |
+
+**This is the assertion A36 said did not exist.** Round two set `_FILE` to `b""` and ran the whole
+suite: 436 passed. A line that cannot be wrong reads exactly like a line that is untested, and
+that is A14's thesis stated about one byte.
+
+**The audit's option 1 — delete the tag — was priced out rather than argued down.** It said
+changing `_FILE` is *"free today and expensive after the first lockfile a stranger holds"*.
+`comeni-registry` is now published and tagged `v0.2.0`, and a layer digest is what a
+`pipeline.yml` pins, so deleting the tag would move every layer digest in every existing artifact.
+Option 3 — make the claim checkable — moves nothing, and is the only option that changes the tag's
+status from asserted to tested.
+
+**The second entry kind is invented in the test, not in the code.** Adding one to `digest.py` to
+justify the separator would be building a feature to test a byte.
+
+## Issue #49 — the loading stage refuses with a code (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_loading_diagnostics.py::test_MD0001_…` | `MD0001:` dropped from the message | failed |
+| 2026-08-16 | `…::test_MD0002_…` | `MD0002:` dropped | failed |
+| 2026-08-16 | `…::test_MD0003_…` | `MD0003:` dropped | failed |
+| 2026-08-16 | `…::test_MD0004_…` | `MD0004:` dropped | failed |
+| 2026-08-16 | `…::test_MD0005_…` | `MD0005:` dropped | failed |
+| 2026-08-16 | `…::test_MD0006_…` | `MD0006:` dropped | failed |
+| 2026-08-16 | `…::test_MD0007_…` | `MD0007:` dropped | failed |
+| 2026-08-16 | `…::test_MD0008_…` | `MD0008:` dropped | failed |
+| 2026-08-16 | `…::test_MD0009_…` | `MD0009:` dropped | failed |
+
+**Two of these nine were green on their first run, before the codes existed, and the reason is
+worth writing down.** `pytest` names `tmp_path` after the test that asked for it, so a refusal
+quoting the layer path contains the literal string `MD0004` inside
+`/tmp/pytest-of-…/test_MD0004_a_layer_contains_0/registry` — and `assert "MD0004" in message`
+passed against a message with no code in it at all.
+
+That is A68's shape exactly: **a guard comparing a name against itself.** `_refusal()` now scrubs
+the layer path out of the message before returning it, so the assertion can only be satisfied by
+a code the refusal actually carries.
+
+**Every test also asserts the file name**, not only the code. Issue #49's whole complaint is that
+a Pydantic error names a model class and a field path rather than a file; a code that named only a
+model would be the same defect wearing a number.
+
+**Six of the nine were existing refusals gaining a prefix**, not new logic — `MD0003` is A26's,
+`MD0004` is A9's, `MD0009` is invariant 7's with A35's join. Only `MD0001` and `MD0002` are new,
+and they wrap `kind.parse(path)` inside `stack()` because that is the one place every kind loads
+through (invariant 11) and the only place the path is still in scope. `MD0005` is the refusal
+issue #46 added yesterday as a bare `ValueError`.
+
+## A130 — the artifact states that no model was consulted (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_ai_provenance.py::test_MD0225_…` | the `MD0225` block removed | failed |
+| 2026-08-16 | `…::test_a_pre_ai_file_claiming_a_model_is_not_refused` | `== []` → `not self.ai.available` | failed |
+| 2026-08-16 | `…::test_a_file_from_before_the_question_states_nothing` | `available: list \| None = None` → `list = []` | failed (two tests) |
+| 2026-08-16 | `…::test_a_build_states_that_no_model_was_consulted` | `materialise` stops writing `ai=AiProvenance(available=[], used=[])` | failed (two tests) |
+
+**The second and third rows are the finding, not ceremony.** `MD0225` refuses a value claiming a
+model when the build says none was available — and the natural spelling, `if not
+self.ai.available`, also fires on `None`, which means *"this file predates the question"*. That
+would refuse every version-3 artifact for contradicting a statement it never made. `== []` is the
+whole difference, and row two is what holds it.
+
+Row three is the same distinction one level up: defaulting `available` to `[]` turns absence into
+a statement, so an old file would load as *"somebody looked and nothing was wired"* when nobody
+looked. **This is `MD0223`'s lesson (`for_value is None` means "written before 1.14", not
+"disagrees") arriving in a second field**, which is why the spec called it out before the code
+was written rather than after.
+
+**Four totality guards caught the new model on the way in**, and each is a guard doing its job
+rather than an obstacle: `SERIALISED_SHAPE`, the `Pipeline` field list, `_PIPELINE_MODELS` (so a
+malformed `ai:` is blamed on the pipeline file rather than the goal), and the two
+`set(raw) == {...}` assertions in `test_pipeline_file` and `test_publish`. A new section of the
+artifact has to be declared in five places, and all five said so.
+
+## Issue #48 — `MD0223` sees an answered tier-4 setting (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_pipeline_file.py::test_MD0223_sees_a_tier_four_setting_answered_by_hand` | the whole `#48` branch removed | failed |
+| 2026-08-16 | `…::test_an_unanswered_tier_four_setting_is_not_flagged` | the `key in answered` condition dropped | failed, **and eleven others with it** |
+| 2026-08-16 | `…::test_human_source_with_a_matching_override_is_accepted` | the `Tier.AMBIGUOUS` condition dropped | failed |
+
+**Three conditions, three different tests, and none of them is decoration.** Dropping
+`key in answered` turns the check into a nag that fires on every *unanswered* tier-4 setting —
+which is correct output saying "please review" — and eleven tests failed, because that is the
+state a normal build is in. Dropping the tier condition flags any pre-1.14 field. Dropping the
+branch loses the finding.
+
+**Two existing tests refused after the fix, and both were completing a premise rather than
+absorbing a regression.** `test_human_source_with_a_matching_override_is_accepted` said *"the
+value, the `human` source and the decision's override all agree — a person answered, and the
+record proves it"* — while leaving `why.reason` reading *"no rule covered … please review"*. The
+record did not prove it, and that is issue #48 stated as a docstring nobody had re-read.
+`_with_override` in `test_upgrade.py` had the same shape: it claimed to answer *"the way a
+reviewer would"* and answered half.
+
+**The behaviour change is user-visible and is documented rather than left to be discovered.**
+Answering a tier-4 question is now a two-part edit — `override_reason` in `decisions:`, and the
+setting's own `why.reason` and `why.for_value` — and the one-part edit exits 2.
+`docs/guides/driving-mendel.md` §6 was written when the one-part edit worked and now shows the
+refusal and the cure.

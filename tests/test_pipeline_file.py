@@ -270,6 +270,7 @@ def test_the_file_carries_every_provenance_a_reader_needs(tmp_path):
         "version",
         "goal",
         "registry",
+        "ai",
         "steps",
         "channels",
         "decisions",
@@ -575,6 +576,8 @@ def test_human_source_requires_a_matching_override(tmp_path, capsys):
             if setting["name"] == "seq_platform":
                 setting["value"] = "nanopore"
                 setting["why"]["source"] = "human"
+                setting["why"]["reason"] = "this facility sequences on a MinION"
+                setting["why"]["for_value"] = "nanopore"
     # Deliberately leave decisions[].human_override null — the claim without the evidence.
     (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
     code, err = _emit(out, capsys)
@@ -582,8 +585,14 @@ def test_human_source_requires_a_matching_override(tmp_path, capsys):
 
 
 def test_human_source_with_a_matching_override_is_accepted(tmp_path, capsys):
-    """The honest case: the value, the `human` source and the decision's override all agree —
-    a person answered, and the record proves it. This must still emit."""
+    """The honest case: the value, the `human` source, the decision's override **and the
+    reason beside the value** all agree — a person answered, and the record proves it.
+
+    The reason was not part of "all agree" until issue #48, and that was the defect: this
+    test set the value, the source and the override, left `why.reason` reading *"no rule
+    covered … please review"*, and called the record proof. `MD0223` now refuses exactly
+    that, so the test says what it always meant.
+    """
     out = _build(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())
     for s in doc["steps"]:
@@ -591,6 +600,8 @@ def test_human_source_with_a_matching_override_is_accepted(tmp_path, capsys):
             if setting["name"] == "seq_platform":
                 setting["value"] = "nanopore"
                 setting["why"]["source"] = "human"
+                setting["why"]["reason"] = "this facility sequences on a MinION"
+                setting["why"]["for_value"] = "nanopore"
     for d in doc["decisions"]:
         if d["key"].endswith("seq_platform"):
             d["human_override"] = "nanopore"
@@ -740,7 +751,7 @@ def test_an_unanswered_raw_ext_value_still_loads():
 # --- Plan 1.14 Task 0: a schema change must announce itself -------------------------------
 
 SERIALISED_SHAPE = {
-    "Pipeline": ["version", "goal", "registry", "steps", "channels", "decisions",
+    "Pipeline": ["version", "goal", "registry", "ai", "steps", "channels", "decisions",
                  "emitted", "gate"],
     "Step": ["id", "module", "process", "include", "why", "presence", "ext_args", "inputs",
              "call", "settings"],
@@ -1024,3 +1035,49 @@ _GOAL_MODELS = frozenset(
 """Models `Pipeline` carries that are genuinely the goal's or a decision's, so blaming the
 goal for one is right. `Goal` failing on an `emit` really is the goal — it is recorded in the
 file, and a hand-edit to `goal:` is a hand-edit to a goal."""
+
+
+def _answer_the_tier_four_question(raw: dict) -> dict:
+    """Do what `driving-mendel.md` §6 tells a reader to do: answer it in the file."""
+    for decision in raw["decisions"]:
+        if decision["subject"] == "seq_platform":
+            decision["human_override"] = "ILLUMINA"
+            decision["override_reason"] = "every run in this facility is on a NovaSeq X"
+    for step in raw["steps"]:
+        for setting in step["settings"]:
+            if setting["name"] == "seq_platform":
+                setting["value"] = "ILLUMINA"
+    return raw
+
+
+def test_MD0223_sees_a_tier_four_setting_answered_by_hand(tmp_path):
+    """Issue #48 — the one case a human is most likely to be editing was the one case it missed.
+
+    `stale_reasons` skipped every setting whose `for_value` is `None`, on the stated grounds
+    that a pre-1.14 file has no such field and *absence is not disagreement*. A tier-4 value
+    nothing resolved **also** has `for_value: null`, so answering one left `why.reason` reading
+    *"no rule covered … please review"* beside a value somebody had just chosen, and `emit`
+    accepted it at exit 0.
+    """
+    from mendel_compiler.pipeline_file import stale_reasons
+
+    raw = _answer_the_tier_four_question(
+        yaml.safe_load((_build(tmp_path) / "pipeline.yml").read_text())
+    )
+    stale = stale_reasons(Pipeline.model_validate(raw))
+    assert any("seq_platform" in line for line in stale)
+    assert any("override_reason" in line for line in stale), (
+        "say what to write, not only that something is wrong"
+    )
+
+
+def test_an_unanswered_tier_four_setting_is_not_flagged(tmp_path):
+    """*"please review"* is what an **open** question is supposed to say.
+
+    Flagging it would make `MD0223` a nag, and a nag is a check people stop reading. This is
+    the test that keeps the #48 widening from simply flagging every tier-4 setting.
+    """
+    from mendel_compiler.pipeline_file import stale_reasons
+
+    raw = yaml.safe_load((_build(tmp_path) / "pipeline.yml").read_text())
+    assert stale_reasons(Pipeline.model_validate(raw)) == []

@@ -83,7 +83,7 @@ def _parse_type(path: Path) -> list[TypeDeclaration | TypeExtension]:
     if added is not None:
         if data:
             raise ValueError(
-                f"{path}: `add_states` extends a declaration and cannot carry "
+                f"MD0007: {path}: `add_states` extends a declaration and cannot carry "
                 f"{', '.join(sorted(data))} as well. Declare the whole type to change those."
             )
         return [TypeExtension(id=type_id, add_states=added)]
@@ -159,7 +159,9 @@ class Vocabulary(BaseModel):
         entry_channels: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
-                raise ValueError(f"add_states for {type_id!r}, which no layer declares")
+                raise ValueError(
+                f"MD0008: add_states for {type_id!r}, which no layer declares"
+            )
             types[type_id] = entry.states
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
@@ -218,7 +220,7 @@ class Vocabulary(BaseModel):
         for state in states:
             if state not in allowed:
                 raise UnknownStateError(
-                    f"{state!r} is not a declared state for {type_id!r}; "
+                    f"MD0009: {state!r} is not a declared state for {type_id!r}; "
                     f"allowed: {sorted(allowed)}",
                     type_id=type_id,
                     state=state,
