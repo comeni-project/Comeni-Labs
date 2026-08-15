@@ -943,7 +943,15 @@ git commit -m "docs: the error codes get their own page (#41)"
 
 ---
 
-## Task 8: the front door, and a README per directory
+## Task 8: the front door, and a README per directory — **done, after Task 9**
+
+> **Correction, 2026-08-16: this ran after Task 9**, which creates the two guides the front door
+> links to. See Task 9's note.
+>
+> **`make links` does not reach the three new `notes/` READMEs**, by the same scope decision that
+> keeps a plan's forward references from turning `make check` red. They were checked by hand
+> instead, and the check is one line — the point of recording it is that a link under `notes/`
+> has no gate behind it and never will.
 
 **Spec:** Part two. The current front door is organised by document type, which helps only a
 reader who already knows which type they need.
@@ -956,7 +964,7 @@ reader who already knows which type they need.
   above do not.** Checked 2026-08-16, because an earlier draft of this plan said `audits/` had
   one and it does not.
 
-- [ ] **Step 1: Rewrite `docs/README.md` to route by reader**
+- [x] **Step 1: Rewrite `docs/README.md` to route by reader**
 
 Three doors, in this order:
 
@@ -986,7 +994,7 @@ pipeline, and tuning it.
 9. [Working notes](../notes/) — how it got here
 ```
 
-- [ ] **Step 2: Write the six missing directory READMEs**
+- [x] **Step 2: Write the six missing directory READMEs**
 
 Six, not nine: `docs/`, `docs/design/` and `notes/journal/` already have one.
 
@@ -1010,12 +1018,12 @@ file you read and edit, and everything else here describes an input to producing
 | `contract-schema.md` `rule-schema.md` `measurement-schema.md` `vocabulary-schema.md` | what a registry layer holds |
 ```
 
-- [ ] **Step 3: Check**
+- [x] **Step 3: Check**
 
 Run: `make links && make check`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
