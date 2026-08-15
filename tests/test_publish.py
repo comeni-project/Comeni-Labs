@@ -15,8 +15,7 @@ import pathlib
 import shutil
 
 import yaml
-from mendel_compiler import cli
-from mendel_compiler.cli import main
+from mendel_compiler.cli import artifact_verbs, main
 from mendel_compiler.gates import GateResult
 
 
@@ -27,7 +26,8 @@ def _gate_always_passes(monkeypatch):
     the verdict round trip — so stubbing the tool keeps the real assertion running in CI rather
     than skipping it. The gates themselves are exercised for real by `-m slow` and `test_gates`.
     """
-    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
+    monkeypatch.setattr(
+        artifact_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
 
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"

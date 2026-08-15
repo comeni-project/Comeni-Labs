@@ -690,10 +690,11 @@ def test_a4_the_artifact_records_which_gate_it_passed():
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
     import yaml
     from mendel_compiler import cli
+    from mendel_compiler.cli import resolve_verbs
     from mendel_compiler.gates import GateResult
 
     monkeypatch.setattr(
-        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
+        resolve_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
     )
     out = tmp_path / "p"
     assert cli.main([
@@ -717,11 +718,17 @@ def test_a4_a_failed_gate_publishes_nothing(tmp_path, monkeypatch):
     """
     import yaml
     from mendel_compiler import cli
+    from mendel_compiler.cli import artifact_verbs, resolve_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(
-        cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=False, stdout="no")
-    )
+    # **Both**, and that is the finding rather than a chore. This test builds and then
+    # publishes, and issue #41's split put those verbs in different modules — `resolve_verbs`
+    # runs the gate at the end of a build, `artifact_verbs` runs it when certifying a
+    # directory that already exists. One `monkeypatch` covered both while they shared a
+    # module, which meant nothing here recorded that the gate is invoked twice.
+    failed = lambda gate, out: GateResult(gate=gate, passed=False, stdout="no")  # noqa: E731
+    monkeypatch.setattr(resolve_verbs, "run_gate", failed)
+    monkeypatch.setattr(artifact_verbs, "run_gate", failed)
     out = tmp_path / "p"
     assert cli.main([
         "build", "--goal", str(Path("examples/rnaseq-goal.yml")),

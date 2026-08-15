@@ -1692,3 +1692,32 @@ They are private and two test files reach them — `test_rules.py` for the compa
 `test_audit_regressions.py` for A118's computed-`then` check. The redundant alias tells ruff the
 import is deliberate; the absence from `__all__` says it is still not public. Inventing public
 names for them to satisfy a linter would have been the linter designing the interface.
+
+## Issue #41 Task 4 — `cli.py` splits by what a verb does to a pipeline
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_conformance_cli.py` ×2, `test_end_to_end.py::test_output_is_identical_across_hash_seeds` | nothing — `cli` became a package | **failed unprompted** | `'mendel_compiler.cli' is a package and cannot be directly executed` |
+| 2026-08-16 | `test_publish.py` ×2, `test_pipeline_file.py`, `test_audit_regressions.py` ×2 | nothing — `run_gate`'s callers moved | **failed unprompted** | the gate ran for real; `assert 0 == 1` |
+
+**Two consequences the oracle could not have caught, and both are worth naming.**
+
+**A package is not executable with `-m`.** Four tests run `python -m mendel_compiler.cli` — one
+needs a subprocess because it sets `PYTHONHASHSEED`, the others want the real exit code — and
+`cli/__main__.py` is what restores that. The console script in `pyproject.toml` points at `main`
+directly and never reaches it, so **the entry point everybody actually uses was fine the whole
+time**. A refactor can break an interface only the tests use, and that is not a reason to
+dismiss it: `-m` is a documented way to run a Python package and something relied on it.
+
+**Splitting a module moves the seam a test patches.** `monkeypatch.setattr(cli, "run_gate", …)`
+patched a name nothing reads any more — `run_gate` is looked up in the module that *calls* it.
+That is `CLAUDE.md`'s own gotcha arriving from the other side: *"import modules, not symbols,
+where tests monkeypatch"* is advice to the code, and this is what it costs the test when the
+module the code lives in moves.
+
+**And one test needed two patches where one had done.** `test_a4_a_failed_gate_publishes_nothing`
+builds and then publishes, and those verbs are now in different modules — `resolve_verbs` runs
+the gate at the end of a build, `artifact_verbs` runs it when certifying a directory that
+already exists. One `setattr` covered both while they shared a file, which meant **nothing
+recorded that the gate is invoked from two places.** The split made a fact about the code visible
+in a test that had been silently averaging over it.

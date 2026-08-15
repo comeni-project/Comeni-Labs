@@ -626,10 +626,12 @@ def test_emit_preserves_the_gate_verdict(tmp_path, capsys, monkeypatch):
     `publish` stamps the verdict and the digests together, so the file is not stale; a no-op
     `emit` afterwards must carry it through. The gate itself is stubbed so this runs in CI's
     Nextflow-free lane — the property under test is the verdict round trip, not `nextflow lint`."""
-    from mendel_compiler import cli
+    from mendel_compiler.cli import artifact_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(cli, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True))
+    monkeypatch.setattr(
+        artifact_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
+    )
     out = _build(tmp_path)
     assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(ROOT)]) == 0
     assert yaml.safe_load((out / "pipeline.yml").read_text())["gate"] == "lint"
