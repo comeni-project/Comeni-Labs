@@ -153,6 +153,39 @@ That is the operator's instruction, not a suggestion. Concretely:
   the number recorded when it was written, not when it runs, and journal entries up to that
   date still use the old name.
 
+### Stop and speak when the estimate breaks — decided 2026-08-16
+
+**An estimate that is wrong by more than about double is a decision point, not a hill to push
+through.** Say the new number, say what changed, and offer the choice. The operator can always
+say "carry on"; they cannot un-spend an evening.
+
+This is written down because 2026-08-16 ended with three hours on a fixture sweep estimated at
+one, and the work was abandoned unfinished at 1am. Three failures, in order:
+
+- **The first surprise was not reported.** A sweep predicted to touch a handful of files came
+  back with 102 failures, and the reaction was *one more pass and it will be green* — about eight
+  times. The moment to speak is the first measurement that contradicts the plan, not the tenth.
+- **Being told to communicate produced narration, not a change of process.** The same
+  run-a-2.5-minute-suite, patch-one-batch, re-run loop continued, now described out loud.
+  **Describing a bad loop is not communicating.** Saying *"this loop is wrong, here is what I
+  should do instead"* is.
+- **An offered escape route was not revisited.** The operator suggested a cheaper fallback; it
+  was reasonably declined at the time, and never reconsidered once the cost of the honest route
+  became clear. A rejected option should be re-offered when the premise it was rejected on
+  changes.
+
+**Two habits that would have caught all three:**
+
+1. **One diagnostic run that collects every failure, then one fix pass.** Ten patch-and-rerun
+   cycles cost more than the single comprehensive run they were avoiding — and each cycle hides
+   how large the remainder is.
+2. **Present decisions as choices, with the cost of each.** A number and two options is a
+   sentence; it is also the whole of what the operator needs to steer.
+
+**This is not in tension with the rigour the rest of this file asks for.** Watched-failing guards
+and `make verify` reward long autonomous cycles, and that is right — but rigour and silence are
+different things, and conflating them is what happened here.
+
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
