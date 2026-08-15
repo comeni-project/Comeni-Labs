@@ -77,11 +77,16 @@ needs re-recording with a stated reason before this plan is safe to run.
 - `comeni_core/__init__.py`'s exported names are **unchanged** — later tasks and all external
   consumers keep using `from comeni_core import Pipeline`.
 
-> **`goal/goal.py` and `profile.pyi`.** The `goal` group contains a module also called `goal`,
-> so the import becomes `from comeni_core.goal.goal import Goal`. That reads oddly and is
-> correct: the alternative is a package whose `__init__` re-exports, which is the shim this plan
-> forbids. `profile.pyi` must move **with** `profile.py` or every type checker loses the stub —
-> a `.pyi` replaces its module rather than adding to it.
+> **`goal.py` becomes `asked.py`.** A `goal` module inside a `goal` package gives
+> `comeni_core.goal.goal`, and the two ways out of a stutter are a re-exporting `__init__` —
+> the shim this plan forbids — or a better module name. `asked.py` is the better name: the
+> package is *what was asked for*, and the module holding `Goal`, `GoalInput`, `Constraints`
+> and `ParamOverride` is the asking. Decided 2026-08-16, before 79 files hard-coded the
+> stutter.
+>
+> **`profile.pyi` moves with `profile.py`** or every type checker loses the stub — a `.pyi`
+> *replaces* its module rather than adding to it, so a stub left behind makes the module it
+> describes invisible.
 
 - [ ] **Step 1: Create the packages**
 
@@ -98,7 +103,8 @@ done
 ```bash
 cd packages/comeni-core/src/comeni_core
 git mv contract.py measurement.py vocabulary.py roles.py registry.py layered.py layer.py declared/
-git mv goal.py profile.py profile.pyi premise.py goal/
+git mv goal.py goal/asked.py
+git mv profile.py profile.pyi premise.py goal/
 git mv ir.py decision.py tiers.py plan/
 git mv pipeline.py lockfile.py digest.py egress.py gates.py artifact/
 git mv marks.py routes.py directives.py spell/
@@ -129,7 +135,8 @@ one — two ways to spell one thing is how the two come to disagree.
 Write the other four in the same shape:
 
 - `goal/` — "What was asked for, and what the data measurably looks like. A shape, never data
-  (invariant 15)."
+  (invariant 15). The module is `asked.py` rather than `goal.py`: a `goal` inside a `goal` is a
+  stutter, and the way out is a better name rather than a re-exporting `__init__`."
 - `plan/` — "What was decided: the IR, the record of each ambiguity, and the tier ladder every
   decision exits at."
 - `artifact/` — "What is shipped. `pipeline.yml` is the save file, and everything here is either
@@ -146,7 +153,7 @@ import pathlib, re
 
 GROUPS = {
     "declared": ["contract", "measurement", "vocabulary", "roles", "registry", "layered", "layer"],
-    "goal": ["goal", "profile", "premise"],
+    "goal": ["profile", "premise"],  # `goal` is renamed below, not just moved
     "plan": ["ir", "decision", "tiers"],
     "artifact": ["pipeline", "lockfile", "digest", "egress", "gates"],
     "spell": ["marks", "routes", "directives"],
@@ -162,7 +169,9 @@ for path in pathlib.Path(".").rglob("*.py"):
         text = re.sub(
             rf"\bcomeni_core\.{module}\b", f"comeni_core.{group}.{module}", text
         )
-    # `comeni_core.goal.goal` is correct; guard against a second pass doubling a prefix.
+    # `goal.py` is renamed as well as moved, so it is not in GROUPS above.
+    text = re.sub(r"\bcomeni_core\.goal\b(?!\.)", "comeni_core.goal.asked", text)
+    # Guard against a second pass doubling a prefix on any module.
     text = re.sub(r"comeni_core\.(\w+)\.\1\.", r"comeni_core.\1.", text)
     if text != original:
         path.write_text(text)
@@ -192,7 +201,56 @@ Expected: PASS, and **three digests unmoved**.
 
 If a digest moved, the rewrite changed behaviour — `git diff` the non-import lines and stop.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Name the directory in each of `ARCHITECTURE.md` §1's five stages**
+
+The five stages and the five packages are now the same five things, and the whole argument for
+this layout is that a reader's document and their directory agree. Add the package to each
+heading:
+
+```markdown
+### Declared data — `comeni_core/declared/`
+### The goal — `comeni_core/goal/`
+### The plan — `comeni_core/plan/`
+### The artifact — `comeni_core/artifact/`
+```
+
+Where §1's stage names do not map one-to-one, say so in the sentence rather than forcing the
+heading: the point is that a reader can get from one to the other, not that the words match.
+
+- [ ] **Step 8: Hold it with a test**
+
+`tests/test_architecture.py`:
+
+```python
+"""`ARCHITECTURE.md` §1 names a directory per stage, and every one of them exists.
+
+Prose that names a path is prose that goes stale — which is what `CLAUDE.md`'s two stale counts
+were (A71, A72) and what `registry.yml:kinds` was. The five stages and the five packages are
+the same five things since issue #41, and this is what keeps saying so from becoming a claim
+nobody checks.
+"""
+
+import pathlib
+import re
+
+ROOT = pathlib.Path(__file__).parent.parent
+PACKAGE = re.compile(r"`(comeni_core/\w+)/`")
+
+
+def test_every_package_architecture_names_exists():
+    named = set(PACKAGE.findall((ROOT / "ARCHITECTURE.md").read_text()))
+    assert named, "ARCHITECTURE.md names no package — §1's stage headings lost their directories"
+    missing = sorted(
+        name for name in named
+        if not (ROOT / "packages/comeni-core/src" / name).is_dir()
+    )
+    assert missing == [], f"ARCHITECTURE.md names directories that do not exist: {missing}"
+```
+
+Watch it fail: rename one heading's path to `comeni_core/nowhere/`, confirm it names that path,
+restore. Record the row in the guard ledger.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -911,7 +969,25 @@ a pull request — removing it would drop an affordance rather than ceremony.
 EOF
 ```
 
-- [ ] **Step 3: Delete `CODE_OF_CONDUCT.md`**
+- [ ] **Step 3: Delete the logo sketch**
+
+```bash
+git rm docs/design/comeni-logo-sketch.html
+```
+
+33 KB of branding exploration with no markdown beside it and no bearing on how Mendel works.
+`dashboard.html` and `forge-review.html` **stay** — each sits beside the document that argues
+it in prose, and a mockup is a design argument made visually. Separating those by file
+extension would put a claim in one directory and its evidence in another.
+
+- [ ] **Step 4: `CHANGELOG.md` stays at the root, unchanged**
+
+Nothing to do, recorded so it is a decision rather than an oversight: it is what a consumer of
+a pinned version or a published registry reads to find what moved, GitHub links it from
+releases, and the journal in `notes/` answers a different question — *why*, at length, for
+somebody working on Mendel rather than using it.
+
+- [ ] **Step 5: Delete `CODE_OF_CONDUCT.md`**
 
 ```bash
 git rm CODE_OF_CONDUCT.md
@@ -920,12 +996,12 @@ grep -rn "CODE_OF_CONDUCT" --include='*.md' . | grep -v .worktrees
 
 Remove every reference the grep finds.
 
-- [ ] **Step 4: Check**
+- [ ] **Step 6: Check**
 
 Run: `make links && make check && uv run python tools/refactor_oracle.py`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -991,6 +1067,15 @@ git commit -m "docs: CLAUDE.md matches the layout, and the oracle retires (#41)"
 ```
 
 ---
+
+## How it lands
+
+**One branch, one PR, nothing deferred.** Same shape as Plan 1.15 and the round-four issues:
+eleven commits, one per task, with each task's corrections recorded inline in this file. The
+diff is large by nature and the commits are what make it readable.
+
+Anything a task discovers and does not fix is named in Task 10's journal entry and filed as its
+own issue — not folded in quietly, and not left in the plan as a note nobody reads again.
 
 ## Related issues, and what was checked
 
