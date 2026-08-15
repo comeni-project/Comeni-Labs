@@ -544,7 +544,7 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
   tests/test_egress.py tests/test_construction.py               # the guards
 
 # why anything was refused, at length. MD0100–MD0108 conformance, MD0200–MD0222 the
-# pipeline file — the generated table is the count. The table in docs/reference/cli.md is generated
+# pipeline file — the generated page is the count. docs/reference/diagnostics.md is generated
 # from comeni_core/diagnostics.yml — `make docs` regenerates it, and CI checks it.
 uv run mendel explain MD0104
 

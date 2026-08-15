@@ -1793,3 +1793,12 @@ says `docs/internal` correctly and for ever. Same reasoning as `make links`, whi
 check `notes/` either. Three files were exempted individually before this; two of them were the
 record doing its job, and only `test_architecture.py` — which holds the string it searches for —
 is a genuine exception.
+
+| 2026-08-16 | `make docs` (`generate_diagnostics_doc.py --check`) | a heading hand-edited in `docs/reference/diagnostics.md` | failed | *"is stale — run: …"* |
+
+**The edit was to the header, which the previous version could not have seen.** Until Task 7 the
+generator spliced a table between `BEGIN`/`END` markers inside `docs/reference/cli.md`, and
+`rendered()` read the surrounding text back out of the file it was about to compare against — so
+everything outside the markers was equal to itself by construction. A hand-edited heading, band
+table or explanatory paragraph was preserved and reported fresh. The whole page is generated now,
+and the row above is that difference watched.

@@ -60,7 +60,7 @@ types:          ## fail if the generated measurement stub is stale
 links:          ## every relative markdown link in docs/ and the root resolves
 	uv run python tools/check_links.py
 
-docs:           ## fail if the generated diagnostics table is stale
+docs:           ## fail if docs/reference/diagnostics.md is stale
 	uv run python tools/generate_diagnostics_doc.py --check
 
 static:         ## conformance + lint + preview — everything checkable without Docker

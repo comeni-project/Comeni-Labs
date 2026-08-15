@@ -23,4 +23,5 @@ outputs in about a minute, and `test` runs the nf-core test profile. `stub` is t
 use — it proves the wiring, never that the analysis is right.
 
 Documentation: [CLI reference](../../docs/reference/cli.md) ·
+[diagnostic codes](../../docs/reference/diagnostics.md) ·
 [getting started](../../docs/guides/getting-started.md). Licensed Apache-2.0.
