@@ -153,8 +153,18 @@ def test_data_profile_is_constructed_in_one_place():
 
 
 PIPELINE_ALLOWED = {
-    # the one validated constructor, and the module the class is defined in
+    # the module the class is defined in
     "packages/comeni-core/src/comeni_core/artifact/pipeline.py",
+    # **and the body of the one validated constructor.** `Pipeline.of` delegates to
+    # `materialise.of`, so the `Pipeline(...)` call moved out of the class's own file when
+    # issue #41 split it — the guard caught that within the hour, which is the guard working
+    # rather than an argument for exempting the file loosely.
+    #
+    # Exempting the *file* rather than a spelling, deliberately and unlike `PIPELINE_READERS`
+    # below: this is not a reader that happens to need one constructor, it **is** the
+    # materialisation. `Pipeline.of` remains the only entry point and
+    # `test_the_only_caller_of_materialise_of_is_pipeline_of` is what keeps that true.
+    "packages/comeni-core/src/comeni_core/artifact/materialise.py",
 }
 
 PIPELINE_READERS = {
@@ -246,3 +256,45 @@ def test_model_copy_is_not_in_bypasses_and_the_reason_is_written_down():
     entry reads to the next person as a case somebody covered.
     """
     assert "model_copy" not in BYPASSES
+
+
+def test_the_only_caller_of_materialise_of_is_pipeline_of():
+    """`materialise.py` is exempt as a *file*, so something has to hold its entry point.
+
+    Issue #41 split `Pipeline.of`'s body into `materialise.of`, which means the `Pipeline(...)`
+    call now lives outside the class's own module and the file is exempted wholesale. That is
+    the right exemption — it is the materialisation, not a reader that needs one constructor —
+    but it moves the question rather than answering it: what stops a second caller reaching
+    `materialise.of` and skipping `Pipeline.of` entirely?
+
+    This does. `Pipeline.of` is what `tests/test_construction.py`'s other guard names and what
+    `docs/reference/pipeline-schema.md` tells a reader to use; a second door to the same room
+    is a door nobody documented.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    callers = []
+    for package in _GUARDED:
+        for py in sorted((root / "packages" / package / "src").rglob("*.py")):
+            if py.name in ("materialise.py", "pipeline.py"):
+                continue
+            imported = {
+                alias.name
+                for node in ast.walk(ast.parse(py.read_text()))
+                if isinstance(node, ast.ImportFrom)
+                for alias in node.names
+            } | {
+                alias.name
+                for node in ast.walk(ast.parse(py.read_text()))
+                if isinstance(node, ast.Import)
+                for alias in node.names
+            }
+            # The *import*, not the word. A first version searched the file text and named
+            # three files that merely mention materialisation in a docstring — a guard whose
+            # output is mostly prose is a guard people stop reading.
+            if any(name.endswith("materialise") for name in imported):
+                callers.append(str(py.relative_to(root)))
+    assert callers == [], (
+        "these reach `materialise` directly, bypassing `Pipeline.of` — the only entry point "
+        "the guard above names and the only one the documentation describes:\n  "
+        + "\n  ".join(callers)
+    )

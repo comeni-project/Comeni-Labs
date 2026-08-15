@@ -1644,3 +1644,32 @@ reverts. Recorded rather than silently reordered.
 rewrite, and fixing the *file* would have been undone by the next `generate_types.py` run —
 `make types` and `make lint` would have disagreed forever, each correct. Fixed in the
 generator's header instead.
+
+## Issue #41 Task 2 — `pipeline.py` was doing three jobs
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_construction.py::test_pipeline_is_constructed_in_one_place` | nothing — `Pipeline.of`'s body moved to `materialise.of` | **failed unprompted** | `these construct one directly: …/materialise.py:83` |
+| 2026-08-16 | the same | `materialise.py` removed from `PIPELINE_ALLOWED` | failed | the same message |
+| 2026-08-16 | `test_construction.py::test_the_only_caller_of_materialise_of_is_pipeline_of` | `from comeni_core.artifact import materialise` added to `pipeline_file.py` | failed | names the file that reached past `Pipeline.of` |
+
+**The guard caught the split within the hour, which is the guard working.** Moving `Pipeline.of`'s
+body out of the class's own module put the `Pipeline(...)` call outside `PIPELINE_ALLOWED`, and
+the scan said so immediately rather than after the artifact had been wrong for a plan.
+
+**The exemption is the file, not a spelling — and that moves the question rather than answering
+it.** `materialise.py` *is* the materialisation, so exempting one spelling in it would be
+pretending it is a reader that happens to need a constructor. What the file exemption gives up is
+the assurance that nothing else reaches `materialise.of` and skips `Pipeline.of` entirely, so a
+second guard holds that: the only importer of `materialise` may be `pipeline.py`.
+
+**That second guard's first version was prose-matching and named three innocent files.** It
+searched the file text for `materialise` and found `load.py`, `contract.py` and a package
+`__init__` that mention materialisation in a *docstring*. A guard whose output is mostly prose is
+a guard people stop reading, so it parses imports now. Recorded because the failing-first version
+looked plausible — three plausible names is exactly how a bad guard survives review.
+
+**`_no_flags_why` went to `materialise.py` and came back.** It is a *model default* —
+`Step.ext_args` calls it in a `default_factory` — so it belongs with the model, and ruff's
+`F821` said so before any test ran. The line between "builds a model" and "is part of a model's
+declaration" is not where the section headings suggest.
