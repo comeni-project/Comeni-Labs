@@ -16,6 +16,7 @@ would have voided the paragraph above.
 """
 
 import sys
+import textwrap
 from pathlib import Path
 
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
@@ -44,7 +45,7 @@ from comeni_core.tiers import ValueSource
 
 class Measured(BaseModel):
     measurement: MeasurementId
-    value: ParamValue
+    value: ParamValue | list[ParamValue]
     source: ValueSource
     by: ContractId | None
 
@@ -54,10 +55,38 @@ class DataProfile(BaseModel):
 
 
 def _returns(measurement) -> str:
+    """The declared type of `DataProfile.get(<this measurement>)`.
+
+    A `per_sample` measurement may hold a scalar or a list — a scalar being the claim that
+    the cohort is uniform — so the overload has to admit both. Emitting the scalar alone
+    would be a stub that lies about a shape the loader accepts, which is the failure mode
+    this file's own header calls the expensive one: stale costs autocomplete, wrong costs
+    correctness.
+    """
     if measurement.kind is MeasurementKind.ENUM:
         values = ", ".join(f'"{v}"' for v in measurement.values)
-        return f"Literal[{values}] | None"
-    return _RETURN[measurement.kind]
+        scalar = f"Literal[{values}]"
+    else:
+        scalar = _RETURN[measurement.kind].removesuffix(" | None")
+    if measurement.per_sample:
+        return f"{scalar} | list[{scalar}] | None"
+    return f"{scalar} | None"
+
+
+def _wrapped(returns: str) -> list[str]:
+    """`Literal["a", "b", …] | None` broken across lines that fit inside 100 characters.
+
+    Broken inside the brackets `Literal[` already provides, so no continuation marker and no
+    change of meaning — the alternative, shortening a declared value to fit a line limit,
+    would let a formatting constraint edit the vocabulary.
+    """
+    head, _, rest = returns.partition("[")
+    values, _, tail = rest.rpartition("]")
+    return [
+        f"{head}[",
+        *(f"    {line}" for line in textwrap.wrap(values, width=100 - 12)),
+        f"]{tail}",
+    ]
 
 
 def generate_stub(registry: MeasurementRegistry) -> str:
@@ -66,20 +95,31 @@ def generate_stub(registry: MeasurementRegistry) -> str:
         argument = f'measurement_id: Literal["{measurement_id}"]'
         returns = _returns(registry.get(measurement_id))
         one_line = f"    def get(self, {argument}) -> {returns}: ..."
+        split = f"    ) -> {returns}: ..."
         # An enum with several values overruns the line limit, and a generated file that
         # fails `ruff check` is a generated file somebody edits by hand.
+        #
+        # Three forms rather than two: splitting the signature was assumed to be enough and
+        # was not. `purpose`'s four values make the *return* 101 characters on a line of its
+        # own, so the second form failed the check the first form exists to pass — found by
+        # adding the measurement, not by reading this. The third wraps inside `Literal[`,
+        # which has no length at which it stops working.
         lines.append("    @overload")
         if len(one_line) <= 100:
             lines.append(one_line)
+        elif len(split) <= 100:
+            lines += ["    def get(", f"        self, {argument}", split]
         else:
             lines += [
                 "    def get(",
                 f"        self, {argument}",
-                f"    ) -> {returns}: ...",
+                "    ) -> (",
+                *(f"        {part}" for part in _wrapped(returns)),
+                "    ): ...",
             ]
     lines += [
         "    @overload",
-        "    def get(self, measurement_id: str) -> ParamValue: ...",
+        "    def get(self, measurement_id: str) -> ParamValue | list[ParamValue]: ...",
         "",
     ]
     return "\n".join(lines)

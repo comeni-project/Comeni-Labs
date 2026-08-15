@@ -19,7 +19,7 @@ def test_the_registry_has_one_tier_three_rule_and_it_is_the_aligner():
     """The strandedness block was a translation the module already performs. What remains
     is a genuine decision between two defensible aligners, with a real citation."""
     table = layers.load(ROOT / "registry").rules
-    assert [d.decides.key() for d in table.decisions] == ["producer_of:alignment.bam"]
+    assert [d.decides.key() for d in table.decisions] == ["implementation:alignment"]
 
 
 def test_featurecounts_declares_no_strandedness_parameter():

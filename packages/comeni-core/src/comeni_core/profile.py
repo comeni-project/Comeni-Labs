@@ -31,7 +31,9 @@ class Measured(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     measurement: MeasurementId
-    value: ParamValue
+    value: ParamValue | list[ParamValue]
+    """A list only where the measurement declares `per_sample` — `MeasurementRegistry.check`
+    is what enforces that, since the declaration lives there and not here."""
     source: ValueSource = ValueSource.GOAL
     by: ContractId | None = None
     """Which contract produced this value. `None` for anything a person asserted."""
@@ -85,7 +87,7 @@ class DataProfile(BaseModel):
         self.measurements.sort(key=lambda m: m.measurement)
         return self
 
-    def get(self, measurement_id: str) -> ParamValue:
+    def get(self, measurement_id: str) -> ParamValue | list[ParamValue]:
         return next(
             (m.value for m in self.measurements if m.measurement == measurement_id), None
         )

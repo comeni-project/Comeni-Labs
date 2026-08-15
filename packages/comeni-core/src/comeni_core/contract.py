@@ -21,8 +21,10 @@ from comeni_core.marks import (
     NfPath,
     NfTemplate,
     PortName,
+    RoleName,
     TypeId,
 )
+from comeni_core.measurement import MeasurementKind
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.vocabulary import Vocabulary
 
@@ -60,6 +62,32 @@ class InputPort(BaseModel):
     name: PortName
     type_id: TypeId = ""
     state_required: frozenset[str] = frozenset()
+    """States this port cannot function without. A **structural** constraint: their absence
+    is unroutable and is refused, rather than routed around."""
+
+    state_required_conventional: frozenset[str] = frozenset()
+    """States this port is conventionally given but does not require.
+
+    `star/align` declared `state_required: [trimmed]`, and STAR soft-clips adapters —
+    nf-core/rnaseq's `--skip_trimming` exists precisely because trimming is optional. So the
+    contract encoded a tier-2 convention as a tier-1 constraint, and a rule deciding that
+    trimming should be absent produced an **unroutable pipeline** rather than a shorter one.
+    Same disease as "the only contract that produces this" (A113), one layer down.
+
+    It still drives insertion: the router asks for the conventional states first and falls
+    back to the structural ones only when nothing can supply them. Dropping them outright
+    would delete trimming from every pipeline, which is a far larger change than the one this
+    field is for.
+    """
+
+    state_conventional_because: str = ""
+    """Why those states are a convention and not a requirement.
+
+    Named for the field it explains rather than for the field beside it. A
+    `state_required_because` would read as justifying `state_required`, which is the one it
+    is not about — and the distinction between the two is the entire content of §8.2.
+    """
+
     state_preferred: frozenset[str] = frozenset()
     """Deprecated spelling of `prefer`, kept so no vendored contract breaks."""
     accepts: list[Alternative] = Field(default_factory=list)
@@ -78,7 +106,9 @@ class InputPort(BaseModel):
     """
     cardinality: str = "1"
 
-    @field_serializer("state_required", "state_preferred", "prefer")
+    @field_serializer(
+        "state_required", "state_required_conventional", "state_preferred", "prefer"
+    )
     def _sorted(self, states: frozenset[str]) -> list[str]:
         """Plan 1.7's lockfile pins a contract digest, which hashes exactly these."""
         return sorted(states)
@@ -94,9 +124,26 @@ class InputPort(BaseModel):
         return self
 
     def alternatives(self) -> list[Alternative]:
+        """The conventional form first, the structural form as the fallback.
+
+        Expressed as two alternatives rather than as a flag threaded through the router,
+        because `accepts` already means exactly this — "a BAM, or failing that a CRAM",
+        first-match-wins — and a second mechanism for *try this, then that* would be a second
+        place for the two to disagree. The failure list `_satisfy_port` builds is then also
+        correct for free.
+        """
         if self.accepts:
             return self.accepts
-        return [Alternative(type_id=self.type_id, states=self.state_required)]
+        structural = Alternative(type_id=self.type_id, states=self.state_required)
+        if not self.state_required_conventional:
+            return [structural]
+        return [
+            Alternative(
+                type_id=self.type_id,
+                states=self.state_required | self.state_required_conventional,
+            ),
+            structural,
+        ]
 
 
 class OutputPort(BaseModel):
@@ -114,6 +161,55 @@ class OutputPort(BaseModel):
         return sorted(states)
 
 
+class ParamDomain(BaseModel):
+    """What values a parameter accepts. Spec §7.1's second half.
+
+    Mirrors `Measurement`'s declaration — `kind`, `values`, `minimum`, `maximum` — because it
+    is the same question asked about the other end of a rule: a `when` reads a measurement's
+    domain and a `then` writes a param's. Sharing `MeasurementKind` rather than declaring a
+    parallel enum keeps that symmetry a fact rather than a resemblance.
+
+    Deliberately **not** `extensible`. A measurement is extensible when the world can produce
+    a value nobody enumerated — `organism`, `purpose` — and a parameter's legal values are a
+    property of a tool's command line, which is fixed by the tool. A param whose values
+    genuinely cannot be enumerated declares no domain at all.
+    """
+
+    model_config = _NO_EXTRAS
+
+    kind: MeasurementKind
+    values: list[str] = Field(default_factory=list)
+    minimum: float | None = None
+    maximum: float | None = None
+
+    def refuse(self, name: str, value: object) -> str | None:
+        """Why `value` is not a legal setting for `name`, or `None` if it is.
+
+        Returns rather than raises: the caller is a rule validator that wants to add the file
+        and the decision key to the message, and an exception here would either lose that
+        context or have to be caught and re-raised — which is the shape `measurements.get`
+        already has to be wrapped for.
+        """
+        if self.kind is MeasurementKind.ENUM:
+            if value in self.values:
+                return None
+            return (
+                f"{name} accepts {', '.join(self.values)}, and {value!r} is none of them"
+            )
+        if self.kind is MeasurementKind.BOOLEAN:
+            return None if isinstance(value, bool) else f"{name} accepts a boolean"
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            noun = "an integer" if self.kind is MeasurementKind.INTEGER else "a number"
+            return f"{name} accepts {noun}"
+        if self.kind is MeasurementKind.INTEGER and not isinstance(value, int):
+            return f"{name} accepts an integer"
+        if self.minimum is not None and value < self.minimum:
+            return f"{name} has minimum {self.minimum:g}, and {value!r} is below it"
+        if self.maximum is not None and value > self.maximum:
+            return f"{name} has maximum {self.maximum:g}, and {value!r} is above it"
+        return None
+
+
 class Param(BaseModel):
     """A setting the resolver decides, and the route that carries the answer to the tool.
 
@@ -127,6 +223,20 @@ class Param(BaseModel):
 
     name: NfIdentifier
     tier_hint: int | None = None
+
+    domain: ParamDomain | None = None
+    """What values this parameter accepts. `None` means undeclared, which is legal and is what
+    most contracts say today.
+
+    Without it, `MD0300` had to guess whether a `then` was arithmetic by looking for a
+    measurement name sitting beside an operator — a heuristic that admits anything spelled
+    unexpectedly and refuses `paired-end`, a legitimate value killed by a check nobody could
+    disable. With it the question is a type check. Audit A118; spec §7.1.
+
+    The heuristic is **kept** as the fallback rather than retired, because most contracts
+    declare no domain and removing it would trade a heuristic for nothing.
+    """
+
     default: Any = None
     because: str = ""
     """Why this default is this value — the *document* tier 2 claims exists.
@@ -316,6 +426,16 @@ class ModuleContract(BaseModel):
     consumes: list[InputPort] = Field(default_factory=list)
     produces: list[OutputPort] = Field(default_factory=list)
     params: list[Param] = Field(default_factory=list)
+
+    roles: list[RoleName] = Field(default_factory=list)
+    """The jobs this contract can do. What a tier-3 rule targets, and the only thing it may.
+
+    Empty is legal, so the field could be added without rewriting every layer in the world
+    on the same day — but the shipped registry is held to a stricter standard by
+    `test_every_contract_declares_a_role`, because a contract filling no role is invisible
+    to every rule and that is a silent way to be unreachable rather than a loud one.
+    """
+
     priority: int = 0
     priority_because: str = ""
     """Why this contract ranks where it does — the same missing document as `Param.because`.

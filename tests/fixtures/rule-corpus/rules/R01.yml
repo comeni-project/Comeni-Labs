@@ -1,0 +1,15 @@
+version: 1
+# R01 — aligner by read length. The control, and the rule the format was designed against.
+decisions:
+  - decides: {effect: implementation, of: alignment}
+    because: "read length determines which aligner is appropriate"
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+    rows:
+      - when: {read_length: ">= 70"}
+        then: nf-core/star/align@1.11.0
+        because: "STAR's seed-and-extend search is built for long reads"
+        cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+      - when: {read_length: "< 70"}
+        then: nf-core/hisat2/align@2.2.2
+        because: "HISAT2 handles short reads with a far smaller index"
+        cite: "Kim et al. 2019, doi:10.1038/s41587-019-0201-4"

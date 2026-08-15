@@ -1,0 +1,16 @@
+version: 1
+# R13 — cpus by genome size. A123: the decision is scoped to a role, so it can no longer
+# set `cpus` on every process in the pipeline.
+decisions:
+  - decides: {effect: param, of: alignment, name: cpus, when_implementation: [nf-core/star/align@1.11.0]}
+    because: "alignment against a larger reference parallelises further before saturating IO"
+    cite: "nf-core resource labels"
+    rows:
+      - when: {genome_length: ">= 1000000000"}
+        then: 12
+        because: "a mammalian reference repays twelve cores"
+        cite: "nf-core resource labels"
+      - when: {}
+        then: 6
+        because: "nf-core's process_high default for smaller references"
+        cite: "nf-core resource labels"

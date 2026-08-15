@@ -1,0 +1,15 @@
+version: 1
+# R10 — deduplication policy. The third branch is "no step", which is what A119 was about.
+decisions:
+  - decides: {effect: presence, of: deduplication}
+    because: "duplicate reads are PCR artefacts in some preps and the signal itself in others"
+    cite: "Smith et al. 2017, doi:10.1101/gr.209601.116"
+    rows:
+      - when: {library_prep: amplicon}
+        then: absent
+        because: "amplicon duplicates are the intended product, not an artefact"
+        cite: "Smith et al. 2017, doi:10.1101/gr.209601.116"
+      - when: {}
+        then: present
+        because: "PCR duplicates inflate counts where the library was not amplicon-selected"
+        cite: "Smith et al. 2017, doi:10.1101/gr.209601.116"

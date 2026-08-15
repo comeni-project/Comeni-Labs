@@ -1,4 +1,5 @@
 id: nf-core/hisat2/build@2.2.2
+roles: [index_building]
 nf_process: HISAT2_BUILD
 nf_include: modules/nf-core/hisat2/build/main
 consumes:

@@ -1,0 +1,11 @@
+version: 1
+# R17 — genome build from organism. The archetype this format is good at, and the reason
+# the enum must be extensible: the list of organisms cannot be enumerated.
+decisions:
+  - decides: {effect: param, of: alignment, name: seq_platform}
+    because: "a fixture standing in for genome build, which no shipped contract declares"
+    cite: "Ensembl 112"
+    rows:
+      - {when: {organism: homo_sapiens}, then: GRCh38, cite: "Ensembl 112"}
+      - {when: {organism: mus_musculus}, then: GRCm39, cite: "Ensembl 112"}
+      - {when: {}, then: unknown, cite: "Ensembl 112"}

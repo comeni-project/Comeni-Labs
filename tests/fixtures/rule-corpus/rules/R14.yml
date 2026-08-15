@@ -1,0 +1,15 @@
+version: 1
+# R14 — MultiQC only above one sample. Step presence again.
+decisions:
+  - decides: {effect: presence, of: qc_aggregation}
+    because: "a cross-sample aggregate is not informative for a single sample"
+    cite: "Ewels et al. 2016, doi:10.1093/bioinformatics/btw354"
+    rows:
+      - when: {n_samples: "> 1"}
+        then: present
+        because: "aggregation is what the report is for, and it needs something to aggregate"
+        cite: "Ewels et al. 2016, doi:10.1093/bioinformatics/btw354"
+      - when: {}
+        then: absent
+        because: "with one sample the per-tool reports already say everything it would"
+        cite: "Ewels et al. 2016, doi:10.1093/bioinformatics/btw354"

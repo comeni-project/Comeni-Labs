@@ -19,7 +19,7 @@ Two rules govern what is in here, and they are converse:
   accepted on condition that nothing rides along.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from comeni_core.contract import ModuleContract
 from comeni_core.decision import DecisionKind, DecisionRecord
@@ -48,10 +48,16 @@ from comeni_core.marks import (
     TypeId,
     substitutable,
 )
+from comeni_core.premise import PremiseRecord
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
-from comeni_core.tiers import Tier, ValueSource
+from comeni_core.tiers import (
+    ReviewLevel,
+    Tier,
+    ValueSource,
+    review_level_for,
+)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 """What this Mendel writes and the highest it will read.
 
 The rule was "bumped only by a change that an older Mendel would misread — a section it would
@@ -95,9 +101,61 @@ class Why(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_computed(cls, data: object) -> object:
+        """Ignore `review_level` on the way in — it is derived, not stored.
+
+        `computed_field` serialises it and `extra="forbid"` would then refuse it on load, so
+        a `pipeline.yml` this Mendel wrote could not be read back by `emit` or `upgrade`.
+        `ResolvedValue._drop_computed` exists for exactly this and says so; the second copy
+        is here rather than shared because the two models are in different modules and a
+        mixin for six lines would hide the reason.
+        """
+        if isinstance(data, dict) and "review_level" in data:
+            data = {k: v for k, v in data.items() if k != "review_level"}
+        return data
+
     tier: Tier
     source: ValueSource
+
+    @computed_field
+    @property
+    def review_level(self) -> ReviewLevel:
+        """What this tier obliges a reader to do, beside the tier itself. Spec §6.2.
+
+        `tier: 3` is a number whose meaning lives in a table in another document, and the
+        artifact is the thing a stranger opens. Carrying the answer is what stops
+        `CLAUDE.md` having to be open beside it.
+
+        Derived rather than stored: a stored copy is a second source of truth for one fact,
+        and `Why` already learned that lesson once — `for_value` exists because a reason
+        could outlive the value it explained (A104). Named `review_level` rather than
+        `review` to match `ResolvedValue.review_level`, which has computed the same thing
+        since Plan 1; two names for one concept is how the two come to disagree.
+        """
+        return review_level_for(self.tier)
+
     reason: Line
+
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this decision rested on, and where each came from.
+
+    Tier 3 is defined as producing `value + rule + measurement` and produced the first two:
+    the artifact said which rule fired and never what it fired *on*. `CLAUDE.md` calls tier 3
+    advisory and glosses it *"the machinery worked, check the premise"* — and there was no
+    premise in the file to check. A measured build and an asserted one had a byte-identical
+    `steps:` block. Audit A108, A127.
+
+    This is also what `ProfilePolicy` reads to make `sealed` refuse a tier-3 decision resting
+    on an assertion (issue #2), which is why the origin travels *with* the value rather than
+    being recoverable by joining against the profile: a join is a step a caller can skip.
+
+    Empty for a document written before version 3. Requiring it of one would assert the
+    premise is *missing* rather than *never recorded* — Plan 1.14 Task 0's lesson, which cost
+    a plan the first time it was learned.
+    """
+
     for_value: ParamValue = None
     """The value this reason was written about. `MD0223`.
 
@@ -350,6 +408,27 @@ class Step(BaseModel):
     process: NfIdentifier
     include: NfPath
     why: Why
+    """Why **this contract** fills the step. See `exists` for why the step is here at all."""
+
+    presence: Why | None = None
+    """Why the step exists, as distinct from which contract fills it. A113.
+
+    Named for the effect that decides it — `effect: presence` in a rule — so the field a
+    reader finds in the artifact and the word they would write in a rule are the same word.
+
+    Two questions that were one field, and the tier is what made the conflation visible: a
+    module chosen because it was the only candidate reported tier 1 — *"no choice exists,
+    inputs force it"* — when what forced it was the contents of the registry. The presence of
+    a sorter genuinely is forced, by featureCounts asking for a coordinate-sorted BAM; which
+    sorter was never forced at all.
+
+    A reader deciding whether a step can be removed is reading this one, and until now the
+    artifact answered a different question in the same place.
+
+    `None` for a document written before Plan 1.15 — an archived pipeline cannot answer, and
+    requiring it would assert the reason is *missing* rather than *never recorded*. That is
+    Plan 1.14 Task 0's lesson, applied on arrival rather than after a fixture caught it.
+    """
     ext_args: ExtArgs = Field(default_factory=lambda: ExtArgs(why=_no_flags_why()))
     """Flags the module always needs, from its contract, **and why it needs them**.
 
@@ -752,6 +831,7 @@ class Pipeline(EgressPayload):
                     process=contract.nf_process,
                     include=contract.nf_include,
                     why=_why(node.selection),
+                    presence=_why(node.presence),
                     ext_args=_ext_args(contract),
                     inputs=_inputs(ir, node, contract),
                     call=_call(contract),
@@ -861,6 +941,7 @@ def _why(value) -> Why:
         tier=value.tier,
         source=value.source,
         reason=value.reason,
+        premise=list(value.premise),
         axis_reason=value.axis_reason,
         for_value=value.value,
         from_layer=value.from_layer,

@@ -164,6 +164,18 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 |---|---|
 | `MD0300` | a rule's `then` reads as arithmetic, and `then` is emitted verbatim |
 | `MD0301` | a rule row justifies nothing — no `because` and no `cite`, on the row or the block |
+| `MD0302` | a contract declares a role no layer in the stack declares |
+| `MD0303` | a measurement is declared named `required_states`, which is the goal's own shape |
+| `MD0304` | a derivation has no rows, so it can never fire |
+| `MD0305` | a `when` clause uses a mapping predicate nothing implements |
+| `MD0306` | a decision names a role nothing fills, or a row names a contract that does not fill it |
+| `MD0307` | a decision's effect and its `name` disagree, or a presence row is not present/absent |
+| `MD0308` | a param decision sets a value some filler of the role does not declare |
+| `MD0309` | two decisions in one file decide the same key |
+| `MD0310` | a `when` clause names a premise nothing supplies, or compares one that cannot be ordered |
+| `MD0311` | a decision's rows do not cover the domain of the premise they test |
+| `MD0312` | a scalar comparison is applied to a per-sample measurement |
+| `MD0313` | a row exits at tier 2 and cites nothing |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

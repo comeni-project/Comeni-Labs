@@ -1,8 +1,19 @@
 id: nf-core/hisat2/align@2.2.2
+roles: [alignment]
 nf_process: HISAT2_ALIGN
 nf_include: modules/nf-core/hisat2/align/main
 consumes:
-  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+  - name: reads
+    type_id: fastq.reads
+    state_required: []
+    state_required_conventional: [trimmed]
+    state_conventional_because: >-
+      HISAT2 soft-clips adapter sequence rather than requiring it removed, and
+      nf-core/rnaseq ships --skip_trimming precisely because trimming is optional.
+      So trimming is a convention worth keeping by default and not a constraint:
+      declaring it structural made a rule that skips trimming produce an unroutable
+      pipeline rather than a shorter one.
+
   - {name: index, type_id: genome.index.hisat2, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]
 params:
@@ -11,11 +22,15 @@ params:
   # HISAT2 takes one KEY:VALUE per `--rg`, so PL is its own flag rather than a field.
   - name: seq_platform
     tier_hint: 4
+    # No `domain`, deliberately. The list of sequencing platforms cannot be
+    # enumerated — a param whose legal values are open declares none, and
+    # `_computed_over`'s heuristic remains its only check. Spec §7.1.
     via: ext
     key: args
     template: "--rg-id ${meta.id} --rg SM:${meta.id} --rg PL:{value}"
   - name: save_unaligned
     default: false
+    domain: {kind: boolean}
     because: >-
       Unmapped reads are not written out. This spine counts what aligned, and keeping the
       unmapped FASTQs would roughly double output size for something no downstream step

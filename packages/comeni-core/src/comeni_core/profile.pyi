@@ -12,7 +12,7 @@ from comeni_core.tiers import ValueSource
 
 class Measured(BaseModel):
     measurement: MeasurementId
-    value: ParamValue
+    value: ParamValue | list[ParamValue]
     source: ValueSource
     by: ContractId | None
 
@@ -23,10 +23,18 @@ class DataProfile(BaseModel):
     @overload
     def get(self, measurement_id: Literal["paired"]) -> bool | None: ...
     @overload
-    def get(self, measurement_id: Literal["read_length"]) -> int | None: ...
+    def get(
+        self, measurement_id: Literal["purpose"]
+    ) -> (
+        Literal[
+            "expression", "variant_calling", "junction_discovery", "transcript_assembly"
+        ] | None
+    ): ...
+    @overload
+    def get(self, measurement_id: Literal["read_length"]) -> int | list[int] | None: ...
     @overload
     def get(
         self, measurement_id: Literal["strandedness"]
     ) -> Literal["forward", "reverse", "unstranded"] | None: ...
     @overload
-    def get(self, measurement_id: str) -> ParamValue: ...
+    def get(self, measurement_id: str) -> ParamValue | list[ParamValue]: ...

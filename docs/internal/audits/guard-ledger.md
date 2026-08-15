@@ -979,3 +979,538 @@ human_override to the value"*, contradicting `pipeline-schema.md`'s *"it is not 
 one"* two paragraphs above. The test could not be written correctly by following the diagnostic.
 Both now say the same thing: edit `settings[].value` and the reason beside it, and leave `source`
 alone.
+
+---
+
+## Plan 1.15 Task 0 — a contract declares the roles it fills (A119, A123)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_roles_through_the_loader.py::test_a_contract_naming_an_undeclared_role_stops_the_build` | the `roles.check(...)` loop in `layers.load()` | failed | `DID NOT RAISE UnknownRoleError` |
+| 2026-08-15 | `test_roles.py` ×4 (core) | the same loop | **nothing failed** | see below — this is the row worth keeping |
+| 2026-08-15 | `test_roles.py::test_a_role_name_is_snake_case_on_a_contract` | `AfterValidator(_role_name)` on `RoleName` | failed | `DID NOT RAISE ValidationError` for `Alignment`, `ribo-depletion`, `2pass`, `_hidden`, `trailing_` |
+| 2026-08-15 | `test_roles.py::test_a_vocabulary_cannot_declare_a_role_no_contract_could_name` | the `_role_name` call in `RoleVocabulary.kind()`'s `parse` | failed | `DID NOT RAISE` for a vocabulary declaring `Ribo-Depletion` |
+| 2026-08-15 | `layers.py::_every_file_is_claimed` (A26) | nothing — `registry/roles/` was added before the kind was wired in | **failed unprompted** | `registry layer … contains roles/roles.yml, which nothing reads` |
+
+**Two inert guards were found in code written the same hour, and one guard caught the author.**
+
+**The `roles.check` loop was protecting nothing.** `packages/comeni-core/tests/test_roles.py`
+called `RoleVocabulary.check` directly — four green tests proving the function works and proving
+nothing about whether anything *calls* it. Deleting the loop from `layers.load()` left all four
+green. `test_roles_through_the_loader.py` exists for that reason and for no other: it loads a
+real layer stack through the real loader, which is the only thing that can fail when the call
+goes away. Same shape as Plan 1.9's three, and as A14 generally.
+
+**The `RoleName` validator was also inert**, and chasing it found a defect rather than just a
+missing test. `RoleVocabulary.kind()`'s `parse` returned bare strings, so a vocabulary could
+declare `Ribo-Depletion` — which loads — while every contract naming it was refused by
+`RoleName`. A declaration nothing can legally use: legal, silent, useless, and the same family
+as A122's rule that can never fire. Validating both sides is the fix; the asymmetry was only
+visible because the validator was being reverted.
+
+**`_every_file_is_claimed` failed unprompted and was right.** `registry/roles/` was added before
+`RoleVocabulary.kind()` was wired into `layers.load()`, so its file was hashed into the layer
+digest and read by nothing — exactly A26. Its message also named the four kind directories as a
+literal, which would have been wrong the moment a fifth existed, so it now derives them from
+`DeclaredKind`. Same reasoning as invariant 14's *"the guard's roots come from `DOORS` rather
+than from what happens to live in `egress.py`"*.
+
+**One revert was invalid and is recorded as such.** The first attempt at removing the
+vocabulary-side validation cut the file mid-block and produced a collection error rather than a
+test failure. A guard that "fails" because the module will not import has not been watched — it
+was redone with valid syntax, and the row above is the valid one.
+
+## Plan 1.15 Task 1 — the premise layer (A108, A120)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_an_asserted_fact_is_not_a_measured_one`, `…_a_human_override_is_evidence_of_the_same_quality_…`, `…_a_goal_declared_purpose_is_a_premise` | `origin=_BY_SOURCE[entry.source]` → always `PremiseOrigin.MEASURED` | **3 failed** | `assert <PremiseOrigin.MEASURED: 'measured'> is <PremiseOrigin.ASSERTED: 'asserted'>` |
+| 2026-08-15 | `test_premises.py::test_nothing_may_declare_a_measurement_named_required_states` | the `_RESERVED in measurements.ids()` refusal | failed | `DID NOT RAISE PremiseError` |
+| 2026-08-15 | `test_premises.py::test_required_states_is_present_and_empty_rather_than_absent` | writing the premise only when the goal named states | failed | `KeyError: 'required_states'` |
+| 2026-08-15 | `tests/test_purity.py::test_pure_packages_import_nothing_impure` | nothing — `premises.py` imports `enum` | **failed unprompted** | `premises.py imports enum, which is not on this package's allowlist` |
+| 2026-08-15 | `make types` (`tools/generate_types.py --check`) | nothing — `registry/measurements/purpose.yml` was added | **failed unprompted** | `profile.pyi is stale` |
+| 2026-08-15 | `tests/test_registry_layer.py::test_the_layer_loads_from_its_new_home` | nothing — the same file | **failed unprompted** | `At index 2 diff: 'purpose' != 'read_length'` |
+
+**The plan predicted the wrong outcome for its own guard, and the prediction was pessimistic.**
+Step 5 said to collapse the provenance mapping, confirm the measured case still passes, and
+confirm that *"no test fails — the asserted case has no guard yet, which is Task 8's."* Three
+tests failed. That sentence was written against the four-test draft of this task; the corrected
+version added the human-override and `purpose` cases, and each of them pins the asserted side
+independently. **A stale prediction of inertness is the one kind that costs nothing to be wrong
+about**, because the revert is run either way — which is the argument for running it rather than
+reasoning about it, in the same shape as A14 itself.
+
+**Two guards failed unprompted for the same one-line cause**, and the pair is the useful part:
+`registry/measurements/purpose.yml` is *data*, and adding it broke a generated stub and a
+literal list in a test. Neither is in `mendel-resolver`, and neither would have been found by
+running the task's own test file. `make check` is what found them, which is the case for
+running the whole gate on a change that looks confined to one package.
+
+**`test_purity.py`'s allowlist did what its own comment asks of it.** `re` was added on
+2026-08-14 with a written argument, and the comment beside it says the guard *"is supposed to
+make an addition something somebody argues for"*. `enum` is the second such addition and got
+the same treatment: `PremiseOrigin` is a closed vocabulary and every other one in this
+repository is a `StrEnum`, so the alternative — bare string constants — would have made an
+undeclared origin representable and would have cost `_BY_SOURCE` its totality. This is the first
+time `mendel-resolver` has *declared* a vocabulary rather than read one from `comeni-core`,
+which is why the entry was not already there.
+
+**`tools/generate_types.py` had two line-wrapping forms and needed three.** `purpose`'s four
+enum values make the return annotation 101 characters on a line of its own, so the fallback that
+exists to keep the generated stub lint-clean produced a stub that failed `ruff check` — the
+exact outcome its own comment names as the thing to avoid (*"a generated file that fails `ruff
+check` is a generated file somebody edits by hand"*). Latent since the generator was written;
+reachable only by declaring a measurement with long values. The third form wraps inside
+`Literal[`, which has no length at which it stops working. **Shortening the declared values to
+fit would have let a line limit edit the vocabulary**, which is why it was fixed in the tool.
+
+**Task 0 residue, found by a test rather than by review.** `registry/registry.yml` still said
+`kinds: [contracts, measurements, rules, vocabularies]` while `registry/roles/` sat beside it.
+Nothing reads that field — `tests/test_registry_layer.py` pins it and nothing else — and that is
+the point of it: it is the layer's account of itself to a stranger who opens the directory, and
+a self-description that drifts is worse than none.
+
+**`MD0302` shipped in Task 0 with no `diagnostics.yml` entry**, which the plan's own Global
+Constraints require of every new code. It was invisible because `tests/test_diagnostics_registry.py`
+validates codes passed to `Diagnostic(...)`, and `roles.py` raises a bare `ValueError` with the
+code in the string — so the registry could not see it. Both `MD0302` and this task's `MD0303`
+are declared now. The general case is issue #18, the half-declared error surface, and this is
+one more instance of it: a code in an f-string is a code no registry knows about.
+
+## Plan 1.15 Task 2 — a derived fact fills a gap and never overwrites (A122, R15)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_a_derivation_never_overwrites_a_measurement` | `if derivation.fact in premises: continue` in `_derive` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | `test_premises.py::test_a_derivation_whose_row_would_match_still_never_overwrites`, `…_never_overwrites_an_earlier_derivation_either` | the same line, after the guard was strengthened | **2 failed** | `assert 'reverse' == 'forward'` |
+| 2026-08-15 | `test_premises.py::test_a_derivation_with_no_rows_is_refused` | the `if not self.rows` refusal on `Derivation` | failed | `DID NOT RAISE` |
+
+**The never-overwrite guard was inert, and the plan predicted it would not be.** Step 5 said to
+delete the line and *"confirm `test_a_derivation_fills_a_gap_and_never_overwrites` fails on the
+second assertion with `'reverse' != 'forward'`"*. It does not, and the reason is in the fixture
+rather than in the code: R15's row is `when: {strandedness: absent}`, so once `strandedness` is
+measured **the row fails its own predicate** and the never-overwrite rule is never reached. The
+test was passing for a reason unrelated to what it claimed to check, which is the definition of
+the thing A14 is about.
+
+The plan's fixture had the same shape, so this would have been missed by following the plan
+exactly and reading carefully. **Only running the revert finds it** — the third time in two
+plans that the revert has caught code written the same hour, after Plan 1.14 Task 0 and Plan 1.15
+Task 0.
+
+**The replacement conditions on a different fact from the one it derives**, so the row matches
+and only the rule stands between a measurement and a default. A second test covers derivation
+against derivation, where `absent` cannot mask the same way.
+
+**The rule was also written narrower than the plan specified, deliberately.** The plan has
+`if fact in measurements.ids() and fact in premises`, scoping never-overwrite to *declared
+measurements* — spec §3.1's wording. Dropping the first clause makes it never-overwrite-anything,
+so two derivations of the same new fact resolve first-wins rather than last-wins. Last-wins would
+make the answer depend on which file `stack()` reached first, which is invariant 10. First-wins
+is also what `ReplayResolver` already does with duplicate keys, so this is one convention rather
+than a second one. Task 11 should refuse the duplicate at load; until it does, the resolution is
+at least not order-dependent.
+
+### Task 2b — the aggregate half (R19, spec §3.2), after the operator's call on representation
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_an_aggregate_over_a_scalar_reduces_to_that_scalar` | the scalar branch of `_aggregate`'s `values` | failed | `KeyError: 'cohort_max_read_length'` |
+| 2026-08-15 | `test_premises.py::test_a_list_is_refused_where_the_measurement_is_not_per_sample` | the `not measurement.per_sample` refusal in `check` | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_premises.py::test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused` | covered by Task 2's `_can_fire` revert | failed | `DID NOT RAISE` |
+
+**A scalar reduces to itself, and that is a decision rather than a convenience.** A per-sample
+measurement written as one value is the claim that the cohort is uniform, so its max, min and
+mean are all that value. Without the branch, `cohort_max_read_length` exists for a three-sample
+profile and vanishes for a one-sample one — **a fact that appears and disappears with the shape
+of the input is a fact no rule can be written against**, and the rule would fail by silently
+not firing rather than by any diagnostic.
+
+**The stub generator was wrong before it was stale, which is the more expensive of the two.**
+`tools/generate_types.py`'s own header says *"stale costs autocomplete, never correctness"*, and
+that guarantee held only while every measurement was scalar. With `read_length` declared
+`per_sample`, `--check` passed — the file was current — while the overload it contained said
+`int | None` for a value the loader accepts as `list[int]`. `--check` cannot see that class of
+error at all: it compares the generated file against itself. Fixed in `_returns`, and the
+fallback overload and the `Measured` declaration in the header were wrong in the same way.
+
+## Plan 1.15 Task 3 — one predicate evaluator, and a row's tier is its text (A121)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_predicates.py::test_a_row_testing_no_premise_positively_is_tier_2`, `…_present_earns_tier_3_and_absent_does_not` | `tier_of_row`'s `if expected != ABSENT` | **2 failed** | `assert <Tier.DATA_PROFILED: 3> is <Tier.CONVENTION: 2>` |
+| 2026-08-15 | `test_predicates.py::test_an_unknown_predicate_is_refused_rather_than_ignored` | the `MD0305` raise, falling through to `return False` | failed | `DID NOT RAISE PredicateError` |
+| 2026-08-15 | `test_predicates.py::test_a_comparison_against_a_cohort_is_refused_rather_than_raising_TypeError` | the `isinstance(actual, list)` refusal | failed | `TypeError` from `predicates.py:88` — which is the guard's own argument, printed |
+
+**Revert C is the clearest evidence in this ledger of what a diagnostic buys.** Removing the
+refusal does not make the comparison work; it makes it raise `TypeError: '>=' not supported
+between instances of 'list' and 'int'` from inside the resolver, naming neither the rule nor the
+fact nor the file. The guard exists to convert that into `MD0312`, which names the fact, says it
+is a cohort of three values, and prints the `derives:` aggregate that would have been right.
+
+**`present` and `absent` look like a pair and are not one**, and `tier_of_row` is where that
+matters. `present` is a test on the data — something measured this — so a row conditioned on it
+did tier-3 work. `absent` is a test on the *absence* of data, which is exactly the case with no
+measurement behind it, so it is tier 2: value plus citation. Reverting the clause collapses both
+into tier 3 and two tests catch it, which is the pair being genuinely two guards rather than one
+written twice.
+
+**`predicates.py` imports `Premise` under `TYPE_CHECKING` only.** `premises.build_premises` calls
+`matches`, so a runtime import in the other direction is a cycle. Nothing in the evaluator reads
+a premise beyond whether it exists and what its `value` is, so the annotation is the only thing
+that needs the name — and stating that in the module docstring is what stops somebody
+"fixing" the odd-looking import later.
+
+**Task 2's inlined `_matches` is deleted rather than left beside this one.** Its own docstring
+said Task 3 would replace it, and a second matcher that agrees today is the shape `_comparison`'s
+docstring already warns about: *"two copies of this predicate is how a rule passes validation and
+then fails to fire."*
+
+## Plan 1.15 Task 4 — a decision names a role, and cannot collide (A119, A123, R20)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_roles_through_the_loader.py::test_the_shipped_registry_loads_with_every_contract_classified` (+2, +10 errors) | `roles: [alignment]` deleted from `star-align.yml` | **3 failed, 10 errored** | `these contracts fill no role: ['nf-core/star/align@1.11.0']`, and `MD0306` breaking every build |
+| 2026-08-15 | `test_rules.py::test_two_decisions_for_one_target_in_one_file_is_MD0309` | the `target.key() in seen` check | failed | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_rule_for_a_parameter_no_contract_declares_will_not_load` | the `MD0308` declared-by-every-filler check | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_a_decision_on_a_role_nothing_fills_is_refused` | the `if not fillers` check | failed | `DID NOT RAISE` |
+
+**Task 0's open row is closed, and by more than the test that was written for it.** The ledger
+recorded *"`test_roles.py` ×4 — nothing failed"* against the `roles.check` loop, because those
+four tests called the function directly. Deleting `roles:` from one contract now fails three
+tests in the loader file **and errors ten more**, because the shipped `implementation: alignment`
+rule names STAR and STAR no longer fills that role — `MD0306` refuses the whole build. A role
+declaration went from a field nothing consulted to one the rule table depends on, which is what
+made the guard real rather than the guard being rewritten.
+
+**`MD0309` and `stack()`'s duplicate-key refusal are not redundant and neither can see the
+other's case.** `MD0309` is per *file*, caught in `parse`, and its message can name the file and
+the key. `stack()`'s is per *layer*, across files, and is the one mechanism shared by every kind
+— which is root B's whole point and why a per-kind exception type was not reintroduced here. Two
+tests, one for each, with the argument written into both docstrings.
+
+**A fixture went inconsistent the hour the check landed**, and this is the good version of that
+event. `test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract` *replaced* STAR's
+`alignment` role with `long_read_alignment` to prove an overlay-declared role loads. That fixture
+was fine while nothing read the role and became a contradiction the moment the rule table did —
+so the test failed for `MD0306` rather than for anything it was about. Adding the overlay role
+beside the base one is the fix, and the comment beside it says why, because the next person to
+edit that line will reach for the substitution again.
+
+**The shipped rule migrated at Task 4 rather than Task 11**, which the plan did not anticipate.
+`DecisionTarget` changes incompatibly here, so leaving `registry/rules/rnaseq.yml` in the old
+format would put `make check` red for seven tasks — and the Global Constraints say `drift` is the
+only gate that may be red, for exactly the reason A14 gives: a gate red for unexamined reasons
+trains everybody to ignore it. Migrating one block now costs nothing and keeps that rule intact.
+
+**`make verify`'s slow tests are what proved the migration.** `test_counts.py` runs the spine on
+real data and asserts featureCounts got the strandedness that was measured — so a role-keyed
+lookup that silently stopped finding the aligner rule would show up there and nowhere else in the
+686 tests. It passed, which is the evidence that `implementation:alignment` routes what
+`producer_of:alignment.bam` used to.
+
+## Plan 1.15 Task 5 — a step can be absent, and a convention cannot block routing (§8.2)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_presence.py::test_removing_a_conventionally_required_state_still_routes` (+2) | `trimmed` moved back to `state_required` on `star-align.yml` | **3 failed** | `nothing produces fastq.reads with states ['trimmed']` — the finding itself, printed |
+| 2026-08-15 | `test_presence.py` ×4 | the `absent_roles & set(c.roles)` filter in `route()` | **4 failed** | `TypeError`/`nf-core/trimgalore@0.6.10` still in the plan |
+| 2026-08-15 | `test_presence.py::test_the_spine_still_inserts_trimming_when_no_rule_removes_it`, `test_spine_contracts.py::test_counts_matrix_is_reachable_from_raw_reads` | the conventional alternative in `InputPort.alternatives()` | **2 failed** | trimming absent from a pipeline no rule touched |
+| 2026-08-15 | `test_presence.py::test_a_presence_absent_rule_removes_the_step_from_a_built_pipeline` | the `fired.value == "absent"` test in `resolve()` | failed | the step is still in `ir.nodes` |
+
+**Revert A prints the finding.** `nothing produces fastq.reads with states ['trimmed']` is
+exactly what a rule saying *"skip trimming"* produced before the split: not a shorter pipeline
+but an unbuildable one. The guard's message and the audit finding are the same sentence, which is
+the most useful thing a revert can produce.
+
+**Revert C is the half that is easy to get wrong, and it fails loudly.** Removing the
+*conventional* alternative from `alternatives()` does not merely stop the fallback — it deletes
+trimming from every pipeline, including ones no rule touches, because the goal's raw `fastq.reads`
+then satisfies the aligner directly and TrimGalore is never inserted. A conventional requirement
+has to keep driving insertion, and `test_the_spine_still_inserts_trimming_when_no_rule_removes_it`
+exists solely to pin that. It was written *before* the implementation for that reason, and the
+revert confirms it is not decorative: it and the spine reachability test are the only two that
+notice.
+
+**The end-to-end test was added because the wiring was otherwise untested.** `presence_for` had
+existed since Task 4 and nothing called it; `resolve()` calling it is a separate fact from the
+method being correct. Four green tests over a role check no loader ran is exactly what Task 0
+recorded, so the test goes through `resolve()` on a real layer stack with a real rule file.
+Revert D — the one line in `resolve()` — fails it and nothing else, which is the point.
+
+**`state_conventional_because`, not `state_required_because`.** The plan's file list names the
+latter, and it would read as justifying `state_required` — the one field it is not about. The
+distinction between the two fields is the entire content of §8.2, so a name that blurs them is
+the wrong name. §4.7's rule applied to a field name rather than to a value.
+
+**`presence: present` currently does nothing, deliberately and not silently.** It is the default
+branch of a presence decision — *"absent below 50bp, otherwise present"* — where "present" means
+leave routing alone, which is a real answer rather than a dead one. Forcing a step that routing
+would not otherwise insert is a different feature, is spec §4.1's open half, and is carried.
+
+## Plan 1.15 Task 6 — one decision may land on several tools (§4.2)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_one_decision_lands_on_two_tools` (+2) | `Decision.targets()` returning `[self.decides[0]]` | **3 failed** | the effect set is missing `param:alignment:star_ignore_sjdbgtf` |
+| 2026-08-15 | `test_rules.py::test_both_targets_of_one_decision_are_validated` | `_validate`'s loop cut to `targets()[:1]` | failed | `DID NOT RAISE` for a second target naming an unfilled role |
+| 2026-08-15 | `test_rules.py::test_two_decisions_cannot_both_land_on_one_target_across_files` | `_no_target_is_decided_twice()` | failed | `DID NOT RAISE` |
+
+**A revert was applied to the wrong call site and reported a false result.** The first attempt at
+the middle row edited `for target in decision.targets():` with a one-occurrence string replace,
+and that string appears **five times** in the file — it hit `_no_target_is_decided_twice`, not
+`_validate`. The run failed one test, which looked like a plausible outcome, and the row would
+have been recorded as evidence for a guard that had never been touched.
+
+What caught it was that the failure was the *wrong* test: the reverted line was supposed to break
+"both targets are validated" and instead broke "two decisions cannot land on one target", which
+is a different guard's test. **A revert whose failure does not match its prediction has not been
+watched** — the probe that followed printed the real exception and its origin and showed
+`MD0306` still firing from the untouched loop. Recorded because the near-miss is the useful part:
+this is the second time in this plan that an apparently sensible revert result was not what it
+appeared to be, after Task 2's inert never-overwrite guard.
+
+**The composite stacking key opens A119 again, and the third row is where it is closed.** A
+multi-target decision replaces as a whole, so its `stack()` key is the whole set — which makes a
+second decision naming only *one* of those targets a different key. It stacks happily beside it
+and both fire on that target. `MD0309`'s per-file check cannot see it, because they are in
+different files; `stack()`'s per-layer check cannot see it either, because to it they are two
+different keys. `_no_target_is_decided_twice` runs after assembly, which is the only place both
+are visible at once.
+
+The composite key was kept rather than abandoned because half a replacement is the worse failure:
+an overlay redeciding one of two targets would leave the base layer's other target in force under
+a justification the overlay never wrote.
+
+## Plan 1.15 Task 7 — a decision exits at the tier its evidence earned (A113, A76, A128)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_earned_tiers.py::test_a_tier_2_row_must_carry_a_citation` | the `MD0313` tier-2 citation rule | failed | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_earned_tiers.py::test_only_one_candidate_is_not_a_forcing_constraint`, `test_pinning.py::…cannot_produce_what_was_asked` | the single-candidate branch back to `Tier.STRUCTURAL` | **2 failed** | `assert <Tier.STRUCTURAL: 1> is <Tier.CONVENTION: 2>` |
+| 2026-08-15 | `test_earned_tiers.py::test_the_presence_of_a_forced_step_is_still_tier_1` | the consumer's `because` threaded into `_satisfy_port` | failed | `'alignment.bam' not in 'required by the pipeline'` |
+| 2026-08-15 | `test_earned_tiers.py::test_a_step_the_goal_asked_for_says_so` | the goal loop's `because` | failed | `'the goal' not in 'required by the pipeline'` |
+| 2026-08-15 | `test_earned_tiers.py::test_a_tier_states_its_own_review_level` etc. | `Why.review_level` returning `ReviewLevel.NONE` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | `test_earned_tiers.py::test_the_artifact_states_the_review_level_beside_the_tier` | the same, after the guard was written | failed | `assert <ReviewLevel.NONE: 'none'> is <ReviewLevel.ADVISORY: 'advisory'>` |
+
+**`Why.review_level` was inert in code written the same hour, for a reason worth naming.**
+`ResolvedValue.review_level` has computed the same thing since Plan 1, so the test written for
+Task 7 Step 5 — `assert selection.review_level is ADVISORY` — passed against a field that already
+existed and said nothing about the new one. **The new field is on `Why`, which is the model
+`pipeline.yml` is made of and the one a stranger opens**, and every test in the new file stayed
+green when it was reverted.
+
+The replacement builds a real `Pipeline` and reads `step.why.review_level` and
+`step.presence.review_level`. This is the fourth inert guard this plan has found by reverting, and
+the second where the reverted code and the test were written within an hour of each other.
+
+**A113's split shows up in the artifact, which is where it was always going to matter.** The
+sorter now reads:
+
+```yaml
+  why:
+    tier: 2
+    reason: uncontested — nothing else in this stack fills bam_sorting
+    review_level: none
+  presence:
+    tier: 1
+    reason: nf-core/subread/featurecounts@2.0.6 requires 'alignment.bam' here
+```
+
+Two questions that were one field, and the tier is what made the conflation visible: *"the only
+contract that produces this"* claimed the inputs forced a choice, when what forced it was the
+contents of the registry. Install a second sorter tomorrow and the same pipeline becomes a real
+choice — which is the definition of a convention, not a structural constraint.
+
+**`Step.presence`, not `Step.exists`.** The first name was a `Why` in a field that reads as a
+boolean. The second matches `effect: presence` in the rule format, so the field a reader finds in
+the artifact and the word they would write in a rule are the same word. `test_pipeline_totality`
+is what forced the question — it keys on field *names*, so `exists` left `IRNode.presence` looking
+uncarried.
+
+**Three gates caught this task rather than one.** `test_pipeline_totality` found the missing home,
+`test_a_schema_change_bumps_the_version` found the unbumped `SCHEMA_VERSION` (now 3), and
+`test_a78_a_rule_row_that_justifies_nothing_is_refused` found that its own fixture had become a
+`MD0313` case rather than an `MD0301` one — its `when: {}` row now exits at tier 2 and is refused
+for a more specific reason. That last one is a fixture drifting under a new rule, which is the
+same event Task 4 hit and is worth expecting once per task from here.
+
+## Plan 1.15 Task 8 — a decision records the premise it rested on, version 3 (A108, A127)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_resolve.py::test_tier_3_rule_sets_value_and_marks_advisory` | `premise=pin.premise` on a resolved **param** | **nothing failed** | — see below |
+| 2026-08-15 | the same, after the guard was written | the same line | failed | `assert [] == [('strandedness', 'reverse', <PremiseOrigin.ASSERTED>)]` |
+| 2026-08-15 | `test_pipeline_file.py::…states_the_premise_value_not_the_predicate` (+2) | `reason_line`'s premise clause | **3 failed** | `'read_length is 150' not in 'rule implementation:alignment: STAR's seed-and-extend…'` |
+| 2026-08-15 | `test_pipeline_file.py::…records_the_premise_it_rested_on` (+5) | `_premises_read` recording nothing | **6 failed** | `assert [] == [('read_length', 150)]` |
+| 2026-08-15 | `test_pipeline_file.py::…records_the_premise_it_rested_on` (+3) | the origin hardcoded to `measured` | **4 failed** | `assert <PremiseOrigin.MEASURED> is <PremiseOrigin.ASSERTED>` |
+
+**Two paths carry a premise and only one had a guard.** A selection's premise travels through
+`RouteStep.selection_premise` in the router; a param's travels through `Pin.premise` in
+`_resolve_param`. Every test written for this task read `star_align.why` — a *selection* — so
+reverting the param line left all of them green. The two are different code paths reaching
+different fields, and a task that adds both needs a guard on both.
+
+**One revert was invalid and is recorded as such.** Hardcoding the origin to
+`PremiseOrigin.MEASURED` referenced a name `rules.py` does not import, so the module failed to
+import and 46 tests **errored**. A guard that "fails" because the module will not load has not
+been watched — the same finding Task 0 recorded, now twice in one plan. Redone with a literal
+`"measured"`, which pydantic coerces, and the corrected row is the one above.
+
+**The plan's field shape is unrepresentable, and the guard said so in three sentences.**
+`premise: dict[str, Any]` beside `premise_origin: dict[str, str]` was refused by
+`tests/test_egress.py` as a mapping, as an `Any`, and as a bare `str` key — `Why` is reachable
+from door 4, publication, the door with no undo. One `PremiseRecord` carrying id, value and
+origin is the better shape regardless: two parallel mappings can disagree about their key sets
+and nothing would notice.
+
+**What the artifact says now**, which is the whole point of the task:
+
+```yaml
+  why:
+    tier: 3
+    reason: 'rule implementation:alignment where read_length is 150, asserted, not measured:
+      STAR''s seed-and-extend search is built for long reads…'
+    premise:
+    - id: read_length
+      value: 150
+      origin: asserted
+```
+
+It said `matched {'read_length': '>= 70'}` — a Python dict repr embedded in YAML with doubled
+quotes, reporting the **predicate** and never the value. A reader learned the rule tested `>= 70`
+and never learned that `read_length` was 150, or that nothing had measured it. Both forms ship:
+the sentence for a person, the records for `ProfilePolicy` (issue #2). Shipping only the mapping
+would have repeated, one level up, the exact defect this plan exists to fix.
+
+## Plan 1.15 Task 9 — completeness is checked against the declared domain (A124)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_a_gap_in_an_ordered_domain_is_refused` (+2) | the `_check_exhaustive` call | **3 failed** | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_gap_in_an_ordered_domain_is_refused` | the interval comparison, always `None` | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_an_extensible_enum_still_needs_a_catch_all` | the `measurement.extensible` branch | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_an_enum_missing_a_value_is_refused` | the missing-values raise | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_rows_over_several_premises_are_not_checked_for_completeness` | `_sole_premise`'s `any(len(row.when) > 1 …)` clause | **nothing failed** | — the clause is unreachable |
+| 2026-08-15 | the same test (+2) | `_sole_premise`'s `len(tested) != 1` guard | **3 failed** | `MD0311` refusing a legitimate two-premise table |
+
+**An unreachable condition, found the same hour it was written.** `_sole_premise` read
+`if len(tested) != 1 or any(len(row.when) > 1 for row in rows)`, and the second clause cannot be
+true when the first is false: a row carrying two keys puts two facts in `tested`, so the length
+check already catches it. Reverting it changed nothing. Deleted rather than kept as reassurance —
+**an unreachable condition reads to the next person as a case somebody thought about**, which is
+worse than its absence. Same shape as `stack()`'s `origin[key] != layer.index` in Plan 1.9, and
+the fifth time this repository has found one by reverting.
+
+The corrected revert, against the clause that does the work, refuses a legitimate two-premise
+table and fails three tests — including one that exists only to pin that this is *out of scope*
+rather than approximated.
+
+**Six shipped fixtures were incomplete tables**, in four files. That is the largest fixture
+consequence of any task in this plan, and it is the finding rather than an inconvenience: every
+one of them was a rule that answered part of its premise's domain and demoted silently to tier 4
+for the rest. `test_resolve.py`'s strandedness rule answered `reverse` and neither of the other
+two declared values; three audit-regression fixtures tested `>= 70` with nothing below it.
+
+**Completing them did not break the one test that needs a miss.**
+`test_rule_miss_demotes_to_tier_4_and_flags` carries an *empty* profile, so every row fails its
+own predicate whatever the table covers. A complete table and a miss are different things, which
+is exactly the distinction `MD0311` exists to keep — and it was worth checking rather than
+assuming, because a completeness check that made misses unreachable would have removed tier 4's
+own test.
+
+**The obvious fix would have been worse than the defect**, which is why the check reads the
+declared domain rather than demanding a catch-all. A catch-all tests no premise positively, so it
+earns tier 2 under `MD0313` — demanding one on every decision would have demoted the shipped
+aligner rule's last branch from tier 3 to tier 2 and taken Kim et al. 2019 with it. A124 asking
+for completeness and §6.1 asking for a premise are in tension, and the declared domain is what
+resolves it.
+
+## Plan 1.15 Task 10 — a param declares its domain, so a computed `then` is a type error (A118)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_a_then_outside_the_params_domain_is_refused` (+1) | the `domain is not None` branch | **2 failed** | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_then_outside_a_declared_range_is_refused` | `ParamDomain.refuse`'s maximum check | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_a_computed_then_on_an_undeclared_param_is_still_refused` | `_computed_over`, as though a domain replaced it | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_two_implementations_disagreeing_about_a_domain_fall_back` | `_domain_of`'s unanimity check, taking the first | **nothing failed** | — no fixture had two disagreeing domains |
+| 2026-08-15 | the same, after the guard was written | the same | failed | `MD0300` refusing a value legal for the other implementation |
+
+**The unanimity branch had no fixture that could reach it**, which is the sixth inert guard this
+plan has found by reverting. Two implementations of one role declaring *different* domains for
+one parameter is the case `_domain_of` exists to handle, and nothing in the tree had two — so
+`return first` passed everything. The replacement adds a second quantifier declaring
+`strandedness` as `[yes, no, reverse]` where featureCounts declares it as `0..2`, which is a real
+disagreement between two real tools rather than a contrived one.
+
+Taking the first would decide which contract is right by **load order**, in the one place where
+getting that wrong refuses a legitimate rule rather than merely reordering output. Falling back to
+the heuristic refuses less and invents nothing. Refusing the disagreement outright would be
+stronger, needs a code of its own, and is carried rather than smuggled in.
+
+**`_computed_over` is kept, and the third row is why.** Most contracts declare no domain — one of
+the five shipped params deliberately declares none, because the list of sequencing platforms
+cannot be enumerated — so retiring the heuristic would trade it for nothing. The negative that
+keeps it honest survives too: `paired` is a declared measurement, so a substring test would refuse
+`paired-end`, a legitimate value killed by a check nobody could disable.
+
+**A fixture's `then: 99` became illegal**, which is the check working on its own test suite:
+featureCounts' `-s` takes 0, 1 or 2, and the row-order fixture had been using 99 as an arbitrary
+sentinel. It reads better as 2-then-1 anyway, since the point is that the *first* matching row
+wins.
+
+**And an overlay fixture had one value in common with the base again.**
+`test_a_higher_layer_replaces_a_whole_decision_block` was repaired in Task 9 to discriminate on
+three distinct values; narrowing the domain to 0–2 collapsed `forward` back onto the base's value.
+Rotated, so all three differ. Twice in two tasks for the same test, which is what a fixture
+carrying its discriminator implicitly costs.
+
+**YAML 1.1 parses bare `yes` and `no` as booleans**, and htseq-count's actual spelling of
+strandedness is `yes`/`no`/`reverse`. The fixture failed with *"Input should be a valid string,
+input_value=True"* until they were quoted — a real trap for a contract author, so the quoting
+carries a comment rather than looking like a style choice.
+
+## Plan 1.15 Task 11 — the corpus wired in, the format retired, drift green (A75, issue #36)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rule_corpus.py::test_a_coded_refusal_tells_the_reader_how_to_read_it` (+1) | `_with_pointer` returning the message unchanged | **2 failed** | `'run: mendel explain MD0306' not in …` |
+| 2026-08-15 | `test_rule_corpus.py::test_the_corpus_rule[R20]` | `EXPECTED["R20"]` set to a code nothing emits | failed | the expectation discriminates |
+| 2026-08-15 | `test_rule_corpus.py::test_every_attempt_has_a_rewrite_…` (+1) | `rules/R11.yml` deleted | **2 failed** | a rewrite going missing is caught |
+| 2026-08-15 | `test_rule_corpus.py::test_the_corpus_rule[R17]` | a rule file emptied to `version: 1` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | the same, after the guard was rewritten | the same | failed | `R17 declares nothing, which is the dead-rule pathology itself` |
+
+**A seventh inert guard, and it was in the test written to prove the format works.** The corpus
+test asserted `loaded.rules.decisions or loaded.rules.derivations` — which the *shipped registry's
+own rule* satisfies. Emptying a corpus rule file to `version: 1` left it green: the fixture
+contributed nothing and the base layer answered on its behalf.
+
+The first repair was also wrong. Counting entries and requiring the count to rise fails R01 and
+R12, which legitimately **replace** the shipped `implementation:alignment` block — an overlay
+replacing a base decision is invariant 11 working, not a defect. The assertion that holds is that
+every key the rule *file* claims is in force **and the corpus layer is what decided it**, with the
+keys read from the file rather than from the loader: asking the loader which keys it loaded and
+then asserting it loaded them is a tautology.
+
+**Two reverts that were not reverts.** Weakening `assert expected in str(caught.value)` to
+`assert caught`, and `assert attempts == written` to `assert attempts or written`, both left every
+test green — as they must, because weakening an assertion cannot fail unless what it asserts is
+already false. **A revert has to break the subject, not the claim about it.** Redone against the
+subject: a wrong expected code, and a deleted rewrite.
+
+**And one attempted revert was rejected as invalid before it was recorded.** Renaming R01's role
+consistently in both the rule and its target left the test green, and correctly: the property is
+that the table agrees with the file, and a consistent rename keeps them agreeing. A revert that
+does not contradict the property is not evidence about the guard.
+
+**`check_registry_drift.py` could not see the fifth kind.** Its `KINDS` was the literal
+`("contracts", "measurements", "rules", "vocabularies")`, so `roles/` was invisible — the check
+would have reported no drift *because it was not looking*, with a green line to say so. Derived
+from `DeclaredKind` now. **Third literal of this shape the repository has had to fix** in one
+plan: `registry.yml:kinds` in Task 1, `_every_file_is_claimed`'s message in Task 0, and this.
+
+**One edit landed in the wrong checkout.** The shell's working directory reset to the main
+checkout after a `cd` into the registry repository, and the next edit went there. It was caught
+by `make drift` reporting *"no drift: 27 shared files agree"* — impossible in the worktree, where
+fifteen files differed — and reverted with `git checkout`. Recorded because the *symptom* was a
+gate turning green, which is the one direction nobody investigates.

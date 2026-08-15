@@ -15,9 +15,12 @@ the five rules shipped in `examples/` had never once executed.
 import operator
 import re
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 from comeni_core import yaml_strict
+from comeni_core.contract import ParamDomain
 from comeni_core.layered import (
     DeclaredKind,
     Displacement,
@@ -28,12 +31,16 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import LayerName, ParamValue
+from comeni_core.marks import ContractId, LayerName, MeasurementId, ParamValue, RoleName
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
+from comeni_core.premise import PremiseRecord
 from comeni_core.profile import DataProfile
 from comeni_core.registry import Registry
+from comeni_core.tiers import Tier
 from comeni_core.vocabulary import Vocabulary
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from mendel_resolver.predicates import matches, tier_of_row
 
 _OPS = {
     ">=": operator.ge,
@@ -72,20 +79,67 @@ def _comparison(expected: ParamValue) -> tuple[str, float] | None:
         ) from exc
 
 
+class Effect(StrEnum):
+    """What a decision changes. Spec §4.1.
+
+    Three, because a rule about *whether a step exists* and a rule about *which tool fills
+    it* are different claims and the shipped format could only spell the first as the second:
+    `producer_of: fastq.reads` with `then: null` was the way to say "do not trim". That reads
+    as a null pointer rather than as a sentence about a pipeline.
+    """
+
+    PRESENCE = "presence"
+    PARAM = "param"
+    IMPLEMENTATION = "implementation"
+
+
 class DecisionTarget(BaseModel):
+    """What a decision decides — an effect on a **role**, never on a type. Spec §4.1.
+
+    A119 and A123 are one defect from two sides. The old target admitted `{param: X}` and
+    `{producer_of: T}`, so a rule about duplicate handling and a rule about which aligner to
+    use both keyed on `alignment.bam`, and `Policy.REPLACE` resolved that collision by
+    deleting one of them — silently, at exit 0. Keying on `(effect, role[, name])` is what
+    makes the two rules different keys rather than the same one.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    param: str | None = None
-    producer_of: str | None = None
+    effect: Effect
+    of: RoleName
+    name: str | None = None
+    """The parameter, for a `param` effect. Meaningless for the other two."""
+
+    when_implementation: list[ContractId] = Field(default_factory=list)
+    """Narrow a `param` effect to the implementations that declare it.
+
+    `star_ignore_sjdbgtf` is STAR's alone, so a rule deciding it for the whole `alignment`
+    role sets a value that is dead whenever HISAT2 wins — issue #10's deadness, arriving
+    through the rule format rather than through a contract. Naming the implementations is the
+    author saying which ones the value is *for*, and `MD0308` is what makes them say it.
+    """
 
     def key(self) -> str:
-        return f"param:{self.param}" if self.param else f"producer_of:{self.producer_of}"
+        return f"{self.effect}:{self.of}" + (f":{self.name}" if self.name else "")
+
+
+Predicate = ParamValue | dict[str, ParamValue | list[ParamValue]]
+"""What a `when` may test a premise against: a value, a comparison string, `absent`,
+`present`, or a mapping predicate — `{not: x}`, `{in: [x, y]}`.
+
+The mapping arm was missing until the twenty-rule corpus was wired in, and its absence is
+the reason A121 was only **half** closed by Task 3: `predicates.matches` implements `not` and
+`in`, and `DecisionRow.when` was typed `dict[str, ParamValue]`, so a rule using either was
+refused by pydantic before the evaluator ever saw it. An evaluator handling a case the model
+cannot represent is the same defect as a model permitting a case the evaluator ignores, and
+neither shows up until somebody writes the rule.
+"""
 
 
 class DecisionRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    when: dict[str, ParamValue] = Field(default_factory=dict)
+    when: dict[str, Predicate] = Field(default_factory=dict)
     then: ParamValue = None
     because: str | None = None
     cite: str | None = None
@@ -108,10 +162,127 @@ class DecisionRow(BaseModel):
 class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    decides: DecisionTarget
+    decides: DecisionTarget | list[DecisionTarget]
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None
+
+    def targets(self) -> list[DecisionTarget]:
+        """A decision landing on two tools is **one** choice with one premise and one citation.
+
+        Spec §4.2. `star_ignore_sjdbgtf` depends on how the index was built: supplying splice
+        junctions at index time and ignoring them at align time is a single call about where
+        the annotation is used, spelled as two flags on two tools.
+
+        Modelling it as two decisions would make the second read the first, and decisions
+        reading decisions is what this format refuses — it buys evaluation order, the
+        possibility of a cycle, and the loss of `build_premises`' single pass. One block also
+        means a reviewer reads the justification once, which is why the format is grouped at
+        all.
+        """
+        return self.decides if isinstance(self.decides, list) else [self.decides]
+
+    def key(self) -> str:
+        """One `stack()` key for the whole decision, because it replaces as a whole.
+
+        An overlay replacing a two-target decision has to decide the same two things: half a
+        replacement would leave the base's other half in force under a justification the
+        overlay never wrote. That the composite key lets a *different* decision land on one of
+        those targets is a real gap and is closed after assembly — see
+        `_no_target_is_decided_twice`, and the test that reaches it.
+        """
+        return "+".join(sorted(target.key() for target in self.targets()))
+
+
+class Fired(BaseModel):
+    """A row that matched, and everything a caller needs without consulting the table again.
+
+    A22's shape: `RuleTable` recorded provenance correctly and the one caller that had to
+    remember to read it did not. The answer carries its own evidence.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    effect: Effect
+    role: RoleName
+    name: str | None = None
+    value: ParamValue = None
+    tier: Tier = Tier.DATA_PROFILED
+    because: str = ""
+    cite: str = ""
+    axis_because: str = ""
+    """The block's justification — the methodology, kept apart from the row's choice.
+
+    One field carried both and printed the axis citation as the row's reason, so the shipped
+    registry said HISAT2 was chosen because of the paper describing STAR. A79, A107.
+    """
+
+    def key(self) -> str:
+        return f"{self.effect}:{self.role}" + (f":{self.name}" if self.name else "")
+
+
+class Aggregate(BaseModel):
+    """Reduce a per-sample measurement to one value. Spec §3.2.
+
+    `over` is `cohort` and nothing else, and it is written out rather than assumed because
+    the cohort-versus-sample question is the one the shipped format could not even ask —
+    `read_length: ">= 70"` against a cohort of three has no defined meaning, and the format
+    gave a rule author no way to say which they meant.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    measurement: MeasurementId
+    over: Literal["cohort"]
+    using: Literal["max", "min", "mean"]
+
+
+class Derivation(BaseModel):
+    """A fact the registry works out, rather than one a tool measured. Spec §3.1.
+
+    A derivation naming a **declared measurement** is a fallback: it may fill a gap and may
+    never overwrite. That asymmetry is the whole of it. R15 — *"infer strandedness where
+    nothing measured it"* — is unwritable in the shipped format because `when` can only read
+    a measurement that is present, so the row validates and can never fire (A122); and a
+    version that could fire without the asymmetry would be worse, because it would resolve a
+    pipeline against a default while the profile printed beside it named the measured value.
+
+    `kind` is declared rather than inferred from `then`, for the same reason a measurement
+    declares one: it says what the fact may hold before any row has produced a value, which
+    is what Task 10's type check over `then` will read.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fact: MeasurementId
+    kind: MeasurementKind
+    rows: list[DecisionRow] = Field(default_factory=list)
+    aggregate: Aggregate | None = None
+    because: str | None = None
+    cite: str | None = None
+
+    @model_validator(mode="after")
+    def _can_fire(self) -> "Derivation":
+        """Exactly one of `rows` and `aggregate`, and never neither.
+
+        A derivation that can produce nothing is A122's own shape, one layer down: it loads
+        clean, contributes nothing, and reads to a reviewer as a fact the registry supplies.
+        Refused at load rather than reported at resolution, because by resolution the fact is
+        simply absent and nothing can tell an empty derivation from one that was never
+        written. Spec §5.
+
+        Both is refused rather than ordered, because an order here would be a rule nobody
+        reading the file could see — invariant 8's argument, one layer down again.
+        """
+        if bool(self.rows) == bool(self.aggregate):
+            has = "both `rows` and `aggregate`" if self.rows else "neither `rows` nor `aggregate`"
+            raise ValueError(
+                f"MD0304: derivation {self.fact!r} declares {has}, and needs exactly one. "
+                f"A derivation that can produce nothing still reads as a fact the registry "
+                f"supplies; one that could produce two would resolve by a precedence no "
+                f"reader of the file can see."
+            )
+        return self
 
 
 def _joined(*parts: str | None) -> str:
@@ -148,6 +319,13 @@ class Pin(BaseModel):
     displaced_layer: LayerName | None = None
     decision: Decision
     row: DecisionRow
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this row actually read, in `when` order.
+
+    On the `Pin` rather than looked up by the caller, for the reason A22 gives about every
+    other field here: a fact the caller must remember to fetch is a fact one of them will
+    not. `reason_line` needs it and so does `Why`.
+    """
 
     def because(self) -> str:
         """Why **this row** won — the specific choice, never the axis.
@@ -176,7 +354,18 @@ class Pin(BaseModel):
         return _joined(self.row.because, self.row.cite)
 
     def reason_line(self, matched: object = None) -> str:
-        """`rule <key>[ matched <when>][: <row justification>]`, with no dangling colon.
+        """`rule <key>[ where <premises>][: <row justification>]`, with no dangling colon.
+
+        **`matched` is ignored and kept for callers.** It used to be the raw `when` mapping,
+        and the shipped artifact read
+
+            reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: …'
+
+        — a Python dict repr embedded in YAML with doubled quotes, reporting the *predicate*
+        and never the value. A reader learned the rule tested `>= 70` and never learned that
+        `read_length` was 150, or that anything had measured it. The premise is the one thing
+        tier 3 asks a reviewer to check, and spec §6.1 says no structured value is a reader's
+        only account of itself.
 
         On `Pin` rather than in `resolve`, because `router` needs it too and importing
         `resolve` from `router` is a cycle — and because every input it formats is already
@@ -184,9 +373,9 @@ class Pin(BaseModel):
         `MD0301` allows that, but `rule param:strandedness: ` with nothing after the colon
         reads as a truncation rather than as an absence, which is half of what A78 was.
         """
-        head = f"rule {self.decision.decides.key()}"
-        if matched is not None:
-            head = f"{head} matched {matched}"
+        head = f"rule {self.decision.key()}"
+        if self.premise:
+            head = f"{head} where " + "; ".join(record.prose() for record in self.premise)
         because = self.because()
         return f"{head}: {because}" if because else head
 
@@ -200,10 +389,30 @@ class Pin(BaseModel):
         return _joined(self.decision.because, self.decision.cite)
 
 
+_GOAL_FACTS = frozenset({"required_states"})
+"""Premises the goal supplies rather than any measurement. Kept beside the rule validator
+because this is the list a `when` key is checked against; `premises.py` is where they are
+built. Two places, one fact — which is why the name is shared rather than the literal."""
+
+
+def _key_of(entry: "Derivation | Decision") -> str:
+    """One key space for both layers, namespaced. Spec §2.1.
+
+    `stack()` has one key space per kind and `Policy.REPLACE` applies **per key**, so an
+    overlay replacing a derivation leaves the decision beside it untouched — which is what
+    lets both live in `rules/` without a second `DeclaredKind`.
+    """
+    if isinstance(entry, Derivation):
+        return f"derive:{entry.fact}"
+    return entry.key()
+
+
 class RuleTable(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     decisions: list[Decision] = Field(default_factory=list)
+    derivations: list[Derivation] = Field(default_factory=list)
+    """The premise layer's half of `rules/`, in key order. Read by `build_premises`."""
 
     layer_of: dict[str, str] = Field(default_factory=dict)
     """Decision key -> the layer whose block is in force. Audit A15.
@@ -255,27 +464,45 @@ class RuleTable(BaseModel):
         one block and see the entire effective decision.
         """
 
-        def parse(path: Path) -> list[Decision]:
+        fillers_by_role = _fillers_by_role(registry)
+
+        def parse(path: Path) -> list[Derivation | Decision]:
             data = yaml_strict.load(path) or {}
-            found = []
+            found: list[Derivation | Decision] = [
+                Derivation.model_validate(raw) for raw in data.get("derives", [])
+            ]
+            # Per file, because `MD0309` is about two decisions **in the same layer**: an
+            # overlay replacing a block by key is legal and is the whole of invariant 11.
+            seen: dict[str, str] = {}
             for raw in data.get("decisions", []):
                 decision = Decision.model_validate(raw)
-                _validate(decision, path, registry, vocabulary, measurements)
+                _validate(
+                    decision,
+                    path,
+                    registry=registry,
+                    fillers_by_role=fillers_by_role,
+                    measurements=measurements,
+                    seen=seen,
+                )
                 found.append(decision)
             return found
 
         return Kind(
             DeclaredKind.RULES,
             parse=parse,
-            key=lambda decision: decision.decides.key(),
+            key=_key_of,
             policy=Policy.REPLACE,
         )
 
     @classmethod
-    def of(cls, stacked: Stacked[str, Decision], layers: Sequence[Layer]) -> "RuleTable":
+    def of(
+        cls, stacked: "Stacked[str, Derivation | Decision]", layers: Sequence[Layer]
+    ) -> "RuleTable":
         name_of = {layer.index: layer.name for layer in layers}
+        entries = [stacked.entries[key] for key in sorted(stacked.entries)]
         return cls(
-            decisions=[stacked.entries[key] for key in sorted(stacked.entries)],
+            decisions=[e for e in entries if isinstance(e, Decision)],
+            derivations=[e for e in entries if isinstance(e, Derivation)],
             layer_of={key: name_of[at] for key, at in stacked.origin.items()},
             displaced_layer={
                 record.key: record.displaced_layer for record in stacked.displaced
@@ -298,30 +525,183 @@ class RuleTable(BaseModel):
         there is no longer a fact the caller has to forward on the loader's behalf.
         """
         as_layers = layers_of(layers)
-        return cls.of(
+        table = cls.of(
             stack(as_layers, cls.kind(registry, vocabulary, measurements)), as_layers
         )
+        # After the stack, not inside `parse` — a decision may read a fact a derivation in
+        # another file supplies, and a per-file check would refuse a legitimate rule for the
+        # accident of which one `stack()` reached first. Same reason `roles.check` runs after
+        # the registry is assembled rather than inside `Registry.kind`'s parse.
+        table.check_premise_names(measurements)
+        return table
 
-    def _for(self, key: str, profile: DataProfile) -> Pin | None:
+    def check_premise_names(self, measurements: MeasurementRegistry) -> None:
+        """Every `when` key across the table names a premise something supplies.
+
+        After assembly, not during parse — see `_check_when`. Called by `layers.load`, which
+        is the one place that has finished stacking.
+        """
+        facts = set(measurements.ids()) | set(_GOAL_FACTS)
+        facts |= {derivation.fact for derivation in self.derivations}
+        for derivation in self.derivations:
+            _check_when(
+                derivation.rows,
+                f"derivation {derivation.fact!r}",
+                measurements=measurements,
+                facts=facts,
+            )
+        self._no_target_is_decided_twice()
         for decision in self.decisions:
-            if decision.decides.key() != key:
+            where = f"decision {decision.key()}"
+            _check_when(
+                decision.rows, where, measurements=measurements, facts=facts
+            )
+            # After the stack, like everything else here: `add_values` lets an overlay extend
+            # an enum, so a table exhaustive against the base layer alone is not exhaustive
+            # against the stack it will actually run under. Checking per file would pass it.
+            _check_exhaustive(decision, where, measurements=measurements)
+
+    def _no_target_is_decided_twice(self) -> None:
+        """No two decisions in the assembled table land on the same target.
+
+        The gap a composite stacking key opens. A multi-target decision replaces as a whole,
+        so its `stack()` key is the whole set — which means a second decision naming only one
+        of those targets is a *different* key, stacks happily beside it, and both fire on that
+        target. `MD0309`'s per-file check cannot see it and `stack()`'s per-layer check cannot
+        see it either, because to both of them these are two different keys.
+
+        Which is A119 again, arriving through the feature added to express one choice on two
+        tools. Recorded here rather than fixed by abandoning the composite key, because half a
+        replacement is the worse failure: it would leave a base layer's other target in force
+        under a justification the overlay never wrote.
+        """
+        decided_by: dict[str, str] = {}
+        for decision in self.decisions:
+            for target in decision.targets():
+                if target.key() in decided_by:
+                    raise RuleValidationError(
+                        f"MD0309: two decisions both land on {target.key()!r} — "
+                        f"{decided_by[target.key()]!r} and {decision.key()!r}.\n"
+                        f"  Only one of them will fire, and which one is not something a\n"
+                        f"  reader of either file can work out. Merge them, or narrow one\n"
+                        f"  with `when_implementation:`."
+                    )
+                decided_by[target.key()] = decision.key()
+
+    def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
+        for decision in self.decisions:
+            # `key()` is the composite; a two-target decision answers for either of them.
+            if key not in {target.key() for target in decision.targets()}:
                 continue
             for row in decision.rows:
-                if row.matches(profile):
+                if matches(row.when, premises):
                     return Pin(
                         value=row.then,
-                        from_layer=self.layer_of.get(key, ""),
-                        displaced_layer=self.displaced_layer.get(key),
+                        from_layer=self.layer_of.get(decision.key(), ""),
+                        displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
                         row=row,
+                        premise=_premises_read(row, premises),
                     )
         return None
 
-    def value_for(self, param: str, profile: DataProfile) -> Pin | None:
-        return self._for(f"param:{param}", profile)
+    def effects_for(self, premises: "dict[str, object]") -> list["Fired"]:
+        """Every effect the table produces against these premises, in key order.
 
-    def producer_for(self, type_id: str, profile: DataProfile) -> Pin | None:
-        return self._for(f"producer_of:{type_id}", profile)
+        One `Fired` per *target*, so a decision landing on two tools produces two effects
+        carrying one premise and one citation — which is what makes it one choice rather than
+        two that happen to agree.
+        """
+        fired: list[Fired] = []
+        for decision in self.decisions:
+            row = next((r for r in decision.rows if matches(r.when, premises)), None)
+            if row is None:
+                continue
+            pin = Pin(
+                value=row.then,
+                from_layer=self.layer_of.get(decision.key(), ""),
+                displaced_layer=self.displaced_layer.get(decision.key()),
+                decision=decision,
+                row=row,
+            )
+            for target in decision.targets():
+                fired.append(
+                    Fired(
+                        effect=target.effect,
+                        role=target.of,
+                        name=target.name,
+                        value=row.then,
+                        tier=tier_of_row(row.when),
+                        because=pin.because(),
+                        cite=row.cite or decision.cite or "",
+                        axis_because=pin.axis_because(),
+                    )
+                )
+        return sorted(fired, key=lambda f: f.key())
+
+    def value_for(
+        self,
+        roles: Sequence[str],
+        param: str,
+        premises: "dict[str, object]",
+        *,
+        implementation: str | None = None,
+    ) -> Pin | None:
+        """The decided value for `param` on a node filling any of `roles`.
+
+        Takes the node's roles rather than the parameter alone, which is A123's fix at the
+        point of use: `star_ignore_sjdbgtf` decided for role `alignment` reaches STAR and
+        does not reach a sorter that happens to declare a parameter of the same name.
+
+        Roles are tried in the order the contract declares them, so a contract filling two
+        roles decided differently resolves by its own declaration rather than by dictionary
+        order. A contract filling two roles that both decide one parameter is a registry
+        defect; it is not refused here because the refusal belongs at load, where the message
+        can name both decisions.
+        """
+        for role in roles:
+            pin = self._for(f"{Effect.PARAM}:{role}:{param}", premises)
+            if pin is not None and _applies_to(pin, implementation):
+                return pin
+        return None
+
+    def implementation_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
+        return self._for(f"{Effect.IMPLEMENTATION}:{role}", premises)
+
+    def presence_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
+        return self._for(f"{Effect.PRESENCE}:{role}", premises)
+
+
+def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[PremiseRecord]:
+    """The facts this row consulted, in `when` order and with their values.
+
+    In `when` order rather than sorted, because that is the order the rule author wrote and a
+    reader comparing the sentence against the table should meet them the same way.
+
+    A key testing `absent` has no premise to record and contributes nothing: there is no
+    value, and *"read_length is None, not measured"* would be a sentence about a fact that
+    does not exist. Its absence is already what the row says.
+    """
+    read: list[PremiseRecord] = []
+    for fact in row.when:
+        premise = premises.get(fact)
+        if premise is None:
+            continue
+        read.append(
+            PremiseRecord(id=premise.id, value=premise.value, origin=premise.origin)
+        )
+    return read
+
+
+def _applies_to(pin: Pin, contract_id: str | None) -> bool:
+    """Whether a narrowed `param` decision reaches this implementation.
+
+    `when_implementation` is checked here as well as at load, and the two checks answer
+    different questions: load asks *could this value ever be dead*, and this asks *is it dead
+    right now*. Only the second knows which contract won.
+    """
+    narrowed = pin.decision.decides.when_implementation
+    return not narrowed or contract_id is None or contract_id in narrowed
 
 
 def _computed_over(then: object, measurement_ids: list[str]) -> str | None:
@@ -356,26 +736,140 @@ def _computed_over(then: object, measurement_ids: list[str]) -> str | None:
     return None
 
 
-def _validate(
-    decision: Decision,
+def _fillers_by_role(registry: Registry) -> dict[str, list[str]]:
+    """Which contracts fill each role, across the whole assembled registry.
+
+    Derived rather than declared, because a role's fillers are a fact about the stack and a
+    lab's overlay may add one. Computed once per load and threaded, so the answer cannot
+    differ between the check that a role is filled and the check that its fillers declare a
+    parameter — the two disagreeing is how `MD0308` would refuse a rule that was fine.
+    """
+    fillers: dict[str, list[str]] = {}
+    for contract in registry.all():
+        for role in contract.roles:
+            fillers.setdefault(role, []).append(contract.id)
+    return {role: sorted(ids) for role, ids in fillers.items()}
+
+
+def _validate_target(
+    target: DecisionTarget,
     path: Path,
+    *,
     registry: Registry,
-    vocabulary: Vocabulary,
+    fillers_by_role: dict[str, list[str]],
+    seen: dict[str, str],
+) -> None:
+    """**Structural checks first, justification last.** Order is load-bearing here.
+
+    An earlier arrangement ran the citation check first, so a rule naming a contract that
+    fills no role was reported as *"this row needs a cite"* — a diagnostic pointing at the one
+    part of the rule that was correct. A refusal has to name the thing that is wrong.
+    """
+    fillers = fillers_by_role.get(target.of, [])
+    if not fillers:
+        raise RuleValidationError(
+            f"MD0306: {path}, decision {target.key()}\n"
+            f"  No contract in this stack fills role {target.of!r}, so this decision can\n"
+            f"  never apply.\n"
+            f"  Roles that are filled: {', '.join(sorted(fillers_by_role)) or '(none)'}"
+        )
+
+    if target.effect is Effect.PARAM:
+        if target.name is None:
+            raise RuleValidationError(
+                f"MD0307: {path}, decision {target.key()}\n"
+                f"  A `param` effect decides a named parameter and this one names none.\n"
+                f"  Write `decides: {{effect: param, of: {target.of}, name: <parameter>}}`."
+            )
+        narrowed = target.when_implementation or fillers
+        outside = sorted(set(target.when_implementation) - set(fillers))
+        if outside:
+            raise RuleValidationError(
+                f"MD0306: {path}, decision {target.key()}\n"
+                f"  `when_implementation` names {', '.join(outside)}, which do not fill role\n"
+                f"  {target.of!r}. Fillers of that role: {', '.join(fillers)}"
+            )
+        declared_by = {
+            contract_id: {p.name for p in registry.get(contract_id).params}
+            for contract_id in narrowed
+        }
+        missing = sorted(c for c, names in declared_by.items() if target.name not in names)
+        if missing:
+            raise RuleValidationError(
+                f"MD0308: {path}, decision {target.key()}\n"
+                f"  {target.name!r} is not declared by {', '.join(missing)}, which can fill\n"
+                f"  role {target.of!r}. The value would be dead whenever one of those wins.\n"
+                f"  Narrow with `when_implementation:`, or decide a parameter they all\n"
+                f"  declare."
+            )
+    elif target.name is not None:
+        raise RuleValidationError(
+            f"MD0307: {path}, decision {target.key()}\n"
+            f"  A `{target.effect}` effect decides the role itself and carries no `name`.\n"
+            f"  Drop `name:`, or make this a `param` effect."
+        )
+
+    if target.key() in seen:
+        raise RuleValidationError(
+            f"MD0309: {path}, decision {target.key()}\n"
+            f"  Two decisions in the same layer both decide {target.key()!r}: this one and\n"
+            f"  {seen[target.key()]}.\n"
+            f"  A higher layer replaces a whole block by key, so one of these would silently\n"
+            f"  displace the other rather than both applying. Audit A119."
+        )
+    seen[target.key()] = str(path)
+
+
+def _domain_of(
+    target: DecisionTarget, registry: Registry, fillers_by_role: dict[str, list[str]]
+) -> "ParamDomain | None":
+    """The declared domain for this param, if **every** implementation agrees on one.
+
+    Every rather than any, and unanimity rather than a merge. `MD0308` has already proved
+    each of them declares the parameter; two of them declaring different domains for it is a
+    registry defect, and quietly taking the first would decide which contract is right by
+    load order. Returning `None` there falls back to the heuristic, which refuses less and
+    invents nothing.
+    """
+    narrowed = target.when_implementation or fillers_by_role[target.of]
+    domains = [
+        param.domain
+        for contract_id in narrowed
+        for param in registry.get(contract_id).params
+        if param.name == target.name
+    ]
+    if not domains or any(d is None for d in domains):
+        return None
+    first = domains[0]
+    return first if all(d == first for d in domains) else None
+
+
+def _validate_rows(
+    decision: Decision,
+    target: DecisionTarget,
+    path: Path,
+    *,
+    registry: Registry,
+    fillers_by_role: dict[str, list[str]],
     measurements: MeasurementRegistry,
 ) -> None:
-    target = decision.decides
-    if bool(target.param) == bool(target.producer_of):
-        raise RuleValidationError(f"{path}: a decision decides exactly one of param, producer_of")
-
-    if target.param:
-        declared = sorted({p.name for c in registry.all() for p in c.params})
-        if target.param not in declared:
-            raise RuleValidationError(
-                f"{path}, decision {target.key()}\n"
-                f"  No contract in the registry declares a parameter named {target.param!r}.\n"
-                f"  Parameters that do exist: {', '.join(declared) or '(none)'}"
-            )
+    if target.effect is Effect.PARAM:
+        domain = _domain_of(target, registry, fillers_by_role)
         for row in decision.rows:
+            # A declared domain answers this by type check; `_computed_over` answers it by
+            # heuristic. Both emit `MD0300` because both refuse the same thing — a `then` the
+            # tool cannot receive — and one concern gets one code.
+            if domain is not None:
+                refusal = domain.refuse(target.name, row.then)
+                if refusal is None:
+                    continue
+                raise RuleValidationError(
+                    f"MD0300: {path}, decision {target.key()}\n"
+                    f"  {refusal}.\n"
+                    f"  `then` is emitted verbatim — nothing between the rule table and\n"
+                    f"  `nextflow.config` evaluates it, so the tool would receive\n"
+                    f"  {row.then!r} exactly as written."
+                )
             over = _computed_over(row.then, measurements.ids())
             if over is None:
                 continue
@@ -386,27 +880,45 @@ def _validate(
                 f"  Write one row per range with a literal `then`. If the rule genuinely\n"
                 f"  needs arithmetic, that is issue #39 and a format change, not a value."
             )
-    else:
-        if target.producer_of not in vocabulary.types:
-            raise RuleValidationError(
-                f"{path}: {target.producer_of!r} is not a declared type.\n"
-                f"  Types that do exist: {', '.join(sorted(vocabulary.types))}"
-            )
+    elif target.effect is Effect.IMPLEMENTATION:
+        fillers = fillers_by_role[target.of]
         for row in decision.rows:
             contract_id = str(row.then)
-            if contract_id not in registry.contracts:
-                raise RuleValidationError(
-                    f"{path}: {contract_id!r} is not in the registry, so this row can never "
-                    f"be applied. A rule table is only valid against a registry that can "
-                    f"satisfy it."
+            if contract_id not in fillers:
+                known = (
+                    "it is not in this stack"
+                    if contract_id not in registry.contracts
+                    else f"it fills {', '.join(registry.get(contract_id).roles) or 'no role'}"
                 )
-            produced = {p.type_id for p in registry.get(contract_id).produces}
-            if target.producer_of not in produced:
                 raise RuleValidationError(
-                    f"{path}: {contract_id!r} does not produce {target.producer_of!r}"
+                    f"MD0306: {path}, decision {target.key()}\n"
+                    f"  {contract_id!r} does not fill role {target.of!r} — {known}.\n"
+                    f"  Contracts that do: {', '.join(fillers)}"
+                )
+    elif target.effect is Effect.PRESENCE:
+        for row in decision.rows:
+            if row.then not in ("present", "absent"):
+                raise RuleValidationError(
+                    f"MD0307: {path}, decision {target.key()}\n"
+                    f"  `then: {row.then!r}` — a presence effect says `present` or `absent`\n"
+                    f"  and nothing else. It is a claim about whether the step exists, which\n"
+                    f"  is why it reads as English rather than as `then: null`."
                 )
 
     for index, row in enumerate(decision.rows):
+        # Tier 2 is "a documented default exists", so its output is value **plus the
+        # document**. A row testing no premise positively earns tier 2 by `tier_of_row`, and
+        # a `because` alone states the value and asserts the document. A76 and A128 were both
+        # that shape — one in a contract default, one in a rule — and this is the rule stated
+        # once rather than the pair fixed twice.
+        if tier_of_row(row.when) is Tier.CONVENTION and not (row.cite or decision.cite):
+            raise RuleValidationError(
+                f"MD0313: {path}, decision {target.key()}, row {index}\n"
+                f"  This row tests no premise positively, so it exits at tier 2 — a\n"
+                f"  documented default. Tier 2 produces `value + citation` and this row has\n"
+                f"  neither a row `cite` nor a block one.\n"
+                f"  A `because` states the value; a `cite` is the document tier 2 claims."
+            )
         if not (row.because or row.cite or decision.because or decision.cite):
             raise RuleValidationError(
                 f"MD0301: {path}, decision {target.key()}, row {index}\n"
@@ -417,19 +929,187 @@ def _validate(
                 f"  Add `because:` saying why this answer, or `cite:` naming the evidence."
             )
 
-    for row in decision.rows:
-        for measurement_id, expected in row.when.items():
-            try:
-                # Raises naming what *is* declared, which is the half of the message an
-                # author actually needs. Re-raised as a rule error so a bad table is one
-                # kind of failure to the caller rather than two.
-                measurement = measurements.get(measurement_id)
-            except KeyError as exc:
+def _sole_premise(rows: Sequence[DecisionRow]) -> str | None:
+    """The one fact every non-catch-all row tests, or `None` if there is not exactly one.
+
+    Completeness over a **product** of domains is a different and much larger claim, and a
+    check that half-computed it would refuse legitimate tables — which is worse than not
+    checking, because the author cannot argue with a refusal nobody can explain. So a
+    decision whose rows test two facts, or different facts, is not checked at all, and
+    `test_rows_over_several_premises_are_not_checked_for_completeness` says so out loud.
+    """
+    tested = {fact for row in rows if row.when for fact in row.when}
+    if len(tested) != 1:
+        return None
+    return tested.pop()
+
+    # An earlier version read `if len(tested) != 1 or any(len(row.when) > 1 for row in rows)`.
+    # The second clause cannot be true when the first is false: a row with two keys puts two
+    # facts in `tested`, so `len(tested) != 1` already catches it. Reverting it changed
+    # nothing, which is how it was found — same shape as `stack()`'s `origin[key] !=
+    # layer.index` in Plan 1.9. Deleted rather than kept as reassurance, because an
+    # unreachable condition reads to the next person as a case somebody thought about.
+
+
+def _uncovered_interval(rows: Sequence[DecisionRow]) -> str | None:
+    """What an ordered domain's rows leave out, or `None` if they cover the line.
+
+    `>= x` and `< x` are complementary **by construction**, so a pair at the same boundary is
+    exhaustive with no bound declared anywhere. That is the whole point of checking this way:
+    A124 asks for completeness and the obvious fix — demand a catch-all — would demote the
+    shipped aligner rule's last branch from tier 3 to tier 2 and take Kim et al. with it.
+
+    Overlaps are legal and are not gaps. `>= 50` beside `< 70` covers the line twice between
+    50 and 70, and first-match-wins already settles which row applies; refusing it would be
+    enforcing a different property under completeness' name.
+    """
+    lower: list[float] = []   # `>= x` / `> x`: covers upward from x
+    upper: list[float] = []   # `<= x` / `< x`: covers downward from x
+    for row in rows:
+        if not row.when:
+            return None  # a catch-all covers everything that is left
+        expected = next(iter(row.when.values()))
+        comparison = _comparison(expected)
+        if comparison is None:
+            return None  # an equality test over an ordered kind: not a partition claim
+        symbol, literal = comparison
+        (lower if symbol in (">=", ">") else upper).append(literal)
+    if not lower and not upper:
+        return None
+    if not upper:
+        return f"everything below {min(lower):g}"
+    if not lower:
+        return f"everything from {max(upper):g} upwards"
+    highest_covered_below, lowest_covered_above = max(upper), min(lower)
+    if lowest_covered_above <= highest_covered_below:
+        return None
+    return f"between {highest_covered_below:g} and {lowest_covered_above:g}"
+
+
+def _uncovered_values(rows: Sequence[DecisionRow], measurement) -> str | None:
+    """Which of an enum's values no row matches, or `None` if the rows cover them all."""
+    if any(not row.when for row in rows):
+        return None
+    covered = {next(iter(row.when.values())) for row in rows}
+    missing = [value for value in measurement.values if value not in covered]
+    return ", ".join(missing) if missing else None
+
+
+def _check_exhaustive(
+    decision: Decision, where: str, *, measurements: MeasurementRegistry
+) -> None:
+    """Every value the premise can take is answered by some row. A124.
+
+    Refused rather than warned, because a rule with a hole does not fail — it *demotes*. The
+    premise falls through every row, no rule matches, and the decision exits at tier 4 with
+    "no rule matched" beside it. A reviewer reads that as an ambiguity the registry has not
+    got to yet, when what it means is that somebody wrote three branches of a four-branch
+    table and nothing said so.
+    """
+    fact = _sole_premise(decision.rows)
+    if fact is None or fact not in measurements.ids():
+        return
+    measurement = measurements.get(fact)
+    if measurement.kind in _ORDERED:
+        gap = _uncovered_interval(decision.rows)
+        if gap is None:
+            return
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  The rows over {fact!r} leave {gap} uncovered, so a profile there matches\n"
+            f"  nothing and the decision silently demotes to tier 4.\n"
+            f"  Two complementary comparisons at one boundary — `>= 70` and `< 70` — are\n"
+            f"  exhaustive without any bound being declared. A catch-all `when: {{}}` also\n"
+            f"  works, but exits at tier 2 and needs a `cite:`."
+        )
+    if measurement.kind is not MeasurementKind.ENUM:
+        return
+    missing = _uncovered_values(decision.rows, measurement)
+    if measurement.extensible:
+        if any(not row.when for row in decision.rows):
+            return
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  {fact!r} is declared `extensible: true`, so an overlay may add a value and\n"
+            f"  coverage today is not coverage tomorrow. Add a catch-all `when: {{}}` row\n"
+            f"  with a `cite:` — it exits at tier 2, which is what a default is."
+        )
+    if missing:
+        raise RuleValidationError(
+            f"MD0311: {where}\n"
+            f"  No row matches {fact} = {missing}, so a profile carrying one matches nothing\n"
+            f"  and the decision silently demotes to tier 4.\n"
+            f"  {fact!r} declares {len(measurement.values)} values and is not extensible, so\n"
+            f"  covering them all is exhaustive and needs no catch-all."
+        )
+
+
+def _validate(
+    decision: Decision,
+    path: Path,
+    *,
+    registry: Registry,
+    fillers_by_role: dict[str, list[str]],
+    measurements: MeasurementRegistry,
+    seen: dict[str, str],
+) -> None:
+    # Every target, not only the first. A validator that loops over `decides` incorrectly
+    # still passes every single-target test there is, which is why `test_both_targets_of_one
+    # _decision_are_validated` exists and why it names that in its docstring.
+    for target in decision.targets():
+        _validate_target(
+            target,
+            path,
+            registry=registry,
+            fillers_by_role=fillers_by_role,
+            seen=seen,
+        )
+        _validate_rows(
+            decision,
+            target,
+            path,
+            registry=registry,
+            fillers_by_role=fillers_by_role,
+            measurements=measurements,
+        )
+
+
+def _check_when(
+    rows: Sequence[DecisionRow],
+    where: str,
+    *,
+    measurements: MeasurementRegistry,
+    facts: set[str],
+) -> None:
+    """Every `when` key names a premise something can supply, and reads it sensibly.
+
+    Run **after the stack is assembled** rather than inside `parse`, for the same reason
+    `roles.check` runs after the registry is: a derivation and the decision reading it may
+    sit in different files, and a check that fires per file would refuse a legitimate rule
+    for the accident of which one `stack()` reached first.
+
+    `when` sees more than measurements now — that is A120, and the whole point of the premise
+    layer. So the message names all three sources rather than only the one it used to know
+    about, which is what made the old diagnostic misleading rather than merely incomplete.
+    """
+    derived = sorted(facts - set(measurements.ids()) - _GOAL_FACTS)
+    for row in rows:
+        for fact, expected in row.when.items():
+            if fact not in facts:
                 raise RuleValidationError(
-                    f"{path}, decision {target.key()}\n  {exc.args[0]}"
-                ) from exc
+                    f"MD0310: {where}\n"
+                    f"  {fact!r} is not a premise anything supplies, so this row can never\n"
+                    f"  fire.\n"
+                    f"  Declared measurements: {', '.join(measurements.ids()) or '(none)'}\n"
+                    f"  Derived facts: {', '.join(derived) or '(none)'}\n"
+                    f"  Goal facts: {', '.join(sorted(_GOAL_FACTS))}"
+                )
+            if expected in ("absent", "present") or fact not in measurements.ids():
+                continue
+            measurement = measurements.get(fact)
             if _comparison(expected) is not None and measurement.kind not in _ORDERED:
                 raise RuleValidationError(
-                    f"{path}: {measurement_id!r} is an {measurement.kind}, so it can only be "
-                    f"compared with equality, not {expected!r}"
+                    f"MD0310: {where}\n"
+                    f"  {fact!r} is an {measurement.kind}, so it can only be compared with\n"
+                    f"  equality, `in` or `not` — never {expected!r}."
                 )

@@ -1,0 +1,5 @@
+kind: enum
+values: [expression, variant_calling, junction_discovery, transcript_assembly]
+extensible: true
+description: "What the analysis is for — the question the pipeline answers"
+cite: "nf-core/rnaseq usage; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8"

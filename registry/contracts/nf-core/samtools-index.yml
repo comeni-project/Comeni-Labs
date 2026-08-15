@@ -1,4 +1,5 @@
 id: nf-core/samtools/index@1.21.0
+roles: [bam_indexing]
 nf_process: SAMTOOLS_INDEX
 nf_include: modules/nf-core/samtools/index/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]

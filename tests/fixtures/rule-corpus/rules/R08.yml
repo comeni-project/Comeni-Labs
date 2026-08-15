@@ -1,0 +1,15 @@
+version: 1
+# R08 — skip trimming below ~1% adapter content. A119: step presence has a target now.
+decisions:
+  - decides: {effect: presence, of: trimming}
+    because: "trimming costs a pass over every read and removes bases that may not be adapter"
+    cite: "nf-core/rnaseq --skip_trimming"
+    rows:
+      - when: {adapter_content: "< 1"}
+        then: absent
+        because: "below a percent there is nothing to remove worth the pass"
+        cite: "nf-core/rnaseq --skip_trimming"
+      - when: {}
+        then: present
+        because: "adapter read-through biases alignment, so trim unless it is measurably absent"
+        cite: "nf-core/rnaseq --skip_trimming"

@@ -1,4 +1,5 @@
 id: nf-core/subread/featurecounts@2.0.6
+roles: [quantification]
 nf_process: SUBREAD_FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
 consumes:
@@ -12,6 +13,10 @@ produces: [{name: counts, type_id: counts.matrix, state: [gene_level]}]
 params:
   - name: min_mqs
     default: 0
+    # MAPQ is a phred-scaled byte: featureCounts reads `-Q` as 0-255 and nothing outside
+    # that is a smaller version of a valid threshold — it is a flag the tool rejects at
+    # run time, after the pipeline has been built and gated.
+    domain: {kind: integer, minimum: 0, maximum: 255}
     because: >-
       featureCounts' own documented default, so declaring it changes no number — it makes the
       mapping-quality threshold part of the record instead of part of the tool. featureCounts

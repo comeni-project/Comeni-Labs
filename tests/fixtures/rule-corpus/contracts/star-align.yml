@@ -1,0 +1,43 @@
+# Shadows the shipped STAR contract to add the params the corpus decides. A higher layer
+# sharing a module key replaces the whole contract, so everything the base declared is
+# repeated here — which is invariant 11 working as intended, not duplication.
+id: nf-core/star/align@1.11.0
+roles: [alignment]
+nf_process: STAR_ALIGN
+nf_include: modules/nf-core/star/align/main
+consumes:
+  - name: reads
+    type_id: fastq.reads
+    state_required: []
+    state_required_conventional: [trimmed]
+    state_conventional_because: "STAR soft-clips adapter sequence rather than requiring it removed"
+  - {name: index, type_id: genome.index.star, state_required: []}
+  - {name: gtf, type_id: annotation.gtf, state_required: []}
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+params:
+  - {name: seq_platform, tier_hint: 4, via: ext, key: args, template: "--x {value}"}
+  - name: star_ignore_sjdbgtf
+    default: false
+    domain: {kind: boolean}
+    because: "align with the annotation"
+    via: positional
+  - name: twopass_mode
+    tier_hint: 3
+    domain: {kind: enum, values: [Basic, None]}
+    via: ext
+    key: args
+    template: "--twopassMode {value}"
+  - name: sjdb_overhang
+    tier_hint: 3
+    domain: {kind: integer, minimum: 1, maximum: 300}
+    via: ext
+    key: args
+    template: "--sjdbOverhang {value}"
+  # `via: directive` takes no `key` — the param's own name is the directive, which is what
+  # `MD0205` and `MD0209` between them enforce.
+  - name: cpus
+    tier_hint: 3
+    domain: {kind: integer, minimum: 1, maximum: 128}
+    via: directive
+priority: 10
+provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

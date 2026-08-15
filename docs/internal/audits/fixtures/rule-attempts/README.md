@@ -1,9 +1,27 @@
 # Twenty real tier-3 rules, written against the format as it stood on 2026-08-14
 
-**These are evidence, not tests.** Do not wire them into `pytest`, and do not "fix" the eleven
-that fail. Their entire value is that they record what the rule format could not express on the
-day the design audit ran. A future task that repairs the format will turn them into tests; until
-then, changing them destroys the thing they are for.
+**These are evidence, not tests, and they stay frozen.** Do not wire them into `pytest`, and do
+not "fix" the eleven that fail. Their entire value is that they record what the rule format could
+not express on the day the design audit ran.
+
+**Plan 1.15 is the task that repaired the format, and it did not edit this directory.** A corpus
+rewritten in the new format cannot also be the record of what the old one could not express, so
+there are now two directories answering two questions:
+
+| | Question |
+|---|---|
+| `rule-attempts/` (here) | what broke on 2026-08-14 |
+| [`tests/fixtures/rule-corpus/`](../../../../../tests/fixtures/rule-corpus) | whether it is fixed |
+
+`tests/test_rule_corpus.py` is the assertion, and it holds the expected outcome per rule with
+the reason. It also asserts that **every attempt here has a rewrite and no rewrite is orphaned**,
+so the two cannot drift apart.
+
+**Four of the twenty-one are still refused, and none of the four is a regression.** R02 and R03
+are arithmetic, which the format still cannot express and now refuses honestly — issue #39. R02b,
+the contortion, is *newly* caught: `MD0311` sees that enumerating one row per read length leaves
+everything below the lowest one uncovered, which is the defect the contortion was hiding. R20 is
+refused by design.
 
 ## Where they came from
 

@@ -2,6 +2,7 @@
 # route this — it wants the measurements themselves — but the laboratory runs the
 # emitted pipeline and this is where the values are gathered.
 id: comeni/profile/collect@0.1.0
+roles: [profiling]
 nf_process: MULTIQC
 nf_include: modules/nf-core/multiqc/main
 consumes: [{name: measurements, type_id: measurement.read_length, state_required: []}]

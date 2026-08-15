@@ -53,6 +53,7 @@ class Mark(StrEnum):
     TEST_DATA_REF = "test-data-ref"
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
+    ROLE_NAME = "role-name"
 
     NF_IDENTIFIER = "nf-identifier"
     """A name emitted into a Nextflow or Groovy *declaration* — a process name, a channel,
@@ -202,6 +203,23 @@ def _relative_path(value: str) -> str:
         raise ValueError(f"{value!r} must be a relative path fragment with no control characters")
     if ".." in value.split("/"):
         raise ValueError(f"{value!r} contains a `..` segment, so it can leave the pipeline")
+    return value
+
+
+def _role_name(value: str) -> str:
+    """`snake_case`, non-empty, no leading digit. A key a person types in two places."""
+    ok = (
+        value
+        and not value[0].isdigit()
+        and not value.startswith("_")
+        and not value.endswith("_")
+        and all(c.islower() or c.isdigit() or c == "_" for c in value)
+    )
+    if not ok:
+        raise ValueError(
+            f"{value!r} is not a role name. Roles are lower-case words joined by "
+            f"underscores, e.g. `ribo_depletion`."
+        )
     return value
 
 
@@ -507,5 +525,14 @@ the two lists mean different things and the egress guard reads both literally.
 """
 
 ModuleKey = Annotated[str, Mark.MODULE_KEY]
+
+RoleName = Annotated[str, Mark.ROLE_NAME, AfterValidator(_role_name)]
+"""The job a contract does, and the only thing a tier-3 rule may target.
+
+Validated rather than merely marked, unlike the nine aliases A64 names: a role reaches a
+rule's `decides:` key, a diagnostic message and `pipeline.yml`, and it is authored by hand
+in a layer a lab controls. `snake_case` because it is a key a person types into YAML twice —
+once in the vocabulary and once on the contract — and a role that differs by a hyphen from
+the one it meant is a rule that silently targets nothing."""
 """A contract ID minus its `@version`. Shadowing is decided on this, not the full ID —
 a lab pinning `@1.22.0` over `@1.21.0` is a version bump, not an ambiguity."""

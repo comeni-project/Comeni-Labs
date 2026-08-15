@@ -133,31 +133,53 @@ The semantic `state` overlay is the missing ~40%, and it is what routing depends
 
 ### Rule tables
 
-One block per decision, rows underneath:
+Two layers, both in `rules/`. The **premise layer** builds the facts a rule may read; the
+**decision layer** maps those facts to effects on a role.
 
 ```yaml
-decisions:
-  - decides: {producer_of: alignment.bam}
+derives:                                        # the premise layer
+  - fact: strandedness
+    kind: enum
+    rows:
+      - {when: {strandedness: absent}, then: reverse, cite: "Wang et al. 2012"}
+
+decisions:                                      # the decision layer
+  - decides: {effect: implementation, of: alignment}
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
-      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
-      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0, cite: "Dobin 2013"}
+      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2, cite: "Kim 2019"}
 ```
 
 Grouped rather than flat so a reviewer reads the justification once and then reads the
 branches — and so a *missing* branch is visible, which flat rules actively hide.
 
-**Every table is validated at load**, against the registry, the vocabulary and the
-measurements. A `decides.param` no contract declares, a `producer_of` type nothing produces,
-a pinned contract not in the registry, a comparison against an enum, or a `when` naming an
-undeclared measurement: each refuses to load, and the error says what the author *can* write.
+**A decision names a role, never a type and never a bare parameter name.** Three effects:
+`presence` (whether the step exists), `implementation` (which contract fills it), and `param`
+(a named setting on it). The old target admitted `{param: X}` and `{producer_of: T}`, so a rule
+about duplicate handling and a rule about which aligner to use both had to key on
+`alignment.bam` — and `Policy.REPLACE` settled that collision by deleting one of them, silently,
+at exit 0. Keying on `(effect, role[, name])` is what makes them different keys. One decision
+may carry several targets, because "where the annotation is used" is one choice with two flags.
+
+A row's **tier is read off its own text**: it earns tier 3 only by testing a premise
+positively, so `when: {}` and `when: {x: absent}` exit at tier 2 and need a citation rather than
+a sentence.
+
+**Every table is validated at load**, against the registry, the vocabulary, the roles and the
+measurements — twelve diagnostics, `MD0300`–`MD0313`. A role nothing fills, a param some filler
+of the role does not declare, two decisions sharing a key, a `when` naming a premise nothing
+supplies, a `then` outside its parameter's declared domain, rows that do not cover their
+premise's domain: each refuses to load, and the error says what the author *can* write.
 
 This is the load-bearing part. `subject` used to be an unvalidated free string, and two of
 the five rules shipped in the example layer had never once executed. Nothing said so, and a
 constant named `KNOWN_DEAD_RULES` recorded them instead. Validation replaced both.
 
 A layer replaces a decision **block**, not a row — a reviewer should read one block and see
-the entire effective decision.
+the entire effective decision. `derives:` and `decisions:` share one key space, namespaced
+(`derive:<fact>`, `presence:<role>`, `param:<role>:<name>`), so an overlay replacing a
+derivation leaves the decision beside it untouched.
 
 ---
 

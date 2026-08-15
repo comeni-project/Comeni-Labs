@@ -1,0 +1,17 @@
+version: 1
+# R16 — any stranded library. A121: negation over an enum, which used to be misdiagnosed
+# as a malformed number because every literal went through float().
+decisions:
+  - decides: {effect: param, of: quantification, name: min_mqs,
+              when_implementation: [nf-core/subread/featurecounts@2.0.6]}
+    because: "a stranded library resolves overlapping features that an unstranded one cannot"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - when: {strandedness: {not: unstranded}}
+        then: 10
+        because: "strand assignment already removes the ambiguity a MAPQ floor would"
+        cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+      - when: {}
+        then: 0
+        because: "featureCounts' own default where the library gives no strand information"
+        cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"

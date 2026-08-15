@@ -1,10 +1,15 @@
-# This layer is a registry: contracts, rules, vocabularies and measurements.
+# This layer is a registry: contracts, measurements, roles, rules and vocabularies.
 # It moves to github.com/comeni-project/comeni-registry with signed tags; nothing
 # about it depends on living here, which is what this file exists to make true.
+#
+# `kinds` is read by nobody and pinned by `tests/test_registry_layer.py`, which is the
+# point: it is the layer's account of itself to a reader, and a self-description that
+# drifts is worse than none. It named four kinds for the whole of Plan 1.15 Task 0, which
+# shipped `roles/` beside it.
 name: comeni-registry-examples
 version: 0.1.0
 licence: CC-BY-4.0
-kinds: [contracts, measurements, rules, vocabularies]
+kinds: [contracts, measurements, roles, rules, vocabularies]
 description: >-
   Hand-written registry data sufficient to build and test the RNA-seq spine. Not a
   curated registry: every contract here is a test fixture that happens to be true.

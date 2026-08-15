@@ -1,0 +1,15 @@
+version: 1
+# R15 — infer strandedness when nothing measured it. A122: this is a *derivation*, and the
+# format now has one. It may fill a gap and may never overwrite a measurement.
+derives:
+  - fact: strandedness
+    kind: enum
+    because: "a pipeline needs a strandedness to pass to featureCounts even where none was measured"
+    cite: "Wang et al. 2012, doi:10.1093/bib/bbs046"
+    rows:
+      - when: {strandedness: absent}
+        then: reverse
+        because: >-
+          dUTP protocols dominate current library prep, so reverse is the safer default where
+          nothing measured it — and recording it as derived says that nothing did
+        cite: "Wang et al. 2012, doi:10.1093/bib/bbs046"

@@ -50,7 +50,11 @@ def test_a_pin_does_not_apply_where_its_contract_cannot_produce_what_was_asked(s
     ir = spine(want=["counts.matrix"], profile={"read_length": 150})
     sort = next(n for n in ir.nodes if n.id == "samtools_sort")
     star = next(n for n in ir.nodes if n.id == "star_align")
-    assert sort.selection.tier is Tier.STRUCTURAL
+    # Tier **2** since Plan 1.15 Task 7, not tier 1: the sorter is uncontested because this
+    # stack holds one contract that sorts, which is a fact about the registry rather than
+    # about the inputs. Its *presence* is what the inputs force, and that is tier 1 — A113.
+    assert sort.selection.tier is Tier.CONVENTION
+    assert sort.presence.tier is Tier.STRUCTURAL
     assert star.selection.tier is Tier.DATA_PROFILED
 
 

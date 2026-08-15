@@ -30,12 +30,25 @@ from comeni_core.marks import LayerName, Subject
 
 
 class DeclaredKind(StrEnum):
-    """The four kinds of declared data. Invariant 11 says all four stack."""
+    """The kinds of declared data. Invariant 11 says every one of them stacks.
+
+    This said **four** from Plan 1.9 until Plan 1.15 added `ROLES`, and the number is now
+    written in one place — here — rather than repeated in prose that drifts. That is A33's
+    lesson and A71/A72's: two counts in `CLAUDE.md` were stale for three plans because
+    nothing counted them. `len(DeclaredKind)` is the honest count.
+    """
 
     CONTRACTS = "contracts"
     RULES = "rules"
     VOCABULARIES = "vocabularies"
     MEASUREMENTS = "measurements"
+    ROLES = "roles"
+    """The jobs a contract can do — the only thing a tier-3 rule may target.
+
+    A kind rather than a field on the vocabulary because a lab vendoring a step type we do
+    not ship must be able to name it in an overlay, and because a rule targeting a *type*
+    is what audit A119 and A123 both are.
+    """
 
 
 class Policy(StrEnum):

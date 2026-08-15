@@ -18,6 +18,7 @@ from comeni_core.vocabulary import UnknownTypeError, Vocabulary
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
+from mendel_resolver.premises import Premise, build_premises
 from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.router import route
 from mendel_resolver.rules import RuleTable
@@ -73,7 +74,22 @@ def resolve(
         measurements.check(measured.measurement, measured.value)
 
     resolver = resolver or FlagOnlyResolver()
-    plan = route(goal, registry, rules, resolver)
+    # Built once, here, and threaded. Not rebuilt per decision: a premise set is a function
+    # of the goal and the derivations, so building it twice is two chances to build it
+    # differently — and `same goal in -> same pipeline out` is the claim that would pay.
+    premises = build_premises(
+        goal=goal, derivations=rules.derivations, measurements=measurements
+    )
+    # A `presence: absent` decision is read here rather than inside `route()`, because it is
+    # a *decision* and the router does not hold a rule table's semantics — it holds a graph.
+    # Roles rather than contract ids for the same reason the decision targets one.
+    absent = frozenset(
+        role
+        for role in _roles_in(registry)
+        if (fired := rules.presence_for(role, premises)) is not None
+        and fired.value == "absent"
+    )
+    plan = route(goal, registry, rules, resolver, premises=premises, absent_roles=absent)
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -110,9 +126,18 @@ def resolve(
                 tier=step.selection_tier,
                 source=step.selection_source,
                 reason=step.selection_reason,
+                premise=step.selection_premise,
                 axis_reason=step.selection_axis_reason,
                 from_layer=step.from_layer,
                 displaced_layer=step.displaced_layer,
+            ),
+            # Why the step is here at all — a downstream port required its output, or the
+            # goal asked for it. Structural in both cases, and separate from `selection`
+            # because which contract fills it very often is not. A113.
+            presence=ResolvedValue(
+                value=None,
+                tier=step.presence_tier,
+                reason=step.presence_reason or "required by the pipeline",
             ),
         )
 
@@ -120,6 +145,12 @@ def resolve(
             node.set_param(param.name, _resolve_param(
                 node_id=node.id,
                 param_name=param.name,
+                # The roles this contract fills, in the order it declares them. A param
+                # decision is keyed on a role, so a value decided for `alignment` reaches
+                # STAR and does not reach a sorter that happens to declare the same name.
+                # Audit A123, at the point of use.
+                roles=contract.roles,
+                implementation=contract.id,
                 tier_hint=param.tier_hint,
                 default=param.default,
                 because=param.because,
@@ -130,6 +161,7 @@ def resolve(
                 from_layer=_layer_of(registry, contract.id),
                 goal=goal,
                 rules=rules,
+                premises=premises,
                 resolver=resolver,
                 backed=backed,
                 decisions=ir.decisions,
@@ -254,16 +286,29 @@ def _source_for(
     return chosen
 
 
+def _roles_in(registry: Registry) -> list[str]:
+    """Every role some contract in this stack fills, sorted.
+
+    Sorted because the set it builds feeds a routing decision, and an iteration order that
+    depends on registry insertion is exactly what invariant 10 forbids — even where the
+    result is a set and the order cannot show. It costs nothing and it removes the question.
+    """
+    return sorted({role for contract in registry.all() for role in contract.roles})
+
+
 def _resolve_param(
     *,
     node_id: str,
     param_name: str,
+    roles: Sequence[str],
+    implementation: str,
     tier_hint: int | None,
     default: object,
     because: str,
     from_layer: str | None,
     goal: Goal,
     rules: RuleTable,
+    premises: dict[str, Premise],
     resolver: AmbiguityResolver,
     decisions: list[DecisionRecord],
     backed: dict[str, object],
@@ -279,7 +324,7 @@ def _resolve_param(
         )
 
     # Tier 3 — a declared rule matches the measured profile.
-    pin = rules.value_for(param_name, goal.profile)
+    pin = rules.value_for(roles, param_name, premises, implementation=implementation)
     if pin is not None:
         return ResolvedValue(
             value=pin.value,
@@ -289,6 +334,9 @@ def _resolve_param(
             # that — but "rule param:strandedness: " reads as a truncation rather than as an
             # absence, which is half of what A78 was.
             reason=pin.reason_line(),
+            # The facts the row read, so a reader of `pipeline.yml` can check the premise
+            # tier 3 asks them to check. A108.
+            premise=pin.premise,
             # The block's methodology, kept apart from the row's choice. One field carried
             # both and printed the axis citation as the row's reason. A79, A107.
             axis_reason=pin.axis_because(),

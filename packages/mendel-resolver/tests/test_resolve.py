@@ -2,6 +2,7 @@ import pytest
 from comeni_core.ir import ReviewLevel, Tier
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
+from comeni_core.tiers import PremiseOrigin
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import DataProfile, Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -9,6 +10,7 @@ from mendel_resolver.rules import RuleTable
 
 COUNTS = """
 id: nf-core/subread/featurecounts@2.0.6
+roles: [quantification]
 nf_process: FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
@@ -24,6 +26,7 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 """
 SORT = """
 id: nf-core/samtools/sort@1.21.0
+roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
@@ -34,10 +37,17 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 RULES = """
 version: 1
 decisions:
-  - decides: {param: strandedness}
+  - decides: {effect: param, of: quantification, name: strandedness}
     cite: "featureCounts -s 2 for reverse-stranded libraries"
     rows:
       - {when: {strandedness: reverse}, then: 2}
+      # The other two branches exist to satisfy `MD0311` — `strandedness` declares exactly
+      # three values and is not extensible, so covering them is exhaustive. The miss test
+      # below still misses: it carries no strandedness at all, so every row fails its own
+      # predicate and the decision demotes to tier 4. A complete table and a miss are
+      # different things, which is the distinction `MD0311` exists to keep.
+      - {when: {strandedness: forward}, then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
 """
 MEASUREMENTS = {
     "strandedness.yml": "kind: enum\nvalues: [forward, reverse, unstranded]\n",
@@ -103,9 +113,30 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
     # That split is A79/A107: one field answering both questions is how the shipped registry
     # came to cite the STAR paper as the reason HISAT2 was chosen.
     assert "featureCounts -s 2" in node.param("strandedness").axis_reason
-    assert node.param("strandedness").reason == "rule param:strandedness", (
+    # The **param** path's premise, which the selection path's tests cannot reach. Reverting
+    # `premise=pin.premise` in `_resolve_param` left every premise test green, because they
+    # all read `star_align.why` — a *selection*, filled from `RouteStep.selection_premise` on
+    # a different code path entirely. Two paths, two guards.
+    premise = node.param("strandedness").premise
+    assert [(p.id, p.value, p.origin) for p in premise] == [
+        ("strandedness", "reverse", PremiseOrigin.ASSERTED)
+    ]
+
+    reason = node.param("strandedness").reason
+    assert not reason.rstrip().endswith(":"), (
         "a row with no justification of its own must not emit a dangling colon (A78)"
     )
+    # And it names the premise rather than the predicate — the shipped artifact printed
+    # `matched {'strandedness': 'reverse'}`, a dict repr reporting what the rule *tested*
+    # and never what it found. Plan 1.15 Task 8, spec §6.1.
+    # "asserted, not measured" rather than "declared in the goal": a profile entry sourced
+    # from a goal file maps to `PremiseOrigin.ASSERTED`, because what matters to a reviewer
+    # is that nothing looked at the data — the same collapse that keeps `sealed` a single
+    # check. `GOAL` is reserved for the goal's own *shape*, which `required_states` carries.
+    assert reason == (
+        "rule param:quantification:strandedness where strandedness is reverse, "
+        "asserted, not measured"
+    ), reason
 
 
 def test_rule_miss_demotes_to_tier_4_and_flags(setup):

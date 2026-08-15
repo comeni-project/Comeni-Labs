@@ -1,0 +1,16 @@
+version: 1
+# R07 — MAPQ floor by purpose. A120 again: the discriminator is the goal, not the data.
+decisions:
+  - decides: {effect: param, of: quantification, name: min_mqs,
+              when_implementation: [nf-core/subread/featurecounts@2.0.6]}
+    because: "how confidently a read must be placed depends on what is being asked of it"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - when: {purpose: variant_calling}
+        then: 30
+        because: "a miscalled base from a misplaced read is a false variant"
+        cite: "GATK best practices"
+      - when: {}
+        then: 0
+        because: "expression counting tolerates multimappers that variant calling cannot"
+        cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"

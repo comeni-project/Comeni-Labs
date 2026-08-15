@@ -1,8 +1,19 @@
 id: nf-core/star/align@1.11.0
+roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
 consumes:
-  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+  - name: reads
+    type_id: fastq.reads
+    state_required: []
+    state_required_conventional: [trimmed]
+    state_conventional_because: >-
+      STAR soft-clips adapter sequence rather than requiring it removed, and
+      nf-core/rnaseq ships --skip_trimming precisely because trimming is optional.
+      So trimming is a convention worth keeping by default and not a constraint:
+      declaring it structural made a rule that skips trimming produce an unroutable
+      pipeline rather than a shorter one.
+
   - {name: index, type_id: genome.index.star, state_required: []}
   - {name: gtf, type_id: annotation.gtf, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]
@@ -13,11 +24,15 @@ params:
   # routing only the PL fragment would silently drop the read group STAR needs.
   - name: seq_platform
     tier_hint: 4
+    # No `domain`, deliberately. The list of sequencing platforms cannot be
+    # enumerated — a param whose legal values are open declares none, and
+    # `_computed_over`'s heuristic remains its only check. Spec §7.1.
     via: ext
     key: args
     template: "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'"
   - name: star_ignore_sjdbgtf
     default: false
+    domain: {kind: boolean}
     because: >-
       Align *with* the annotation. The GTF is routed into this module, and ignoring it would
       discard the splice-junction information a spliced aligner exists to use. A laboratory

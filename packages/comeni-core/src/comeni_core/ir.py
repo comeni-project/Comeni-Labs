@@ -21,6 +21,7 @@ from comeni_core.marks import (
     StateName,
     TypeId,
 )
+from comeni_core.premise import PremiseRecord
 from comeni_core.profile import DataProfile
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
@@ -67,6 +68,14 @@ class ResolvedValue(BaseModel):
     """Why this value was chosen. Prose, and declared as such — it reaches an egress
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""
+
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this decision rested on. Carried through the IR so `Why` can record them.
+
+    On `ResolvedValue` rather than assembled at materialisation, because materialisation
+    reads the IR and the premises are gone by then — the resolver is the only place that
+    knows which facts a row actually consulted. A108.
+    """
 
     axis_reason: Line = ""
     """Why this decision is made this way at all, where `reason` is why this answer won.
@@ -142,6 +151,21 @@ class IRNode(BaseModel):
     Spec §6.1 has always said every module choice exits at exactly one tier; until this
     field existed only parameters were tiered, so a module selected because it was the sole
     producer was indistinguishable from one selected by priority.
+    """
+
+    presence: ResolvedValue = Field(
+        default_factory=lambda: ResolvedValue(
+            value=None, tier=Tier.STRUCTURAL, reason="required by the pipeline"
+        )
+    )
+    """**Why this step exists**, as distinct from which contract fills it.
+
+    A113 is the two being one field. A module chosen because it was the only candidate
+    reported tier 1 — *"no choice exists, inputs force it"* — when what forced it was the
+    contents of the registry. The presence of a sorter genuinely is forced, by featureCounts
+    asking for a coordinate-sorted BAM; which sorter was never forced at all. Each half now
+    carries the tier it earned, and a reader deciding whether a step can be removed is
+    reading the half that answers that.
     """
 
     @model_validator(mode="before")

@@ -23,11 +23,20 @@ import pathlib
 import sys
 
 from comeni_core.layer import LayerManifest
+from comeni_core.layered import DeclaredKind
 
-# Only the four declared kinds. A README or a licence differing between the two is
-# expected — they are different repositories with different audiences — and failing on
-# those would train everyone to ignore this check.
-KINDS = ("contracts", "measurements", "rules", "vocabularies")
+# Only the declared kinds. A README or a licence differing between the two is expected —
+# they are different repositories with different audiences — and failing on those would
+# train everyone to ignore this check.
+#
+# **Derived from `DeclaredKind`, never listed here.** This was the literal
+# `("contracts", "measurements", "rules", "vocabularies")` until Plan 1.15, and the moment
+# `roles/` existed the check would have reported no drift *because it was not looking* — an
+# entire kind unexamined, with a green line to say so. Third literal of this shape the
+# repository has had to fix: `registry.yml:kinds`, `_every_file_is_claimed`'s message, and
+# this one. A hand-written tuple is a count that goes stale while everything around it stays
+# true (A33, A71, A72).
+KINDS = tuple(kind.value for kind in DeclaredKind)
 
 
 def _files(layer: pathlib.Path) -> dict[str, str]:

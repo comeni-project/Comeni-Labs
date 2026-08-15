@@ -351,10 +351,13 @@ def _stacked(tmp_path):
     (base / "rules" / "platform.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {param: seq_platform}\n"
+        "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'the base registry sequences on Illumina'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: ILLUMINA}\n"
+        # The complementary branch. `MD0311` refuses a table with a hole: a profile
+        # below the boundary would match nothing and demote to tier 4 silently.
+        "      - {when: {read_length: '< 70'}, then: ILLUMINA}\n"
     )
 
     lab = tmp_path / "lab-registry"
@@ -378,10 +381,11 @@ def _stacked(tmp_path):
     (lab / "rules" / "platform.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {param: seq_platform}\n"
+        "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'this lab runs BGI'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: BGI}\n"
+        "      - {when: {read_length: '< 70'}, then: BGI}\n"
     )
     return base, lab
 
@@ -919,10 +923,11 @@ def test_a22_a_rule_pinned_reroute_names_the_layer_that_decided(tmp_path):
     (lab / "rules" / "aligner.yml").write_text(
         "version: 1\n"
         "decisions:\n"
-        "  - decides: {producer_of: alignment.bam}\n"
+        "  - decides: {effect: implementation, of: alignment}\n"
         "    because: 'this lab has a HISAT2 index and no STAR index'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 50'}, then: nf-core/hisat2/align@2.2.2}\n"
+        "      - {when: {read_length: '< 50'}, then: nf-core/hisat2/align@2.2.2}\n"
     )
 
     ir = _resolve_stacked_from(layers_mod.load([base, lab]))
@@ -1972,7 +1977,7 @@ def _rule_layer(tmp_path: Path, body: str) -> Path:
 
 COMPUTED = """version: 1
 decisions:
-  - decides: {param: seq_platform}
+  - decides: {effect: param, of: alignment, name: seq_platform}
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
       - {when: {}, then: "read_length-1"}
@@ -2084,11 +2089,16 @@ def test_a78_a_rule_row_that_justifies_nothing_is_refused(tmp_path):
     from mendel_resolver import layers
     from mendel_resolver.rules import RuleValidationError
 
+    # A row testing a premise **positively**, so `MD0313` — the tier-2 citation rule added
+    # in Plan 1.15 Task 7 — does not fire first. `when: {}` exits at tier 2 and is refused
+    # for a different and more specific reason; this row is genuinely tier 3 and genuinely
+    # justifies nothing, which is what A78 was.
     body = """version: 1
 decisions:
-  - decides: {param: seq_platform}
+  - decides: {effect: param, of: alignment, name: seq_platform}
     rows:
-      - {when: {}, then: illumina}
+      - {when: {read_length: ">= 70"}, then: illumina}
+      - {when: {read_length: "< 70"}, then: illumina}
 """
     with pytest.raises(RuleValidationError) as caught:
         layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])

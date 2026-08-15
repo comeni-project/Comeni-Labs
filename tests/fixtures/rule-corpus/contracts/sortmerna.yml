@@ -1,0 +1,8 @@
+id: nf-core/sortmerna@4.3.7
+roles: [ribo_depletion]
+nf_process: SORTMERNA
+nf_include: modules/nf-core/sortmerna/main
+consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+produces: [{name: reads, type_id: fastq.reads, state: [ribo_depleted]}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

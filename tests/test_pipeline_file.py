@@ -14,7 +14,7 @@ import pytest
 import yaml
 from comeni_core.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
 from comeni_core.routes import ExtKey, Via
-from comeni_core.tiers import Tier, ValueSource
+from comeni_core.tiers import PremiseOrigin, Tier, ValueSource
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 from pydantic import ValidationError
@@ -37,6 +37,45 @@ def _emit(out, capsys, path=None):
 
 def _load(out) -> Pipeline:
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
+
+
+ARCHIVED = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1" / "pipeline.yml"
+"""A pipeline written before Plan 1.13, committed rather than built.
+
+A fixture produced by the code under test cannot demonstrate anything about reading what a
+laboratory archived — see the README beside it.
+"""
+
+
+def _build_measured(tmp_path, name="measured"):
+    """The same goal, with `read_length` recorded as **measured** rather than asserted.
+
+    The mapping shorthand a goal file usually uses defaults every entry to `source: goal`, so
+    the explicit list form is the only way to write a profile a tool produced. That asymmetry
+    is deliberate: a hand-written goal *is* an assertion, and the shorthand is the honest
+    spelling of one.
+    """
+    goal = tmp_path / "measured-goal.yml"
+    goal.write_text(
+        "have:\n"
+        "  - type_id: fastq.reads\n"
+        "  - type_id: annotation.gtf\n"
+        "  - type_id: genome.fasta\n"
+        "want: [counts.matrix]\n"
+        "constraints:\n"
+        "  required_states:\n"
+        "    counts.matrix: [gene_level]\n"
+        "profile:\n"
+        "  measurements:\n"
+        "    - {measurement: read_length, value: 150, source: measured, "
+        "by: comeni/profile-fastqc@0.1.0}\n"
+        "    - {measurement: strandedness, value: reverse, source: goal}\n"
+        "    - {measurement: n_samples, value: 12, source: goal}\n"
+        "    - {measurement: paired, value: true, source: goal}\n"
+    )
+    out = tmp_path / name
+    assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(ROOT)]) == 0
+    return out
 
 
 def test_build_writes_pipeline_yml_and_not_the_two_it_replaces(tmp_path):
@@ -701,11 +740,11 @@ def test_an_unanswered_raw_ext_value_still_loads():
 SERIALISED_SHAPE = {
     "Pipeline": ["version", "goal", "registry", "steps", "channels", "decisions",
                  "emitted", "gate"],
-    "Step": ["id", "module", "process", "include", "why", "ext_args", "inputs", "call",
-             "settings"],
+    "Step": ["id", "module", "process", "include", "why", "presence", "ext_args", "inputs",
+             "call", "settings"],
     "ExtArgs": ["template", "why"],
     "Setting": ["name", "value", "via", "key", "template", "why"],
-    "Why": ["tier", "source", "reason", "for_value", "axis_reason", "from_layer",
+    "Why": ["tier", "source", "reason", "premise", "for_value", "axis_reason", "from_layer",
             "displaced_layer"],
     "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "why"],
     "MetaEntry": ["key", "value", "why"],
@@ -713,7 +752,7 @@ SERIALISED_SHAPE = {
     "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
                       "kind", "candidates", "chosen", "human_override", "override_reason"],
 }
-"""The artifact's serialised field order, as of `SCHEMA_VERSION = 2`.
+"""The artifact's serialised field order, as of `SCHEMA_VERSION = 3`.
 
 **This is a fingerprint, not a specification.** It exists to fail when somebody adds a field
 without bumping the version — which is exactly what happened in Plan 1.13 and is why Task 0
@@ -845,3 +884,90 @@ def test_a_file_written_before_for_value_still_emits(tmp_path, capsys):
     code, err = _emit(out, capsys)
 
     assert code == 0, err
+
+
+# --- Plan 1.15 Task 8: the premise reaches the artifact (A108, A127) ---------------------
+
+
+def _star_why(out):
+    return next(step for step in _load(out).steps if step.id == "star_align").why
+
+
+def test_a_tier_3_decision_records_the_premise_it_rested_on(tmp_path):
+    """A108. Tier 3 is defined as producing `value + rule + measurement` and produced the
+    first two: the artifact said which rule fired and never what it fired *on*.
+
+    `CLAUDE.md` calls tier 3 advisory and glosses it *"the machinery worked, check the
+    premise"* — and there was no premise in the file to check.
+    """
+    why = _star_why(_build(tmp_path))
+    assert [(p.id, p.value) for p in why.premise] == [("read_length", 150)]
+    assert why.premise[0].origin is PremiseOrigin.ASSERTED
+
+
+def test_a_measured_build_and_an_asserted_one_are_not_byte_identical(tmp_path):
+    """The sharp end of A108, and the thing `sealed` needs (issue #2).
+
+    A read length a tool measured and one somebody typed into a goal file are different
+    evidence for the same decision, and the artifact recorded them identically. A clinical
+    reviewer had no way to tell a pipeline resting on measurement from one resting on a
+    claim.
+    """
+    asserted = _load(_build(tmp_path, "asserted"))
+    measured = _load(_build_measured(tmp_path))
+    assert asserted.model_dump() != measured.model_dump()
+    origins = {
+        step.id: [p.origin for p in step.why.premise]
+        for step in measured.steps
+        if step.why.premise
+    }
+    assert origins["star_align"] == [PremiseOrigin.MEASURED]
+
+
+def test_the_premise_is_a_list_of_records_rather_than_a_mapping(tmp_path):
+    """`tests/test_egress.py` forbids a mapping in anything payload-reachable, and `Why`
+    reaches door 4 — publication, the door with no undo.
+
+    The plan drafted this as two parallel `dict[str, Any]` fields and all three of that
+    guard's rules refused it: a mapping, an `Any`, and a bare `str` key. One record carrying
+    id, value and origin together is also the better shape — two parallel mappings can
+    disagree about their key sets, and nothing would notice.
+    """
+    record = _star_why(_build(tmp_path)).premise[0]
+    assert record.model_dump() == {
+        "id": "read_length",
+        "value": 150,
+        "origin": "asserted",
+    }
+
+
+def test_an_archived_document_backfills_an_empty_premise(tmp_path):
+    """A document written before the field existed cannot answer, and requiring it of one
+    asserts the premise is *missing* rather than *never recorded* — Plan 1.14 Task 0's
+    lesson, which cost a plan the first time."""
+    raw = yaml.safe_load(ARCHIVED.read_text())
+    loaded = Pipeline.model_validate(raw)
+    assert loaded.version < SCHEMA_VERSION
+    assert all(step.why.premise == [] for step in loaded.steps)
+
+
+def test_the_reason_states_the_premise_value_not_the_predicate(tmp_path):
+    """§6.1. The shipped artifact said
+
+        reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: …'
+
+    — a Python dict repr embedded in YAML with doubled quotes, reporting the **predicate**
+    and never the value. A reader learned the rule tested `>= 70` and never learned that
+    `read_length` was 150, or that anything had measured it.
+    """
+    reason = _star_why(_build(tmp_path)).reason
+    assert "read_length is 150" in reason
+    assert "{" not in reason, "no dict repr reaches a sentence a person reads"
+    assert ">= 70" not in reason, "the predicate is the rule's business, not the reader's"
+
+
+def test_the_reason_says_whether_the_premise_was_measured(tmp_path):
+    """The value tells a reviewer what to check against the sample sheet; the origin tells
+    them whether checking is worth their time. Both, or the sentence is half a claim."""
+    assert "asserted, not measured" in _star_why(_build(tmp_path)).reason
+    assert "measured" in _star_why(_build_measured(tmp_path)).reason

@@ -7,7 +7,7 @@ version: 1
 # translation, and its "citation" was the tool's own manual. The fact now travels in
 # `meta.strandedness` and the module keeps its encoding. See Plan 1.5.
 decisions:
-  - decides: {producer_of: alignment.bam}
+  - decides: {effect: implementation, of: alignment}
     because: "read length determines which aligner is appropriate"
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:

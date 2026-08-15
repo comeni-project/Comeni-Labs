@@ -1,4 +1,5 @@
 id: nf-core/samtools/sort@1.21.0
+roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
@@ -6,6 +7,7 @@ produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
 params:
   - name: index_format
     default: bai
+    domain: {kind: enum, values: [bai, csi]}
     because: >-
       BAI, not CSI. Every downstream tool in this spine reads BAI and it is nf-core's own
       default; CSI is required only for chromosomes above 512 Mbp, which no reference this

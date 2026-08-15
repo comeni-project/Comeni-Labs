@@ -1,0 +1,10 @@
+# A second quantifier, so R11's choice is a real one. Not vendored: the corpus tests the
+# rule format, and `mendel build` is what would demand module source.
+id: nf-core/salmon/quant@1.10.1
+roles: [quantification]
+nf_process: SALMON_QUANT
+nf_include: modules/nf-core/salmon/quant/main
+consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+produces: [{name: counts, type_id: counts.matrix, state: [transcript_level]}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}
