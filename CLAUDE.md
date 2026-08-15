@@ -116,6 +116,7 @@ written against the types that exist.
 | [`docs/design/federation.md`](docs/design/federation.md) | provider access, registry stacking, publication, licensing |
 | [`docs/design/clinical-data-protection.md`](docs/design/clinical-data-protection.md) | clinical use, the egress boundary, the protection profiles |
 | [`docs/design/conformance.md`](docs/design/conformance.md) | whether "if it compiles, it runs" is reachable |
+| [`docs/design/declared-data.md`](docs/design/declared-data.md) | why declared data is files and not a database, and where an index would be legitimate |
 | [`docs/design/rule-tables-and-port-logic.md`](docs/design/rule-tables-and-port-logic.md) | the **superseded** rule format. Plan 1.15 replaced it |
 | [`notes/specs/2026-08-13-the-rule-drafter.md`](notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
 
@@ -659,6 +660,13 @@ already been wrong once, when it named a gate that could not pass.
   `PROCESS.out.<name>` — it is not a name for the semantic thing, which is what `type_id`
   carries. Three contracts got this wrong and MD0105 found all three; each was latent only
   because no goal had yet routed to that port.
+- **Declared data is files, and a database is a design error — `docs/design/declared-data.md`.**
+  Decided 2026-08-16 (issue #43). Every comparable catalogue — nixpkgs, Homebrew, conda-forge,
+  nf-core modules — keeps human-curated data as files in git, because a database has no diff,
+  blame, review, signature or merge, and those five *are* what a reviewed, cited registry sells.
+  `diagnostics.yml` is the TypeScript/Rust shape already: one declarative file, generated
+  consumers. A database is legitimate only as a **derived, gitignored index** once loading is
+  measurably slow, which at 37 files it is not.
 - **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
   "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
   `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy
