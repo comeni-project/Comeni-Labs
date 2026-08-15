@@ -1920,3 +1920,37 @@ status from asserted to tested.
 
 **The second entry kind is invented in the test, not in the code.** Adding one to `digest.py` to
 justify the separator would be building a feature to test a byte.
+
+## Issue #49 — the loading stage refuses with a code (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_loading_diagnostics.py::test_MD0001_…` | `MD0001:` dropped from the message | failed |
+| 2026-08-16 | `…::test_MD0002_…` | `MD0002:` dropped | failed |
+| 2026-08-16 | `…::test_MD0003_…` | `MD0003:` dropped | failed |
+| 2026-08-16 | `…::test_MD0004_…` | `MD0004:` dropped | failed |
+| 2026-08-16 | `…::test_MD0005_…` | `MD0005:` dropped | failed |
+| 2026-08-16 | `…::test_MD0006_…` | `MD0006:` dropped | failed |
+| 2026-08-16 | `…::test_MD0007_…` | `MD0007:` dropped | failed |
+| 2026-08-16 | `…::test_MD0008_…` | `MD0008:` dropped | failed |
+| 2026-08-16 | `…::test_MD0009_…` | `MD0009:` dropped | failed |
+
+**Two of these nine were green on their first run, before the codes existed, and the reason is
+worth writing down.** `pytest` names `tmp_path` after the test that asked for it, so a refusal
+quoting the layer path contains the literal string `MD0004` inside
+`/tmp/pytest-of-…/test_MD0004_a_layer_contains_0/registry` — and `assert "MD0004" in message`
+passed against a message with no code in it at all.
+
+That is A68's shape exactly: **a guard comparing a name against itself.** `_refusal()` now scrubs
+the layer path out of the message before returning it, so the assertion can only be satisfied by
+a code the refusal actually carries.
+
+**Every test also asserts the file name**, not only the code. Issue #49's whole complaint is that
+a Pydantic error names a model class and a field path rather than a file; a code that named only a
+model would be the same defect wearing a number.
+
+**Six of the nine were existing refusals gaining a prefix**, not new logic — `MD0003` is A26's,
+`MD0004` is A9's, `MD0009` is invariant 7's with A35's join. Only `MD0001` and `MD0002` are new,
+and they wrap `kind.parse(path)` inside `stack()` because that is the one place every kind loads
+through (invariant 11) and the only place the path is still in scope. `MD0005` is the refusal
+issue #46 added yesterday as a bare `ValueError`.

@@ -43,6 +43,7 @@ uv run mendel explain MD0104
 
 | band | concern |
 |---|---|
+| `MD0001`–`MD0099` | loading declared registry data |
 | `MD0100`–`MD0199` | a contract disagrees with its module |
 | `MD0200`–`MD0299` | the pipeline file — a setting, an override, or the format |
 | `MD0300`–`MD0399` | routing and resolution |
@@ -64,6 +65,7 @@ decline to curate one.
 """
 
 HEADINGS: dict[str, str] = {
+    "loading": "Loading declared registry data",
     "conformance": "A contract disagrees with its module",
     "pipeline-file": "The pipeline file — a setting, an override, or the format",
     "routing": "Routing and resolution",

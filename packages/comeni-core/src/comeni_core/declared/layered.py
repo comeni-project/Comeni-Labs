@@ -23,7 +23,8 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+import yaml
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from comeni_core.declared.layer import layer_name
 from comeni_core.spell.marks import AnyKey, LayerName
@@ -261,7 +262,27 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
         first_declared: dict[K, Path] = {}
         for path in _files(directory):
             claimed.add(path)
-            for entry in kind.parse(path):
+            where = path.relative_to(layer.path)
+            try:
+                # `list(...)` before the loop: `kind.parse` returns an `Iterable`, and a
+                # generator would raise inside the body below — where `path` is still in
+                # scope but this `try` is not.
+                parsed = list(kind.parse(path))
+            except yaml.YAMLError as error:
+                raise ValueError(
+                    f"MD0001: {where} in layer {layer.path} is not valid YAML.\n  {error}"
+                ) from error
+            except ValidationError as error:
+                singular = kind.which.value.removesuffix("s")
+                raise ValueError(
+                    f"MD0002: {where} in layer {layer.path} is not a valid {singular}.\n"
+                    + "\n".join(
+                        f"  {'.'.join(str(part) for part in problem['loc']) or '(root)'}: "
+                        f"{problem['msg']}"
+                        for problem in error.errors()
+                    )
+                ) from error
+            for entry in parsed:
                 key = kind.key(entry)
                 if key in incoming:
                     # Between layers this is a declaration and is recorded. Twice inside one
@@ -271,8 +292,8 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
                     there = first_declared[key].relative_to(layer.path)
                     place = f"twice in {here}" if here == there else f"in {here} and in {there}"
                     raise ValueError(
-                        f"{key} is declared {place}, both under layer {layer.path}. "
-                        "Shadowing happens between layers, not inside one."
+                        f"MD0006: {key} is declared {place}, both under layer "
+                        f"{layer.path}. Shadowing happens between layers, not inside one."
                     )
                 incoming[key] = entry
                 first_declared[key] = path
