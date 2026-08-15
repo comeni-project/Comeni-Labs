@@ -1,0 +1,32 @@
+# Without this the Actions go stale by exactly the mechanism that produced them being three to
+# five majors behind on 2026-08-16 — `actions/checkout` at v4 against v7, `astral-sh/setup-uv`
+# at v5 against v10. Nothing was watching, and a deprecation warning printed on every run is a
+# warning people stop reading.
+#
+# **Grouped, so a quiet week is one pull request rather than nine.** Ungrouped Dependabot is how
+# a repository ends up with a permanent backlog of open bot PRs, which is the same failure as
+# having none: nobody looks.
+#
+# Actions are pinned by SHA with the version in a trailing comment; Dependabot rewrites both,
+# which is the second reason the comment is there.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
