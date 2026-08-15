@@ -32,6 +32,7 @@ from comeni_core.layered import (
 )
 from comeni_core.marks import ContractId, LayerName, MeasurementId, ParamValue, RoleName
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
+from comeni_core.premise import PremiseRecord
 from comeni_core.profile import DataProfile
 from comeni_core.registry import Registry
 from comeni_core.tiers import Tier
@@ -304,6 +305,13 @@ class Pin(BaseModel):
     displaced_layer: LayerName | None = None
     decision: Decision
     row: DecisionRow
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this row actually read, in `when` order.
+
+    On the `Pin` rather than looked up by the caller, for the reason A22 gives about every
+    other field here: a fact the caller must remember to fetch is a fact one of them will
+    not. `reason_line` needs it and so does `Why`.
+    """
 
     def because(self) -> str:
         """Why **this row** won — the specific choice, never the axis.
@@ -332,7 +340,18 @@ class Pin(BaseModel):
         return _joined(self.row.because, self.row.cite)
 
     def reason_line(self, matched: object = None) -> str:
-        """`rule <key>[ matched <when>][: <row justification>]`, with no dangling colon.
+        """`rule <key>[ where <premises>][: <row justification>]`, with no dangling colon.
+
+        **`matched` is ignored and kept for callers.** It used to be the raw `when` mapping,
+        and the shipped artifact read
+
+            reason: 'rule producer_of:alignment.bam matched {''read_length'': ''>= 70''}: …'
+
+        — a Python dict repr embedded in YAML with doubled quotes, reporting the *predicate*
+        and never the value. A reader learned the rule tested `>= 70` and never learned that
+        `read_length` was 150, or that anything had measured it. The premise is the one thing
+        tier 3 asks a reviewer to check, and spec §6.1 says no structured value is a reader's
+        only account of itself.
 
         On `Pin` rather than in `resolve`, because `router` needs it too and importing
         `resolve` from `router` is a cycle — and because every input it formats is already
@@ -340,9 +359,9 @@ class Pin(BaseModel):
         `MD0301` allows that, but `rule param:strandedness: ` with nothing after the colon
         reads as a truncation rather than as an absence, which is half of what A78 was.
         """
-        head = f"rule {self.decision.decides.key()}"
-        if matched is not None:
-            head = f"{head} matched {matched}"
+        head = f"rule {self.decision.key()}"
+        if self.premise:
+            head = f"{head} where " + "; ".join(record.prose() for record in self.premise)
         because = self.because()
         return f"{head}: {because}" if because else head
 
@@ -566,6 +585,7 @@ class RuleTable(BaseModel):
                         displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
                         row=row,
+                        premise=_premises_read(row, premises),
                     )
         return None
 
@@ -634,6 +654,27 @@ class RuleTable(BaseModel):
 
     def presence_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
         return self._for(f"{Effect.PRESENCE}:{role}", premises)
+
+
+def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[PremiseRecord]:
+    """The facts this row consulted, in `when` order and with their values.
+
+    In `when` order rather than sorted, because that is the order the rule author wrote and a
+    reader comparing the sentence against the table should meet them the same way.
+
+    A key testing `absent` has no premise to record and contributes nothing: there is no
+    value, and *"read_length is None, not measured"* would be a sentence about a fact that
+    does not exist. Its absence is already what the row says.
+    """
+    read: list[PremiseRecord] = []
+    for fact in row.when:
+        premise = premises.get(fact)
+        if premise is None:
+            continue
+        read.append(
+            PremiseRecord(id=premise.id, value=premise.value, origin=premise.origin)
+        )
+    return read
 
 
 def _applies_to(pin: Pin, contract_id: str | None) -> bool:

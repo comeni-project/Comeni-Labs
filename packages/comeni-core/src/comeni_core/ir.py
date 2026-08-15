@@ -21,6 +21,7 @@ from comeni_core.marks import (
     StateName,
     TypeId,
 )
+from comeni_core.premise import PremiseRecord
 from comeni_core.profile import DataProfile
 from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
@@ -67,6 +68,14 @@ class ResolvedValue(BaseModel):
     """Why this value was chosen. Prose, and declared as such — it reaches an egress
     payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""
+
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this decision rested on. Carried through the IR so `Why` can record them.
+
+    On `ResolvedValue` rather than assembled at materialisation, because materialisation
+    reads the IR and the premises are gone by then — the resolver is the only place that
+    knows which facts a row actually consulted. A108.
+    """
 
     axis_reason: Line = ""
     """Why this decision is made this way at all, where `reason` is why this answer won.

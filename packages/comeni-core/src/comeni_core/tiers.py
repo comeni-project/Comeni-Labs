@@ -50,6 +50,29 @@ class ValueSource(StrEnum):
     """
 
 
+class PremiseOrigin(StrEnum):
+    """How good a fact is as a premise, which is not the same question as who settled it.
+
+    Lives here rather than in `mendel_resolver.premises`, where it was declared, because the
+    artifact carries it: `Why.premise` reaches `pipeline.yml` and `comeni-core` must not
+    depend on `mendel-resolver`. Same move `DataProfile` and `Goal` both made, for the same
+    reason, and `premises.py` re-exports it so every existing import still resolves.
+
+    `ValueSource` answers *who settled this*; this answers *how good is it as evidence*. A
+    goal assertion and a human override are different authors and identical evidence — in
+    neither case did anything look at the data — so both are `ASSERTED`. Collapsing them at
+    the point they are built rather than at each point of use is what keeps the `sealed`
+    profile's check a single one (issue #2).
+    """
+
+    MEASURED = "measured"
+    ASSERTED = "asserted"
+    GOAL = "goal"
+    DERIVED = "derived"
+    UNMEASURED = "unmeasured"
+    """Read by a row testing `absent`. A gap is evidence; it is evidence of a gap."""
+
+
 class ReviewLevel(StrEnum):
     NONE = "none"
     ADVISORY = "advisory"

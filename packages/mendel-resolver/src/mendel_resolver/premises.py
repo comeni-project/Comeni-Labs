@@ -11,31 +11,23 @@ for gene-level) cannot be written in the shipped format. A premise set is one na
 measurements, goal facts and derived facts, so a rule author has one thing to learn.
 """
 
-from enum import StrEnum
 from typing import Any
 
 from comeni_core.goal import Goal
 from comeni_core.measurement import MeasurementRegistry
-from comeni_core.tiers import ValueSource
+from comeni_core.tiers import PremiseOrigin, ValueSource
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.predicates import matches
 from mendel_resolver.rules import Derivation
 
+__all__ = ["Premise", "PremiseError", "PremiseOrigin", "build_premises"]
+"""`PremiseOrigin` is re-exported rather than declared here: the artifact carries it, so it
+lives in `comeni_core.tiers` beside `ValueSource`. Same move `Goal` and `DataProfile` made."""
+
 
 class PremiseError(ValueError):
     """The premise set could not be built."""
-
-
-class PremiseOrigin(StrEnum):
-    """How good a fact is as a premise, which is not the same question as who settled it."""
-
-    MEASURED = "measured"
-    ASSERTED = "asserted"
-    GOAL = "goal"
-    DERIVED = "derived"
-    UNMEASURED = "unmeasured"
-    """Read by a row testing `absent`. A gap is evidence; it is evidence of a gap."""
 
 
 class Premise(BaseModel):

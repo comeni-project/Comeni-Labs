@@ -1334,3 +1334,51 @@ uncarried.
 `MD0313` case rather than an `MD0301` one — its `when: {}` row now exits at tier 2 and is refused
 for a more specific reason. That last one is a fixture drifting under a new rule, which is the
 same event Task 4 hit and is worth expecting once per task from here.
+
+## Plan 1.15 Task 8 — a decision records the premise it rested on, version 3 (A108, A127)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_resolve.py::test_tier_3_rule_sets_value_and_marks_advisory` | `premise=pin.premise` on a resolved **param** | **nothing failed** | — see below |
+| 2026-08-15 | the same, after the guard was written | the same line | failed | `assert [] == [('strandedness', 'reverse', <PremiseOrigin.ASSERTED>)]` |
+| 2026-08-15 | `test_pipeline_file.py::…states_the_premise_value_not_the_predicate` (+2) | `reason_line`'s premise clause | **3 failed** | `'read_length is 150' not in 'rule implementation:alignment: STAR's seed-and-extend…'` |
+| 2026-08-15 | `test_pipeline_file.py::…records_the_premise_it_rested_on` (+5) | `_premises_read` recording nothing | **6 failed** | `assert [] == [('read_length', 150)]` |
+| 2026-08-15 | `test_pipeline_file.py::…records_the_premise_it_rested_on` (+3) | the origin hardcoded to `measured` | **4 failed** | `assert <PremiseOrigin.MEASURED> is <PremiseOrigin.ASSERTED>` |
+
+**Two paths carry a premise and only one had a guard.** A selection's premise travels through
+`RouteStep.selection_premise` in the router; a param's travels through `Pin.premise` in
+`_resolve_param`. Every test written for this task read `star_align.why` — a *selection* — so
+reverting the param line left all of them green. The two are different code paths reaching
+different fields, and a task that adds both needs a guard on both.
+
+**One revert was invalid and is recorded as such.** Hardcoding the origin to
+`PremiseOrigin.MEASURED` referenced a name `rules.py` does not import, so the module failed to
+import and 46 tests **errored**. A guard that "fails" because the module will not load has not
+been watched — the same finding Task 0 recorded, now twice in one plan. Redone with a literal
+`"measured"`, which pydantic coerces, and the corrected row is the one above.
+
+**The plan's field shape is unrepresentable, and the guard said so in three sentences.**
+`premise: dict[str, Any]` beside `premise_origin: dict[str, str]` was refused by
+`tests/test_egress.py` as a mapping, as an `Any`, and as a bare `str` key — `Why` is reachable
+from door 4, publication, the door with no undo. One `PremiseRecord` carrying id, value and
+origin is the better shape regardless: two parallel mappings can disagree about their key sets
+and nothing would notice.
+
+**What the artifact says now**, which is the whole point of the task:
+
+```yaml
+  why:
+    tier: 3
+    reason: 'rule implementation:alignment where read_length is 150, asserted, not measured:
+      STAR''s seed-and-extend search is built for long reads…'
+    premise:
+    - id: read_length
+      value: 150
+      origin: asserted
+```
+
+It said `matched {'read_length': '>= 70'}` — a Python dict repr embedded in YAML with doubled
+quotes, reporting the **predicate** and never the value. A reader learned the rule tested `>= 70`
+and never learned that `read_length` was 150, or that nothing had measured it. Both forms ship:
+the sentence for a person, the records for `ProfilePolicy` (issue #2). Shipping only the mapping
+would have repeated, one level up, the exact defect this plan exists to fix.

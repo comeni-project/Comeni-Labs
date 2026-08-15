@@ -126,6 +126,7 @@ def resolve(
                 tier=step.selection_tier,
                 source=step.selection_source,
                 reason=step.selection_reason,
+                premise=step.selection_premise,
                 axis_reason=step.selection_axis_reason,
                 from_layer=step.from_layer,
                 displaced_layer=step.displaced_layer,
@@ -333,6 +334,9 @@ def _resolve_param(
             # that — but "rule param:strandedness: " reads as a truncation rather than as an
             # absence, which is half of what A78 was.
             reason=pin.reason_line(),
+            # The facts the row read, so a reader of `pipeline.yml` can check the premise
+            # tier 3 asks them to check. A108.
+            premise=pin.premise,
             # The block's methodology, kept apart from the row's choice. One field carried
             # both and printed the axis citation as the row's reason. A79, A107.
             axis_reason=pin.axis_because(),

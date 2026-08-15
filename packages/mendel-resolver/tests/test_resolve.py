@@ -2,6 +2,7 @@ import pytest
 from comeni_core.ir import ReviewLevel, Tier
 from comeni_core.measurement import MeasurementRegistry
 from comeni_core.registry import Registry
+from comeni_core.tiers import PremiseOrigin
 from comeni_core.vocabulary import Vocabulary
 from mendel_resolver.goal import DataProfile, Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -105,9 +106,30 @@ def test_tier_3_rule_sets_value_and_marks_advisory(setup):
     # That split is A79/A107: one field answering both questions is how the shipped registry
     # came to cite the STAR paper as the reason HISAT2 was chosen.
     assert "featureCounts -s 2" in node.param("strandedness").axis_reason
-    assert node.param("strandedness").reason == "rule param:quantification:strandedness", (
+    # The **param** path's premise, which the selection path's tests cannot reach. Reverting
+    # `premise=pin.premise` in `_resolve_param` left every premise test green, because they
+    # all read `star_align.why` — a *selection*, filled from `RouteStep.selection_premise` on
+    # a different code path entirely. Two paths, two guards.
+    premise = node.param("strandedness").premise
+    assert [(p.id, p.value, p.origin) for p in premise] == [
+        ("strandedness", "reverse", PremiseOrigin.ASSERTED)
+    ]
+
+    reason = node.param("strandedness").reason
+    assert not reason.rstrip().endswith(":"), (
         "a row with no justification of its own must not emit a dangling colon (A78)"
     )
+    # And it names the premise rather than the predicate — the shipped artifact printed
+    # `matched {'strandedness': 'reverse'}`, a dict repr reporting what the rule *tested*
+    # and never what it found. Plan 1.15 Task 8, spec §6.1.
+    # "asserted, not measured" rather than "declared in the goal": a profile entry sourced
+    # from a goal file maps to `PremiseOrigin.ASSERTED`, because what matters to a reviewer
+    # is that nothing looked at the data — the same collapse that keeps `sealed` a single
+    # check. `GOAL` is reserved for the goal's own *shape*, which `required_states` carries.
+    assert reason == (
+        "rule param:quantification:strandedness where strandedness is reverse, "
+        "asserted, not measured"
+    ), reason
 
 
 def test_rule_miss_demotes_to_tier_4_and_flags(setup):

@@ -20,6 +20,7 @@ from comeni_core.contract import InputPort, ModuleContract
 from comeni_core.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.ir import Tier
 from comeni_core.marks import ParamValue
+from comeni_core.premise import PremiseRecord
 from comeni_core.registry import Registry
 from comeni_core.tiers import ValueSource
 from pydantic import BaseModel, Field
@@ -59,6 +60,9 @@ class RouteStep(BaseModel):
     for a coordinate-sorted BAM, and that half is tier 1. Splitting them is what lets each
     half carry the tier it earned.
     """
+    selection_premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts the rule row read, carried to `IRNode.selection`. A108."""
+
     selection_axis_reason: str = ""
     """Why this *kind* of decision is made this way, where `selection_reason` is why this
     contract won. A rule block's citation justifies the axis and was being printed as the
@@ -255,6 +259,7 @@ def route(
                     # mechanism, not the reason (A128, which is A76 one field over).
                     # Anything else genuinely has no axis and says nothing rather than
                     # inventing one.
+                    selection_premise=(pin.premise if pin is not None else []),
                     selection_axis_reason=(
                         pin.axis_because() if pin is not None else chosen.priority_because
                     ),

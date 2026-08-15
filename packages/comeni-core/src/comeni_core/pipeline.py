@@ -48,8 +48,14 @@ from comeni_core.marks import (
     TypeId,
     substitutable,
 )
+from comeni_core.premise import PremiseRecord
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
-from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
+from comeni_core.tiers import (
+    ReviewLevel,
+    Tier,
+    ValueSource,
+    review_level_for,
+)
 
 SCHEMA_VERSION = 3
 """What this Mendel writes and the highest it will read.
@@ -131,6 +137,25 @@ class Why(BaseModel):
         return review_level_for(self.tier)
 
     reason: Line
+
+    premise: list[PremiseRecord] = Field(default_factory=list)
+    """The facts this decision rested on, and where each came from.
+
+    Tier 3 is defined as producing `value + rule + measurement` and produced the first two:
+    the artifact said which rule fired and never what it fired *on*. `CLAUDE.md` calls tier 3
+    advisory and glosses it *"the machinery worked, check the premise"* — and there was no
+    premise in the file to check. A measured build and an asserted one had a byte-identical
+    `steps:` block. Audit A108, A127.
+
+    This is also what `ProfilePolicy` reads to make `sealed` refuse a tier-3 decision resting
+    on an assertion (issue #2), which is why the origin travels *with* the value rather than
+    being recoverable by joining against the profile: a join is a step a caller can skip.
+
+    Empty for a document written before version 3. Requiring it of one would assert the
+    premise is *missing* rather than *never recorded* — Plan 1.14 Task 0's lesson, which cost
+    a plan the first time it was learned.
+    """
+
     for_value: ParamValue = None
     """The value this reason was written about. `MD0223`.
 
@@ -916,6 +941,7 @@ def _why(value) -> Why:
         tier=value.tier,
         source=value.source,
         reason=value.reason,
+        premise=list(value.premise),
         axis_reason=value.axis_reason,
         for_value=value.value,
         from_layer=value.from_layer,

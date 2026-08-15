@@ -1529,9 +1529,32 @@ Delete `premise_origin` from the `Why` written in `resolve.py`. Confirm
 record, then:
 
 ```bash
-git add packages/comeni-core packages/mendel-resolver
+git add -A
 git commit -m "feat(core): a decision records the premise it rested on — version 3 (A108, A127)"
 ```
+
+> **Corrected 2026-08-15, on execution. Five things, and the first is forced.**
+>
+> 1. **`premise: dict[str, Any]` cannot exist.** `Why` is reachable from door 4 and
+>    `tests/test_egress.py` refuses it three ways at once — a mapping, an `Any`, and a bare
+>    `str` key. It is `list[PremiseRecord]`, one record carrying id, value and origin, which
+>    is the better shape anyway: two parallel mappings can disagree about their key sets.
+>    `premise_origin` is gone into that record.
+> 2. **`PremiseOrigin` moves to `comeni_core.tiers`**, beside `ValueSource`. The artifact
+>    carries it and `comeni-core` must not depend on `mendel-resolver` — the move `Goal` and
+>    `DataProfile` both made. `premises.py` re-exports it. `PremiseRecord` gets its own module
+>    (`comeni_core/premise.py`) because `pipeline.py` imports `ir.py`, so neither can host it.
+> 3. **`SCHEMA_VERSION` was already 3**, bumped in Task 7 by `Step.presence`.
+> 4. **Two code paths carry a premise**, and the plan's tests only reach one. A *selection*
+>    goes through `RouteStep.selection_premise`; a *param* goes through `Pin.premise` in
+>    `_resolve_param`. Reverting the param line left every premise test green.
+> 5. **A goal-file profile entry is `ASSERTED`, not `GOAL`.** `GOAL` is reserved for the
+>    goal's own shape, which `required_states` carries. So the prose is *"asserted, not
+>    measured"*, which is the sentence a reviewer needs.
+>
+> The v2 fixture the plan asks for does not exist; `docs/internal/audits/fixtures/pipeline-v1`
+> is the committed archived document and serves the same purpose, so the test asserts
+> `version < SCHEMA_VERSION` rather than a literal.
 
 ---
 
