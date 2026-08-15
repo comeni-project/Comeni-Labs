@@ -1,4 +1,0 @@
-kind: integer
-minimum: 1
-unit: GB
-description: "Memory available on the execution node"

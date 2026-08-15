@@ -1,0 +1,10 @@
+kind: enum
+values: [poly_a, ribo_depleted, template_switching, amplicon]
+extensible: true
+description: "How the sequencing library was prepared"
+cite: "Conesa et al. 2016, doi:10.1186/s13059-016-0881-8; Takara SMARTer v3 protocol"
+assertion_only: true
+assertion_only_because: >-
+  a fact about the bench, not about the file. Some preps leave a signature a tool could infer
+  — template-switching leaves untemplated bases at the 5' end — but inferring the protocol
+  from its artefacts to then correct for those artefacts is circular, so a goal asserts it.

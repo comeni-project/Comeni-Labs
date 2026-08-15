@@ -1568,3 +1568,48 @@ removal so it cannot be re-added without reading why.
 counts it per guard, derived from the ledger and the test files rather than asserted in prose,
 which is the same move `DeclaredKind` made for the kind count. `CLAUDE.md` states the method and
 deliberately does not state the number.
+
+## Issues #38 and #39, closed 2026-08-15
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_a_transform_computes_a_fact_from_a_measurement` (+3) | the `transform` branch in `_derive` | **4 failed** | the chain never runs |
+| 2026-08-15 | `test_premises.py::test_a_transform_rounds_to_its_declared_kind` | the coercion to `kind` | failed | `15.79` where an integer was declared |
+| 2026-08-15 | `test_premises.py::test_a_transform_over_a_cohort_reduces_it_first` | the `MD0314` refusal | failed | arithmetic over `[150, 100]` |
+| 2026-08-15 | `test_measurement_vocabulary.py` ×3 | the check weakened rather than the data | **nothing failed** | — see below |
+| 2026-08-15 | `test_measurement_vocabulary.py::…declares_whether_a_tool_can_produce_it` | `assertion_only` removed from `strandedness.yml` | failed | nothing produces `measurement.strandedness` |
+| 2026-08-15 | `Measurement._assertion_only_says_why` | `assertion_only_because` removed from `purpose.yml` | failed | `MD0315`, at load |
+| 2026-08-15 | `test_measurement_vocabulary.py::test_every_measurement_cites_something` | `cite` removed from `genome_length.yml` | failed | a claim about the world with no source |
+
+**A revert has to break the subject, not the claim about it — and this is the second time in
+one day.** The first attempt weakened `if not measurement.assertion_only and …` to `if False`
+and everything stayed green, as it must: weakening an assertion cannot fail unless what it
+asserts is already false. The subject of these guards is the **registry data**, so the reverts
+that mean anything edit a `.yml`.
+
+**What issue #38 predicted, measured.** Five of the six measurements the registry shipped
+cannot be measured by anything in it — including `strandedness`, which becomes featureCounts'
+`-s 2` and is this repository's own worked example of the tier-3 mechanism working. That is not
+a defect in any of them; it is exactly what the `sealed` protection profile exists to act on,
+and it was written down nowhere a reader would find it. Each now says *why*, in terms somebody
+can act on: measurable-and-not-vendored is a contract away, and not-measurable-at-all is a
+research question.
+
+**The flag alone would not have been enough**, which is why the reason is required. A reader
+cannot tell "no tool exists for this" from "the tool exists and nobody has vendored it", and
+those are different amounts of work. §4.7's rule applied to a boolean.
+
+**Issue #39's shape is the argument, not the feature.** A `transform` is a chain of *named
+unary operations with a literal operand*, left to right. There is no parser, no precedence, and
+no way to reference a second fact — which is the one thing a general expression language would
+buy and the thing that turns a rule table into a program.
+`docs/design/rule-tables-and-port-logic.md` §13.2 asked for arithmetic without reintroducing a
+solver, and this satisfies both halves. R02 and R03 in the corpus are what it is for, and they
+load now.
+
+**`math` joined `mendel-resolver`'s purity allowlist**, the third such addition and argued the
+same way. Every function in it is a pure number-to-number map, which is the strongest form that
+argument takes anywhere on the list. The alternative — hand-rolling `log2` from
+`int.bit_length()` — was rejected because it is only correct for integers and `genome_length / 2`
+is not one; a wrong number reaching STAR's `--genomeSAindexNbases` is the class of defect A118
+is about.

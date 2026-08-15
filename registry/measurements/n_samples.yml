@@ -1,3 +1,9 @@
 kind: integer
 minimum: 1
 description: "Number of samples in the study"
+cite: "Conesa et al. 2016, doi:10.1186/s13059-016-0881-8"
+assertion_only: true
+assertion_only_because: >-
+  the sample count is a property of the study design, not of any file — it is what the
+  laboratory decided to sequence, so there is nothing to measure it from. A tool could count
+  the rows of a sample sheet, and Mendel does not receive one (invariant 15).

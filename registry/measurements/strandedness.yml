@@ -4,3 +4,9 @@ description: "Library strandedness determined by the prep protocol"
 cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
 describes: fastq.reads
 meta_key: strandedness
+assertion_only: true
+assertion_only_because: >-
+  RSeQC's infer_experiment.py measures it from an alignment against a reference annotation, so
+  it is measurable and the tool is not vendored. Until it is, every pipeline that reaches
+  featureCounts' `-s` is resting on a claim by whoever wrote the goal — which is why
+  `PremiseOrigin` distinguishes `measured` from `asserted` and why issue #2 exists.

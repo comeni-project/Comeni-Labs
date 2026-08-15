@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core import yaml_strict
 from comeni_core.layered import (
@@ -90,6 +90,34 @@ class Measurement(BaseModel):
     one number says so through a `derives:` aggregate rather than by hoping the profile
     happened to carry a scalar.
     """
+    assertion_only: bool = False
+    """Whether nothing in this stack can measure it, so a goal must assert it.
+
+    Issue #38: *"a measurement is a claim that some property of the data is worth measuring
+    and **can be**"*, and the second half was invisible. A profiling contract produces a
+    `measurement.<id>` type, so the answer is already derivable from the registry — but
+    nothing said it, so a measurement nobody could produce looked exactly like one somebody
+    had wired a tool for, and a rule keyed on it looked exactly as sound.
+
+    Declared rather than derived, even though it is derivable, for the reason `describes` is:
+    the registry is data a domain expert writes and a curator approves, and *"we have not
+    wired a tool for this yet"* is a statement somebody should have to make. Where the two
+    disagree, `tests/test_measurement_vocabulary.py` refuses the file.
+
+    An asserted measurement is not a lesser one — `strandedness` is asserted in every shipped
+    goal and drives featureCounts' `-s` — but it is different **evidence**, which is what
+    `PremiseOrigin` records and what the `sealed` profile is meant to act on.
+    """
+
+    assertion_only_because: str = ""
+    """Why nothing measures it. Required where `assertion_only` is set.
+
+    A boolean with no reason is a fact nobody can act on: a reader cannot tell "no tool exists
+    for this" from "the tool exists and nobody has vendored it", and those are different
+    amounts of work. §4.7's rule — no structured value is a reader's only account of itself —
+    applied to a flag rather than to a mapping.
+    """
+
     minimum: float | None = None
     maximum: float | None = None
     unit: str | None = None
@@ -126,6 +154,23 @@ class Measurement(BaseModel):
     fact spelled inside out. Declared here rather than known by the compiler, for the same
     reason `entry_channel` is declared: this has to work for a module nobody has seen.
     """
+    @model_validator(mode="after")
+    def _assertion_only_says_why(self) -> "Measurement":
+        """A flag with no reason is a fact nobody can act on. Issue #38."""
+        if self.assertion_only and not self.assertion_only_because:
+            raise ValueError(
+                f"MD0315: measurement {self.id!r} declares `assertion_only` with no "
+                f"`assertion_only_because`. A reader cannot tell 'no tool exists for this' "
+                f"from 'the tool exists and nobody has vendored it', and those are "
+                f"different amounts of work."
+            )
+        if self.assertion_only_because and not self.assertion_only:
+            raise ValueError(
+                f"MD0315: measurement {self.id!r} explains why nothing measures it and does "
+                f"not declare `assertion_only: true`. One of the two is wrong."
+            )
+        return self
+
     deprecated: bool = False
     replaced_by: MeasurementId | None = None
     """A meaning change gets a *new id*; this one stays forever, pointing at its successor.

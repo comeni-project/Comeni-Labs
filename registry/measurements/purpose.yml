@@ -3,3 +3,8 @@ values: [expression, variant_calling, junction_discovery, transcript_assembly]
 extensible: true
 description: "What the analysis is for — the question the pipeline answers"
 cite: "nf-core/rnaseq usage; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8"
+assertion_only: true
+assertion_only_because: >-
+  not a property of the data at all. It is the researcher's intent, and no tool can read it
+  off a file — which is why it is a measurement rather than a `Goal` field only in the
+  mechanical sense that `when` reads measurements. Spec §4.6.

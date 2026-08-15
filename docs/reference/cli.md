@@ -176,6 +176,8 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0311` | a decision's rows do not cover the domain of the premise they test |
 | `MD0312` | a scalar comparison is applied to a per-sample measurement |
 | `MD0313` | a row exits at tier 2 and cites nothing |
+| `MD0314` | a `transform` chain is applied to a per-sample measurement |
+| `MD0315` | a measurement's `assertion_only` and its reason disagree |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

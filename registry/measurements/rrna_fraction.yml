@@ -1,0 +1,12 @@
+kind: number
+minimum: 0
+maximum: 100
+unit: percent
+description: "Ribosomal RNA as a percentage of reads"
+cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"
+describes: fastq.reads
+assertion_only: true
+assertion_only_because: >-
+  SortMeRNA reports it as a by-product of the depletion it would decide, which is the awkward
+  case: the measurement that answers "should this step run" comes from running it. A cheap
+  estimate over a subsample is the usual answer and nothing in this stack does it.

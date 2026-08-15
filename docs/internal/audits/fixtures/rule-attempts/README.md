@@ -17,11 +17,17 @@ there are now two directories answering two questions:
 the reason. It also asserts that **every attempt here has a rewrite and no rewrite is orphaned**,
 so the two cannot drift apart.
 
-**Four of the twenty-one are still refused, and none of the four is a regression.** R02 and R03
-are arithmetic, which the format still cannot express and now refuses honestly — issue #39. R02b,
-the contortion, is *newly* caught: `MD0311` sees that enumerating one row per read length leaves
-everything below the lowest one uncovered, which is the defect the contortion was hiding. R20 is
+**Nineteen of the twenty-one now load, and the two refusals are not regressions.** R02b is the
+contortion — this directory's own workaround for R02 — and it is *newly* caught: `MD0311` sees
+that enumerating one row per read length leaves everything below the lowest one uncovered, which
+is the defect the contortion was hiding. It stays refused, because R02 is writable directly now
+and a validating contortion would be the format endorsing the workaround it replaced. R20 is
 refused by design.
+
+R02 and R03 were refused as arithmetic until **issue #39** gave the format a `transform` chain:
+named unary steps over one measurement, left to right, with no parser, no precedence and no way
+to name a second fact. `docs/design/rule-tables-and-port-logic.md` §13.2 asked for arithmetic
+without reintroducing a solver, and that shape is what satisfies both halves.
 
 ## Where they came from
 

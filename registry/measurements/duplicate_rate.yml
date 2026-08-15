@@ -1,0 +1,12 @@
+kind: number
+minimum: 0
+maximum: 100
+unit: percent
+description: "Duplicate reads as a percentage of the library"
+cite: "Smith et al. 2017, doi:10.1101/gr.209601.116"
+describes: fastq.reads
+assertion_only: true
+assertion_only_because: >-
+  FastQC estimates it from sequence identity and Picard measures it properly from an
+  alignment, so the honest value arrives *after* the step that would use it. Nothing in this
+  stack produces either.

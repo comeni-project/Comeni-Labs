@@ -237,6 +237,39 @@ class Aggregate(BaseModel):
     using: Literal["max", "min", "mean"]
 
 
+class Transform(BaseModel):
+    """One named arithmetic step. Issue #39, without an expression language.
+
+    `then: "read_length-1"` loaded, resolved at tier 3 with a citation, and reached STAR as
+    that literal string (A118); `MD0300` made the refusal honest and left the rule unwritable.
+    A chain of these expresses it, and the shape is the argument: **a named unary operation
+    with a literal operand** is readable in YAML, checkable at load, printable as prose, and
+    has nowhere to grow into a solver. There is no parser, no precedence, and no way to
+    reference a second fact — the one thing a general expression language would buy and the
+    thing that turns a rule table into a program.
+
+    `spec §7.1` asks for arithmetic and `docs/design/rule-tables-and-port-logic.md` §13.2 asks
+    for it not to reintroduce a solver. Left-to-right named steps is what satisfies both.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: Literal["add", "subtract", "multiply", "divide", "log2", "at_most", "at_least"]
+    by: float | None = None
+    """The operand. Required by every op but `log2`, which takes none."""
+
+    @model_validator(mode="after")
+    def _operand_matches_the_op(self) -> "Transform":
+        needs = self.op != "log2"
+        if needs and self.by is None:
+            raise ValueError(f"MD0304: `{self.op}` needs a `by:`")
+        if not needs and self.by is not None:
+            raise ValueError(f"MD0304: `{self.op}` takes no `by:`, and one was given")
+        if self.op == "divide" and self.by == 0:
+            raise ValueError("MD0304: `divide` by zero")
+        return self
+
+
 class Derivation(BaseModel):
     """A fact the registry works out, rather than one a tool measured. Spec §3.1.
 
@@ -258,12 +291,18 @@ class Derivation(BaseModel):
     kind: MeasurementKind
     rows: list[DecisionRow] = Field(default_factory=list)
     aggregate: Aggregate | None = None
+    source: MeasurementId | None = None
+    """The fact a `transform` chain starts from."""
+
+    transform: list[Transform] = Field(default_factory=list)
+    """A chain of named arithmetic steps over `source`. Issue #39; see `Transform`."""
+
     because: str | None = None
     cite: str | None = None
 
     @model_validator(mode="after")
     def _can_fire(self) -> "Derivation":
-        """Exactly one of `rows` and `aggregate`, and never neither.
+        """Exactly one of `rows`, `aggregate` and `transform`, and never none.
 
         A derivation that can produce nothing is A122's own shape, one layer down: it loads
         clean, contributes nothing, and reads to a reviewer as a fact the registry supplies.
@@ -274,13 +313,29 @@ class Derivation(BaseModel):
         Both is refused rather than ordered, because an order here would be a rule nobody
         reading the file could see — invariant 8's argument, one layer down again.
         """
-        if bool(self.rows) == bool(self.aggregate):
-            has = "both `rows` and `aggregate`" if self.rows else "neither `rows` nor `aggregate`"
+        declared = [
+            name
+            for name, present in (
+                ("rows", bool(self.rows)),
+                ("aggregate", self.aggregate is not None),
+                ("transform", bool(self.transform)),
+            )
+            if present
+        ]
+        if len(declared) != 1:
+            has = f"{', '.join(declared)}" if declared else "none of them"
             raise ValueError(
-                f"MD0304: derivation {self.fact!r} declares {has}, and needs exactly one. "
-                f"A derivation that can produce nothing still reads as a fact the registry "
-                f"supplies; one that could produce two would resolve by a precedence no "
-                f"reader of the file can see."
+                f"MD0304: derivation {self.fact!r} declares {has}, and needs exactly one of "
+                f"`rows`, `aggregate` and `transform`. A derivation that can produce nothing "
+                f"still reads as a fact the registry supplies; one that could produce two "
+                f"would resolve by a precedence no reader of the file can see."
+            )
+        if bool(self.transform) != (self.source is not None):
+            raise ValueError(
+                f"MD0304: derivation {self.fact!r} declares "
+                f"{'a `transform` with no `source`' if self.transform else 'a `source` with no '
+                 '`transform`'}. A chain with nothing to chain from computes nothing and reads "
+                f"as a fact the registry supplies."
             )
         return self
 

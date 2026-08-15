@@ -1,0 +1,10 @@
+kind: integer
+minimum: 1
+unit: GB
+description: "Memory available on the execution node"
+cite: "Dobin et al. 2013, STAR manual 3.2.2"
+assertion_only: true
+assertion_only_because: >-
+  a property of the *execution environment* rather than of the data, and the audit noted that
+  such a "measurement" loads without complaint (corpus R12). It is declared here because R12
+  is a real rule people write, and marked so a reader can see it is not about the reads.

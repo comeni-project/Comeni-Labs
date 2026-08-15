@@ -1,9 +1,13 @@
 kind: boolean
-description: "Whether the library is paired-end"
+description: "Whether the library was sequenced paired-end"
+cite: "Conesa et al. 2016, doi:10.1186/s13059-016-0881-8"
 describes: fastq.reads
-# We ask whether the library is paired; nf-core asks whether it is single-end. Same fact,
-# spelled inside out. featureCounts reads it as `meta.single_end ? '' : '-p'`.
 meta_key: single_end
 meta_values:
   - {when: true, then: false}
   - {when: false, then: true}
+assertion_only: true
+assertion_only_because: >-
+  measurable in principle — the presence of an R2 file answers it — and nothing in this stack
+  produces `measurement.paired`, because the profiling spine reports read length and nothing
+  else. Wiring it is a `comeni/profile-*` contract away rather than a research question.

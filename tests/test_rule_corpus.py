@@ -32,9 +32,9 @@ LOADS = None
 
 EXPECTED: dict[str, str | None] = {
     "R01": LOADS,   # aligner by read length — the control
-    "R02": "MD0300",  # --sjdbOverhang = read_length - 1: arithmetic. Issue #39
+    "R02": LOADS,   # --sjdbOverhang = read_length - 1 — writable since issue #39
     "R02b": "MD0311",  # the enumerated contortion: eight rows, and a hole below the lowest
-    "R03": "MD0300",  # --genomeSAindexNbases: arithmetic, same mechanism as R02
+    "R03": LOADS,   # --genomeSAindexNbases: a four-step transform chain
     "R04": LOADS,   # trim length by read length
     "R05": LOADS,   # clip_R1 by library prep
     "R06": LOADS,   # twopass by purpose — A120
@@ -53,13 +53,20 @@ EXPECTED: dict[str, str | None] = {
     "R19": LOADS,   # cohort max read length — a derivation with an aggregate
     "R20": "MD0306",  # names a contract this stack does not hold — refused by design
 }
-"""What each rule does against the Plan 1.15 format, and why.
+"""What each rule does against the format, and why.
 
-Four are refused and none of the four is a regression. **R02 and R03 are arithmetic**, which
-this format still cannot express and refuses honestly — issue #39, and the plan says so.
-**R02b is the contortion**, enumerating one row per read length, and it is *newly* caught:
-`MD0311` sees that eight rows over an unbounded integer leave everything below the lowest one
-uncovered, which is the defect the contortion was hiding. **R20 is refused by design.**
+**Nineteen of twenty-one load.** Two are refused and neither is a regression.
+
+**R02b is the contortion** — the audit's own workaround for R02, enumerating one row per read
+length — and it is *newly* caught: `MD0311` sees that rows over an unbounded integer leave
+everything below the lowest one uncovered, which is the defect the contortion was hiding. It
+is kept refused rather than rewritten, because R02 is now writable directly and a contortion
+that still validated would be the format endorsing the workaround it replaced.
+
+**R20 is refused by design**, and now names the role rather than the missing contract.
+
+R02 and R03 were refused as arithmetic until issue #39 gave the format a `transform` chain —
+named unary steps, left to right, with no parser and no way to reference a second fact.
 """
 
 

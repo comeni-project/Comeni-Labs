@@ -35,8 +35,8 @@ CLOSED_PACKAGES = {
         "typing", "pydantic", "yaml", "comeni_core",
     },
     "mendel-resolver": {
-        "collections", "collections.abc", "enum", "operator", "pathlib", "re", "typing",
-        "pydantic", "yaml", "comeni_core", "mendel_resolver",
+        "collections", "collections.abc", "enum", "math", "operator", "pathlib", "re",
+        "typing", "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
@@ -69,6 +69,19 @@ CLOSED_PACKAGES = {
 # error — and because `premises._BY_SOURCE` is deliberately total over `ValueSource` and read
 # with `[]`, so a new member trips rather than defaulting. That tripwire needs both sides to
 # be enums. Same argument as A38's `Via` guard, which earned itself in Plan 1.14.
+#
+# `math` was added 2026-08-15 for `premises._OPS`'s `log2` (issue #39), and this is the third
+# such note.
+#
+# It is stdlib, does no I/O, executes nothing caller-supplied, and every function in it is a
+# pure number-to-number map — which is the strongest form the argument takes anywhere on this
+# list. The one thing it could conceivably reach is `math.__loader__`, and the attribute rule
+# already refuses a module reached through another module.
+#
+# The alternative considered and rejected: hand-rolled `log2` from `int.bit_length()`.
+# Rejected because it is only correct for integers and `genome_length / 2` is not one — a
+# wrong number reaching STAR's `--genomeSAindexNbases` is the class of defect A118 is about,
+# and getting it subtly wrong to avoid a stdlib import is the wrong trade.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 

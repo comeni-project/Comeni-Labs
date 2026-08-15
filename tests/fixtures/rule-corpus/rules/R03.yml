@@ -1,9 +1,30 @@
 version: 1
-# R03 — --genomeSAindexNbases = min(14, log2(genome_length)/2 - 1). Arithmetic, refused.
+# R03 — --genomeSAindexNbases = min(14, log2(genome_length)/2 - 1). Four named steps, left to
+# right. Writable since issue #39; the shape is the argument — there is no parser, no
+# precedence, and no way to name a second fact, so it cannot grow into a solver.
+derives:
+  - fact: genome_sa_index_nbases_value
+    kind: integer
+    source: genome_length
+    transform:
+      - {op: log2}
+      - {op: divide, by: 2}
+      - {op: subtract, by: 1}
+      - {op: at_most, by: 14}
+    because: >-
+      the suffix-array index must scale with the genome and is capped where the memory cost
+      stops paying for itself
+    cite: "STAR manual 2.2.5"
 decisions:
-  - decides: {effect: param, of: index_building, name: genome_sa_index_nbases,
-              when_implementation: [nf-core/star/genomegenerate@1.11.0]}
-    because: "the suffix-array index size must scale with the genome"
+  - decides:
+      effect: param
+      of: index_building
+      name: genome_sa_index_nbases
+      when_implementation: [nf-core/star/genomegenerate@1.11.0]
+    because: "index size follows genome size"
     cite: "STAR manual 2.2.5"
     rows:
-      - {when: {}, then: "genome_length/2", cite: "STAR manual 2.2.5"}
+      - when: {}
+        then: 14
+        because: "a fixture value; the derivation above is the rule this file records"
+        cite: "STAR manual 2.2.5"
