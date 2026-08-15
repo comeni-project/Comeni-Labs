@@ -26,7 +26,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -111,7 +112,7 @@ def test_a_genuine_tie_is_ambiguous_and_reaches_the_review_list(tmp_path):
     layer = pathlib.Path(__file__).parents[3] / "registry"
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    original = (layer / "contracts" / "nf-core" / "trimgalore.yml").read_text()
+    original = (layer / "tools" / "nf-core" / "trimgalore" / "trimgalore.contract.yml").read_text()
     (contracts / "trimgalore.yml").write_text(_declared(contracts / "trimgalore.yml", original))
     # Same priority, same output, different module key: nothing distinguishes them.
     (contracts / "fastp.yml").write_text(

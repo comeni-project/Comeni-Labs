@@ -40,7 +40,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -370,10 +371,11 @@ def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
     ov = tmp_path / "ov"
     (ov / "contracts" / "nf-core").mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
-    src = (ROOT / "registry/contracts/nf-core/subread-featurecounts.yml").read_text()
+    src = (ROOT / "registry/tools/nf-core/subread/featurecounts.contract.yml").read_text()
     src = src.replace("params:", "params:\n" + extra_params, 1)
-    (ov / "contracts/nf-core/subread-featurecounts.yml").write_text(
-        _declared(ov / "contracts/nf-core/subread-featurecounts.yml", src)
+    (ov / "tools/nf-core/subread").mkdir(parents=True, exist_ok=True)
+    (ov / "tools/nf-core/subread/featurecounts.contract.yml").write_text(
+        _declared(ov / "tools/nf-core/subread/featurecounts.contract.yml", src)
     )
     return ov
 
@@ -453,8 +455,9 @@ def test_a_rules_displacement_reaches_the_artifact(tmp_path):
     ov = tmp_path / "ov"
     (ov / "rules").mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab-rules\n"))
-    base_rule = (ROOT / "registry/rules/rnaseq.yml").read_text()
-    (ov / "rules" / "rnaseq.yml").write_text(_declared(ov / "rules" / "rnaseq.yml", base_rule))
+    base_rule = (ROOT / "registry/rules/alignment.rule.yml").read_text()
+    (ov / "rules" / "alignment.rule.yml").write_text(_declared(ov / "rules"
+        / "alignment.rule.yml", base_rule))
     out = _build_with_overlay(tmp_path, ov)
     assert "rules" in _displaced_kinds(out)
 

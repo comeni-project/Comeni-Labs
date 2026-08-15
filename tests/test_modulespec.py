@@ -31,7 +31,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )

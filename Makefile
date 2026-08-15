@@ -1,7 +1,7 @@
 .PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile clean
 
 registry-present:  ## refuse early if the registry submodule was not checked out
-	@if [ ! -d registry/contracts ]; then \
+	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
 	  echo "registry/ holds no registry data — it is a git submodule and was not checked out."; \
 	  echo; \
 	  echo "    git submodule update --init"; \
@@ -12,6 +12,11 @@ registry-present:  ## refuse early if the registry submodule was not checked out
 # Here as well as in `layers.load()` because a contributor's first command is `make check`,
 # not a pytest invocation — and thirty-three failures about missing contracts is not a
 # diagnosis. Same sentence in both places on purpose.
+#
+# **Empty, not "has no contracts/".** It tested `-d registry/contracts` until
+# comeni-registry#1 arranged the layer by tool, at which point the directory it was looking for
+# stopped existing and this refused a perfectly good checkout. A layer is files that say what
+# they are, so the only thing left to check is whether there are any.
 
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20

@@ -39,7 +39,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -222,7 +223,7 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
     """
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("star-align.yml"))
+    star = next(layer.rglob("align.contract.yml"))
     star.write_text(
         _declared(
             star,
@@ -287,11 +288,12 @@ def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path, mo
     ov = tmp_path / "ov"
     (ov / "contracts" / "nf-core").mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
-    h = (root / "registry/contracts/nf-core/hisat2-align.yml").read_text()
+    h = (root / "registry/tools/nf-core/hisat2/align.contract.yml").read_text()
     lines = [("priority: 99" if line.strip().startswith("priority:") else line)
              for line in h.splitlines()]
-    (ov / "contracts/nf-core/hisat2-align.yml").write_text(
-        _declared(ov / "contracts/nf-core/hisat2-align.yml", "\n".join(lines) + "\n")
+    (ov / "tools/nf-core/hisat2/align.contract.yml").parent.mkdir(parents=True, exist_ok=True)
+    (ov / "tools/nf-core/hisat2/align.contract.yml").write_text(
+        _declared(ov / "tools/nf-core/hisat2/align.contract.yml", "\n".join(lines) + "\n")
     )
 
     assert main(["publish", str(out / "pipeline.yml"), "--registry", str(root / "registry"),

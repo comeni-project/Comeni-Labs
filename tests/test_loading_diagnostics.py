@@ -35,7 +35,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -68,7 +69,7 @@ provenance:
 TYPES = {"fastq.reads": "states: [trimmed]\nentry_channel: \"Channel.empty()\"\n",
          "qc.report": "states: []\n"}
 
-ROLES = "roles: [qc_per_sample]\n"
+ROLES = "declares: role\nroles: [qc_per_sample]\n"
 
 
 def _layer(root: pathlib.Path) -> pathlib.Path:
@@ -80,7 +81,8 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
         (layer / "vocabularies" / f"{type_id}.yml").write_text(
             _declared(layer / "vocabularies" / f"{type_id}.yml", body)
         )
-    (layer / "roles" / "roles.yml").write_text(_declared(layer / "roles" / "roles.yml", ROLES))
+    # At the layer root, so nothing above it names a kind — it declares explicitly.
+    (layer / "roles.yml").write_text(ROLES)
     (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: test-layer\n"))
     return layer
 

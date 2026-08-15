@@ -31,7 +31,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -109,7 +110,7 @@ def test_a_changed_rule_is_reported_with_its_tier_and_reason(tmp_path, capsys):
     """
 
     def swap_aligners(layer):
-        rules = layer / "rules" / "rnaseq.yml"
+        rules = layer / "rules" / "alignment.rule.yml"
         rules.write_text(
             _declared(rules, rules.read_text()
             .replace("then: nf-core/star/align@1.11.0", "then: PLACEHOLDER")
@@ -143,7 +144,7 @@ def test_drift_is_reported_even_when_nothing_resolved_differently(tmp_path, caps
     the lockfile no longer describes what is on disk, and that is worth knowing."""
 
     def touch(layer):
-        sort = next(layer.rglob("samtools-sort.yml"))
+        sort = next(layer.rglob("sort.contract.yml"))
         sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 3")))
 
     bundle = _published(tmp_path)
@@ -222,10 +223,10 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
     bundle = _published(tmp_path)
     layer = _registry_with(
         tmp_path,
-        lambda root: (root / "contracts" / "nf-core" / "star-align.yml").write_text(
+        lambda root: (root / "tools" / "nf-core" / "star" / "align.contract.yml").write_text(
             _declared(
-                root / "contracts" / "nf-core" / "star-align.yml",
-                (root / "contracts" / "nf-core" / "star-align.yml")
+                root / "tools" / "nf-core" / "star" / "align.contract.yml",
+                (root / "tools" / "nf-core" / "star" / "align.contract.yml")
             .read_text()
             .replace(
                 'template: "--readFilesCommand zcat"',
@@ -282,7 +283,7 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     (lab / "contracts" / "rival-sorter.yml").write_text(
         _declared(
             lab / "contracts" / "rival-sorter.yml",
-            (ROOT / "registry" / "contracts" / "nf-core" / "samtools-sort.yml")
+            (ROOT / "registry" / "tools" / "nf-core" / "samtools" / "sort.contract.yml")
         .read_text()
         .replace("nf-core/samtools/sort@1.21.0", "lab/rival/sorter@9.9.9")
         # A different module as well as a different id: conformance reads `nf_include`,
@@ -479,7 +480,7 @@ def test_a_replayed_value_frozen_against_a_moved_contract_is_reported(tmp_path, 
     bundle = _published(tmp_path)
 
     def bump_a_default(layer):
-        counts = next(layer.rglob("subread-featurecounts.yml"))
+        counts = next(layer.rglob("featurecounts.contract.yml"))
         counts.write_text(
             _declared(
                 counts,
@@ -510,7 +511,7 @@ def _a_and_a_different_b(tmp_path):
     """A built from the base registry, B from an overlay that bumps a default — so B is a
     genuinely different pipeline, not a byte-identical rebuild the guard would (rightly) allow."""
     def bump(layer):
-        counts = next(layer.rglob("subread-featurecounts.yml"))
+        counts = next(layer.rglob("featurecounts.contract.yml"))
         counts.write_text(
             _declared(
                 counts,

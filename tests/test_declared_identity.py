@@ -38,7 +38,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -81,7 +82,7 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
     for kind in ("contracts", "vocabularies", "rules", "measurements", "roles"):
         (layer / kind).mkdir(parents=True)
     (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: test-layer\n"))
-    (layer / "roles" / "roles.yml").write_text(_declared(layer / "roles" / "roles.yml", ROLES))
+    (layer / "roles.yml").write_text(_declared(layer / "roles.yml", ROLES))
     (layer / "vocabularies" / "fastq.reads.yml").write_text(
         _declared(layer / "vocabularies" / "fastq.reads.yml", TYPE)
     )

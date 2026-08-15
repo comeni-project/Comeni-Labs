@@ -27,7 +27,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -64,7 +65,7 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("star-align.yml"))
+    star = next(layer.rglob("align.contract.yml"))
     star.write_text(
         _declared(
             star,
@@ -196,7 +197,7 @@ def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
     from mendel_resolver import layers
 
     def add_a_dead_route(layer):
-        path = next(layer.rglob("star-genomegenerate.yml"))
+        path = next(layer.rglob("genomegenerate.contract.yml"))
         path.write_text(
             _declared(path, path.read_text().replace(
                 "params: []",
@@ -221,7 +222,7 @@ def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
     from mendel_resolver import layers
 
     def add_a_live_route(layer):
-        path = next(layer.rglob("samtools-sort.yml"))
+        path = next(layer.rglob("sort.contract.yml"))
         path.write_text(
             _declared(path, path.read_text().replace(
                 "params: []",

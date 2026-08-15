@@ -33,7 +33,8 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
     )
@@ -74,7 +75,7 @@ def test_a_resolved_ir_carries_the_displacements(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("samtools-sort.yml"))
+    sort = next(base.rglob("sort.contract.yml"))
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
@@ -109,7 +110,7 @@ def test_a_displacement_names_the_layer_and_never_its_path(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("samtools-sort.yml"))
+    sort = next(base.rglob("sort.contract.yml"))
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
@@ -147,7 +148,7 @@ def test_the_ir_round_trips_with_its_provenance(tmp_path):
     base = ROOT / "registry"
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    sort = next(base.rglob("samtools-sort.yml"))
+    sort = next(base.rglob("sort.contract.yml"))
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",
