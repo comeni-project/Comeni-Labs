@@ -1281,3 +1281,56 @@ are visible at once.
 The composite key was kept rather than abandoned because half a replacement is the worse failure:
 an overlay redeciding one of two targets would leave the base layer's other target in force under
 a justification the overlay never wrote.
+
+## Plan 1.15 Task 7 — a decision exits at the tier its evidence earned (A113, A76, A128)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_earned_tiers.py::test_a_tier_2_row_must_carry_a_citation` | the `MD0313` tier-2 citation rule | failed | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_earned_tiers.py::test_only_one_candidate_is_not_a_forcing_constraint`, `test_pinning.py::…cannot_produce_what_was_asked` | the single-candidate branch back to `Tier.STRUCTURAL` | **2 failed** | `assert <Tier.STRUCTURAL: 1> is <Tier.CONVENTION: 2>` |
+| 2026-08-15 | `test_earned_tiers.py::test_the_presence_of_a_forced_step_is_still_tier_1` | the consumer's `because` threaded into `_satisfy_port` | failed | `'alignment.bam' not in 'required by the pipeline'` |
+| 2026-08-15 | `test_earned_tiers.py::test_a_step_the_goal_asked_for_says_so` | the goal loop's `because` | failed | `'the goal' not in 'required by the pipeline'` |
+| 2026-08-15 | `test_earned_tiers.py::test_a_tier_states_its_own_review_level` etc. | `Why.review_level` returning `ReviewLevel.NONE` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | `test_earned_tiers.py::test_the_artifact_states_the_review_level_beside_the_tier` | the same, after the guard was written | failed | `assert <ReviewLevel.NONE: 'none'> is <ReviewLevel.ADVISORY: 'advisory'>` |
+
+**`Why.review_level` was inert in code written the same hour, for a reason worth naming.**
+`ResolvedValue.review_level` has computed the same thing since Plan 1, so the test written for
+Task 7 Step 5 — `assert selection.review_level is ADVISORY` — passed against a field that already
+existed and said nothing about the new one. **The new field is on `Why`, which is the model
+`pipeline.yml` is made of and the one a stranger opens**, and every test in the new file stayed
+green when it was reverted.
+
+The replacement builds a real `Pipeline` and reads `step.why.review_level` and
+`step.presence.review_level`. This is the fourth inert guard this plan has found by reverting, and
+the second where the reverted code and the test were written within an hour of each other.
+
+**A113's split shows up in the artifact, which is where it was always going to matter.** The
+sorter now reads:
+
+```yaml
+  why:
+    tier: 2
+    reason: uncontested — nothing else in this stack fills bam_sorting
+    review_level: none
+  presence:
+    tier: 1
+    reason: nf-core/subread/featurecounts@2.0.6 requires 'alignment.bam' here
+```
+
+Two questions that were one field, and the tier is what made the conflation visible: *"the only
+contract that produces this"* claimed the inputs forced a choice, when what forced it was the
+contents of the registry. Install a second sorter tomorrow and the same pipeline becomes a real
+choice — which is the definition of a convention, not a structural constraint.
+
+**`Step.presence`, not `Step.exists`.** The first name was a `Why` in a field that reads as a
+boolean. The second matches `effect: presence` in the rule format, so the field a reader finds in
+the artifact and the word they would write in a rule are the same word. `test_pipeline_totality`
+is what forced the question — it keys on field *names*, so `exists` left `IRNode.presence` looking
+uncarried.
+
+**Three gates caught this task rather than one.** `test_pipeline_totality` found the missing home,
+`test_a_schema_change_bumps_the_version` found the unbumped `SCHEMA_VERSION` (now 3), and
+`test_a78_a_rule_row_that_justifies_nothing_is_refused` found that its own fixture had become a
+`MD0313` case rather than an `MD0301` one — its `when: {}` row now exits at tier 2 and is refused
+for a more specific reason. That last one is a fixture drifting under a new rule, which is the
+same event Task 4 hit and is worth expecting once per task from here.

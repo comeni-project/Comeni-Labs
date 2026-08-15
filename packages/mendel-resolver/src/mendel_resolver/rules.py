@@ -810,6 +810,19 @@ def _validate_rows(
                 )
 
     for index, row in enumerate(decision.rows):
+        # Tier 2 is "a documented default exists", so its output is value **plus the
+        # document**. A row testing no premise positively earns tier 2 by `tier_of_row`, and
+        # a `because` alone states the value and asserts the document. A76 and A128 were both
+        # that shape — one in a contract default, one in a rule — and this is the rule stated
+        # once rather than the pair fixed twice.
+        if tier_of_row(row.when) is Tier.CONVENTION and not (row.cite or decision.cite):
+            raise RuleValidationError(
+                f"MD0313: {path}, decision {target.key()}, row {index}\n"
+                f"  This row tests no premise positively, so it exits at tier 2 — a\n"
+                f"  documented default. Tier 2 produces `value + citation` and this row has\n"
+                f"  neither a row `cite` nor a block one.\n"
+                f"  A `because` states the value; a `cite` is the document tier 2 claims."
+            )
         if not (row.because or row.cite or decision.because or decision.cite):
             raise RuleValidationError(
                 f"MD0301: {path}, decision {target.key()}, row {index}\n"

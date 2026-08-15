@@ -47,6 +47,18 @@ class RouteStep(BaseModel):
     satisfies: str
     selection_tier: Tier = Tier.STRUCTURAL
     selection_reason: str = "the only contract that produces this"
+
+    presence_tier: Tier = Tier.STRUCTURAL
+    presence_reason: str = ""
+    """**Why this step exists**, which is a different question from which contract fills it.
+
+    A113 is the two being one field. A module chosen because it was the only candidate
+    reported tier 1 — *"no choice exists, inputs force it"* — when what forced it was the
+    contents of the registry: install a second sorter tomorrow and the same pipeline becomes
+    a real choice. The *presence* of a sorter genuinely is forced, by featureCounts asking
+    for a coordinate-sorted BAM, and that half is tier 1. Splitting them is what lets each
+    half carry the tier it earned.
+    """
     selection_axis_reason: str = ""
     """Why this *kind* of decision is made this way, where `selection_reason` is why this
     contract won. A rule block's citation justifies the axis and was being printed as the
@@ -178,7 +190,13 @@ def route(
     premises = premises if premises is not None else {}
     emitted: set[str] = set()
 
-    def satisfy(type_id: str, states: frozenset[str], depth: int, visiting: frozenset[str]) -> None:
+    def satisfy(
+        type_id: str,
+        states: frozenset[str],
+        depth: int,
+        visiting: frozenset[str],
+        because: str = "",
+    ) -> None:
         if depth > max_depth:
             raise UnroutableError(f"exceeded depth {max_depth} satisfying {type_id}")
         if _have_satisfies(goal, type_id, states):
@@ -203,7 +221,13 @@ def route(
 
         for port in chosen.consumes:
             try:
-                _satisfy_port(port, satisfy, depth + 1, visiting | {chosen.id})
+                _satisfy_port(
+                    port,
+                    satisfy,
+                    depth + 1,
+                    visiting | {chosen.id},
+                    because=f"{chosen.id} requires {port.type_id or port.name!r} here",
+                )
             except UnroutablePinError:
                 raise
             except UnroutableError as exc:
@@ -222,6 +246,8 @@ def route(
                     satisfies=type_id,
                     selection_tier=tier,
                     selection_reason=reason,
+                    presence_tier=Tier.STRUCTURAL,
+                    presence_reason=because,
                     # Two sources, because there are two ways a selection acquires an axis.
                     # A rule pin carries its block's methodology. A tier-2 win carries the
                     # registry's reason for ranking this contract where it does — `priority`
@@ -249,15 +275,22 @@ def route(
             )
 
     for wanted in goal.want:
-        satisfy(wanted, goal.constraints.states_for(wanted), 0, frozenset())
+        satisfy(
+            wanted,
+            goal.constraints.states_for(wanted),
+            0,
+            frozenset(),
+            f"the goal asks for {wanted}",
+        )
     return plan
 
 
 def _satisfy_port(
     port: InputPort,
-    satisfy: Callable[[str, frozenset[str], int, frozenset[str]], None],
+    satisfy: Callable[..., None],
     depth: int,
     visiting: frozenset[str],
+    because: str = "",
 ) -> None:
     """Try each alternative in declaration order and take the first that routes.
 
@@ -269,7 +302,7 @@ def _satisfy_port(
     failures = []
     for alternative in alternatives:
         try:
-            satisfy(alternative.type_id, alternative.states, depth, visiting)
+            satisfy(alternative.type_id, alternative.states, depth, visiting, because)
             return
         except UnroutableError as exc:
             if len(alternatives) == 1:
@@ -338,10 +371,20 @@ def _choose(
     ordered = sorted(candidates, key=rank)
     best = rank(ordered[0])
     if len(ordered) == 1:
+        # **Tier 2, not tier 1.** A113: "this stack holds one contract that can do it" is a
+        # fact about registry contents, not about the inputs — install a second sorter
+        # tomorrow and the same pipeline becomes a real choice. Tier 1 is reserved for a
+        # choice the inputs genuinely remove, and calling this one tier 1 made the ladder's
+        # top rung mean "the code took the short branch".
+        #
+        # The step's *presence* is still tier 1, and is recorded separately. That is what
+        # makes this a split rather than a demotion: nothing about why the step exists has
+        # changed, only the claim about why this contract fills it.
+        role = ", ".join(sorted(ordered[0].roles)) or "this role"
         return (
             ordered[0],
-            Tier.STRUCTURAL,
-            "the only contract that produces this",
+            Tier.CONVENTION,
+            f"uncontested — nothing else in this stack fills {role}",
             None,
             None,
             ValueSource.RESOLVER,

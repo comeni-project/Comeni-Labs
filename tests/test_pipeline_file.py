@@ -701,8 +701,8 @@ def test_an_unanswered_raw_ext_value_still_loads():
 SERIALISED_SHAPE = {
     "Pipeline": ["version", "goal", "registry", "steps", "channels", "decisions",
                  "emitted", "gate"],
-    "Step": ["id", "module", "process", "include", "why", "ext_args", "inputs", "call",
-             "settings"],
+    "Step": ["id", "module", "process", "include", "why", "presence", "ext_args", "inputs",
+             "call", "settings"],
     "ExtArgs": ["template", "why"],
     "Setting": ["name", "value", "via", "key", "template", "why"],
     "Why": ["tier", "source", "reason", "for_value", "axis_reason", "from_layer",
@@ -713,7 +713,7 @@ SERIALISED_SHAPE = {
     "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
                       "kind", "candidates", "chosen", "human_override", "override_reason"],
 }
-"""The artifact's serialised field order, as of `SCHEMA_VERSION = 2`.
+"""The artifact's serialised field order, as of `SCHEMA_VERSION = 3`.
 
 **This is a fingerprint, not a specification.** It exists to fail when somebody adds a field
 without bumping the version — which is exactly what happened in Plan 1.13 and is why Task 0

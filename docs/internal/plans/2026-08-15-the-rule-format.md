@@ -1373,13 +1373,39 @@ green; if this number moved, the split is wrong and the plan must stop here.
 
 - [ ] **Step 7: Watch the guard fail, then commit**
 
-Change `tier_of_row(row.when) is Tier.CONVENTION` to `False`. Confirm
-`test_a_tier_2_row_must_carry_a_citation` fails. Restore, record, then:
+Five reverts: the `MD0313` rule, the single-candidate tier, both `because` threads, and
+`Why.review_level`. Restore, record, then:
 
 ```bash
-git add packages/mendel-resolver
+git add -A
 git commit -m "feat(resolver): a decision exits at the tier its evidence earned (A113)"
 ```
+
+> **Corrected 2026-08-15, on execution. Six things.**
+>
+> 1. **`MD0313`, not `MD0310`.** The plan gives this rule `MD0310`, which Task 4 already spent
+>    on the `when`-premise check. `MD0302`–`MD0311` is fully allocated; `MD0300`–`MD0399` is
+>    the reserved band.
+> 2. **The A113 split lives in `router._choose`, not `resolve._source_for`.** The plan names
+>    the wrong function; `_source_for` picks an upstream output for a port and never assigns a
+>    selection tier.
+> 3. **The presence half needs a field, and it is `IRNode.presence` → `Step.presence`.**
+>    `tests/test_pipeline_totality.py` refuses an IR field with no home in the artifact, so
+>    this could not be IR-only. Named `presence` rather than `exists` because it matches
+>    `effect: presence` in the rule format, and because `test_pipeline_totality` keys on field
+>    names.
+> 4. **`SCHEMA_VERSION` goes to 3 here**, not in Task 8. `Step.presence` and
+>    `Why.review_level` both change the serialised shape, and
+>    `test_a_schema_change_bumps_the_version` is what said so.
+> 5. **`review_level`, not `review`.** `ResolvedValue.review_level` has computed the same thing
+>    since Plan 1, and two names for one concept is how the two come to disagree. `Why` also
+>    needs `_drop_computed`, or a `pipeline.yml` this Mendel writes cannot be read back.
+> 6. **Step 5's test as written is inert**, and reverting proved it: it reads
+>    `ResolvedValue.review_level`, which already existed. The guard has to build a real
+>    `Pipeline` and read `step.why.review_level`.
+>
+> Step 6's manual check is now `test_the_review_queue_did_not_grow`, because a check somebody
+> has to remember to run is a check that stops being run — which is A14's own subject.
 
 ---
 

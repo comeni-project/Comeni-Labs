@@ -144,6 +144,21 @@ class IRNode(BaseModel):
     producer was indistinguishable from one selected by priority.
     """
 
+    presence: ResolvedValue = Field(
+        default_factory=lambda: ResolvedValue(
+            value=None, tier=Tier.STRUCTURAL, reason="required by the pipeline"
+        )
+    )
+    """**Why this step exists**, as distinct from which contract fills it.
+
+    A113 is the two being one field. A module chosen because it was the only candidate
+    reported tier 1 — *"no choice exists, inputs force it"* — when what forced it was the
+    contents of the registry. The presence of a sorter genuinely is forced, by featureCounts
+    asking for a coordinate-sorted BAM; which sorter was never forced at all. Each half now
+    carries the tier it earned, and a reader deciding whether a step can be removed is
+    reading the half that answers that.
+    """
+
     @model_validator(mode="before")
     @classmethod
     def _accept_mapping(cls, data: object) -> object:

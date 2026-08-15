@@ -130,6 +130,14 @@ def resolve(
                 from_layer=step.from_layer,
                 displaced_layer=step.displaced_layer,
             ),
+            # Why the step is here at all — a downstream port required its output, or the
+            # goal asked for it. Structural in both cases, and separate from `selection`
+            # because which contract fills it very often is not. A113.
+            presence=ResolvedValue(
+                value=None,
+                tier=step.presence_tier,
+                reason=step.presence_reason or "required by the pipeline",
+            ),
         )
 
         for param in contract.params:

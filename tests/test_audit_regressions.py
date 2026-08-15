@@ -2084,11 +2084,15 @@ def test_a78_a_rule_row_that_justifies_nothing_is_refused(tmp_path):
     from mendel_resolver import layers
     from mendel_resolver.rules import RuleValidationError
 
+    # A row testing a premise **positively**, so `MD0313` — the tier-2 citation rule added
+    # in Plan 1.15 Task 7 — does not fire first. `when: {}` exits at tier 2 and is refused
+    # for a different and more specific reason; this row is genuinely tier 3 and genuinely
+    # justifies nothing, which is what A78 was.
     body = """version: 1
 decisions:
   - decides: {effect: param, of: alignment, name: seq_platform}
     rows:
-      - {when: {}, then: illumina}
+      - {when: {read_length: ">= 70"}, then: illumina}
 """
     with pytest.raises(RuleValidationError) as caught:
         layers.load([Path(__file__).parent.parent / "registry", _rule_layer(tmp_path, body)])

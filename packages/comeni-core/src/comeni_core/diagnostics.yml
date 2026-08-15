@@ -1151,3 +1151,39 @@ MD0310:
     `roles.check` runs after the registry is built rather than inside a contract's parse.
 
     Audit A120, A121.
+
+MD0313:
+  emitted_by: resolver
+  concern: routing
+  says: "a row exits at tier 2 and cites nothing"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Give the row — or its block — a `cite:` naming the document:
+
+        rows:
+          - when: {}
+            then: absent
+            because: "amplicon libraries carry no adapter to remove"
+            cite: "nf-core/rnaseq --skip_trimming"
+
+    Or condition the row on a premise, if it is really testing the data — a row that tests
+    one positively exits at tier 3 and this rule does not apply to it.
+  explanation: |
+    **A row's tier is read off its own text**, so a row testing no premise positively exits
+    at tier 2 whatever the block around it looks like. `when: {}` is a catch-all and
+    `when: {x: absent}` is a convention about what to assume in a gap; neither matched
+    measured data, which is tier 3's definition.
+
+    Tier 2 is *"a documented default exists"*, so what it produces is **value plus the
+    document**. A `because` alone states the value and asserts that a document exists
+    somewhere, which is precisely the shape of the two findings this rule generalises: A76,
+    where a contract default's justification lived in a YAML comment the loader dropped, and
+    A128, the same thing one field over. Both were fixed individually; this states the rule
+    once so the third instance is refused rather than found.
+
+    **This is not `MD0301`.** That one refuses a row justifying *nothing at all* — no
+    `because` and no `cite`, at any tier. This one refuses a tier-2 row that has a sentence
+    and no source. A row can satisfy `MD0301` and fail this.
+
+    Spec §4.4; audit A76, A128, A113.
