@@ -113,7 +113,34 @@ mechanism.
 own repository at Plan 1.7"* — it moved on 2026-08-16, in issue #46 — and it says registry data
 *"lives in `examples/`"*, which stopped being true several plans ago.
 
-## 6. What is not in scope
+## 6. When to bump what — the policy, written down
+
+**Decided by the operator on 2026-08-16.** The whole point of independent versions is that a
+number means something, and it only means something if everyone bumps by the same rule.
+
+| change | bump | example |
+|---|---|---|
+| a minor code change — a fix, a message, an internal refactor | **`0.0.x`** | `MD0223`'s wording; splitting a module with no surface change |
+| a feature — new behaviour, a new field, a new diagnostic code | **`0.x.0`** | `MD0001`–`MD0009`; `Pipeline.ai`; a new `derives:` transform |
+| a big release — the artifact format moves, or a public surface breaks | **`x.0.0`** | `pipeline.yml` version 3 → 4; a renamed CLI verb |
+
+**Read the middle row generously.** A new diagnostic code is a feature even though it only ever
+refuses: a laboratory runbook can cite `MD0002`, so its arrival is new surface a consumer can
+depend on. That is the same reasoning that makes a code never renumbered.
+
+**The bump is judged, not derived, and this is the one place that is admitted.** Nothing in the
+release workflow can tell a fix from a feature; the workflow's job is to refuse a tag that
+disagrees with its `pyproject.toml`, not to decide which number was right. A wrong bump is a
+review comment.
+
+**A `pipeline.yml` schema bump is always `x.0.0` for `comeni-core`**, because `SCHEMA_VERSION`
+lives there and a file written by a newer Mendel is refused by an older one (`MD0207`). That is
+the definition of a break, and it is worth naming so nobody argues it case by case.
+
+**This policy lives in `docs/guides/releasing.md`**, next to the procedure, rather than only
+here — a working note is not where somebody cutting a release will look.
+
+## 7. What is not in scope
 
 - **No signing.** `comeni-registry` plans signed tags (`federation.md` §3); signing engine
   releases is a separate design with a key-management question attached.
@@ -122,8 +149,9 @@ own repository at Plan 1.7"* — it moved on 2026-08-16, in issue #46 — and it
   that anything here is `0.2.0` is a judgement about the code, not about the automation.
 - **A14** stays out, as it has all week.
 
-## 7. Success criterion
+## 8. Success criterion
 
+`docs/guides/releasing.md` states the bump policy and the procedure, and
 `git tag comeni-core-v0.1.0 && git push --tags` produces a GitHub Release with an sdist, a wheel
 and the changelog section, and the same command with a mismatched version refuses. Dependabot
 opens grouped pull requests. Every action resolves to a SHA. `emitted_by` names the package that
