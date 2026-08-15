@@ -1,4 +1,4 @@
-.PHONY: help check verify slow guards residue drift links test lint fmt types docs static stub profile clean
+.PHONY: help registry-present check verify slow guards residue drift links test lint fmt types docs static stub profile clean
 
 # A sibling checkout of github.com/comeni-project/comeni-registry, if you have one.
 # `make drift` skips when it is absent rather than failing: a target that breaks over a
@@ -13,10 +13,23 @@
 _MAIN_ROOT := $(dir $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)))
 REGISTRY ?= $(_MAIN_ROOT)comeni-registry
 
+registry-present:  ## refuse early if the registry submodule was not checked out
+	@if [ ! -d registry/contracts ]; then \
+	  echo "registry/ holds no registry data — it is a git submodule and was not checked out."; \
+	  echo; \
+	  echo "    git submodule update --init"; \
+	  echo; \
+	  echo "'git clone --recurse-submodules' avoids this. See docs/guides/contributing.md."; \
+	  exit 1; \
+	fi
+# Here as well as in `layers.load()` because a contributor's first command is `make check`,
+# not a pytest invocation — and thirty-three failures about missing contracts is not a
+# diagnosis. Same sentence in both places on purpose.
+
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-check: lint test types docs links  ## everything CI runs on a pull request (~1 min, no Docker)
+check: registry-present lint test types docs links  ## everything CI runs on a pull request (~1 min, no Docker)
 
 verify:         ## check + slow + guards + drift — needs Docker, ~2 min. See CLAUDE.md
 	@$(MAKE) --no-print-directory -j1 check

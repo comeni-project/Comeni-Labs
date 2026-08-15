@@ -1858,3 +1858,35 @@ refused. Nothing loads it and nothing digests it, so it cannot reroute a pipelin
 digest; A9's exploit was a symlinked *contract*, which lives under `contracts/` and is still
 refused at both sites. A symlinked *kind directory* is still refused, and row two exists because
 `is_dir()` follows a link — the allowlist written after A9 would otherwise have reintroduced it.
+
+## Issue #46 — an unchecked-out submodule
+
+| date | guard | reverted | result | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_registry_submodule.py::test_an_empty_layer_directory_names_the_submodule` | the refusal in `layers.load()` removed | failed | no `ValueError` raised |
+| 2026-08-16 | `test_registry_submodule.py::test_a_layer_with_one_kind_is_not_mistaken_for_an_empty_one` | `any(` → `all(` | failed | a one-kind overlay refused as empty |
+| 2026-08-16 | `test_registry_submodule.py::test_the_message_counts_the_kinds_rather_than_asserting_a_number` | the refusal removed | failed | no message to count in |
+| 2026-08-16 | `make check`'s `registry-present` | `registry/` moved aside and replaced with an empty directory | **failed, in under a second** | the message below |
+
+```
+registry/ holds no registry data — it is a git submodule and was not checked out.
+
+    git submodule update --init
+
+'git clone --recurse-submodules' avoids this. See docs/guides/contributing.md.
+```
+
+**The last row is the one that mattered, and it is the hardest kind of state to test: one that
+only ever occurs on somebody else's machine.** A contributor cloning without
+`--recurse-submodules` gets a `registry/` that exists and is empty, so every path check passes
+and the failure surfaces thirty-three times as missing contracts. The state was produced here by
+hand — `mv registry /tmp/... && mkdir registry` — because otherwise the message would ship
+unread, which is exactly A14's finding in its purest form.
+
+**Two sites, one sentence.** `layers.load()` catches a direct `mendel build`; the Makefile
+prerequisite catches `make check`, which is a contributor's first command and would otherwise
+spend seventy seconds arriving at the wrong diagnosis.
+
+**`any`, not `all`, and the second row is why that needs a guard.** An overlay carrying three
+contracts and nothing else is the normal private-layer case; `all` would refuse every real
+overlay while passing every test written against the public base, which has all five kinds.

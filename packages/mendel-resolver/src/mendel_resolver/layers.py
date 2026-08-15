@@ -80,6 +80,24 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         layers = [layers]
     layers = [Path(layer) for layer in layers]
     for layer in layers:
+        if layer.is_dir() and not any(
+            (layer / kind.value).is_dir() for kind in DeclaredKind
+        ):
+            # `any`, not `all`: an overlay carrying three contracts and nothing else is the
+            # normal private-layer case. `len(DeclaredKind)` rather than a literal, because
+            # that count said "four" in prose for six plans and was wrong the day `roles/`
+            # arrived (invariant 11).
+            raise ValueError(
+                f"{layer} holds no registry data — none of the {len(DeclaredKind)} declared "
+                "kinds is a directory in it.\n"
+                "\n"
+                "If this is `registry/`, it is a git submodule and was not checked out:\n"
+                "\n"
+                "    git submodule update --init\n"
+                "\n"
+                "`git clone --recurse-submodules` avoids this. "
+                "See docs/guides/contributing.md."
+            )
         # `declared_entries`, not `rglob("*")`: since issue #46 `registry/` is a git
         # submodule, so a bare walk descends into git metadata — and against an ordinary
         # clone passed as `--registry ../comeni-registry`, into the whole object store.
