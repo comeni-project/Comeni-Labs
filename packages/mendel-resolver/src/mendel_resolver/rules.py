@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Literal
 
 from comeni_core import yaml_strict
-from comeni_core.contract import ParamDomain
-from comeni_core.layered import (
+from comeni_core.declared.contract import ParamDomain
+from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
     Kind,
@@ -31,13 +31,13 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import ContractId, LayerName, MeasurementId, ParamValue, RoleName
-from comeni_core.measurement import MeasurementKind, MeasurementRegistry
-from comeni_core.premise import PremiseRecord
-from comeni_core.profile import DataProfile
-from comeni_core.registry import Registry
-from comeni_core.tiers import Tier
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.goal.premise import PremiseRecord
+from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.tiers import Tier
+from comeni_core.spell.marks import ContractId, LayerName, MeasurementId, ParamValue, RoleName
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mendel_resolver.predicates import matches, tier_of_row

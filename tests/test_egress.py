@@ -12,9 +12,9 @@ from collections import abc
 
 import pytest
 from _walk import reachable
-from comeni_core import egress
-from comeni_core.marks import Mark
-from comeni_core.tiers import Tier, ValueSource
+from comeni_core.artifact import egress
+from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.spell.marks import Mark
 from pydantic import BaseModel, ValidationError, computed_field
 
 DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
@@ -96,8 +96,9 @@ def _payload_types() -> set[type[BaseModel]]:
 
     **The roots come from `DOORS`**, not from what happens to be defined in `egress.py`.
     That distinction had no consequences until Plan 1.10 Task 11 moved the publication
-    payload to `comeni_core.pipeline`: scanning `vars(egress)` then found three doors out of
-    four, and `Pipeline` — the door with no undo — crossed the boundary entirely unchecked
+    payload to `comeni_core.artifact.pipeline`: scanning `vars(egress)` then found three doors
+    out of four, and `Pipeline` — the door with no undo — crossed the boundary entirely
+    unchecked
     while this file reported ten passed.
 
     `DOORS` is the declaration of what actually leaves. The subclass scan stays beside it,
@@ -440,8 +441,8 @@ def test_every_ambiguity_field_can_cross_the_door():
     see it fail. `type_id` and `required` were already in that state when this was written.
     """
 
-    from comeni_core.decision import Ambiguity, AmbiguityKinds
-    from comeni_core.egress import AmbiguityRequest
+    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.plan.decision import Ambiguity, AmbiguityKinds
 
     # `model_fields`, not `_serialised_hints`, and deliberately: this asks whether each
     # ambiguity field has somewhere *to go*, and a `@computed_field` is not a destination —
@@ -473,8 +474,8 @@ def test_every_tier_four_question_can_actually_cross_the_door():
     and two kinds still could not get through. Construct one of each instead.
     """
 
-    from comeni_core.decision import ParamAsked, ProducerAsked, SourceAsked
-    from comeni_core.egress import AmbiguityRequest
+    from comeni_core.artifact.egress import AmbiguityRequest
+    from comeni_core.plan.decision import ParamAsked, ProducerAsked, SourceAsked
 
     for asked in (
         ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None]),
@@ -508,7 +509,7 @@ def test_publication_carries_a_pipeline():
     are one document. `PublishBundle` held goal + IR + decisions + lockfile — the same
     information one layer less assembled, and one more thing that could disagree with what
     was on disk."""
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     assert egress.DOORS["publication"] is Pipeline
 
@@ -528,8 +529,8 @@ def test_the_publication_payload_is_frozen():
     should not be edited in place.
     """
     import pytest
-    from comeni_core.goal import Goal
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
     from pydantic import ValidationError
 
     # A real `goal` so the refusal is the *frozen assignment*, not a missing field (A48 made
@@ -546,7 +547,7 @@ def test_pipeline_holds_no_registry():
     """
     import re
 
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     # Word boundaries, not `in`. The first version matched `RegistryProvenance` and reported
     # `Pipeline.registry holds a Registry` — the same substring trap `test_pipeline_totality`
@@ -653,7 +654,7 @@ def test_the_ambiguity_kinds_tuple_is_the_subclass_set():
     the author also edits the tuple. The reviewer added a fourth `Ambiguity` subclass not in
     the tuple and got 15 passed: the check is live and its input was incomplete.
     """
-    from comeni_core.decision import Ambiguity, AmbiguityKinds
+    from comeni_core.plan.decision import Ambiguity, AmbiguityKinds
 
     assert set(AmbiguityKinds) == set(Ambiguity.__subclasses__()), (
         "a kind exists that the totality check never sees"
@@ -735,7 +736,7 @@ def test_a_declared_id_alias_refuses_free_text(alias, bad, why):
     `state`, and door 4 with `digest='not-a-digest: PT-4471023'`. All serialised verbatim.
     This generalises A3, which was recorded for `PARAM_LITERAL` alone.
     """
-    from comeni_core import marks
+    from comeni_core.spell import marks
     from pydantic import TypeAdapter
 
     with pytest.raises(ValidationError):
@@ -760,7 +761,7 @@ def test_a_declared_id_alias_accepts_what_the_repository_writes(alias, good):
     """The negative that keeps every validator above honest. A shape check tight enough to
     refuse a real value is a check somebody has to disable, and a disabled check is worse
     than none — which is `_computed_over`'s `paired-end` lesson, one layer down."""
-    from comeni_core import marks
+    from comeni_core.spell import marks
     from pydantic import TypeAdapter
 
     assert TypeAdapter(getattr(marks, alias)).validate_python(good) == good
@@ -769,7 +770,7 @@ def test_a_declared_id_alias_accepts_what_the_repository_writes(alias, good):
 def test_every_mark_carries_a_validator_or_is_listed_as_a_label():
     """The residue, pinned. A `Mark` with no validator is legitimate only if somebody decided
     it, and this is what turns that into a decision."""
-    from comeni_core import marks
+    from comeni_core.spell import marks
 
     unvalidated = sorted(
         name

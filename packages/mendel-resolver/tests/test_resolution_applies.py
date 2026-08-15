@@ -17,10 +17,10 @@ disagrees, because agreement is what hid it.
 """
 
 import pytest
-from comeni_core.decision import Ambiguity, ProducerDecision, Resolution
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.plan.decision import Ambiguity, ProducerDecision, Resolution
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
@@ -124,7 +124,7 @@ def test_every_producer_record_names_the_contract_that_was_selected(tied):
 
 def test_a_tie_is_still_tier_4_and_still_flagged(tied):
     """Invariant 6: resolving a tier-4 choice does not clear it. A8 must not weaken this."""
-    from comeni_core.ir import ReviewLevel, Tier
+    from comeni_core.plan.ir import ReviewLevel, Tier
 
     registry, rules, measurements, vocabulary = tied
     ir = resolve(

@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.registry import Registry
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import UnroutableError, route
 

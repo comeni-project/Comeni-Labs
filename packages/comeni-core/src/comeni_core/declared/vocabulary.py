@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, field_serializer
 
 from comeni_core import yaml_strict
-from comeni_core.layered import (
+from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
     Kind,
@@ -16,10 +16,10 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import GroovyExpression, TypeId
+from comeni_core.spell.marks import GroovyExpression, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
-    from comeni_core.measurement import MeasurementRegistry
+    from comeni_core.declared.measurement import MeasurementRegistry
 
 
 class UnknownTypeError(KeyError):

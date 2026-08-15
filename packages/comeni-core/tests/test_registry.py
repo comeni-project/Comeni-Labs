@@ -1,7 +1,7 @@
 import pytest
-from comeni_core.layered import DeclaredKind
-from comeni_core.registry import Registry, module_key
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.layered import DeclaredKind
+from comeni_core.declared.registry import Registry, module_key
+from comeni_core.declared.vocabulary import Vocabulary
 
 SORT = """
 id: nf-core/samtools/sort@1.21.0

@@ -1,9 +1,9 @@
 import pathlib
 
 import pytest
-from comeni_core.goal import Goal
-from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.pipeline import ExtArgs, Pipeline
+from comeni_core.artifact.pipeline import ExtArgs, Pipeline
+from comeni_core.goal.asked import Goal
+from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 
@@ -281,7 +281,7 @@ def test_every_via_member_emits_or_is_refused():
     tripwire forces a decision when `Via` grows: a new member must be wired into `emit.py`
     (and added here) or refused at load — never left to record a value that reaches no tool.
     """
-    from comeni_core.routes import Via
+    from comeni_core.spell.routes import Via
 
     # `POSITIONAL` joined in Plan 1.14 and is wired in `_argument`, not in a scope block:
     # it emits into the process *call* rather than into `process { withName: … }`. That is
@@ -313,9 +313,9 @@ def test_the_closure_branch_is_unreachable_from_a_raw_value():
     the emitter must not depend on `Setting`'s MD0221 having run. A raw value mentioning
     `${` is refused here too, at the branch that would otherwise make it a closure.
     """
-    from comeni_core.pipeline import Setting, Why
-    from comeni_core.routes import ExtKey, Via
-    from comeni_core.tiers import ValueSource
+    from comeni_core.artifact.pipeline import Setting, Why
+    from comeni_core.plan.tiers import ValueSource
+    from comeni_core.spell.routes import ExtKey, Via
     from mendel_compiler.emit import _ext_scope
 
     smuggled = Setting.model_construct(
@@ -335,9 +335,9 @@ def test_a_templated_fragment_still_emits_a_closure():
     `--outSAMattrRGline 'ID:${meta.id}' …` — a closure is *correct* there, and it arrives
     through a validated template rather than through a raw value.
     """
-    from comeni_core.pipeline import Setting, Why
-    from comeni_core.routes import ExtKey, Via
-    from comeni_core.tiers import ValueSource
+    from comeni_core.artifact.pipeline import Setting, Why
+    from comeni_core.plan.tiers import ValueSource
+    from comeni_core.spell.routes import ExtKey, Via
     from mendel_compiler.emit import _ext_scope
 
     templated = Setting(

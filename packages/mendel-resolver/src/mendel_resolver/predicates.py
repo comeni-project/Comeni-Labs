@@ -14,7 +14,7 @@ it exists and what its `value` is.
 import operator
 from typing import TYPE_CHECKING, Any
 
-from comeni_core.tiers import Tier
+from comeni_core.plan.tiers import Tier
 
 if TYPE_CHECKING:
     from mendel_resolver.premises import Premise

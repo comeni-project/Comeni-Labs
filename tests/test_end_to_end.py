@@ -168,7 +168,7 @@ def test_multi_state_serialisation_is_seed_independent(tmp_path):
     import sys
 
     script = (
-        "from comeni_core.ir import IREdge;"
+        "from comeni_core.plan.ir import IREdge;"
         "print(IREdge(from_node='a', from_port='p', to_node='b', to_port='q',"
         " type_id='alignment.bam',"
         " states=frozenset({'coordinate_sorted','indexed','deduplicated','filtered'})"

@@ -6,7 +6,7 @@ are replayed rather than re-asked; this is the class that does it.
 """
 
 import pytest
-from comeni_core.decision import ParamAsked, ParamDecision
+from comeni_core.plan.decision import ParamAsked, ParamDecision
 from mendel_resolver.replay import ReplayResolver
 
 

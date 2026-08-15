@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
-STUB = ROOT / "packages/comeni-core/src/comeni_core/profile.pyi"
+STUB = ROOT / "packages/comeni-core/src/comeni_core/goal/profile.pyi"
 
 
 def test_the_committed_stub_matches_the_declarations():
@@ -48,7 +48,7 @@ def test_the_stub_declares_the_whole_module():
     which is a correctness cost, not an autocomplete one — and would void the reason
     generation is safe here at all.
     """
-    import comeni_core.profile as module
+    import comeni_core.goal.profile as module
 
     stub = STUB.read_text()
     public = [

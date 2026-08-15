@@ -13,8 +13,10 @@ from pydantic import (
 )
 
 from comeni_core import yaml_strict
-from comeni_core.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
-from comeni_core.marks import (
+from comeni_core.declared.measurement import MeasurementKind
+from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
+from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
     NfIdentifier,
@@ -24,9 +26,7 @@ from comeni_core.marks import (
     RoleName,
     TypeId,
 )
-from comeni_core.measurement import MeasurementKind
-from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
 """Every model a contract is built from forbids unknown keys.

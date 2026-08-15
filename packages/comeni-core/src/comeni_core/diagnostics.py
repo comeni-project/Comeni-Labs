@@ -22,7 +22,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core import yaml_strict
-from comeni_core.marks import Line, Text
+from comeni_core.spell.marks import Line, Text
 
 _REGISTRY_FILE = Path(__file__).with_name("diagnostics.yml")
 

@@ -115,7 +115,7 @@ def test_the_pipeline_file_records_the_artifact_it_produced(tmp_path):
     also makes the directory self-verifying — a recipient can check that the pipeline they
     were handed is the one it describes.
     """
-    from comeni_core.digest import digest_of_bytes
+    from comeni_core.artifact.digest import digest_of_bytes
 
     out = _publish(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())

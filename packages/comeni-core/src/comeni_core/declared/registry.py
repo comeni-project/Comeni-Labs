@@ -5,8 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from comeni_core.contract import ModuleContract
-from comeni_core.layered import (
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
     Kind,
@@ -16,8 +16,8 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import LayerName
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.spell.marks import LayerName
 
 
 def module_key(contract_id: str) -> str:

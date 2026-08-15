@@ -1,9 +1,9 @@
 import pytest
-from comeni_core.ir import ReviewLevel, Tier
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.tiers import PremiseOrigin
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
+from comeni_core.plan.ir import ReviewLevel, Tier
+from comeni_core.plan.tiers import PremiseOrigin
 from mendel_resolver.goal import DataProfile, Goal, GoalInput
 from mendel_resolver.resolve import resolve
 from mendel_resolver.rules import RuleTable
@@ -337,8 +337,8 @@ def test_a_resolver_cannot_certify_its_own_answer_as_human():
     """
     import pathlib
 
-    from comeni_core.decision import Resolution
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.decision import Resolution
+    from comeni_core.plan.tiers import ValueSource
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput
 
@@ -386,8 +386,8 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     """
     import pathlib
 
-    from comeni_core.decision import ParamDecision
-    from comeni_core.tiers import ValueSource
+    from comeni_core.plan.decision import ParamDecision
+    from comeni_core.plan.tiers import ValueSource
     from mendel_resolver import layers
     from mendel_resolver.goal import Goal, GoalInput
     from mendel_resolver.replay import ReplayResolver

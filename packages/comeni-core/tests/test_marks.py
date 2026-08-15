@@ -11,7 +11,7 @@ exception a laboratory brings its own type through.
 """
 
 import pytest
-from comeni_core.marks import (
+from comeni_core.spell.marks import (
     GroovyExpression,
     Line,
     NfIdentifier,
@@ -102,7 +102,7 @@ def test_a_groovy_expression_is_unbounded_on_purpose():
 
 def test_every_new_mark_is_in_the_closed_vocabulary():
     """Root A and root C share one `Mark` enum. New markers join it; they are not minted."""
-    from comeni_core.marks import Mark
+    from comeni_core.spell.marks import Mark
 
     for alias in (NfIdentifier, NfPath, GroovyExpression, Line, Text):
         assert any(isinstance(meta, Mark) for meta in alias.__metadata__), alias

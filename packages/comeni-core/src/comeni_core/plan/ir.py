@@ -9,9 +9,12 @@ from pydantic import (
     model_validator,
 )
 
-from comeni_core.decision import DecisionRecord
-from comeni_core.layered import Displacement
-from comeni_core.marks import (
+from comeni_core.declared.layered import Displacement
+from comeni_core.goal.premise import PremiseRecord
+from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.decision import DecisionRecord
+from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
+from comeni_core.spell.marks import (
     ContractId,
     LayerName,
     Line,
@@ -21,9 +24,6 @@ from comeni_core.marks import (
     StateName,
     TypeId,
 )
-from comeni_core.premise import PremiseRecord
-from comeni_core.profile import DataProfile
-from comeni_core.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 
 
 def _still_open(value: "ResolvedValue") -> bool:

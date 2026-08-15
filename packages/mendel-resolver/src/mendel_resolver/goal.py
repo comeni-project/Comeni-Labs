@@ -1,4 +1,4 @@
-"""Re-export of the goal types, which live in `comeni_core.goal`.
+"""Re-export of the goal types, which live in `comeni_core.goal.asked`.
 
 They moved there so the publication payload could carry a `Goal`, and `comeni-core` must
 not depend on `mendel-resolver`. Same move `DataProfile` made, for the same reason.
@@ -12,7 +12,7 @@ This shim stays because a goal is what most resolver code actually meets, and re
 every import to relocate a type is churn nobody reviews carefully.
 """
 
-from comeni_core.goal import Constraints, Goal, GoalInput, ParamOverride
-from comeni_core.profile import DataProfile, Measured
+from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
+from comeni_core.goal.profile import DataProfile, Measured
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]

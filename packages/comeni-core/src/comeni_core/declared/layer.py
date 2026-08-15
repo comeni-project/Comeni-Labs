@@ -15,7 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core import yaml_strict
-from comeni_core.marks import LayerName
+from comeni_core.spell.marks import LayerName
 
 
 class LayerManifest(BaseModel):

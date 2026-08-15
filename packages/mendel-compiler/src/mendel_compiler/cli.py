@@ -8,12 +8,12 @@ from pathlib import Path
 
 import yaml
 from comeni_core import yaml_strict
-from comeni_core.digest import digest_of, digest_of_bytes
-from comeni_core.layer import layer_name
-from comeni_core.layered import Displacement
-from comeni_core.lockfile import Lockfile
-from comeni_core.measurement import BadMeasurementValueError, UnknownMeasurementError
-from comeni_core.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.artifact.digest import digest_of, digest_of_bytes
+from comeni_core.artifact.lockfile import Lockfile
+from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.declared.layer import layer_name
+from comeni_core.declared.layered import Displacement
+from comeni_core.declared.measurement import BadMeasurementValueError, UnknownMeasurementError
 from mendel_resolver import layers
 from mendel_resolver.diff import diff_pipeline
 from mendel_resolver.goal import Goal, GoalInput

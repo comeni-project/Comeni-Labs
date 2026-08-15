@@ -4,14 +4,14 @@ Its own module because both `ir.py` and `pipeline.py` need it and `pipeline.py` 
 so neither of those can be its home without a cycle. Same shape as `profile.py`, which was
 split out for the same reason and says so.
 
-`PremiseOrigin` lives in `comeni_core.tiers` beside `ValueSource` — it is a vocabulary about
+`PremiseOrigin` lives in `comeni_core.plan.tiers` beside `ValueSource` — it is a vocabulary about
 evidence, and the two answer different questions about the same value.
 """
 
 from pydantic import BaseModel, ConfigDict
 
-from comeni_core.marks import MeasurementId, ParamValue
-from comeni_core.tiers import PremiseOrigin
+from comeni_core.plan.tiers import PremiseOrigin
+from comeni_core.spell.marks import MeasurementId, ParamValue
 
 
 class PremiseRecord(BaseModel):

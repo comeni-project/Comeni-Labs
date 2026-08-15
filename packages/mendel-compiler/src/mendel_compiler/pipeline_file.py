@@ -1,7 +1,8 @@
 """Reading and writing `pipeline.yml`, and the four checks that guard the pair of files.
 
-`comeni_core.pipeline` owns what a `Pipeline` *is*; this owns what it looks like on disk and
-what must be true of the directory around it. The split matters because `comeni-core` may not
+`comeni_core.artifact.pipeline` owns what a `Pipeline` *is*; this owns what it looks like on
+disk and what must be true of the directory around it. The split matters because `comeni-core`
+may not
 know about `main.nf` — a `Pipeline` is a document, and only the compiler generates Nextflow
 from one.
 """
@@ -10,9 +11,9 @@ from pathlib import Path
 
 import yaml
 from comeni_core import yaml_strict
-from comeni_core.digest import digest_of_bytes
-from comeni_core.egress import Emitted
-from comeni_core.pipeline import SCHEMA_VERSION, Pipeline
+from comeni_core.artifact.digest import digest_of_bytes
+from comeni_core.artifact.egress import Emitted
+from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline
 
 FILENAME = "pipeline.yml"
 

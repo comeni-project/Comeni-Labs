@@ -11,15 +11,15 @@ Sample identity enters at run time, in the laboratory's own environment, through
 `params.input` placeholder the emitted pipeline declares. It never reaches Mendel's
 process. See the clinical data-protection spec, §3.
 
-`DataProfile` and `Measured` are defined in `comeni_core.profile` — a profile is made of
+`DataProfile` and `Measured` are defined in `comeni_core.goal.profile` — a profile is made of
 measurements and measurements are declared there — and re-exported here because a goal is
 where most code meets one.
 """
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
-from comeni_core.marks import HumanParamValue, PortName, StateName, TypeId
-from comeni_core.profile import DataProfile, Measured  # noqa: F401  (re-exported)
+from comeni_core.goal.profile import DataProfile, Measured  # noqa: F401  (re-exported)
+from comeni_core.spell.marks import HumanParamValue, PortName, StateName, TypeId
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
 

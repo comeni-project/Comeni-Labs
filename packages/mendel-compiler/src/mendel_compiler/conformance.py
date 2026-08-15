@@ -14,11 +14,11 @@ follows it.
 from pathlib import Path
 
 from comeni_core import diagnostics
-from comeni_core.contract import ModuleContract
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.routes import ExtKey, Via
+from comeni_core.spell.routes import ExtKey, Via
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from mendel_compiler.modulespec import ModuleSpec

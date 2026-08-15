@@ -25,8 +25,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from comeni_core.layer import layer_name
-from comeni_core.marks import AnyKey, LayerName
+from comeni_core.declared.layer import layer_name
+from comeni_core.spell.marks import AnyKey, LayerName
 
 
 class DeclaredKind(StrEnum):

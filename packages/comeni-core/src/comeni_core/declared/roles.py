@@ -23,8 +23,8 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from comeni_core import yaml_strict
-from comeni_core.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
-from comeni_core.marks import _role_name
+from comeni_core.declared.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
+from comeni_core.spell.marks import _role_name
 
 
 class UnknownRoleError(ValueError):
@@ -77,7 +77,7 @@ class RoleVocabulary(BaseModel):
     def check(self, contract_id: str, roles: Sequence[str]) -> None:
         """Refuse a contract naming a role nothing declares.
 
-        Takes the id and the roles rather than the contract, so `comeni_core.contract` does
+        Takes the id and the roles rather than the contract, so `comeni_core.declared.contract` does
         not have to import this module to be type-checked against it — the same reason
         `layer_of` is not a field on `ModuleContract`.
         """

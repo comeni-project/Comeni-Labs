@@ -9,10 +9,10 @@ pipeline behaved identically whatever the answer was. Issue #10.
 """
 
 import pytest
-from comeni_core.contract import Param
-from comeni_core.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
-from comeni_core.marks import substitutable
-from comeni_core.routes import TEMPLATED, ExtKey, Via
+from comeni_core.declared.contract import Param
+from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
+from comeni_core.spell.marks import substitutable
+from comeni_core.spell.routes import TEMPLATED, ExtKey, Via
 from pydantic import ValidationError
 
 

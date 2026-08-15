@@ -1613,3 +1613,34 @@ argument takes anywhere on the list. The alternative — hand-rolling `log2` fro
 `int.bit_length()` — was rejected because it is only correct for integers and `genome_length / 2`
 is not one; a wrong number reaching STAR's `--genomeSAindexNbases` is the class of defect A118
 is about.
+
+## Issue #41 Task 1 — five packages by lifecycle stage
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-16 | `test_construction.py::test_data_profile_is_constructed_in_one_place` | nothing — `measurement.py` moved to `declared/` | **failed unprompted** | the two permitted spellings in `MeasurementRegistry.profile` reported as violations |
+| 2026-08-16 | `test_purity_runtime.py` ×2 | nothing — `ir.py` and `layered.py` moved | **failed unprompted** | `…/comeni_core/ir.py` does not exist; `layered.py did not execute under the armed hook` |
+| 2026-08-16 | `test_generated_types.py::test_the_committed_stub_matches_the_declarations` | nothing — `profile.pyi` moved | **failed unprompted** | `profile.pyi is stale` |
+| 2026-08-16 | `test_architecture.py::test_every_path_architecture_names_exists` | a named path pointed at `comeni_core/nowhere/` | failed | names the path that does not exist |
+| 2026-08-16 | `test_architecture.py::test_the_five_packages_are_all_named` | `comeni_core/spell/` renamed in the document | failed | names the package the document stopped mentioning |
+
+**A67's shape, live, in the first task that could produce it.** `test_construction.py` exempts
+named spellings *by path*, and `MeasurementRegistry.profile()` — the one validating constructor
+— is one of them. Moving `measurement.py` into `declared/` made the exemption match nothing, so
+the guard fired on the code it exists to permit. **That direction is the lucky one**: the same
+rename in `PIPELINE_READERS` would have made an exemption *cover nothing* and the scan would
+have gone quiet, which is the failure A67 describes and the one nobody investigates.
+
+Four guards failed unprompted for one cause, and none of them was found by reading. `make check`
+found all four in one run, which is the argument for running the whole gate on a change that
+looks confined to import lines.
+
+**A plan defect, corrected on execution.** Task 1 Step 6 says "run everything, expect PASS" and
+Task 5 was to repair these paths. A task cannot end green if a later task fixes what it breaks,
+so the path repairs moved into Task 1 and Task 5 keeps the guard-of-the-guard and the deliberate
+reverts. Recorded rather than silently reordered.
+
+**Ruff reordered a generated file.** `profile.pyi`'s imports came out unsorted after the
+rewrite, and fixing the *file* would have been undone by the next `generate_types.py` run —
+`make types` and `make lint` would have disagreed forever, each correct. Fixed in the
+generator's header instead.

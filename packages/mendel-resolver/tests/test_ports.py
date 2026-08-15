@@ -1,5 +1,5 @@
 import pytest
-from comeni_core.decision import ParamAsked
+from comeni_core.plan.decision import ParamAsked
 from mendel_resolver.ports import FlagOnlyResolver, NoCandidatesError
 
 

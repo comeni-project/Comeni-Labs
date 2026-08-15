@@ -11,9 +11,9 @@ import subprocess
 import sys
 
 import pytest
-from comeni_core.contract import ModuleContract
-from comeni_core.digest import content_hash, digest_of, digest_of_directory, entry_hash
-from comeni_core.vocabulary import Vocabulary
+from comeni_core.artifact.digest import content_hash, digest_of, digest_of_directory, entry_hash
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.vocabulary import Vocabulary
 
 CONTRACT = """
 id: nf-core/samtools/sort@1.21.0
@@ -67,8 +67,8 @@ def test_a_digest_is_stable_across_hash_seeds():
             [
                 sys.executable,
                 "-c",
-                "from comeni_core.contract import OutputPort;"
-                "from comeni_core.digest import digest_of;"
+                "from comeni_core.declared.contract import OutputPort;"
+                "from comeni_core.artifact.digest import digest_of;"
                 "print(digest_of(OutputPort(name='bam', type_id='alignment.bam',"
                 " state=frozenset({'coordinate_sorted','indexed','filtered','deduplicated'}))))",
             ],
@@ -96,8 +96,8 @@ def test_a_vocabulary_digest_is_stable_across_hash_seeds():
             [
                 sys.executable,
                 "-c",
-                "from comeni_core.vocabulary import Vocabulary;"
-                "from comeni_core.digest import digest_of;"
+                "from comeni_core.declared.vocabulary import Vocabulary;"
+                "from comeni_core.artifact.digest import digest_of;"
                 "print(digest_of(Vocabulary(types={'alignment.bam': frozenset("
                 "{'coordinate_sorted','indexed','filtered','deduplicated','name_sorted'}),"
                 " 'fastq.reads': frozenset({'trimmed','raw'})})))",

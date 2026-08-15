@@ -12,9 +12,9 @@ import shutil
 
 import pytest
 import yaml
-from comeni_core.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
-from comeni_core.routes import ExtKey, Via
-from comeni_core.tiers import PremiseOrigin, Tier, ValueSource
+from comeni_core.artifact.pipeline import SCHEMA_VERSION, Pipeline, Setting, StepInput, Why
+from comeni_core.plan.tiers import PremiseOrigin, Tier, ValueSource
+from comeni_core.spell.routes import ExtKey, Via
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 from pydantic import ValidationError
@@ -773,9 +773,8 @@ RELEASED_SCHEMA_VERSION = 1
 
 def test_a_schema_change_bumps_the_version():
     """Adding a field to the artifact moves every archived pipeline's digest. Announce it."""
-    from comeni_core.decision import ParamDecision
-    from comeni_core.egress import Emitted
-    from comeni_core.pipeline import (
+    from comeni_core.artifact.egress import Emitted
+    from comeni_core.artifact.pipeline import (
         SCHEMA_VERSION,
         CallArg,
         ExtArgs,
@@ -783,6 +782,7 @@ def test_a_schema_change_bumps_the_version():
         Pipeline,
         Step,
     )
+    from comeni_core.plan.decision import ParamDecision
 
     actual = {
         "Pipeline": list(Pipeline.model_fields),
@@ -997,7 +997,7 @@ def test_every_pipeline_model_blames_the_pipeline_file():
     """The set is derived-checked, not trusted. A model added to the artifact tomorrow gets
     the right blame or this fails — which is what makes it not a third special case."""
     from _walk import reachable
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
     from mendel_compiler.cli import _PIPELINE_MODELS, _blame
 
     unlisted = sorted(

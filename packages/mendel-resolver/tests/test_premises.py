@@ -13,7 +13,7 @@ mapping between them rather than one enum used twice.
 import pathlib
 
 import pytest
-from comeni_core.tiers import ValueSource
+from comeni_core.plan.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.premises import PremiseError, PremiseOrigin, build_premises

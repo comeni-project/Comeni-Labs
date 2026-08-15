@@ -1,5 +1,5 @@
 import pytest
-from comeni_core.measurement import (
+from comeni_core.declared.measurement import (
     BadMeasurementValueError,
     MeasurementKind,
     MeasurementRegistry,

@@ -16,8 +16,8 @@ resolves.
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from comeni_core.marks import ContractId, MeasurementId, ParamValue
-from comeni_core.tiers import ValueSource
+from comeni_core.plan.tiers import ValueSource
+from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue
 
 
 class Measured(BaseModel):

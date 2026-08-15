@@ -26,9 +26,9 @@ from test_purity import (  # noqa: E402  — the one alias resolver and one pack
 
 ALLOWED = {
     # the one validated constructor
-    "packages/comeni-core/src/comeni_core/measurement.py",
+    "packages/comeni-core/src/comeni_core/declared/measurement.py",
     # the model's own module, where the class is defined
-    "packages/comeni-core/src/comeni_core/profile.py",
+    "packages/comeni-core/src/comeni_core/goal/profile.py",
 }
 
 BYPASSES = ("model_construct", "model_validate", "model_validate_json")
@@ -154,7 +154,7 @@ def test_data_profile_is_constructed_in_one_place():
 
 PIPELINE_ALLOWED = {
     # the one validated constructor, and the module the class is defined in
-    "packages/comeni-core/src/comeni_core/pipeline.py",
+    "packages/comeni-core/src/comeni_core/artifact/pipeline.py",
 }
 
 PIPELINE_READERS = {
@@ -208,14 +208,17 @@ def test_an_assignment_alias_is_resolved(tmp_path):
     `pipeline_file.py`, with the guard green — a `Pipeline` built with no validation at all,
     which is the one thing `Pipeline.of` exists to prevent.
     """
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_P = Pipeline\n")
+    tree = ast.parse("from comeni_core.artifact.pipeline import Pipeline\n_P = Pipeline\n")
     assert "_P" in _aliases_of(tree, "Pipeline")
 
 
 def test_a_subclass_is_resolved(tmp_path):
     """The other spelling. A subclass is the class for construction purposes, and
     `class _P(Pipeline)` binds a name the import-only resolver never saw."""
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\nclass _P(Pipeline):\n    pass\n")
+    tree = ast.parse(
+        "from comeni_core.artifact.pipeline import Pipeline\n"
+        "class _P(Pipeline):\n    pass\n"
+    )
     assert "_P" in _aliases_of(tree, "Pipeline")
 
 
@@ -223,7 +226,7 @@ def test_an_alias_chain_is_resolved(tmp_path):
     """`_A = Pipeline` then `_B = _A`. One pass over the tree resolves the first and not the
     second, and a guard that stops after one hop is a guard with a two-line bypass."""
     tree = ast.parse(
-        "from comeni_core.pipeline import Pipeline\n_A = Pipeline\n_B = _A\n_C = _B\n"
+        "from comeni_core.artifact.pipeline import Pipeline\n_A = Pipeline\n_B = _A\n_C = _B\n"
     )
     assert {"_A", "_B", "_C"} <= _aliases_of(tree, "Pipeline")
 
@@ -231,7 +234,7 @@ def test_an_alias_chain_is_resolved(tmp_path):
 def test_an_unrelated_assignment_is_not_an_alias():
     """The negative. A guard that treats every assignment as an alias refuses code that
     never touched the class, and a refusal nobody can argue with is worse than a gap."""
-    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_other = SomethingElse\n")
+    tree = ast.parse("from comeni_core.artifact.pipeline import Pipeline\n_other = SomethingElse\n")
     assert _aliases_of(tree, "Pipeline") == {"Pipeline"}
 
 

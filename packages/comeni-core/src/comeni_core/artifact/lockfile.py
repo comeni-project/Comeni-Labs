@@ -20,15 +20,16 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.digest import digest_of, digest_of_directory
-from comeni_core.ir import PipelineIR
-from comeni_core.layer import layer_name
-from comeni_core.marks import ContainerRef, ContractId, Digest, LayerName
-from comeni_core.registry import Registry
+from comeni_core.artifact.digest import digest_of, digest_of_directory
+from comeni_core.declared.layer import layer_name
+from comeni_core.declared.registry import Registry
+from comeni_core.plan.ir import PipelineIR
+from comeni_core.spell.marks import ContainerRef, ContractId, Digest, LayerName
 
 if TYPE_CHECKING:  # pragma: no cover — the import exists for the annotation only
-    # `comeni_core.pipeline` imports this module, so a runtime import here would be a cycle.
-    from comeni_core.pipeline import Pipeline
+    # `comeni_core.artifact.pipeline` imports this module, so a runtime import here would be
+    # a cycle.
+    from comeni_core.artifact.pipeline import Pipeline
 
 
 class LockedContract(BaseModel):

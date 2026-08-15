@@ -2,13 +2,13 @@
 # Derived from registry/measurements/. Stale costs autocomplete, never correctness.
 #
 # A .pyi replaces its module for a type checker, so everything public in
-# comeni_core.profile is declared here — not only the overloads that motivated it.
+# comeni_core.goal.profile is declared here — not only the overloads that motivated it.
 from typing import Literal, overload
 
 from pydantic import BaseModel
 
-from comeni_core.marks import ContractId, MeasurementId, ParamValue
-from comeni_core.tiers import ValueSource
+from comeni_core.plan.tiers import ValueSource
+from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue
 
 class Measured(BaseModel):
     measurement: MeasurementId

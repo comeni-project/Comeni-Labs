@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from comeni_core.marks import Digest
+from comeni_core.spell.marks import Digest
 
 _ALGORITHM = "sha256"
 _CHUNK = 65536

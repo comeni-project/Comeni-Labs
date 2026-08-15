@@ -2,19 +2,19 @@
 
 from collections.abc import Sequence
 
-from comeni_core.contract import InputPort
-from comeni_core.decision import (
+from comeni_core.declared.contract import InputPort
+from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
+from comeni_core.plan.decision import (
     DecisionRecord,
     ParamAsked,
     ParamDecision,
     SourceAsked,
     SourceDecision,
 )
-from comeni_core.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.measurement import MeasurementRegistry
-from comeni_core.registry import Registry
-from comeni_core.tiers import ValueSource
-from comeni_core.vocabulary import UnknownTypeError, Vocabulary
+from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.plan.tiers import ValueSource
 
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver

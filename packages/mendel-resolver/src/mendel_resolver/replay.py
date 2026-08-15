@@ -14,9 +14,9 @@ one class and no changes to the resolver.
 
 from collections.abc import Sequence
 
-from comeni_core.decision import Ambiguity, DecisionRecord, Resolution
-from comeni_core.marks import DecisionKey
-from comeni_core.tiers import ValueSource
+from comeni_core.plan.decision import Ambiguity, DecisionRecord, Resolution
+from comeni_core.plan.tiers import ValueSource
+from comeni_core.spell.marks import DecisionKey
 
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 

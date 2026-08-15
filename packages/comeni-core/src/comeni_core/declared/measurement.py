@@ -18,7 +18,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core import yaml_strict
-from comeni_core.layered import (
+from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
     Kind,
@@ -27,9 +27,9 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import MeasurementId, ParamValue, TypeId
-from comeni_core.profile import DataProfile, Measured
-from comeni_core.tiers import ValueSource
+from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.plan.tiers import ValueSource
+from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
 
 
 class UnknownMeasurementError(KeyError):

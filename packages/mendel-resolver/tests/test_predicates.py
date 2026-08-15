@@ -7,7 +7,7 @@ number rather than evaluated as a negation.
 """
 
 import pytest
-from comeni_core.tiers import Tier
+from comeni_core.plan.tiers import Tier
 from mendel_resolver.predicates import PredicateError, matches, tier_of_row
 from mendel_resolver.premises import Premise, PremiseOrigin
 

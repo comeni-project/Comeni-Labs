@@ -21,15 +21,22 @@ Two rules govern what is in here, and they are converse:
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from comeni_core.contract import ModuleContract
-from comeni_core.decision import DecisionKind, DecisionRecord
-from comeni_core.digest import digest_of
-from comeni_core.egress import EgressPayload, Emitted
-from comeni_core.gates import Gate
-from comeni_core.goal import Goal
-from comeni_core.layered import Displacement
-from comeni_core.lockfile import LockedLayer
-from comeni_core.marks import (
+from comeni_core.artifact.digest import digest_of
+from comeni_core.artifact.egress import EgressPayload, Emitted
+from comeni_core.artifact.gates import Gate
+from comeni_core.artifact.lockfile import LockedLayer
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.layered import Displacement
+from comeni_core.goal.asked import Goal
+from comeni_core.goal.premise import PremiseRecord
+from comeni_core.plan.decision import DecisionKind, DecisionRecord
+from comeni_core.plan.tiers import (
+    ReviewLevel,
+    Tier,
+    ValueSource,
+    review_level_for,
+)
+from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
     Digest,
@@ -48,14 +55,7 @@ from comeni_core.marks import (
     TypeId,
     substitutable,
 )
-from comeni_core.premise import PremiseRecord
-from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
-from comeni_core.tiers import (
-    ReviewLevel,
-    Tier,
-    ValueSource,
-    review_level_for,
-)
+from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 SCHEMA_VERSION = 3
 """What this Mendel writes and the highest it will read.
@@ -811,7 +811,7 @@ class Pipeline(EgressPayload):
         and says it is legal because `Registry` is not payload-reachable; holding one here would
         silently end that.
         """
-        from comeni_core.lockfile import Lockfile
+        from comeni_core.artifact.lockfile import Lockfile
 
         lock = Lockfile.of(ir, registry, layers)
         pinned = {entry.id: entry for entry in lock.contracts}

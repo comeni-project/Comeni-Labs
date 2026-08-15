@@ -19,7 +19,7 @@ Two defects, from opposite ends:
 import pathlib
 
 import pytest
-from comeni_core.tiers import ReviewLevel, Tier, ValueSource
+from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
@@ -125,8 +125,8 @@ def test_the_artifact_states_the_review_level_beside_the_tier(loaded, tmp_path):
     stranger opens. Reverting the new computed field left every other test in this file
     green, in code written the same hour.
     """
-    from comeni_core.pipeline import Pipeline
-    from comeni_core.tiers import ReviewLevel as RL
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.plan.tiers import ReviewLevel as RL
 
     goal = _goal(loaded)
     pipeline = Pipeline.of(
@@ -148,7 +148,7 @@ def test_the_artifact_states_the_review_level_beside_the_tier(loaded, tmp_path):
 def test_the_review_level_is_derived_and_cannot_disagree_with_the_tier():
     """Two fields that can disagree is a field that will. Computed, never stored — `Why`
     already learned that once, which is why `for_value` exists (A104)."""
-    from comeni_core.ir import ResolvedValue
+    from comeni_core.plan.ir import ResolvedValue
 
     assert ResolvedValue(value=1, tier=Tier.CONVENTION, reason="x").review_level is (
         ReviewLevel.NONE

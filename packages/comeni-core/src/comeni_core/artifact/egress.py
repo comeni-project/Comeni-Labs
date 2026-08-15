@@ -18,9 +18,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from comeni_core.digest import digest_of_bytes
-from comeni_core.ir import PipelineIR
-from comeni_core.marks import (
+from comeni_core.artifact.digest import digest_of_bytes
+from comeni_core.plan.ir import PipelineIR
+from comeni_core.spell.marks import (
     ContractId,
     Digest,
     EdgeRef,
@@ -54,12 +54,13 @@ in one line and a prompt fits in it perfectly — invariant 14's whole argument.
 def _publication_payload() -> type[BaseModel]:
     """`Pipeline`, resolved late.
 
-    `comeni_core.pipeline` imports `Emitted` from this module, so naming the type at the top
-    would be a cycle. A function keeps the declaration in `DOORS` where every other door is
+    `comeni_core.artifact.pipeline` imports `Emitted` from this module, so naming the type
+    at the top would be a cycle. A function keeps the declaration in `DOORS` where every other
+    door is
     declared, rather than registering it from somewhere else — the point of that mapping is
     that the four doors are readable in one place.
     """
-    from comeni_core.pipeline import Pipeline
+    from comeni_core.artifact.pipeline import Pipeline
 
     return Pipeline
 
@@ -238,6 +239,6 @@ DOORS: dict[str, type[BaseModel]] = {
     # what crosses the door are one document rather than two that can disagree.
     #
     # Imported inside the mapping to keep this module's import graph acyclic:
-    # `comeni_core.pipeline` imports `Emitted` from here.
+    # `comeni_core.artifact.pipeline` imports `Emitted` from here.
     "publication": _publication_payload(),
 }

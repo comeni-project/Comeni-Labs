@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.contract import ModuleContract
-from comeni_core.vocabulary import UnknownStateError, Vocabulary
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 
 
 def _v(root):

@@ -1,6 +1,6 @@
 import pytest
-from comeni_core.measurement import BadMeasurementValueError, MeasurementRegistry
-from comeni_core.tiers import ValueSource
+from comeni_core.declared.measurement import BadMeasurementValueError, MeasurementRegistry
+from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import DataProfile, Goal
 from pydantic import ValidationError
 

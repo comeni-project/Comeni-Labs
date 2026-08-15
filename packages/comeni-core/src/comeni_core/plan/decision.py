@@ -25,7 +25,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.marks import (
+from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.spell.marks import (
     ContractId,
     DecisionKey,
     EdgeRef,
@@ -38,7 +39,6 @@ from comeni_core.marks import (
     Subject,
     TypeId,
 )
-from comeni_core.tiers import Tier, ValueSource
 
 
 class DecisionKind(StrEnum):
