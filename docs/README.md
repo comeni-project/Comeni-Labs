@@ -34,7 +34,7 @@ surprised you.
 was considered and rejected, and what the constraints are. Longer and more opinionated than
 the concept pages; written to be argued with.
 
-**[internal/](internal/)** — working notes. Implementation plans and audits, kept for
+**[internal/](../notes/)** — working notes. Implementation plans and audits, kept for
 provenance. Not maintained as documentation.
 
 ## One page above all

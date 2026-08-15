@@ -514,7 +514,7 @@ def test_upgrade_self_guard_sees_a_relative_out(tmp_path, monkeypatch):
     assert code == 2, "a relative --out onto the source is still in-place"
 
 
-V1_FIXTURE = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1"
+V1_FIXTURE = ROOT / "notes" / "audits" / "fixtures" / "pipeline-v1"
 
 
 def _archived(tmp_path):

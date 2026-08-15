@@ -5,7 +5,7 @@
 **Mockup:** [`forge-review.html`](forge-review.html) — self-contained, open in a browser.
 
 Design for the curator-facing screens described in
-[Plan 2](../internal/plans/2026-08-02-mendel-ai-and-forge.md), Tasks 8–10. Shares the
+[Plan 2](../../notes/plans/2026-08-02-mendel-ai-and-forge.md), Tasks 8–10. Shares the
 token system in [the dashboard design](dashboard.md); only the
 additions are recorded here.
 

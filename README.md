@@ -197,7 +197,7 @@ fixture that happens to be true. `examples/` holds an example goal and nothing e
 
 ## The audit
 
-[`docs/internal/audits/2026-08-03-plan-1-audit.md`](docs/internal/audits/2026-08-03-plan-1-audit.md)
+[`notes/audits/2026-08-03-plan-1-audit.md`](notes/audits/2026-08-03-plan-1-audit.md)
 is linked deliberately. Three guards claimed to enforce the properties this project sells, and an
 independent reviewer broke all three on first attempt — each the same way, by checking the surface
 it was written against and stopping at the first boundary. One fell to four lines:

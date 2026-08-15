@@ -22,7 +22,7 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`docs/internal/journal/`](docs/internal/journal/).**
+> **Start with the latest entry in [`notes/journal/`](notes/journal/).**
 > It is append-only and dated, so it cannot silently go stale the way this section can —
 > and it carries what is next, what was decided, and what a fresh reader gets wrong. This
 > section is a summary; the journal is the handoff.
@@ -38,7 +38,7 @@ code match the design" but "does the design deliver the claim". The answer split
 claim in two, and that split is the most useful thing it produced. *"Same goal in → same
 pipeline out"* **holds**, and is stronger than `ARCHITECTURE.md` §8 claims. *"Nothing was
 guessed silently"* **does not**: five of the six values reaching the generated Nextflow carried
-no `why:` at all. Read `docs/internal/audits/2026-08-14-design-audit.md`; the four stream reports
+no `why:` at all. Read `notes/audits/2026-08-14-design-audit.md`; the four stream reports
 beside it are its evidence.
 
 **Plan 1.15 is complete — the rule format, re-derived.** Twelve tasks. A tier-3 rule now targets
@@ -49,12 +49,12 @@ the same `alignment.bam` key, and REPLACE stacking settled the collision by dele
 at exit 0. A **premise layer** builds the facts `when` reads, each carrying where it came from,
 which is A108 and the hook `sealed` needs for issue #2; `pipeline.yml` is at **`version: 3`** and
 a measured build and an asserted one are no longer byte-identical. Read
-`docs/internal/journal/2026-08-15-evening.md`, then `ARCHITECTURE.md` §Rule tables.
+`notes/journal/2026-08-15-evening.md`, then `ARCHITECTURE.md` §Rule tables.
 
 **Six of twenty real rules could be written before; seventeen can now**, and the four that cannot
 are refused for reasons the plan names. `tests/test_rule_corpus.py` is the assertion and
 `tests/fixtures/rule-corpus/` is the corpus;
-`docs/internal/audits/fixtures/rule-attempts/` stays frozen as the record of what broke.
+`notes/audits/fixtures/rule-attempts/` stays frozen as the record of what broke.
 
 **Plans 1.13 and 1.14 are both complete.** 1.13 closed the five findings that produce wrong
 output or block Plan 2 — A92, A118, A125, A126, A129. **1.14 closed roots 1–3, the explanation
@@ -115,7 +115,7 @@ new.**
 
 **A14 is critical and open, and stays open.** It is that a guard never watched failing may be
 inert rather than merely weak, and it closes only when every guard in `tests/` has a recorded
-revert. **`docs/internal/audits/guard-ledger.md` is that record.**
+revert. **`notes/audits/guard-ledger.md` is that record.**
 
 **Its residue is measured per *guard*, not per file** — that is A69, and the distinction matters
 because the file-level number reads as nearly done and is not. Every test *file* now has at least
@@ -134,13 +134,13 @@ closing round two, two of them in code written that same day: `stack()`'s
 A55, A56, A57, A58, A59 and A70.** The other fifteen findings are filed as issues and carried
 deliberately. **By the operator's decision on 2026-08-13, 1.12 is the last audit-driven plan and
 the design audit and then Plan 2 follow**, which overrides the loop's own exit criterion — see
-`docs/internal/README.md` for that decision and the argument against it. The design audit is not
+`notes/README.md` for that decision and the argument against it. The design audit is not
 part of that loop and does not reopen it: it asks whether the design delivers the product claim,
 and its findings shape Plan 2 rather than becoming a Plan 1.13. Earlier rounds used the
 same revert-and-watch + cold-reviewer method in
-`docs/internal/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
-finding surviving a fresh audit. Read `docs/internal/journal/2026-08-10-evening.md` for what 1.11
-shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
+`notes/audits/2026-08-07-round-two-brief.md`, because A14 exits only on no critical
+finding surviving a fresh audit. Read `notes/journal/2026-08-10-evening.md` for what 1.11
+shipped and corrected, then `notes/README.md`. Then Plan 2.
 
 | Read this | For |
 |---|---|
@@ -149,31 +149,31 @@ shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
 | `docs/design/clinical-data-protection.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
 | `docs/design/rule-tables-and-port-logic.md` | the **superseded** rule format. Plan 1.15 replaced it; read `ARCHITECTURE.md` §Rule tables and the spec below |
-| `docs/internal/specs/2026-08-15-root-5-the-rule-format.md` | **the rule format, and why each part is shaped as it is. Implemented by Plan 1.15.** |
-| `docs/internal/plans/2026-08-15-the-rule-format.md` | Plan 1.15 — twelve tasks. **Complete**, with each task's corrections recorded inline |
+| `notes/specs/2026-08-15-root-5-the-rule-format.md` | **the rule format, and why each part is shaped as it is. Implemented by Plan 1.15.** |
+| `notes/plans/2026-08-15-the-rule-format.md` | Plan 1.15 — twelve tasks. **Complete**, with each task's corrections recorded inline |
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
-| `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
-| `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
-| `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
-| `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
-| `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **twelve specs. Nine per audit root, plus three design specs — the pipeline file, the rule drafter, and the rule format. Read the part's spec before starting it.** |
-| `docs/internal/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
+| `notes/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
+| `notes/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
+| `notes/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
+| `notes/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
+| `notes/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
+| `notes/specs/` | **twelve specs. Nine per audit root, plus three design specs — the pipeline file, the rule drafter, and the rule format. Read the part's spec before starting it.** |
+| `notes/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
 | `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
-| `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
-| `docs/internal/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
-| `docs/internal/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
-| `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
-| `docs/internal/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
-| `docs/internal/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
-| `docs/internal/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
+| `notes/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
+| `notes/plans/2026-08-07-closing-round-two.md` | Plan 1.9 — nine parts, A–I. **Complete**, with each part's corrections inline. |
+| `notes/audits/guard-ledger.md` | **A14's closure condition. Append-only; every guard, reverted and watched.** |
+| `notes/audits/2026-08-06-plan-1-to-1.7-audit.md` | **16 findings. A1–A13 and A15 closed; A14 and A16 open. Read A14 first.** |
+| `notes/plans/2026-08-02-mendel-deterministic-spine.md` | Plan 1 — 13 TDD tasks, zero AI. **Complete.** Read for how the spine works. |
+| `notes/plans/2026-08-03-measurements-rules-and-profiling.md` | 11 tasks implementing both 2026-08-03 specs. **Complete.** |
+| `notes/plans/2026-08-04-the-runnable-spine.md` | Plan 1.5 — ext_args, the meta map, and why the spine counted wrong. **Complete.** |
 | `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable, and what it means for the forge |
-| `docs/internal/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
-| `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
-| `docs/internal/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
-| `docs/internal/plans/2026-08-07-the-pipeline-file.md` | Plan 1.10 — 12 tasks. **Complete**, with each task's corrections recorded inline. |
-| `docs/internal/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
-| `docs/internal/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
+| `notes/plans/2026-08-05-conformance-checking.md` | Plan 1.6 — a contract must tell the truth about its module. **Complete.** |
+| `notes/plans/2026-08-04-publication-and-the-registry-split.md` | Plan 1.7 — lockfiles, publish, upgrade, replay, registry split. **Complete.** |
+| `notes/plans/2026-08-06-closing-the-audit.md` | Plan 1.8 — closed A1–A13 and A15. **Complete.** |
+| `notes/plans/2026-08-07-the-pipeline-file.md` | Plan 1.10 — 12 tasks. **Complete**, with each task's corrections recorded inline. |
+| `notes/plans/2026-08-02-mendel-ai-and-forge.md` | Plan 2 — AI adapters + contract forge |
+| `notes/plans/2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — FastAPI + React dashboard |
 | `docs/design/*.md` + `.html` | visual design, with self-contained mockups |
 
 ## How to start implementing — decided 2026-08-02, read this first
@@ -189,10 +189,10 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
-- **Execution order lives in `docs/internal/README.md`**, not in the filenames — two plans share
+- **Execution order lives in `notes/README.md`**, not in the filenames — two plans share
   a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
   That audit asks a question the four guard rounds never did — whether the design itself
-  delivers the claim — and `docs/internal/audits/2026-08-14-design-audit-brief.md` is its
+  delivers the claim — and `notes/audits/2026-08-14-design-audit-brief.md` is its
   method, because "revert and watch" cannot be run against a design. Round four ran and
   Plan 1.12 closed its criticals; by the operator's decision on 2026-08-13 no further audit round
   gates Plan 2, which overrides the loop's *no critical finding surviving* exit criterion. That
@@ -206,7 +206,7 @@ That is the operator's instruction, not a suggestion. Concretely:
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
 reachable.
 
-**Plan 1.7 is written** — `docs/internal/plans/2026-08-04-publication-and-the-registry-split.md`,
+**Plan 1.7 is written** — `notes/plans/2026-08-04-publication-and-the-registry-split.md`,
 nine tasks, against the types that exist rather than the ones the spec predicted. Three of those
 predicted types did not exist and the plan creates them (`PipelineIR.registry_layers`,
 `PipelineIR.shadowed`, `PublishBundle.goal`); one did and is the key to replay
@@ -484,7 +484,7 @@ Bare `comeni` is unavailable everywhere that matters — the GitHub user, and `c
 positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
 
 **Because it is public now**, two things follow. Write for a stranger: `docs/` is split by
-audience — `guides/`, `reference/`, `concepts/`, `design/` — and `docs/internal/` holds the
+audience — `guides/`, `reference/`, `concepts/`, `design/` — and `notes/` holds the
 plans and audits, labelled as working notes rather than documentation. And **auto-phylo is
 not discussed**: it was removed from the prior-art section on 2026-08-04 by the operator's
 decision. `pegi3s` appears only as what is useful about it — a repository of ~190

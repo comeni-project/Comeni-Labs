@@ -2,7 +2,7 @@
 
 > **Superseded for the rule format itself.** Plan 1.15 replaced `decides:` with an effect on a
 > **role** and added a premise layer; read `ARCHITECTURE.md` §Rule tables and
-> [`docs/internal/specs/2026-08-15-root-5-the-rule-format.md`](../internal/specs/2026-08-15-root-5-the-rule-format.md).
+> [`notes/specs/2026-08-15-root-5-the-rule-format.md`](../../notes/specs/2026-08-15-root-5-the-rule-format.md).
 >
 > **§13's three reasoned limits are now all answered.** Completeness is checked against the
 > declared domain (`MD0311`); `when` reads goal facts and derived facts as well as measurements;

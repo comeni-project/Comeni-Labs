@@ -187,7 +187,7 @@ hundred group by concern: `MD01xx` is conformance. A code is never renumbered on
 full band overflows into a new one rather than shifting.
 
 **The prefix arrived on 2026-08-09**; these eight were `M0100`–`M0107` before that. Working notes
-under `docs/internal/` are append-only and were correct on their date, so entries written earlier
+under `notes/` are append-only and were correct on their date, so entries written earlier
 still use the old spelling.
 
 `MD0100` is not a failure. A laboratory wrapping a bare container has no nf-core-style module

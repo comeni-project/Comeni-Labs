@@ -188,7 +188,7 @@ class Emitted(BaseModel):
     written under version 1, which is precisely the claim being made.
 
     Found while executing Plan 1.13, not by the design audit. The fixture that demonstrates
-    it is `docs/internal/audits/fixtures/pipeline-v1/`.
+    it is `notes/audits/fixtures/pipeline-v1/`.
     """
 
     files: list[EmittedFile] = []

@@ -79,7 +79,7 @@ fixtures rather than as a shipped registry.
 ### Security
 
 - **The 2026-08-06 audit's thirteen findings are closed** (A1–A13), plus A15, found while
-  fixing A5. See `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; **A14 and A16 remain
+  fixing A5. See `notes/audits/2026-08-06-plan-1-to-1.7-audit.md`; **A14 and A16 remain
   open**, deliberately, and are described there.
 - **Invariant 1 is enforced at runtime, and its claim is now accurate.** A file in
   `comeni-core` importing only allowlisted names reached `os.system` via `pathlib.os` and

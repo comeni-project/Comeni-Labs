@@ -4,7 +4,7 @@ Kept in one file rather than scattered into the suites they belong to, because t
 question a reader has is "is A9 still closed?" and the answer should not require knowing
 which module A9 was about. Each test carries the finding's one-line summary.
 
-The audit is `docs/internal/audits/2026-08-06-plan-1-to-1.7-audit.md`; every finding
+The audit is `notes/audits/2026-08-06-plan-1-to-1.7-audit.md`; every finding
 there records how it was reproduced, which is what these tests are the standing version of.
 """
 

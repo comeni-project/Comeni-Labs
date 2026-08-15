@@ -39,7 +39,7 @@ def _load(out) -> Pipeline:
     return Pipeline.model_validate(yaml.safe_load((out / "pipeline.yml").read_text()))
 
 
-ARCHIVED = ROOT / "docs" / "internal" / "audits" / "fixtures" / "pipeline-v1" / "pipeline.yml"
+ARCHIVED = ROOT / "notes" / "audits" / "fixtures" / "pipeline-v1" / "pipeline.yml"
 """A pipeline written before Plan 1.13, committed rather than built.
 
 A fixture produced by the code under test cannot demonstrate anything about reading what a
