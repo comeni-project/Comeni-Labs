@@ -1802,3 +1802,22 @@ generator spliced a table between `BEGIN`/`END` markers inside `docs/reference/c
 everything outside the markers was equal to itself by construction. A hand-edited heading, band
 table or explanatory paragraph was preserved and reported fresh. The whole page is generated now,
 and the row above is that difference watched.
+
+| 2026-08-16 | `test_a4_publishing_records_the_gate_that_actually_ran` | the `artifact_verbs` patch removed, with `nextflow` shadowed by a stub that exits 127 | failed | `assert 1 == 0` |
+
+**This one was green locally for the wrong reason, and CI is what said so.** The `cli.py` split
+moved `publish`'s gate call into `artifact_verbs`, and the test went on patching only
+`resolve_verbs` — so `publish` ran the *real* gate. On a developer machine `nextflow` is on PATH
+and the real gate passes, so `make check` was green; on CI it is not installed and the gate failed.
+The sibling `test_a4_a_failed_gate_publishes_nothing` had already needed both patches, which is
+what should have prompted checking this one.
+
+**The revert above was watched under the CI condition rather than the local one**, by shadowing
+`nextflow` with a stub that always exits non-zero. Running the whole fast suite that way found no
+other test relying on a real Nextflow — the two in `test_gates.py` that fail under the stub are
+correctly `skipif`-guarded and skip on CI, so the stub finding them is an artefact of
+`shutil.which` seeing a file rather than a defect.
+
+**The general shape, for the third time in this plan:** a check can pass because of something
+about the machine it ran on. A67 is the version where a rename disables a guard; this is the
+version where an installed tool does. `make check` being green is evidence about one environment.

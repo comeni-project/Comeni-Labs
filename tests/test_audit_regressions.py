@@ -690,12 +690,19 @@ def test_a4_the_artifact_records_which_gate_it_passed():
 def test_a4_publishing_records_the_gate_that_actually_ran(tmp_path, monkeypatch):
     import yaml
     from mendel_compiler import cli
-    from mendel_compiler.cli import resolve_verbs
+    from mendel_compiler.cli import artifact_verbs, resolve_verbs
     from mendel_compiler.gates import GateResult
 
-    monkeypatch.setattr(
-        resolve_verbs, "run_gate", lambda gate, out: GateResult(gate=gate, passed=True)
-    )
+    # **Two patches, because the gate runs twice from two modules.** `build` invokes it from
+    # `resolve_verbs` and `publish` from `artifact_verbs`, and `run_gate` is looked up in the
+    # calling module. Patching only the first left `publish` running the *real* gate — which
+    # passes on a developer machine with `nextflow` on PATH and fails in CI, where it is not
+    # installed. The test was green locally for the wrong reason, and CI is what said so.
+    def _passes(gate, out):
+        return GateResult(gate=gate, passed=True)
+
+    monkeypatch.setattr(resolve_verbs, "run_gate", _passes)
+    monkeypatch.setattr(artifact_verbs, "run_gate", _passes)
     out = tmp_path / "p"
     assert cli.main([
         "build", "--goal", str(Path("examples/rnaseq-goal.yml")),
