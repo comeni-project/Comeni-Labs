@@ -36,16 +36,28 @@ whole family for them. The third condition is what makes it a real check rather 
 stage refuses with a code, a subject and a fix. Loading refuses with `ValidationError`, which
 names a Python class and a field path — not a file, and not what to write instead.
 
-**Six codes, chosen from the failures the loaders can actually produce**, not from imagination:
+**The codes are derived from the refusals that exist, not invented.** Writing this spec
+against the tree found seven uncoded `raise` sites in the loading path and two failures that are
+not refused at all — so the set below is *"every load-time refusal gets a code, plus the two that
+should exist"*, which is also issue #18's complaint (`MD0300`–`MD0399` was reserved for the same
+reason and most `raise` sites are bare `ValueError`).
 
-| code | says |
-|---|---|
-| `MD0001` | a declared file is not valid YAML |
-| `MD0002` | a declared file is in the wrong kind's directory |
-| `MD0003` | a declared file is missing a required field, or carries an undeclared one |
-| `MD0004` | a layer has no `registry.yml`, or its manifest disagrees with what it holds |
-| `MD0005` | a vocabulary state is used but never declared |
-| `MD0006` | a role is named by a rule or a contract and filled by nothing in any loaded layer |
+| code | says | where |
+|---|---|---|
+| `MD0001` | a declared file is not valid YAML | **new** — wraps `kind.parse(path)` in `stack()` |
+| `MD0002` | a declared file does not match its schema | **new** — same wrap, names the file and field rather than the model |
+| `MD0003` | a layer holds a `.yml` no kind reads | `layers.py` `_every_file_is_claimed` (A26) |
+| `MD0004` | a layer contains a symlink | `layers.py`, the A9 refusal |
+| `MD0005` | a layer holds no declared data — the submodule is not checked out | `layers.py`, added by #46 as a bare `ValueError` |
+| `MD0006` | a key is declared twice inside one layer | `layered.py` `stack()` |
+| `MD0007` | `add_states` carries other fields as well | `vocabulary.py` |
+| `MD0008` | `add_states` names a type no layer declares | `vocabulary.py` |
+| `MD0009` | a contract requires a state no layer declares | `vocabulary.py` `UnknownStateError`, joined to the displacing layer by `_blame_the_overlay` (A35) |
+
+**Scope is loading declared data, not using it.** `MeasurementRegistry`'s value checks fire on a
+*goal's profile* and `Registry.__getitem__`'s `KeyError` fires on a lookup; both are uses of
+loaded data and belong to `MD0300`–`MD0399`, where routing already lives. Putting them here would
+make the band mean "anything near a file", which is how a band stops being a band.
 
 **`stack()` is where most of this belongs**, because invariant 11 says every kind loads through
 it — one place rather than five. `MD0005` and `MD0006` are cross-kind and belong in
