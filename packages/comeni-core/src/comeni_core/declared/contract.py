@@ -522,6 +522,15 @@ class ModuleContract(BaseModel):
     @classmethod
     def load(cls, path: Path, vocab: Vocabulary) -> "ModuleContract":
         data = yaml_strict.load(path)
+        # `declares: contract` is how a file says what it is now that the directory does not
+        # (comeni-registry#1). Popped rather than declared as a field: it is the loader's
+        # business, not the contract's, and `extra="forbid"` means it has to go somewhere.
+        #
+        # **`declares:`, not `kind:`** — a measurement already has a `kind:`, and it means
+        # the kind of its *value* (`integer`, `enum`). Two meanings for one key in the same
+        # file is how a loader comes to strip a field it did not write.
+        if isinstance(data, dict):
+            data.pop("declares", None)
         try:
             contract = cls.model_validate(data)
         except ValidationError as exc:

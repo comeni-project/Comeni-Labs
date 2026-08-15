@@ -78,8 +78,21 @@ class TypeExtension(BaseModel):
 
 
 def _parse_type(path: Path) -> list[TypeDeclaration | TypeExtension]:
-    type_id = path.name.removesuffix(".yaml").removesuffix(".yml")
+    """One vocabulary file — a type declaration, or an extension of one.
+
+    **`declares:` is accepted and ignored, and `id:` wins over the filename.** Both are part of
+    comeni-registry#1: a layer was one directory per kind because the directory was how the
+    loader knew what a file was, and vocabularies took their identity from the filename on top
+    of that — so a type could not be moved without being renamed.
+
+    Ignored rather than checked *here* on purpose. Every declared model sets `extra="forbid"`,
+    so without accepting `declares:` a migrated file would fail to load, and the registry could not
+    be migrated one file at a time. The task that makes it required is the one that stops
+    reading the directory.
+    """
     data = yaml_strict.load(path) or {}
+    data.pop("declares", None)
+    type_id = data.pop("id", None) or path.name.removesuffix(".yaml").removesuffix(".yml")
     added = data.pop("add_states", None)
     if added is not None:
         if data:

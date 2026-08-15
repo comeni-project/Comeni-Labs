@@ -203,10 +203,14 @@ class MeasurementDelta(BaseModel):
 def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
     """One measurement file — a declaration, or an extension of one.
 
-    The filename is the id, so a measurement cannot disagree with what it is called.
+    The filename is the id unless the file declares one — comeni-registry#1, so a file can be
+    moved without being renamed. `declares:` is accepted and ignored for the same reason: every
+    declared model forbids extra fields, so a migrated file must load before the loader starts
+    depending on the field.
     """
-    measurement_id = path.name.removesuffix(".yaml").removesuffix(".yml")
     data = yaml_strict.load(path) or {}
+    data.pop("declares", None)
+    measurement_id = data.pop("id", None) or path.name.removesuffix(".yaml").removesuffix(".yml")
     added = data.pop("add_values", None)
     if added is not None:
         if data:
