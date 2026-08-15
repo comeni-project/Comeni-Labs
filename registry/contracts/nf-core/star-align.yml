@@ -3,7 +3,17 @@ roles: [alignment]
 nf_process: STAR_ALIGN
 nf_include: modules/nf-core/star/align/main
 consumes:
-  - {name: reads, type_id: fastq.reads, state_required: [trimmed]}
+  - name: reads
+    type_id: fastq.reads
+    state_required: []
+    state_required_conventional: [trimmed]
+    state_conventional_because: >-
+      STAR soft-clips adapter sequence rather than requiring it removed, and
+      nf-core/rnaseq ships --skip_trimming precisely because trimming is optional.
+      So trimming is a convention worth keeping by default and not a constraint:
+      declaring it structural made a rule that skips trimming produce an unroutable
+      pipeline rather than a shorter one.
+
   - {name: index, type_id: genome.index.star, state_required: []}
   - {name: gtf, type_id: annotation.gtf, state_required: []}
 produces: [{name: bam, type_id: alignment.bam, state: []}]

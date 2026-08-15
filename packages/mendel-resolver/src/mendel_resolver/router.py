@@ -154,6 +154,7 @@ def route(
     max_depth: int = 10,
     *,
     premises: dict[str, object] | None = None,
+    absent_roles: frozenset[str] = frozenset(),
 ) -> RoutePlan:
     """A rule table needs the premises it will be matched against, and says so.
 
@@ -185,7 +186,14 @@ def route(
 
         # A contract cannot satisfy its own input. SAMTOOLS_SORT consumes alignment.bam
         # and produces alignment.bam; without this it selects itself forever.
-        candidates = [c for c in registry.producers_of(type_id, states) if c.id not in visiting]
+        # A `presence: absent` decision removes every contract filling that role, which is
+        # why the decision targets a role rather than a contract: a laboratory that adds a
+        # second trimmer does not have to name it in the rule that turns trimming off.
+        candidates = [
+            c
+            for c in registry.producers_of(type_id, states)
+            if c.id not in visiting and not (absent_roles & set(c.roles))
+        ]
         if not candidates:
             raise UnroutableError(f"nothing produces {type_id} with states {sorted(states)}")
 

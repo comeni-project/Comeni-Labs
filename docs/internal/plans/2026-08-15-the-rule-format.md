@@ -1154,14 +1154,38 @@ Expected: PASS. **`make verify` is mandatory here** — this is a routing change
 
 - [ ] **Step 6: Watch the guard fail, then commit**
 
-Move `trimmed` back to `state_required` on `star-align.yml` and confirm
-`test_removing_a_conventionally_required_state_still_routes` fails with the real
-`nothing produces fastq.reads with states ['trimmed']` message. Restore, record, then:
+Move `trimmed` back to `state_required` on `star-align.yml`; three tests fail with the real
+`nothing produces fastq.reads with states ['trimmed']` message. Then revert the `absent_roles`
+filter, the conventional alternative, and the `resolve()` wiring in turn. Restore, record, then:
 
 ```bash
-git add packages/comeni-core packages/mendel-resolver registry/
-git commit -m "feat: a step can be absent, and a convention cannot block routing (A119)"
+git add -A
+git commit -m "feat: a step can be absent, and a convention cannot block routing (§8.2)"
 ```
+
+> **Corrected 2026-08-15, on execution. Four things.**
+>
+> 1. **The fallback is two `Alternative`s, not a flag threaded through the router.** `accepts`
+>    already means *try this, then that*, first-match-wins, so `alternatives()` returns the
+>    conventional form followed by the structural one. A second mechanism for the same idea is
+>    a second place for the two to disagree, and `_satisfy_port`'s failure list stays correct
+>    for free.
+> 2. **A conventional requirement must keep driving insertion**, and the plan does not say so.
+>    Simply dropping `trimmed` from `state_required` deletes trimming from *every* pipeline:
+>    the goal's raw `fastq.reads` then satisfies the aligner directly and TrimGalore is never
+>    inserted. `test_the_spine_still_inserts_trimming_when_no_rule_removes_it` is the guard,
+>    and reverting the fallback fails it and the spine reachability test and nothing else.
+> 3. **`state_conventional_because`, not `state_required_because`.** The latter reads as
+>    justifying `state_required`, which is the field it is not about, and the distinction
+>    between the two is the whole of §8.2.
+> 4. **`resolve()` computes `absent_roles` from `presence_for`, and an end-to-end test covers
+>    it.** `presence_for` shipped in Task 4 and nothing called it; a method being correct is a
+>    separate fact from anything calling it, which is Task 0's recorded lesson.
+>
+> **`presence: present` does nothing, and that is deliberate.** It is the default branch of a
+> presence decision — "absent below 50bp, otherwise present" — where *present* means leave
+> routing alone. Forcing a step routing would not otherwise insert is a different feature and
+> is §4.1's open half; it is carried, not implemented.
 
 ---
 

@@ -80,7 +80,16 @@ def resolve(
     premises = build_premises(
         goal=goal, derivations=rules.derivations, measurements=measurements
     )
-    plan = route(goal, registry, rules, resolver, premises=premises)
+    # A `presence: absent` decision is read here rather than inside `route()`, because it is
+    # a *decision* and the router does not hold a rule table's semantics — it holds a graph.
+    # Roles rather than contract ids for the same reason the decision targets one.
+    absent = frozenset(
+        role
+        for role in _roles_in(registry)
+        if (fired := rules.presence_for(role, premises)) is not None
+        and fired.value == "absent"
+    )
+    plan = route(goal, registry, rules, resolver, premises=premises, absent_roles=absent)
     ir = PipelineIR(
         profile=goal.profile,
         registry_layers=list(layer_names),
@@ -266,6 +275,16 @@ def _source_for(
             )
         )
     return chosen
+
+
+def _roles_in(registry: Registry) -> list[str]:
+    """Every role some contract in this stack fills, sorted.
+
+    Sorted because the set it builds feeds a routing decision, and an iteration order that
+    depends on registry insertion is exactly what invariant 10 forbids — even where the
+    result is a set and the order cannot show. It costs nothing and it removes the question.
+    """
+    return sorted({role for contract in registry.all() for role in contract.roles})
 
 
 def _resolve_param(

@@ -61,6 +61,32 @@ class InputPort(BaseModel):
     name: PortName
     type_id: TypeId = ""
     state_required: frozenset[str] = frozenset()
+    """States this port cannot function without. A **structural** constraint: their absence
+    is unroutable and is refused, rather than routed around."""
+
+    state_required_conventional: frozenset[str] = frozenset()
+    """States this port is conventionally given but does not require.
+
+    `star/align` declared `state_required: [trimmed]`, and STAR soft-clips adapters —
+    nf-core/rnaseq's `--skip_trimming` exists precisely because trimming is optional. So the
+    contract encoded a tier-2 convention as a tier-1 constraint, and a rule deciding that
+    trimming should be absent produced an **unroutable pipeline** rather than a shorter one.
+    Same disease as "the only contract that produces this" (A113), one layer down.
+
+    It still drives insertion: the router asks for the conventional states first and falls
+    back to the structural ones only when nothing can supply them. Dropping them outright
+    would delete trimming from every pipeline, which is a far larger change than the one this
+    field is for.
+    """
+
+    state_conventional_because: str = ""
+    """Why those states are a convention and not a requirement.
+
+    Named for the field it explains rather than for the field beside it. A
+    `state_required_because` would read as justifying `state_required`, which is the one it
+    is not about — and the distinction between the two is the entire content of §8.2.
+    """
+
     state_preferred: frozenset[str] = frozenset()
     """Deprecated spelling of `prefer`, kept so no vendored contract breaks."""
     accepts: list[Alternative] = Field(default_factory=list)
@@ -79,7 +105,9 @@ class InputPort(BaseModel):
     """
     cardinality: str = "1"
 
-    @field_serializer("state_required", "state_preferred", "prefer")
+    @field_serializer(
+        "state_required", "state_required_conventional", "state_preferred", "prefer"
+    )
     def _sorted(self, states: frozenset[str]) -> list[str]:
         """Plan 1.7's lockfile pins a contract digest, which hashes exactly these."""
         return sorted(states)
@@ -95,9 +123,26 @@ class InputPort(BaseModel):
         return self
 
     def alternatives(self) -> list[Alternative]:
+        """The conventional form first, the structural form as the fallback.
+
+        Expressed as two alternatives rather than as a flag threaded through the router,
+        because `accepts` already means exactly this — "a BAM, or failing that a CRAM",
+        first-match-wins — and a second mechanism for *try this, then that* would be a second
+        place for the two to disagree. The failure list `_satisfy_port` builds is then also
+        correct for free.
+        """
         if self.accepts:
             return self.accepts
-        return [Alternative(type_id=self.type_id, states=self.state_required)]
+        structural = Alternative(type_id=self.type_id, states=self.state_required)
+        if not self.state_required_conventional:
+            return [structural]
+        return [
+            Alternative(
+                type_id=self.type_id,
+                states=self.state_required | self.state_required_conventional,
+            ),
+            structural,
+        ]
 
 
 class OutputPort(BaseModel):

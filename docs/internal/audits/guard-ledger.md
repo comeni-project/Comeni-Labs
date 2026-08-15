@@ -1208,3 +1208,42 @@ real data and asserts featureCounts got the strandedness that was measured — s
 lookup that silently stopped finding the aligner rule would show up there and nowhere else in the
 686 tests. It passed, which is the evidence that `implementation:alignment` routes what
 `producer_of:alignment.bam` used to.
+
+## Plan 1.15 Task 5 — a step can be absent, and a convention cannot block routing (§8.2)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_presence.py::test_removing_a_conventionally_required_state_still_routes` (+2) | `trimmed` moved back to `state_required` on `star-align.yml` | **3 failed** | `nothing produces fastq.reads with states ['trimmed']` — the finding itself, printed |
+| 2026-08-15 | `test_presence.py` ×4 | the `absent_roles & set(c.roles)` filter in `route()` | **4 failed** | `TypeError`/`nf-core/trimgalore@0.6.10` still in the plan |
+| 2026-08-15 | `test_presence.py::test_the_spine_still_inserts_trimming_when_no_rule_removes_it`, `test_spine_contracts.py::test_counts_matrix_is_reachable_from_raw_reads` | the conventional alternative in `InputPort.alternatives()` | **2 failed** | trimming absent from a pipeline no rule touched |
+| 2026-08-15 | `test_presence.py::test_a_presence_absent_rule_removes_the_step_from_a_built_pipeline` | the `fired.value == "absent"` test in `resolve()` | failed | the step is still in `ir.nodes` |
+
+**Revert A prints the finding.** `nothing produces fastq.reads with states ['trimmed']` is
+exactly what a rule saying *"skip trimming"* produced before the split: not a shorter pipeline
+but an unbuildable one. The guard's message and the audit finding are the same sentence, which is
+the most useful thing a revert can produce.
+
+**Revert C is the half that is easy to get wrong, and it fails loudly.** Removing the
+*conventional* alternative from `alternatives()` does not merely stop the fallback — it deletes
+trimming from every pipeline, including ones no rule touches, because the goal's raw `fastq.reads`
+then satisfies the aligner directly and TrimGalore is never inserted. A conventional requirement
+has to keep driving insertion, and `test_the_spine_still_inserts_trimming_when_no_rule_removes_it`
+exists solely to pin that. It was written *before* the implementation for that reason, and the
+revert confirms it is not decorative: it and the spine reachability test are the only two that
+notice.
+
+**The end-to-end test was added because the wiring was otherwise untested.** `presence_for` had
+existed since Task 4 and nothing called it; `resolve()` calling it is a separate fact from the
+method being correct. Four green tests over a role check no loader ran is exactly what Task 0
+recorded, so the test goes through `resolve()` on a real layer stack with a real rule file.
+Revert D — the one line in `resolve()` — fails it and nothing else, which is the point.
+
+**`state_conventional_because`, not `state_required_because`.** The plan's file list names the
+latter, and it would read as justifying `state_required` — the one field it is not about. The
+distinction between the two fields is the entire content of §8.2, so a name that blurs them is
+the wrong name. §4.7's rule applied to a field name rather than to a value.
+
+**`presence: present` currently does nothing, deliberately and not silently.** It is the default
+branch of a presence decision — *"absent below 50bp, otherwise present"* — where "present" means
+leave routing alone, which is a real answer rather than a dead one. Forcing a step that routing
+would not otherwise insert is a different feature, is spec §4.1's open half, and is carried.
