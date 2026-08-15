@@ -16,7 +16,7 @@ import pytest
 from comeni_core.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
-from mendel_resolver.premises import PremiseOrigin, build_premises
+from mendel_resolver.premises import PremiseError, PremiseOrigin, build_premises
 from mendel_resolver.rules import Derivation
 
 ROOT = pathlib.Path(__file__).parents[3]
@@ -322,3 +322,114 @@ def test_a_list_is_refused_where_the_measurement_is_not_per_sample():
     predicate raises TypeError at resolution rather than a diagnostic at load."""
     with pytest.raises(ValueError, match="per_sample"):
         LOADED.measurements.profile({"n_samples": [1, 2, 3]})
+
+
+# --- Issue #39: a computed fact, without an expression language ---------------------------
+
+
+_SJDB_OVERHANG = {
+    "fact": "sjdb_overhang",
+    "kind": "integer",
+    "source": "read_length",
+    "transform": [{"op": "subtract", "by": 1}],
+    "because": "the splice-junction overhang should be one less than the read length",
+    "cite": "STAR manual 2.2.2",
+}
+"""R02, which the format could not express at all: `then: "read_length-1"` reached STAR as
+that literal string, at tier 3, cited to a real paper. `MD0300` made the refusal honest in
+Plan 1.13 and the rule stayed unwritable — issue #39."""
+
+
+def test_a_transform_computes_a_fact_from_a_measurement():
+    derivation = Derivation.model_validate(_SJDB_OVERHANG)
+    premises = build_premises(
+        goal=_goal(read_length=150), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert premises["sjdb_overhang"].value == 149
+    assert premises["sjdb_overhang"].origin is PremiseOrigin.DERIVED
+    assert premises["sjdb_overhang"].derived_from == ["read_length"]
+
+
+def test_a_transform_chains_left_to_right():
+    """R03: `min(14, log2(genome_length)/2 - 1)`. Four named steps, no expression parser and
+    nothing to precedence-order — which is the whole point. A chain of named unary operations
+    is readable in YAML, checkable at load, and cannot grow into a solver."""
+    derivation = Derivation.model_validate(
+        {
+            "fact": "genome_sa_index_nbases",
+            "kind": "integer",
+            "source": "genome_length",
+            "transform": [
+                {"op": "log2"},
+                {"op": "divide", "by": 2},
+                {"op": "subtract", "by": 1},
+                {"op": "at_most", "by": 14},
+            ],
+            "because": "the suffix-array index size must scale with the genome",
+            "cite": "STAR manual 2.2.5",
+        }
+    )
+    premises = build_premises(
+        goal=_goal(genome_length=3_100_000_000),
+        derivations=[derivation],
+        measurements=LOADED.measurements,
+    )
+    # log2(3.1e9) ~ 31.5, /2 ~ 15.8, -1 ~ 14.8, capped at 14.
+    assert premises["genome_sa_index_nbases"].value == 14
+
+
+def test_a_transform_rounds_to_its_declared_kind():
+    """`kind: integer` is a promise about the fact, not a hint. A `then` that arrives as
+    15.79 where an integer was declared is the same defect as a computed string reaching the
+    tool: the tool receives something its flag does not accept."""
+    derivation = Derivation.model_validate(
+        {
+            "fact": "sjdb_overhang",
+            "kind": "integer",
+            "source": "read_length",
+            "transform": [{"op": "divide", "by": 4}],
+            "cite": "a fixture",
+        }
+    )
+    premises = build_premises(
+        goal=_goal(read_length=150), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert premises["sjdb_overhang"].value == 37
+    assert isinstance(premises["sjdb_overhang"].value, int)
+
+
+def test_a_transform_over_an_absent_measurement_leaves_the_fact_absent():
+    derivation = Derivation.model_validate(_SJDB_OVERHANG)
+    premises = build_premises(
+        goal=_goal(), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert "sjdb_overhang" not in premises
+
+
+def test_a_transform_over_a_cohort_reduces_it_first():
+    """A per-sample measurement has no single value to transform, and picking one silently is
+    the cohort-versus-sample question answered by a coin flip. `MD0312` refused a *comparison*
+    against a cohort for the same reason; this is the other operator."""
+    derivation = Derivation.model_validate(_SJDB_OVERHANG)
+    with pytest.raises(PremiseError, match="MD0314"):
+        build_premises(
+            goal=_goal(read_length=[150, 100]),
+            derivations=[derivation],
+            measurements=LOADED.measurements,
+        )
+
+
+def test_a_derivation_declaring_a_transform_and_rows_is_refused():
+    with pytest.raises(ValueError, match="MD0304"):
+        Derivation.model_validate(
+            {**_SJDB_OVERHANG, "rows": [{"when": {}, "then": 1, "cite": "a"}]}
+        )
+
+
+def test_a_transform_without_a_source_is_refused():
+    """A chain with nothing to chain from is A122's shape again: it loads and computes
+    nothing."""
+    with pytest.raises(ValueError, match="MD0304"):
+        Derivation.model_validate(
+            {k: v for k, v in _SJDB_OVERHANG.items() if k != "source"}
+        )

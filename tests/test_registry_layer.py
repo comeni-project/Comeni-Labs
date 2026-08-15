@@ -26,10 +26,17 @@ def test_the_layer_loads_from_its_new_home():
     loaded = layers.load(ROOT / "registry")
     assert len(loaded.registry.all()) >= 12
     assert loaded.measurements.ids() == [
+        "adapter_content",
+        "duplicate_rate",
+        "genome_length",
+        "library_prep",
         "n_samples",
+        "node_memory_gb",
+        "organism",
         "paired",
         "purpose",
         "read_length",
+        "rrna_fraction",
         "strandedness",
     ]
 

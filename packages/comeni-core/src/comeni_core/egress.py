@@ -141,7 +141,7 @@ class RepairRequest(EgressPayload):
 class EmittedFile(BaseModel):
     """One generated file, and the digest of what was written."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: NfPath
     digest: Digest
@@ -170,7 +170,7 @@ class Emitted(BaseModel):
     did not exist at all.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: int = 1
     """The `SCHEMA_VERSION` `from_digest` was taken under. **Not the file's version.**

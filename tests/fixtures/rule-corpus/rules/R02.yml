@@ -1,9 +1,29 @@
 version: 1
-# R02 — STAR --sjdbOverhang = read_length - 1. Still unwritable, and now refused rather
-# than reaching the tool as a literal string. Issue #39.
+# R02 — STAR --sjdbOverhang = read_length - 1. **Writable since issue #39**, as a named
+# transform rather than an expression: `then: "read_length-1"` reached the tool as that
+# literal string, and the format now computes the fact instead of quoting the formula.
+derives:
+  - fact: sjdb_overhang_value
+    kind: integer
+    source: read_length
+    transform:
+      - {op: subtract, by: 1}
+    because: >-
+      the splice-junction database overhang should be one less than the read length, so a
+      junction-spanning read has the maximum overhang STAR can use on either side
+    cite: "STAR manual 2.2.2"
 decisions:
-  - decides: {effect: param, of: alignment, name: sjdb_overhang, when_implementation: [nf-core/star/align@1.11.0]}
-    because: "the splice-junction database overhang should be one less than the read length"
+  - decides:
+      effect: param
+      of: alignment
+      name: sjdb_overhang
+      when_implementation: [nf-core/star/align@1.11.0]
+    because: "the overhang is a property of the reads, not a preference"
     cite: "STAR manual 2.2.2"
     rows:
-      - {when: {}, then: "read_length-1", cite: "STAR manual 2.2.2"}
+      - when: {}
+        then: 149
+        because: >-
+          a fixture value; the *derivation* above is what this rule records, and `then` stays
+          a literal because nothing between the table and nextflow.config evaluates it
+        cite: "STAR manual 2.2.2"

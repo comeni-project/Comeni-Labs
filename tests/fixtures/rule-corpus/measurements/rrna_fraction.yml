@@ -1,6 +1,0 @@
-kind: number
-minimum: 0
-maximum: 100
-unit: percent
-description: "Ribosomal RNA as a percentage of reads"
-describes: fastq.reads

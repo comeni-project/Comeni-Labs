@@ -138,10 +138,15 @@ Two layers, both in `rules/`. The **premise layer** builds the facts a rule may 
 
 ```yaml
 derives:                                        # the premise layer
-  - fact: strandedness
+  - fact: strandedness                          # a fallback: fills a gap, never overwrites
     kind: enum
     rows:
       - {when: {strandedness: absent}, then: reverse, cite: "Wang et al. 2012"}
+  - fact: sjdb_overhang                         # arithmetic, without an expression language
+    kind: integer
+    source: read_length
+    transform: [{op: subtract, by: 1}]
+    cite: "STAR manual 2.2.2"
 
 decisions:                                      # the decision layer
   - decides: {effect: implementation, of: alignment}
@@ -153,6 +158,11 @@ decisions:                                      # the decision layer
 
 Grouped rather than flat so a reviewer reads the justification once and then reads the
 branches — and so a *missing* branch is visible, which flat rules actively hide.
+
+A derivation does one of three things and says which: fill a gap from `rows`, reduce a cohort
+with an `aggregate`, or compute a fact with a `transform` — a chain of **named unary operations
+with a literal operand**, left to right. No parser, no precedence, and no way to name a second
+fact, which is what keeps arithmetic from becoming a solver (issue #39).
 
 **A decision names a role, never a type and never a bare parameter name.** Three effects:
 `presence` (whether the step exists), `implementation` (which contract fills it), and `param`

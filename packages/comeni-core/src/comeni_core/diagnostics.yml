@@ -947,6 +947,12 @@ MD0304:
 
     Audit A122; spec §3.1.
 
+    **Widened for issue #39.** A derivation now declares exactly one of `rows`, `aggregate`
+    and `transform`, and a `transform` needs a `source` to chain from. The same argument
+    covers all three: a derivation that can produce nothing reads as a fact the registry
+    supplies, and one that could produce two would resolve by a precedence no reader of the
+    file can see.
+
 MD0305:
   emitted_by: resolver
   concern: routing
@@ -1233,3 +1239,73 @@ MD0311:
     will run under.
 
     Spec §5, §7.1.
+
+MD0314:
+  emitted_by: resolver
+  concern: routing
+  says: "a `transform` chain is applied to a per-sample measurement"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Reduce the cohort first, then transform the derived fact:
+
+        derives:
+          - fact: cohort_max_read_length
+            kind: integer
+            aggregate: {measurement: read_length, over: cohort, using: max}
+          - fact: sjdb_overhang
+            kind: integer
+            source: cohort_max_read_length
+            transform: [{op: subtract, by: 1}]
+            cite: "STAR manual 2.2.2"
+  explanation: |
+    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]`, and
+    arithmetic takes one number. Picking one silently would answer §12's cohort-versus-sample
+    question with a coin flip, in a place where the answer changes what the tool receives.
+
+    `MD0312` refuses a *comparison* against a cohort for the same reason. This is the other
+    operator, and the pair is deliberate: both are places where one value is required and the
+    file has to say which.
+
+    Added with issue #39's `transform`, which is the arithmetic the format was missing.
+
+MD0315:
+  emitted_by: resolver
+  concern: routing
+  says: "a measurement's `assertion_only` and its reason disagree"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Declare both, or neither:
+
+        kind: enum
+        values: [forward, reverse, unstranded]
+        cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
+        assertion_only: true
+        assertion_only_because: >-
+          RSeQC's infer_experiment.py measures it from an alignment, so it is measurable and
+          the tool is not vendored
+  explanation: |
+    Issue #38: *"a measurement is a claim that some property of the data is worth measuring
+    **and can be**"*, and the second half was invisible. A profiling contract produces a
+    `measurement.<id>` type, so whether anything can measure a given one was always derivable
+    from the registry — but nothing stated it, so a measurement nobody could produce looked
+    exactly like one somebody had wired a tool for, and a rule keyed on it looked exactly as
+    sound.
+
+    **The flag alone would not have been enough.** A reader cannot tell "no tool exists for
+    this" from "the tool exists and nobody has vendored it", and those are different amounts
+    of work — one is research and one is a contract. So the reason is required, which is §4.7's
+    rule (no structured value is a reader's only account of itself) applied to a boolean.
+
+    Five of the six measurements the registry shipped before this turned out to be
+    assertion-only, including `strandedness` — which becomes featureCounts' `-s` and is the
+    worked example this repository uses for the whole mechanism. That is not a defect in any
+    of them; it is the thing the `sealed` protection profile exists to act on, and it was not
+    written down anywhere a reader would find it.
+
+    An asserted measurement is not a lesser one. It is different **evidence**, which is what
+    `PremiseOrigin` records.
+
+    `tests/test_measurement_vocabulary.py` checks the declaration against the registry, so a
+    measurement that gains a profiler and forgets to drop the flag fails too.

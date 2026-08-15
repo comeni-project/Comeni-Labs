@@ -25,7 +25,7 @@ __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "Param
 
 
 class GoalInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_id: TypeId
     states: frozenset[StateName] = frozenset()
@@ -44,7 +44,7 @@ class ParamOverride(BaseModel):
     tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: PortName
     value: HumanParamValue
@@ -60,7 +60,7 @@ class RequiredStates(BaseModel):
     saying nothing about whether the key was ever declared.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_id: TypeId
     states: list[StateName] = Field(default_factory=list)
@@ -69,7 +69,7 @@ class RequiredStates(BaseModel):
 class Constraints(BaseModel):
     """Everything a goal may pin. `extra="forbid"` is the whole point of the type."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     required_states: list[RequiredStates] = Field(default_factory=list)
     params: list[ParamOverride] = Field(default_factory=list)
@@ -101,7 +101,7 @@ class Constraints(BaseModel):
 
 
 class Goal(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     have: list[GoalInput] = Field(default_factory=list)
     want: list[TypeId] = Field(default_factory=list)

@@ -1,5 +1,18 @@
 # Tier-3 rule tables and port expressiveness
 
+> **Superseded for the rule format itself.** Plan 1.15 replaced `decides:` with an effect on a
+> **role** and added a premise layer; read `ARCHITECTURE.md` §Rule tables and
+> [`docs/internal/specs/2026-08-15-root-5-the-rule-format.md`](../internal/specs/2026-08-15-root-5-the-rule-format.md).
+>
+> **§13's three reasoned limits are now all answered.** Completeness is checked against the
+> declared domain (`MD0311`); `when` reads goal facts and derived facts as well as measurements;
+> and §13.2's arithmetic is a `derives:` **`transform`** chain — named unary operations with a
+> literal operand, left to right, with no parser and no way to name a second fact (issue #39).
+> That §13 reasoned those limits from a registry holding **one** rule, and all three turned out
+> to be real, is the argument for the twenty-rule corpus that replaced it as evidence.
+>
+> The port-logic and module-pinning sections below still describe what the code does.
+
 **Date:** 2026-08-03
 **Status:** Approved. Not yet implemented.
 **Extends:** [`mendel.md`](mendel.md) §5.1, §6.1–6.3.

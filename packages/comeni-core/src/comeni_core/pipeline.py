@@ -99,7 +99,7 @@ class Why(BaseModel):
     a node by hand.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -197,7 +197,7 @@ class Why(BaseModel):
 class ModuleRef(BaseModel):
     """Which module, pinned. Replaces `LockedContract`, per step rather than in a side file."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     contract_id: ContractId
     digest: Digest
@@ -213,7 +213,7 @@ class ModuleRef(BaseModel):
 class Setting(BaseModel):
     """One resolved value, and the route that carries it to the tool."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: PortName
     value: ParamValue
@@ -257,7 +257,7 @@ class MetaEntry(BaseModel):
     """One key in a channel's `meta` map. A record rather than a mapping, because a typed key
     does not prove a *declared* key."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: NfIdentifier
     value: ParamValue
@@ -294,7 +294,7 @@ class ExtArgs(BaseModel):
     neighbour is what makes it stay true when the graph moves.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     template: NfTemplate = ""
     why: Why
@@ -341,7 +341,7 @@ class CallArg(BaseModel):
     silently miswired pipeline rather than a parse error.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     ports: list[PortName] = Field(default_factory=list)
     literal: ParamValue = None
@@ -374,7 +374,7 @@ class StepInput(BaseModel):
     found `diff_ir` was not even comparing.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     port: PortName
     source: EdgeRef | None = None
@@ -401,7 +401,7 @@ class StepInput(BaseModel):
 
 
 class Step(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: NodeId
     module: ModuleRef
@@ -492,7 +492,7 @@ class Step(BaseModel):
 class Channel(BaseModel):
     """What the laboratory supplies, and the measured facts that ride with it."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_id: TypeId
     params: list[PortName] = Field(default_factory=list)
@@ -534,7 +534,7 @@ class Channel(BaseModel):
 class RegistryProvenance(BaseModel):
     """Which registry built this. **Provenance, not a dependency of `emit`.**"""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     layers: list[LockedLayer] = Field(default_factory=list)
     displaced: list[Displacement] = Field(default_factory=list)

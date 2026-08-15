@@ -151,7 +151,7 @@ class Resolution(BaseModel):
 class _Decided(BaseModel):
     """What every decision carries, whatever kind it is."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: DecisionKey
     subject: Subject

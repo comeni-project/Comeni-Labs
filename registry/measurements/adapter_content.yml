@@ -1,0 +1,12 @@
+kind: number
+minimum: 0
+maximum: 100
+unit: percent
+description: "Adapter sequence as a percentage of sequenced bases"
+cite: "Andrews 2010, FastQC Adapter Content module"
+describes: fastq.reads
+assertion_only: true
+assertion_only_because: >-
+  FastQC's Adapter Content module reports it and `comeni/profile-fastqc` does not yet emit it
+  as a `measurement.` output. Wiring it is a contract change, not a research question — and
+  R08 in the rule corpus is the rule waiting on it.

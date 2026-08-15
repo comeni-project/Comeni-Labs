@@ -1514,3 +1514,102 @@ checkout after a `cd` into the registry repository, and the next edit went there
 by `make drift` reporting *"no drift: 27 shared files agree"* — impossible in the worktree, where
 fifteen files differed — and reverted with `git checkout`. Recorded because the *symptom* was a
 gate turning green, which is the one direction nobody investigates.
+
+## Round four's carried findings, closed 2026-08-15 (issues #24–#36)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_purity.py::test_an_aliased_dynamic_importer_is_caught` | the alias resolution before matching `DYNAMIC_IMPORTERS` | failed | an aliased importer obtained `urllib` with the scan green |
+| 2026-08-15 | `test_purity.py::test_a_stdlib_transport_is_banned` ×6 | the six added prefixes | **6 failed** | `logging.handlers`, `poplib`, `imaplib`, `socketserver`, `multiprocessing`, `wsgiref` |
+| 2026-08-15 | `test_construction.py::test_an_assignment_alias_is_resolved` (+2) | the assignment/subclass/fixpoint arms of `_aliases_of` | **3 failed** | `_P = Pipeline` denoted the class without an import-as |
+| 2026-08-15 | `test_purity.py::test_every_package_is_classified` | a package name removed from all three lists | failed | a package the file has never heard of is one it is not guarding |
+| 2026-08-15 | `test_egress.py::test_an_enum_with_a_missing_hook_…` (+1) | the `_missing_` check | **2 failed** | an open vocabulary passed as a closed one |
+| 2026-08-15 | `test_egress.py::test_every_publication_payload_model_is_frozen` | `frozen=True` on the publication graph | failed | `Emitted.files[0].digest` reassignable after review |
+| 2026-08-15 | `test_egress.py::test_a_declared_id_alias_refuses_free_text` ×9 | each new `AfterValidator` | **9 failed** | a patient identifier as a `node_id`, notes as a `state` |
+| 2026-08-15 | `test_pipeline_totality.py::test_every_carried_field_is_where_it_says` | `ModuleRef.digest` deleted | failed | **A68's own reproduction**, which used to be green |
+| 2026-08-15 | `test_pipeline_file.py::test_a_pipeline_defect_blames_the_pipeline_file` (+1) | the `_PIPELINE_MODELS` branch in `_blame` | **2 failed** | a `steps:` defect reported as *"this goal is not valid"* |
+
+**Two findings the fixes produced, both from adding a validator to something that never had one.**
+
+`Measurement.describes` was annotated `MeasurementId` and holds a **type id** — `fastq.reads` —
+and nothing noticed because neither alias validated anything. A64's validators failed on the
+first load. **Two declared aliases that accept the same strings are two labels**, and a label on
+the wrong kind of value is exactly what invariant 14's *"a declared ID alias"* was meant to rule
+out.
+
+`Displacement`'s keys have now been broken by **two** borrowed aliases. Its docstring already
+recorded the first: `list[ContractId]` until root C gave that a validator, at which point it
+refused the synthetic keys `test_layered.py` stacks. It became `Subject`, and A64 gave that one a
+validator too. Twice is the argument for its own alias, so `AnyKey` says what is true of every
+kind's key and nothing more — no whitespace, no control character, not empty.
+
+**A66 is scoped to the door it is about, and the scoping is the finding.** "Every payload model
+should be frozen" is right for door 4 and wrong for door 3: `RepairRequest.ir` is handed to a
+model *so that the IR can change*, and invariant 5 says repair patches the IR and re-emits.
+Freezing the IR broke 109 tests, which is the resolver saying the same thing less politely. The
+publication graph is frozen; `BUILDERS` names the five that are not, and a sixth cannot join them
+quietly.
+
+**A68's second reproduction is acknowledged rather than closed**, and that is the honest outcome.
+Deleting a field from a type `Pipeline` carries *verbatim* is invisible to a totality check by
+construction — the field is defined once and read once, so removing it removes the question along
+with the answer. What that probe tests is "did somebody mean to delete this", which the tests that
+*read* the field are where to ask. The 60% figure it reports is now 0% of what this file claims to
+cover, instead of 60% of what it appeared to.
+
+**A62's `model_copy` entry was added and then removed.** It does build an instance without
+re-validating, but it is an *instance* method, so `<ClassAlias>.model_copy` — the only shape this
+scan matches — is not valid Python. An unreachable entry reads to the next person as a case
+somebody covered. Same call as Plan 1.15 Task 9's `_sole_premise` clause, and a test pins the
+removal so it cannot be re-added without reading why.
+
+**A69 closed by becoming countable.** Its complaint was that the residue was tracked per *file* —
+46 of 47 covered, reading as nearly done — when the condition is per *guard*. `make residue`
+counts it per guard, derived from the ledger and the test files rather than asserted in prose,
+which is the same move `DeclaredKind` made for the kind count. `CLAUDE.md` states the method and
+deliberately does not state the number.
+
+## Issues #38 and #39, closed 2026-08-15
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_a_transform_computes_a_fact_from_a_measurement` (+3) | the `transform` branch in `_derive` | **4 failed** | the chain never runs |
+| 2026-08-15 | `test_premises.py::test_a_transform_rounds_to_its_declared_kind` | the coercion to `kind` | failed | `15.79` where an integer was declared |
+| 2026-08-15 | `test_premises.py::test_a_transform_over_a_cohort_reduces_it_first` | the `MD0314` refusal | failed | arithmetic over `[150, 100]` |
+| 2026-08-15 | `test_measurement_vocabulary.py` ×3 | the check weakened rather than the data | **nothing failed** | — see below |
+| 2026-08-15 | `test_measurement_vocabulary.py::…declares_whether_a_tool_can_produce_it` | `assertion_only` removed from `strandedness.yml` | failed | nothing produces `measurement.strandedness` |
+| 2026-08-15 | `Measurement._assertion_only_says_why` | `assertion_only_because` removed from `purpose.yml` | failed | `MD0315`, at load |
+| 2026-08-15 | `test_measurement_vocabulary.py::test_every_measurement_cites_something` | `cite` removed from `genome_length.yml` | failed | a claim about the world with no source |
+
+**A revert has to break the subject, not the claim about it — and this is the second time in
+one day.** The first attempt weakened `if not measurement.assertion_only and …` to `if False`
+and everything stayed green, as it must: weakening an assertion cannot fail unless what it
+asserts is already false. The subject of these guards is the **registry data**, so the reverts
+that mean anything edit a `.yml`.
+
+**What issue #38 predicted, measured.** Five of the six measurements the registry shipped
+cannot be measured by anything in it — including `strandedness`, which becomes featureCounts'
+`-s 2` and is this repository's own worked example of the tier-3 mechanism working. That is not
+a defect in any of them; it is exactly what the `sealed` protection profile exists to act on,
+and it was written down nowhere a reader would find it. Each now says *why*, in terms somebody
+can act on: measurable-and-not-vendored is a contract away, and not-measurable-at-all is a
+research question.
+
+**The flag alone would not have been enough**, which is why the reason is required. A reader
+cannot tell "no tool exists for this" from "the tool exists and nobody has vendored it", and
+those are different amounts of work. §4.7's rule applied to a boolean.
+
+**Issue #39's shape is the argument, not the feature.** A `transform` is a chain of *named
+unary operations with a literal operand*, left to right. There is no parser, no precedence, and
+no way to reference a second fact — which is the one thing a general expression language would
+buy and the thing that turns a rule table into a program.
+`docs/design/rule-tables-and-port-logic.md` §13.2 asked for arithmetic without reintroducing a
+solver, and this satisfies both halves. R02 and R03 in the corpus are what it is for, and they
+load now.
+
+**`math` joined `mendel-resolver`'s purity allowlist**, the third such addition and argued the
+same way. Every function in it is a pure number-to-number map, which is the strongest form that
+argument takes anywhere on the list. The alternative — hand-rolling `log2` from
+`int.bit_length()` — was rejected because it is only correct for integers and `genome_length / 2`
+is not one; a wrong number reaching STAR's `--genomeSAindexNbases` is the class of defect A118
+is about.

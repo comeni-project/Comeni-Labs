@@ -1,0 +1,10 @@
+kind: enum
+values: [homo_sapiens, mus_musculus, danio_rerio]
+extensible: true
+description: "The species the reads came from"
+cite: "Ensembl 112 species list"
+assertion_only: true
+assertion_only_because: >-
+  measurable by classification against a reference database — Kraken2 and friends — which is
+  a whole tool this spine does not carry. `extensible: true` because the list of organisms
+  cannot be enumerated, which is the same call `purpose` gets.

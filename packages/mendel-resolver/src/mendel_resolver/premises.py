@@ -11,10 +11,11 @@ for gene-level) cannot be written in the shipped format. A premise set is one na
 measurements, goal facts and derived facts, so a rule author has one thing to learn.
 """
 
+import math
 from typing import Any
 
 from comeni_core.goal import Goal
-from comeni_core.measurement import MeasurementRegistry
+from comeni_core.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.tiers import PremiseOrigin, ValueSource
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -126,6 +127,9 @@ def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None
         if derivation.aggregate is not None:
             _aggregate(premises, derivation)
             continue
+        if derivation.transform:
+            _transform(premises, derivation)
+            continue
         for row in derivation.rows:
             if not matches(row.when, premises):
                 continue
@@ -145,6 +149,57 @@ _REDUCERS = {
     "min": min,
     "mean": lambda values: sum(values) / len(values),
 }
+
+
+_OPS = {
+    "add": lambda value, by: value + by,
+    "subtract": lambda value, by: value - by,
+    "multiply": lambda value, by: value * by,
+    "divide": lambda value, by: value / by,
+    "log2": lambda value, by: math.log2(value),
+    "at_most": lambda value, by: min(value, by),
+    "at_least": lambda value, by: max(value, by),
+}
+"""The whole arithmetic this format has. Issue #39.
+
+Closed and total over `Transform.op`, read with `[]`, so a new operation forces somebody to
+implement it rather than defaulting into silence — A38's tripwire, in a fourth place.
+"""
+
+
+def _transform(premises: dict[str, Premise], derivation: Derivation) -> None:
+    """Compute a fact by chaining named operations over another. Issue #39.
+
+    Left to right, with no precedence to get wrong and no way to name a second fact. That is
+    the constraint keeping this from being an expression language:
+    `docs/design/rule-tables-and-port-logic.md` §13.2 asks for arithmetic *without*
+    reintroducing a solver, and a chain of unary steps satisfies both halves.
+
+    The result is coerced to the fact's declared `kind`, because `kind: integer` is a promise
+    about the fact rather than a hint — a 15.79 reaching a flag that takes an integer is the
+    same defect as a computed string reaching one, which is what A118 was.
+    """
+    source = premises.get(derivation.source)
+    if source is None:
+        return
+    if isinstance(source.value, list):
+        raise PremiseError(
+            f"MD0314: derivation {derivation.fact!r} transforms {derivation.source!r}, which "
+            f"is a cohort of {len(source.value)} values, and arithmetic takes one. Reduce it "
+            f"first with an `aggregate:` derivation and transform the derived fact, so the "
+            f"file says which sample the rule meant."
+        )
+    value = source.value
+    for step in derivation.transform:
+        value = _OPS[step.op](value, step.by)
+    premises[derivation.fact] = Premise(
+        id=derivation.fact,
+        value=int(value) if derivation.kind is MeasurementKind.INTEGER else value,
+        origin=PremiseOrigin.DERIVED,
+        because=derivation.because or "",
+        cite=derivation.cite or "",
+        derived_from=[derivation.source],
+    )
 
 
 def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:

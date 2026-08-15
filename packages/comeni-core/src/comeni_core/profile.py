@@ -28,7 +28,7 @@ class Measured(BaseModel):
     it *is* the provenance, which is why a bare scalar is allowed at all.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     measurement: MeasurementId
     value: ParamValue | list[ParamValue]
@@ -51,7 +51,7 @@ class DataProfile(BaseModel):
     in a goal file, and because `Goal` needs a default.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     measurements: list[Measured] = Field(default_factory=list)
 

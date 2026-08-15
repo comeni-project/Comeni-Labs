@@ -18,7 +18,11 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from test_purity import _imported_names  # noqa: E402  — the one alias resolver, reused
+from test_purity import (  # noqa: E402  — the one alias resolver and one package list
+    BANLIST_PACKAGES,
+    CLOSED_PACKAGES,
+    _imported_names,
+)
 
 ALLOWED = {
     # the one validated constructor
@@ -30,14 +34,45 @@ ALLOWED = {
 BYPASSES = ("model_construct", "model_validate", "model_validate_json")
 """Pydantic's other constructors. `model_construct` skips validation entirely, and the two
 `model_validate` forms build one from data a stranger may have written — a bundle, a goal
-file. A18: the scan knew about `DataProfile(...)` and nothing else."""
+file. A18: the scan knew about `DataProfile(...)` and nothing else.
+
+**`model_copy` was added for A62 and then removed, and the removal is the finding.** It does
+build an instance without re-validating — `model_copy(update=…)` can arrive at a value that
+could not be constructed — but it is an *instance* method, so it can never appear as
+`<ClassAlias>.model_copy`, which is the only shape this scan matches. Adding it produced an
+entry that cannot fire: unreachable, and therefore reading to the next person as a case
+somebody had covered. Same call as Plan 1.15 Task 9's `_sole_premise` clause.
+
+The real usage is `pipeline.model_copy(update={"gate": gate})` on an instance
+(`pipeline_file.py`), and catching that needs to know the variable's type — which an AST scan
+does not. **Recorded as residue on issue #26 rather than papered over**: `Pipeline` is frozen
+and `model_copy` returns a new instance, so the mutation A66 is about is a different route,
+and on a payload the copy still goes through `model_dump()`."""
+
+
+_GUARDED = (*CLOSED_PACKAGES, *BANLIST_PACKAGES)
+"""The packages this file scans, taken from `test_purity.py` rather than written out again.
+
+A67, issue #31: both files globbed a hand-written package list, and a name that matches no
+directory yields nothing while the assertion runs over an empty list — the reviewer mistyped
+both keys and got `1 passed` in 0.04s. `test_purity.py::test_every_package_is_classified`
+now refuses a package that is not in one of its three lists, and sharing the lists is what
+makes that one check cover both files instead of two checks that can disagree.
+"""
 
 
 def _aliases_of(tree: ast.AST, name: str = "DataProfile") -> set[str]:
     """Every local name that resolves to `name` in this file.
 
     `import ... as` is the whole of A18: the guard compared a spelling, so renaming the
-    import at the point of use was enough to disappear from it.
+    import at the point of use was enough to disappear from it. **A62 is that the fix stopped
+    at imports** — an assignment (`_P = Pipeline`) and a subclass (`class _P(Pipeline)`) each
+    denote the class without one, and the reviewer built a `Pipeline` with `model_construct`
+    through the first of those while the guard reported green.
+
+    Iterated to a fixpoint rather than resolved in one pass, because `_A = Pipeline` followed
+    by `_B = _A` is two hops and a guard that stops after one has a two-line bypass. The loop
+    terminates because the alias set only grows and is bounded by the names in the file.
     """
     names = {name}
     for node in ast.walk(tree):
@@ -45,7 +80,21 @@ def _aliases_of(tree: ast.AST, name: str = "DataProfile") -> set[str]:
             for alias in node.names:
                 if alias.name == name:
                     names.add(alias.asname or alias.name)
-    return names
+    while True:
+        before = len(names)
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Name)
+                and node.value.id in names
+            ):
+                names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+            elif isinstance(node, ast.ClassDef) and any(
+                isinstance(base, ast.Name) and base.id in names for base in node.bases
+            ):
+                names.add(node.name)
+        if len(names) == before:
+            return names
 
 
 def _constructions(
@@ -88,7 +137,7 @@ def _constructions(
 def test_data_profile_is_constructed_in_one_place():
     root = pathlib.Path(__file__).parent.parent
     offenders = []
-    for package in ("comeni-core", "mendel-resolver", "mendel-compiler"):
+    for package in _GUARDED:
         for py in sorted((root / "packages" / package / "src").rglob("*.py")):
             if str(py.relative_to(root)) in ALLOWED:
                 continue
@@ -135,7 +184,7 @@ def test_pipeline_is_constructed_in_one_place():
     """
     root = pathlib.Path(__file__).parent.parent
     offenders = []
-    for package in ("comeni-core", "mendel-resolver", "mendel-compiler"):
+    for package in _GUARDED:
         for py in sorted((root / "packages" / package / "src").rglob("*.py")):
             if str(py.relative_to(root)) in PIPELINE_ALLOWED:
                 continue
@@ -149,3 +198,48 @@ def test_pipeline_is_constructed_in_one_place():
         "build one through Pipeline.of(), which materialises it; these construct one "
         "directly: " + ", ".join(offenders)
     )
+
+
+def test_an_assignment_alias_is_resolved(tmp_path):
+    """A62, issue #26. `_aliases_of` collected names from `ast.ImportFrom` only, so an
+    assignment denoted the class without an import-as and disappeared from the scan.
+
+    Reviewer's probe was `_P = Pipeline` followed by `_P.model_construct(version=1)` in
+    `pipeline_file.py`, with the guard green — a `Pipeline` built with no validation at all,
+    which is the one thing `Pipeline.of` exists to prevent.
+    """
+    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_P = Pipeline\n")
+    assert "_P" in _aliases_of(tree, "Pipeline")
+
+
+def test_a_subclass_is_resolved(tmp_path):
+    """The other spelling. A subclass is the class for construction purposes, and
+    `class _P(Pipeline)` binds a name the import-only resolver never saw."""
+    tree = ast.parse("from comeni_core.pipeline import Pipeline\nclass _P(Pipeline):\n    pass\n")
+    assert "_P" in _aliases_of(tree, "Pipeline")
+
+
+def test_an_alias_chain_is_resolved(tmp_path):
+    """`_A = Pipeline` then `_B = _A`. One pass over the tree resolves the first and not the
+    second, and a guard that stops after one hop is a guard with a two-line bypass."""
+    tree = ast.parse(
+        "from comeni_core.pipeline import Pipeline\n_A = Pipeline\n_B = _A\n_C = _B\n"
+    )
+    assert {"_A", "_B", "_C"} <= _aliases_of(tree, "Pipeline")
+
+
+def test_an_unrelated_assignment_is_not_an_alias():
+    """The negative. A guard that treats every assignment as an alias refuses code that
+    never touched the class, and a refusal nobody can argue with is worse than a gap."""
+    tree = ast.parse("from comeni_core.pipeline import Pipeline\n_other = SomethingElse\n")
+    assert _aliases_of(tree, "Pipeline") == {"Pipeline"}
+
+
+def test_model_copy_is_not_in_bypasses_and_the_reason_is_written_down():
+    """A62's residue, pinned so it cannot be re-added without reading why it was removed.
+
+    `model_copy` is an instance method, so `<ClassAlias>.model_copy` — the only shape this
+    scan matches — is not valid Python. An entry for it is unreachable, and an unreachable
+    entry reads to the next person as a case somebody covered.
+    """
+    assert "model_copy" not in BYPASSES

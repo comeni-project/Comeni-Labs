@@ -3,3 +3,4 @@ per_sample: true
 minimum: 1
 unit: bp
 description: "Sequenced read length"
+cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"

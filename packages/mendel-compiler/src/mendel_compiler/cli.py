@@ -47,6 +47,50 @@ def _with_pointer(message: str) -> str:
     return f"{message}\n  run: mendel explain {found.group()}" if found else message
 
 
+_PIPELINE_MODELS = frozenset(
+    {
+        "Pipeline",
+        "Step",
+        "StepInput",
+        "Setting",
+        "CallArg",
+        "MetaEntry",
+        "ExtArgs",
+        "ModuleRef",
+        "Channel",
+        "Why",
+        "PremiseRecord",
+        "Emitted",
+        "EmittedFile",
+        "RegistryProvenance",
+        "LockedLayer",
+    }
+)
+"""The models a `pipeline.yml` is made of. Named so a failure in one blames the right file."""
+
+
+def _blame(title: str) -> str:
+    """Which file the reader should open, from the model that failed to validate.
+
+    A41 made this a heuristic and special-cased `ModuleContract` alone — a contract author's
+    mistake is not the operator's, and blaming "this goal" sent them to the one file they did
+    not write. **A74 is the same defect one model over**: a `Pipeline`-family failure fell
+    through to "this goal", and `emit` and `upgrade` take a `pipeline.yml`, not a goal. The
+    artifact's own header says `goal:` is inert to `emit`, so a reader who had just edited
+    `steps:` was told the goal was wrong and sent to the one section that could not have
+    caused it.
+
+    An explicit set rather than a second special case, because a special case is what needed
+    fixing: `test_every_pipeline_model_blames_the_pipeline_file` derives the set from
+    `Pipeline` itself, so a model added tomorrow is covered or the test fails.
+    """
+    if title == "ModuleContract":
+        return "contract"
+    if title in _PIPELINE_MODELS:
+        return "this pipeline file"
+    return "this goal"
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point. Wraps `_build` so a user mistake is a message, not a traceback."""
     try:
@@ -54,13 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     except UnroutableError as exc:
         print(_with_pointer(f"mendel: cannot route this goal — {exc}"), file=sys.stderr)
     except ValidationError as exc:
-        # A41. `title` is the model that failed. A `ModuleContract` failing is a contract
-        # author's mistake, not the operator's — blaming "this goal" sent them to the one file
-        # they did not write. The missing-`via` case is already re-raised as MD0200 before it
-        # reaches here; this catches every other contract-shape failure (`nf_process`,
-        # a malformed port) and names the right file.
-        subject = "contract" if exc.title == "ModuleContract" else "this goal"
-        print(_with_pointer(f"mendel: {subject} is not valid —\n{exc}"), file=sys.stderr)
+        print(_with_pointer(f"mendel: {_blame(exc.title)} is not valid —\n{exc}"), file=sys.stderr)
     except RuleValidationError as exc:
         print(_with_pointer(f"mendel: a rule table will not load —\n{exc}"), file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:

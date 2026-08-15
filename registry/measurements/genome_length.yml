@@ -1,0 +1,10 @@
+kind: integer
+minimum: 1
+unit: bp
+description: "Total length of the reference genome"
+cite: "Ensembl 112 assembly reports"
+assertion_only: true
+assertion_only_because: >-
+  trivially measurable — `samtools faidx` sums it in seconds — and nothing in this stack does.
+  It is a property of the *reference* rather than of the reads, so the profiling spine, which
+  runs over FASTQs, is the wrong place for it.

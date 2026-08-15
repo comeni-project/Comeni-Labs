@@ -46,7 +46,7 @@ class LockedContract(BaseModel):
 
 
 class LockedLayer(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: LayerName
     digest: Digest
