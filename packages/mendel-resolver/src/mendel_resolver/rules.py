@@ -28,12 +28,12 @@ from comeni_core.layered import (
     layers_of,
     stack,
 )
-from comeni_core.marks import LayerName, ParamValue
+from comeni_core.marks import LayerName, MeasurementId, ParamValue
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.profile import DataProfile
 from comeni_core.registry import Registry
 from comeni_core.vocabulary import Vocabulary
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _OPS = {
     ">=": operator.ge,
@@ -112,6 +112,47 @@ class Decision(BaseModel):
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None
+
+
+class Derivation(BaseModel):
+    """A fact the registry works out, rather than one a tool measured. Spec §3.1.
+
+    A derivation naming a **declared measurement** is a fallback: it may fill a gap and may
+    never overwrite. That asymmetry is the whole of it. R15 — *"infer strandedness where
+    nothing measured it"* — is unwritable in the shipped format because `when` can only read
+    a measurement that is present, so the row validates and can never fire (A122); and a
+    version that could fire without the asymmetry would be worse, because it would resolve a
+    pipeline against a default while the profile printed beside it named the measured value.
+
+    `kind` is declared rather than inferred from `then`, for the same reason a measurement
+    declares one: it says what the fact may hold before any row has produced a value, which
+    is what Task 10's type check over `then` will read.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fact: MeasurementId
+    kind: MeasurementKind
+    rows: list[DecisionRow] = Field(default_factory=list)
+    because: str | None = None
+    cite: str | None = None
+
+    @model_validator(mode="after")
+    def _can_fire(self) -> "Derivation":
+        """A derivation with no rows is A122's own shape, one layer down.
+
+        It loads clean, contributes nothing, and reads to a reviewer as a fact the registry
+        supplies. Refused at load rather than reported at resolution, because by resolution
+        the fact is simply absent and nothing can tell an empty derivation from one that was
+        never written. Spec §5.
+        """
+        if not self.rows:
+            raise ValueError(
+                f"MD0304: derivation {self.fact!r} has no `rows`, so it can never fire. "
+                f"Give it at least one row, or delete it — a derivation that contributes "
+                f"nothing still reads as a fact the registry supplies."
+            )
+        return self
 
 
 def _joined(*parts: str | None) -> str:

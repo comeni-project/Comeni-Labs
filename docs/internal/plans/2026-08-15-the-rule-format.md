@@ -705,18 +705,45 @@ Task 3's step 3.
 - [ ] **Step 4: Run the tests**
 
 Run: `uv run pytest packages/mendel-resolver/tests/test_premises.py -v`
-Expected: PASS (5 passed)
+Expected: PASS (14 passed — Task 1's seven, plus this task's)
 
 - [ ] **Step 5: Watch the guard fail, then commit**
 
-Delete the `if fact in measurements.ids() and fact in premises: continue` line. Confirm
-`test_a_derivation_fills_a_gap_and_never_overwrites` fails on the *second* assertion with
-`'reverse' != 'forward'`. Restore, record the row, then:
+Delete the `if derivation.fact in premises: continue` line.
+
+**Nothing fails, and this step predicted a failure.** Strengthen the guard first — see the
+correction below — then revert again and watch two tests fail with `'reverse' == 'forward'`.
+Restore, record both rows, then:
 
 ```bash
-git add packages/mendel-resolver
-git commit -m "feat(resolver): a derived fact fills a gap and never overwrites (A122, R15, R19)"
+git add packages/mendel-resolver packages/comeni-core docs
+git commit -m "feat(resolver): a derived fact fills a gap and never overwrites (A122, R15)"
 ```
+
+> **Corrected 2026-08-15, on execution. Three things, and the second is the useful one.**
+>
+> 1. **The test code was written against the pre-Task-1 signature** — `build_premises(profile=…,
+>    goal=…)` with `DataProfile(values=…, sources=…)`. Neither exists; the corrected signature is
+>    `build_premises(*, goal, derivations, measurements)` and provenance is per entry on
+>    `goal.profile.measurements`. Task 1's own correction block already says this; it had not
+>    been applied here.
+> 2. **Step 5's guard is inert as specified.** R15's row is `when: {strandedness: absent}`, so
+>    with `strandedness` measured the row fails its own predicate and the never-overwrite rule is
+>    never consulted. Deleting the rule leaves every test green. The replacement conditions on a
+>    *different* fact from the one it derives, plus a second test for derivation-against-
+>    derivation. **Following this plan carefully would not have caught it — only running the
+>    revert did.**
+> 3. **The aggregate half is not built, on purpose.** `DataProfile` cannot hold
+>    `read_length: [150, 100, 150]`: `ParamValue` is `int | float | bool | str | None`, and
+>    `MeasurementRegistry.check` refuses a list for an integer measurement. So R19 needs a
+>    decision about how a cohort-valued measurement is represented, which neither this plan nor
+>    spec §3.2 makes. Shipping `Aggregate` as a model that loads and never evaluates would be
+>    A122 exactly — the defect this task exists to close — so it is left out rather than left
+>    dead. `list` is already a permitted egress container, so the boundary is not the obstacle.
+> 4. **The never-overwrite rule is narrower than specified**, dropping the plan's
+>    `fact in measurements.ids() and` clause so it applies to derived facts too. Two derivations
+>    of the same fact now resolve first-wins rather than by load order — invariant 10, and the
+>    convention `ReplayResolver` already uses.
 
 ---
 

@@ -909,3 +909,40 @@ MD0303:
     a coin flip.
 
     Audit A120.
+
+MD0304:
+  emitted_by: resolver
+  concern: routing
+  says: "a derivation has no rows, so it can never fire"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Give it a row, or delete it:
+
+        derives:
+          - fact: strandedness
+            kind: enum
+            rows:
+              - when: {strandedness: absent}
+                then: reverse
+                because: >-
+                  dUTP protocols dominate current library prep, so reverse is the safer
+                  default where nothing measured it — and this records that nothing did
+                cite: "Wang et al. 2012, doi:10.1093/bib/bbs046"
+  explanation: |
+    A derivation with no rows is A122's own shape, one layer down. A122 is a rule that
+    validates and can never fire; this is a *fact declaration* that validates and can never
+    produce a value. Both read to a reviewer as something the registry supplies, and both
+    supply nothing.
+
+    Refused at load rather than reported at resolution, because by resolution the fact is
+    simply absent, and nothing downstream can tell an empty derivation from one that was
+    never written. That is the same reason the whole of spec §5 refuses at load: the moment
+    a defect becomes indistinguishable from an absence, the diagnostic stops being possible.
+
+    **A derivation over a declared measurement is a fallback**, and the asymmetry is the
+    whole of it: it may fill a gap and may never overwrite. A version that could overwrite
+    would fail in the worst way available — the pipeline resolving against a default while
+    `pipeline.yml` printed the measured value beside it.
+
+    Audit A122; spec §3.1.

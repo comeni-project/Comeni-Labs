@@ -1076,3 +1076,37 @@ validates codes passed to `Diagnostic(...)`, and `roles.py` raises a bare `Value
 code in the string — so the registry could not see it. Both `MD0302` and this task's `MD0303`
 are declared now. The general case is issue #18, the half-declared error surface, and this is
 one more instance of it: a code in an f-string is a code no registry knows about.
+
+## Plan 1.15 Task 2 — a derived fact fills a gap and never overwrites (A122, R15)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_premises.py::test_a_derivation_never_overwrites_a_measurement` | `if derivation.fact in premises: continue` in `_derive` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | `test_premises.py::test_a_derivation_whose_row_would_match_still_never_overwrites`, `…_never_overwrites_an_earlier_derivation_either` | the same line, after the guard was strengthened | **2 failed** | `assert 'reverse' == 'forward'` |
+| 2026-08-15 | `test_premises.py::test_a_derivation_with_no_rows_is_refused` | the `if not self.rows` refusal on `Derivation` | failed | `DID NOT RAISE` |
+
+**The never-overwrite guard was inert, and the plan predicted it would not be.** Step 5 said to
+delete the line and *"confirm `test_a_derivation_fills_a_gap_and_never_overwrites` fails on the
+second assertion with `'reverse' != 'forward'`"*. It does not, and the reason is in the fixture
+rather than in the code: R15's row is `when: {strandedness: absent}`, so once `strandedness` is
+measured **the row fails its own predicate** and the never-overwrite rule is never reached. The
+test was passing for a reason unrelated to what it claimed to check, which is the definition of
+the thing A14 is about.
+
+The plan's fixture had the same shape, so this would have been missed by following the plan
+exactly and reading carefully. **Only running the revert finds it** — the third time in two
+plans that the revert has caught code written the same hour, after Plan 1.14 Task 0 and Plan 1.15
+Task 0.
+
+**The replacement conditions on a different fact from the one it derives**, so the row matches
+and only the rule stands between a measurement and a default. A second test covers derivation
+against derivation, where `absent` cannot mask the same way.
+
+**The rule was also written narrower than the plan specified, deliberately.** The plan has
+`if fact in measurements.ids() and fact in premises`, scoping never-overwrite to *declared
+measurements* — spec §3.1's wording. Dropping the first clause makes it never-overwrite-anything,
+so two derivations of the same new fact resolve first-wins rather than last-wins. Last-wins would
+make the answer depend on which file `stack()` reached first, which is invariant 10. First-wins
+is also what `ReplayResolver` already does with duplicate keys, so this is one convention rather
+than a second one. Task 11 should refuse the duplicate at load; until it does, the resolution is
+at least not order-dependent.

@@ -17,6 +17,7 @@ from comeni_core.tiers import ValueSource
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.premises import PremiseOrigin, build_premises
+from mendel_resolver.rules import Derivation
 
 ROOT = pathlib.Path(__file__).parents[3]
 LOADED = layers.load(ROOT / "registry")
@@ -131,3 +132,133 @@ def test_nothing_may_declare_a_measurement_named_required_states():
             derivations=[],
             measurements=_Shadowing(),
         )
+
+
+_INFER_STRANDEDNESS = {
+    "fact": "strandedness",
+    "kind": "enum",
+    "rows": [
+        {
+            "when": {"strandedness": "absent"},
+            "then": "reverse",
+            "because": "dUTP protocols dominate current library prep, so reverse is the "
+            "safer default where nothing measured it — and this records that nothing did",
+            "cite": "Wang et al. 2012, doi:10.1093/bib/bbs046",
+        }
+    ],
+}
+"""R15, which the shipped format loads dead: a row conditioned on an absent measurement
+validated clean and could never fire, because `when` could only read a measurement that was
+there. Audit A122."""
+
+
+def test_a_derivation_fills_a_gap():
+    derivation = Derivation.model_validate(_INFER_STRANDEDNESS)
+    premises = build_premises(
+        goal=_goal(), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert premises["strandedness"].value == "reverse"
+    assert premises["strandedness"].origin is PremiseOrigin.DERIVED
+    assert premises["strandedness"].derived_from == ["strandedness"]
+
+
+def test_a_derivation_never_overwrites_a_measurement():
+    """The half that makes the other half safe. A fallback that can overwrite is not a
+    fallback, and the failure is silent: the pipeline would resolve against a default while
+    the profile beside it named the measured value."""
+    derivation = Derivation.model_validate(_INFER_STRANDEDNESS)
+    premises = build_premises(
+        goal=_goal(strandedness="forward"),
+        derivations=[derivation],
+        measurements=LOADED.measurements,
+    )
+    assert premises["strandedness"].value == "forward"
+    assert premises["strandedness"].origin is PremiseOrigin.MEASURED
+
+
+def test_a_derivation_carries_the_row_justification_it_fired_on():
+    """§4.7 and MD0301: a premise a reader cannot check is what tier 3 being *advisory*
+    was supposed to prevent. A derived fact is the case with no measurement behind it at
+    all, so it is the one that most needs to say why."""
+    derivation = Derivation.model_validate(_INFER_STRANDEDNESS)
+    premises = build_premises(
+        goal=_goal(), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert "dUTP" in premises["strandedness"].because
+    assert premises["strandedness"].cite.startswith("Wang et al. 2012")
+
+
+def test_a_derivation_with_no_rows_is_refused():
+    """A derivation that cannot fire is A122's own shape, one layer down: it loads clean,
+    contributes nothing, and reads to a reviewer as a fact the registry supplies. Spec §5 —
+    everything is refused at load."""
+    with pytest.raises(ValueError, match="MD0304"):
+        Derivation.model_validate({"fact": "strandedness", "kind": "enum", "rows": []})
+
+
+def test_a_derivation_row_that_matches_nothing_leaves_the_fact_unmeasured():
+    """`absent` is the whole point of R15, so the case where a row simply does not fire has
+    to be distinguishable from the case where the derivation was not there. A gap is
+    evidence; it is evidence of a gap."""
+    derivation = Derivation.model_validate(
+        {
+            "fact": "strandedness",
+            "kind": "enum",
+            "rows": [{"when": {"read_length": 999}, "then": "reverse", "because": "never"}],
+        }
+    )
+    premises = build_premises(
+        goal=_goal(read_length=150), derivations=[derivation], measurements=LOADED.measurements
+    )
+    assert "strandedness" not in premises
+
+
+def test_a_derivation_whose_row_would_match_still_never_overwrites():
+    """The guard `test_a_derivation_never_overwrites_a_measurement` was too weak to be.
+
+    That test conditions on `strandedness: absent`, so with a measured strandedness the row
+    fails its own predicate and the never-overwrite rule is never consulted — deleting the
+    rule left all twelve tests green. This one conditions on a *different* fact, so the row
+    matches and only the rule stands between a measurement and a default.
+
+    Found by reverting, in code written the same hour. The plan's Step 5 predicted the weak
+    test would fail and it does not, for exactly this reason.
+    """
+    derivation = Derivation.model_validate(
+        {
+            "fact": "strandedness",
+            "kind": "enum",
+            "rows": [
+                {
+                    "when": {"read_length": 150},
+                    "then": "reverse",
+                    "because": "a row that matches on a fact other than the one it derives",
+                }
+            ],
+        }
+    )
+    premises = build_premises(
+        goal=_goal(read_length=150, strandedness="forward"),
+        derivations=[derivation],
+        measurements=LOADED.measurements,
+    )
+    assert premises["strandedness"].value == "forward"
+    assert premises["strandedness"].origin is PremiseOrigin.MEASURED
+
+
+def test_a_derivation_never_overwrites_an_earlier_derivation_either():
+    """First wins, rather than last. Two derivations of the same fact is a registry defect
+    and Task 11 should refuse it at load, but until then the resolution must not depend on
+    which file `stack()` reached first — that is invariant 10, and it is the same
+    first-record-wins convention `ReplayResolver` already uses for duplicate keys."""
+    rows = [{"when": {"read_length": 150}, "then": "reverse", "because": "first"}]
+    second = [{"when": {"read_length": 150}, "then": "forward", "because": "second"}]
+    premises = build_premises(
+        goal=_goal(read_length=150),
+        derivations=[
+            Derivation.model_validate({"fact": "strandedness", "kind": "enum", "rows": rows}),
+            Derivation.model_validate({"fact": "strandedness", "kind": "enum", "rows": second}),
+        ],
+        measurements=LOADED.measurements,
+    )
+    assert premises["strandedness"].value == "reverse"

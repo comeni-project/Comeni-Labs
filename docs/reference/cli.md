@@ -166,6 +166,7 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0301` | a rule row justifies nothing — no `because` and no `cite`, on the row or the block |
 | `MD0302` | a contract declares a role no layer in the stack declares |
 | `MD0303` | a measurement is declared named `required_states`, which is the goal's own shape |
+| `MD0304` | a derivation has no rows, so it can never fire |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

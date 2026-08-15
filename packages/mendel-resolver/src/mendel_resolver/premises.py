@@ -19,6 +19,8 @@ from comeni_core.measurement import MeasurementRegistry
 from comeni_core.tiers import ValueSource
 from pydantic import BaseModel, ConfigDict, Field
 
+from mendel_resolver.rules import Derivation
+
 
 class PremiseError(ValueError):
     """The premise set could not be built."""
@@ -71,7 +73,7 @@ _RESERVED = "required_states"
 def build_premises(
     *,
     goal: Goal,
-    derivations: list[Any],
+    derivations: list[Derivation],
     measurements: MeasurementRegistry,
 ) -> dict[str, Premise]:
     """Measured, then asserted, then goal, then derived. One pass, no fixpoint.
@@ -84,8 +86,7 @@ def build_premises(
     Takes the `Goal` rather than a goal and a profile: the profile is `goal.profile`, and a
     signature that accepts both invites a caller to pass two that disagree.
 
-    `derivations` is accepted and unused until Task 2, so that task adds behaviour rather
-    than a parameter — and so no caller written now has to be revisited then.
+    Derivations run **last** and may only fill gaps — see `_derive`.
     """
     premises: dict[str, Premise] = {}
     for entry in goal.profile.measurements:
@@ -111,4 +112,53 @@ def build_premises(
         ),
         origin=PremiseOrigin.GOAL,
     )
+    _derive(premises, derivations)
     return premises
+
+
+def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None:
+    """Fill gaps, last, and never overwrite. Spec §3.1.
+
+    Last because a derivation may read any earlier fact and nothing may read a derived one —
+    that is what "one pass, no fixpoint" buys, and it is what keeps two derivations from
+    resolving differently depending on which file loaded first.
+
+    Never overwrite because a fallback that can win against a measurement is not a fallback.
+    The failure would be silent in the worst way available: the pipeline resolves against a
+    default while `pipeline.yml` prints the measured value beside it.
+    """
+    for derivation in derivations:
+        if derivation.fact in premises:
+            continue
+        for row in derivation.rows:
+            if not _matches(row.when, premises):
+                continue
+            premises[derivation.fact] = Premise(
+                id=derivation.fact,
+                value=row.then,
+                origin=PremiseOrigin.DERIVED,
+                because=row.because or derivation.because or "",
+                cite=row.cite or derivation.cite or "",
+                derived_from=sorted(row.when),
+            )
+            break
+
+
+def _matches(when: dict[str, Any], premises: dict[str, Premise]) -> bool:
+    """Equality and `absent`, and nothing else until Task 3.
+
+    Deliberately not a second copy of `DecisionRow.matches`: that one reads a `DataProfile`
+    and cannot express `absent` at all, which is A122. Task 3 replaces this with the one
+    evaluator both layers share — two predicates that must agree is how a rule comes to pass
+    validation and then fail to fire, which is what `_comparison`'s docstring already says
+    about the last pair.
+    """
+    for fact, expected in when.items():
+        premise = premises.get(fact)
+        if expected == "absent":
+            if premise is not None:
+                return False
+            continue
+        if premise is None or premise.value != expected:
+            return False
+    return True
