@@ -56,11 +56,15 @@ github.com/comeni-project/comeni-registry hold the same layer today". After this
 the same layer — they *are* the same layer. Keeping a drift check would be checking a copy
 against itself.
 
-**`make drift` is also the source of a known defect worth burying with it.** Its
+**`make drift` also retires a mechanism that has already failed once.** Its
 `REGISTRY ?= ../comeni-registry` resolved to `.worktrees/comeni-registry` when run from a
-worktree — which is where `CLAUDE.md` requires the work to happen — and printed "skipped" rather
-than failing. That defect is cited twice in the guard ledger as the archetype of a check
-disabled by its own default.
+worktree — which is where `CLAUDE.md` requires the work to happen — so it printed "skipped"
+rather than failing, and Plan 1.15 Task 0 edited all twelve contracts under a green
+`make verify`. **That was repaired in the round-four issues work** and the fix, using
+`--git-common-dir`, is live today; it is cited twice in the guard ledger as the archetype of a
+check disabled by its own default. Deleting the target removes the shape rather than the bug:
+an optional check that skips when its input is missing is a check that reports success for the
+wrong reason, and the submodule leaves nothing optional to miss.
 
 **Root `LICENSE-DATA` goes too.** It exists for CC-BY-4.0 registry data, and after this there is
 no CC-BY-4.0 data in the repository. `comeni-registry` carries its own `LICENSE`. Leaving a
