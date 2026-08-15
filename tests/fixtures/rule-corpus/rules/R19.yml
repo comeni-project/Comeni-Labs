@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R19 — --sjdbOverhang from the maximum read length across the cohort. §12's
 # cohort-versus-sample question, which the shipped format could not even ask.

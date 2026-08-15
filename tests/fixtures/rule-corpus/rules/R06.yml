@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R06 — STAR --twopassMode by the goal's purpose. A120: `purpose` is now a declared
 # measurement, so `when` can read what the analysis is for.

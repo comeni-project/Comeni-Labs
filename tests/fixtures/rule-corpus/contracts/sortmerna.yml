@@ -1,3 +1,4 @@
+declares: contract
 id: nf-core/sortmerna@4.3.7
 roles: [ribo_depletion]
 nf_process: SORTMERNA

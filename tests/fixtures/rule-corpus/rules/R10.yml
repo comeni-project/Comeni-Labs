@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R10 — deduplication policy. The third branch is "no step", which is what A119 was about.
 decisions:

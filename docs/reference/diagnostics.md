@@ -36,13 +36,15 @@ decline to curate one.
 |---|---|
 | `MD0001` | a declared file is not valid YAML |
 | `MD0002` | a declared file does not match the schema for its kind |
-| `MD0003` | a layer holds a declared-data file that no kind reads |
 | `MD0004` | a registry layer contains a symlink |
 | `MD0005` | a layer holds no declared data at all |
 | `MD0006` | a key is declared twice inside one layer |
 | `MD0007` | `add_states` carries other fields as well |
 | `MD0008` | `add_states` names a type no layer declares |
 | `MD0009` | a contract requires a state no layer declares |
+| `MD0010` | a declared file does not say what it is |
+| `MD0011` | a declared file names a kind that does not exist |
+| `MD0012` | a vocabulary or measurement does not declare its id |
 
 ## A contract disagrees with its module
 

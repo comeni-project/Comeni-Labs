@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R16 — any stranded library. A121: negation over an enum, which used to be misdiagnosed
 # as a malformed number because every literal went through float().

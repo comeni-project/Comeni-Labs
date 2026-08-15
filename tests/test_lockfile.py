@@ -14,6 +14,38 @@ from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.resolve import resolve
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 
 
@@ -111,7 +143,7 @@ def test_an_edited_contract_is_reported_as_drift(built, tmp_path):
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
     sort = next(layer.rglob("samtools-sort.yml"))
-    sort.write_text(sort.read_text().replace("priority: 0", "priority: 7"))
+    sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 7")))
     changed = layers.load(layer)
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)
@@ -181,7 +213,7 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
     shutil.copytree(ROOT / "registry", first)
     manifest = yaml.safe_load((first / "registry.yml").read_text())
     manifest["name"] = "lab"
-    (first / "registry.yml").write_text(yaml.safe_dump(manifest))
+    (first / "registry.yml").write_text(_declared(first / "registry.yml", yaml.safe_dump(manifest)))
     second = _empty_layer(tmp_path / "two" / "lab")
 
     loaded = layers.load([first, second])
@@ -205,7 +237,9 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
     # report drift here — just for the wrong reason, or one time too many. A guard that
     # cannot fail is not a guard; it took reverting the code to find that out.
     # Only the first layer.
-    (first / "rules" / "extra.yml").write_text("decisions: []\n")
+    (first / "rules" / "extra.yml").write_text(
+        _declared(first / "rules" / "extra.yml", "decisions: []\n")
+    )
     changed = layers.load([first, second])
     assert lock.drift_against(ir, changed.registry, changed.paths) == [
         "layer lab has changed since it was locked"
@@ -214,7 +248,9 @@ def test_two_layers_sharing_a_name_do_not_collapse(built, tmp_path):
     # Only the second. Changing *both* would report two lines under either implementation
     # and prove nothing, which is the trap the first attempt at this fell into.
     (first / "rules" / "extra.yml").unlink()
-    (second / "rules" / "extra.yml").write_text("decisions: []\n")
+    (second / "rules" / "extra.yml").write_text(
+        _declared(second / "rules" / "extra.yml", "decisions: []\n")
+    )
     changed = layers.load([first, second])
     assert lock.drift_against(ir, changed.registry, changed.paths) == [
         "layer lab has changed since it was locked"
@@ -231,7 +267,7 @@ def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
     rules = layer / "rules" / "rnaseq.yml"
-    rules.write_text(rules.read_text().replace('">= 70"', '">= 60"'))
+    rules.write_text(_declared(rules, rules.read_text().replace('">= 70"', '">= 60"')))
     changed = layers.load(layer)
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)

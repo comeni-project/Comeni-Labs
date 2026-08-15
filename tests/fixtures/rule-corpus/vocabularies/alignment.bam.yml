@@ -1,1 +1,3 @@
+declares: vocabulary
+id: alignment.bam
 add_states: [deduplicated]

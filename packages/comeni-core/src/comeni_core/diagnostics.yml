@@ -1353,27 +1353,6 @@ MD0002:
     **Refusing an undeclared field is deliberate and not part of this code's remit to soften.**
     Every declared model sets `extra="forbid"`: a typo'd key that loads is an overlay that
     does nothing while looking exactly like one that works, which is audit A26's shape.
-MD0003:
-  emitted_by: resolver
-  concern: loading
-  says: "a layer holds a declared-data file that no kind reads"
-  fires_on: [build, upgrade, profile, publish]
-  refuses: true
-  fix: |
-    Declared data lives in one directory per kind, nested as deeply as you like, `.yml` or
-    `.yaml`. A file outside those is hashed into the layer digest and changes nothing.
-
-    The realistic cause is a misspelled directory — `contract/` for `contracts/` — or a file
-    dropped at the layer root. `registry.yml` is the one exception: it is the layer's own
-    manifest. Audit A26.
-  explanation: |
-    Audit A26. An overlay contract saved as `.yaml` was invisible to every loader, so the
-    build routed on the base layer and exited 0 — while the *layer digest* hashed the file.
-    The lockfile said the overlay was there and the pipeline said it was not.
-
-    Recursion and both extensions fix that specific case. This fixes the class: a layer could
-    contain a file nothing looked at and say nothing about it. The realistic version is a
-    misspelled directory rather than an exotic one.
 MD0004:
   emitted_by: resolver
   concern: loading
@@ -1539,3 +1518,67 @@ MD0225:
     Under the engine decision of 2026-08-14 this stops being a legibility gap: `guarded` and
     `sealed` both require attribution, so a model-authored reason that cannot be told from a
     human-authored one is a gap in the protection profiles.
+MD0010:
+  emitted_by: core
+  concern: loading
+  says: "a declared file does not say what it is"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Add a `declares:` line naming what the file is:
+
+        declares: contract
+        id: nf-core/star/align@1.11.0
+
+    One of `contract`, `rule`, `vocabulary`, `measurement`, `role`.
+  explanation: |
+    comeni-registry#1. A layer used to be one directory per kind, because the directory was how
+    the loader knew what a file was — so working on one module meant navigating three trees for
+    its contract, its types and the rule that selects it.
+
+    A file that announces itself can live anywhere, which is what lets a laboratory group a
+    tool's files together. The cost is this code: the folder used to answer the question and now
+    the file has to.
+
+    **`declares:` rather than `kind:`** because a measurement already has a `kind:`, meaning the
+    kind of its *value*. Two meanings for one key in one file is how a loader strips a field it
+    did not write.
+MD0011:
+  emitted_by: core
+  concern: loading
+  says: "a declared file names a kind that does not exist"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    The message names what was written and what was expected. Almost always a typo —
+    `contrat` for `contract`, or a plural where the singular is wanted.
+  explanation: |
+    The half of comeni-registry#1 that is a genuine loss, written down rather than discovered.
+
+    A misfiled document used to be impossible: `contracts/` held contracts, and a misspelled
+    `contract/` was caught by `MD0003` because nothing read it. That was prevention *by
+    construction*. A misspelled `declares:` can only be *detected*, which is this code.
+
+    Same class of error, one guarantee fewer. The trade is deliberate: a layer that reads well
+    to a human is worth a refusal that fires at load rather than a layout that could not be
+    wrong.
+MD0012:
+  emitted_by: core
+  concern: loading
+  says: "a vocabulary or measurement does not declare its id"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Add an `id:`:
+
+        declares: vocabulary
+        id: genome.index.star
+        states: []
+  explanation: |
+    Vocabularies and measurements took their identity from the filename, which was workable
+    while every one of them sat in a directory named for its kind. Once a file may live
+    anywhere, the filename is a poor name for a type: `align.type.yml` inside a tool folder
+    would silently declare a type called `align.type`.
+
+    Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
+    the file — so this closes the last two kinds whose identity was positional.

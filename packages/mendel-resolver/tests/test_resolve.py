@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -7,6 +9,38 @@ from comeni_core.plan.tiers import PremiseOrigin
 from mendel_resolver.goal import DataProfile, Goal, GoalInput
 from mendel_resolver.resolve import resolve
 from mendel_resolver.rules import RuleTable
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 COUNTS = """
 id: nf-core/subread/featurecounts@2.0.6
@@ -66,13 +100,13 @@ def _rules_and_measurements(tmp_path, registry, vocabulary, body):
     measurements = tmp_path / "measurements"
     measurements.mkdir(exist_ok=True)
     for name, declaration in MEASUREMENTS.items():
-        (measurements / name).write_text(declaration)
+        (measurements / name).write_text(_declared(measurements / name, declaration))
     declared = MeasurementRegistry.load(tmp_path)
     # A layer's rules live in `<layer>/rules/`. `RuleTable.load` took a bare file path
     # too, which is one more way to spell "a layer" than a layer has.
     rules = tmp_path / "rules"
     rules.mkdir(exist_ok=True)
-    (rules / "r.yml").write_text(body)
+    (rules / "r.yml").write_text(_declared(rules / "r.yml", body))
     return (
         RuleTable.load(
             tmp_path, registry=registry, vocabulary=vocabulary, measurements=declared
@@ -85,12 +119,16 @@ def _rules_and_measurements(tmp_path, registry, vocabulary, body):
 def setup(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted]\n")
+    )
+    (vocab_dir / "counts.matrix.yml").write_text(
+        _declared(vocab_dir / "counts.matrix.yml", "states: [gene_level]\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "fc.yml").write_text(COUNTS)
-    (contracts / "sort.yml").write_text(SORT)
+    (contracts / "fc.yml").write_text(_declared(contracts / "fc.yml", COUNTS))
+    (contracts / "sort.yml").write_text(_declared(contracts / "sort.yml", SORT))
     vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(tmp_path, vocabulary)
     return registry, *_rules_and_measurements(tmp_path, registry, vocabulary, RULES), vocabulary
@@ -222,15 +260,21 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 def tied(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
-    (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
+    (vocab_dir / "fastq.reads.yml").write_text(
+        _declared(vocab_dir / "fastq.reads.yml", "states: []\n")
+    )
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: []\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "a.yml").write_text(ALIGN_A)
+    (contracts / "a.yml").write_text(_declared(contracts / "a.yml", ALIGN_A))
     (contracts / "b.yml").write_text(
-        ALIGN_A.replace("star/align@1.11.0", "hisat2/align@2.2.1").replace(
+        _declared(
+            contracts / "b.yml",
+            ALIGN_A.replace("star/align@1.11.0", "hisat2/align@2.2.1").replace(
             "STAR_ALIGN", "HISAT2_ALIGN"
-        )
+        ))
     )
     vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(tmp_path, vocabulary)
@@ -287,13 +331,17 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 def with_index(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted, indexed]\n")
-    (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted, indexed]\n")
+    )
+    (vocab_dir / "counts.matrix.yml").write_text(
+        _declared(vocab_dir / "counts.matrix.yml", "states: [gene_level]\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "fc.yml").write_text(COUNTS)
-    (contracts / "sort.yml").write_text(SORT)
-    (contracts / "index.yml").write_text(INDEX)
+    (contracts / "fc.yml").write_text(_declared(contracts / "fc.yml", COUNTS))
+    (contracts / "sort.yml").write_text(_declared(contracts / "sort.yml", SORT))
+    (contracts / "index.yml").write_text(_declared(contracts / "index.yml", INDEX))
     vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(tmp_path, vocabulary)
     return (

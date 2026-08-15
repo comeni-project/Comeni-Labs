@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R04 — TrimGalore --length. Comparison plus a catch-all default.
 decisions:

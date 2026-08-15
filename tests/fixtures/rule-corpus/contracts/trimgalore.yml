@@ -1,3 +1,4 @@
+declares: contract
 id: nf-core/trimgalore@0.6.10
 roles: [trimming]
 nf_process: TRIMGALORE

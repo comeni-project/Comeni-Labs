@@ -16,6 +16,8 @@ picked, which is exactly why this survived. The tests here therefore use a resol
 disagrees, because agreement is what hid it.
 """
 
+import pathlib
+
 import pytest
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -25,6 +27,38 @@ from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import resolve
 from mendel_resolver.rules import RuleTable
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `contracts/nf-core/fastqc.yml` sits two levels down from the directory that names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 ALIGNER = """
 id: audit/aligner-{tag}@1.0.0
@@ -76,12 +110,20 @@ def tied(tmp_path):
     """Two aligners nothing distinguishes: a genuine tie, so tier 4 and a record."""
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
-    (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
+    (vocab_dir / "fastq.reads.yml").write_text(
+        _declared(vocab_dir / "fastq.reads.yml", "states: []\n")
+    )
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: []\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "a.yml").write_text(ALIGNER.format(tag="a", upper="A"))
-    (contracts / "b.yml").write_text(ALIGNER.format(tag="b", upper="B"))
+    (contracts / "a.yml").write_text(
+        _declared(contracts / "a.yml", ALIGNER.format(tag="a", upper="A"))
+    )
+    (contracts / "b.yml").write_text(
+        _declared(contracts / "b.yml", ALIGNER.format(tag="b", upper="B"))
+    )
     vocabulary = Vocabulary.load(tmp_path)
     return Registry.load(tmp_path, vocabulary), RuleTable(), MeasurementRegistry(), vocabulary
 
@@ -246,11 +288,13 @@ def two_equally_good_sources(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
     for type_id in ("fastq.reads", "alignment.bam", "counts.matrix"):
-        (vocab_dir / f"{type_id}.yml").write_text("states: []\n")
+        (vocab_dir / f"{type_id}.yml").write_text(
+            _declared(vocab_dir / f"{type_id}.yml", "states: []\n")
+        )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "dual.yml").write_text(DUAL)
-    (contracts / "counter.yml").write_text(COUNTER)
+    (contracts / "dual.yml").write_text(_declared(contracts / "dual.yml", DUAL))
+    (contracts / "counter.yml").write_text(_declared(contracts / "counter.yml", COUNTER))
     vocabulary = Vocabulary.load(tmp_path)
     return Registry.load(tmp_path, vocabulary), vocabulary
 

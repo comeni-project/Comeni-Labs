@@ -1,1 +1,3 @@
+declares: vocabulary
+id: fastq.reads
 add_states: [ribo_depleted]

@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R13 — cpus by genome size. A123: the decision is scoped to a role, so it can no longer
 # set `cpus` on every process in the pipeline.

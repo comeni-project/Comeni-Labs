@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R18 — AND within a row. Two premises, which is also why this decision is not checked for
 # completeness: a product of domains is a much larger claim.

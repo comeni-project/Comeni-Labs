@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R17 — genome build from organism. The archetype this format is good at, and the reason
 # the enum must be extensible: the list of organisms cannot be enumerated.

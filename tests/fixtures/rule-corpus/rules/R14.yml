@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R14 — MultiQC only above one sample. Step presence again.
 decisions:

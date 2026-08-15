@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R09 — insert rRNA depletion above ~40% rRNA. This one is still not fully expressible, and
 # that is recorded rather than papered over: `presence: present` means "leave routing alone",

@@ -92,7 +92,16 @@ def _parse_type(path: Path) -> list[TypeDeclaration | TypeExtension]:
     """
     data = yaml_strict.load(path) or {}
     data.pop("declares", None)
-    type_id = data.pop("id", None) or path.name.removesuffix(".yaml").removesuffix(".yml")
+    type_id = data.pop("id", None)
+    if not type_id:
+        raise ValueError(
+            coded(
+                "MD0012",
+                f"{path} is a vocabulary and declares no `id:`. The filename stopped\n"
+                f"  being the identity when a file stopped having to live in a directory\n"
+                f"  named for its kind.",
+            )
+        )
     added = data.pop("add_states", None)
     if added is not None:
         if data:

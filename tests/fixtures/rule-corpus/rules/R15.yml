@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R15 — infer strandedness when nothing measured it. A122: this is a *derivation*, and the
 # format now has one. It may fill a gap and may never overwrite a measurement.

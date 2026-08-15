@@ -210,7 +210,16 @@ def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
     """
     data = yaml_strict.load(path) or {}
     data.pop("declares", None)
-    measurement_id = data.pop("id", None) or path.name.removesuffix(".yaml").removesuffix(".yml")
+    measurement_id = data.pop("id", None)
+    if not measurement_id:
+        raise ValueError(
+            coded(
+                "MD0012",
+                f"{path} is a measurement and declares no `id:`. The filename stopped\n"
+                f"  being the identity when a file stopped having to live in a directory\n"
+                f"  named for its kind.",
+            )
+        )
     added = data.pop("add_values", None)
     if added is not None:
         if data:

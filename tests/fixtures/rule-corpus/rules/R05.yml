@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R05 — TrimGalore --clip_R1 for template-switching preps. Enum equality.
 decisions:
