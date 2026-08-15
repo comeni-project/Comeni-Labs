@@ -515,7 +515,7 @@ git commit -m "refactor(resolver): rules.py splits into format, table and valida
 >
 > **Final shape:** `format.py` 435, `table.py` 364, `validate.py` 456, `__init__.py` 61.
 
-## Task 4: split `cli.py`
+## Task 4: split `cli.py` — **done**
 
 **Spec:** Part one. 851 lines, and the decomposition is **not** one module per verb.
 
@@ -536,7 +536,7 @@ git commit -m "refactor(resolver): rules.py splits into format, table and valida
 - Produces: `mendel_compiler.cli.main(argv)` — unchanged signature, and the console-script entry
   point in `pyproject.toml` keeps pointing at it.
 
-- [ ] **Step 1: Turn the module into a package**
+- [x] **Step 1: Turn the module into a package**
 
 ```bash
 cd packages/mendel-compiler/src/mendel_compiler
@@ -544,14 +544,14 @@ mkdir cli
 git mv cli.py cli/__init__.py
 ```
 
-- [ ] **Step 2: Move the parser into `parse.py`**
+- [x] **Step 2: Move the parser into `parse.py`**
 
 Cut the whole `argparse` block out of `_build` into `def parser() -> argparse.ArgumentParser`.
 Every `help=` string moves verbatim — several of them carry the argument for why a flag exists
 (`--dry-run` is `verify`; `--force` names the directory as another pipeline's evidence) and
 losing one would lose the reason.
 
-- [ ] **Step 3: Move the two artifact verbs into `artifact_verbs.py`**
+- [x] **Step 3: Move the two artifact verbs into `artifact_verbs.py`**
 
 Cut `_emit_verb`, `_publish_verb`, `_refuse_a_divergent_directory`.
 
@@ -564,7 +564,7 @@ makes, and `publish` certifies a directory that already exists. Neither resolves
 """
 ```
 
-- [ ] **Step 4: Move the shared resolution flow into `resolve_verbs.py`**
+- [x] **Step 4: Move the shared resolution flow into `resolve_verbs.py`**
 
 Cut everything from `loaded = layers.load(...)` to the final `return 0`, plus `_profiling_goal`.
 
@@ -579,7 +579,7 @@ times.
 """
 ```
 
-- [ ] **Step 5: Move the printing into `report.py`**
+- [x] **Step 5: Move the printing into `report.py`**
 
 Cut `_report_upgrade`, `_verdict`, `_frozen_against_moved_contracts`, `_displacement_line`.
 
@@ -592,11 +592,11 @@ into the others is the defect `cli.py`'s own comments warn about.
 """
 ```
 
-- [ ] **Step 6: Leave `main`, `_with_pointer` and `_blame` in `cli/__init__.py`**
+- [x] **Step 6: Leave `main`, `_with_pointer` and `_blame` in `cli/__init__.py`**
 
 They are the entry point and the error surface, which is what a reader opens `cli/` for.
 
-- [ ] **Step 7: Run everything**
+- [x] **Step 7: Run everything**
 
 Run: `uv run ruff check . && make verify && uv run python tools/refactor_oracle.py`
 Expected: PASS, digests unmoved.
@@ -604,7 +604,7 @@ Expected: PASS, digests unmoved.
 **`make verify` is mandatory here**, not `make check`: `cli.py` is one of the six files
 `CLAUDE.md` names, and `tests/test_counts.py` is the only thing that runs a tool.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -612,6 +612,23 @@ git commit -m "refactor(compiler): cli.py splits by what a verb does to a pipeli
 ```
 
 ---
+
+> **Corrected 2026-08-16, on execution. Three things the split surfaced.**
+>
+> 1. **`cli/__main__.py` is needed.** A package is not executable with `-m`, and four tests run
+>    `python -m mendel_compiler.cli`. The console script points at `main` directly, so the entry
+>    point everybody uses was fine — which is why nothing but the tests noticed.
+> 2. **Six monkeypatch sites moved.** `run_gate` is looked up in the module that *calls* it, so
+>    `monkeypatch.setattr(cli, "run_gate", …)` patched a name nothing reads.
+> 3. **One test needed two patches where one had done** — it builds then publishes, and the gate
+>    is invoked from `resolve_verbs` *and* `artifact_verbs`. One `setattr` covered both while
+>    they shared a file, so nothing recorded that the gate runs twice.
+>
+> `run(args, parser)` takes the parser because `parser.error` is argparse's contract with the
+> user; building a second one here would be a second usage string.
+>
+> **Final shape:** `__init__` 193, `resolve_verbs` 308, `artifact_verbs` 238, `report` 164,
+> `parse` 72, `__main__` 14.
 
 ## Task 5: the guards that name a path as a string
 
