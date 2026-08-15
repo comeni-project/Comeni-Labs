@@ -2033,3 +2033,43 @@ is the pair a check of the top-level workflow would never have looked at.
 **One gap in the evidence, recorded rather than glossed:** the CI run showing zero deprecation
 warnings was `ci.yml`, which never uses `setup-nextflow` — only `nightly.yml` does. The
 composite's clean bill comes from reading its manifest at the pinned SHA, not from a run.
+
+## `emitted_by` names the package that raises (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_diagnostics_ownership.py::test_every_locatable_code_is_owned_by_the_package_that_raises_it` | `MD0225` put back to `compiler` | failed, naming the code and both packages |
+| 2026-08-16 | `…::test_the_unlocatable_codes_are_a_known_list` | a code with no raise site added to the registry | failed, naming it under `new:` |
+| 2026-08-16 | `…::test_a_mention_is_not_an_emission` | the source list emptied | failed |
+| 2026-08-16 | `…::test_the_scan_reached_the_sources` | the source list emptied | failed |
+
+**The guard found twenty-three wrong labels on its first run, and every one said "raised in
+comeni-core".** That uniformity is the diagnosis: `EmittedBy` had `compiler | resolver | forge |
+api` and **no `core`**, so every code raised inside `comeni-core` — the declared-data loaders,
+and `pipeline.py`'s validators — had to claim a package that does not raise it. A vocabulary that
+cannot express the truth teaches people to lie to it, and it did: six of the nine codes added
+four days earlier were wrong the same way, written by someone who checked the enum and found no
+better option.
+
+**The relabelled set was derived from the guard's own output rather than hand-copied.** A
+twenty-three item list transcribed by hand is a list with a typo in it.
+
+**Two forms of emission, and the second was nearly missed.** A first pattern matched only a code
+leading a string, which put all nine conformance codes into `UNLOCATABLE` — where they would have
+sat unexamined, because that list is *meant* to hold the ones nothing can see. They use
+`code="MD0100"` on a `Diagnostic` object. Widening the pattern shrank `UNLOCATABLE` from fifteen
+entries to one.
+
+**`MD0202` is that one, and it is the only code with `refuses: false`.** It is printed as a
+report line — `f"  MD0202  {line}"`, two spaces, no colon — because it tells a reader what was
+carried forward rather than refusing anything.
+
+**The colon is what separates a mention from an emission**, and that assumption has its own test
+rather than living in a comment: `materialise.py` says *"which is exactly what `MD0223` is for"*
+and must not count, while `artifact_verbs.py` writes `"mendel: MD0223: a value was edited"` and
+must.
+
+**Nothing published moved.** `docs/reference/diagnostics.md` is byte-identical after twenty-three
+labels changed, because the generated page groups by `concern`. That is what made this a safe
+repair rather than a churn of the public reference, and it was predicted in the spec before it
+was checked.
