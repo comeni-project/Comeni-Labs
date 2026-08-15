@@ -1247,3 +1247,37 @@ the wrong name. §4.7's rule applied to a field name rather than to a value.
 branch of a presence decision — *"absent below 50bp, otherwise present"* — where "present" means
 leave routing alone, which is a real answer rather than a dead one. Forcing a step that routing
 would not otherwise insert is a different feature, is spec §4.1's open half, and is carried.
+
+## Plan 1.15 Task 6 — one decision may land on several tools (§4.2)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_one_decision_lands_on_two_tools` (+2) | `Decision.targets()` returning `[self.decides[0]]` | **3 failed** | the effect set is missing `param:alignment:star_ignore_sjdbgtf` |
+| 2026-08-15 | `test_rules.py::test_both_targets_of_one_decision_are_validated` | `_validate`'s loop cut to `targets()[:1]` | failed | `DID NOT RAISE` for a second target naming an unfilled role |
+| 2026-08-15 | `test_rules.py::test_two_decisions_cannot_both_land_on_one_target_across_files` | `_no_target_is_decided_twice()` | failed | `DID NOT RAISE` |
+
+**A revert was applied to the wrong call site and reported a false result.** The first attempt at
+the middle row edited `for target in decision.targets():` with a one-occurrence string replace,
+and that string appears **five times** in the file — it hit `_no_target_is_decided_twice`, not
+`_validate`. The run failed one test, which looked like a plausible outcome, and the row would
+have been recorded as evidence for a guard that had never been touched.
+
+What caught it was that the failure was the *wrong* test: the reverted line was supposed to break
+"both targets are validated" and instead broke "two decisions cannot land on one target", which
+is a different guard's test. **A revert whose failure does not match its prediction has not been
+watched** — the probe that followed printed the real exception and its origin and showed
+`MD0306` still firing from the untouched loop. Recorded because the near-miss is the useful part:
+this is the second time in this plan that an apparently sensible revert result was not what it
+appeared to be, after Task 2's inert never-overwrite guard.
+
+**The composite stacking key opens A119 again, and the third row is where it is closed.** A
+multi-target decision replaces as a whole, so its `stack()` key is the whole set — which makes a
+second decision naming only *one* of those targets a different key. It stacks happily beside it
+and both fire on that target. `MD0309`'s per-file check cannot see it, because they are in
+different files; `stack()`'s per-layer check cannot see it either, because to it they are two
+different keys. `_no_target_is_decided_twice` runs after assembly, which is the only place both
+are visible at once.
+
+The composite key was kept rather than abandoned because half a replacement is the worse failure:
+an overlay redeciding one of two targets would leave the base layer's other target in force under
+a justification the overlay never wrote.

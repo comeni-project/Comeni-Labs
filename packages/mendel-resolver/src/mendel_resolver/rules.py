@@ -34,10 +34,11 @@ from comeni_core.marks import ContractId, LayerName, MeasurementId, ParamValue, 
 from comeni_core.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.profile import DataProfile
 from comeni_core.registry import Registry
+from comeni_core.tiers import Tier
 from comeni_core.vocabulary import Vocabulary
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from mendel_resolver.predicates import matches
+from mendel_resolver.predicates import matches, tier_of_row
 
 _OPS = {
     ">=": operator.ge,
@@ -146,10 +147,63 @@ class DecisionRow(BaseModel):
 class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    decides: DecisionTarget
+    decides: DecisionTarget | list[DecisionTarget]
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None
+
+    def targets(self) -> list[DecisionTarget]:
+        """A decision landing on two tools is **one** choice with one premise and one citation.
+
+        Spec §4.2. `star_ignore_sjdbgtf` depends on how the index was built: supplying splice
+        junctions at index time and ignoring them at align time is a single call about where
+        the annotation is used, spelled as two flags on two tools.
+
+        Modelling it as two decisions would make the second read the first, and decisions
+        reading decisions is what this format refuses — it buys evaluation order, the
+        possibility of a cycle, and the loss of `build_premises`' single pass. One block also
+        means a reviewer reads the justification once, which is why the format is grouped at
+        all.
+        """
+        return self.decides if isinstance(self.decides, list) else [self.decides]
+
+    def key(self) -> str:
+        """One `stack()` key for the whole decision, because it replaces as a whole.
+
+        An overlay replacing a two-target decision has to decide the same two things: half a
+        replacement would leave the base's other half in force under a justification the
+        overlay never wrote. That the composite key lets a *different* decision land on one of
+        those targets is a real gap and is closed after assembly — see
+        `_no_target_is_decided_twice`, and the test that reaches it.
+        """
+        return "+".join(sorted(target.key() for target in self.targets()))
+
+
+class Fired(BaseModel):
+    """A row that matched, and everything a caller needs without consulting the table again.
+
+    A22's shape: `RuleTable` recorded provenance correctly and the one caller that had to
+    remember to read it did not. The answer carries its own evidence.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    effect: Effect
+    role: RoleName
+    name: str | None = None
+    value: ParamValue = None
+    tier: Tier = Tier.DATA_PROFILED
+    because: str = ""
+    cite: str = ""
+    axis_because: str = ""
+    """The block's justification — the methodology, kept apart from the row's choice.
+
+    One field carried both and printed the axis citation as the row's reason, so the shipped
+    registry said HISAT2 was chosen because of the paper describing STAR. A79, A107.
+    """
+
+    def key(self) -> str:
+        return f"{self.effect}:{self.role}" + (f":{self.name}" if self.name else "")
 
 
 class Aggregate(BaseModel):
@@ -317,7 +371,7 @@ def _key_of(entry: "Derivation | Decision") -> str:
     """
     if isinstance(entry, Derivation):
         return f"derive:{entry.fact}"
-    return entry.decides.key()
+    return entry.key()
 
 
 class RuleTable(BaseModel):
@@ -463,28 +517,91 @@ class RuleTable(BaseModel):
                 measurements=measurements,
                 facts=facts,
             )
+        self._no_target_is_decided_twice()
         for decision in self.decisions:
             _check_when(
                 decision.rows,
-                f"decision {decision.decides.key()}",
+                f"decision {decision.key()}",
                 measurements=measurements,
                 facts=facts,
             )
 
+    def _no_target_is_decided_twice(self) -> None:
+        """No two decisions in the assembled table land on the same target.
+
+        The gap a composite stacking key opens. A multi-target decision replaces as a whole,
+        so its `stack()` key is the whole set — which means a second decision naming only one
+        of those targets is a *different* key, stacks happily beside it, and both fire on that
+        target. `MD0309`'s per-file check cannot see it and `stack()`'s per-layer check cannot
+        see it either, because to both of them these are two different keys.
+
+        Which is A119 again, arriving through the feature added to express one choice on two
+        tools. Recorded here rather than fixed by abandoning the composite key, because half a
+        replacement is the worse failure: it would leave a base layer's other target in force
+        under a justification the overlay never wrote.
+        """
+        decided_by: dict[str, str] = {}
+        for decision in self.decisions:
+            for target in decision.targets():
+                if target.key() in decided_by:
+                    raise RuleValidationError(
+                        f"MD0309: two decisions both land on {target.key()!r} — "
+                        f"{decided_by[target.key()]!r} and {decision.key()!r}.\n"
+                        f"  Only one of them will fire, and which one is not something a\n"
+                        f"  reader of either file can work out. Merge them, or narrow one\n"
+                        f"  with `when_implementation:`."
+                    )
+                decided_by[target.key()] = decision.key()
+
     def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
         for decision in self.decisions:
-            if decision.decides.key() != key:
+            # `key()` is the composite; a two-target decision answers for either of them.
+            if key not in {target.key() for target in decision.targets()}:
                 continue
             for row in decision.rows:
                 if matches(row.when, premises):
                     return Pin(
                         value=row.then,
-                        from_layer=self.layer_of.get(key, ""),
-                        displaced_layer=self.displaced_layer.get(key),
+                        from_layer=self.layer_of.get(decision.key(), ""),
+                        displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
                         row=row,
                     )
         return None
+
+    def effects_for(self, premises: "dict[str, object]") -> list["Fired"]:
+        """Every effect the table produces against these premises, in key order.
+
+        One `Fired` per *target*, so a decision landing on two tools produces two effects
+        carrying one premise and one citation — which is what makes it one choice rather than
+        two that happen to agree.
+        """
+        fired: list[Fired] = []
+        for decision in self.decisions:
+            row = next((r for r in decision.rows if matches(r.when, premises)), None)
+            if row is None:
+                continue
+            pin = Pin(
+                value=row.then,
+                from_layer=self.layer_of.get(decision.key(), ""),
+                displaced_layer=self.displaced_layer.get(decision.key()),
+                decision=decision,
+                row=row,
+            )
+            for target in decision.targets():
+                fired.append(
+                    Fired(
+                        effect=target.effect,
+                        role=target.of,
+                        name=target.name,
+                        value=row.then,
+                        tier=tier_of_row(row.when),
+                        because=pin.because(),
+                        cite=row.cite or decision.cite or "",
+                        axis_because=pin.axis_because(),
+                    )
+                )
+        return sorted(fired, key=lambda f: f.key())
 
     def value_for(
         self,
@@ -712,21 +829,25 @@ def _validate(
     measurements: MeasurementRegistry,
     seen: dict[str, str],
 ) -> None:
-    _validate_target(
-        decision.decides,
-        path,
-        registry=registry,
-        fillers_by_role=fillers_by_role,
-        seen=seen,
-    )
-    _validate_rows(
-        decision,
-        decision.decides,
-        path,
-        registry=registry,
-        fillers_by_role=fillers_by_role,
-        measurements=measurements,
-    )
+    # Every target, not only the first. A validator that loops over `decides` incorrectly
+    # still passes every single-target test there is, which is why `test_both_targets_of_one
+    # _decision_are_validated` exists and why it names that in its docstring.
+    for target in decision.targets():
+        _validate_target(
+            target,
+            path,
+            registry=registry,
+            fillers_by_role=fillers_by_role,
+            seen=seen,
+        )
+        _validate_rows(
+            decision,
+            target,
+            path,
+            registry=registry,
+            fillers_by_role=fillers_by_role,
+            measurements=measurements,
+        )
 
 
 def _check_when(

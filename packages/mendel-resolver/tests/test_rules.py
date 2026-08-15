@@ -352,3 +352,87 @@ def test_a_path_cannot_enter_through_constraints():
     """
     with pytest.raises(ValidationError):
         Goal(constraints={"seq_platform": "/data/patients/PT-4471023/S1_R1.fastq.gz"})
+
+
+ALIGNER = """
+id: nf-core/star/align@1.11.0
+roles: [alignment]
+nf_process: STAR_ALIGN
+nf_include: modules/nf-core/star/align/main
+consumes: [{name: reads, type_id: fastq.reads, state_required: []}]
+produces: [{name: bam, type_id: alignment.bam, state: []}]
+params:
+  - {name: star_ignore_sjdbgtf, tier_hint: 2, via: ext, key: args, template: "--x {value}"}
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-08-15"}
+"""
+
+
+@pytest.fixture
+def two_roles(world):
+    """A second contract, so a decision can land on two roles at once."""
+    (world["layer"] / "vocabularies" / "fastq.reads.yml").write_text("states: [trimmed]\n")
+    (world["layer"] / "contracts" / "star.yml").write_text(ALIGNER)
+    world["vocabulary"] = Vocabulary.load(world["layer"])
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    return world
+
+
+TWO_TOOLS = """
+version: 1
+decisions:
+  - decides:
+      - {effect: param, of: quantification, name: strandedness}
+      - {effect: param, of: alignment, name: star_ignore_sjdbgtf}
+    because: "splice junctions can be supplied at index time or at align time"
+    cite: "STAR manual 2.2.3"
+    rows: [{when: {}, then: 0, cite: "STAR manual 2.2.3"}]
+"""
+
+
+def test_one_decision_lands_on_two_tools(two_roles):
+    """§4.2. A decision that *reads* another decision would buy evaluation order, the
+    possibility of a cycle, and the loss of the single pass. "Where the annotation is used"
+    is one choice with two flags, so it is one block with two targets."""
+    table = _rules(two_roles, TWO_TOOLS)
+    fired = table.effects_for({})
+    assert {f.key() for f in fired} == {
+        "param:quantification:strandedness",
+        "param:alignment:star_ignore_sjdbgtf",
+    }
+    assert {f.cite for f in fired} == {"STAR manual 2.2.3"}, "one choice, one citation"
+
+
+def test_both_targets_of_one_decision_are_validated(two_roles):
+    """Not just the first. A target list is where a validator that loops over `decides`
+    incorrectly still passes every single-target test in this file."""
+    with pytest.raises(RuleValidationError, match="MD0306"):
+        _rules(two_roles, """
+version: 1
+decisions:
+  - decides:
+      - {effect: param, of: quantification, name: strandedness}
+      - {effect: implementation, of: nothing_fills_this}
+    because: "a fixture"
+    rows: [{when: {}, then: 0, cite: "a"}]
+""")
+
+
+def test_two_decisions_cannot_both_land_on_one_target_across_files(two_roles):
+    """The gap a composite stacking key opens, closed after assembly.
+
+    A multi-target decision is one unit for replacement, so its `stack()` key is the whole
+    set — which means a second decision naming only *one* of those targets is a different
+    key, stacks happily beside it, and both fire on the same target. `MD0309`'s per-file
+    check cannot see it and `stack()`'s per-layer check cannot see it either.
+    """
+    two_roles["rules"].mkdir(exist_ok=True)
+    (two_roles["rules"] / "other.yml").write_text("""
+version: 1
+decisions:
+  - decides: {effect: param, of: alignment, name: star_ignore_sjdbgtf}
+    because: "a fixture"
+    rows: [{when: {}, then: 1, cite: "a"}]
+""")
+    with pytest.raises(RuleValidationError, match="MD0309"):
+        _rules(two_roles, TWO_TOOLS)
