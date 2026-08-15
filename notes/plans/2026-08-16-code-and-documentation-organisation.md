@@ -1024,7 +1024,20 @@ git commit -m "docs: the front door routes by reader, and every directory says w
 
 ---
 
-## Task 9: `driving-mendel.md`, and the root
+## Task 9: `driving-mendel.md`, and the root — **done, and it ran before Task 8**
+
+> **Correction, 2026-08-16: Task 9 ran before Task 8.** Task 8's front door links to
+> `guides/driving-mendel.md` and `guides/contributing.md`, both of which Task 9 creates — so
+> Task 8's own Step 3 (`make links`) could not have passed at the end of Task 8. The same
+> ordering defect as Tasks 1 and 5, and fixed the same way: run the task that creates the files
+> first. Nothing else about either task changed.
+>
+> **Two things this task found that the plan did not predict.** `docs/guides/contributing.md`
+> carried seven relative links written from the repository root, every one of which broke on the
+> move and none of which `make links` had ever checked, because the file was at the root when
+> they were written. And deleting `CODE_OF_CONDUCT.md` left `contributing.md` with a section
+> pointing at it; that section is now two sentences this project means, with the deletion and its
+> reason recorded in place rather than leaving a silent gap.
 
 **Spec:** Part two and Part three.
 
@@ -1033,7 +1046,7 @@ git commit -m "docs: the front door routes by reader, and every directory says w
 - Move: `CONTRIBUTING.md` → `docs/guides/contributing.md`, plus a root stub
 - Delete: `CODE_OF_CONDUCT.md`
 
-- [ ] **Step 1: Write `docs/guides/driving-mendel.md`**
+- [x] **Step 1: Write `docs/guides/driving-mendel.md`**
 
 The loop, as a sequence, with real commands and real output. Sections:
 
@@ -1053,7 +1066,7 @@ The loop, as a sequence, with real commands and real output. Sections:
 
 Every command in it must be one this repository can actually run; verify each before committing.
 
-- [ ] **Step 2: Move `CONTRIBUTING.md` and stub the root**
+- [x] **Step 2: Move `CONTRIBUTING.md` and stub the root**
 
 ```bash
 git mv CONTRIBUTING.md docs/guides/contributing.md
@@ -1067,7 +1080,7 @@ a pull request — removing it would drop an affordance rather than ceremony.
 EOF
 ```
 
-- [ ] **Step 3: Delete the logo sketch**
+- [x] **Step 3: Delete the logo sketch**
 
 ```bash
 git rm docs/design/comeni-logo-sketch.html
@@ -1078,14 +1091,14 @@ git rm docs/design/comeni-logo-sketch.html
 it in prose, and a mockup is a design argument made visually. Separating those by file
 extension would put a claim in one directory and its evidence in another.
 
-- [ ] **Step 4: `CHANGELOG.md` stays at the root, unchanged**
+- [x] **Step 4: `CHANGELOG.md` stays at the root, unchanged**
 
 Nothing to do, recorded so it is a decision rather than an oversight: it is what a consumer of
 a pinned version or a published registry reads to find what moved, GitHub links it from
 releases, and the journal in `notes/` answers a different question — *why*, at length, for
 somebody working on Mendel rather than using it.
 
-- [ ] **Step 5: Delete `CODE_OF_CONDUCT.md`**
+- [x] **Step 5: Delete `CODE_OF_CONDUCT.md`**
 
 ```bash
 git rm CODE_OF_CONDUCT.md
@@ -1094,12 +1107,12 @@ grep -rn "CODE_OF_CONDUCT" --include='*.md' . | grep -v .worktrees
 
 Remove every reference the grep finds.
 
-- [ ] **Step 6: Check**
+- [x] **Step 6: Check**
 
 Run: `make links && make check && uv run python tools/refactor_oracle.py`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A

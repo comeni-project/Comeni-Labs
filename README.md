@@ -192,7 +192,7 @@ fixture that happens to be true. `examples/` holds an example goal and nothing e
 | a choice to depend on your data | [`docs/guides/writing-a-rule.md`](docs/guides/writing-a-rule.md) |
 | to look up a field or a flag | [`docs/reference/`](docs/reference/) |
 | to know why it works this way | [`docs/concepts/`](docs/concepts/) |
-| to change the code | [`ARCHITECTURE.md`](ARCHITECTURE.md), then [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| to change the code | [`ARCHITECTURE.md`](ARCHITECTURE.md), then [`docs/guides/contributing.md`](docs/guides/contributing.md) |
 | the design records and what was rejected | [`docs/design/`](docs/design/) |
 
 ## The audit
@@ -214,8 +214,8 @@ record public is cheaper than the alternative.
 ## Contributing
 
 Registry data — a contract, a rule, a measurement — is the most valuable contribution and needs
-no Python. See [`CONTRIBUTING.md`](CONTRIBUTING.md), and
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), which applies everywhere in this project.
+no Python. See [`docs/guides/contributing.md`](docs/guides/contributing.md), which is also where
+this project says what it expects of a conversation.
 
 Security and privacy reports go through [`SECURITY.md`](SECURITY.md) rather than a public issue.
 A hole in the egress boundary, or a way to get patient data into a `Goal`, is a security issue.

@@ -470,8 +470,9 @@ reach it and have the tests say nothing.
 contracts cite papers, so attribution matters. Vendored nf-core modules keep their own.
 
 **Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
-2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING`, `CODE_OF_CONDUCT`,
-`SECURITY` and `CHANGELOG` are in place, CI runs on every pull request, and the nightly
+2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING` (a root stub pointing at
+`docs/guides/contributing.md`, because GitHub reads the root path), `SECURITY` and `CHANGELOG`
+are in place, CI runs on every pull request, and the nightly
 workflow runs the stub gate.
 
 The org is the **umbrella**, not one of the products — `comeni-labs`, `comeni-code` and

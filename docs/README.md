@@ -13,7 +13,7 @@ Start here. Each section answers a different kind of question.
 | ship my laboratory's own contracts and rules | [guides/registry-layers.md](guides/registry-layers.md) |
 | look up a command or a field | [reference/](reference/) |
 | understand *why* it works this way | [concepts/](concepts/) and [../ARCHITECTURE.md](../ARCHITECTURE.md) |
-| contribute a change | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
+| contribute a change | [guides/contributing.md](guides/contributing.md) |
 
 ## The sections
 
