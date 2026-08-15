@@ -1826,6 +1826,31 @@ def test_an_uncoded_refusal_gains_no_pointer(capsys):
 Watch it fail by returning `message` unchanged; confirm the first test fails and the second
 still passes.
 
+> **Corrected 2026-08-15, on execution. Five things.**
+>
+> 1. **Steps 1–3 were done in Task 4.** The shipped rule had to migrate there, because
+>    `DecisionTarget` changed incompatibly and `make check` may not be the gate that goes red.
+>    A grep for `producer_of` now returns docstrings and diagnostic explanations only.
+> 2. **The twenty attempts are *not* turned into tests — they are answered by a second
+>    corpus.** A corpus rewritten in the new format cannot also be the record of what the old
+>    one could not express, and `rule-attempts/README.md` is emphatic that changing it destroys
+>    what it is for. So `tests/fixtures/rule-corpus/` holds the rewrites,
+>    `tests/test_rule_corpus.py` holds the expected outcome per rule with its reason, and a
+>    test asserts neither directory has an orphan. The scratch layer the audit did not commit
+>    **is** committed here, because the reason not to — that somebody would make the failures
+>    pass — does not apply to a directory whose whole point is that they now do.
+> 3. **The corpus found two things nothing else did.** `DecisionRow.when` was typed
+>    `dict[str, ParamValue]`, so a mapping predicate was refused by pydantic before
+>    `predicates.matches` — which implements `not` and `in` — ever saw it: **A121 was only half
+>    closed**, and nine tests exercising the evaluator directly all missed it. And `MD0308` made
+>    five corpus rules narrow with `when_implementation:`, which is A123 working.
+> 4. **`check_registry_drift.py` could not see `roles/`.** Its `KINDS` was a hand-written tuple
+>    of four; derived from `DeclaredKind` now. The check would have gone green with an entire
+>    kind unexamined.
+> 5. **`make drift` goes green by syncing `../comeni-registry`**, which is a second repository.
+>    Committed there locally on its existing `sync-1.10-to-1.14` branch, following `f4253bb`'s
+>    precedent, and **not pushed**.
+
 - [ ] **Step 6: Update the documents**
 
 `rule-tables-and-port-logic.md` §13's three reasoned limits are now closed or renamed; say which.

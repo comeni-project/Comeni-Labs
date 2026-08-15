@@ -705,3 +705,24 @@ def test_narrowing_to_one_implementation_restores_its_domain(two_roles):
                 "when_implementation: [comeni/htseq-count@2.0.5]}"
             ),
         ))
+
+
+def test_a_mapping_predicate_survives_the_model_as_well_as_the_evaluator(two_roles):
+    """A121, the half Task 3 did not close.
+
+    `predicates.matches` implements `not` and `in`, and `DecisionRow.when` was typed
+    `dict[str, ParamValue]` — so a rule using either was refused by pydantic before the
+    evaluator ever saw it. An evaluator handling a case the model cannot represent is the
+    same defect as a model permitting one the evaluator ignores, and neither shows up until
+    somebody writes the rule. The twenty-rule corpus is what wrote it.
+    """
+    table = _rules(two_roles, _decision(
+        '      - {when: {strandedness: {not: unstranded}}, then: 2, cite: "a"}\n'
+        '      - {when: {}, then: 0, cite: "b"}',
+        target="{effect: param, of: quantification, name: strandedness}",
+    ))
+    answered = {
+        state: table.value_for(["quantification"], "strandedness", P(strandedness=state)).value
+        for state in ("reverse", "unstranded")
+    }
+    assert answered == {"reverse": 2, "unstranded": 0}

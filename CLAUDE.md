@@ -41,6 +41,21 @@ guessed silently"* **does not**: five of the six values reaching the generated N
 no `why:` at all. Read `docs/internal/audits/2026-08-14-design-audit.md`; the four stream reports
 beside it are its evidence.
 
+**Plan 1.15 is complete — the rule format, re-derived.** Twelve tasks. A tier-3 rule now targets
+a **role** rather than a type id, with three effects: `presence` (whether the step exists),
+`implementation` (which contract fills it), and `param`. That closes A119 and A123, which are one
+defect from two sides — the old target forced a duplicate-handling rule and an aligner rule onto
+the same `alignment.bam` key, and REPLACE stacking settled the collision by deleting one of them
+at exit 0. A **premise layer** builds the facts `when` reads, each carrying where it came from,
+which is A108 and the hook `sealed` needs for issue #2; `pipeline.yml` is at **`version: 3`** and
+a measured build and an asserted one are no longer byte-identical. Read
+`docs/internal/journal/2026-08-15-evening.md`, then `ARCHITECTURE.md` §Rule tables.
+
+**Six of twenty real rules could be written before; seventeen can now**, and the four that cannot
+are refused for reasons the plan names. `tests/test_rule_corpus.py` is the assertion and
+`tests/fixtures/rule-corpus/` is the corpus;
+`docs/internal/audits/fixtures/rule-attempts/` stays frozen as the record of what broke.
+
 **Plans 1.13 and 1.14 are both complete.** 1.13 closed the five findings that produce wrong
 output or block Plan 2 — A92, A118, A125, A126, A129. **1.14 closed roots 1–3, the explanation
 repairs**, and bumped `pipeline.yml` to `version: 2`: A76, A77, A78, A79, A80, A81, A82, A91,
@@ -53,12 +68,12 @@ carries a `why:`"* — was false when written and is now true. `strandedness: re
 becomes featureCounts' `-s 2`, says it was **asserted rather than measured** and cites Signal et
 al. 2022. The shipped registry no longer cites the STAR paper as the reason HISAT2 was chosen.
 
-**A108 and A130 are explicitly NOT closed.** A108 is that a tier-3 decision carries no premise;
-1.14 Task 2 split `MEASURED` from `GOAL`, which is its foundation and nothing more. A130 is that
+**A108 closed in Plan 1.15; A130 is still open.** A108 was that a tier-3 decision carries no
+premise — `Why.premise` now records the facts a rule read and how good each one is. A130 is that
 nothing distinguishes a model-authored reason from a human-authored one — promoted by the engine
 decision from medium to a gap in the protection profiles, and carried.
 
-**Then Plan 2.** 645 fast tests green,
+**Then Plan 2.** 748 fast tests green,
 `ruff check` clean, and `--gate test` runs the
 RNA-seq spine on the nf-core test dataset and produces a counts matrix — 124 genes,
 featureCounts invoked with `-s 2 -p -Q 0`, which is the strandedness the goal declared and the
@@ -130,14 +145,16 @@ shipped and corrected, then `docs/internal/README.md`. Then Plan 2.
 | `docs/design/federation.md` | provider access, registry stacking, pipeline publication, licensing |
 | `docs/design/clinical-data-protection.md` | clinical use, the egress boundary, protection profiles, lockfile scope |
 | `ARCHITECTURE.md` | **how it all fits together, against real types. Read this first.** |
-| `docs/design/rule-tables-and-port-logic.md` | tier-3 rule format, module pinning, port alternatives. **Implemented.** |
+| `docs/design/rule-tables-and-port-logic.md` | the **superseded** rule format. Plan 1.15 replaced it; read `ARCHITECTURE.md` §Rule tables and the spec below |
+| `docs/internal/specs/2026-08-15-root-5-the-rule-format.md` | **the rule format, and why each part is shaped as it is. Implemented by Plan 1.15.** |
+| `docs/internal/plans/2026-08-15-the-rule-format.md` | Plan 1.15 — twelve tasks. **Complete**, with each task's corrections recorded inline |
 | `docs/design/profiling.md` | where measurements come from. **Implemented.** |
 | `docs/internal/journal/` | **what happened, what is next, what was decided. Newest entry first.** |
 | `docs/internal/audits/2026-08-03-plan-1-audit.md` | the audit that shaped the guards. All four defects closed. |
 | `docs/internal/audits/2026-08-07-round-two-brief.md` | how round two was run. Revert and watch, not read. |
 | `docs/internal/audits/2026-08-07-round-two-audit.md` | **A17–A35, all closed. A36 open, A37 closed, and the anchor hypothesis measured.** |
 | `docs/internal/audits/2026-08-07-root-causes.md` | **the nine roots behind them. Specs are per root, not per finding.** |
-| `docs/internal/specs/` | **eleven specs. Nine per audit root, plus two design specs — the pipeline file, and the rule drafter. Read the part's spec before starting it.** |
+| `docs/internal/specs/` | **twelve specs. Nine per audit root, plus three design specs — the pipeline file, the rule drafter, and the rule format. Read the part's spec before starting it.** |
 | `docs/internal/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from — the differentiating tier's missing half.** Unscheduled on purpose; four hard prerequisites. Read before building any part of the forge |
 | `docs/reference/pipeline-schema.md` | **`pipeline.yml`, field by field. The file a reader opens.** |
 | `docs/internal/specs/2026-08-07-the-pipeline-file.md` | Plan 1.10's design authority — one artifact, three emission sites, the diagnostic bands. **Implemented.** |
@@ -487,8 +504,8 @@ conversation is a loose end lost.
 | 11 | revise the v1 criterion — the module count measures surface area | nothing — needs your call |
 | 16 | signed publish bundles: the egress guard forbids `bytes`, so signing must be detached | nothing — needs a federation §8 decision |
 | 18 | the error surface is half-declared — most `raise` sites are bare `ValueError`; `MD0300`–`MD0399` reserved | nothing — sized at ~3 dev-days by round four. Count it with `grep`, never from prose (A73) |
-| 38 | the measurement vocabulary has no author, and it gates every tier-3 rule | nothing — derive it from twenty hand-authored rules rather than designing it abstractly |
-| 39 | the tier-3 rule format cannot express the rules the forge will need — literal-only `then`, `when` sees only measurements, completeness over alternatives | nothing. **Read `docs/design/rule-tables-and-port-logic.md` §13 before touching the format.** Hand-author twenty real rules first; they are the specification |
+| 38 | the measurement vocabulary has no author, and it gates every tier-3 rule | nothing — and the twenty rules now exist as `tests/fixtures/rule-corpus/`, so the derivation has its input |
+| 39 | **narrowed by Plan 1.15 to arithmetic alone.** `when` now reads goal facts and derived facts, completeness is checked against the declared domain, and `then` is type-checked — what remains unwritable is a computed `then` such as `read_length - 1`, refused by `MD0300`. R02 and R03 in `tests/fixtures/rule-corpus/` are the evidence | nothing — needs a design for expressions that does not reintroduce a solver |
 | 24–36 | round four's thirteen carried findings, A60–A69 and A73–A75 | nothing — deliberately carried past Plan 1.12. **#26 (A62)** and **#32 (A68)** are the two to read before Plan 2 touches the same code |
 
 ## Commands

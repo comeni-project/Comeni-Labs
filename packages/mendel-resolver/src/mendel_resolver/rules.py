@@ -123,10 +123,23 @@ class DecisionTarget(BaseModel):
         return f"{self.effect}:{self.of}" + (f":{self.name}" if self.name else "")
 
 
+Predicate = ParamValue | dict[str, ParamValue | list[ParamValue]]
+"""What a `when` may test a premise against: a value, a comparison string, `absent`,
+`present`, or a mapping predicate — `{not: x}`, `{in: [x, y]}`.
+
+The mapping arm was missing until the twenty-rule corpus was wired in, and its absence is
+the reason A121 was only **half** closed by Task 3: `predicates.matches` implements `not` and
+`in`, and `DecisionRow.when` was typed `dict[str, ParamValue]`, so a rule using either was
+refused by pydantic before the evaluator ever saw it. An evaluator handling a case the model
+cannot represent is the same defect as a model permitting a case the evaluator ignores, and
+neither shows up until somebody writes the rule.
+"""
+
+
 class DecisionRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    when: dict[str, ParamValue] = Field(default_factory=dict)
+    when: dict[str, Predicate] = Field(default_factory=dict)
     then: ParamValue = None
     because: str | None = None
     cite: str | None = None

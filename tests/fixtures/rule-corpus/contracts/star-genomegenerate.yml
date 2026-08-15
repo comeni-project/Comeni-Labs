@@ -1,0 +1,17 @@
+id: nf-core/star/genomegenerate@1.11.0
+roles: [index_building]
+nf_process: STAR_GENOMEGENERATE
+nf_include: modules/nf-core/star/genomegenerate/main
+consumes:
+  - {name: fasta, type_id: genome.fasta, state_required: []}
+  - {name: gtf, type_id: annotation.gtf, state_required: []}
+produces: [{name: index, type_id: genome.index.star, state: []}]
+params:
+  - name: genome_sa_index_nbases
+    tier_hint: 3
+    domain: {kind: integer, minimum: 1, maximum: 14}
+    via: ext
+    key: args
+    template: "--genomeSAindexNbases {value}"
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

@@ -1469,3 +1469,48 @@ carrying its discriminator implicitly costs.
 strandedness is `yes`/`no`/`reverse`. The fixture failed with *"Input should be a valid string,
 input_value=True"* until they were quoted — a real trap for a contract author, so the quoting
 carries a comment rather than looking like a style choice.
+
+## Plan 1.15 Task 11 — the corpus wired in, the format retired, drift green (A75, issue #36)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rule_corpus.py::test_a_coded_refusal_tells_the_reader_how_to_read_it` (+1) | `_with_pointer` returning the message unchanged | **2 failed** | `'run: mendel explain MD0306' not in …` |
+| 2026-08-15 | `test_rule_corpus.py::test_the_corpus_rule[R20]` | `EXPECTED["R20"]` set to a code nothing emits | failed | the expectation discriminates |
+| 2026-08-15 | `test_rule_corpus.py::test_every_attempt_has_a_rewrite_…` (+1) | `rules/R11.yml` deleted | **2 failed** | a rewrite going missing is caught |
+| 2026-08-15 | `test_rule_corpus.py::test_the_corpus_rule[R17]` | a rule file emptied to `version: 1` | **nothing failed** | — this is the row worth keeping |
+| 2026-08-15 | the same, after the guard was rewritten | the same | failed | `R17 declares nothing, which is the dead-rule pathology itself` |
+
+**A seventh inert guard, and it was in the test written to prove the format works.** The corpus
+test asserted `loaded.rules.decisions or loaded.rules.derivations` — which the *shipped registry's
+own rule* satisfies. Emptying a corpus rule file to `version: 1` left it green: the fixture
+contributed nothing and the base layer answered on its behalf.
+
+The first repair was also wrong. Counting entries and requiring the count to rise fails R01 and
+R12, which legitimately **replace** the shipped `implementation:alignment` block — an overlay
+replacing a base decision is invariant 11 working, not a defect. The assertion that holds is that
+every key the rule *file* claims is in force **and the corpus layer is what decided it**, with the
+keys read from the file rather than from the loader: asking the loader which keys it loaded and
+then asserting it loaded them is a tautology.
+
+**Two reverts that were not reverts.** Weakening `assert expected in str(caught.value)` to
+`assert caught`, and `assert attempts == written` to `assert attempts or written`, both left every
+test green — as they must, because weakening an assertion cannot fail unless what it asserts is
+already false. **A revert has to break the subject, not the claim about it.** Redone against the
+subject: a wrong expected code, and a deleted rewrite.
+
+**And one attempted revert was rejected as invalid before it was recorded.** Renaming R01's role
+consistently in both the rule and its target left the test green, and correctly: the property is
+that the table agrees with the file, and a consistent rename keeps them agreeing. A revert that
+does not contradict the property is not evidence about the guard.
+
+**`check_registry_drift.py` could not see the fifth kind.** Its `KINDS` was the literal
+`("contracts", "measurements", "rules", "vocabularies")`, so `roles/` was invisible — the check
+would have reported no drift *because it was not looking*, with a green line to say so. Derived
+from `DeclaredKind` now. **Third literal of this shape the repository has had to fix** in one
+plan: `registry.yml:kinds` in Task 1, `_every_file_is_claimed`'s message in Task 0, and this.
+
+**One edit landed in the wrong checkout.** The shell's working directory reset to the main
+checkout after a `cd` into the registry repository, and the next edit went there. It was caught
+by `make drift` reporting *"no drift: 27 shared files agree"* — impossible in the worktree, where
+fifteen files differed — and reverted with `git checkout`. Recorded because the *symptom* was a
+gate turning green, which is the one direction nobody investigates.

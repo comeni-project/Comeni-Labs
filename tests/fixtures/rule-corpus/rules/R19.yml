@@ -1,0 +1,9 @@
+version: 1
+# R19 — --sjdbOverhang from the maximum read length across the cohort. §12's
+# cohort-versus-sample question, which the shipped format could not even ask.
+derives:
+  - fact: cohort_max_read_length
+    kind: integer
+    aggregate: {measurement: read_length, over: cohort, using: max}
+    because: "the index is built once per run, so it must suit the longest read in it"
+    cite: "STAR manual 2.2.2"

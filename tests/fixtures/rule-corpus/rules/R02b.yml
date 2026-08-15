@@ -1,0 +1,11 @@
+version: 1
+# R02b — the same rule, enumerated one row per read length. The contortion, and it is now
+# caught: eight rows over an unbounded integer leave everything below the lowest uncovered.
+decisions:
+  - decides: {effect: param, of: alignment, name: sjdb_overhang, when_implementation: [nf-core/star/align@1.11.0]}
+    because: "one row per common read length, in place of arithmetic"
+    cite: "STAR manual 2.2.2"
+    rows:
+      - {when: {read_length: ">= 150"}, then: 149, cite: "STAR manual 2.2.2"}
+      - {when: {read_length: ">= 100"}, then: 99,  cite: "STAR manual 2.2.2"}
+      - {when: {read_length: ">= 75"},  then: 74,  cite: "STAR manual 2.2.2"}

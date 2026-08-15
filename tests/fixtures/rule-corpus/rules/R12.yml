@@ -1,0 +1,16 @@
+version: 1
+# R12 — HISAT2 when the genome exceeds node RAM. A "measurement" of the execution node,
+# which loads without complaint and is worth noticing.
+decisions:
+  - decides: {effect: implementation, of: alignment}
+    because: "STAR's index must fit in memory; HISAT2's is an order of magnitude smaller"
+    cite: "STAR manual 3.2.2"
+    rows:
+      - when: {node_memory_gb: "< 32"}
+        then: nf-core/hisat2/align@2.2.2
+        because: "STAR cannot load a mammalian index below about 32 GB"
+        cite: "STAR manual 3.2.2"
+      - when: {}
+        then: nf-core/star/align@1.11.0
+        because: "with the memory available, STAR is nf-core/rnaseq's default"
+        cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"

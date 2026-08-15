@@ -1,6 +1,7 @@
 """`mendel build` — goal in, pipeline directory out; `mendel profile` — measure first."""
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -26,13 +27,32 @@ from mendel_compiler import conformance, pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
 from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
 
+_CODE = re.compile(r"\bMD0\d{3}\b")
+
+
+def _with_pointer(message: str) -> str:
+    """A coded refusal names its code and says how to read the long form.
+
+    `mendel explain` has existed since Plan 1.6 and nothing on this path mentioned it, so the
+    one verb that explains a code was undiscoverable from the failure that needed it. Dozens
+    of `ValueError` sites embed a real code and the CLI printed the raw message. Audit A75,
+    issue #36.
+
+    The **first** code in the message, because a refusal names one thing: a message quoting a
+    second code is quoting it as context — `MD0311`'s fix block names `MD0313` — and pointing
+    a reader at the context rather than at their error would be worse than pointing them
+    nowhere.
+    """
+    found = _CODE.search(message)
+    return f"{message}\n  run: mendel explain {found.group()}" if found else message
+
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point. Wraps `_build` so a user mistake is a message, not a traceback."""
     try:
         return _build(argv)
     except UnroutableError as exc:
-        print(f"mendel: cannot route this goal — {exc}", file=sys.stderr)
+        print(_with_pointer(f"mendel: cannot route this goal — {exc}"), file=sys.stderr)
     except ValidationError as exc:
         # A41. `title` is the model that failed. A `ModuleContract` failing is a contract
         # author's mistake, not the operator's — blaming "this goal" sent them to the one file
@@ -40,18 +60,18 @@ def main(argv: list[str] | None = None) -> int:
         # reaches here; this catches every other contract-shape failure (`nf_process`,
         # a malformed port) and names the right file.
         subject = "contract" if exc.title == "ModuleContract" else "this goal"
-        print(f"mendel: {subject} is not valid —\n{exc}", file=sys.stderr)
+        print(_with_pointer(f"mendel: {subject} is not valid —\n{exc}"), file=sys.stderr)
     except RuleValidationError as exc:
-        print(f"mendel: a rule table will not load —\n{exc}", file=sys.stderr)
+        print(_with_pointer(f"mendel: a rule table will not load —\n{exc}"), file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:
-        print(f"mendel: this goal's profile is not valid — {exc}", file=sys.stderr)
+        print(_with_pointer(f"mendel: this goal's profile is not valid — {exc}"), file=sys.stderr)
     except (OSError, KeyError, ValueError) as exc:
         # `ValueError` last, and it catches a lot on purpose: a symlink in a layer, a
         # duplicate YAML key, an `add_states` for a type nothing declares, A35's joined
         # `UnknownStateError`. Every one of them is a refusal this code chose to make, and
         # every one of them reached the user as a traceback. `ValidationError` is caught
         # above and `RuleValidationError` above that, so the specific messages still win.
-        print(f"mendel: {exc}", file=sys.stderr)
+        print(_with_pointer(f"mendel: {exc}"), file=sys.stderr)
     return 2
 
 

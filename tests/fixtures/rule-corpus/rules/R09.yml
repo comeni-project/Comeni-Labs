@@ -1,0 +1,23 @@
+version: 1
+# R09 — insert rRNA depletion above ~40% rRNA. This one is still not fully expressible, and
+# that is recorded rather than papered over: `presence: present` means "leave routing alone",
+# not "insert a step routing would not otherwise add". Forcing insertion is spec §4.1's open
+# half, carried by Plan 1.15 Task 5.
+#
+# What loads is the half that works — turning the step *off* — which is why the rows are
+# written this way round.
+decisions:
+  - decides: {effect: presence, of: ribo_depletion}
+    because: "rRNA reads consume sequencing depth without carrying expression signal"
+    cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"
+    rows:
+      - when: {rrna_fraction: "< 40"}
+        then: absent
+        because: "below this fraction the depletion pass costs more than the depth it recovers"
+        cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"
+      - when: {}
+        then: present
+        because: >-
+          above it the library is mostly rRNA and depletion is the only way to reach usable
+          depth — though today this only *permits* the step rather than forcing it in
+        cite: "Kopylova et al. 2012, doi:10.1093/bioinformatics/bts611"

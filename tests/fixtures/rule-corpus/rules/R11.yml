@@ -1,0 +1,16 @@
+version: 1
+# R11 — quantifier by the requested state. A120's cheaper half: the router already
+# consulted `required_states` and `when` could not.
+decisions:
+  - decides: {effect: implementation, of: quantification}
+    because: "transcript-level estimates need an EM quantifier, not an interval counter"
+    cite: "Patro et al. 2017, doi:10.1038/nmeth.4197"
+    rows:
+      - when: {required_states: transcript_level}
+        then: nf-core/salmon/quant@1.10.1
+        because: "selective alignment resolves reads between isoforms"
+        cite: "Patro et al. 2017, doi:10.1038/nmeth.4197"
+      - when: {}
+        then: nf-core/subread/featurecounts@2.0.6
+        because: "gene-level counting from a genomic alignment is an interval overlap"
+        cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"

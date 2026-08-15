@@ -1,0 +1,6 @@
+kind: number
+minimum: 0
+maximum: 100
+unit: percent
+description: "Duplicate reads as a percentage"
+describes: fastq.reads

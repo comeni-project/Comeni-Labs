@@ -1,0 +1,15 @@
+version: 1
+# R04 — TrimGalore --length. Comparison plus a catch-all default.
+decisions:
+  - decides: {effect: param, of: trimming, name: trim_min_length}
+    because: "a minimum length below the aligner's seed is wasted work"
+    cite: "TrimGalore user guide"
+    rows:
+      - when: {read_length: "< 50"}
+        then: 18
+        because: "short-read libraries lose too much to a 20bp floor"
+        cite: "TrimGalore user guide"
+      - when: {}
+        then: 20
+        because: "TrimGalore's own default, kept where nothing argues against it"
+        cite: "TrimGalore user guide"

@@ -1,0 +1,9 @@
+version: 1
+# R20 — a rule naming a contract this stack does not hold. Refused by design, and the
+# refusal now names the role rather than the missing contract.
+decisions:
+  - decides: {effect: implementation, of: alignment}
+    because: "a laboratory's overlay naming a pseudoaligner it has not vendored"
+    cite: "Bray et al. 2016, doi:10.1038/nbt.3519"
+    rows:
+      - {when: {}, then: nf-core/kallisto/quant@0.48.0, cite: "Bray et al. 2016"}

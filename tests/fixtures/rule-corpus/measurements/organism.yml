@@ -1,0 +1,4 @@
+kind: enum
+values: [homo_sapiens, mus_musculus, danio_rerio]
+extensible: true
+description: "The species the reads came from"

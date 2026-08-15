@@ -1,0 +1,12 @@
+version: 1
+# R18 — AND within a row. Two premises, which is also why this decision is not checked for
+# completeness: a product of domains is a much larger claim.
+decisions:
+  - decides: {effect: param, of: alignment, name: twopass_mode, when_implementation: [nf-core/star/align@1.11.0]}
+    because: "paired long reads carry enough junction evidence for a second pass to pay"
+    cite: "STAR manual 2.2.2"
+    rows:
+      - when: {paired: true, read_length: ">= 100"}
+        then: Basic
+        because: "paired 100bp reads span junctions often enough to find novel ones"
+        cite: "STAR manual 2.2.2"

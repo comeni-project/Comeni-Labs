@@ -47,7 +47,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 1
+version: 3
 
 goal:                          # what was asked for
   have: [{type_id: fastq.reads}, {type_id: annotation.gtf}, {type_id: genome.fasta}]
@@ -70,12 +70,21 @@ steps:
       container: community.wave.seqera.io/library/…
     process: STAR_ALIGN
     include: modules/nf-core/star/align/main
-    why:
+    why:                         # why THIS CONTRACT fills the step
       tier: 3
       source: resolver
-      reason: "rule producer_of:alignment.bam matched read_length >= 70: doi:10.1093/…"
+      reason: "rule implementation:alignment where read_length is 150, measured: STAR's
+               seed-and-extend search is built for long reads; doi:10.1093/…"
+      premise:                   # the facts the rule read, and how good each one is
+        - {id: read_length, value: 150, origin: measured}
+      review_level: advisory     # derived from the tier, never stored
       from_layer: comeni-registry-examples
       displaced_layer: null
+    presence:                    # why the step EXISTS, which is a different question
+      tier: 1
+      source: resolver
+      reason: "the goal asks for counts.matrix"
+      review_level: none
     ext_args: "--readFilesCommand zcat"
     inputs:
       - {port: reads, source: trimgalore.reads, states: [trimmed]}
@@ -128,6 +137,18 @@ What schema this file uses. A file declaring a version newer than your Mendel un
 ignoring a section a newer one added is how a pipeline gets emitted without whatever that
 section carried.
 
+An **older** file is read, and its new fields come back empty rather than absent-and-fatal. A
+pipeline written before version 3 has no `presence` and no `premise`, and requiring them of one
+would assert the reason is *missing* rather than *never recorded* — a document written before a
+field existed cannot answer for it. `MD0213` is the check that would otherwise report a schema
+change as a human edit.
+
+| version | added |
+|---|---|
+| 1 | the file itself, replacing `pipeline.ir.json`, `mendel.lock.yml` and the publish bundle |
+| 2 | `why.for_value`, `why.axis_reason`, and a reason on every value that reaches a tool |
+| 3 | `step.presence`, `why.premise`, `why.review_level` |
+
 ### `goal` — inert to `emit`
 
 What was asked for. **Editing this changes nothing until `mendel upgrade`.**
@@ -157,6 +178,41 @@ edited without its `@version` moving, and in a private overlay it routinely is.
 `why` is on the step and on every setting: the tier it exited at, who settled it, which layer it
 came from, and the citation. This is the legibility the four-file split could not provide — the
 answer sits beside the value instead of in a decision record you had to join by hand.
+
+**`why` and `presence` answer two different questions**, and version 3 stopped conflating them.
+`presence` is why the step is here at all — a downstream port required its output, or the goal
+asked for it — and `why` is why *this contract* fills it. A module chosen because it was the only
+candidate used to report tier 1, *"no choice exists, inputs force it"*, when what forced it was
+the contents of the registry: install a second sorter tomorrow and the same pipeline becomes a
+real choice. A reader deciding whether a step can be removed is reading `presence`; a reader
+deciding whether the right tool was picked is reading `why`.
+
+**`why.premise` is what tier 3 asks you to check.** Tier 3 is *advisory* — the CLI colours it
+yellow and the gloss is "the machinery worked, check the premise" — and until version 3 there was
+no premise in the file to check. Each entry carries the fact, its value, and its `origin`:
+
+| `origin` | means |
+|---|---|
+| `measured` | a tool looked at the data and produced this |
+| `asserted` | somebody typed it into the goal file, or answered it afterwards |
+| `derived` | a `derives:` block worked it out; nothing measured it |
+| `goal` | the goal's own shape, such as `required_states` |
+| `unmeasured` | the fact is absent, and a row testing `absent` read that |
+
+The distinction between `measured` and `asserted` is the one a clinical reviewer needs and the
+one the `sealed` protection profile will act on: a measured 150bp read length is a fact a
+profiling run established, and an asserted one is a claim by whoever wrote the goal. Both are
+legitimate; only one is checkable.
+
+The same fact appears twice on purpose. `reason` states it as a sentence — *"where read_length is
+150, measured"* — and `premise` states it as records a policy can read. Shipping only the mapping
+would repeat, one level up, the defect this whole format was reformed to fix: the reason used to
+read `matched {'read_length': '>= 70'}`, a Python dict repr reporting the **predicate** and never
+the value, so a reader learned what the rule tested and never what it found.
+
+`review_level` is derived from the tier and never stored, so the two cannot disagree. It is
+carried because `tier: 3` is a number whose meaning otherwise lives in a table in another
+document, and this file is the thing a stranger opens.
 
 `inputs` says where each consumed port comes from: `source: <step>.<port>` for something an
 earlier step produced, or `channel: <type_id>` for something the laboratory supplies. Exactly

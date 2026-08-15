@@ -1,0 +1,9 @@
+version: 1
+# R03 — --genomeSAindexNbases = min(14, log2(genome_length)/2 - 1). Arithmetic, refused.
+decisions:
+  - decides: {effect: param, of: index_building, name: genome_sa_index_nbases,
+              when_implementation: [nf-core/star/genomegenerate@1.11.0]}
+    because: "the suffix-array index size must scale with the genome"
+    cite: "STAR manual 2.2.5"
+    rows:
+      - {when: {}, then: "genome_length/2", cite: "STAR manual 2.2.5"}

@@ -1,0 +1,9 @@
+version: 1
+# R02 — STAR --sjdbOverhang = read_length - 1. Still unwritable, and now refused rather
+# than reaching the tool as a literal string. Issue #39.
+decisions:
+  - decides: {effect: param, of: alignment, name: sjdb_overhang, when_implementation: [nf-core/star/align@1.11.0]}
+    because: "the splice-junction database overhang should be one less than the read length"
+    cite: "STAR manual 2.2.2"
+    rows:
+      - {when: {}, then: "read_length-1", cite: "STAR manual 2.2.2"}

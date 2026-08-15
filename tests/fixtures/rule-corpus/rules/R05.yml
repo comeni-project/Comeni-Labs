@@ -1,0 +1,9 @@
+version: 1
+# R05 — TrimGalore --clip_R1 for template-switching preps. Enum equality.
+decisions:
+  - decides: {effect: param, of: trimming, name: clip_r1}
+    because: "template-switching oligos leave untemplated bases at the 5' end"
+    cite: "Takara SMARTer v3 protocol"
+    rows:
+      - {when: {library_prep: template_switching}, then: 3, cite: "Takara SMARTer v3"}
+      - {when: {}, then: 0, cite: "TrimGalore user guide default"}

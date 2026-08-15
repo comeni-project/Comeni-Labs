@@ -1,0 +1,8 @@
+id: nf-core/umitools/dedup@1.1.5
+roles: [deduplication]
+nf_process: UMITOOLS_DEDUP
+nf_include: modules/nf-core/umitools/dedup/main
+consumes: [{name: bam, type_id: alignment.bam, state_required: [coordinate_sorted]}]
+produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted, deduplicated]}]
+priority: 0
+provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

@@ -1,0 +1,4 @@
+kind: enum
+values: [poly_a, ribo_depleted, template_switching, amplicon]
+extensible: true
+description: "How the sequencing library was prepared"

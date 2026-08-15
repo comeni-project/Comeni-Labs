@@ -1,0 +1,6 @@
+kind: number
+minimum: 0
+maximum: 100
+unit: percent
+description: "Adapter sequence as a percentage of bases"
+describes: fastq.reads
