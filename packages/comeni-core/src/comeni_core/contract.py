@@ -24,6 +24,7 @@ from comeni_core.marks import (
     RoleName,
     TypeId,
 )
+from comeni_core.measurement import MeasurementKind
 from comeni_core.routes import TEMPLATED, ExtKey, Join, Via
 from comeni_core.vocabulary import Vocabulary
 
@@ -160,6 +161,55 @@ class OutputPort(BaseModel):
         return sorted(states)
 
 
+class ParamDomain(BaseModel):
+    """What values a parameter accepts. Spec §7.1's second half.
+
+    Mirrors `Measurement`'s declaration — `kind`, `values`, `minimum`, `maximum` — because it
+    is the same question asked about the other end of a rule: a `when` reads a measurement's
+    domain and a `then` writes a param's. Sharing `MeasurementKind` rather than declaring a
+    parallel enum keeps that symmetry a fact rather than a resemblance.
+
+    Deliberately **not** `extensible`. A measurement is extensible when the world can produce
+    a value nobody enumerated — `organism`, `purpose` — and a parameter's legal values are a
+    property of a tool's command line, which is fixed by the tool. A param whose values
+    genuinely cannot be enumerated declares no domain at all.
+    """
+
+    model_config = _NO_EXTRAS
+
+    kind: MeasurementKind
+    values: list[str] = Field(default_factory=list)
+    minimum: float | None = None
+    maximum: float | None = None
+
+    def refuse(self, name: str, value: object) -> str | None:
+        """Why `value` is not a legal setting for `name`, or `None` if it is.
+
+        Returns rather than raises: the caller is a rule validator that wants to add the file
+        and the decision key to the message, and an exception here would either lose that
+        context or have to be caught and re-raised — which is the shape `measurements.get`
+        already has to be wrapped for.
+        """
+        if self.kind is MeasurementKind.ENUM:
+            if value in self.values:
+                return None
+            return (
+                f"{name} accepts {', '.join(self.values)}, and {value!r} is none of them"
+            )
+        if self.kind is MeasurementKind.BOOLEAN:
+            return None if isinstance(value, bool) else f"{name} accepts a boolean"
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            noun = "an integer" if self.kind is MeasurementKind.INTEGER else "a number"
+            return f"{name} accepts {noun}"
+        if self.kind is MeasurementKind.INTEGER and not isinstance(value, int):
+            return f"{name} accepts an integer"
+        if self.minimum is not None and value < self.minimum:
+            return f"{name} has minimum {self.minimum:g}, and {value!r} is below it"
+        if self.maximum is not None and value > self.maximum:
+            return f"{name} has maximum {self.maximum:g}, and {value!r} is above it"
+        return None
+
+
 class Param(BaseModel):
     """A setting the resolver decides, and the route that carries the answer to the tool.
 
@@ -173,6 +223,20 @@ class Param(BaseModel):
 
     name: NfIdentifier
     tier_hint: int | None = None
+
+    domain: ParamDomain | None = None
+    """What values this parameter accepts. `None` means undeclared, which is legal and is what
+    most contracts say today.
+
+    Without it, `MD0300` had to guess whether a `then` was arithmetic by looking for a
+    measurement name sitting beside an operator — a heuristic that admits anything spelled
+    unexpectedly and refuses `paired-end`, a legitimate value killed by a check nobody could
+    disable. With it the question is a type check. Audit A118; spec §7.1.
+
+    The heuristic is **kept** as the fallback rather than retired, because most contracts
+    declare no domain and removing it would trade a heuristic for nothing.
+    """
+
     default: Any = None
     because: str = ""
     """Why this default is this value — the *document* tier 2 claims exists.

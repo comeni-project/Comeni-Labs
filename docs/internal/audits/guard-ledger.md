@@ -1425,3 +1425,47 @@ earns tier 2 under `MD0313` — demanding one on every decision would have demot
 aligner rule's last branch from tier 3 to tier 2 and taken Kim et al. 2019 with it. A124 asking
 for completeness and §6.1 asking for a premise are in tension, and the declared domain is what
 resolves it.
+
+## Plan 1.15 Task 10 — a param declares its domain, so a computed `then` is a type error (A118)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_rules.py::test_a_then_outside_the_params_domain_is_refused` (+1) | the `domain is not None` branch | **2 failed** | `DID NOT RAISE RuleValidationError` |
+| 2026-08-15 | `test_rules.py::test_a_then_outside_a_declared_range_is_refused` | `ParamDomain.refuse`'s maximum check | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_a_computed_then_on_an_undeclared_param_is_still_refused` | `_computed_over`, as though a domain replaced it | failed | `DID NOT RAISE` |
+| 2026-08-15 | `test_rules.py::test_two_implementations_disagreeing_about_a_domain_fall_back` | `_domain_of`'s unanimity check, taking the first | **nothing failed** | — no fixture had two disagreeing domains |
+| 2026-08-15 | the same, after the guard was written | the same | failed | `MD0300` refusing a value legal for the other implementation |
+
+**The unanimity branch had no fixture that could reach it**, which is the sixth inert guard this
+plan has found by reverting. Two implementations of one role declaring *different* domains for
+one parameter is the case `_domain_of` exists to handle, and nothing in the tree had two — so
+`return first` passed everything. The replacement adds a second quantifier declaring
+`strandedness` as `[yes, no, reverse]` where featureCounts declares it as `0..2`, which is a real
+disagreement between two real tools rather than a contrived one.
+
+Taking the first would decide which contract is right by **load order**, in the one place where
+getting that wrong refuses a legitimate rule rather than merely reordering output. Falling back to
+the heuristic refuses less and invents nothing. Refusing the disagreement outright would be
+stronger, needs a code of its own, and is carried rather than smuggled in.
+
+**`_computed_over` is kept, and the third row is why.** Most contracts declare no domain — one of
+the five shipped params deliberately declares none, because the list of sequencing platforms
+cannot be enumerated — so retiring the heuristic would trade it for nothing. The negative that
+keeps it honest survives too: `paired` is a declared measurement, so a substring test would refuse
+`paired-end`, a legitimate value killed by a check nobody could disable.
+
+**A fixture's `then: 99` became illegal**, which is the check working on its own test suite:
+featureCounts' `-s` takes 0, 1 or 2, and the row-order fixture had been using 99 as an arbitrary
+sentinel. It reads better as 2-then-1 anyway, since the point is that the *first* matching row
+wins.
+
+**And an overlay fixture had one value in common with the base again.**
+`test_a_higher_layer_replaces_a_whole_decision_block` was repaired in Task 9 to discriminate on
+three distinct values; narrowing the domain to 0–2 collapsed `forward` back onto the base's value.
+Rotated, so all three differ. Twice in two tasks for the same test, which is what a fixture
+carrying its discriminator implicitly costs.
+
+**YAML 1.1 parses bare `yes` and `no` as booleans**, and htseq-count's actual spelling of
+strandedness is `yes`/`no`/`reverse`. The fixture failed with *"Input should be a valid string,
+input_value=True"* until they were quoted — a real trap for a contract author, so the quoting
+carries a comment rather than looking like a style choice.

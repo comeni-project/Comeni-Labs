@@ -22,11 +22,15 @@ params:
   # HISAT2 takes one KEY:VALUE per `--rg`, so PL is its own flag rather than a field.
   - name: seq_platform
     tier_hint: 4
+    # No `domain`, deliberately. The list of sequencing platforms cannot be
+    # enumerated — a param whose legal values are open declares none, and
+    # `_computed_over`'s heuristic remains its only check. Spec §7.1.
     via: ext
     key: args
     template: "--rg-id ${meta.id} --rg SM:${meta.id} --rg PL:{value}"
   - name: save_unaligned
     default: false
+    domain: {kind: boolean}
     because: >-
       Unmapped reads are not written out. This spine counts what aligned, and keeping the
       unmapped FASTQs would roughly double output size for something no downstream step

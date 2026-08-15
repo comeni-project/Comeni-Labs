@@ -24,11 +24,15 @@ params:
   # routing only the PL fragment would silently drop the read group STAR needs.
   - name: seq_platform
     tier_hint: 4
+    # No `domain`, deliberately. The list of sequencing platforms cannot be
+    # enumerated — a param whose legal values are open declares none, and
+    # `_computed_over`'s heuristic remains its only check. Spec §7.1.
     via: ext
     key: args
     template: "--outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'"
   - name: star_ignore_sjdbgtf
     default: false
+    domain: {kind: boolean}
     because: >-
       Align *with* the annotation. The GTF is routed into this module, and ignoring it would
       discard the splice-junction information a spliced aligner exists to use. A laboratory

@@ -1725,9 +1725,27 @@ Watch the guard fail by widening `min_mqs`'s domain to `kind: string`; confirm t
 fails. Restore, record, then:
 
 ```bash
-git add packages/comeni-core packages/mendel-resolver registry/
+git add -A
 git commit -m "feat: a param declares its domain, so a computed then is a type error (A118)"
 ```
+
+> **Corrected 2026-08-15, on execution. Four things.**
+>
+> 1. **Four params get a domain, not five.** `seq_platform` deliberately declares none: the
+>    list of sequencing platforms cannot be enumerated, and a param whose legal values are
+>    open is exactly the case `domain: None` exists for. It also keeps `_computed_over`'s
+>    path tested.
+> 2. **`_domain_of` requires unanimity across the implementations**, not "take the first".
+>    Two fillers declaring different domains is a registry defect, and taking the first
+>    decides which contract is right by load order. Falling back to the heuristic refuses less
+>    and invents nothing; refusing the disagreement outright needs a code of its own and is
+>    carried.
+> 3. **The plan's revert does not work.** `MeasurementKind` has no `string` member, so
+>    "widening `min_mqs`'s domain to `kind: string`" cannot be written. The reverts used
+>    instead are the type-check branch, the range check, `_computed_over`, and the unanimity
+>    check.
+> 4. **Both paths emit `MD0300`**, since both refuse the same thing — a `then` the tool cannot
+>    receive — and one concern gets one code.
 
 ---
 

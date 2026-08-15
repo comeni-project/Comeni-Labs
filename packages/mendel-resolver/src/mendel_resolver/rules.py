@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Literal
 
 from comeni_core import yaml_strict
+from comeni_core.contract import ParamDomain
 from comeni_core.layered import (
     DeclaredKind,
     Displacement,
@@ -806,6 +807,30 @@ def _validate_target(
     seen[target.key()] = str(path)
 
 
+def _domain_of(
+    target: DecisionTarget, registry: Registry, fillers_by_role: dict[str, list[str]]
+) -> "ParamDomain | None":
+    """The declared domain for this param, if **every** implementation agrees on one.
+
+    Every rather than any, and unanimity rather than a merge. `MD0308` has already proved
+    each of them declares the parameter; two of them declaring different domains for it is a
+    registry defect, and quietly taking the first would decide which contract is right by
+    load order. Returning `None` there falls back to the heuristic, which refuses less and
+    invents nothing.
+    """
+    narrowed = target.when_implementation or fillers_by_role[target.of]
+    domains = [
+        param.domain
+        for contract_id in narrowed
+        for param in registry.get(contract_id).params
+        if param.name == target.name
+    ]
+    if not domains or any(d is None for d in domains):
+        return None
+    first = domains[0]
+    return first if all(d == first for d in domains) else None
+
+
 def _validate_rows(
     decision: Decision,
     target: DecisionTarget,
@@ -816,7 +841,22 @@ def _validate_rows(
     measurements: MeasurementRegistry,
 ) -> None:
     if target.effect is Effect.PARAM:
+        domain = _domain_of(target, registry, fillers_by_role)
         for row in decision.rows:
+            # A declared domain answers this by type check; `_computed_over` answers it by
+            # heuristic. Both emit `MD0300` because both refuse the same thing — a `then` the
+            # tool cannot receive — and one concern gets one code.
+            if domain is not None:
+                refusal = domain.refuse(target.name, row.then)
+                if refusal is None:
+                    continue
+                raise RuleValidationError(
+                    f"MD0300: {path}, decision {target.key()}\n"
+                    f"  {refusal}.\n"
+                    f"  `then` is emitted verbatim — nothing between the rule table and\n"
+                    f"  `nextflow.config` evaluates it, so the tool would receive\n"
+                    f"  {row.then!r} exactly as written."
+                )
             over = _computed_over(row.then, measurements.ids())
             if over is None:
                 continue
