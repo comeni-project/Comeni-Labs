@@ -19,6 +19,7 @@ from comeni_core.measurement import MeasurementRegistry
 from comeni_core.tiers import ValueSource
 from pydantic import BaseModel, ConfigDict, Field
 
+from mendel_resolver.predicates import matches
 from mendel_resolver.rules import Derivation
 
 
@@ -134,7 +135,7 @@ def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None
             _aggregate(premises, derivation)
             continue
         for row in derivation.rows:
-            if not _matches(row.when, premises):
+            if not matches(row.when, premises):
                 continue
             premises[derivation.fact] = Premise(
                 id=derivation.fact,
@@ -181,23 +182,3 @@ def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:
         cite=derivation.cite or "",
         derived_from=[derivation.aggregate.measurement],
     )
-
-
-def _matches(when: dict[str, Any], premises: dict[str, Premise]) -> bool:
-    """Equality and `absent`, and nothing else until Task 3.
-
-    Deliberately not a second copy of `DecisionRow.matches`: that one reads a `DataProfile`
-    and cannot express `absent` at all, which is A122. Task 3 replaces this with the one
-    evaluator both layers share — two predicates that must agree is how a rule comes to pass
-    validation and then fail to fire, which is what `_comparison`'s docstring already says
-    about the last pair.
-    """
-    for fact, expected in when.items():
-        premise = premises.get(fact)
-        if expected == "absent":
-            if premise is not None:
-                return False
-            continue
-        if premise is None or premise.value != expected:
-            return False
-    return True

@@ -167,6 +167,8 @@ mendel: 1 contract(s) disagree with their modules. Nothing was emitted.
 | `MD0302` | a contract declares a role no layer in the stack declares |
 | `MD0303` | a measurement is declared named `required_states`, which is the goal's own shape |
 | `MD0304` | a derivation has no rows, so it can never fire |
+| `MD0305` | a `when` clause uses a mapping predicate nothing implements |
+| `MD0312` | a scalar comparison is applied to a per-sample measurement |
 
 <!-- END GENERATED DIAGNOSTICS -->
 

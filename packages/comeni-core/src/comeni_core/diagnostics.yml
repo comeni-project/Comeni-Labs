@@ -946,3 +946,67 @@ MD0304:
     `pipeline.yml` printed the measured value beside it.
 
     Audit A122; spec §3.1.
+
+MD0305:
+  emitted_by: resolver
+  concern: routing
+  says: "a `when` clause uses a mapping predicate nothing implements"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    The mapping predicates are `not` and `in`:
+
+        when: {strandedness: {not: unstranded}}
+        when: {strandedness: {in: [forward, reverse]}}
+
+    For a scalar comparison write the operator inline — `{read_length: ">= 70"}` — and for
+    the two questions about whether a fact exists at all, `absent` and `present`.
+  explanation: |
+    Refused rather than evaluated to `False`, which is what an unrecognised key would
+    otherwise mean. Silently false is the dangerous answer here: the row never fires, and it
+    reads to everybody — the author, the reviewer, the model driving the CLI — as a row that
+    could. That is A122's failure mode arriving through a typo instead of through the format.
+
+    A rule table is data a domain expert writes and a curator approves. The whole reason
+    every part of it is validated at load is that the alternative is a rule that looks
+    correct in review and does nothing in production, and nothing downstream can tell the
+    difference between a rule that did not fire and a rule that was never written.
+
+    Spec §4.5.
+
+MD0312:
+  emitted_by: resolver
+  concern: routing
+  says: "a scalar comparison is applied to a per-sample measurement"
+  fires_on: [build, upgrade, profile]
+  refuses: true
+  fix: |
+    Reduce the cohort to one fact, then test that fact:
+
+        derives:
+          - fact: cohort_max_read_length
+            kind: integer
+            aggregate: {measurement: read_length, over: cohort, using: max}
+            because: >-
+              the index is built once per run, so it must suit the longest read in it
+
+        decisions:
+          - decides: {effect: implementation, of: alignment}
+            rows:
+              - when: {cohort_max_read_length: ">= 70"}
+                then: nf-core/star/align@2.7.11b
+  explanation: |
+    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]` — one
+    value per sample — and `[150, 100, 150] >= 70` has no defined meaning. Python's answer is
+    `TypeError`, raised from inside the resolver, naming neither the rule nor the fact.
+
+    **This is §12's cohort-versus-sample question, and the point is that the file must
+    answer it.** A rule reading a cohort has to say what it meant by it: the longest read,
+    the shortest, the mean. Choosing one on the author's behalf would be a decision made in
+    code about biology, which is precisely the boundary the tier-3 rule tables exist to keep
+    on the data side — and it would be invisible, because the pipeline would build.
+
+    A per-sample measurement written as a *scalar* is not affected: that is the claim that
+    the cohort is uniform, and the comparison is well defined.
+
+    Spec §3.2; added with Plan 1.15's per-sample representation.

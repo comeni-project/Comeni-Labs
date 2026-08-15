@@ -857,23 +857,39 @@ def matches(when: dict, premises: dict) -> bool:
 - [ ] **Step 4: Run the tests**
 
 Run: `uv run pytest packages/mendel-resolver/tests/test_predicates.py -v`
-Expected: PASS (3 passed)
+Expected: PASS (9 passed)
 
 - [ ] **Step 5: Replace Task 2's inlined matcher with `matches`, and re-run**
 
-Run: `uv run pytest packages/mendel-resolver/tests -v`
-Expected: PASS
+Delete `premises._matches` rather than leaving it beside this one. Run:
+`uv run pytest packages/mendel-resolver/tests -v`. Expected: PASS.
 
 - [ ] **Step 6: Watch the guard fail, then commit**
 
-Change `tier_of_row`'s `expected != "absent"` to `True`. Confirm
-`test_a_row_testing_no_premise_positively_is_tier_2` fails on the `absent` case. Restore, record
-the row, then:
+Change `tier_of_row`'s `expected != "absent"` to `True`; two tests fail. Then revert the
+`MD0305` raise and the cohort refusal in turn. Restore, record the rows, then:
 
 ```bash
-git add packages/mendel-resolver
+git add packages/mendel-resolver packages/comeni-core docs
 git commit -m "feat(resolver): one predicate evaluator, and a row's tier is its text (A121)"
 ```
+
+> **Corrected 2026-08-15, on execution. Three additions, no contradictions.**
+>
+> 1. **`present` is a predicate and earns tier 3**, where `absent` does not. The plan's
+>    `_one` implements both and `tier_of_row` counts only `absent` as non-positive, which is
+>    right — but the plan never says why they differ, and they read as a pair. `present` is a
+>    test on the data; `absent` is a test on its absence. Two tests now pin that.
+> 2. **`MD0312` — a scalar comparison against a per-sample measurement.** New since the plan
+>    was written, because `read_length` is now declared `per_sample`. Without it the resolver
+>    raises `TypeError` naming neither the rule nor the fact. Outside the plan's declared
+>    `MD0302`–`MD0311` band, which is fully allocated; `MD0300`–`MD0399` is the reserved band.
+> 3. **`predicates.py` imports `Premise` under `TYPE_CHECKING` only** — `premises` calls
+>    `matches`, so a runtime import back is a cycle. The plan's sketch left both parameters
+>    unannotated, which sidesteps the question rather than answering it.
+>
+> The plan's `_one` also loses the fact's name, so `MD0305` could not say *which* fact carried
+> the bad predicate. `_one` takes the key here for that reason alone.
 
 ---
 

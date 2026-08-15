@@ -1133,3 +1133,35 @@ that guarantee held only while every measurement was scalar. With `read_length` 
 `int | None` for a value the loader accepts as `list[int]`. `--check` cannot see that class of
 error at all: it compares the generated file against itself. Fixed in `_returns`, and the
 fallback overload and the `Measured` declaration in the header were wrong in the same way.
+
+## Plan 1.15 Task 3 — one predicate evaluator, and a row's tier is its text (A121)
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-15 | `test_predicates.py::test_a_row_testing_no_premise_positively_is_tier_2`, `…_present_earns_tier_3_and_absent_does_not` | `tier_of_row`'s `if expected != ABSENT` | **2 failed** | `assert <Tier.DATA_PROFILED: 3> is <Tier.CONVENTION: 2>` |
+| 2026-08-15 | `test_predicates.py::test_an_unknown_predicate_is_refused_rather_than_ignored` | the `MD0305` raise, falling through to `return False` | failed | `DID NOT RAISE PredicateError` |
+| 2026-08-15 | `test_predicates.py::test_a_comparison_against_a_cohort_is_refused_rather_than_raising_TypeError` | the `isinstance(actual, list)` refusal | failed | `TypeError` from `predicates.py:88` — which is the guard's own argument, printed |
+
+**Revert C is the clearest evidence in this ledger of what a diagnostic buys.** Removing the
+refusal does not make the comparison work; it makes it raise `TypeError: '>=' not supported
+between instances of 'list' and 'int'` from inside the resolver, naming neither the rule nor the
+fact nor the file. The guard exists to convert that into `MD0312`, which names the fact, says it
+is a cohort of three values, and prints the `derives:` aggregate that would have been right.
+
+**`present` and `absent` look like a pair and are not one**, and `tier_of_row` is where that
+matters. `present` is a test on the data — something measured this — so a row conditioned on it
+did tier-3 work. `absent` is a test on the *absence* of data, which is exactly the case with no
+measurement behind it, so it is tier 2: value plus citation. Reverting the clause collapses both
+into tier 3 and two tests catch it, which is the pair being genuinely two guards rather than one
+written twice.
+
+**`predicates.py` imports `Premise` under `TYPE_CHECKING` only.** `premises.build_premises` calls
+`matches`, so a runtime import in the other direction is a cycle. Nothing in the evaluator reads
+a premise beyond whether it exists and what its `value` is, so the annotation is the only thing
+that needs the name — and stating that in the module docstring is what stops somebody
+"fixing" the odd-looking import later.
+
+**Task 2's inlined `_matches` is deleted rather than left beside this one.** Its own docstring
+said Task 3 would replace it, and a second matcher that agrees today is the shape `_comparison`'s
+docstring already warns about: *"two copies of this predicate is how a rule passes validation and
+then fails to fire."*
