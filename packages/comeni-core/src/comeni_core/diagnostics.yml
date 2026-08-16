@@ -1657,3 +1657,52 @@ MF0005:
     command line does not. Writing a plausible one would produce a module that launches
     and does the wrong thing — a green run with wrong results, which is the failure this
     project is built to avoid. So it is a hole, and the marker refuses until it is filled.
+MF0006:
+  emitted_by: forge
+  concern: verification
+  says: "nothing in the layer can route to this contract — **warns, never blocks**"
+  fires_on: [forge verify]
+  refuses: false
+  fix: |
+    Check the output `type_id` and `state` against what other contracts consume. If
+    nothing consumes them, the contract is a leaf — legitimate for a terminal reporting
+    step, and worth a second look for anything else.
+  explanation: |
+    A contract nothing reaches changes no pipeline. It is the inert case the rule
+    drafter's impact analysis is about, one level down: a mechanism that runs and
+    changes nothing. It warns rather than refuses because a laboratory adding a tool
+    before the goal that needs it is doing something reasonable, and because a leaf step
+    that only produces reports is genuinely unreachable-from-below.
+MF0007:
+  emitted_by: forge
+  concern: verification
+  says: "the filled scaffold does not construct a valid contract"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Read the field paths in the message — they are Pydantic's, so they point at the
+    exact key. A value filled by hand into a workspace draft can be the wrong *shape*
+    even when it is a legal *value*, which is what this catches.
+  explanation: |
+    Every hole is filled and the model still refuses. That is not the hole mechanism
+    failing: a hole asks whether a field has an answer, and `ModuleContract` asks
+    whether the answer is well-formed. A draft edited as JSON in the workspace bypasses
+    `fill` and its candidate list, so this rung is the one that catches a hand edit
+    putting a string where a list belongs.
+MF0008:
+  emitted_by: forge
+  concern: verification
+  says: "the loader refused the draft and gave no diagnostic code"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Read the message — it is the loader's own. An undeclared `type_id` is the common
+    case, and the fix is to declare the type in a layer below this one, or correct the
+    id.
+  explanation: |
+    Not every refusal in the loaders carries a code yet: `UnknownStateError` has MD0009
+    and `UnknownRoleError` has MD0302, but `UnknownTypeError` is raised bare. Rather
+    than mint an `MF` twin for conditions that already have `MD` codes, the forge
+    reports whichever code the loader gave and falls back to this one when it gave
+    none. When issue #18 gives those sites codes, this stops firing for them — which is
+    the right direction, and why this is a fallback rather than the contract's own code.

@@ -71,6 +71,7 @@ HEADINGS: dict[str, str] = {
     "routing": "Routing and resolution",
     "gates": "Gates and emission",
     "scaffolding": "The forge — a scaffold, its holes, and filling them",
+    "verification": "The forge — whether a draft holds up",
 }
 """Section titles per `concern`, in the order they are rendered.
 

@@ -37,6 +37,8 @@ def complete_scaffold() -> Scaffold:
             "nf_process": _derived("FASTQC"),
             "nf_include": _derived("modules/nf-core/fastqc/main"),
             "container": _derived("quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0"),
+            "consumes[0].name": _derived("reads"),
+            "consumes[0].type_id": _hand("fastq.reads", "FastQC reads FASTQs"),
             "produces[0].name": _derived("zip"),
             "produces[0].type_id": _hand("qc.report", "it is a report"),
             "roles": _hand(["qc_per_sample"], "it QCs a sample"),
@@ -59,6 +61,8 @@ def widget_scaffold() -> Scaffold:
             "nf_process": _hand("WIDGET", "named for the tool, since no module declares one"),
             "nf_include": _hand("modules/opaque/widget/main", "where the generated module lands"),
             "container": _derived("docker.io/example/widget:1.4.0"),
+            "consumes[0].name": _hand("input", "the skeleton's single input channel"),
+            "consumes[0].type_id": _hand("fastq.reads", "whatever the widget counts"),
             "produces[0].name": _hand("out", "the skeleton's single emit"),
             "produces[0].type_id": _hand("counts.matrix", "it writes a table"),
             "roles": _hand(["quantification"], "it counts things"),
@@ -66,4 +70,42 @@ def widget_scaffold() -> Scaffold:
             "provenance.source": _derived("opaque"),
         },
         holes=[],
+    )
+
+
+@pytest.fixture
+def incomplete_scaffold(complete_scaffold) -> Scaffold:
+    """One hole put back, so the ladder stops on the first rung."""
+    from mendel_forge.scaffold import Hole
+
+    return complete_scaffold.model_copy(
+        update={
+            "holes": [
+                Hole(
+                    field="roles",
+                    what="the job this contract does",
+                    why_open="a module declares no role",
+                )
+            ]
+        }
+    )
+
+
+@pytest.fixture
+def orphan_scaffold(complete_scaffold) -> Scaffold:
+    """A contract producing a type nothing in the layer consumes.
+
+    `counts.matrix` is produced by featureCounts and consumed by nothing — it is the end
+    of the RNA-seq spine. That makes it the honest fixture for the inert case: a real
+    terminal output, not an invented type.
+    """
+    return complete_scaffold.model_copy(
+        update={
+            "filled": {
+                **complete_scaffold.filled,
+                "produces[0].type_id": complete_scaffold.filled[
+                    "produces[0].type_id"
+                ].model_copy(update={"value": "counts.matrix"}),
+            }
+        }
     )

@@ -121,3 +121,11 @@ decline to curate one.
 | `MF0003` | the value is not one this hole declares as legal |
 | `MF0004` | the scaffold still has open holes and cannot become a declared file |
 | `MF0005` | the generated module's script body has not been written |
+
+## The forge — whether a draft holds up
+
+| Code | Says |
+|---|---|
+| `MF0006` | nothing in the layer can route to this contract — **warns, never blocks** |
+| `MF0007` | the filled scaffold does not construct a valid contract |
+| `MF0008` | the loader refused the draft and gave no diagnostic code |
