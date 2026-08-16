@@ -14,6 +14,8 @@
 #   MD0200-MD0299  the pipeline file: a setting, an override, or the format
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
+#   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
+#   MF0100-MF0199  the forge: landing a draft into a registry
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -1582,3 +1584,32 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MF0002:
+  emitted_by: forge
+  concern: scaffolding
+  says: "that field is not a hole in this scaffold"
+  fires_on: [forge fill]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the fields that are open. A field already filled is
+    changed with `forge fill --force`, which records the overwrite.
+  explanation: |
+    Filling a field that is not open would either overwrite something the source
+    proved, or invent a field the target model does not have. Both are silent in a
+    plain dictionary, which is why a scaffold refuses rather than accepts.
+MF0003:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the value is not one this hole declares as legal"
+  fires_on: [forge fill]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the candidates. If the value you want is genuinely
+    absent, the declaration it would come from — a type, a role — does not exist yet,
+    and it is a separate draft that must land first.
+  explanation: |
+    Invariant 7 says vocabularies are closed: a contract naming an undeclared state
+    fails to load. A hole carrying its legal values enforces that when the value is
+    written rather than when the file is read, which turns a load-time refusal a
+    reviewer sees late into an immediate one. A hole with no candidates accepts free
+    text — prose fields have no enumerable domain.

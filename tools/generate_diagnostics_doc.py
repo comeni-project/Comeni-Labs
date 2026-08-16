@@ -70,6 +70,7 @@ HEADINGS: dict[str, str] = {
     "pipeline-file": "The pipeline file — a setting, an override, or the format",
     "routing": "Routing and resolution",
     "gates": "Gates and emission",
+    "scaffolding": "The forge — a scaffold, its holes, and filling them",
 }
 """Section titles per `concern`, in the order they are rendered.
 

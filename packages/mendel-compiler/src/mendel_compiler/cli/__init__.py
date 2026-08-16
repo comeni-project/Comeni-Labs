@@ -33,6 +33,9 @@ from mendel_compiler import conformance
 from mendel_compiler.cli import artifact_verbs, layer_verbs, parse, resolve_verbs
 
 _CODE = re.compile(r"\bMD0\d{3}\b")
+"""Deliberately `MD` only: `mendel` raises no forge code, and matching one here would
+point a reader at `mendel explain` for a refusal `forge` produced. The forge CLI has its
+own, over `MF`."""
 
 
 def _with_pointer(message: str) -> str:
