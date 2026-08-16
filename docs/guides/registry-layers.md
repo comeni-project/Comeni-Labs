@@ -143,6 +143,22 @@ directories to create first — that is the point of comeni-registry#1.
 Add only what you are changing. A layer that ships two contracts and nothing else is
 completely normal, and is the case this is built around.
 
+## Documenting a layer
+
+```bash
+uv run mendel docs --registry ./lab-registry --out lab-registry/docs/tools
+```
+
+One page per tool, from your own files. A private overlay usually cannot load on its own — it
+names types the base layer declares — so stack the base underneath it:
+
+```bash
+uv run mendel docs --registry registry/ --registry ./lab-registry --out docs/tools
+```
+
+`--check` writes nothing and exits 1 if a page has gone stale, which is what the public
+registry runs in CI.
+
 ## Keeping it private
 
 A layer is a directory. Keep it in a private git repository, mount it in your cluster, or

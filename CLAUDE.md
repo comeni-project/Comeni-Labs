@@ -613,6 +613,10 @@ uv run mendel publish build/pipeline.yml --gate test
 # emit a pipeline that measures, plus profile.yml naming what measures what
 uv run mendel profile --have fastq.reads --out profile-build/
 
+# one Markdown page per tool, from the registry data alone. --check is what
+# comeni-registry's CI runs; it writes nothing and exits 1 on a stale page.
+uv run mendel docs --registry registry/ --out /tmp/tool-docs
+
 # regenerate the measurement type stub; --check is what CI runs
 uv run python tools/generate_types.py
 
