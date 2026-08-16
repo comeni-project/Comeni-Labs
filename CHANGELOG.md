@@ -34,6 +34,11 @@ Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
 
 ### mendel-compiler
 
+- **`mendel docs`** — one Markdown page per tool, rendered from a layer's declared data.
+  A tool is the first two segments of a contract's module key, never its directory, since
+  comeni-registry#1 made the path meaningless. `--check` writes nothing and exits 1 when a
+  page is stale, missing, or describes a tool the registry no longer ships; that is what
+  `comeni-registry`'s CI runs on every pull request.
 - **`MD0223` sees a tier-4 setting answered by hand.** Answering a tier-4 question is now a
   two-part edit — the override *and* the reason beside the value — and the one-part edit exits 2.
 

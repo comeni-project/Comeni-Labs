@@ -30,7 +30,7 @@ from mendel_resolver.rules import RuleValidationError
 from pydantic import ValidationError
 
 from mendel_compiler import conformance
-from mendel_compiler.cli import artifact_verbs, parse, resolve_verbs
+from mendel_compiler.cli import artifact_verbs, layer_verbs, parse, resolve_verbs
 
 _CODE = re.compile(r"\bMD0\d{3}\b")
 
@@ -135,6 +135,21 @@ def _build(argv: list[str] | None = None) -> int:
             parser.error("explain needs a code, e.g. `mendel explain MD0104`")
         print(conformance.explain(args.target))
         return 0
+
+    # `docs` acts on a layer and produces no pipeline, so it returns before every flag below,
+    # all of which describe a pipeline this verb never makes. It resolves nothing either: it
+    # loads a layer and reads what the contracts say, which is why it lives in `layer_verbs`.
+    if args.command == "docs":
+        if args.out is None:
+            parser.error("docs needs --out")
+        if not args.registry:
+            parser.error("docs needs at least one --registry")
+        return layer_verbs._docs_verb(args.registry, args.out, args.check)
+
+    # `--check` belongs to `docs` alone. On any other verb it would be a flag that silently
+    # means nothing, which is the defect `--dry-run` and `--force` each carry a guard for.
+    if args.check:
+        parser.error("--check is for `docs`; it asks whether the pages match the data")
 
     # `--dry-run` belongs to `upgrade` alone: it means "re-resolve and compare", and there
     # is nothing to compare a fresh `build` against. Accepting it elsewhere would make it a

@@ -10,7 +10,8 @@ Three kinds live here:
   findings, because a fix per finding would have been nine copies of the same repair.
 - **Design specs for a change with no audit behind it** — `2026-08-07-the-pipeline-file.md`
   (shipped as Plan 1.10), `2026-08-15-root-5-the-rule-format.md` (Plan 1.15),
-  `2026-08-16-code-and-documentation-organisation.md` (issue #41).
+  `2026-08-16-code-and-documentation-organisation.md` (issue #41),
+  `2026-08-16-registry-ci-and-tool-docs.md` (comeni-registry#2).
 - **One that is unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`. Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.

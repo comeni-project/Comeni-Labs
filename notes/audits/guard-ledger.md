@@ -2216,3 +2216,72 @@ a measurement in one test and a contract in another, and both labels landed on t
 The correct mechanism is one helper that derives the kind from the directory **at runtime**, and
 it has to walk *ancestors* rather than the immediate parent, because `contracts/nf-core/fastqc.yml`
 sits two levels below the directory that names it.
+
+## comeni-registry#2, 2026-08-16 — the tool-grouping rule
+
+**Guard:** `packages/mendel-compiler/tests/test_tool_docs.py`, the four grouping tests.
+
+**Reverted:** `_tool_of`'s `key.split("/")[:2]` to `[:-1]` — "drop the last segment", which is
+the rule a reader would guess and the one the ids do not support.
+
+**What happened:** three of four failed. The messages name the defect rather than a helper:
+
+```
+assert [c.id for c in tools["nf-core/fastqc"]] == ["nf-core/fastqc@0.12.1"]
+E   KeyError: 'nf-core/fastqc'
+
+assert tool_docs._tool_of("sortmerna@4.3.6") == "sortmerna"
+E   AssertionError: assert '' == 'sortmerna'
+```
+
+**Why it matters.** Contract ids are **not uniformly shaped** — `nf-core/star/align` has three
+segments and `nf-core/fastqc` has two — so "drop the last segment" collapses every two-segment
+nf-core module onto a single `nf-core` page, and reduces a one-segment key to the empty string.
+The empty-string case is the sharper one: it would have produced a page named `.md` rather than
+failing, which is the silent direction A67 is about.
+
+`__pycache__` was cleared after restoring, per the bytecode note in the 2026-08-16 journal.
+
+## comeni-registry#2, 2026-08-16 — sorted states in a generated page
+
+**Guard:** `test_a_multi_state_port_renders_in_sorted_order`.
+
+**Reverted:** `_states`' `sorted(states)` to `states`.
+
+**What happened:** fails under every `PYTHONHASHSEED`, with a *different* order each time:
+
+```
+E  AssertionError: assert '`name_sorted...deduplicated`' == '`coordinate_...`name_sorted`'
+E  AssertionError: assert '`indexed`, `...deduplicated`' == '`coordinate_...`name_sorted`'
+```
+
+**The guard had to be rewritten before it could fail, and that is the finding.** Its first
+version rendered a real page twice and compared. It passed with the sort removed, because a
+frozenset's order is stable *within one process* — and worse, hashing the page in three separate
+processes also matched, because **no port in the registry carries more than one state** and a
+one-element set has only one order.
+
+So against real data the guard was inert. The second version constructs a four-state port in the
+test, which is [A36](2026-08-14-design-audit.md)'s answer to the same problem — invent the case
+the data does not yet contain, rather than assert a line cannot be wrong.
+
+**Why it matters more here than for `IREdge.states`.** These pages are *committed*. An unsorted
+set makes `comeni-registry`'s CI red on a machine whose seed differs from the one that generated
+them, and green on the author's — a failure nobody can reproduce locally.
+
+## comeni-registry#2, 2026-08-16 — `mendel docs --check`
+
+**Guard:** `tests/test_docs_verb.py`, the four `--check` tests.
+
+**Revert 1:** `if check:` to `if False:` in `_docs_verb`, so `--check` writes instead of
+reporting. Four failed, including `test_check_writes_nothing` — the one that matters, because a
+check which repairs what it measures reports success the second time it runs and can never fail
+twice. That is `make drift`'s "skipped" wearing different clothes.
+
+**Revert 2:** dropped the orphan clause alone (`if page.relative_to(out) not in pages` to
+`if False`). Exactly one failed —
+`test_check_refuses_a_page_for_a_tool_that_no_longer_exists` — which is the isolation worth
+having: the orphan case is the direction nothing else catches. A contract is deleted, its page
+is not, and the page goes on documenting a tool the registry no longer ships. Stale and missing
+pages are both caught by the `wrong` list, so a single blunt revert would not have told the two
+apart.

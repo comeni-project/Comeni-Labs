@@ -231,6 +231,33 @@ The long form of a diagnostic, after `rustc --explain`: what the check means, an
 real defect earned it. Loads nothing, so it answers even when the registry will not load.
 An unknown code lists the ones that exist.
 
+## `mendel docs`
+
+```bash
+uv run mendel docs --registry registry/ --out docs/tools           # write the pages
+uv run mendel docs --registry registry/ --out docs/tools --check   # exit 1 if any is stale
+```
+
+One Markdown page per **tool**, rendered from a layer's declared data and nothing else — each
+contract's process, ports, parameters and provenance, plus two facts no single file holds:
+the types only that tool produces, and the tier-3 rules that select it.
+
+**A tool is the first two segments of a contract's module key**, never the directory it sits
+in. Since comeni-registry#1 the loader ignores paths, so grouping pages by folder would put
+path-as-meaning back in one layer up. `nf-core/star/align@1.11.0` and
+`nf-core/star/genomegenerate@1.11.0` share the page `nf-core/star.md`.
+
+`--registry` is repeatable and stacks as everywhere else, which is how a laboratory documents a
+private overlay: an overlay usually cannot load alone, because it names types the base declares.
+
+**`--check` writes nothing.** It exits 1 if a page is stale, missing, or describes a tool the
+registry no longer ships. This is what `comeni-registry`'s CI runs on every pull request; a
+check that repaired what it measured could never fail twice.
+
+The whole page is generated. There are no hand-editable regions, and `--check` refuses a local
+edit — a generator that splices into a partly hand-written page compares that half against
+itself and can never see a change.
+
 ## Gates
 
 | Gate | Needs | Time | Proves |
