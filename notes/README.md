@@ -45,8 +45,8 @@ the order.
 | 10 | `2026-08-10-closing-round-three.md` | Plan 1.11 — **complete.** Closed A38–A54 (17 tasks), with each task's corrections inline; A14 stays open |
 | 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
 | 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **complete, and the last audit-driven plan** (decided 2026-08-13). Closed A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues |
-| 13 | `../audits/2026-08-14-design-audit-brief.md` | **The design audit — next.** Not like rounds one to four: does the *design* deliver the claim, rather than does the code match the design. Brief written; not yet run |
-| 14 | `2026-08-02-mendel-ai-and-forge.md` + `2026-08-13-plan-2-corrections.md` | Plan 2 — **being redesigned, not executed** (operator's decision, 2026-08-17). The corrections were verified against the Plan 1.12 tree, which is fourteen merged pull requests ago, and neither document knows about `AiProvenance`, `MD0225`, `coded()`, `declares:` or the registry being a separate repository. Read [`journal/2026-08-17.md`](journal/2026-08-17.md) before either of them |
+| 13 | `../audits/2026-08-14-design-audit.md` | The design audit — **complete.** Not like rounds one to four: it asked whether the *design* delivers the claim, rather than whether the code matches the design. Four streams, and the split it produced — *"same goal in → same pipeline out"* holds, *"nothing was guessed silently"* did not, and Plan 1.14 closed it — is the most useful thing it returned. This row said **next, not yet run** for two days after it ran, which is the drift A71 and A72 are about |
+| 14 | `2026-08-16-the-forge-phase-1.md` + `../specs/2026-08-16-the-forge.md` | **The forge, Phase 1 — the plan, written 2026-08-16.** Twenty-three tasks, seven checkpoints. Deterministic scaffolding only; a model fills holes in Phase 2. Plan 2 was deleted rather than corrected (operator's decision, 2026-08-16) — both documents were verified against the Plan 1.12 tree, fourteen merged pull requests ago, and neither knew about `AiProvenance`, `MD0225`, `coded()`, `declares:` or the registry being a separate repository. `43b1ce0` is the last commit holding them, and [`journal/2026-08-17.md`](journal/2026-08-17.md) is the argument. The runtime-AI and prompt→goal halves of the old Plan 2 are separate subsystems needing their own specs |
 | 15 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
@@ -91,8 +91,8 @@ Not "an empty audit" — no audit in this repository has ever come back empty, a
 minor findings are filed and carried rather than blocking Plan 2 indefinitely.
 
 **Known overlap — resolved 2026-08-13 in favour of absorption**, see
-`plans/2026-08-13-plan-2-corrections.md` §2: Plan 1.7 ran first, so Task 4 keeps only the
-*persistence* half and feeds the shipped `ReplayResolver`. Original statement of the collision:
+`plans/2026-08-13-plan-2-corrections.md` §2 — deleted with row 14, and in `43b1ce0`: Plan 1.7
+ran first, so Task 4 kept only the *persistence* half and feeds the shipped `ReplayResolver`. Original statement of the collision:
 Plan 1.7 Task 5 builds `replay.py` in `mendel-resolver`
 and Plan 2 Task 4 builds `ReplayingResolver` in `mendel-ai`. They are not the same — one
 replays recorded decisions when a curated bundle is edited, the other caches model answers

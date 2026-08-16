@@ -4,10 +4,17 @@
 **Status:** Approved first pass. Tuning deferred to implementation.
 **Mockup:** [`forge-review.html`](forge-review.html) — self-contained, open in a browser.
 
-Design for the curator-facing screens described in
-[Plan 2](../../notes/plans/2026-08-02-mendel-ai-and-forge.md), Tasks 8–10. Shares the
-token system in [the dashboard design](dashboard.md); only the
-additions are recorded here.
+Design for the curator-facing screens of the forge's review queue. Shares the token system in
+[the dashboard design](dashboard.md); only the additions are recorded here.
+
+**The plan this was drawn against no longer exists.** It cited Plan 2 Tasks 8–10, and Plan 2 was
+deleted on 2026-08-16 rather than corrected — [`the forge
+spec`](../../notes/specs/2026-08-16-the-forge.md) replaces it. The screens survive the plan: the
+forge still has a workspace of drafts a curator reviews, and §6 of that spec puts this behind the
+same HTTP layer the CLI renders from. What changed underneath is that a draft now carries **typed
+holes** rather than a wholly AI-drafted contract, so a review screen has a field-by-field list to
+render with the evidence and the legal candidates for each — which is more than these mockups
+assume, not less.
 
 ---
 
