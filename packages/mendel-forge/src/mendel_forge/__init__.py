@@ -5,4 +5,6 @@ serves: a scaffold is not a half-built contract, so the forge cannot emit an inv
 declared file — only a valid one, or something that says which fields it is missing.
 """
 
+from mendel_forge.sources import nfcore as _nfcore  # noqa: F401  — registers "nf-core"
+
 __all__: list[str] = []
