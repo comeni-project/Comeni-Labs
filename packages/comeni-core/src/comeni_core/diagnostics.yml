@@ -1627,3 +1627,17 @@ MF0003:
     written rather than when the file is read, which turns a load-time refusal a
     reviewer sees late into an immediate one. A hole with no candidates accepts free
     text — prose fields have no enumerable domain.
+MF0004:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the scaffold still has open holes and cannot become a declared file"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the open fields and `forge fill` for each. Every hole
+    names why it is open and what values are legal there.
+  explanation: |
+    A scaffold is not a half-built contract — the model it becomes validates and forbids
+    extras, so a partially-valid one is unrepresentable. Defaulting the missing fields
+    would let the forge invent a value with a straight face, which is the thing a hole
+    exists to prevent. The refusal is the design working, not a failure.

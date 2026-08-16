@@ -9,9 +9,13 @@ That table was measured against every vendored module rather than reasoned about
 this file and the table disagree, the table is right.
 """
 
+import re
 from typing import Any
 
+import yaml
+from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Provenance
 from comeni_core.declared.layered import DeclaredKind
+from comeni_core.diagnostics import coded
 from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
@@ -121,3 +125,90 @@ def _target(ident: str) -> str:
     source, _, tool = ident.partition("/")
     tail = tool if "/" in tool else f"{tool}/{tool}"
     return f"tools/{source}/{tail}.contract.yml"
+
+
+_PORT_KEY = re.compile(r"^(consumes|produces)\[(\d+)\]\.(\w+)$")
+
+
+def _ports(filled: dict[str, Any], group: str) -> list[dict[str, Any]]:
+    """Regroup flat `produces[0].type_id` keys back into one dict per index.
+
+    The scaffold is flat on purpose — a hole names one field, and `produces[0].type_id`
+    is a field a person can be asked about while `produces` is not. Reassembling here is
+    the cost of that, and it is paid in one place.
+    """
+    by_index: dict[int, dict[str, Any]] = {}
+    for key, value in filled.items():
+        match = _PORT_KEY.match(key)
+        if match and match.group(1) == group:
+            by_index.setdefault(int(match.group(2)), {})[match.group(3)] = value
+    return [by_index[index] for index in sorted(by_index)]
+
+
+def _require_complete(scaffold: Scaffold) -> None:
+    if scaffold.is_complete():
+        return
+    open_fields = ", ".join(h.field for h in sorted(scaffold.holes, key=lambda h: h.field))
+    raise ValueError(
+        coded("MF0004", f"{scaffold.target} has {len(scaffold.holes)} open hole(s)")
+        + f"\n  open: {open_fields}"
+    )
+
+
+def _drafted_by(scaffold: Scaffold) -> str:
+    """`hand` when a person filled every non-derived hole; the model id when one did.
+
+    Phase 2 needs no change here: `Filler.MODEL` already exists and `by` already carries
+    the id, so a model-filled scaffold lands with its model named in the file.
+    """
+    fillers = {v.filler: v.by for v in scaffold.filled.values()}
+    return fillers.get(Filler.MODEL, "hand")
+
+
+def contract_from(scaffold: Scaffold, *, approved_by: str, approved_at: str) -> ModuleContract:
+    _require_complete(scaffold)
+    value = {field: filled.value for field, filled in scaffold.filled.items()}
+
+    produces = [
+        OutputPort(
+            name=port["name"],
+            type_id=port["type_id"],
+            state=frozenset(port.get("state", [])),
+        )
+        for port in _ports(value, "produces")
+    ]
+    consumes = [
+        InputPort(
+            name=port["name"],
+            type_id=port["type_id"],
+            state_required=frozenset(port.get("state_required", [])),
+        )
+        for port in _ports(value, "consumes")
+    ]
+
+    return ModuleContract(
+        id=value["id"],
+        nf_process=value["nf_process"],
+        nf_include=value["nf_include"],
+        consumes=consumes,
+        produces=produces,
+        roles=value.get("roles", []),
+        priority=value.get("priority", 0),
+        priority_because=value.get("priority_because", ""),
+        container=value.get("container"),
+        provenance=Provenance(
+            source=value["provenance.source"],
+            drafted_by=_drafted_by(scaffold),
+            approved_by=approved_by,
+            approved_at=approved_at,
+        ),
+    )
+
+
+def to_yaml(scaffold: Scaffold, *, approved_by: str, approved_at: str) -> str:
+    """The file as it will land. `declares: contract` first, because that is the line the
+    loader reads to know what the file is — comeni-registry#1 retired the directory that
+    used to say it, and a misspelled `declares:` is MD0011 rather than an impossibility."""
+    contract = contract_from(scaffold, approved_by=approved_by, approved_at=approved_at)
+    body = contract.model_dump(mode="json", exclude_defaults=True)
+    return "declares: contract\n" + yaml.safe_dump(body, sort_keys=False, width=100)
