@@ -2241,3 +2241,30 @@ The empty-string case is the sharper one: it would have produced a page named `.
 failing, which is the silent direction A67 is about.
 
 `__pycache__` was cleared after restoring, per the bytecode note in the 2026-08-16 journal.
+
+## comeni-registry#2, 2026-08-16 — sorted states in a generated page
+
+**Guard:** `test_a_multi_state_port_renders_in_sorted_order`.
+
+**Reverted:** `_states`' `sorted(states)` to `states`.
+
+**What happened:** fails under every `PYTHONHASHSEED`, with a *different* order each time:
+
+```
+E  AssertionError: assert '`name_sorted...deduplicated`' == '`coordinate_...`name_sorted`'
+E  AssertionError: assert '`indexed`, `...deduplicated`' == '`coordinate_...`name_sorted`'
+```
+
+**The guard had to be rewritten before it could fail, and that is the finding.** Its first
+version rendered a real page twice and compared. It passed with the sort removed, because a
+frozenset's order is stable *within one process* — and worse, hashing the page in three separate
+processes also matched, because **no port in the registry carries more than one state** and a
+one-element set has only one order.
+
+So against real data the guard was inert. The second version constructs a four-state port in the
+test, which is [A36](2026-08-14-design-audit.md)'s answer to the same problem — invent the case
+the data does not yet contain, rather than assert a line cannot be wrong.
+
+**Why it matters more here than for `IREdge.states`.** These pages are *committed*. An unsorted
+set makes `comeni-registry`'s CI red on a machine whose seed differs from the one that generated
+them, and green on the author's — a failure nobody can reproduce locally.

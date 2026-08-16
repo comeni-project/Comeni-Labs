@@ -54,3 +54,83 @@ def test_the_registry_groups_into_the_eight_pages_the_spec_names():
         "nf-core/subread",
         "nf-core/trimgalore",
     ]
+
+
+def test_a_page_names_every_contract_and_its_process():
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert "# nf-core/star" in page
+    assert "`nf-core/star/align@1.11.0`" in page
+    assert "STAR_ALIGN" in page
+    assert "`nf-core/star/genomegenerate@1.11.0`" in page
+
+
+def test_a_page_records_ports_with_their_states():
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/samtools", tools["nf-core/samtools"], loaded)
+    assert "alignment.bam" in page
+    assert "coordinate_sorted" in page
+
+
+def test_a_page_carries_the_provenance_rather_than_dropping_it():
+    """Contracts cite papers and the data is CC-BY. A generated page that drops attribution
+    is the one thing this registry's licence exists to prevent."""
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert "approved_by" in page
+    assert "drafted_by" in page
+
+
+def test_a_page_says_when_a_tool_declares_no_parameters():
+    """An empty section is a fact — 'this tool settles nothing' — and a page that silently
+    omits it reads as though the generator forgot."""
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/multiqc", tools["nf-core/multiqc"], loaded)
+    assert "Parameters" in page
+
+
+def test_a_multi_state_port_renders_in_sorted_order():
+    """`--check` compares bytes, and these pages are **committed** — so an unsorted frozenset
+    would make CI red on a machine whose `PYTHONHASHSEED` differs from the one that generated
+    them. Worse than a reordered diff, and invisible on the machine that wrote it.
+
+    **Constructed rather than taken from the registry, because no port there carries more
+    than one state**, and a one-element set has only one order. Against real data this guard
+    cannot fail, which would make it inert — A36's shape exactly, and the same answer: invent
+    the second case in the test.
+    """
+    many = frozenset({"name_sorted", "coordinate_sorted", "indexed", "deduplicated"})
+    rendered = tool_docs._states(many)
+    assert rendered == "`coordinate_sorted`, `deduplicated`, `indexed`, `name_sorted`"
+
+
+def test_rendering_is_stable_across_two_calls():
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    first = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    second = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert first == second
+
+
+def test_a_page_says_it_is_generated():
+    """`--check` refuses a hand edit, so the page has to tell a reader that before they make
+    one. A generated file with no banner is an invitation to lose work."""
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert page.splitlines()[0].startswith("<!--")
+    assert "mendel docs" in page.splitlines()[0]
+
+
+def test_an_absent_tier_hint_is_a_dash_rather_than_the_word_None():
+    """`None` is a real answer — the contract offers no hint — but a page a biologist reads
+    should not contain a Python literal."""
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert "| None |" not in page
+    assert "`star_ignore_sjdbgtf` | — |" in page
