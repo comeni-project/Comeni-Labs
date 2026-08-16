@@ -1584,6 +1584,20 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MF0001:
+  emitted_by: forge
+  concern: scaffolding
+  says: "no such source, or a tool reference that does not name one"
+  fires_on: [forge discover, forge draft]
+  refuses: true
+  fix: |
+    Run `forge sources` for the registered names, and spell a reference
+    `<source>:<tool>` — `nf-core:fastqc`, not `fastqc`.
+  explanation: |
+    A reference without a source is ambiguous the moment a second source exists, and a
+    second source is the reason the ingestion layer is a protocol at all. Refusing the
+    bare form now costs one colon and prevents a reference that means different things
+    on two machines.
 MF0002:
   emitted_by: forge
   concern: scaffolding

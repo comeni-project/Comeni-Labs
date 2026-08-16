@@ -116,5 +116,6 @@ decline to curate one.
 
 | Code | Says |
 |---|---|
+| `MF0001` | no such source, or a tool reference that does not name one |
 | `MF0002` | that field is not a hole in this scaffold |
 | `MF0003` | the value is not one this hole declares as legal |
