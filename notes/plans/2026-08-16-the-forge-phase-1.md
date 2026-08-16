@@ -1713,25 +1713,52 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
     holes.append(_hole("roles", stack, obs, why=_WHY_OPEN["roles"]))
     holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
 
-    namespace, _, tool = ident.partition("/")
     return Scaffold(
         kind=DeclaredKind.CONTRACTS,
-        target=f"tools/{namespace}/{tool}/{tool.replace('/', '-')}.contract.yml",
+        target=_target(ident),
         observation=obs,
         filled=filled,
         holes=sorted(holes, key=lambda h: h.field),
     )
+
+
+def _target(ident: str) -> str:
+    """Where the file lands, following the convention the public registry already uses.
+
+    A layer's layout is free — invariant 11 says a file declares its own kind, so nothing
+    reads the path. The convention groups a tool's files together, and it is **not uniform**:
+
+        nf-core/fastqc         -> tools/nf-core/fastqc/fastqc.contract.yml
+        nf-core/samtools/sort  -> tools/nf-core/samtools/sort.contract.yml
+
+    A single-segment tool doubles its name to get a directory of its own; a multi-segment
+    one already has one. Read off the shipped registry rather than invented — every id in
+    it was checked when this was written.
+    """
+    source, _, tool = ident.partition("/")
+    tail = tool if "/" in tool else f"{tool}/{tool}"
+    return f"tools/{source}/{tail}.contract.yml"
 ```
 
-- [ ] **Step 4: Run the tests, and reconcile against the table**
+- [ ] **Step 4: Add the second target-path case to the test**
+
+`_target` has two branches and the test above exercises one. Add:
+
+```python
+def test_a_multi_segment_tool_does_not_double_its_name():
+    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:samtools/sort"), ROOT / "vendor")
+    scaffold = scaffold_for(obs, layers.load(ROOT / "registry"),
+                            ident="nf-core/samtools/sort", version="1.21.0")
+    assert scaffold.target == "tools/nf-core/samtools/sort.contract.yml"
+```
+
+- [ ] **Step 5: Run the tests, and reconcile against the table**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_assemble_scaffold.py -v`
-Expected: 7 passed. If `test_the_target_path_follows_the_registry_convention` fails, compare
-against the real layout — `registry/tools/nf-core/samtools/index.contract.yml` and
-`registry/tools/nf-core/fastqc/fastqc.contract.yml` are **not** the same shape, and the real
-convention wins over the expression above.
+Expected: 8 passed. If a target path disagrees, **the shipped registry is right** — every id
+and path in it was read when this plan was written, and the convention is not uniform.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-forge
