@@ -3130,6 +3130,24 @@ branch) and `MF0101` (a dirty tree) in the `MF0100`–`MF0199` band, with `emitt
 write the files, `git add` exactly those paths, and commit. **Nothing else in the package may
 write under a registry root** — Task 22 is the guard that holds it.
 
+**`--registry` is required and has no default** — the operator's decision, 2026-08-16.
+`registry/` in this repository is a submodule at **detached HEAD** on a pinned commit, so a
+defaulted target means somebody eventually commits into it by accident, and then the branch has
+to be pushed to `comeni-registry` and the pointer bumped here — three steps this verb does not
+do and would not say it was not doing. Landing is the one action with a git commit behind it;
+an explicit path costs one flag on the rarest verb in the package. Add the test:
+
+```python
+def test_the_cli_refuses_to_land_without_an_explicit_registry(capsys, tmp_path):
+    from mendel_forge.cli import main
+
+    assert main(["land", "fastqc", "--workspace", str(tmp_path), "--by", "rafael"]) == 2
+    assert "--registry" in capsys.readouterr().err
+```
+
+Exit 2 rather than 1: argparse's own code for a missing required argument, which is not a
+diagnostic — there is nothing for `forge explain` to say about a flag you did not type.
+
 - [ ] **Step 4: Run the tests and commit**
 
 ```bash
