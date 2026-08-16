@@ -19,7 +19,6 @@ from mendel_compiler import conformance
 
 from mendel_forge import ops
 from mendel_forge.cli import parse, render
-from mendel_forge.workspace import Workspace
 
 _CODE = re.compile(r"\bMF\d{4}\b")
 """`MF` only. A forge refusal is explained by `forge explain`; pointing a reader at
@@ -78,9 +77,8 @@ def _run(argv: list[str] | None = None) -> int:
         return _emit(args, result, render.draft(result))
 
     if args.command == "list":
-        names = Workspace(root=args.workspace).names()
-        print(names if args.json else render.listing(names))
-        return 0
+        result = ops.list_(ops.ListRequest(workspace_root=args.workspace))
+        return _emit(args, result, render.listing(result.names))
 
     if args.command == "show":
         result = ops.show(

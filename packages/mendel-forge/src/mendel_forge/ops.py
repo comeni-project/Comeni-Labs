@@ -333,3 +333,21 @@ def land(req: LandRequest) -> LandResult:
         approved_by=req.approved_by,
         approved_at=req.approved_at,
     )
+
+
+class ListRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    workspace_root: Path
+
+
+class ListResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    names: list[str]
+
+
+def list_(req: ListRequest) -> ListResult:
+    """The queue. A verb rather than a bare `Workspace.names()` call in each transport,
+    because the CLI printing a list and the HTTP app returning one must be the same list."""
+    return ListResult(names=Workspace(root=req.workspace_root).names())
