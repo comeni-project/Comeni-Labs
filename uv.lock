@@ -7,6 +7,7 @@ members = [
     "comeni-core",
     "comeni-labs",
     "mendel-compiler",
+    "mendel-forge",
     "mendel-resolver",
 ]
 
@@ -50,6 +51,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "comeni-core" },
     { name = "mendel-compiler" },
+    { name = "mendel-forge" },
     { name = "mendel-resolver" },
 ]
 
@@ -64,6 +66,7 @@ dev = [
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
+    { name = "mendel-forge", editable = "packages/mendel-forge" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
 ]
 
@@ -243,6 +246,27 @@ dependencies = [
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "mendel-resolver", editable = "packages/mendel-resolver" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "mendel-forge"
+version = "0.1.0"
+source = { editable = "packages/mendel-forge" }
+dependencies = [
+    { name = "comeni-core" },
+    { name = "mendel-compiler" },
+    { name = "mendel-resolver" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },

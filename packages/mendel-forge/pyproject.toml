@@ -1,8 +1,8 @@
 [project]
-name = "comeni-labs"
+name = "mendel-forge"
 version = "0.1.0"
 requires-python = ">=3.12"
-description = "Deterministic bioinformatics pipeline construction — same goal in, same pipeline out, and nothing guessed silently"
+description = "Scaffolding and verification for the Mendel registry"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -18,7 +18,14 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler", "mendel-forge"]
+# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
+dependencies = [
+  "comeni-core>=0.1.0",
+  "mendel-resolver>=0.1.0",
+  "mendel-compiler>=0.1.0",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"
@@ -27,19 +34,12 @@ Repository = "https://github.com/comeni-project/Comeni-Labs"
 Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
 Changelog = "https://github.com/comeni-project/Comeni-Labs/blob/main/CHANGELOG.md"
 
-[tool.uv.workspace]
-members = ["packages/*"]
+[project.scripts]
+forge = "mendel_forge.cli:main"
 
-[tool.uv.sources]
-comeni-core = { workspace = true }
-mendel-resolver = { workspace = true }
-mendel-compiler = { workspace = true }
-mendel-forge = { workspace = true }
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.6", "pytest-cov>=5.0"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests", "packages"]
-markers = ["slow: needs Docker and Nextflow; run nightly, not on a pull request"]
-addopts = "-m 'not slow'"
+[tool.hatch.build.targets.wheel]
+packages = ["src/mendel_forge"]
