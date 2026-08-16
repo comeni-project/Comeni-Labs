@@ -67,8 +67,11 @@ def test_a_layers_own_github_directory_is_not_declared_data(tmp_path):
     """A layer repository carries CI of its own. `comeni-registry` is the first one to, and
     `.github/workflows/ci.yml` was read as a contract and refused with `MD0010`."""
     layer = _registry_under(tmp_path, "plain")
+    # `exist_ok`: since comeni-registry#3 the real layer *has* a `.github/workflows/`, which
+    # is the situation this test was written for. Constructing it anyway keeps the test true
+    # if the fixture ever loses one.
     workflow = layer / ".github" / "workflows" / "ci.yml"
-    workflow.parent.mkdir(parents=True)
+    workflow.parent.mkdir(parents=True, exist_ok=True)
     workflow.write_text("name: check\non: [push]\njobs: {}\n")
     assert workflow not in declared_entries(layer)
 
@@ -78,7 +81,7 @@ def test_a_dot_directory_inside_a_layer_is_still_excluded(tmp_path):
     layer's `.github/` out. Only the *frame of reference* changes, from absolute to relative."""
     layer = _registry_under(tmp_path, ".worktrees", "some-plan")
     stray = layer / ".github" / "ci.yml"
-    stray.parent.mkdir(parents=True)
+    stray.parent.mkdir(parents=True, exist_ok=True)
     stray.write_text("name: check\n")
     entries = declared_entries(layer)
     assert stray not in entries
