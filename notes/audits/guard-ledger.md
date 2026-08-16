@@ -2216,3 +2216,28 @@ a measurement in one test and a contract in another, and both labels landed on t
 The correct mechanism is one helper that derives the kind from the directory **at runtime**, and
 it has to walk *ancestors* rather than the immediate parent, because `contracts/nf-core/fastqc.yml`
 sits two levels below the directory that names it.
+
+## comeni-registry#2, 2026-08-16 — the tool-grouping rule
+
+**Guard:** `packages/mendel-compiler/tests/test_tool_docs.py`, the four grouping tests.
+
+**Reverted:** `_tool_of`'s `key.split("/")[:2]` to `[:-1]` — "drop the last segment", which is
+the rule a reader would guess and the one the ids do not support.
+
+**What happened:** three of four failed. The messages name the defect rather than a helper:
+
+```
+assert [c.id for c in tools["nf-core/fastqc"]] == ["nf-core/fastqc@0.12.1"]
+E   KeyError: 'nf-core/fastqc'
+
+assert tool_docs._tool_of("sortmerna@4.3.6") == "sortmerna"
+E   AssertionError: assert '' == 'sortmerna'
+```
+
+**Why it matters.** Contract ids are **not uniformly shaped** — `nf-core/star/align` has three
+segments and `nf-core/fastqc` has two — so "drop the last segment" collapses every two-segment
+nf-core module onto a single `nf-core` page, and reduces a one-segment key to the empty string.
+The empty-string case is the sharper one: it would have produced a page named `.md` rather than
+failing, which is the silent direction A67 is about.
+
+`__pycache__` was cleared after restoring, per the bytecode note in the 2026-08-16 journal.
