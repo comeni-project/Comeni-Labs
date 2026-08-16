@@ -20,7 +20,7 @@ from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
 from mendel_forge.observe import Observation
-from mendel_forge.scaffold import FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import Candidate, FilledValue, Filler, Hole, Scaffold
 
 _WHY_OPEN = {
     "roles": (
@@ -98,6 +98,35 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
             filled[field] = _derived(obs.fact(name), obs, name)
         else:
             holes.append(_hole(field, stack, obs, why=_WHY_OPEN.get(field, "not derivable")))
+
+    # **One port per module input channel.** Nextflow matches arity, and a contract with no
+    # `nf_inputs` gets one channel per `consumes` port — so a draft with no input ports at all
+    # declares zero channels for a process that takes some, and MD0102 refuses it at rung 4.
+    # The first version of this function omitted these holes entirely, which made
+    # `is_complete()` false in the worst way: a draft reporting no holes that could not
+    # become a contract. Found by running the documented loop end to end, not by a test.
+    #
+    # The *name* is a hole with the module's channel names as candidates, because a contract
+    # port name is chosen rather than read — four of twelve shipped contracts rename, and
+    # `notes/audits/2026-08-16-forge-derivability.md` measures it.
+    for index, slot in enumerate(obs.fact("input_names") or []):
+        offered = [name for name in slot if not name.startswith("meta")]
+        holes.append(
+            Hole(
+                field=f"consumes[{index}].name",
+                what="what this contract calls the thing arriving on channel "
+                f"{index} — the module calls it {', '.join(slot)}",
+                why_open="a port name says what the channel carries; the module's says what "
+                "the process calls it, and the two are not the same choice",
+                candidates=[
+                    Candidate(value=name, note=f"channel {index} in main.nf") for name in offered
+                ],
+                evidence=list(obs.prose),
+            )
+        )
+        holes.append(
+            _hole(f"consumes[{index}].type_id", stack, obs, why=_WHY_OPEN["type_id"])
+        )
 
     emits = obs.fact("emits") or []
     for index, emit in enumerate(emits):

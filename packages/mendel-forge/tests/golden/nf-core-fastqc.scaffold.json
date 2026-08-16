@@ -163,6 +163,140 @@
   },
   "holes": [
     {
+      "field": "consumes[0].name",
+      "what": "what this contract calls the thing arriving on channel 0 — the module calls it meta, reads",
+      "why_open": "a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice",
+      "candidates": [
+        {
+          "value": "reads",
+          "note": "channel 0 in main.nf"
+        }
+      ],
+      "evidence": [
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "text": "Run FastQC on sequenced reads"
+        },
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:input",
+          "text": "[[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'reads': {'type': 'file', 'description': 'List of input FastQ files of size 1 and 2 for single-end and paired-end data,\\nrespectively.\\n', 'ontologies': []}}]]"
+        },
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:output",
+          "text": "{'html': [[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'*.html': {'type': 'file', 'description': 'FastQC report', 'pattern': '*_{fastqc.html}', 'ontologies': []}}]], 'zip': [[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'*.zip': {'type': 'file', 'description': 'FastQC report archive', 'pattern': '*_{fastqc.zip}', 'ontologies': []}}]], 'versions_fastqc': [[{'${task.process}': {'type': 'string', 'description': 'The process the versions were collected from'}}, {'fastqc': {'type': 'string', 'description': 'The tool name'}}, {'fastqc --version | sed \"/FastQC v/!d; s/.*v//\"': {'type': 'eval', 'description': 'The expression to obtain the version of the tool'}}]]}"
+        }
+      ]
+    },
+    {
+      "field": "consumes[0].type_id",
+      "what": "a value for consumes[0].type_id",
+      "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
+      "candidates": [
+        {
+          "value": "alignment.bai",
+          "note": "declared type"
+        },
+        {
+          "value": "alignment.bam",
+          "note": "declared type"
+        },
+        {
+          "value": "annotation.gtf",
+          "note": "declared type"
+        },
+        {
+          "value": "counts.matrix",
+          "note": "declared type"
+        },
+        {
+          "value": "fastq.reads",
+          "note": "declared type"
+        },
+        {
+          "value": "genome.fasta",
+          "note": "declared type"
+        },
+        {
+          "value": "genome.index.hisat2",
+          "note": "declared type"
+        },
+        {
+          "value": "genome.index.star",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.adapter_content",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.duplicate_rate",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.genome_length",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.library_prep",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.n_samples",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.node_memory_gb",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.organism",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.paired",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.purpose",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.read_length",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.rrna_fraction",
+          "note": "declared type"
+        },
+        {
+          "value": "measurement.strandedness",
+          "note": "declared type"
+        },
+        {
+          "value": "profile.yml",
+          "note": "declared type"
+        },
+        {
+          "value": "qc.report",
+          "note": "declared type"
+        }
+      ],
+      "evidence": [
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "text": "Run FastQC on sequenced reads"
+        },
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:input",
+          "text": "[[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'reads': {'type': 'file', 'description': 'List of input FastQ files of size 1 and 2 for single-end and paired-end data,\\nrespectively.\\n', 'ontologies': []}}]]"
+        },
+        {
+          "locator": "modules/nf-core/fastqc/meta.yml:output",
+          "text": "{'html': [[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'*.html': {'type': 'file', 'description': 'FastQC report', 'pattern': '*_{fastqc.html}', 'ontologies': []}}]], 'zip': [[{'meta': {'type': 'map', 'description': \"Groovy Map containing sample information\\ne.g. [ id:'test', single_end:false ]\\n\"}}, {'*.zip': {'type': 'file', 'description': 'FastQC report archive', 'pattern': '*_{fastqc.zip}', 'ontologies': []}}]], 'versions_fastqc': [[{'${task.process}': {'type': 'string', 'description': 'The process the versions were collected from'}}, {'fastqc': {'type': 'string', 'description': 'The tool name'}}, {'fastqc --version | sed \"/FastQC v/!d; s/.*v//\"': {'type': 'eval', 'description': 'The expression to obtain the version of the tool'}}]]}"
+        }
+      ]
+    },
+    {
       "field": "priority_because",
       "what": "a value for priority_because",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",

@@ -8,6 +8,12 @@ __pycache__/
 *.egg-info/
 dist/
 /build/
+
+# The forge's workspaces. Anchored, like /build/ above and for the same reason: an
+# unanchored `.forge` would also match a vendored module directory called that, which is
+# exactly how vendor/modules/nf-core/hisat2/build/ went missing.
+/.forge/
+/.forge-demo/
 .pytest_cache/
 .ruff_cache/
 .coverage

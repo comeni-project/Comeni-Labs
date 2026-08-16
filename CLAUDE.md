@@ -69,9 +69,17 @@ express them.
 `main.nf` and `meta.yml`. `mendel explain <code>` for any diagnostic;
 [`docs/reference/diagnostics.md`](docs/reference/diagnostics.md) for all of them.
 
-**Nothing AI-shaped is built.** `comeni-core`, `mendel-resolver` and `mendel-compiler` exist and
-are pure; `mendel-ai`, `mendel-forge` and `mendel-api` do not. Every build is already the
-`--no-ai` lane, which is why that flag has nothing to switch off until Plan 2.
+**Nothing AI-shaped is built, and `mendel-forge` now exists without being AI-shaped.** That
+distinction is the point of Plan 2 Phase 1. `comeni-core`, `mendel-resolver` and
+`mendel-compiler` are pure; `mendel-forge` is the first **impure** package — classified in
+`IMPURE_PACKAGES`, with `test_no_pure_package_imports_an_impure_one` holding the arrow — and it
+is entirely deterministic: a source is read, facts are derived, and everything that cannot be
+derived is a typed **hole** a person fills. `ports.py` declares `HoleFiller` and ships
+`NoFiller`, which declines everything, so `--no-ai` is not a flag in the forge but the only
+mode. `mendel-ai` and `mendel-api` still do not exist. **Phase 2 wires a model into the forge,
+and its first question is the fifth egress door** — a model call sends tool documentation to a
+provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
+`notes/specs/2026-08-16-the-forge.md` §10.3 is the argument.
 
 ### What is open
 
@@ -404,7 +412,9 @@ packages/
   mendel-compiler/   IR → Nextflow DSL2, validation gates, repair      PURE
     cli/               the verbs — resolve_verbs, artifact_verbs, report
   mendel-ai/         LiteLLM port implementations                      impure
-  mendel-forge/      ingestion, contract drafting, approval queue      impure
+  mendel-forge/      sources, scaffolds with typed holes, verify, land  impure
+    sources/           the Source protocol, and the nf-core adapter
+    cli/  http/         two transports over ops.py; neither holds logic
   mendel-api/        FastAPI surface                                   impure
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
@@ -551,6 +561,8 @@ conversation is a loose end lost.
 | ~~48~~ | a tier-4 setting's `why.reason` stays stale after a human answers it; `MD0223` is blind to `for_value: null` | **closed 2026-08-16.** Three conditions — no recorded value, tier 4, and a `human_override`. Answering a tier-4 question is now a two-part edit, and the one-part edit exits 2 |
 | ~~49~~ | `MD0000`–`MD0099` reserved and empty; loading refuses with a Pydantic traceback | **closed 2026-08-16.** `MD0001`–`MD0009`. Six were existing refusals gaining a prefix; only the YAML and schema wraps are new, and both sit in `stack()` because that is the one place every kind loads through |
 | ~~41~~ | code and documentation organisation | **closed 2026-08-16.** Eleven tasks, three emitted digests unmoved. `comeni_core` is five subpackages by lifecycle stage, the working notes left `docs/` for `notes/`, and `make links` checks every relative link in `docs/` and the root |
+| 64 | `forge check` is offline — it compares the registry against the *vendored* source, never against upstream | after the forge MVP, by the operator's decision 2026-08-16 |
+| 65 | the pegi3s source adapter — a container registry, and what may honestly be read out of documentation prose | designed for rather than built; `tests/opaque_source.py` is its shape, so the `Source` protocol has had two implementations since day one |
 | ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 
 ## Commands
@@ -625,11 +637,18 @@ uv run python tools/generate_types.py
 uv run mendel build --goal examples/rnaseq-goal.yml \
   --registry registry/ --registry ./lab-registry --out build/
 
-# the forge
-# --- arrives with Plan 2; these do not exist yet ---
-uv run forge ingest --modules vendor/modules/
-uv run forge pending
-uv run forge approve nf-core/samtools-sort.yml --by "$USER"
+# the forge: where declared data comes from. docs/guides/driving-the-forge.md is the loop.
+uv run forge sources                       # the ingestion sources registered
+uv run forge discover                      # every tool a source can read
+uv run forge draft nf-core:fastqc --name fastqc --version 0.12.1
+uv run forge show fastqc                   # filled fields, and every hole with its reason
+uv run forge fill fastqc roles qc_per_sample --list --by "$USER" --why "it QCs a sample"
+uv run forge verify fastqc                 # the five-rung ladder
+uv run forge check                         # does the registry still match its sources
+uv run forge land fastqc --registry ../comeni-registry --by "$USER"
+
+# --registry is REQUIRED for `land` and defaults for everything else. Landing is the one
+# verb with a git commit behind it, and registry/ here is a submodule at detached HEAD.
 ```
 
 `make dev` and `make migrate` arrive with Plan 3, along with the API and its migrations.
