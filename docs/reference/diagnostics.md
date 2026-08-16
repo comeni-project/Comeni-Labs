@@ -128,4 +128,10 @@ decline to curate one.
 |---|---|
 | `MF0006` | nothing in the layer can route to this contract — **warns, never blocks** |
 | `MF0007` | the filled scaffold does not construct a valid contract |
-| `MF0008` | the loader refused the draft and gave no diagnostic code |
+| `MF0009` | the loader refused the draft and gave no diagnostic code |
+
+## The forge — drafts on disk
+
+| Code | Says |
+|---|---|
+| `MF0008` | no such draft, or a draft name that is not a plain name |

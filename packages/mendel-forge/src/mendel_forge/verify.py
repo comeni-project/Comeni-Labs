@@ -92,7 +92,7 @@ def _reused_code(message: str) -> str | None:
     """The code the loader already used, if it used one.
 
     Reusing it is the Global Constraint: a draft failing the load rung fails it for
-    exactly the reason a build would, so `mendel explain MD0009` answers both. `MF0008`
+    exactly the reason a build would, so `mendel explain MD0009` answers both. `MF0009`
     is the fallback for the sites issue #18 has not reached — `UnknownTypeError` is
     raised bare, while `UnknownStateError` carries MD0009 and `UnknownRoleError` MD0302.
     """
@@ -182,7 +182,7 @@ def _loads(contract: ModuleContract, stack: Layers) -> Verdict:
             if reused is not None:
                 found.append(_load_failure(contract.id, message, code=reused))
             else:
-                found.append(_load_failure(contract.id, message, code="MF0008"))
+                found.append(_load_failure(contract.id, message, code="MF0009"))
     return Verdict(rung=Rung.LOADS, diagnostics=found, refused=bool(found))
 
 

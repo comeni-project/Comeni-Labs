@@ -1689,7 +1689,7 @@ MF0007:
     whether the answer is well-formed. A draft edited as JSON in the workspace bypasses
     `fill` and its candidate list, so this rung is the one that catches a hand edit
     putting a string where a list belongs.
-MF0008:
+MF0009:
   emitted_by: forge
   concern: verification
   says: "the loader refused the draft and gave no diagnostic code"
@@ -1706,3 +1706,17 @@ MF0008:
     reports whichever code the loader gave and falls back to this one when it gave
     none. When issue #18 gives those sites codes, this stops firing for them — which is
     the right direction, and why this is a fallback rather than the contract's own code.
+MF0008:
+  emitted_by: forge
+  concern: workspace
+  says: "no such draft, or a draft name that is not a plain name"
+  fires_on: [forge show, forge fill, forge verify, forge land]
+  refuses: true
+  fix: |
+    Run `forge list` for the drafts that exist. A name is a plain identifier — letters,
+    digits, hyphens and underscores — because it becomes a directory.
+  explanation: |
+    A draft name reaches the filesystem, so a name containing a path separator would let
+    a draft be written outside the workspace. Restricting the name is prevention by
+    construction; validating the resolved path afterwards is detection, and the two are
+    not the same guarantee.
