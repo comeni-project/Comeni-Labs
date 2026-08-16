@@ -79,3 +79,28 @@ def test_holes_serialise_in_field_order():
         ],
     )
     assert [h["field"] for h in scaffold.model_dump()["holes"]] == ["alpha", "zebra"]
+
+
+def test_a_list_field_is_checked_member_by_member():
+    """`roles` holds several values from one closed set, so the candidates are the legal
+    members. Comparing the whole list against them rejected every legal answer — found by
+    ops.fill on the first real call, not by reading the code."""
+    scaffold = Scaffold(
+        kind=DeclaredKind.CONTRACTS,
+        target="t",
+        observation=Observation(source="s", ref_id="r"),
+        holes=[
+            Hole(
+                field="roles",
+                what="the jobs this contract can do",
+                why_open="a module declares no role",
+                candidates=[Candidate(value="qc_per_sample"), Candidate(value="alignment")],
+            )
+        ],
+    )
+    assert scaffold.fill("roles", ["qc_per_sample"], Filler.HAND, by="r", why="w").is_complete()
+    assert scaffold.fill(
+        "roles", ["qc_per_sample", "alignment"], Filler.HAND, by="r", why="w"
+    ).is_complete()
+    with pytest.raises(ValueError, match="MF0003"):
+        scaffold.fill("roles", ["qc_per_sample", "invented"], Filler.HAND, by="r", why="w")

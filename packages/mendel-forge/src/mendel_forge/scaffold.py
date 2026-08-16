@@ -62,7 +62,20 @@ class Hole(BaseModel):
     evidence: list[Excerpt] = Field(default_factory=list)
 
     def legal(self, value: Any) -> bool:
-        return not self.candidates or any(c.value == value for c in self.candidates)
+        """Is this an allowed answer?
+
+        **A list is checked member by member.** `roles` and `produces[].state` hold
+        several values from one closed set, so the candidates are the legal *members*
+        rather than the legal *values* — comparing the whole list against them rejects
+        `["qc_per_sample"]` while accepting `"qc_per_sample"`, which is backwards for
+        the field it is guarding.
+        """
+        if not self.candidates:
+            return True
+        allowed = {c.value for c in self.candidates}
+        if isinstance(value, list | set | frozenset | tuple):
+            return all(member in allowed for member in value)
+        return value in allowed
 
 
 class Scaffold(BaseModel):
