@@ -74,7 +74,7 @@ def parser() -> argparse.ArgumentParser:
         action="append",
         default=None,
         help=(
-            "a registry layer — a directory holding contracts/, rules/ and vocabularies/; "
+            "a registry layer — a directory of files that each carry a `declares:` line; "
             "repeat to stack overlays, later layers win"
         ),
     )
