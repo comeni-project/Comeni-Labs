@@ -1876,7 +1876,8 @@ def test_a_binding_the_contract_does_declare_is_carried():
     assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]
 
 
-MINIMAP2 = """id: nf-core/minimap2/align@2.28.0
+MINIMAP2 = """declares: contract
+id: nf-core/minimap2/align@2.28.0
 nf_process: MINIMAP2_ALIGN
 nf_include: modules/nf-core/minimap2/align/main
 consumes:

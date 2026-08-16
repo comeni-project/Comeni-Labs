@@ -369,7 +369,7 @@ def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
 def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
     """A registry overlay adding params to subread/featurecounts. Shared by A38–A42 tasks."""
     ov = tmp_path / "ov"
-    (ov / "contracts" / "nf-core").mkdir(parents=True)
+    ov.mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
     src = (ROOT / "registry/tools/nf-core/subread/featurecounts.contract.yml").read_text()
     src = src.replace("params:", "params:\n" + extra_params, 1)
