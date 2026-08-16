@@ -2326,3 +2326,42 @@ layer's files".
 
 **No published digest moves.** A layer at an ordinary path digested `32b33d94…` before this
 change and does so after; only dot-directory checkouts were ever wrong.
+
+## The forge, 2026-08-17 — only `land` writes to a registry
+
+`tests/test_forge_write_boundary.py` is the whole-package half of invariant 2: a person approves,
+and nothing writes to a registry automatically. Two guards were watched failing while the forge
+was built; both are recorded here, with the third — the ownership guard's — recorded because it
+fired *by itself*, without anybody arranging it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-17 | `tests/test_forge_write_boundary.py` | a `Path(...).write_text(...)` added to `mendel_forge/verify.py` | failed | names the file, the line and the method |
+| 2026-08-17 | `tests/test_purity.py::test_no_pure_package_imports_an_impure_one` | a commented-out `import mendel_forge` appended to `comeni_core/__init__.py` | failed | names the offending path |
+| 2026-08-17 | `tests/test_diagnostics_ownership.py::test_every_emitted_code_is_declared` | `coded("MF0002", …)` renamed to `MF9999` in `scaffold.py` | **passed before the fix, failed after** | names the undeclared code |
+| 2026-08-17 | `packages/mendel-forge/tests/test_http.py::test_no_route_contains_a_branch` | an `if` added to the `/check` route returning the same value down both paths | failed | prints the offending route body |
+
+**The write-boundary message, verbatim:**
+
+```
+E  AssertionError: only land.py may write to a registry and only workspace.py may write a draft; these write somewhere:
+E        packages/mendel-forge/src/mendel_forge/verify.py:61 .write_text
+E  assert ['packages/me... .write_text'] == []
+E    Left contains one more item: 'packages/mendel-forge/src/mendel_forge/verify.py:61 .write_text'
+```
+
+**The third row is the one worth reading.** `EMISSION` in the ownership guard matched `MD\d{4}`
+alone, so every `MF` code was invisible to `test_every_emitted_code_is_declared` — an undeclared
+`MF9999` passed. The blindness was **not symmetric**, which is why it did not survive: the other
+direction, `test_every_declared_code_is_emitted`, compares the whole registry against the same
+`MD`-only scan, so declaring the first `MF` code turned it red *falsely* within the minute. The
+pattern is now `[A-Z]{2}\d{4}`, and `test_the_scan_sees_every_declared_prefix` checks it against
+the registry's own prefixes rather than a hand-kept list.
+
+**A fourth defect was found by reading a generated artifact rather than by any guard**, and it is
+recorded here because that is the pattern issue #46 established. The first golden scaffold
+written carried an **absolute** evidence locator —
+`/home/<user>/…/.worktrees/forge-phase-1/vendor/modules/nf-core/fastqc/main.nf` — making the
+golden file machine-dependent and putting the author's checkout path into every draft. Every test
+was green. `test_no_locator_is_an_absolute_path` now holds it, but the guard exists *because
+somebody looked at the file*, which is the same way `digest_of_directory` was caught.
