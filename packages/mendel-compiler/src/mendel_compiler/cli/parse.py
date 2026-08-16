@@ -18,7 +18,8 @@ from mendel_compiler.gates import Gate
 def parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mendel")
     parser.add_argument(
-        "command", choices=["build", "profile", "publish", "upgrade", "emit", "explain"]
+        "command",
+        choices=["build", "profile", "publish", "upgrade", "emit", "explain", "docs"],
     )
     parser.add_argument(
         "target",
@@ -57,6 +58,14 @@ def parser() -> argparse.ArgumentParser:
             "`upgrade` only: write into a --out directory that already holds a *different* "
             "pipeline.yml, replacing it. Refused without this, because that directory is "
             "another pipeline's evidence."
+        ),
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "`docs` only: write nothing and exit 1 if any page disagrees with the data. "
+            "A check that repaired what it measured could never fail twice."
         ),
     )
     parser.add_argument(

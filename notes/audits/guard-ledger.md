@@ -2268,3 +2268,20 @@ the data does not yet contain, rather than assert a line cannot be wrong.
 **Why it matters more here than for `IREdge.states`.** These pages are *committed*. An unsorted
 set makes `comeni-registry`'s CI red on a machine whose seed differs from the one that generated
 them, and green on the author's — a failure nobody can reproduce locally.
+
+## comeni-registry#2, 2026-08-16 — `mendel docs --check`
+
+**Guard:** `tests/test_docs_verb.py`, the four `--check` tests.
+
+**Revert 1:** `if check:` to `if False:` in `_docs_verb`, so `--check` writes instead of
+reporting. Four failed, including `test_check_writes_nothing` — the one that matters, because a
+check which repairs what it measures reports success the second time it runs and can never fail
+twice. That is `make drift`'s "skipped" wearing different clothes.
+
+**Revert 2:** dropped the orphan clause alone (`if page.relative_to(out) not in pages` to
+`if False`). Exactly one failed —
+`test_check_refuses_a_page_for_a_tool_that_no_longer_exists` — which is the isolation worth
+having: the orphan case is the direction nothing else catches. A contract is deleted, its page
+is not, and the page goes on documenting a tool the registry no longer ships. Stale and missing
+pages are both caught by the `wrong` list, so a single blunt revert would not have told the two
+apart.
