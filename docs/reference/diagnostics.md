@@ -120,3 +120,4 @@ decline to curate one.
 | `MF0002` | that field is not a hole in this scaffold |
 | `MF0003` | the value is not one this hole declares as legal |
 | `MF0004` | the scaffold still has open holes and cannot become a declared file |
+| `MF0005` | the generated module's script body has not been written |

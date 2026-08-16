@@ -1,0 +1,69 @@
+"""Fixtures shared by the forge's tests.
+
+Two complete scaffolds, deliberately different tools. `complete_scaffold` is FASTQC and is
+checked against the **real vendored module** by the verification ladder, so its process name
+and container have to be the ones on disk. `widget_scaffold` is the module-less case and
+exists to be generated rather than matched — pointing both at FASTQC would make the
+modulegen tests assert against a module that already exists, which is not the case they are
+about.
+"""
+
+import pytest
+from comeni_core.declared.layered import DeclaredKind
+from mendel_forge.observe import Excerpt, Fact, Observation
+from mendel_forge.scaffold import FilledValue, Filler, Scaffold
+
+
+def _derived(value):
+    return FilledValue(value=value, filler=Filler.DERIVED, by="nf-core", why="main.nf")
+
+
+def _hand(value, why):
+    return FilledValue(value=value, filler=Filler.HAND, by="rafael", why=why)
+
+
+@pytest.fixture
+def complete_scaffold() -> Scaffold:
+    return Scaffold(
+        kind=DeclaredKind.CONTRACTS,
+        target="tools/nf-core/fastqc/fastqc.contract.yml",
+        observation=Observation(
+            source="nf-core",
+            ref_id="nf-core:fastqc",
+            facts={"process": Fact(value="FASTQC", evidence=Excerpt(locator="m:1", text="t"))},
+        ),
+        filled={
+            "id": _derived("nf-core/fastqc@0.12.1"),
+            "nf_process": _derived("FASTQC"),
+            "nf_include": _derived("modules/nf-core/fastqc/main"),
+            "container": _derived("quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0"),
+            "produces[0].name": _derived("zip"),
+            "produces[0].type_id": _hand("qc.report", "it is a report"),
+            "roles": _hand(["qc_per_sample"], "it QCs a sample"),
+            "priority_because": _hand("the only QC tool", "no alternative"),
+            "provenance.source": _derived("nf-core"),
+        },
+        holes=[],
+    )
+
+
+@pytest.fixture
+def widget_scaffold() -> Scaffold:
+    """The module-less case: a container and a name, and no Nextflow anywhere."""
+    return Scaffold(
+        kind=DeclaredKind.CONTRACTS,
+        target="tools/opaque/widget/widget.contract.yml",
+        observation=Observation(source="opaque", ref_id="opaque:widget"),
+        filled={
+            "id": _derived("opaque/widget@1.4.0"),
+            "nf_process": _hand("WIDGET", "named for the tool, since no module declares one"),
+            "nf_include": _hand("modules/opaque/widget/main", "where the generated module lands"),
+            "container": _derived("docker.io/example/widget:1.4.0"),
+            "produces[0].name": _hand("out", "the skeleton's single emit"),
+            "produces[0].type_id": _hand("counts.matrix", "it writes a table"),
+            "roles": _hand(["quantification"], "it counts things"),
+            "priority_because": _hand("the only widget", "no alternative"),
+            "provenance.source": _derived("opaque"),
+        },
+        holes=[],
+    )

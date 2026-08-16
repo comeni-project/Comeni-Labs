@@ -1641,3 +1641,19 @@ MF0004:
     extras, so a partially-valid one is unrepresentable. Defaulting the missing fields
     would let the forge invent a value with a straight face, which is the thing a hole
     exists to prevent. The refusal is the design working, not a failure.
+MF0005:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the generated module's script body has not been written"
+  fires_on: [forge verify]
+  refuses: true
+  fix: |
+    Open the generated `main.nf` and replace the marked line with the tool's command,
+    reading its arguments from `task.ext.args` as every nf-core module does. Then
+    `forge verify` again.
+  explanation: |
+    A source that ships no Nextflow module gives the forge a container and a name. The
+    process declaration, the stub block and the versions block follow from those; the
+    command line does not. Writing a plausible one would produce a module that launches
+    and does the wrong thing — a green run with wrong results, which is the failure this
+    project is built to avoid. So it is a hole, and the marker refuses until it is filled.
