@@ -135,3 +135,10 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MF0008` | no such draft, or a draft name that is not a plain name |
+
+## The forge — landing a draft into a registry
+
+| Code | Says |
+|---|---|
+| `MF0100` | a draft may not be landed on the registry's default branch |
+| `MF0101` | the registry checkout has uncommitted changes |

@@ -22,6 +22,8 @@ from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict
 
 from mendel_forge import assemble, modulegen, sources
+from mendel_forge.land import LandResult
+from mendel_forge.land import land as _run_land
 from mendel_forge.scaffold import FilledValue, Filler, Hole
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
@@ -307,4 +309,27 @@ def update(req: UpdateRequest) -> DraftResult:
             workspace_root=req.workspace_root,
             version=version,
         )
+    )
+
+
+class LandRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    registry: Path
+    """Required and never defaulted — see `land.py`'s module docstring."""
+    branch: str
+    approved_by: str
+    approved_at: str
+    workspace_root: Path
+
+
+def land(req: LandRequest) -> LandResult:
+    found = Workspace(root=req.workspace_root).load(req.name)
+    return _run_land(
+        found,
+        registry=req.registry,
+        branch=req.branch,
+        approved_by=req.approved_by,
+        approved_at=req.approved_at,
     )

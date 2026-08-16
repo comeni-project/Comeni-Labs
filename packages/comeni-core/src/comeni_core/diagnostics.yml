@@ -1720,3 +1720,32 @@ MF0008:
     a draft be written outside the workspace. Restricting the name is prevention by
     construction; validating the resolved path afterwards is detection, and the two are
     not the same guarantee.
+MF0100:
+  emitted_by: forge
+  concern: landing
+  says: "a draft may not be landed on the registry's default branch"
+  fires_on: [forge land]
+  refuses: true
+  fix: |
+    Pass `--branch` naming a new branch — `forge/<tool>` is the convention. Merge it
+    after review, which is the review invariant 2 asks for.
+  explanation: |
+    Invariant 2 says a human approves what the forge drafts. Committing straight onto
+    the default branch of a registry checkout skips that, and a registry is the thing
+    every pipeline's digests pin. The branch is the approval queue, and it is a git
+    branch rather than a service so that a laboratory landing into a private overlay
+    gets exactly the path the public registry gets.
+MF0101:
+  emitted_by: forge
+  concern: landing
+  says: "the registry checkout has uncommitted changes"
+  fires_on: [forge land]
+  refuses: true
+  fix: |
+    Commit or stash what is already in the tree, then land again. `git status` in the
+    registry checkout names the files.
+  explanation: |
+    Landing creates a branch and commits exactly the files it wrote. A tree that already
+    has changes makes that commit ambiguous — either it sweeps up work nobody reviewed,
+    or it leaves the branch in a state the author did not intend. Refusing is cheap and
+    the alternative is a commit somebody has to unpick.
