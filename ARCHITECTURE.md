@@ -75,16 +75,33 @@ runs the identical remaining path. A test asserts their `main.nf` are byte-ident
 
 ## 2. Declared data
 
-Four kinds, all of them files under a **layer directory**, all of them stacked by repeating
-`--registry`. Later layers win.
+Every kind in `DeclaredKind` is files under a **layer directory**, all of them stacked by
+repeating `--registry`. Later layers win.
+
+**A file says what it is; the directory says nothing** (comeni-registry#1). Each carries a
+`declares:` line, and a vocabulary or measurement carries an `id:` beside it, so the loader
+globs the layer and buckets by content rather than by path. `MD0010`, `MD0011` and `MD0012`
+are the refusals that replace position.
+
+**So the layout is a convention, free to serve a reader.** The public registry groups a tool's
+files together, which is the whole point — working on STAR used to mean opening three trees:
 
 ```
 <layer>/
-├─ vocabularies/<type_id>.yml      states a type may carry, and how it enters a pipeline
-├─ measurements/<id>.yml           kind, allowed values, bounds, unit, citation
-├─ contracts/**/*.yml              what a module consumes, produces and is called with
-└─ rules/*.yml                     decision tables: measured data → a value or a module
+├─ registry.yml                          the layer's account of itself
+├─ roles.yml                             the roles a contract may fill
+├─ types/<type_id>.yml                   states a type may carry, and how it enters a pipeline
+├─ measurements/<id>.yml                 kind, allowed values, bounds, unit, citation
+├─ rules/<name>.rule.yml                 decision tables: measured data → a value or a module
+└─ tools/nf-core/star/                   one tool, its contracts and the types it produces
+   ├─ align.contract.yml                 what a module consumes, produces and is called with
+   ├─ genomegenerate.contract.yml
+   └─ genome.index.star.type.yml
 ```
+
+Nothing in the loader requires that shape. A layer that put every file at its root would load
+identically; a layer digest pins which bytes were at which path, so moving a file moves the
+digest, and that is the only thing the arrangement decides.
 
 They are not independent, and the dependency runs one way:
 
@@ -106,7 +123,7 @@ replaces (`Policy.REPLACE`), extends (`MERGE`, opt-in and spelled in the file as
 or `add_values`) or deletes a whole group (`DELETE_GROUP`, which is contract shadowing by
 module key). Everything else — recursion, `*.yml` **and** `*.yaml`, a missing subdirectory,
 stack order, and recording what displaced what — belongs to `stack()` and is therefore
-identical for all four.
+identical for every kind.
 
 It was four hand-written loaders before Plan 1.9, disagreeing on six axes: two of them
 recorded nothing at all, three globbed one level, all four ignored `.yaml`, and displacement

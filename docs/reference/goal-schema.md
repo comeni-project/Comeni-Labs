@@ -88,8 +88,11 @@ Every measurement is checked against its declaration when `mendel build` loads t
 
 ```
 mendel: this goal's profile is not valid — 'sample_name' is not a declared measurement.
-  Declared: n_samples, paired, read_length, strandedness
-  To add one, declare <layer>/measurements/sample_name.yml
+  Declared: adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
+    node_memory_gb, organism, paired, purpose, read_length, rrna_fraction, strandedness
+  To add one, add a file to a layer carrying `declares: measurement`
+  and `id: sample_name`. Since comeni-registry#1 the path is free;
+  the convention is <layer>/measurements/sample_name.yml.
 ```
 
 The model itself cannot do this — measurements are declared data, so it has no idea what is

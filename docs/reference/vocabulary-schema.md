@@ -1,9 +1,16 @@
 # Vocabulary schema
 
-`<layer>/vocabularies/<type_id>.yml`, globbed non-recursively. **The filename is the type
-id** — `alignment.bam.yml` declares `alignment.bam`.
+One type per file, carrying `declares: vocabulary` and an `id:`. **Where the file sits is
+free** (comeni-registry#1): the public registry keeps general types in `types/` and puts a type
+beside the only tool that produces it — `genome.index.star.type.yml` sits in
+`tools/nf-core/star/`.
 
-Model: `comeni_core.vocabulary.Vocabulary`.
+**`id:` is required**, and `MD0012` refuses a file without one. The filename used to be the id,
+which was workable only while every type sat in a directory named for its kind — once a file may
+live anywhere, `align.type.yml` in a tool folder would silently declare a type called
+`align.type`.
+
+Model: `comeni_core.declared.vocabulary.Vocabulary`.
 
 ## Fields
 
@@ -13,12 +20,16 @@ Model: `comeni_core.vocabulary.Vocabulary`.
 | `entry_channel` | string \| null | `null` | Groovy expression producing this type when nothing upstream does |
 
 ```yaml
-# alignment.bam.yml
+# types/alignment.bam.yml
+declares: vocabulary
+id: alignment.bam
 states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
 ```
 
 ```yaml
-# fastq.reads.yml
+# types/fastq.reads.yml
+declares: vocabulary
+id: fastq.reads
 states: [trimmed, deduplicated, subsampled]
 entry_channel: "Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
 ```

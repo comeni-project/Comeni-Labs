@@ -11,9 +11,11 @@ Full field list: [reference/rule-schema.md](../reference/rule-schema.md).
 
 ## The shape
 
-Rules live in `<layer>/rules/*.yml`. One block per decision, rows underneath:
+One rule table per file, opening with `declares: rule`. **Where you put it is free**; the
+convention is `<layer>/rules/<name>.rule.yml`. One block per decision, rows underneath:
 
 ```yaml
+declares: rule
 version: 1
 decisions:
   - decides: {param: strandedness}
@@ -79,7 +81,7 @@ declarations. A table that cannot fire **refuses to load**, and the error says w
 *can* write:
 
 ```
-registry/rules/rnaseq.yml, decision param:aligner
+registry/rules/alignment.rule.yml, decision param:aligner
   No contract in the registry declares a parameter named 'aligner'.
   Parameters that do exist: seq_platform, strandedness
 ```

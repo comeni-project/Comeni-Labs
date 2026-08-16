@@ -36,7 +36,8 @@ MANIFEST = "registry.yml"
 
 
 def declared_entries(path: Path) -> list[Path]:
-    """The files that *are* layer data: the `DeclaredKind` directories, and the manifest.
+    """The files that *are* layer data: every `.yml`/`.yaml` outside a dot-directory, and the
+    manifest.
 
     **One definition, used by everything that reads a layer as a whole** — the layer digest
     in `comeni_core.artifact.digest` and the symlink refusal in `mendel_resolver.layers`.

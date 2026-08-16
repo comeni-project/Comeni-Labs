@@ -7,10 +7,13 @@ Full field list: [reference/contract-schema.md](../reference/contract-schema.md)
 
 ## The shape
 
-Contracts live in `<layer>/contracts/**/*.yml`, one per file, nested however you like.
+One contract per file, opening with `declares: contract`. **Where you put it is free** — the
+loader reads that line, not the path — and the convention is
+`<layer>/tools/<namespace>/<tool>/<name>.contract.yml`, so a tool's files sit together.
 Here is a complete one:
 
 ```yaml
+declares: contract
 id: nf-core/samtools/sort@1.21.0
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
@@ -41,7 +44,9 @@ contract fails to load. A typo is an error at load time rather than a module tha
 mysteriously never gets picked.
 
 ```yaml
-# <layer>/vocabularies/alignment.bam.yml
+# <layer>/types/alignment.bam.yml
+declares: vocabulary
+id: alignment.bam
 states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
 ```
 

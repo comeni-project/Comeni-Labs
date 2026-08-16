@@ -8,11 +8,14 @@ it, your laboratory runs that pipeline, and you hand the answers back.
 
 ## Declaring a measurement
 
-A measurement is declared data, so adding one is a file rather than a release. They live
-in `<layer>/measurements/<id>.yml`, and the filename is the id:
+A measurement is declared data, so adding one is a file rather than a release. Each opens
+with `declares: measurement` and an `id:`; **where you put it is free**, and the convention is
+`<layer>/measurements/<id>.yml`:
 
 ```yaml
 # registry/measurements/read_length.yml
+declares: measurement
+id: read_length
 kind: integer
 minimum: 1
 unit: bp
@@ -21,6 +24,8 @@ description: "Sequenced read length"
 
 ```yaml
 # registry/measurements/strandedness.yml
+declares: measurement
+id: strandedness
 kind: enum
 values: [forward, reverse, unstranded]
 description: "Library strandedness determined by the prep protocol"
@@ -52,8 +57,11 @@ outside its bounds, or one not in an enum's list all stop the build:
 
 ```
 mendel: this goal's profile is not valid — 'sample_name' is not a declared measurement.
-  Declared: n_samples, paired, read_length, strandedness
-  To add one, declare <layer>/measurements/sample_name.yml
+  Declared: adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
+    node_memory_gb, organism, paired, purpose, read_length, rrna_fraction, strandedness
+  To add one, add a file to a layer carrying `declares: measurement`
+  and `id: sample_name`. Since comeni-registry#1 the path is free;
+  the convention is <layer>/measurements/sample_name.yml.
 ```
 
 That refusal is invariant 15 doing its job. A hand-written value is recorded as

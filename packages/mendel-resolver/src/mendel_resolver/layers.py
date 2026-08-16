@@ -1,7 +1,7 @@
 """Loading a stack of registry layers, in the one order that works.
 
-A layer is a directory holding one subdirectory per `DeclaredKind`, and they are not
-independent:
+A layer is a directory of files that each declare their own `DeclaredKind`, and the kinds are
+not independent:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
                   ->  registry   (contracts are validated against that vocabulary,

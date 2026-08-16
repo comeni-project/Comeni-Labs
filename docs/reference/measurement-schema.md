@@ -1,9 +1,16 @@
 # Measurement schema
 
-`<layer>/measurements/<id>.yml`, globbed non-recursively. **The filename is the id** —
-`read_length.yml` declares `read_length`.
+One measurement per file, carrying `declares: measurement` and an `id:`. **Where the file
+sits is free** (comeni-registry#1); the public registry keeps them in `measurements/`.
 
-Model: `comeni_core.measurement.Measurement`.
+**`id:` is required**, and `MD0012` refuses a file without one — same reasoning as a
+vocabulary's, since both took their identity from a filename that a free layout makes a poor
+name.
+
+Note that `declares:` is not `kind:`. A measurement's `kind:` is the kind of its *value*
+(`integer`, `enum`), which is why the file-level key had to be a different word.
+
+Model: `comeni_core.declared.measurement.Measurement`.
 
 ## Fields
 
@@ -34,14 +41,18 @@ error that says so.
 ## Extending an enum
 
 ```yaml
-# base layer: organism.yml
+# base layer: measurements/organism.yml
+declares: measurement
+id: organism
 kind: enum
 extensible: true
 values: [homo_sapiens, mus_musculus]
 ```
 
 ```yaml
-# your layer: organism.yml
+# your layer: measurements/organism.yml
+declares: measurement
+id: organism
 add_values: [ambystoma_mexicanum]
 ```
 
@@ -62,6 +73,8 @@ tries is wrong.
 A meaning change gets a **new id**. The old one stays forever, pointing at its successor:
 
 ```yaml
+declares: measurement
+id: read_length
 kind: integer
 deprecated: true
 replaced_by: read_length_median
@@ -107,14 +120,18 @@ enum values also be states would give routing two places to disagree.
 uv run python tools/generate_types.py
 ```
 
-Regenerates `packages/comeni-core/src/comeni_core/profile.pyi`, giving `DataProfile.get`
+Regenerates `packages/comeni-core/src/comeni_core/goal/profile.pyi`, giving `DataProfile.get`
 a per-measurement return type in any PEP 561 type checker. `--check` fails if stale, and
 CI runs it.
 
-## The four shipped declarations
+## Some shipped declarations
+
+`ls registry/measurements/` is the count; this is a sample of the shapes.
 
 ```yaml
-# read_length.yml
+# measurements/read_length.yml
+declares: measurement
+id: read_length
 kind: integer
 minimum: 1
 unit: bp
@@ -122,7 +139,9 @@ description: "Sequenced read length"
 ```
 
 ```yaml
-# strandedness.yml
+# measurements/strandedness.yml
+declares: measurement
+id: strandedness
 kind: enum
 values: [forward, reverse, unstranded]
 description: "Library strandedness determined by the prep protocol"
@@ -130,14 +149,18 @@ cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
 ```
 
 ```yaml
-# n_samples.yml
+# measurements/n_samples.yml
+declares: measurement
+id: n_samples
 kind: integer
 minimum: 1
 description: "Number of samples in the study"
 ```
 
 ```yaml
-# paired.yml
+# measurements/paired.yml
+declares: measurement
+id: paired
 kind: boolean
 description: "Whether the library is paired-end"
 ```

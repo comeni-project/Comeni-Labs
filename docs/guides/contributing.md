@@ -10,6 +10,14 @@ valuable kind and needs no Python. It is a YAML file plus a citation. Start with
 [`docs/guides/writing-a-contract.md`](writing-a-contract.md) or
 [`docs/guides/writing-a-rule.md`](writing-a-rule.md).
 
+**Where the file goes:** wherever it reads best. Every declared file opens with a `declares:`
+line naming what it is, and the loader reads that rather than the path (comeni-registry#1), so
+there is no directory you have to find. The registry's convention is to keep a tool's files
+together — a new nf-core contract goes in `tools/nf-core/<tool>/<name>.contract.yml`, beside any
+type only that tool produces. Measurements, general types and rules sit in `measurements/`,
+`types/` and `rules/`. Copy the nearest existing file; `MD0010` tells you if you forget the
+`declares:` line, and `MD0012` if a type or measurement forgets its `id:`.
+
 **It goes to a different repository:**
 [`comeni-project/comeni-registry`](https://github.com/comeni-project/comeni-registry). Since
 issue #46 the registry is its own layer with its own version and its own signed tags, and
@@ -113,7 +121,7 @@ The PR template asks two questions, and they are the ones that matter:
   data leaves*, so changing it should feel like something.
 - A rule that cannot fire. It will not load, so this is caught for you.
 - A vector store, an embedding index, or any fuzzy recall layer that could influence
-  resolution. Institutional memory here is `contracts/`, `rules/`, `vocabularies/` and
+  resolution. Institutional memory here is the declared registry data and
   decision records — versioned, approved, diffable and citable. A fuzzy layer beside them
   could change a pipeline without passing review.
 - `nf-core` module edits. Those belong upstream; `vendor/` is a copy.
