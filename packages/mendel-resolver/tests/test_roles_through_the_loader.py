@@ -16,6 +16,39 @@ import pytest
 from comeni_core.declared.roles import UnknownRoleError
 from mendel_resolver import layers
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parents[3]
 REGISTRY = ROOT / "registry"
 
@@ -35,8 +68,11 @@ def test_the_shipped_registry_loads_with_every_contract_classified():
 def test_a_contract_naming_an_undeclared_role_stops_the_build(tmp_path):
     """The typo a person actually makes: one transposed pair in a hand-typed key."""
     layer = _registry_copy(tmp_path)
-    star = next(layer.rglob("star-align.yml"))
-    star.write_text(star.read_text().replace("roles: [alignment]", "roles: [alignmnet]"))
+    star = next(layer.rglob("align.contract.yml"))
+    star.write_text(
+        _declared(
+            star,
+            star.read_text().replace("roles: [alignment]", "roles: [alignmnet]")))
 
     with pytest.raises(UnknownRoleError) as exc:
         layers.load(layer)
@@ -54,19 +90,26 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
     a stack that is in fact consistent.
     """
     base = _registry_copy(tmp_path)
-    star = next(base.rglob("star-align.yml"))
+    star = next(base.rglob("align.contract.yml"))
     # Added rather than substituted. Since Task 4 the shipped `implementation: alignment`
     # rule refuses a row naming a contract that does not fill that role, so replacing
     # STAR's role here would make the fixture inconsistent and this test would fail for
     # `MD0306` rather than for anything it is about. That refusal is the point of Task 4 and
     # it found this fixture the hour it landed.
     star.write_text(
-        star.read_text().replace("roles: [alignment]", "roles: [alignment, long_read_alignment]")
+        _declared(
+            star,
+            star.read_text().replace(
+                "roles: [alignment]", "roles: [alignment, long_read_alignment]"
+            )
+        )
     )
 
     overlay = tmp_path / "lab"
     (overlay / "roles").mkdir(parents=True)
-    (overlay / "roles" / "extra.yml").write_text("roles: [long_read_alignment]\n")
+    (overlay / "roles" / "extra.yml").write_text(
+        _declared(overlay / "roles" / "extra.yml", "roles: [long_read_alignment]\n")
+    )
 
     loaded = layers.load([base, overlay])
     assert "long_read_alignment" in loaded.roles.names

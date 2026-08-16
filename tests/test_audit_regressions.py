@@ -9,11 +9,45 @@ there records how it was reproduced, which is what these tests are the standing 
 """
 
 import json
+import pathlib
 from pathlib import Path
 
 import pytest
 from comeni_core.plan.tiers import Tier
 from pydantic import ValidationError
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 CONTRACT = {
     "id": "audit/x@1.0.0",
@@ -227,7 +261,7 @@ def test_a2_upgrade_refuses_a_pipeline_carrying_an_undeclared_measurement(tmp_pa
     doc["goal"]["profile"]["measurements"].append(
         {"measurement": "sample_name", "value": "PATIENT-00417", "source": "goal", "by": None}
     )
-    published.write_text(yaml.safe_dump(doc, sort_keys=False))
+    published.write_text(_declared(published, yaml.safe_dump(doc, sort_keys=False)))
 
     out = tmp_path / "upgraded"
     assert main(["upgrade", str(published), "--out", str(out), "--root", str(root)]) != 0
@@ -259,7 +293,7 @@ def test_a9_a_symlinked_contract_is_refused_by_the_digest(tmp_path):
 
     outside = tmp_path / "outside"
     outside.mkdir()
-    (outside / "real.yml").write_text("id: alpha\n")
+    (outside / "real.yml").write_text(_declared(outside / "real.yml", "id: alpha\n"))
     contracts = tmp_path / "layer" / "contracts"
     contracts.mkdir(parents=True)
     (contracts / "c.yml").symlink_to(outside / "real.yml")
@@ -280,8 +314,11 @@ def test_a9_a_symlinked_layer_is_refused_at_load(tmp_path):
 
     layer = tmp_path / "lab"
     shutil.copytree("registry", layer)
-    victim = next((layer / "contracts").rglob("*.yml"))
-    (tmp_path / "elsewhere.yml").write_text(victim.read_text())
+    victim = next((layer / "tools").rglob("*.contract.yml"))
+    (tmp_path / "elsewhere.yml").write_text(
+        _declared(
+            tmp_path / "elsewhere.yml",
+            victim.read_text()))
     victim.unlink()
     victim.symlink_to(tmp_path / "elsewhere.yml")
 
@@ -349,7 +386,7 @@ def _stacked(tmp_path):
     # The shipped registry has no param decision left to displace — the strandedness
     # block was deleted in Plan 1.5 — so the base gets one, and the overlay replaces it.
     (base / "rules" / "platform.yml").write_text(
-        "version: 1\n"
+        _declared(base / "rules" / "platform.yml", "version: 1\n"
         "decisions:\n"
         "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'the base registry sequences on Illumina'\n"
@@ -357,7 +394,7 @@ def _stacked(tmp_path):
         "      - {when: {read_length: '>= 70'}, then: ILLUMINA}\n"
         # The complementary branch. `MD0311` refuses a table with a hole: a profile
         # below the boundary would match nothing and demote to tier 4 silently.
-        "      - {when: {read_length: '< 70'}, then: ILLUMINA}\n"
+        "      - {when: {read_length: '< 70'}, then: ILLUMINA}\n")
     )
 
     lab = tmp_path / "lab-registry"
@@ -367,7 +404,7 @@ def _stacked(tmp_path):
     # Priority 99 beats nf-core/samtools/sort@1.21.0 at 0 outright, so it is not a tie
     # either and invariant 8 never fires. That is the whole of A5.
     (lab / "contracts" / "rival-sorter.yml").write_text(
-        "id: lab/rival/sorter@9.9.9\n"
+        _declared(lab / "contracts" / "rival-sorter.yml", "id: lab/rival/sorter@9.9.9\n"
         "nf_process: RIVAL_SORT\n"
         "nf_include: modules/lab/rival/main\n"
         "consumes: [{name: bam, type_id: alignment.bam, state_required: []}]\n"
@@ -376,16 +413,16 @@ def _stacked(tmp_path):
         "priority: 99\n"
         "nf_inputs: [{ports: [bam]}]\n"
         "container: example.invalid/rival:1\n"
-        "provenance: {source: lab, drafted_by: lab, approved_by: lab, approved_at: '2026-08-06'}\n"
+        "provenance: {source: lab, drafted_by: lab, approved_by: lab, approved_at: '2026-08-06'}\n")
     )
     (lab / "rules" / "platform.yml").write_text(
-        "version: 1\n"
+        _declared(lab / "rules" / "platform.yml", "version: 1\n"
         "decisions:\n"
         "  - decides: {effect: param, of: alignment, name: seq_platform}\n"
         "    because: 'this lab runs BGI'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 70'}, then: BGI}\n"
-        "      - {when: {read_length: '< 70'}, then: BGI}\n"
+        "      - {when: {read_length: '< 70'}, then: BGI}\n")
     )
     return base, lab
 
@@ -489,7 +526,7 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     from mendel_resolver.resolve import resolve
 
     base, lab = _stacked(tmp_path)
-    (base / "contracts" / "nf-core" / "samtools-sort.yml").unlink()
+    (base / "tools" / "nf-core" / "samtools" / "sort.contract.yml").unlink()
     shutil.rmtree(lab / "rules")
 
     loaded = layers_mod.load([base, lab])
@@ -759,13 +796,13 @@ def _overlay_measurement(lab: Path) -> None:
     """
     (lab / "measurements").mkdir(parents=True, exist_ok=True)
     (lab / "measurements" / "strandedness.yml").write_text(
-        "kind: enum\n"
+        _declared(lab / "measurements" / "strandedness.yml", "kind: enum\n"
         "values: [forward, reverse, unstranded]\n"
         "description: 'this lab calls reverse forward'\n"
         "describes: fastq.reads\n"
         "meta_key: strandedness\n"
         "meta_values:\n"
-        "  - {when: reverse, then: forward}\n"
+        "  - {when: reverse, then: forward}\n")
     )
 
 
@@ -814,8 +851,10 @@ def test_a24_an_overlay_vocabulary_says_so(tmp_path):
     base, lab = _stacked(tmp_path)
     (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
     (lab / "vocabularies" / "fastq.reads.yml").write_text(
-        "states: [trimmed, deduplicated, subsampled]\n"
-        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n"
+        _declared(
+            lab / "vocabularies" / "fastq.reads.yml",
+            "states: [trimmed, deduplicated, subsampled]\n"
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n")
     )
 
     loaded = layers_mod.load([base, lab])
@@ -844,7 +883,9 @@ def test_a35_an_overlay_replacing_states_names_itself(tmp_path):
 
     base, lab = _stacked(tmp_path)
     (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
-    (lab / "vocabularies" / "fastq.reads.yml").write_text("states: [phix_removed]\n")
+    (lab / "vocabularies" / "fastq.reads.yml").write_text(
+        _declared(lab / "vocabularies" / "fastq.reads.yml", "states: [phix_removed]\n")
+    )
 
     with pytest.raises(UnknownStateError) as raised:
         layers_mod.load([base, lab])
@@ -865,7 +906,9 @@ def test_a35_add_states_extends_and_the_base_survives(tmp_path):
 
     base, lab = _stacked(tmp_path)
     (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
-    (lab / "vocabularies" / "fastq.reads.yml").write_text("add_states: [phix_removed]\n")
+    (lab / "vocabularies" / "fastq.reads.yml").write_text(
+        _declared(lab / "vocabularies" / "fastq.reads.yml", "add_states: [phix_removed]\n")
+    )
 
     loaded = layers_mod.load([base, lab])
 
@@ -892,12 +935,12 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
     base, lab = _stacked(tmp_path)
     (lab / "contracts").mkdir(parents=True, exist_ok=True)
     shutil.copy(
-        base / "contracts" / "nf-core" / "samtools-sort.yml",
+        base / "tools" / "nf-core" / "samtools" / "sort.contract.yml",
         lab / "contracts" / "samtools-sort.yml",
     )
     shadowing = (lab / "contracts" / "samtools-sort.yml").read_text()
     (lab / "contracts" / "samtools-sort.yml").write_text(
-        shadowing.replace("@1.21.0", "@1.22.0")
+        _declared(lab / "contracts" / "samtools-sort.yml", shadowing.replace("@1.21.0", "@1.22.0"))
     )
 
     ir = _resolve_stacked_from(layers_mod.load([base, lab]))
@@ -935,13 +978,13 @@ def test_a22_a_rule_pinned_reroute_names_the_layer_that_decided(tmp_path):
     # above 70bp, HISAT2 below. The goal measures 150bp, so the base routes to STAR. The
     # lab's overlay replaces that whole block, which is the reroute.
     (lab / "rules" / "aligner.yml").write_text(
-        "version: 1\n"
+        _declared(lab / "rules" / "aligner.yml", "version: 1\n"
         "decisions:\n"
         "  - decides: {effect: implementation, of: alignment}\n"
         "    because: 'this lab has a HISAT2 index and no STAR index'\n"
         "    rows:\n"
         "      - {when: {read_length: '>= 50'}, then: nf-core/hisat2/align@2.2.2}\n"
-        "      - {when: {read_length: '< 50'}, then: nf-core/hisat2/align@2.2.2}\n"
+        "      - {when: {read_length: '< 50'}, then: nf-core/hisat2/align@2.2.2}\n")
     )
 
     ir = _resolve_stacked_from(layers_mod.load([base, lab]))
@@ -1000,7 +1043,9 @@ def test_a26_a_nested_vocabulary_is_loaded(tmp_path):
 
     base, lab = _stacked(tmp_path)
     (lab / "vocabularies" / "lab-types").mkdir(parents=True)
-    (lab / "vocabularies" / "lab-types" / "assay.panel.yml").write_text("states: [validated]\n")
+    (lab / "vocabularies" / "lab-types" / "assay.panel.yml").write_text(
+        _declared(lab / "vocabularies" / "lab-types" / "assay.panel.yml", "states: [validated]\n")
+    )
 
     loaded = layers_mod.load([base, lab])
 
@@ -1017,7 +1062,10 @@ def test_a26_a_file_nothing_reads_is_an_error(tmp_path):
 
     base, lab = _stacked(tmp_path)
     (lab / "contract").mkdir()
-    (lab / "contract" / "misplaced.yml").write_text("id: lab/x@1.0.0\n")
+    (lab / "contract" / "misplaced.yml").write_text(
+        _declared(
+            lab / "contract" / "misplaced.yml",
+            "id: lab/x@1.0.0\n"))
 
     with pytest.raises(ValueError, match="contract/misplaced.yml"):
         layers_mod.load([base, lab])
@@ -1045,16 +1093,18 @@ def test_a34_a_process_name_is_an_identifier_or_it_does_not_load(tmp_path):
     from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
-    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text(
+        _declared(tmp_path / "vocabularies" / "alignment.bam.yml", "states: []\n")
+    )
     vocab = Vocabulary.load(tmp_path)
     bad = tmp_path / "evil.yml"
     bad.write_text(
-        "id: lab/evil@1.0.0\n"
+        _declared(bad, "id: lab/evil@1.0.0\n"
         "nf_process: \"LAB_SORT }\\nprintln 'OWNED'\\nprocess X {\"\n"
         "nf_include: modules/lab/evil/main\n"
         "consumes: []\n"
         "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
-        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
+        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n")
     )
 
     with pytest.raises(ValidationError, match="nf_process"):
@@ -1067,16 +1117,18 @@ def test_a34_an_include_path_cannot_leave_the_pipeline(tmp_path):
     from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
-    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text(
+        _declared(tmp_path / "vocabularies" / "alignment.bam.yml", "states: []\n")
+    )
     vocab = Vocabulary.load(tmp_path)
     bad = tmp_path / "escape.yml"
     bad.write_text(
-        "id: lab/escape@1.0.0\n"
+        _declared(bad, "id: lab/escape@1.0.0\n"
         "nf_process: LAB_ESCAPE\n"
         "nf_include: ../../../etc/passwd\n"
         "consumes: []\n"
         "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
-        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
+        "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n")
     )
 
     with pytest.raises(ValidationError, match="nf_include"):
@@ -1092,7 +1144,9 @@ def test_a34_a_vocabulary_type_id_is_a_filename_and_filenames_can_be_anything(tm
     from comeni_core.declared.vocabulary import Vocabulary
 
     (tmp_path / "vocabularies").mkdir()
-    (tmp_path / "vocabularies" / "evil\nch_x = 1.yml").write_text("states: []\n")
+    (tmp_path / "vocabularies" / "evil\nch_x = 1.yml").write_text(
+        _declared(tmp_path / "vocabularies" / "evil\nch_x = 1.yml", "states: []\n")
+    )
 
     with pytest.raises(ValueError, match="evil"):
         Vocabulary.load(tmp_path)
@@ -1360,7 +1414,7 @@ def test_a29_upgrade_refuses_a_pipeline_carrying_an_undeclared_type(tmp_path):
     published = _published_pipeline(tmp_path, Path("."))
     doc = yaml.safe_load(published.read_text())
     doc["goal"]["have"][0]["type_id"] = "PT-4471023 Jane Doe"
-    published.write_text(yaml.safe_dump(doc, sort_keys=False))
+    published.write_text(_declared(published, yaml.safe_dump(doc, sort_keys=False)))
 
     assert main(["upgrade", str(published), "--out", str(tmp_path / "up"),
                  "--root", "."]) == 2
@@ -1434,16 +1488,18 @@ def test_a31_a_contract_cannot_be_read_two_ways(tmp_path):
     from comeni_core.yaml_strict import DuplicateKeyError
 
     (tmp_path / "vocabularies").mkdir()
-    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text("states: []\n")
+    (tmp_path / "vocabularies" / "alignment.bam.yml").write_text(
+        _declared(tmp_path / "vocabularies" / "alignment.bam.yml", "states: []\n")
+    )
     contract = tmp_path / "two-ways.yml"
     contract.write_text(
-        "id: lab/two-ways@1.0.0\n"
+        _declared(contract, "id: lab/two-ways@1.0.0\n"
         "nf_process: TWO_WAYS\n"
         "nf_include: modules/lab/two/main\n"
         "priority: 0\n"
         "produces: [{name: bam, type_id: alignment.bam, state: []}]\n"
         "provenance: {source: lab, drafted_by: l, approved_by: l, approved_at: '2026-08-07'}\n"
-        "priority: 999\n"
+        "priority: 999\n")
     )
 
     from comeni_core.declared.contract import ModuleContract
@@ -1527,12 +1583,15 @@ def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree("registry", layer)
-    original = (layer / "contracts" / "nf-core" / "trimgalore.yml").read_text()
+    original = (layer / "tools" / "nf-core" / "trimgalore" / "trimgalore.contract.yml").read_text()
     # Same priority, same output, different module key: nothing distinguishes them.
-    (layer / "contracts" / "nf-core" / "fastp.yml").write_text(
-        original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
+    (layer / "tools" / "nf-core" / "fastp").mkdir(parents=True, exist_ok=True)
+    (layer / "tools" / "nf-core" / "fastp" / "fastp.contract.yml").write_text(
+        _declared(
+            layer / "tools" / "nf-core" / "fastp" / "fastp.contract.yml",
+            original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
             "TRIMGALORE", "FASTP"
-        )
+        ))
     )
 
     loaded = layers_mod.load(layer)
@@ -1817,7 +1876,8 @@ def test_a_binding_the_contract_does_declare_is_carried():
     assert [s.name for s in pipeline.steps[0].settings] == [contract.params[0].name]
 
 
-MINIMAP2 = """id: nf-core/minimap2/align@2.28.0
+MINIMAP2 = """declares: contract
+id: nf-core/minimap2/align@2.28.0
 nf_process: MINIMAP2_ALIGN
 nf_include: modules/nf-core/minimap2/align/main
 consumes:
@@ -1839,9 +1899,14 @@ def _tying_layer(tmp_path: Path) -> Path:
     not have to open a second file to see that. Audit A125.
     """
     layer = tmp_path / "tie-layer"
-    (layer / "contracts" / "nf-core").mkdir(parents=True)
-    (layer / "contracts" / "nf-core" / "minimap2-align.yml").write_text(MINIMAP2)
-    (layer / "registry.yml").write_text('name: tie-layer\nversion: "0"\n')
+    (layer / "tools" / "nf-core" / "minimap2").mkdir(parents=True)
+    (layer / "tools" / "nf-core" / "minimap2" / "align.contract.yml").write_text(
+        _declared(layer / "tools" / "nf-core" / "minimap2" / "align.contract.yml", MINIMAP2)
+    )
+    (layer / "registry.yml").write_text(
+        _declared(
+            layer / "registry.yml",
+            'name: tie-layer\nversion: "0"\n'))
     return layer
 
 
@@ -1984,8 +2049,11 @@ def test_a126_a_legacy_record_narrowed_by_a125_goes_stale_rather_than_orphaned()
 def _rule_layer(tmp_path: Path, body: str) -> Path:
     layer = tmp_path / "rules-layer"
     (layer / "rules").mkdir(parents=True)
-    (layer / "rules" / "probe.yml").write_text(body)
-    (layer / "registry.yml").write_text('name: rules-layer\nversion: "0"\n')
+    (layer / "rules" / "probe.yml").write_text(_declared(layer / "rules" / "probe.yml", body))
+    (layer / "registry.yml").write_text(
+        _declared(
+            layer / "registry.yml",
+            'name: rules-layer\nversion: "0"\n'))
     return layer
 
 
@@ -2128,15 +2196,22 @@ def _mapq_overlay(tmp_path: Path) -> Path:
     like the finding.
     """
     layer = tmp_path / "acme-lab"
-    (layer / "contracts" / "nf-core").mkdir(parents=True)
-    base = (Path(__file__).parent.parent / "registry" / "contracts" / "nf-core"
-            / "subread-featurecounts.yml").read_text()
+    (layer / "tools" / "nf-core" / "subread").mkdir(parents=True, exist_ok=True)
+    base = (
+        Path(__file__).parent.parent
+        / "registry/tools/nf-core/subread/featurecounts.contract.yml"
+    ).read_text()
     body = base.replace("    default: 0", "    default: 30").replace(
         "featureCounts' own documented default",
         "lab SOP BIOINF-014",
     )
-    (layer / "contracts" / "nf-core" / "subread-featurecounts.yml").write_text(body)
-    (layer / "registry.yml").write_text('name: acme-lab\nversion: "0"\n')
+    (layer / "tools" / "nf-core" / "subread" / "featurecounts.contract.yml").write_text(
+        _declared(layer / "tools" / "nf-core" / "subread" / "featurecounts.contract.yml", body)
+    )
+    (layer / "registry.yml").write_text(
+        _declared(
+            layer / "registry.yml",
+            'name: acme-lab\nversion: "0"\n'))
     return layer
 
 

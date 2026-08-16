@@ -14,6 +14,39 @@ import pathlib
 import pytest
 from mendel_resolver import layers
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 CONTRACT = """\
 id: nf-core/fastqc@0.12.1
 roles: [qc_per_sample]
@@ -36,7 +69,7 @@ provenance:
 TYPES = {"fastq.reads": "states: [trimmed]\nentry_channel: \"Channel.empty()\"\n",
          "qc.report": "states: []\n"}
 
-ROLES = "roles: [qc_per_sample]\n"
+ROLES = "declares: role\nroles: [qc_per_sample]\n"
 
 
 def _layer(root: pathlib.Path) -> pathlib.Path:
@@ -45,9 +78,12 @@ def _layer(root: pathlib.Path) -> pathlib.Path:
     for kind in ("contracts", "vocabularies", "rules", "measurements", "roles"):
         (layer / kind).mkdir(parents=True)
     for type_id, body in TYPES.items():
-        (layer / "vocabularies" / f"{type_id}.yml").write_text(body)
-    (layer / "roles" / "roles.yml").write_text(ROLES)
-    (layer / "registry.yml").write_text("name: test-layer\n")
+        (layer / "vocabularies" / f"{type_id}.yml").write_text(
+            _declared(layer / "vocabularies" / f"{type_id}.yml", body)
+        )
+    # At the layer root, so nothing above it names a kind — it declares explicitly.
+    (layer / "roles.yml").write_text(ROLES)
+    (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: test-layer\n"))
     return layer
 
 
@@ -71,13 +107,17 @@ def test_the_baseline_layer_loads():
     import tempfile
 
     layer = _layer(pathlib.Path(tempfile.mkdtemp()))
-    (layer / "contracts" / "fastqc.yml").write_text(CONTRACT)
+    (layer / "contracts" / "fastqc.yml").write_text(
+        _declared(layer / "contracts" / "fastqc.yml", CONTRACT)
+    )
     assert layers.load(layer).registry.contracts
 
 
 def test_MD0001_a_declared_file_is_not_valid_yaml(tmp_path):
     layer = _layer(tmp_path)
-    (layer / "contracts" / "broken.yml").write_text("id: [unclosed\n")
+    (layer / "contracts" / "broken.yml").write_text(
+        _declared(layer / "contracts" / "broken.yml", "id: [unclosed\n")
+    )
     message = _refusal(layer)
     assert "MD0001" in message
     assert "broken.yml" in message
@@ -85,25 +125,44 @@ def test_MD0001_a_declared_file_is_not_valid_yaml(tmp_path):
 
 def test_MD0002_a_declared_file_does_not_match_its_schema(tmp_path):
     layer = _layer(tmp_path)
-    (layer / "contracts" / "wrong.yml").write_text("id: nf-core/x@1.0.0\n")
+    (layer / "contracts" / "wrong.yml").write_text(
+        _declared(layer / "contracts" / "wrong.yml", "id: nf-core/x@1.0.0\n")
+    )
     message = _refusal(layer)
     assert "MD0002" in message
     assert "wrong.yml" in message
 
 
-def test_MD0003_a_file_no_kind_reads(tmp_path):
+def test_a_misfiled_document_is_caught_by_what_it_declares(tmp_path):
+    """`MD0003` used to catch this and is retired — comeni-registry#1.
+
+    A `.yml` in a misspelled directory was refused because *nothing read it*: the directory was
+    how a file said what it was, so `contract/` for `contracts/` made it invisible (A26). Now a
+    file says what it is, so a misspelled directory is not an error at all — the file loads from
+    wherever it sits. What is caught instead is a file that declares nothing.
+
+    That is the trade the spec named: the layout could not be wrong before, and now it cannot
+    matter. A misfiled document is detected by its missing declaration rather than prevented by
+    its position.
+    """
     layer = _layer(tmp_path)
     (layer / "contract").mkdir()
     (layer / "contract" / "typo.yml").write_text(CONTRACT)
     message = _refusal(layer)
-    assert "MD0003" in message
-    assert "typo.yml" in message
+    assert "MD0010" in message and "typo.yml" in message
 
+
+def test_a_declared_file_in_a_misspelled_directory_simply_loads(tmp_path):
+    """The other half, which is the point of the change rather than its cost."""
+    layer = _layer(tmp_path)
+    (layer / "contract").mkdir()
+    (layer / "contract" / "typo.yml").write_text("declares: contract\n" + CONTRACT)
+    assert layers.load(layer).registry.contracts
 
 def test_MD0004_a_layer_contains_a_symlink(tmp_path):
     layer = _layer(tmp_path)
     outside = tmp_path / "outside.yml"
-    outside.write_text(CONTRACT)
+    outside.write_text(_declared(outside, CONTRACT))
     (layer / "contracts" / "link.yml").symlink_to(outside)
     message = _refusal(layer)
     assert "MD0004" in message
@@ -120,8 +179,12 @@ def test_MD0005_a_layer_holds_no_declared_data(tmp_path):
 
 def test_MD0006_a_key_declared_twice_in_one_layer(tmp_path):
     layer = _layer(tmp_path)
-    (layer / "contracts" / "one.yml").write_text(CONTRACT)
-    (layer / "contracts" / "two.yml").write_text(CONTRACT)
+    (layer / "contracts" / "one.yml").write_text(
+        _declared(layer / "contracts" / "one.yml", CONTRACT)
+    )
+    (layer / "contracts" / "two.yml").write_text(
+        _declared(layer / "contracts" / "two.yml", CONTRACT)
+    )
     message = _refusal(layer)
     assert "MD0006" in message
     assert "one.yml" in message and "two.yml" in message
@@ -130,7 +193,9 @@ def test_MD0006_a_key_declared_twice_in_one_layer(tmp_path):
 def test_MD0007_add_states_carrying_other_fields(tmp_path):
     layer = _layer(tmp_path)
     (layer / "vocabularies" / "fastq.reads.yml").write_text(
-        "add_states: [deduped]\nentry_channel: \"Channel.empty()\"\n"
+        _declared(
+            layer / "vocabularies" / "fastq.reads.yml",
+            "add_states: [deduped]\nentry_channel: \"Channel.empty()\"\n")
     )
     message = _refusal(layer)
     assert "MD0007" in message
@@ -139,7 +204,9 @@ def test_MD0007_add_states_carrying_other_fields(tmp_path):
 
 def test_MD0008_add_states_for_a_type_no_layer_declares(tmp_path):
     layer = _layer(tmp_path)
-    (layer / "vocabularies" / "no.such.type.yml").write_text("add_states: [x]\n")
+    (layer / "vocabularies" / "no.such.type.yml").write_text(
+        _declared(layer / "vocabularies" / "no.such.type.yml", "add_states: [x]\n")
+    )
     message = _refusal(layer)
     assert "MD0008" in message
     assert "no.such.type" in message
@@ -148,7 +215,9 @@ def test_MD0008_add_states_for_a_type_no_layer_declares(tmp_path):
 def test_MD0009_a_contract_requires_an_undeclared_state(tmp_path):
     layer = _layer(tmp_path)
     (layer / "contracts" / "fastqc.yml").write_text(
-        CONTRACT.replace("state_required: []", "state_required: [nonexistent]")
+        _declared(
+            layer / "contracts" / "fastqc.yml",
+            CONTRACT.replace("state_required: []", "state_required: [nonexistent]"))
     )
     message = _refusal(layer)
     assert "MD0009" in message

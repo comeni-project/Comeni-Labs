@@ -21,6 +21,39 @@ import sys
 
 import pytest
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 # Two shapes, because the packages genuinely differ. `comeni-core` and `mendel-resolver`
 # import almost nothing, so their permitted set can be *closed* — an allowlist has no
 # unknown unknowns, and a banlist can only ever forbid what somebody thought of, which is
@@ -360,10 +393,10 @@ def test_a_pure_package_cannot_name_an_unsafe_yaml_loader(tmp_path):
     """
     probe = tmp_path / "beacon.py"
     probe.write_text(
-        "import yaml\n"
+        _declared(probe, "import yaml\n"
         "def go():\n"
         "    return yaml.unsafe_load("
-        "'!!python/object/apply:os.system\\nargs: [id]\\n')\n"
+        "'!!python/object/apply:os.system\\nargs: [id]\\n')\n")
     )
     assert _violations(probe, tmp_path), "yaml.unsafe_load reached os.system with the scan green"
 
@@ -372,7 +405,10 @@ def test_an_aliased_yaml_loader_is_caught_too(tmp_path):
     """A60 is that the dynamic-importer check matches a *spelling*. This rule must not have
     the same shape, so it resolves the local name to the module it was bound from."""
     probe = tmp_path / "beacon.py"
-    probe.write_text("import yaml as y\ndef go():\n    return y.unsafe_load('!!python/none')\n")
+    probe.write_text(
+        _declared(
+            probe,
+            "import yaml as y\ndef go():\n    return y.unsafe_load('!!python/none')\n"))
     assert _violations(probe, tmp_path), "an aliased loader walked past the check"
 
 
@@ -389,7 +425,10 @@ def test_a_loader_imported_as_a_bare_name_is_caught(tmp_path):
     calls it with no attribute access anywhere — so the attribute rule has nothing to see.
     Three spellings, one capability; the check has to be on the capability."""
     probe = tmp_path / "beacon.py"
-    probe.write_text("from yaml import unsafe_load\ndef go():\n    return unsafe_load('x')\n")
+    probe.write_text(
+        _declared(
+            probe,
+            "from yaml import unsafe_load\ndef go():\n    return unsafe_load('x')\n"))
     assert _violations(probe, tmp_path), "a bare-name loader import walked past the check"
 
 
@@ -406,9 +445,9 @@ def test_an_aliased_dynamic_importer_is_caught(tmp_path):
     """
     probe = tmp_path / "beacon.py"
     probe.write_text(
-        "from importlib import import_module as _load\n"
+        _declared(probe, "from importlib import import_module as _load\n"
         "def go(p):\n"
-        "    _load('urllib.request').urlopen('http://127.0.0.1:9/c', data=p.encode())\n"
+        "    _load('urllib.request').urlopen('http://127.0.0.1:9/c', data=p.encode())\n")
     )
     assert _violations(probe, tmp_path), "an aliased importer obtained urllib with the scan green"
 
@@ -417,7 +456,10 @@ def test_importlib_itself_is_banned(tmp_path):
     """The other half of A60. Resolving the alias catches the call; banning the module stops
     it being bound at all, and the two together mean neither has to be complete."""
     probe = tmp_path / "beacon.py"
-    probe.write_text("import importlib\ndef go():\n    return importlib.import_module('socket')\n")
+    probe.write_text(
+        _declared(
+            probe,
+            "import importlib\ndef go():\n    return importlib.import_module('socket')\n"))
     assert _violations(probe, tmp_path)
 
 
@@ -427,7 +469,9 @@ def test_importlib_metadata_is_still_reachable(tmp_path):
     module that cannot transport anything."""
     probe = tmp_path / "beacon.py"
     probe.write_text(
-        "import importlib.metadata\ndef v():\n    return importlib.metadata.version('x')\n"
+        _declared(
+            probe,
+            "import importlib.metadata\ndef v():\n    return importlib.metadata.version('x')\n")
     )
     assert _violations(probe, tmp_path) == []
 
@@ -448,7 +492,7 @@ def test_a_stdlib_transport_is_banned(tmp_path, module, why):
     of them — and an enumeration can only forbid what somebody named, which is the same
     lesson the egress guard learned when it became an allowlist."""
     probe = tmp_path / "beacon.py"
-    probe.write_text(f"import {module}\ndef go():\n    return {module}\n")
+    probe.write_text(_declared(probe, f"import {module}\ndef go():\n    return {module}\n"))
     assert _violations(probe, tmp_path), f"{module} — {why}"
 
 

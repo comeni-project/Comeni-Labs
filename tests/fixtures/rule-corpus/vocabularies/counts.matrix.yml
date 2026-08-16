@@ -1,1 +1,3 @@
+declares: vocabulary
+id: counts.matrix
 add_states: [transcript_level]

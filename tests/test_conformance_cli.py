@@ -6,6 +6,39 @@ import sys
 
 from mendel_compiler.cli import main
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 
 
@@ -32,8 +65,11 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("star-align.yml"))
-    star.write_text(star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN"))
+    star = next(layer.rglob("align.contract.yml"))
+    star.write_text(
+        _declared(
+            star,
+            star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN")))
 
     code = main(
         [
@@ -161,12 +197,12 @@ def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
     from mendel_resolver import layers
 
     def add_a_dead_route(layer):
-        path = next(layer.rglob("star-genomegenerate.yml"))
+        path = next(layer.rglob("genomegenerate.contract.yml"))
         path.write_text(
-            path.read_text().replace(
+            _declared(path, path.read_text().replace(
                 "params: []",
                 'params:\n  - name: label\n    via: ext\n    key: prefix\n',
-            )
+            ))
         )
 
     registry = layers.load(_layer_with(tmp_path, add_a_dead_route)).registry
@@ -186,12 +222,12 @@ def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
     from mendel_resolver import layers
 
     def add_a_live_route(layer):
-        path = next(layer.rglob("samtools-sort.yml"))
+        path = next(layer.rglob("sort.contract.yml"))
         path.write_text(
-            path.read_text().replace(
+            _declared(path, path.read_text().replace(
                 "params: []",
                 'params:\n  - name: label\n    via: ext\n    key: prefix\n',
-            )
+            ))
         )
 
     registry = layers.load(_layer_with(tmp_path, add_a_live_route)).registry

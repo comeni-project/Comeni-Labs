@@ -149,8 +149,8 @@ says so, so a reviewer at another institution can tell it was not stock without 
 
 ### 3.4 Distribution
 
-The public registry is **its own repository** — `comeni-registry`, holding `contracts/`,
-`rules/` and `vocabularies/` with signed tags. Pulling is `git pull`. Verification is tag
+The public registry is **its own repository** — `comeni-registry`, holding every kind of
+declared data with signed tags. Pulling is `git pull`. Verification is tag
 signature plus a content digest recorded in the lockfile. No sync protocol is invented.
 
 It is separate from the code repository for three reasons: pulling the registry should not

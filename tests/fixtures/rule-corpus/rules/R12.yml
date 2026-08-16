@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R12 — HISAT2 when the genome exceeds node RAM. A "measurement" of the execution node,
 # which loads without complaint and is worth noticing.

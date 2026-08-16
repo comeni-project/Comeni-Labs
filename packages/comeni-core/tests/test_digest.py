@@ -16,6 +16,39 @@ from comeni_core.artifact.digest import content_hash, digest_of, digest_of_direc
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.vocabulary import Vocabulary
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 CONTRACT = """
 id: nf-core/samtools/sort@1.21.0
 nf_process: SAMTOOLS_SORT
@@ -31,9 +64,13 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 def contract(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted, indexed]\n")
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted, indexed]\n")
+    )
     path = tmp_path / "c.yml"
-    path.write_text(CONTRACT)
+    # Explicit, because this one sits at the layer root with no kind directory above it to
+    # derive from — which is exactly the arrangement comeni-registry#1 makes legal.
+    path.write_text("declares: contract\n" + CONTRACT)
     return ModuleContract.load(path, Vocabulary.load(tmp_path))
 
 
@@ -115,9 +152,9 @@ def test_a_vocabulary_digest_is_stable_across_hash_seeds():
 def test_a_directory_digest_covers_its_files(tmp_path):
     layer = tmp_path / "layer"
     (layer / "contracts").mkdir(parents=True)
-    (layer / "contracts" / "a.yml").write_text("id: a\n")
+    (layer / "contracts" / "a.yml").write_text(_declared(layer / "contracts" / "a.yml", "id: a\n"))
     before = digest_of_directory(layer)
-    (layer / "contracts" / "a.yml").write_text("id: b\n")
+    (layer / "contracts" / "a.yml").write_text(_declared(layer / "contracts" / "a.yml", "id: b\n"))
     assert digest_of_directory(layer) != before
 
 
@@ -125,7 +162,7 @@ def test_a_directory_digest_covers_file_names_too(tmp_path):
     """Renaming a file changes the layer, even if every byte is the same."""
     layer = tmp_path / "layer"
     (layer / "contracts").mkdir(parents=True)
-    (layer / "contracts" / "a.yml").write_text("x: 1\n")
+    (layer / "contracts" / "a.yml").write_text(_declared(layer / "contracts" / "a.yml", "x: 1\n"))
     before = digest_of_directory(layer)
     (layer / "contracts" / "a.yml").rename(layer / "contracts" / "b.yml")
     assert digest_of_directory(layer) != before
@@ -137,11 +174,15 @@ def test_a_directory_digest_ignores_traversal_order(tmp_path):
     for d in (one, two):
         (d / "contracts" / "sub").mkdir(parents=True)
     for name in ("a.yml", "b.yml", "c.yml"):
-        (one / "contracts" / name).write_text(name)
+        (one / "contracts" / name).write_text(_declared(one / "contracts" / name, name))
     for name in ("c.yml", "a.yml", "b.yml"):
-        (two / "contracts" / name).write_text(name)
-    (one / "contracts" / "sub" / "d.yml").write_text("d")
-    (two / "contracts" / "sub" / "d.yml").write_text("d")
+        (two / "contracts" / name).write_text(_declared(two / "contracts" / name, name))
+    (one / "contracts" / "sub" / "d.yml").write_text(
+        _declared(one / "contracts" / "sub" / "d.yml", "d")
+    )
+    (two / "contracts" / "sub" / "d.yml").write_text(
+        _declared(two / "contracts" / "sub" / "d.yml", "d")
+    )
     assert digest_of_directory(one) == digest_of_directory(two)
 
 
@@ -169,12 +210,14 @@ def test_a_filename_cannot_forge_an_entry_boundary(tmp_path):
     honest, forged = tmp_path / "honest", tmp_path / "forged"
     (honest / "contracts").mkdir(parents=True)
     (forged / "contracts").mkdir(parents=True)
-    (honest / "contracts" / "a.yml").write_text("alpha")
-    (honest / "contracts" / "b.yml").write_text("beta")
+    (honest / "contracts" / "a.yml").write_text(_declared(honest / "contracts" / "a.yml", "alpha"))
+    (honest / "contracts" / "b.yml").write_text(_declared(honest / "contracts" / "b.yml", "beta"))
 
     # Exactly what the code writes for an honest first entry, asked of the code.
     impersonated = entry_hash("contracts/a.yml", content_hash(b"alpha"))
-    (forged / "contracts" / f"{impersonated}\nb.yml").write_text("beta")
+    (forged / "contracts" / f"{impersonated}\nb.yml").write_text(
+        _declared(forged / "contracts" / f"{impersonated}\nb.yml", "beta")
+    )
 
     assert digest_of_directory(honest) != digest_of_directory(forged)
 
@@ -184,7 +227,9 @@ def test_the_streaming_and_in_memory_content_hashes_agree(tmp_path):
     code does not perform. If these ever disagree, `content_hash` is a lie and every
     forgery built through it is testing nothing."""
     (tmp_path / "contracts").mkdir()
-    (tmp_path / "contracts" / "a.yml").write_text("alpha")
+    (tmp_path / "contracts" / "a.yml").write_text(
+        "alpha"
+    )
     honest = digest_of_directory(tmp_path)
     one_entry = entry_hash("contracts/a.yml", content_hash(b"alpha"))
     rebuilt = f"sha256:{hashlib.sha256(one_entry.encode()).hexdigest()}"
@@ -213,7 +258,7 @@ def test_a_layer_may_not_contain_a_symlink(tmp_path):
     layer = tmp_path / "layer"
     (layer / "contracts").mkdir(parents=True)
     outside = tmp_path / "outside.yml"
-    outside.write_text("v1")
+    outside.write_text(_declared(outside, "v1"))
     (layer / "contracts" / "link.yml").symlink_to(outside)
 
     with pytest.raises(ValueError, match="symlink"):
@@ -231,7 +276,7 @@ def test_a_symlinked_directory_is_refused_too(tmp_path):
     layer.mkdir()
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    (elsewhere / "a.yml").write_text("hello")
+    (elsewhere / "a.yml").write_text(_declared(elsewhere / "a.yml", "hello"))
     (layer / "contracts").symlink_to(elsewhere, target_is_directory=True)
 
     with pytest.raises(ValueError, match="symlink"):
@@ -241,8 +286,10 @@ def test_a_symlinked_directory_is_refused_too(tmp_path):
 def _layer(root: pathlib.Path) -> pathlib.Path:
     """A minimal but real layer: one declared kind with one file, and a manifest."""
     (root / "contracts").mkdir(parents=True)
-    (root / "contracts" / "a.yml").write_text("id: nf-core/a@1.0.0\n")
-    (root / "registry.yml").write_text("name: example\n")
+    (root / "contracts" / "a.yml").write_text(
+        _declared(root / "contracts" / "a.yml", "id: nf-core/a@1.0.0\n")
+    )
+    (root / "registry.yml").write_text(_declared(root / "registry.yml", "name: example\n"))
     return root
 
 
@@ -265,11 +312,17 @@ def test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it(tmp_
     """
     bare = _layer(tmp_path / "bare")
     dressed = _layer(tmp_path / "dressed")
-    (dressed / ".git").write_text("gitdir: ../../../.git/worktrees/some-plan/modules/registry\n")
-    (dressed / "LICENSE").write_text("CC-BY-4.0\n")
-    (dressed / "README.md").write_text("# the layer\n")
+    (dressed / ".git").write_text(
+        _declared(
+            dressed / ".git",
+            "gitdir: ../../../.git/worktrees/some-plan/modules/registry\n"))
+    (dressed / "LICENSE").write_text(_declared(dressed / "LICENSE", "CC-BY-4.0\n"))
+    (dressed / "README.md").write_text(_declared(dressed / "README.md", "# the layer\n"))
     (dressed / ".github").mkdir()
-    (dressed / ".github" / "ci.yml").write_text("on: push\n")
+    (dressed / ".github" / "ci.yml").write_text(
+        _declared(
+            dressed / ".github" / "ci.yml",
+            "on: push\n"))
 
     assert digest_of_directory(bare) == digest_of_directory(dressed)
 
@@ -280,11 +333,15 @@ def test_the_allowlist_did_not_make_the_digest_constant(tmp_path):
     two = _layer(tmp_path / "two")
     assert digest_of_directory(one) == digest_of_directory(two)
 
-    (two / "contracts" / "a.yml").write_text("id: nf-core/a@2.0.0\n")
+    (two / "contracts" / "a.yml").write_text(
+        _declared(two / "contracts" / "a.yml", "id: nf-core/a@2.0.0\n")
+    )
     assert digest_of_directory(one) != digest_of_directory(two)
 
-    (two / "contracts" / "a.yml").write_text("id: nf-core/a@1.0.0\n")
-    (two / "registry.yml").write_text("name: other\n")
+    (two / "contracts" / "a.yml").write_text(
+        _declared(two / "contracts" / "a.yml", "id: nf-core/a@1.0.0\n")
+    )
+    (two / "registry.yml").write_text(_declared(two / "registry.yml", "name: other\n"))
     assert digest_of_directory(one) != digest_of_directory(two), "registry.yml must count"
 
 

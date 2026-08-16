@@ -1,6 +1,41 @@
+import pathlib
+
 import pytest
 from comeni_core.declared.contract import Alternative, InputPort
 from comeni_core.declared.vocabulary import Vocabulary
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 
 def _v(root):
@@ -40,7 +75,10 @@ def test_a_port_declaring_neither_form_is_refused():
 
 
 def test_alternatives_are_validated_against_the_vocabulary(tmp_path):
-    (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (_v(tmp_path) / "alignment.bam.yml").write_text(
+        _declared(
+            _v(tmp_path) / "alignment.bam.yml",
+            "states: [coordinate_sorted]\n"))
     vocab = Vocabulary.load(tmp_path)
     port = InputPort(
         name="bam", accepts=[{"type_id": "alignment.bam", "states": ["sorted_by_coord"]}]
@@ -55,12 +93,21 @@ def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
     import yaml
     from comeni_core.declared.contract import ModuleContract
 
-    (_v(tmp_path) / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    (_v(tmp_path) / "alignment.cram.yml").write_text("states: []\n")
-    (_v(tmp_path) / "counts.matrix.yml").write_text("states: []\n")
+    (_v(tmp_path) / "alignment.bam.yml").write_text(
+        _declared(
+            _v(tmp_path) / "alignment.bam.yml",
+            "states: [coordinate_sorted]\n"))
+    (_v(tmp_path) / "alignment.cram.yml").write_text(
+        _declared(
+            _v(tmp_path) / "alignment.cram.yml",
+            "states: []\n"))
+    (_v(tmp_path) / "counts.matrix.yml").write_text(
+        _declared(
+            _v(tmp_path) / "counts.matrix.yml",
+            "states: []\n"))
     vocab = Vocabulary.load(tmp_path)
     contract = tmp_path / "c.yml"
-    contract.write_text(yaml.safe_dump({
+    contract.write_text(_declared(contract, yaml.safe_dump({
         "id": "x/y@1",
         "nf_process": "Y",
         "nf_include": "modules/y/main",
@@ -76,7 +123,7 @@ def test_a_contract_checks_every_alternative_not_only_the_first(tmp_path):
             "source": "hand", "drafted_by": "hand",
             "approved_by": "r", "approved_at": "2026-08-03",
         },
-    }))
+    })))
     with pytest.raises(Exception, match="coordinate_sorted"):
         ModuleContract.load(contract, vocab)
 

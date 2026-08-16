@@ -10,6 +10,39 @@ import shutil
 import yaml
 from mendel_compiler.cli import main
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
 
@@ -77,12 +110,12 @@ def test_a_changed_rule_is_reported_with_its_tier_and_reason(tmp_path, capsys):
     """
 
     def swap_aligners(layer):
-        rules = layer / "rules" / "rnaseq.yml"
+        rules = layer / "rules" / "alignment.rule.yml"
         rules.write_text(
-            rules.read_text()
+            _declared(rules, rules.read_text()
             .replace("then: nf-core/star/align@1.11.0", "then: PLACEHOLDER")
             .replace("then: nf-core/hisat2/align@2.2.2", "then: nf-core/star/align@1.11.0")
-            .replace("then: PLACEHOLDER", "then: nf-core/hisat2/align@2.2.2")
+            .replace("then: PLACEHOLDER", "then: nf-core/hisat2/align@2.2.2"))
         )
 
     bundle = _published(tmp_path)
@@ -111,8 +144,8 @@ def test_drift_is_reported_even_when_nothing_resolved_differently(tmp_path, caps
     the lockfile no longer describes what is on disk, and that is worth knowing."""
 
     def touch(layer):
-        sort = next(layer.rglob("samtools-sort.yml"))
-        sort.write_text(sort.read_text().replace("priority: 0", "priority: 3"))
+        sort = next(layer.rglob("sort.contract.yml"))
+        sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 3")))
 
     bundle = _published(tmp_path)
     layer = _registry_with(tmp_path, touch)
@@ -190,13 +223,15 @@ def test_a_change_the_diff_cannot_see_still_reports_that_the_pipeline_moved(tmp_
     bundle = _published(tmp_path)
     layer = _registry_with(
         tmp_path,
-        lambda root: (root / "contracts" / "nf-core" / "star-align.yml").write_text(
-            (root / "contracts" / "nf-core" / "star-align.yml")
+        lambda root: (root / "tools" / "nf-core" / "star" / "align.contract.yml").write_text(
+            _declared(
+                root / "tools" / "nf-core" / "star" / "align.contract.yml",
+                (root / "tools" / "nf-core" / "star" / "align.contract.yml")
             .read_text()
             .replace(
                 'template: "--readFilesCommand zcat"',
                 'template: "--readFilesCommand zcat --outSAMattributes All"',
-            )
+            ))
         ),
     )
 
@@ -221,7 +256,7 @@ def test_a_pipeline_predating_the_record_says_so_rather_than_claiming_identity(t
     bundle = _published(tmp_path)
     data = yaml.safe_load(bundle.read_text())
     data["emitted"] = None
-    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+    bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
 
     main(["upgrade", str(bundle), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
 
@@ -246,7 +281,9 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
     lab = tmp_path / "lab-registry"
     (lab / "contracts").mkdir(parents=True)
     (lab / "contracts" / "rival-sorter.yml").write_text(
-        (ROOT / "registry" / "contracts" / "nf-core" / "samtools-sort.yml")
+        _declared(
+            lab / "contracts" / "rival-sorter.yml",
+            (ROOT / "registry" / "tools" / "nf-core" / "samtools" / "sort.contract.yml")
         .read_text()
         .replace("nf-core/samtools/sort@1.21.0", "lab/rival/sorter@9.9.9")
         # A different module as well as a different id: conformance reads `nf_include`,
@@ -256,7 +293,7 @@ def test_upgrading_without_the_overlay_that_built_it_reports_rather_than_crashes
             "nf_include: modules/nf-core/samtools/sort/main",
             "nf_include: modules/lab/rival/sort/main",
         )
-        .replace("priority: 0", "priority: 99")
+        .replace("priority: 0", "priority: 99"))
     )
     out = tmp_path / "published-with-overlay"
     assert main([
@@ -320,7 +357,7 @@ def _with_override(bundle, key, subject, value, node_exists=True):
             }
         )
     assert node_exists or key.split(".")[0] not in [s["id"] for s in data["steps"]]
-    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+    bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
     # Editing the file leaves the generated Nextflow describing the version before the edit,
     # so `upgrade` refuses with MD0213 until it is re-emitted. That is the workflow, not a
     # detour: `mendel emit` is the verb that makes a directory describe itself again.
@@ -443,8 +480,11 @@ def test_a_replayed_value_frozen_against_a_moved_contract_is_reported(tmp_path, 
     bundle = _published(tmp_path)
 
     def bump_a_default(layer):
-        counts = next(layer.rglob("subread-featurecounts.yml"))
-        counts.write_text(counts.read_text().replace("priority: 0", "priority: 4"))
+        counts = next(layer.rglob("featurecounts.contract.yml"))
+        counts.write_text(
+            _declared(
+                counts,
+                counts.read_text().replace("priority: 0", "priority: 4")))
 
     layer = _registry_with(tmp_path, bump_a_default)
     code = main([
@@ -471,8 +511,11 @@ def _a_and_a_different_b(tmp_path):
     """A built from the base registry, B from an overlay that bumps a default — so B is a
     genuinely different pipeline, not a byte-identical rebuild the guard would (rightly) allow."""
     def bump(layer):
-        counts = next(layer.rglob("subread-featurecounts.yml"))
-        counts.write_text(counts.read_text().replace("priority: 0", "priority: 7"))
+        counts = next(layer.rglob("featurecounts.contract.yml"))
+        counts.write_text(
+            _declared(
+                counts,
+                counts.read_text().replace("priority: 0", "priority: 7")))
 
     a, b = tmp_path / "A", tmp_path / "B"
     assert main(["build", "--goal", str(GOAL), "--registry", str(ROOT / "registry"),
@@ -580,7 +623,7 @@ def test_a_genuinely_edited_pipeline_is_still_reported_as_edited(tmp_path, capsy
     bundle = _published(tmp_path)
     data = yaml.safe_load(bundle.read_text())
     data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
-    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+    bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
 
     main(["upgrade", str(bundle), "--registry", str(ROOT / "registry"),
           "--out", str(tmp_path / "up"), "--root", str(ROOT)])
@@ -603,7 +646,7 @@ def test_an_edit_to_a_pre_schema_pipeline_is_not_detectable_and_that_is_stated(t
     archived = _archived(tmp_path)
     data = yaml.safe_load(archived.read_text())
     data["goal"]["want"] = ["counts.matrix", "counts.matrix"]
-    archived.write_text(yaml.safe_dump(data, sort_keys=False))
+    archived.write_text(_declared(archived, yaml.safe_dump(data, sort_keys=False)))
 
     main(["upgrade", str(archived), "--registry", str(ROOT / "registry"),
           "--out", str(tmp_path / "up"), "--root", str(ROOT)])
@@ -667,7 +710,7 @@ def _set(bundle, name, **fields):
                 setting["why"]["for_value"] = fields["value"]
             if "reason" in fields:
                 setting["why"]["reason"] = fields["reason"]
-    bundle.write_text(yaml.safe_dump(data, sort_keys=False))
+    bundle.write_text(_declared(bundle, yaml.safe_dump(data, sort_keys=False)))
 
 
 def _answered_then_upgraded(tmp_path):

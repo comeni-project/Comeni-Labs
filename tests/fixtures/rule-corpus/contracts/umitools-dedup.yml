@@ -1,3 +1,4 @@
+declares: contract
 id: nf-core/umitools/dedup@1.1.5
 roles: [deduplication]
 nf_process: UMITOOLS_DEDUP

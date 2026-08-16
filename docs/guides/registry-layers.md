@@ -6,18 +6,35 @@ anything.
 
 ## What a layer is
 
-A directory holding up to four subdirectories:
+**A directory of files, each of which says what it is.** Every file carries a `declares:`
+line, and a vocabulary or a measurement carries an `id:` beside it:
+
+```yaml
+declares: contract
+id: mylab/sortmerna@4.3.6
+```
+
+**Where you put the file is up to you.** The loader reads the `declares:` line, never the
+path, so you can arrange a layer for whoever has to read it. The public registry groups a
+tool's files together, and copying that is a good default:
 
 ```
 lab-registry/
-├─ contracts/       your modules
-├─ rules/           your tier-3 decisions
-├─ vocabularies/    your types and their states
-└─ measurements/    your declared measurements
+├─ registry.yml                      the layer's name and version
+├─ measurements/                     your declared measurements
+├─ types/                            your types and their states
+├─ rules/<name>.rule.yml             your tier-3 decisions
+└─ tools/mylab/sortmerna/            one tool, its contract and any type only it produces
+   └─ sortmerna.contract.yml
 ```
 
-All four stack. Any may be absent — a layer with only `contracts/` inherits everything
+Every kind stacks. Any may be absent — a layer holding one contract inherits everything
 else from below.
+
+This changed with comeni-registry#1. A layer used to be one directory *per kind*, because
+the directory was how the loader knew what a file was — so working on one tool meant
+navigating three trees. If you have an older layer, add `declares:` to each file and it
+will load wherever it already sits; `MD0010` names any file you miss.
 
 ```bash
 uv run mendel build --goal my-goal.yml \
@@ -72,7 +89,9 @@ exists to prevent.
 An enum declared `extensible: true` accepts additions:
 
 ```yaml
-# base: organism.yml
+# base: measurements/organism.yml
+declares: measurement
+id: organism
 kind: enum
 extensible: true
 values: [homo_sapiens, mus_musculus]
@@ -80,6 +99,8 @@ values: [homo_sapiens, mus_musculus]
 
 ```yaml
 # lab-registry/measurements/organism.yml
+declares: measurement
+id: organism
 add_values: [ambystoma_mexicanum]
 ```
 
@@ -90,7 +111,7 @@ otherwise is wrong.
 
 ## Load order is not optional
 
-The four kinds are not independent:
+The kinds are not independent:
 
 ```
 measurements ──▶ vocabularies ──▶ contracts ──▶ rules
@@ -112,8 +133,12 @@ loaded.registry, loaded.rules, loaded.vocabulary, loaded.measurements
 ## Starting a layer
 
 ```bash
-mkdir -p lab-registry/{contracts,rules,vocabularies,measurements}
+mkdir -p lab-registry
+printf 'name: my-lab\nversion: "0.1.0"\n' > lab-registry/registry.yml
 ```
+
+Then add files wherever you want them, each carrying its `declares:` line. There are no
+directories to create first — that is the point of comeni-registry#1.
 
 Add only what you are changing. A layer that ships two contracts and nothing else is
 completely normal, and is the case this is built around.

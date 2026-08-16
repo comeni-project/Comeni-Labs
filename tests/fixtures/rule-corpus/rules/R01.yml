@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R01 — aligner by read length. The control, and the rule the format was designed against.
 decisions:

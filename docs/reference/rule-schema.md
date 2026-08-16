@@ -1,12 +1,16 @@
 # Rule schema
 
-`<layer>/rules/*.yml`, globbed non-recursively per layer.
+One rule table per file, carrying `declares: rule`. **Where the file sits is free**
+(comeni-registry#1); the public registry uses `rules/<name>.rule.yml`.
+
+No `id:`: a rule is keyed on the target its decision names, not on the file.
 
 Model: `mendel_resolver.rules.RuleTable`.
 
 ## File
 
 ```yaml
+declares: rule
 version: 1
 decisions:
   - decides: {param: strandedness}
@@ -124,6 +128,7 @@ See [concepts/routing.md](../concepts/routing.md).
 ## Complete example
 
 ```yaml
+declares: rule
 version: 1
 decisions:
   - decides: {param: strandedness}

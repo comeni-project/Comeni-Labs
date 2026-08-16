@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -6,6 +8,39 @@ from mendel_resolver.goal import Goal
 from mendel_resolver.premises import Premise, PremiseOrigin
 from mendel_resolver.rules import RuleTable, RuleValidationError
 from pydantic import ValidationError
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 
 def P(**facts) -> dict[str, Premise]:
@@ -53,17 +88,25 @@ decisions:
 def world(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
-    (vocab_dir / "counts.matrix.yml").write_text("states: [gene_level]\n")
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted]\n")
+    )
+    (vocab_dir / "counts.matrix.yml").write_text(
+        _declared(vocab_dir / "counts.matrix.yml", "states: [gene_level]\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
-    (contracts / "fc.yml").write_text(CONTRACT)
+    (contracts / "fc.yml").write_text(_declared(contracts / "fc.yml", CONTRACT))
     measurements = tmp_path / "measurements"
     measurements.mkdir()
     (measurements / "strandedness.yml").write_text(
-        "kind: enum\nvalues: [forward, reverse, unstranded]\n"
+        _declared(
+            measurements / "strandedness.yml",
+            "kind: enum\nvalues: [forward, reverse, unstranded]\n")
     )
-    (measurements / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    (measurements / "read_length.yml").write_text(
+        _declared(measurements / "read_length.yml", "kind: integer\nminimum: 1\n")
+    )
     vocabulary = Vocabulary.load(tmp_path)
     return {
         "vocabulary": vocabulary,
@@ -76,7 +119,7 @@ def world(tmp_path):
 
 def _rules(world, body):
     world["rules"].mkdir(exist_ok=True)
-    (world["rules"] / "r.yml").write_text(body)
+    (world["rules"] / "r.yml").write_text(_declared(world["rules"] / "r.yml", body))
     return RuleTable.load(
         world["layer"],
         registry=world["registry"],
@@ -252,7 +295,7 @@ def test_two_files_in_one_layer_sharing_a_target_is_refused_by_stack(world):
     neither can see the other's case.
     """
     world["rules"].mkdir(exist_ok=True)
-    (world["rules"] / "second.yml").write_text(GOOD)
+    (world["rules"] / "second.yml").write_text(_declared(world["rules"] / "second.yml", GOOD))
     with pytest.raises(ValueError, match="is declared in .* and in .*, both under layer"):
         _rules(world, GOOD)
 
@@ -313,10 +356,14 @@ decisions:
 def test_a_higher_layer_replaces_a_whole_decision_block(world, tmp_path):
     """Whole-block replacement, not row merging: one block is the effective decision."""
     world["rules"].mkdir(exist_ok=True)
-    (world["rules"] / "r.yml").write_text(GOOD)
+    (world["rules"] / "r.yml").write_text(_declared(world["rules"] / "r.yml", GOOD))
     overlay = tmp_path / "lab"
     (overlay / "rules").mkdir(parents=True)
-    (overlay / "rules" / "r.yml").write_text("""
+    # A real layer carries a manifest, and since comeni-registry#1 that is also what marks it
+    # as a layer of its own — without it the base layer, which is `tmp_path`, would glob this
+    # overlay's files as though they were its own.
+    (overlay / "registry.yml").write_text("name: lab\n")
+    (overlay / "rules" / "r.yml").write_text(_declared(overlay / "rules" / "r.yml", """
 version: 1
 decisions:
   - decides: {effect: param, of: quantification, name: strandedness}
@@ -327,7 +374,7 @@ decisions:
       - {when: {strandedness: reverse}, then: 0}
       - {when: {strandedness: forward}, then: 2}
       - {when: {strandedness: unstranded}, then: 1}
-""")
+"""))
     table = RuleTable.load(
         [world["layer"], overlay],
         registry=world["registry"],
@@ -363,7 +410,10 @@ def test_profile_rejects_unknown_measurements(tmp_path):
     profile through it. This asserts the door itself is shut.
     """
     (m := tmp_path / "measurements").mkdir()
-    (m / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    (m / "read_length.yml").write_text(
+        _declared(
+            m / "read_length.yml",
+            "kind: integer\nminimum: 1\n"))
     registry = MeasurementRegistry.load(tmp_path)
     with pytest.raises(KeyError, match="sample_name"):
         registry.profile({"read_length": 150, "sample_name": "SILVA_biopsy_01"})
@@ -400,14 +450,20 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 @pytest.fixture
 def two_roles(world):
     """A second contract, so a decision can land on two roles at once."""
-    (world["layer"] / "vocabularies" / "fastq.reads.yml").write_text("states: [trimmed]\n")
+    (world["layer"] / "vocabularies" / "fastq.reads.yml").write_text(
+        _declared(world["layer"] / "vocabularies" / "fastq.reads.yml", "states: [trimmed]\n")
+    )
     # An extensible enum, so `test_an_extensible_enum_still_needs_a_catch_all` has a domain
     # that can grow. The shipped `purpose` is declared the same way and for the same reason.
     (world["layer"] / "measurements" / "purpose.yml").write_text(
-        "kind: enum\nvalues: [expression, variant_calling, junction_discovery, "
-        "transcript_assembly]\nextensible: true\n"
+        _declared(
+            world["layer"] / "measurements" / "purpose.yml",
+            "kind: enum\nvalues: [expression, variant_calling, junction_discovery, "
+        "transcript_assembly]\nextensible: true\n")
     )
-    (world["layer"] / "contracts" / "star.yml").write_text(ALIGNER)
+    (world["layer"] / "contracts" / "star.yml").write_text(
+        _declared(world["layer"] / "contracts" / "star.yml", ALIGNER)
+    )
     world["measurements"] = MeasurementRegistry.load(world["layer"])
     world["vocabulary"] = Vocabulary.load(world["layer"])
     world["registry"] = Registry.load(world["layer"], world["vocabulary"])
@@ -463,13 +519,13 @@ def test_two_decisions_cannot_both_land_on_one_target_across_files(two_roles):
     check cannot see it and `stack()`'s per-layer check cannot see it either.
     """
     two_roles["rules"].mkdir(exist_ok=True)
-    (two_roles["rules"] / "other.yml").write_text("""
+    (two_roles["rules"] / "other.yml").write_text(_declared(two_roles["rules"] / "other.yml", """
 version: 1
 decisions:
   - decides: {effect: param, of: alignment, name: star_ignore_sjdbgtf}
     because: "a fixture"
     rows: [{when: {}, then: 1, cite: "a"}]
-""")
+"""))
     with pytest.raises(RuleValidationError, match="MD0309"):
         _rules(two_roles, TWO_TOOLS)
 
@@ -683,7 +739,9 @@ def test_two_implementations_disagreeing_about_a_domain_fall_back(two_roles):
     invents nothing. Refusing the disagreement outright would be stronger and needs a code of
     its own; it is carried rather than smuggled in here.
     """
-    (two_roles["layer"] / "contracts" / "htseq.yml").write_text(SECOND_QUANTIFIER)
+    (two_roles["layer"] / "contracts" / "htseq.yml").write_text(
+        _declared(two_roles["layer"] / "contracts" / "htseq.yml", SECOND_QUANTIFIER)
+    )
     two_roles["registry"] = Registry.load(two_roles["layer"], two_roles["vocabulary"])
     table = _rules(two_roles, _decision(
         '      - {when: {}, then: 2, cite: "legal for featureCounts, not for htseq-count"}',
@@ -695,7 +753,9 @@ def test_two_implementations_disagreeing_about_a_domain_fall_back(two_roles):
 def test_narrowing_to_one_implementation_restores_its_domain(two_roles):
     """`when_implementation` is the author saying which tool the value is for, so the domain
     is that tool's again — and the check comes back with it."""
-    (two_roles["layer"] / "contracts" / "htseq.yml").write_text(SECOND_QUANTIFIER)
+    (two_roles["layer"] / "contracts" / "htseq.yml").write_text(
+        _declared(two_roles["layer"] / "contracts" / "htseq.yml", SECOND_QUANTIFIER)
+    )
     two_roles["registry"] = Registry.load(two_roles["layer"], two_roles["vocabulary"])
     with pytest.raises(RuleValidationError, match="accepts yes, no, reverse"):
         _rules(two_roles, _decision(

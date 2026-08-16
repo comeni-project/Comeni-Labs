@@ -10,6 +10,39 @@ import pathlib
 import pytest
 from mendel_compiler.modulespec import ModuleSpec
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 VENDOR = pathlib.Path(__file__).parent.parent / "vendor"
 
 
@@ -128,7 +161,7 @@ def test_a_container_named_directly_parses(tmp_path):
     """
     module = tmp_path / "main.nf"
     module.write_text(
-        'process LAB_TOOL {\n'
+        _declared(module, 'process LAB_TOOL {\n'
         '    container "quay.io/biocontainers/lab-tool:1.0"\n'
         '\n'
         '    input:\n'
@@ -141,7 +174,7 @@ def test_a_container_named_directly_parses(tmp_path):
         '    """\n'
         '    lab-tool $reads\n'
         '    """\n'
-        '}\n'
+        '}\n')
     )
     parsed = ModuleSpec.parse(module)
     assert parsed.container == "quay.io/biocontainers/lab-tool:1.0"

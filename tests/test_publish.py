@@ -18,6 +18,39 @@ import yaml
 from mendel_compiler.cli import artifact_verbs, main
 from mendel_compiler.gates import GateResult
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 
 def _gate_always_passes(monkeypatch):
     """Stub the gate so a `--gate` test runs without Nextflow (as CI's fast lane lacks it).
@@ -190,8 +223,11 @@ def test_conformance_guards_the_door_at_build_since_publish_no_longer_re_resolve
     """
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("star-align.yml"))
-    star.write_text(star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN"))
+    star = next(layer.rglob("align.contract.yml"))
+    star.write_text(
+        _declared(
+            star,
+            star.read_text().replace("nf_process: STAR_ALIGN", "nf_process: STAR_ALIGNN")))
 
     goal = ROOT / "examples" / "rnaseq-goal.yml"
     code = main(
@@ -213,7 +249,7 @@ def test_publish_refuses_a_directory_that_has_diverged_from_its_file(tmp_path, c
     lines = path.read_text().splitlines(keepends=True)
     at = next(i for i, line in enumerate(lines) if line.strip() == "- name: seq_platform")
     lines[at + 1] = lines[at + 1].replace("value: null", "value: nanopore")
-    path.write_text("".join(lines))
+    path.write_text(_declared(path, "".join(lines)))
 
     code = main(["publish", str(path), "--root", str(ROOT)])
     assert code == 2
@@ -223,7 +259,10 @@ def test_publish_refuses_a_directory_that_has_diverged_from_its_file(tmp_path, c
 def test_publish_refuses_a_hand_edited_main_nf(tmp_path, capsys):
     """MD0214, same door. Certifying files somebody edited by hand certifies the edit."""
     out = _built(tmp_path)
-    (out / "main.nf").write_text((out / "main.nf").read_text() + "\n// touched\n")
+    (out / "main.nf").write_text(
+        _declared(
+            out / "main.nf",
+            (out / "main.nf").read_text() + "\n// touched\n"))
     code = main(["publish", str(out / "pipeline.yml"), "--root", str(ROOT)])
     assert code == 2
     assert "MD0214" in capsys.readouterr().err
@@ -248,11 +287,14 @@ def test_publish_does_not_re_resolve_against_the_installed_registry(tmp_path, mo
     # by hand, without regex — `comeni-core` bans `re`, and a test mirrors that discipline.
     ov = tmp_path / "ov"
     (ov / "contracts" / "nf-core").mkdir(parents=True)
-    (ov / "registry.yml").write_text("name: lab\n")
-    h = (root / "registry/contracts/nf-core/hisat2-align.yml").read_text()
+    (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
+    h = (root / "registry/tools/nf-core/hisat2/align.contract.yml").read_text()
     lines = [("priority: 99" if line.strip().startswith("priority:") else line)
              for line in h.splitlines()]
-    (ov / "contracts/nf-core/hisat2-align.yml").write_text("\n".join(lines) + "\n")
+    (ov / "tools/nf-core/hisat2/align.contract.yml").parent.mkdir(parents=True, exist_ok=True)
+    (ov / "tools/nf-core/hisat2/align.contract.yml").write_text(
+        _declared(ov / "tools/nf-core/hisat2/align.contract.yml", "\n".join(lines) + "\n")
+    )
 
     assert main(["publish", str(out / "pipeline.yml"), "--registry", str(root / "registry"),
                  "--registry", str(ov), "--gate", "lint", "--root", str(root)]) == 0
@@ -281,7 +323,10 @@ def test_edit_then_emit_then_publish_certifies_the_edited_pipeline(tmp_path, mon
         for setting in s.get("settings", []):
             if setting["name"] == "seq_platform":
                 setting["value"] = "nanopore"
-    (out / "pipeline.yml").write_text(_yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            _yaml.safe_dump(doc, sort_keys=False)))
     assert main(["emit", str(out / "pipeline.yml"), "--out", str(out)]) == 0
     assert main(["publish", str(out / "pipeline.yml"), "--gate", "lint", "--root", str(root)]) == 0
     assert "'PL:nanopore'" in (out / "nextflow.config").read_text()
@@ -303,8 +348,8 @@ def test_publish_refuses_a_pipeline_with_no_emitted_record(tmp_path, capsys):
     source = out / "pipeline.yml"
     doc = yaml.safe_load(source.read_text())
     del doc["emitted"]
-    source.write_text(yaml.safe_dump(doc, sort_keys=False))
-    (out / "main.nf").write_text("workflow { }\n")
+    source.write_text(_declared(source, yaml.safe_dump(doc, sort_keys=False)))
+    (out / "main.nf").write_text(_declared(out / "main.nf", "workflow { }\n"))
 
     code = main(["publish", str(source), "--root", str(ROOT)])
 
@@ -322,7 +367,7 @@ def test_emit_still_works_on_a_pipeline_with_no_emitted_record(tmp_path):
     source = out / "pipeline.yml"
     doc = yaml.safe_load(source.read_text())
     del doc["emitted"]
-    source.write_text(yaml.safe_dump(doc, sort_keys=False))
+    source.write_text(_declared(source, yaml.safe_dump(doc, sort_keys=False)))
 
     assert main(["emit", str(source), "--out", str(out)]) == 0
     assert yaml.safe_load(source.read_text()).get("emitted"), "emit did not restamp the record"
@@ -341,7 +386,7 @@ def test_upgrade_reports_a_missing_emitted_record_rather_than_refusing(tmp_path,
     source = out / "pipeline.yml"
     doc = yaml.safe_load(source.read_text())
     del doc["emitted"]
-    source.write_text(yaml.safe_dump(doc, sort_keys=False))
+    source.write_text(_declared(source, yaml.safe_dump(doc, sort_keys=False)))
 
     code = main(["upgrade", str(source), "--out", str(tmp_path / "up"), "--root", str(ROOT)])
 
@@ -365,7 +410,7 @@ def test_publish_refuses_to_certify_a_value_whose_reason_is_false(tmp_path, caps
     lines = path.read_text().splitlines(keepends=True)
     at = next(i for i, line in enumerate(lines) if line.strip() == "- name: min_mqs")
     lines[at + 1] = "    value: 30\n"
-    path.write_text("".join(lines))
+    path.write_text(_declared(path, "".join(lines)))
 
     code = main(["publish", str(path), "--root", str(ROOT)])
 

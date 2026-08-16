@@ -26,6 +26,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from comeni_core import yaml_strict
 from comeni_core.declared.layer import layer_name
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import AnyKey, LayerName
@@ -35,7 +36,8 @@ MANIFEST = "registry.yml"
 
 
 def declared_entries(path: Path) -> list[Path]:
-    """The files that *are* layer data: the `DeclaredKind` directories, and the manifest.
+    """The files that *are* layer data: every `.yml`/`.yaml` outside a dot-directory, and the
+    manifest.
 
     **One definition, used by everything that reads a layer as a whole** — the layer digest
     in `comeni_core.artifact.digest` and the symlink refusal in `mendel_resolver.layers`.
@@ -59,19 +61,33 @@ def declared_entries(path: Path) -> list[Path]:
     at both sites. Walking a real `.git` directory was also a cost nobody had measured:
     `--registry ../comeni-registry` against an ordinary clone rglobbed the object store.
     """
-    found: list[Path] = []
-    for root in [path / kind.value for kind in DeclaredKind] + [path / MANIFEST]:
-        if root.is_symlink():
-            # Returned rather than skipped, so the caller's refusal fires. `is_dir()`
-            # *follows* a link, so a `contracts/` symlinked out of the layer would
-            # otherwise be walked as an ordinary directory and its target hashed — which
-            # is precisely A9 arriving through the allowlist written after it.
-            found.append(root)
-        elif root.is_dir():
-            found += [p for p in root.rglob("*") if p.is_symlink() or p.is_file()]
-        elif root.is_file():
-            found.append(root)
+    if not path.is_dir():
+        return []
+    found = [p for p in path.rglob("*") if p.is_symlink() or (p.is_file() and _declared(p))]
     return found
+
+
+_DECLARED_SUFFIXES = (".yml", ".yaml")
+
+
+def _declared(path: Path) -> bool:
+    """Is this file part of the layer's declared data, or something git left beside it?
+
+    The allowlist is now *by extension* rather than by directory, because a layer no longer has
+    kind directories to enumerate (comeni-registry#1). What it must still exclude is what issue
+    #46 found: a submodule's `.git` file holds
+    `gitdir: …/worktrees/<name>/modules/registry`, which names the checkout and made the layer
+    digest **machine-dependent**. `LICENSE` and `README.md` are the same class — real files a
+    layer repository carries that are not layer data.
+    """
+    if any(part.startswith(".") for part in path.parts):
+        # `.git`, `.github`, `.gitlab-ci` — metadata a layer repository carries, by a
+        # convention every tool shares. Issue #46 found the `.git` case the expensive way: a
+        # submodule's `.git` file holds `gitdir: …/worktrees/<name>/modules/registry`, so
+        # hashing it made the layer digest machine-dependent. `.github/ci.yml` is the same
+        # thing wearing a `.yml`, and it is what caught this.
+        return False
+    return path.suffix in _DECLARED_SUFFIXES or path.name == MANIFEST
 
 
 class DeclaredKind(StrEnum):
@@ -235,6 +251,21 @@ class Stacked[K, T]:
         so a file in a layer that nothing reads is an error rather than silence (A26)."""
 
 
+def _nested_layers(root: Path) -> list[Path]:
+    """Directories under `root` that are layers in their own right.
+
+    **A layer does not contain another layer.** Since comeni-registry#1 a kind is read from the
+    file rather than the directory, so `stack()` globs the whole layer — and without this a lab
+    overlay checked out *inside* the public registry would be swallowed by it, its files loaded
+    as though they were the base layer's own. That is not hypothetical: `--registry` takes
+    several roots, and putting one inside another is an ordinary mistake to make.
+
+    A directory carrying its own `registry.yml` is the marker, because that file is already
+    what a layer uses to name itself.
+    """
+    return [p.parent for p in root.rglob(MANIFEST) if p.parent != root]
+
+
 def _files(directory: Path) -> list[Path]:
     """Every declared-data file under a subdirectory, recursively, in a stable order.
 
@@ -246,6 +277,66 @@ def _files(directory: Path) -> list[Path]:
     return sorted({*directory.rglob("*.yml"), *directory.rglob("*.yaml")})
 
 
+
+DECLARES = "declares"
+"""The key by which a file says what it is.
+
+**Not `kind:`** — a measurement already has one, and it means the kind of its *value*
+(`integer`, `enum`). Two meanings for one key in the same file is how a loader comes to strip a
+field it did not write, which is exactly what happened the first time this was implemented.
+"""
+
+_KIND_OF = {
+    "contract": DeclaredKind.CONTRACTS,
+    "rule": DeclaredKind.RULES,
+    "vocabulary": DeclaredKind.VOCABULARIES,
+    "measurement": DeclaredKind.MEASUREMENTS,
+    "role": DeclaredKind.ROLES,
+}
+"""The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
+than by stripping an `s`, because `vocabularies` is not `vocabularys`."""
+
+
+def declared_kind(path: Path) -> DeclaredKind:
+    """What this file says it is. `MD0010` if it says nothing, `MD0011` if it says nonsense.
+
+    **This is the whole of comeni-registry#1.** A layer used to be one directory per kind
+    because the directory was how the loader knew what a file was; a file that announces itself
+    can live anywhere, so a laboratory can group a tool's contract, its types and its rule
+    together instead of navigating three trees for one module.
+
+    What weakened, recorded rather than discovered: the directory prevented a misfiled document
+    *by construction*, so a misspelled `contract/` was caught by `MD0003`. A misspelled
+    `declares:` can only be *detected*, which is `MD0011`. Same class of error, one less
+    guarantee.
+    """
+    try:
+        data = yaml_strict.load(path)
+    except yaml.YAMLError as error:
+        # `MD0001` belongs here as well as in `stack()`: since this function reads the file
+        # *first*, a file that does not parse now fails on the way in, and an uncoded parser
+        # error would escape ahead of the code written for exactly this.
+        raise ValueError(coded("MD0001", f"{path} is not valid YAML.\n  {error}")) from error
+    if not isinstance(data, dict) or DECLARES not in data:
+        raise ValueError(
+            coded(
+                "MD0010",
+                f"{path} does not say what it is. Every declared file needs a "
+                f"`{DECLARES}:` line — one of {', '.join(sorted(_KIND_OF))}.",
+            )
+        )
+    said = data[DECLARES]
+    if said not in _KIND_OF:
+        raise ValueError(
+            coded(
+                "MD0011",
+                f"{path} declares {said!r}, which is not a kind of declared data. "
+                f"Expected one of {', '.join(sorted(_KIND_OF))}.",
+            )
+        )
+    return _KIND_OF[said]
+
+
 def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
     """Load one kind across a layer stack. Later layers win, and say so."""
     entries: dict[K, T] = {}
@@ -255,13 +346,25 @@ def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
     name_of = {layer.index: layer.name for layer in layers}
 
     for layer in layers:
-        directory = layer.path / kind.which.value
-        if not directory.exists():
+        # **The layer, not a subdirectory of it.** Which files belong to this kind is decided
+        # by what each one declares, so the layout is the author's business (comeni-registry#1).
+        # `registry.yml` is the layer's account of *itself*, read by `layer_name` before any
+        # kind runs — it declares nothing and is exempt, exactly as it was from the
+        # unclaimed-file check when kinds were directories.
+        nested = _nested_layers(layer.path)
+        mine = [
+            p
+            for p in _files(layer.path)
+            if p != layer.path / MANIFEST
+            and not any(p.is_relative_to(other) for other in nested)
+            and declared_kind(p) is kind.which
+        ]
+        if not mine:
             continue
 
         incoming: dict[K, T] = {}
         first_declared: dict[K, Path] = {}
-        for path in _files(directory):
+        for path in mine:
             claimed.add(path)
             where = path.relative_to(layer.path)
             try:

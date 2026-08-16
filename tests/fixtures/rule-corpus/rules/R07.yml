@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R07 — MAPQ floor by purpose. A120 again: the discriminator is the goal, not the data.
 decisions:

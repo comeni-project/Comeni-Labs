@@ -2174,3 +2174,45 @@ Worth knowing for every future revert-and-watch, which is the method this whole 
 on: **`find . -name __pycache__ -type d -exec rm -rf {} +` after a loop that restores files.** A
 guard reported failing for the right reason and then reported failing for a reason that had been
 undone, which is the least useful state a check can be in.
+
+## A layer is files, not folders (2026-08-16)
+
+| date | guard | reverted | result |
+|---|---|---|---|
+| 2026-08-16 | `test_declared_identity.py::test_a_vocabulary_may_declare_its_own_id` | the declared `id` ignored | failed |
+| 2026-08-16 | `…::test_MD0010_a_declared_file_must_say_what_it_is` | the `declares:` check removed | failed |
+| 2026-08-16 | `…::test_MD0012_a_vocabulary_must_declare_its_id` | the `id` requirement removed | failed |
+| 2026-08-16 | `test_digest.py::test_a_layer_digests_what_it_declares_…` | — | **caught a live regression, see below** |
+
+**One existing guard caught a real regression, and it is the most valuable row here.** Replacing
+the digest's kind-directory allowlist with an extension allowlist swallowed `.github/ci.yml` into
+the layer digest — a CI workflow is a `.yml`, and issue #46 had already established that hashing
+what a *repository* carries beside a layer makes the digest depend on the checkout. Dot-prefixed
+paths are excluded now, by the convention every tool shares.
+
+**Three findings the plan did not predict, each a consequence of kind moving into the file:**
+
+- **`kind:` was the wrong key.** `Measurement` already has one, meaning the kind of its *value*
+  (`integer`, `enum`). The first implementation stripped it and broke every measurement in the
+  registry. It is `declares:`.
+- **A layer could swallow a nested layer.** With `stack()` globbing the whole layer, an overlay
+  checked out *inside* the public registry would load as though it were the base layer's own
+  files. A directory carrying `registry.yml` is now recognised as a layer of its own and skipped
+  — `--registry` takes several roots, and nesting one inside another is an ordinary mistake.
+- **`MD0005` refused a legitimately empty overlay.** A lab creates a layer before it has anything
+  to put in it. Refusing only a *completely* empty directory keeps the unchecked-out-submodule
+  case, which is what the code was written for, and lets the empty overlay through.
+
+**`MD0003` is retired**, and this is the trade the spec named. It refused a `.yml` no kind read —
+a misspelled `contract/` for `contracts/` — which was prevention *by construction*: the directory
+was the file's identity, so a misfiled document was invisible and therefore refused. Now a file
+declares itself and loads from anywhere, so there is no position left for it to be invisible in,
+and the same mistake is caught as a missing declaration (`MD0010`). **A26 moved from detected to
+prevented**, which is a better place for it, at the cost of a code that could not fire.
+
+**The fixture sweep is the part worth warning about.** Roughly thirty test files build layers by
+hand, and a first codemod patched them *by basename across every file* — so `a.yml` was labelled
+a measurement in one test and a contract in another, and both labels landed on the same write.
+The correct mechanism is one helper that derives the kind from the directory **at runtime**, and
+it has to walk *ancestors* rather than the immediate parent, because `contracts/nf-core/fastqc.yml`
+sits two levels below the directory that names it.

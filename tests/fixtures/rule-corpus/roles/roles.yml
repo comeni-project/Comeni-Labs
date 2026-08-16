@@ -1,3 +1,4 @@
+declares: role
 # Roles the corpus needs that the shipped registry does not declare. Stacks over it.
 roles:
   - ribo_depletion

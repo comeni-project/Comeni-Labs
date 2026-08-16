@@ -153,6 +153,39 @@ That is the operator's instruction, not a suggestion. Concretely:
   the number recorded when it was written, not when it runs, and journal entries up to that
   date still use the old name.
 
+### Stop and speak when the estimate breaks — decided 2026-08-16
+
+**An estimate that is wrong by more than about double is a decision point, not a hill to push
+through.** Say the new number, say what changed, and offer the choice. The operator can always
+say "carry on"; they cannot un-spend an evening.
+
+This is written down because 2026-08-16 ended with three hours on a fixture sweep estimated at
+one, and the work was abandoned unfinished at 1am. Three failures, in order:
+
+- **The first surprise was not reported.** A sweep predicted to touch a handful of files came
+  back with 102 failures, and the reaction was *one more pass and it will be green* — about eight
+  times. The moment to speak is the first measurement that contradicts the plan, not the tenth.
+- **Being told to communicate produced narration, not a change of process.** The same
+  run-a-2.5-minute-suite, patch-one-batch, re-run loop continued, now described out loud.
+  **Describing a bad loop is not communicating.** Saying *"this loop is wrong, here is what I
+  should do instead"* is.
+- **An offered escape route was not revisited.** The operator suggested a cheaper fallback; it
+  was reasonably declined at the time, and never reconsidered once the cost of the honest route
+  became clear. A rejected option should be re-offered when the premise it was rejected on
+  changes.
+
+**Two habits that would have caught all three:**
+
+1. **One diagnostic run that collects every failure, then one fix pass.** Ten patch-and-rerun
+   cycles cost more than the single comprehensive run they were avoiding — and each cycle hides
+   how large the remainder is.
+2. **Present decisions as choices, with the cost of each.** A number and two options is a
+   sentence; it is also the whole of what the operator needs to steer.
+
+**This is not in tension with the rigour the rest of this file asks for.** Watched-failing guards
+and `make verify` reward long autonomous cycles, and that is right — but rigour and silence are
+different things, and conflating them is what happened here.
+
 **Toolchain was verified on 2026-08-02** — do not re-audit it: `uv` 0.11.18, Python 3.12.12
 (the plan's floor exactly), Nextflow 25.10.4, Java 21, Docker 29.6.2. `nf-core` CLI is not
 installed and does not need to be; `uvx nf-core` works and github.com/nf-core/modules is
@@ -224,19 +257,25 @@ Violating any of these breaks the product claim, not just a test.
    survives having a model in the loop.
 10. **Determinism is a test, not an aspiration.** Same `Goal` → byte-identical `.nf`.
 11. **The registry is a stack**: public curated base, then private overlays. A layer is a
-    **directory** holding one subdirectory per `DeclaredKind` — `contracts/`, `rules/`,
-    `vocabularies/`, `measurements/` and, since Plan 1.15, `roles/` — and every one of them
-    stacks **through one mechanism** — `comeni_core.layered.stack()`, parameterised by a
-    `Kind` that declares only how its files parse, key and merge. Hand-written loaders
-    disagreeing on six axes is what audit root B was.
+    **directory of declared files, each of which says what it is** — a `declares:` line
+    naming one of `DeclaredKind`, and for a vocabulary or a measurement an `id:` beside it.
+    **The layout is free**, and the convention the public registry uses is to group a tool's
+    files together: `tools/nf-core/star/align.contract.yml` beside the type it produces.
+    Every kind stacks **through one mechanism** — `comeni_core.layered.stack()`,
+    parameterised by a `Kind` that declares only how its files parse, key and merge.
+    Hand-written loaders disagreeing on six axes is what audit root B was.
     **The count lives in `DeclaredKind` and not in this sentence.** It said "four" from Plan
     1.9 to Plan 1.15 and would have been wrong the day a fifth kind arrived, which is A33's
     lesson and A71/A72's: a number repeated in prose is a number that goes stale while
-    everything around it stays true. `len(DeclaredKind)` is the honest count, and
-    `_every_file_is_claimed` now derives its message from it for the same reason. Load a stack through
-    `mendel_resolver.layers.load()`, never by hand: the kinds are not independent, and the
-    wrong order fails inside a contract rather than at the caller. Every loader takes **layer
-    roots**, never a `contracts/` or `measurements/` directory: a loader handed a slice of a
+    everything around it stays true. `len(DeclaredKind)` is the honest count.
+    **What weakened, recorded rather than discovered** (comeni-registry#1): the directory used
+    to make a misfiled document impossible — `contracts/` held contracts, and a misspelled
+    `contract/` was caught by `MD0003` because nothing read it. That was prevention *by
+    construction*, and a misspelled `declares:` can only be *detected*, which is `MD0011`.
+    Same class of error, one guarantee fewer, and `MD0003` is retired rather than emptied.
+    Load a stack through `mendel_resolver.layers.load()`, never by hand: the kinds are not
+    independent, and the wrong order fails inside a contract rather than at the caller. Every
+    loader takes **layer roots**, never a directory of one kind: a loader handed a slice of a
     layer cannot know which layer it is reading, which is why displacement went unrecorded.
     A higher layer sharing a **module key** (the contract ID minus `@version`) displaces every
     lower-layer contract for that module. A different module key is an ordinary candidate and
@@ -245,7 +284,7 @@ Violating any of these breaks the product claim, not just a test.
     **Identity is `Layer.index`, never `Layer.name`**: two layers may share a name and the
     lockfile's own docstring says `registry/` over `registry/` is a day-one collision.
     Replacement is legal and **`Displacement` is the record that it happened** — one shape for
-    all four kinds, carried on `PipelineIR.displaced` and printed in the `OVERLAY` block, so a
+    every kind, carried on `PipelineIR.displaced` and printed in the `OVERLAY` block, so a
     measurement or a vocabulary type finally has somewhere to be reported. `states:` replaces a
     type's states, `add_states:` extends them; `values:` and `add_values:` say the same pair for
     a measurement. Never let an installed overlay reroute a pipeline silently.
@@ -402,9 +441,9 @@ digest now covers an **allowlist** — `declared_entries()`: the `DeclaredKind` 
 `tools/check_registry_drift.py`, `make drift` and the nightly job were deleted with it.
 
 It is **not a curated registry**: every contract in it is a test fixture that happens to be
-true. `Registry.load()` globs `*.yml` recursively under each layer, so `registry/contracts/`
-holds contracts and nothing else — `registry.yml` sits at the layer root beside them, and the
-goal file stayed in `examples/`, both for that reason.
+true. Every file in it declares its own kind, so the loader globs the whole layer and buckets
+by content — which is why the goal file stayed in `examples/` rather than moving in beside the
+contracts, and why `registry.yml` at the layer root is a manifest rather than a stray.
 
 Ports and adapters: the pure packages declare `Protocol`s in
 `mendel_resolver/ports.py`; `mendel-ai` implements them. The dependency arrow points
@@ -578,7 +617,7 @@ uv run mendel profile --have fastq.reads --out profile-build/
 uv run python tools/generate_types.py
 
 # same build, with the lab's private contracts stacked over the public registry
-# a layer is a DIRECTORY holding one subdirectory per DeclaredKind
+# a layer is a directory of files that each carry a `declares:` line
 uv run mendel build --goal examples/rnaseq-goal.yml \
   --registry registry/ --registry ./lab-registry --out build/
 

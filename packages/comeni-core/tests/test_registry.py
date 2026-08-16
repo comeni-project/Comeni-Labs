@@ -1,7 +1,42 @@
+import pathlib
+
 import pytest
 from comeni_core.declared.layered import DeclaredKind
 from comeni_core.declared.registry import Registry, module_key
 from comeni_core.declared.vocabulary import Vocabulary
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 SORT = """
 id: nf-core/samtools/sort@1.21.0
@@ -31,7 +66,7 @@ def _layer(root, name, files):
     d = root / name / "contracts"
     d.mkdir(parents=True)
     for filename, body in files.items():
-        (d / filename).write_text(body)
+        (d / filename).write_text(_declared(d / filename, body))
     return root / name
 
 
@@ -39,7 +74,9 @@ def _layer(root, name, files):
 def vocab(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted]\n")
+    )
     return Vocabulary.load(tmp_path)
 
 

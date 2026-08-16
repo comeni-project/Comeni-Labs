@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R02b — the same rule, enumerated one row per read length. The contortion, and it is now
 # caught: eight rows over an unbounded integer leave everything below the lowest uncovered.

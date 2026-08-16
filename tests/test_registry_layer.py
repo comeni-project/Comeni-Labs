@@ -63,5 +63,11 @@ def test_the_manifest_is_not_read_as_a_contract():
     recursive glob that finds contracts never sees it. If it moved one level down, every
     build would fail trying to validate a manifest as a `ModuleContract`."""
     assert (ROOT / "registry" / "registry.yml").exists()
-    assert not list((ROOT / "registry" / "contracts").glob("registry.yml"))
+    # `registry.yml` sits at the layer root and nowhere else. It used to be phrased as
+    # "not inside contracts/", which stopped meaning anything when the layer was
+    # arranged by tool (comeni-registry#1) and `contracts/` ceased to exist.
+    assert [p.relative_to(ROOT / "registry") for p in (ROOT
+        / "registry").rglob("registry.yml")] == [
+        pathlib.Path("registry.yml")
+    ]
     assert layers.load(ROOT / "registry").registry.all()

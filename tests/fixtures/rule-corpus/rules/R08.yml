@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R08 — skip trimming below ~1% adapter content. A119: step presence has a target now.
 decisions:

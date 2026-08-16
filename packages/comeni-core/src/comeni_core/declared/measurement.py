@@ -203,10 +203,26 @@ class MeasurementDelta(BaseModel):
 def _parse_measurement(path: Path) -> list[Measurement | MeasurementDelta]:
     """One measurement file — a declaration, or an extension of one.
 
-    The filename is the id, so a measurement cannot disagree with what it is called.
+    **`id:` is required** (`MD0012`), and `declares:` is accepted and ignored here. Both are
+    comeni-registry#1: a measurement took its identity from the filename, which was workable
+    only while every one of them sat in a directory named for its kind. Once a file may live
+    anywhere the filename is a poor name, so the fallback was removed rather than kept.
+
+    `declares:` is read by `stack()` and dropped here because every declared model sets
+    `extra="forbid"` — accepting it is what let the registry migrate one file at a time.
     """
-    measurement_id = path.name.removesuffix(".yaml").removesuffix(".yml")
     data = yaml_strict.load(path) or {}
+    data.pop("declares", None)
+    measurement_id = data.pop("id", None)
+    if not measurement_id:
+        raise ValueError(
+            coded(
+                "MD0012",
+                f"{path} is a measurement and declares no `id:`. The filename stopped\n"
+                f"  being the identity when a file stopped having to live in a directory\n"
+                f"  named for its kind.",
+            )
+        )
     added = data.pop("add_values", None)
     if added is not None:
         if data:
@@ -306,7 +322,9 @@ class MeasurementRegistry(BaseModel):
         return (
             f"{measurement_id!r} is not a declared measurement.\n"
             f"  Declared: {', '.join(self.ids()) or '(none)'}\n"
-            f"  To add one, declare <layer>/measurements/{measurement_id}.yml"
+            f"  To add one, add a file to a layer carrying `declares: measurement`\n"
+            f"  and `id: {measurement_id}`. Since comeni-registry#1 the path is free;\n"
+            f"  the convention is <layer>/measurements/{measurement_id}.yml."
         )
 
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:

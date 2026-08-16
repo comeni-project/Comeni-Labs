@@ -15,6 +15,39 @@ import pytest
 from comeni_core.declared.layered import DeclaredKind
 from mendel_resolver import layers
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 
 
@@ -37,7 +70,7 @@ def test_a_layer_with_one_kind_is_not_mistaken_for_an_empty_one(tmp_path):
     """
     overlay = tmp_path / "lab"
     (overlay / "contracts").mkdir(parents=True)
-    (overlay / "contracts" / "a.yml").write_text("")
+    (overlay / "contracts" / "a.yml").write_text(_declared(overlay / "contracts" / "a.yml", ""))
     # Loading it fully would need a real contract; the refusal is what is under test, and
     # it must not be what raises.
     with pytest.raises(Exception) as caught:  # noqa: B017 - any error but ours

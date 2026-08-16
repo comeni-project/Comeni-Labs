@@ -1,3 +1,4 @@
+declares: contract
 id: nf-core/star/genomegenerate@1.11.0
 roles: [index_building]
 nf_process: STAR_GENOMEGENERATE

@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R20 — a rule naming a contract this stack does not hold. Refused by design, and the
 # refusal now names the role rather than the missing contract.

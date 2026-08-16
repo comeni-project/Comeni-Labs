@@ -1,9 +1,12 @@
 # Contract schema
 
-`<layer>/contracts/**/*.yml`, one contract per file. Globbed recursively, so subdirectories
-are free organisation.
+One contract per file, carrying `declares: contract`. **Where the file sits is free** — the
+loader reads that line, not the path (comeni-registry#1) — and the public registry groups a
+tool's files together as `tools/<namespace>/<tool>/<name>.contract.yml`.
 
-Model: `comeni_core.contract.ModuleContract`.
+`id:` was always required here, so contracts are the one kind comeni-registry#1 did not change.
+
+Model: `comeni_core.declared.contract.ModuleContract`.
 
 ## ModuleContract
 
@@ -115,6 +118,7 @@ And in `tests/test_spine_contracts.py`, against the modules on disk:
 ## Complete example
 
 ```yaml
+declares: contract
 id: nf-core/subread/featurecounts@2.0.6
 nf_process: SUBREAD_FEATURECOUNTS
 nf_include: modules/nf-core/subread/featurecounts/main

@@ -19,6 +19,39 @@ from mendel_compiler.cli import main
 from mendel_compiler.emit import emit
 from pydantic import ValidationError
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"
 
@@ -57,7 +90,7 @@ def _build_measured(tmp_path, name="measured"):
     """
     goal = tmp_path / "measured-goal.yml"
     goal.write_text(
-        "have:\n"
+        _declared(goal, "have:\n"
         "  - type_id: fastq.reads\n"
         "  - type_id: annotation.gtf\n"
         "  - type_id: genome.fasta\n"
@@ -71,7 +104,7 @@ def _build_measured(tmp_path, name="measured"):
         "by: comeni/profile-fastqc@0.1.0}\n"
         "    - {measurement: strandedness, value: reverse, source: goal}\n"
         "    - {measurement: n_samples, value: 12, source: goal}\n"
-        "    - {measurement: paired, value: true, source: goal}\n"
+        "    - {measurement: paired, value: true, source: goal}\n")
     )
     out = tmp_path / name
     assert main(["build", "--goal", str(goal), "--out", str(out), "--root", str(ROOT)]) == 0
@@ -141,7 +174,7 @@ def _answer(out, name, value):
     at = next(i for i, line in enumerate(lines) if line.strip() == f"- name: {name}")
     assert lines[at + 1].strip() == "value: null", lines[at + 1]
     lines[at + 1] = lines[at + 1].replace("value: null", f"value: {value}")
-    path.write_text("".join(lines))
+    path.write_text(_declared(path, "".join(lines)))
 
 
 def test_a_stale_pipeline_file_is_reported_and_then_cured(tmp_path, capsys):
@@ -168,7 +201,10 @@ def test_hand_editing_main_nf_is_refused_and_the_fix_names_the_other_file(tmp_pa
     the other one. A diagnostic that only forbids is half a diagnostic.
     """
     out = _build(tmp_path)
-    (out / "main.nf").write_text((out / "main.nf").read_text() + "\n// touched\n")
+    (out / "main.nf").write_text(
+        _declared(
+            out / "main.nf",
+            (out / "main.nf").read_text() + "\n// touched\n"))
     code, err = _emit(out, capsys)
     assert code != 0 and "MD0214" in err
     assert "pipeline.yml" in err, "the fix must say where to make the change"
@@ -208,9 +244,9 @@ def test_a_newer_version_is_refused(tmp_path, capsys):
     # this test assert nothing the moment SCHEMA_VERSION reached 2, and it would have gone on
     # passing for a version that is no longer newer than anything. Plan 1.14 Task 0.
     path.write_text(
-        path.read_text().replace(
+        _declared(path, path.read_text().replace(
             f"version: {SCHEMA_VERSION}", f"version: {SCHEMA_VERSION + 1}", 1
-        )
+        ))
     )
     code, err = _emit(out, capsys)
     assert code != 0 and "MD0207" in err
@@ -318,7 +354,10 @@ def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
     for ch in doc["channels"]:
         if ch["type_id"] == "annotation.gtf":
             ch["test_data"] = [payload]
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code != 0 and "MD0217" in err
     assert not pathlib.Path("/tmp/PWNED_A44").exists()
@@ -330,11 +369,14 @@ def test_test_data_injection_is_refused_at_load(tmp_path, capsys):
 def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
     """A registry overlay adding params to subread/featurecounts. Shared by A38–A42 tasks."""
     ov = tmp_path / "ov"
-    (ov / "contracts" / "nf-core").mkdir(parents=True)
-    (ov / "registry.yml").write_text("name: lab\n")
-    src = (ROOT / "registry/contracts/nf-core/subread-featurecounts.yml").read_text()
+    ov.mkdir(parents=True)
+    (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
+    src = (ROOT / "registry/tools/nf-core/subread/featurecounts.contract.yml").read_text()
     src = src.replace("params:", "params:\n" + extra_params, 1)
-    (ov / "contracts/nf-core/subread-featurecounts.yml").write_text(src)
+    (ov / "tools/nf-core/subread").mkdir(parents=True, exist_ok=True)
+    (ov / "tools/nf-core/subread/featurecounts.contract.yml").write_text(
+        _declared(ov / "tools/nf-core/subread/featurecounts.contract.yml", src)
+    )
     return ov
 
 
@@ -364,7 +406,9 @@ def test_via_meta_reaches_the_channel_meta_map(tmp_path):
     """
     goal = tmp_path / "goal.yml"
     goal.write_text(
-        (ROOT / "examples" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", "")
+        _declared(
+            goal,
+            (ROOT / "examples" / "rnaseq-goal.yml").read_text().replace("  paired: true\n", ""))
     )
     ov = _overlay_with(tmp_path, "  - {name: single_end, default: false, via: meta}\n")
     out = tmp_path / "b"
@@ -391,11 +435,13 @@ def test_a_vocabulary_displacement_reaches_the_artifact(tmp_path):
     forbids."""
     ov = tmp_path / "ov"
     (ov / "vocabularies").mkdir(parents=True)
-    (ov / "registry.yml").write_text("name: lab-vocab\n")
+    (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab-vocab\n"))
     # Replace fastq.reads' entry_channel — the base's states, a lab's own source path.
     (ov / "vocabularies" / "fastq.reads.yml").write_text(
-        "states: [trimmed, deduplicated, subsampled]\n"
-        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n"
+        _declared(
+            ov / "vocabularies" / "fastq.reads.yml",
+            "states: [trimmed, deduplicated, subsampled]\n"
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n")
     )
     out = _build_with_overlay(tmp_path, ov)
     assert "vocabularies" in _displaced_kinds(out)
@@ -408,9 +454,10 @@ def test_a_rules_displacement_reaches_the_artifact(tmp_path):
     once."""
     ov = tmp_path / "ov"
     (ov / "rules").mkdir(parents=True)
-    (ov / "registry.yml").write_text("name: lab-rules\n")
-    base_rule = (ROOT / "registry/rules/rnaseq.yml").read_text()
-    (ov / "rules" / "rnaseq.yml").write_text(base_rule)
+    (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab-rules\n"))
+    base_rule = (ROOT / "registry/rules/alignment.rule.yml").read_text()
+    (ov / "rules" / "alignment.rule.yml").write_text(_declared(ov / "rules"
+        / "alignment.rule.yml", base_rule))
     out = _build_with_overlay(tmp_path, ov)
     assert "rules" in _displaced_kinds(out)
 
@@ -544,7 +591,10 @@ def test_value_and_human_override_may_not_contradict(tmp_path, capsys):
     for d in doc["decisions"]:
         if d["key"].endswith("seq_platform"):
             d["human_override"] = "illumina"
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0218" in err
 
@@ -579,7 +629,10 @@ def test_human_source_requires_a_matching_override(tmp_path, capsys):
                 setting["why"]["reason"] = "this facility sequences on a MinION"
                 setting["why"]["for_value"] = "nanopore"
     # Deliberately leave decisions[].human_override null — the claim without the evidence.
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0220" in err
 
@@ -605,7 +658,10 @@ def test_human_source_with_a_matching_override_is_accepted(tmp_path, capsys):
     for d in doc["decisions"]:
         if d["key"].endswith("seq_platform"):
             d["human_override"] = "nanopore"
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 0, err
 
@@ -622,7 +678,10 @@ def test_a_duplicate_decision_key_is_refused(tmp_path, capsys):
     dup = dict(dec)
     dup["human_override"] = "illumina"
     doc["decisions"].append(dup)
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0219" in err
 
@@ -657,7 +716,10 @@ def test_emit_clears_the_gate_verdict_when_the_file_was_edited(tmp_path, capsys)
     out = _build(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())
     doc["gate"] = "lint"
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     _emit(out, capsys)  # settle emitted digests against the gate stamp
     _answer(out, "seq_platform", "nanopore")  # now edit — the pipeline changed
     code, err = _emit(out, capsys)
@@ -674,7 +736,10 @@ def test_a_pipeline_with_no_goal_is_refused(tmp_path, capsys):
     out = _build(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())
     doc.pop("goal")
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 2
 
@@ -694,7 +759,10 @@ def test_a_refused_emit_writes_nothing(tmp_path, capsys):
         for setting in s.get("settings", []):
             if setting["name"] == "min_mqs":
                 setting["value"] = "0 bad"  # non-substitutable → emit_config raises MD0201
-    (out / "pipeline.yml").write_text(yaml.safe_dump(doc, sort_keys=False))
+    (out / "pipeline.yml").write_text(
+        _declared(
+            out / "pipeline.yml",
+            yaml.safe_dump(doc, sort_keys=False)))
     code, err = _emit(out, capsys)
     assert code == 2 and "MD0201" in err
     assert (out / "main.nf").read_text() == before, "a refused emit must leave main.nf untouched"
@@ -835,7 +903,7 @@ def _edit_setting_value(out, name, value):
     lines = path.read_text().splitlines(keepends=True)
     at = next(i for i, line in enumerate(lines) if line.strip() == f"- name: {name}")
     lines[at + 1] = f"    value: {value}\n"
-    path.write_text("".join(lines))
+    path.write_text(_declared(path, "".join(lines)))
 
 
 def test_editing_a_value_and_leaving_its_reason_is_refused(tmp_path, capsys):
@@ -866,10 +934,10 @@ def test_editing_a_value_and_its_reason_together_is_accepted(tmp_path, capsys):
     _edit_setting_value(out, "min_mqs", 30)
     path = out / "pipeline.yml"
     path.write_text(
-        path.read_text()
+        _declared(path, path.read_text()
         .replace("reason: contract default for min_mqs",
                  "reason: lab SOP BIOINF-014 requires MAPQ >= 30")
-        .replace("for_value: 0", "for_value: 30")
+        .replace("for_value: 0", "for_value: 30"))
     )
 
     code, err = _emit(out, capsys)
@@ -888,10 +956,10 @@ def test_a_file_written_before_for_value_still_emits(tmp_path, capsys):
     out = _build(tmp_path)
     path = out / "pipeline.yml"
     path.write_text(
-        "\n".join(
+        _declared(path, "\n".join(
             line for line in path.read_text().splitlines() if "for_value:" not in line
         )
-        + "\n"
+        + "\n")
     )
 
     code, err = _emit(out, capsys)
@@ -999,7 +1067,7 @@ def test_a_pipeline_defect_blames_the_pipeline_file(tmp_path, capsys):
     path = out / "pipeline.yml"
     raw = yaml.safe_load(path.read_text())
     raw["steps"].append(raw["steps"][0])
-    path.write_text(yaml.safe_dump(raw))
+    path.write_text(_declared(path, yaml.safe_dump(raw)))
     code, err = _emit(out, capsys)
     assert code == 2
     assert "this pipeline file is not valid" in err, err

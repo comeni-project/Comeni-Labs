@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R11 — quantifier by the requested state. A120's cheaper half: the router already
 # consulted `required_states` and `when` could not.

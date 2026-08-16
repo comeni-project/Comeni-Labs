@@ -1,8 +1,43 @@
+import pathlib
+
 import pytest
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import UnroutableError, route
+
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
 
 ALIGN = """
 id: nf-core/star/align@1.11.0
@@ -37,12 +72,16 @@ provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-
 def registry(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "fastq.reads.yml").write_text("states: [trimmed]\n")
-    (vocab_dir / "alignment.bam.yml").write_text("states: [coordinate_sorted]\n")
+    (vocab_dir / "fastq.reads.yml").write_text(
+        _declared(vocab_dir / "fastq.reads.yml", "states: [trimmed]\n")
+    )
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: [coordinate_sorted]\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
     for name, body in [("align", ALIGN), ("trim", TRIM), ("sort", SORT)]:
-        (contracts / f"{name}.yml").write_text(body)
+        (contracts / f"{name}.yml").write_text(_declared(contracts / f"{name}.yml", body))
     return Registry.load(tmp_path, Vocabulary.load(tmp_path))
 
 
@@ -119,17 +158,25 @@ def test_asking_for_no_state_does_not_add_steps_nobody_wanted(registry):
 def test_tie_between_producers_becomes_an_ambiguity(tmp_path):
     vocab_dir = tmp_path / "vocabularies"
     vocab_dir.mkdir()
-    (vocab_dir / "fastq.reads.yml").write_text("states: []\n")
-    (vocab_dir / "alignment.bam.yml").write_text("states: []\n")
+    (vocab_dir / "fastq.reads.yml").write_text(
+        _declared(vocab_dir / "fastq.reads.yml", "states: []\n")
+    )
+    (vocab_dir / "alignment.bam.yml").write_text(
+        _declared(vocab_dir / "alignment.bam.yml", "states: []\n")
+    )
     contracts = tmp_path / "contracts"
     contracts.mkdir()
     (contracts / "a.yml").write_text(
-        ALIGN.replace("state_required: [trimmed]", "state_required: []")
+        _declared(
+            contracts / "a.yml",
+            ALIGN.replace("state_required: [trimmed]", "state_required: []"))
     )
     (contracts / "b.yml").write_text(
-        ALIGN.replace("state_required: [trimmed]", "state_required: []")
+        _declared(
+            contracts / "b.yml",
+            ALIGN.replace("state_required: [trimmed]", "state_required: []")
         .replace("nf-core/star/align@1.11.0", "nf-core/hisat2/align@2.2.1")
-        .replace("STAR_ALIGN", "HISAT2_ALIGN")
+        .replace("STAR_ALIGN", "HISAT2_ALIGN"))
     )
     registry = Registry.load(tmp_path, Vocabulary.load(tmp_path))
     plan = route(Goal(have=[GoalInput(type_id="fastq.reads")], want=["alignment.bam"]), registry)

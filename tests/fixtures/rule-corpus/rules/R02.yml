@@ -1,3 +1,4 @@
+declares: rule
 version: 1
 # R02 — STAR --sjdbOverhang = read_length - 1. **Writable since issue #39**, as a named
 # transform rather than an expression: `then: "read_length-1"` reached the tool as that

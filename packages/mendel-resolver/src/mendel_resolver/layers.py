@@ -1,7 +1,7 @@
 """Loading a stack of registry layers, in the one order that works.
 
-A layer is a directory holding one subdirectory per `DeclaredKind`, and they are not
-independent:
+A layer is a directory of files that each declare their own `DeclaredKind`, and the kinds are
+not independent:
 
     measurements  ->  vocabulary (a measurement derives a `measurement.<id>` type)
                   ->  registry   (contracts are validated against that vocabulary,
@@ -23,9 +23,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from comeni_core.declared.layered import (
-    DeclaredKind,
     Displacement,
-    Layer,
     declared_entries,
     layers_of,
     stack,
@@ -81,24 +79,29 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         layers = [layers]
     layers = [Path(layer) for layer in layers]
     for layer in layers:
-        if layer.is_dir() and not any(
-            (layer / kind.value).is_dir() for kind in DeclaredKind
-        ):
-            # `any`, not `all`: an overlay carrying three contracts and nothing else is the
-            # normal private-layer case. `len(DeclaredKind)` rather than a literal, because
-            # that count said "four" in prose for six plans and was wrong the day `roles/`
-            # arrived (invariant 11).
+        # **Any declared file, not any kind directory.** Since comeni-registry#1 a layer is
+        # files that say what they are, so a perfectly good layer may be one flat folder with
+        # no `contracts/` in sight. What this still catches is the case it was written for: a
+        # submodule that was never checked out, which leaves a directory that exists and is
+        # empty.
+        # **Completely empty, not merely holding no declared data.** An overlay that declares
+        # nothing yet is legitimate — a lab creates the layer before it has anything to put in
+        # it, and it carries a `registry.yml` naming itself. An unchecked-out submodule has
+        # nothing at all, which is the case this was written for and the only one it should
+        # refuse.
+        if layer.is_dir() and not any(layer.iterdir()):
             raise ValueError(
-                coded("MD0005", f"{layer} holds no registry data — none of the "
-                f"{len(DeclaredKind)} declared "
-                "kinds is a directory in it.\n"
-                "\n"
-                "If this is `registry/`, it is a git submodule and was not checked out:\n"
-                "\n"
-                "    git submodule update --init\n"
-                "\n"
-                "`git clone --recurse-submodules` avoids this. "
-                "See docs/guides/contributing.md.")
+                coded(
+                    "MD0005",
+                    f"{layer} holds no declared data — no `.yml` or `.yaml` file in it.\n"
+                    "\n"
+                    "If this is `registry/`, it is a git submodule and was not checked out:\n"
+                    "\n"
+                    "    git submodule update --init\n"
+                    "\n"
+                    "`git clone --recurse-submodules` avoids this. "
+                    "See docs/guides/contributing.md.",
+                )
             )
         # `declared_entries`, not `rglob("*")`: since issue #46 `registry/` is a git
         # submodule, so a bare walk descends into git metadata — and against an ordinary
@@ -139,14 +142,14 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # After assembly, so a decision may read a fact a derivation in another file
     # supplies. Same reason `roles.check` runs here rather than inside a parse.
     rules.check_premise_names(measurements)
-    _every_file_is_claimed(
-        stacked,
-        measured.claimed
-        | declared_types.claimed
-        | named_roles.claimed
-        | contracts.claimed
-        | decided.claimed,
-    )
+    # `_every_file_is_claimed` was here until comeni-registry#1, emitting `MD0003` for a
+    # `.yml` no kind read. It is retired because it can no longer fire: a file either declares
+    # a kind and is loaded wherever it sits, or declares none and is refused by `MD0010`.
+    #
+    # **A26 is prevented now rather than detected.** Its defect was an overlay contract saved
+    # as `.yaml` that every loader ignored while the layer digest hashed it — the lockfile said
+    # the overlay was there and the pipeline said it was not. A file that announces itself is
+    # read from anywhere in the layer, so there is no position left for it to be invisible in.
     return Layers(
         measurements=measurements,
         vocabulary=vocabulary,
@@ -162,36 +165,6 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             *decided.displaced,
         ],
     )
-
-
-def _every_file_is_claimed(layer_values: list[Layer], claimed: set[Path]) -> None:
-    """A26 — a declared-data file no kind read is an error, named.
-
-    An overlay contract saved as `.yaml` was invisible to every loader, so the build routed
-    on the base layer and exited 0 while the *layer digest* hashed the file: the lockfile
-    said the overlay was there and the pipeline said it was not. Recursion and both
-    extensions fix the specific case; this fixes the class, which is that a layer could
-    contain a file nothing looked at and say nothing about it.
-
-    A misspelled subdirectory is the realistic version — `contract/` for `contracts/`, a
-    file dropped at the layer root. `registry.yml` is the one exception: it is the layer's
-    own manifest, read by `layer_name` before any kind runs.
-    """
-    for layer in layer_values:
-        for path in sorted({*layer.path.rglob("*.yml"), *layer.path.rglob("*.yaml")}):
-            if path in claimed or path == layer.path / "registry.yml":
-                continue
-            where = path.relative_to(layer.path)
-            raise ValueError(
-                coded("MD0003", f"registry layer {layer.path} contains {where}, which nothing "
-                f"reads.\n"
-                f"  Declared data lives in "
-                f"{', '.join(k.value + '/' for k in DeclaredKind)} — nested as deeply as "
-                f"you like, `.yml` or `.yaml`.\n"
-                f"  A file outside those is hashed into the layer digest and changes "
-                f"nothing, which is how an overlay that did nothing looked like one that "
-                f"worked.")
-            )
 
 
 def _blame_the_overlay(

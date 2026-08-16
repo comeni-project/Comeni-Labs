@@ -11,6 +11,39 @@ from comeni_core.declared.registry import Registry
 from mendel_compiler.conformance import check
 from mendel_resolver import layers
 
+_KIND_OF_DIR = {
+    "contracts": "contract",
+    "vocabularies": "vocabulary",
+    "measurements": "measurement",
+    "roles": "role",
+    "rules": "rule",
+}
+
+
+def _declared(path, body: str) -> str:
+    """Prepend what a fixture's file declares, derived from the directory it is written into.
+
+    Since comeni-registry#1 a declared file says what it is and the loader no longer reads the
+    directory. These fixtures still *write* into kind-named directories, which is now only a
+    habit — and the habit is what tells this helper which line to add, so the fixtures keep
+    their shape and their subject stays readable.
+
+    Idempotent, because several fixtures write a file twice to check that something changed.
+    """
+    path = pathlib.Path(path)
+    # Walk *ancestors*, not just the immediate parent: real layers nest, and
+    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # names it.
+    kind = next(
+        (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
+    )
+    if kind is None or body.lstrip().startswith("declares:"):
+        return body
+    header = f"declares: {kind}\n"
+    if kind in ("vocabulary", "measurement"):
+        header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
+    return header + body
+
 ROOT = pathlib.Path(__file__).parent.parent
 VENDOR = ROOT / "vendor"
 
@@ -157,7 +190,10 @@ def test_M0106_a_meta_key_the_module_reads_that_nothing_sets(registry, tmp_path)
 
     measured = tmp_path / "measurements"
     measured.mkdir()
-    (measured / "read_length.yml").write_text("kind: integer\nminimum: 1\n")
+    (measured / "read_length.yml").write_text(
+        _declared(
+            measured / "read_length.yml",
+            "kind: integer\nminimum: 1\n"))
     thin = MeasurementRegistry.load(tmp_path)
 
     diagnostics = check(registry, VENDOR, measurements=thin)
@@ -178,14 +214,20 @@ def test_M0106_the_other_direction_a_meta_key_nobody_reads(registry, tmp_path):
     measured = tmp_path / "measurements"
     measured.mkdir()
     (measured / "strandedness.yml").write_text(
-        "kind: enum\nvalues: [forward, reverse, unstranded]\n"
-        "describes: fastq.reads\nmeta_key: strandedness\n"
+        _declared(
+            measured / "strandedness.yml",
+            "kind: enum\nvalues: [forward, reverse, unstranded]\n"
+        "describes: fastq.reads\nmeta_key: strandedness\n")
     )
     (measured / "paired.yml").write_text(
-        "kind: boolean\ndescribes: fastq.reads\nmeta_key: single_end\n"
+        _declared(
+            measured / "paired.yml",
+            "kind: boolean\ndescribes: fastq.reads\nmeta_key: single_end\n")
     )
     (measured / "moon_phase.yml").write_text(
-        "kind: enum\nvalues: [waxing, waning]\ndescribes: fastq.reads\nmeta_key: moon_phase\n"
+        _declared(
+            measured / "moon_phase.yml",
+            "kind: enum\nvalues: [waxing, waning]\ndescribes: fastq.reads\nmeta_key: moon_phase\n")
     )
     measurements = MeasurementRegistry.load(tmp_path)
 
