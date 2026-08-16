@@ -43,6 +43,23 @@ _WHY_OPEN = {
 }
 
 
+DERIVED_FIELDS: tuple[tuple[str, str], ...] = (
+    ("process", "nf_process"),
+    ("nf_include", "nf_include"),
+    ("container", "container"),
+)
+"""Fact name -> contract field, for the fields a source can prove outright.
+
+Named once and read by both `scaffold_for` and `ops.check`, because the two ask the same
+question in opposite directions — *what should this field be* and *does this field still
+match*. Two copies of this tuple would drift, and the drift would be invisible: `check`
+would simply stop noticing a field.
+
+Every entry is a `derived` row in `notes/audits/2026-08-16-forge-derivability.md`. Adding
+one here without measuring it there is how an estimate gets back in.
+"""
+
+
 def _derived(value: Any, obs: Observation, name: str) -> FilledValue:
     evidence = obs.facts[name].evidence
     return FilledValue(
@@ -76,11 +93,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         value=obs.source, filler=Filler.DERIVED, by=obs.source, why="the source it was read from"
     )
 
-    for name, field in (
-        ("process", "nf_process"),
-        ("nf_include", "nf_include"),
-        ("container", "container"),
-    ):
+    for name, field in DERIVED_FIELDS:
         if obs.fact(name) is not None:
             filled[field] = _derived(obs.fact(name), obs, name)
         else:

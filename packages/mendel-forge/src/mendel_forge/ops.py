@@ -17,6 +17,7 @@ request claim every capability, which is the opposite of what a typed surface is
 from pathlib import Path
 from typing import Any
 
+from comeni_core.diagnostics import coded
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict
 
@@ -192,4 +193,118 @@ def verify_(req: VerifyRequest) -> VerifyResult:
     )
     return VerifyResult(
         name=req.name, verdicts=verdicts, refused=any(v.refused for v in verdicts)
+    )
+
+
+class Drift(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    field: str
+    registry_says: str
+    source_says: str
+
+
+class CheckRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    registry_root: Path
+    source_root: Path
+    """No workspace: `check` reads and reports, and writes nothing anywhere."""
+
+
+class CheckResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    checked: int
+    skipped: list[str]
+    """Contracts no registered source could re-read — a `comeni/` contract over a vendored
+    module, or a namespace with no adapter. Reported rather than silently passed, because a
+    contract nothing checks looks exactly like a contract that agrees."""
+    drift: list[Drift]
+
+
+class UpdateRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    name: str
+    registry_root: Path
+    source_root: Path
+    workspace_root: Path
+
+
+def _ref_for(contract_id: str) -> ToolRef | None:
+    """`nf-core/samtools/sort@1.21.0` -> `nf-core:samtools/sort`, when that source exists.
+
+    Keyed on the contract-id **namespace** rather than on `provenance.source`, which the
+    shipped registry spells `nf-core-meta-yml` — a note about what was read, not the name
+    of an adapter. The namespace is what `_ident` wrote, so this is its inverse.
+    """
+    source, _, tool = contract_id.partition("/")
+    ident = tool.partition("@")[0]
+    if not ident or source not in sources.names():
+        return None
+    return ToolRef(source=source, ident=ident)
+
+
+def check(req: CheckRequest) -> CheckResult:
+    """Does the registry still say what its sources say?
+
+    Offline by decision — whether *upstream* has moved is issue #64. This asks the narrower
+    question that needs no network: does what is on this disk still agree with itself.
+    """
+    stack = layers.load(req.registry_root)
+    found: list[Drift] = []
+    skipped: list[str] = []
+    checked = 0
+    for contract in stack.registry.all():
+        ref = _ref_for(contract.id)
+        if ref is None:
+            skipped.append(contract.id)
+            continue
+        try:
+            observation = sources.get(ref.source).ingest(ref, req.source_root)
+        except (FileNotFoundError, ValueError):
+            skipped.append(contract.id)
+            continue
+        checked += 1
+        for fact_name, field in assemble.DERIVED_FIELDS:
+            says = observation.fact(fact_name)
+            declared = getattr(contract, field, None)
+            if says is None or declared == says:
+                continue
+            found.append(
+                Drift(
+                    contract_id=contract.id,
+                    field=field,
+                    registry_says=str(declared),
+                    source_says=str(says),
+                )
+            )
+    return CheckResult(
+        checked=checked,
+        skipped=sorted(skipped),
+        drift=sorted(found, key=lambda d: (d.contract_id, d.field)),
+    )
+
+
+def update(req: UpdateRequest) -> DraftResult:
+    """Re-draft one contract from its source. **Writes a draft, never the registry.**"""
+    ref = _ref_for(req.contract_id)
+    if ref is None:
+        raise ValueError(
+            coded("MF0001", f"no registered source can re-read {req.contract_id!r}")
+            + f"\n  known sources: {', '.join(sources.names()) or '(none)'}"
+        )
+    version = req.contract_id.partition("@")[2] or "0.0.0"
+    return draft(
+        DraftRequest(
+            ref=str(ref),
+            name=req.name,
+            registry_root=req.registry_root,
+            source_root=req.source_root,
+            workspace_root=req.workspace_root,
+            version=version,
+        )
     )
