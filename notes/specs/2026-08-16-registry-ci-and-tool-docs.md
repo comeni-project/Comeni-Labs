@@ -2,6 +2,17 @@
 
 > **Precedence:** this spec takes precedence over the code where they disagree, until the work
 > lands. After that, the code is right and this is the argument for it.
+>
+> **Two things landed differently, on purpose** (2026-08-16, Tasks 1–5):
+>
+> - **§3 wrote `mendel docs <layer>`; the verb takes repeated `--registry`.** One way to name a
+>   layer rather than two, and this spec's own "a laboratory documents its overlay" argument
+>   needs stacking to work — an overlay alone usually fails vocabulary closure.
+> - **§3.2 asked for "types the tool *declares*", which loaded data cannot answer.** A
+>   `Vocabulary` maps `type_id -> frozenset[state]` and keeps no file path, deliberately, since
+>   comeni-registry#1 made the path meaningless. The verb reports **types only that tool
+>   produces**, which is answerable and is the fact the old layout actually hid. Do not
+>   implement the original phrasing — it would mean reading the filesystem.
 
 **Issue:** [comeni-registry#2](https://github.com/comeni-project/comeni-registry/issues/2) —
 *"this repo needs github actions setup, and a system that auto docs each 'tool' from the registry
