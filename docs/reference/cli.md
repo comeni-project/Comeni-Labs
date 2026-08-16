@@ -305,7 +305,7 @@ make test    # uv run pytest -v
 make lint    # uv run ruff check .
 make fmt     # uv run ruff format .
 make check   # everything CI runs on a pull request (~1 min, no Docker)
-make verify  # check + counts matrix + guards + drift — the gate for a routing or emission change
+make verify  # check + counts matrix + guards — the gate for a routing or emission change
 make static  # conformance + nextflow lint + preview — everything checkable without Docker
 make stub    # the full stub gate
 make types   # regenerate the stub
