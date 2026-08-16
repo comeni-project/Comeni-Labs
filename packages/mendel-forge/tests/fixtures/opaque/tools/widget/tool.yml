@@ -1,0 +1,5 @@
+name: widget
+container: docker.io/example/widget:1.4.0
+description: |
+  Widget counts things in a file and writes a table. It reads one input file and
+  writes one output table. There is no Nextflow module for it.
