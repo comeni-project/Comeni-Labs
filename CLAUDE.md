@@ -563,7 +563,7 @@ deselects `tests/test_counts.py` — the three tests that run `--gate test` on t
 dataset and assert the counts matrix is right, that featureCounts got the strandedness that
 was measured, and that a resolved setting reached the tool. That is the only check exercising
 the v1 criterion. Touch any of those six files and run **`make verify`**, which is `check` +
-those three + the guards + registry drift, and takes about two minutes.
+those three + the guards, and takes about two minutes.
 
 `emit.py` and `pipeline.py` joined the list in Plan 1.10, and three of the six became
 directories in issue #41 — the rule holds for anything under them. Rewriting `emit()`'s signature and
@@ -579,7 +579,7 @@ made the full set the easy thing to type. See A14.
 ```bash
 uv sync                          # set up the workspace
 make check                       # lint + tests + stub freshness — the CI gate, ~1 min
-make verify                      # check + counts matrix + guards + drift; Docker, ~2 min
+make verify                      # check + counts matrix + guards; Docker, ~2 min
 make static                      # conformance + nextflow lint + preview; no Docker, ~6s
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)

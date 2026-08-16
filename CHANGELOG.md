@@ -143,7 +143,7 @@ Not part of any package's version: build and documentation changes.
 
 ### Added
 
-- **`make verify`** — `check` + the counts-matrix tests + the guards + registry drift, in
+- **`make verify`** — `check` + the counts-matrix tests + the guards, in
   order, with `-j1` where it matters. `make check` deselects the only tests that exercise the
   v1 criterion, and naming that in a Makefile target beats remembering it.
 
