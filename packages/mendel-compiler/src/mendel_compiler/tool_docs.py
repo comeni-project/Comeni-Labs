@@ -135,4 +135,61 @@ def render(tool: str, contracts: list[ModuleContract], loaded) -> str:
     ]
     for contract in contracts:
         lines += _contract_section(contract)
+
+    owned = sole_types(loaded).get(tool, [])
+    lines += ["## Types only this tool produces", ""]
+    lines += [f"- `{type_id}`" for type_id in owned] if owned else ["None."]
+    lines += [""]
+
+    pinned = rules_naming(loaded).get(tool, [])
+    lines += ["## Rules that select this tool", ""]
+    lines += [f"- {entry}" for entry in pinned] if pinned else ["No rule names it."]
+    lines += [""]
+
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def sole_types(loaded) -> dict[str, list[str]]:
+    """Types exactly one tool produces.
+
+    The spec asked for "types the tool *declares*", and loaded data cannot answer that: a
+    `Vocabulary` maps `type_id -> frozenset[state]` and keeps no file path — deliberately,
+    since comeni-registry#1 made the path meaningless. Asking the filesystem instead would
+    reintroduce path-as-meaning in the one place this change removed it.
+
+    Sole production is answerable, and it is the better fact anyway: it is what the old
+    layout hid. `genome.index.star` exists for `star` alone, which is why it now sits in that
+    tool's folder.
+    """
+    producers: dict[str, set[str]] = defaultdict(set)
+    for contract_id, contract in loaded.registry.contracts.items():
+        for port in contract.produces:
+            producers[port.type_id].add(_tool_of(contract_id))
+    owned: dict[str, list[str]] = defaultdict(list)
+    for type_id, tools in producers.items():
+        if len(tools) == 1:
+            owned[next(iter(tools))].append(type_id)
+    return {tool: sorted(types) for tool, types in sorted(owned.items())}
+
+
+def rules_naming(loaded) -> dict[str, list[str]]:
+    """Decisions whose rows select a contract belonging to each tool.
+
+    `row.then` on an `implementation` decision is a contract id. A `param` decision names a
+    parameter rather than a contract, so its `then` is a value and not a claim about any
+    tool — skipped rather than string-matched, because a parameter value that happened to
+    contain an `@` would otherwise be read as a contract.
+    """
+    named: dict[str, list[str]] = defaultdict(list)
+    for decision in loaded.rules.decisions:
+        target = decision.decides
+        if target.effect.value != "implementation":
+            continue
+        for row in decision.rows:
+            if not isinstance(row.then, str) or "@" not in row.then:
+                continue
+            entry = f"`{target.effect.value}` of role `{target.of}` — {decision.because}"
+            tool = _tool_of(row.then)
+            if entry not in named[tool]:
+                named[tool].append(entry)
+    return {tool: sorted(entries) for tool, entries in sorted(named.items())}

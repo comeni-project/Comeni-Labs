@@ -134,3 +134,46 @@ def test_an_absent_tier_hint_is_a_dash_rather_than_the_word_None():
     page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
     assert "| None |" not in page
     assert "`star_ignore_sjdbgtf` | — |" in page
+
+
+def test_a_type_with_one_producer_is_listed_on_that_tools_page():
+    loaded = _layers()
+    assert tool_docs.sole_types(loaded)["nf-core/star"] == ["genome.index.star"]
+    assert tool_docs.sole_types(loaded)["nf-core/subread"] == ["counts.matrix"]
+
+
+def test_a_type_two_tools_produce_is_listed_on_neither():
+    """`alignment.bam` comes from both star and hisat2, so it is not either one's to claim."""
+    loaded = _layers()
+    owned = tool_docs.sole_types(loaded)
+    for tool in ("nf-core/star", "nf-core/hisat2"):
+        assert "alignment.bam" not in owned.get(tool, [])
+
+
+def test_a_tool_a_rule_pins_says_so():
+    """A contract selected by a tier-3 implementation rule is one whose selection is not
+    free, and a reader deciding whether to use it should be told."""
+    loaded = _layers()
+    assert tool_docs.rules_naming(loaded)["nf-core/star"]
+
+
+def test_a_tool_no_rule_names_has_no_entry():
+    loaded = _layers()
+    assert tool_docs.rules_naming(loaded).get("nf-core/multiqc") in (None, [])
+
+
+def test_the_page_shows_both_cross_references():
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/star", tools["nf-core/star"], loaded)
+    assert "genome.index.star" in page
+    assert "Types only this tool produces" in page
+    assert "Rules that select this tool" in page
+
+
+def test_a_tool_owning_no_type_says_none_rather_than_omitting_the_section():
+    """A missing section reads as a generator that forgot. An explicit 'None.' is a fact."""
+    loaded = _layers()
+    tools = tool_docs.tools_of(loaded.registry)
+    page = tool_docs.render("nf-core/fastqc", tools["nf-core/fastqc"], loaded)
+    assert "Types only this tool produces" in page
