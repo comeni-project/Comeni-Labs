@@ -46,7 +46,7 @@ the order.
 | 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
 | 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **complete, and the last audit-driven plan** (decided 2026-08-13). Closed A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues |
 | 13 | `../audits/2026-08-14-design-audit-brief.md` | **The design audit — next.** Not like rounds one to four: does the *design* deliver the claim, rather than does the code match the design. Brief written; not yet run |
-| 14 | `2026-08-02-mendel-ai-and-forge.md` + `2026-08-13-plan-2-corrections.md` | Plan 2 — after it. **The corrections are the rewrite** the line below demanded: six verified against the Plan 1.12 tree, and two things expected stale that are not. Read them first |
+| 14 | `2026-08-02-mendel-ai-and-forge.md` + `2026-08-13-plan-2-corrections.md` | Plan 2 — **being redesigned, not executed** (operator's decision, 2026-08-17). The corrections were verified against the Plan 1.12 tree, which is fourteen merged pull requests ago, and neither document knows about `AiProvenance`, `MD0225`, `coded()`, `declares:` or the registry being a separate repository. Read [`journal/2026-08-17.md`](journal/2026-08-17.md) before either of them |
 | 15 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
 
 ### Why that order
