@@ -35,7 +35,12 @@ class NfCoreSource:
         module_dir = root / "modules" / "nf-core" / ref.ident
         main_nf = module_dir / "main.nf"
         spec = ModuleSpec.parse(main_nf)
-        at = str(main_nf)
+        # **Relative to the source root, never absolute.** An absolute locator carries the
+        # machine it was read on into every draft and every golden file — the same defect
+        # issue #46 found in `digest_of_directory`, where walking `.git` made a layer digest
+        # depend on the checkout path while `make verify` stayed green. A locator has to name
+        # a file a reviewer on another machine can open.
+        at = str(main_nf.relative_to(root))
 
         def fact(value: object) -> Fact:
             return Fact(
@@ -58,11 +63,11 @@ class NfCoreSource:
             facts["documented_inputs"] = fact([d.name for d in spec.documented])
 
         return Observation(
-            source=self.name, ref_id=str(ref), facts=facts, prose=_prose(module_dir)
+            source=self.name, ref_id=str(ref), facts=facts, prose=_prose(module_dir, root)
         )
 
 
-def _prose(module_dir: Path) -> list[Excerpt]:
+def _prose(module_dir: Path, root: Path) -> list[Excerpt]:
     """`meta.yml` is a scaffold, not a contract — it declares outputs as `type: file` with a
     filename pattern. Its English is still the best evidence a reviewer has for what a port
     *means*, which is exactly the judgement a hole asks for."""
@@ -72,13 +77,14 @@ def _prose(module_dir: Path) -> list[Excerpt]:
     data = yaml_strict.load(meta)
     if not isinstance(data, dict):
         return []
+    at = meta.relative_to(root)
     found = []
     if isinstance(data.get("description"), str):
-        found.append(Excerpt(locator=f"{meta}:description", text=data["description"]))
+        found.append(Excerpt(locator=f"{at}:description", text=data["description"]))
     for key in ("input", "output"):
         entry = data.get(key)
         if entry is not None:
-            found.append(Excerpt(locator=f"{meta}:{key}", text=str(entry)))
+            found.append(Excerpt(locator=f"{at}:{key}", text=str(entry)))
     return found
 
 

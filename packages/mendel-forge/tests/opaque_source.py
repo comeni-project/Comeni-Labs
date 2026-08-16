@@ -29,7 +29,9 @@ class OpaqueSource:
     def ingest(self, ref: ToolRef, root: Path) -> Observation:
         path = root / "tools" / ref.ident / "tool.yml"
         data = yaml_strict.load(path)
-        at = str(path)
+        # Relative, for the reason nfcore.py gives: an absolute locator carries the
+        # machine it was read on into every draft.
+        at = str(path.relative_to(root))
         facts = {}
         if isinstance(data, dict) and isinstance(data.get("container"), str):
             facts["container"] = Fact(
