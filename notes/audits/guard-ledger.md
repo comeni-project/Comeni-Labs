@@ -2285,3 +2285,44 @@ having: the orphan case is the direction nothing else catches. A contract is del
 is not, and the page goes on documenting a tool the registry no longer ships. Stale and missing
 pages are both caught by the `wrong` list, so a single blunt revert would not have told the two
 apart.
+
+## comeni-registry#2, 2026-08-16 — a layer's files, judged relative to the layer
+
+**Guard:** `packages/comeni-core/tests/test_layer_file_identity.py`.
+
+**Reverted:** `_declared`'s `path.relative_to(root).parts` back to `path.parts` — the absolute
+frame of reference it shipped with in `920fa2a`.
+
+**What happened:** four failed, and the messages name the defect rather than a helper:
+
+```
+E  AssertionError: assert 0 == 37
+E   +  where 0 = len([]) = declared_entries(PosixPath('…/.worktrees/some-plan/registry'))
+E   +  and  37 = declared_entries(PosixPath('…/plain/registry'))
+
+E  AssertionError: assert 'sha256:e3b0c...5991b7852b855' == 'sha256:32b33...ac4517844e935'
+```
+
+`e3b0c442…b855` is the SHA-256 of **the empty string**.
+
+**Why it was invisible.** Every file in a layer under `.worktrees/` has a dot-prefixed ancestor
+*somewhere above it*, so the filter matched all of them and the layer contained nothing. Hashing
+nothing succeeds, so the digest was wrong in the silent direction (A67) rather than raising.
+`CLAUDE.md` requires plans to execute in `.worktrees/`, so **every pipeline built the sanctioned
+way pinned its layer to the empty digest**, and `make verify` was green throughout because
+nothing compares a digest across two locations.
+
+**This is the third appearance of one bug.** `test_architecture.py`'s first version filtered on
+absolute path parts and skipped the whole repository. `make drift`'s `REGISTRY ?= ../comeni-registry`
+resolved into `.worktrees/` and printed "skipped". Both are recorded above. This is the same
+mistake in *production* code, and it also re-opened issue #46's machine-dependent layer digest by
+a different route.
+
+**Found by Task 6 of comeni-registry#2**, because `comeni-registry` is the first layer to carry
+CI of its own — `.github/workflows/ci.yml` was read as a contract and refused with `MD0010`,
+which is the *other* half of the same disagreement: `_files` had no dot-exclusion at all while
+`declared_entries` had a broken one. One predicate now, so there is one answer to "what are a
+layer's files".
+
+**No published digest moves.** A layer at an ordinary path digested `32b33d94…` before this
+change and does so after; only dot-directory checkouts were ever wrong.

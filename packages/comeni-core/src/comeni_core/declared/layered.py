@@ -63,29 +63,44 @@ def declared_entries(path: Path) -> list[Path]:
     """
     if not path.is_dir():
         return []
-    found = [p for p in path.rglob("*") if p.is_symlink() or (p.is_file() and _declared(p))]
+    found = [
+        p for p in path.rglob("*") if p.is_symlink() or (p.is_file() and _declared(p, path))
+    ]
     return found
 
 
 _DECLARED_SUFFIXES = (".yml", ".yaml")
 
 
-def _declared(path: Path) -> bool:
+def _declared(path: Path, root: Path) -> bool:
     """Is this file part of the layer's declared data, or something git left beside it?
 
-    The allowlist is now *by extension* rather than by directory, because a layer no longer has
+    The allowlist is *by extension* rather than by directory, because a layer no longer has
     kind directories to enumerate (comeni-registry#1). What it must still exclude is what issue
     #46 found: a submodule's `.git` file holds
     `gitdir: …/worktrees/<name>/modules/registry`, which names the checkout and made the layer
     digest **machine-dependent**. `LICENSE` and `README.md` are the same class — real files a
     layer repository carries that are not layer data.
+
+    **Judged relative to `root`, and that is the whole of this signature.** The first version
+    read `path.parts` on an absolute path, so a layer checked out under `.worktrees/`,
+    `.cache/` or `~/.local/` contained *nothing* — every file has a dot-prefixed ancestor
+    somewhere above it. The layer digest became the SHA-256 of the empty string, and
+    `CLAUDE.md` requires plans to execute in `.worktrees/`, so it fired on the sanctioned
+    workflow while `make verify` stayed green.
+
+    That is `test_architecture.py`'s own bug — a filter on absolute path parts matching the
+    whole tree — arriving in production code, and issue #46's machine-dependent digest
+    arriving a second time by a different route. Where a layer sits cannot decide what it
+    contains.
     """
-    if any(part.startswith(".") for part in path.parts):
+    if any(part.startswith(".") for part in path.relative_to(root).parts):
         # `.git`, `.github`, `.gitlab-ci` — metadata a layer repository carries, by a
         # convention every tool shares. Issue #46 found the `.git` case the expensive way: a
         # submodule's `.git` file holds `gitdir: …/worktrees/<name>/modules/registry`, so
-        # hashing it made the layer digest machine-dependent. `.github/ci.yml` is the same
-        # thing wearing a `.yml`, and it is what caught this.
+        # hashing it made the layer digest machine-dependent. `.github/workflows/ci.yml` is
+        # the same thing wearing a `.yml`, and `comeni-registry` is the first layer to have
+        # one — which is what caught the absolute-path version of this check.
         return False
     return path.suffix in _DECLARED_SUFFIXES or path.name == MANIFEST
 
@@ -267,14 +282,22 @@ def _nested_layers(root: Path) -> list[Path]:
 
 
 def _files(directory: Path) -> list[Path]:
-    """Every declared-data file under a subdirectory, recursively, in a stable order.
+    """Every declared-data file in a layer, recursively, in a stable order.
 
     **Recursive, and both extensions.** Three of the four loaders globbed one level and all
     four matched `*.yml` only, so a nested vocabulary and a contract named `.yaml` were both
     invisible while still being hashed into the layer digest — an overlay that did nothing
     looked exactly like one that worked (A26).
+
+    **`_declared` decides, so the loader and the digest cannot disagree.** They did: this
+    globbed `*.yml` with no dot-exclusion while `declared_entries` had one, so a layer
+    repository's own `.github/workflows/ci.yml` was hashed by neither and *loaded* by this —
+    refused as a contract with `MD0010`. `comeni-registry` is the first layer to carry CI of
+    its own, and it found this on the first run. There is one answer to "what are a layer's
+    files" now, which is what invariant 11 already claimed.
     """
-    return sorted({*directory.rglob("*.yml"), *directory.rglob("*.yaml")})
+    found = {*directory.rglob("*.yml"), *directory.rglob("*.yaml")}
+    return sorted(p for p in found if _declared(p, directory))
 
 
 
