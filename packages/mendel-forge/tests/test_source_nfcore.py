@@ -18,7 +18,10 @@ def test_discover_finds_every_vendored_module():
 def test_ingest_derives_the_process_name_with_evidence():
     obs = NfCoreSource().ingest(ToolRef.parse("nf-core:fastqc"), VENDOR)
     assert obs.fact("process") == "FASTQC"
-    assert obs.facts["process"].evidence.locator.endswith("main.nf")
+    # `main.nf:1`, not `main.nf`. Phase 1 asserted the file and Phase 2 made it the file and
+    # the line, so this assertion moved to the stronger property rather than being loosened.
+    assert obs.facts["process"].evidence.locator.startswith("modules/nf-core/fastqc/main.nf:")
+    assert obs.facts["process"].evidence.text == "process FASTQC {"
 
 
 def test_ingest_derives_the_container_the_module_actually_declares():

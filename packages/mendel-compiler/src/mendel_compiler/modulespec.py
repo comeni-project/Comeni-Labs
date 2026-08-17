@@ -151,6 +151,14 @@ def _positions(
         match = pattern.search(source)
         if match is not None:
             found[key] = _line_of(source, match.start())
+            if match.re.groups and key in ("inputs", "outputs"):
+                # **The block's last line, so a citation can quote what it declares.**
+                # `input:` and `output:` are headers; the declarations under them are the
+                # evidence. A citation reading `text: "output:"` names a real line and still
+                # teaches a reader nothing, which is the defect this whole field exists to fix.
+                # `end(1)` is the end of the block's *content* — `end()` would run into the
+                # `script:` line the pattern uses as a terminator.
+                found[f"{key}.end"] = _line_of(source, match.end(1) - 1)
 
     for key, needle in (
         ("reads_ext_args", "task.ext.args"),
