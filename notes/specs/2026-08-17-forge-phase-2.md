@@ -231,6 +231,13 @@ Both fit `generate` without a new surface: the rule format already has a validat
 body** — it has no shape to validate against, which is exactly why `MF0005` refuses it and why §8
 calls it the load-bearing refusal. That is the real boundary, and it is a defensible one.
 
+**This surface is a first version, and is expected to move once a model is live** (operator,
+2026-08-17). What a model is actually bad at is learned by watching it work, not by reasoning
+about it beforehand — so `generate`'s shape, the helpers over it, and the cap in §4.3.1 are all
+things to revisit with real drafts in hand rather than to settle harder now. The thing that
+should *not* move without an argument is the boundary itself: output validated against a declared
+shape, and no shape means no fill.
+
 ### 4.3.1 What the guard is, and what it is not
 
 **Cost-raising, not a proof** — the same claim invariant 1 makes about purity, in the same words,
