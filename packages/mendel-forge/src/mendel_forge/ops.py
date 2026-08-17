@@ -21,14 +21,15 @@ from comeni_core.diagnostics import coded
 from mendel_ai.access import ModelAccess
 from mendel_ai.client import Client
 from mendel_resolver import layers
+from mendel_resolver.layers import Layers
 from pydantic import BaseModel, ConfigDict
 
-from mendel_forge import assemble, modulegen, sources
+from mendel_forge import assemble, candidates, modulegen, sources
 from mendel_forge.filler import ModelFiller
 from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
 from mendel_forge.ports import HoleFiller
-from mendel_forge.scaffold import FilledValue, Filler, Hole
+from mendel_forge.scaffold import FilledValue, Filler, Hole, Proposal, Scaffold
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
 from mendel_forge.verify import verify as _run_verify
@@ -132,6 +133,9 @@ class ModelFillRequest(BaseModel):
     model: str
     api_key: str | None = None
     base_url: str | None = None
+    registry_root: Path | None = None
+    """Needed to recompute a dependent hole's candidates once what it depends on is filled.
+    `None` skips that, which leaves a name hole with only the module's channel names."""
 
 
 class ModelFillOutcome(BaseModel):
@@ -141,6 +145,10 @@ class ModelFillOutcome(BaseModel):
     filled: bool
     value: Any | None = None
     why: str | None = None
+    proposed_id: str | None = None
+    """Set when the model answered *nothing declared fits, and here is what would*. The hole
+    stays open — a proposal is not a fill. See `notes/specs/2026-08-17-vocabulary-proposals.md`."""
+    proposed_description: str | None = None
     declined_because: str | None = None
     """Why a hole was not filled. **Never `None` when `filled` is false** — a hole nobody
     attempted must not look like a hole that does not exist, and 'it has no candidates' and
@@ -225,6 +233,27 @@ def fill(req: FillRequest) -> FillResult:
     )
 
 
+def _with_fresh_candidates(hole: Hole, scaffold: Scaffold, stack: "Layers | None") -> Hole:
+    """Recompute a dependent hole's candidates now that what it depends on is settled.
+
+    Holes were independent and never should have been: a port's name comes from its type, so
+    asking both from the same fixed candidate list produced a model that answered `gtf` for one
+    and `genome.index.hisat2` for the other — the same port, contradicted across two calls.
+    """
+    if hole.after is None or stack is None:
+        return hole
+    settled = scaffold.filled.get(hole.after)
+    if settled is None:
+        return hole
+    return hole.model_copy(
+        update={
+            "candidates": candidates.for_field(
+                hole.field, stack, type_id=str(settled.value), channels=hole.channels
+            )
+        }
+    )
+
+
 def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> ModelFillResult:
     """Attempt each hole, persisting after each one.
 
@@ -248,10 +277,33 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
     targets = [h for h in found.scaffold.holes if req.field is None or h.field == req.field]
     if req.field is not None and not targets:
         raise ValueError(coded("MF0002", f"{req.field} is not a hole in {req.name}"))
+    # **Dependencies first.** A port's name candidates come from its type, so a hole carrying
+    # `after` must be asked once that field is settled — otherwise its right answer may not be
+    # among the candidates at all, which is how `multiqc` was offered one option and it was
+    # wrong. Stable within each group, so the order stays deterministic.
+    targets = sorted(targets, key=lambda h: h.after is not None)
+    stack = layers.load(req.registry_root) if req.registry_root else None
 
     outcomes: list[ModelFillOutcome] = []
     for hole in targets:
+        hole = _with_fresh_candidates(hole, found.scaffold, stack)
         answer = filler.fill(hole, found.scaffold.observation)
+        if isinstance(answer, Proposal):
+            found = found.model_copy(
+                update={"scaffold": found.scaffold.propose(hole.field, answer)}
+            )
+            workspace.save(found)
+            outcomes.append(
+                ModelFillOutcome(
+                    field=hole.field,
+                    filled=False,
+                    proposed_id=answer.id,
+                    proposed_description=answer.description,
+                    why=answer.why,
+                    declined_because="nothing declared fits; a new entry is proposed",
+                )
+            )
+            continue
         if answer is None:
             outcomes.append(
                 ModelFillOutcome(

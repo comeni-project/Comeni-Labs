@@ -17,7 +17,7 @@ and routing a model's answer through it means one rule rather than two that drif
 """
 
 from comeni_core.diagnostics import coded
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mendel_ai.client import Client
 
@@ -100,3 +100,103 @@ def choose_many(
         client.last_refusal = coded("MA0005", f"{outside!r} were not offered")
         return None
     return answer
+
+
+class Chosen(BaseModel):
+    """One of the options was right."""
+
+    model_config = _NO_EXTRAS
+
+    value: str
+    why: str = Field(max_length=WHY_LIMIT)
+
+
+class Proposed(BaseModel):
+    """None of the options fitted, and here is what would.
+
+    **This is the one place a model invents rather than selects**, and it is deliberate: the
+    alternative is a wrong pick, and a wrong pick is worse than a blank because a blank is
+    visible to a reviewer. Spec §3.1.
+
+    `description` is capped for the same reason `why` is — it is free text reaching declared
+    data, and a cap makes it the wrong shape for anything larger than a definition.
+    """
+
+    model_config = _NO_EXTRAS
+
+    id: str
+    description: str = Field(max_length=WHY_LIMIT)
+    why: str = Field(max_length=WHY_LIMIT)
+
+
+class _Answer(BaseModel):
+    """What the model is asked for: a choice **or** a proposal, never both.
+
+    Modelled as one shape with two optional halves rather than a union, because a JSON Schema a
+    small model can follow is worth more here than a tidy type — and the validator makes the
+    exclusivity real either way.
+    """
+
+    model_config = _NO_EXTRAS
+
+    value: str | None = None
+    """One of the offered options, or null when nothing fitted."""
+    proposed_id: str | None = None
+    """A new entry to declare, when and only when `value` is null."""
+    proposed_description: str | None = None
+    why: str = Field(max_length=WHY_LIMIT)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "_Answer":
+        chose = self.value is not None
+        proposed = self.proposed_id is not None
+        if chose and proposed:
+            raise ValueError("answer both chose an option and proposed a new one")
+        if not chose and not proposed:
+            raise ValueError("answer neither chose an option nor proposed a new one")
+        if proposed and not self.proposed_description:
+            raise ValueError("a proposal must say what the thing it proposes is")
+        return self
+
+
+def choose_or_propose(
+    client: Client,
+    question: str,
+    options: list[Option],
+    evidence: list[str],
+    *,
+    proposing: str,
+) -> Chosen | Proposed | None:
+    """One of `options`, or a proposal for a new one, or `None`.
+
+    **A sibling of `choose_one` rather than a replacement.** The tier-4 ambiguity resolver
+    (Plan 3) wants the strict form — an ambiguity is a choice between contracts that exist, and
+    nothing there should be able to invent a candidate. Widening `choose_one` would hand it a
+    path it has no use for.
+
+    `proposing` names the kind of thing a proposal would be — "a declared type" — because a
+    model asked to invent needs to know what it is inventing.
+    """
+    if not options:
+        return None
+    asked = "\n\n".join(
+        [
+            _question(question, options),
+            f"If none of them fits, leave `value` null and propose {proposing} instead: "
+            f"give `proposed_id` and `proposed_description`. Prefer an option when one fits — "
+            f"propose only when none does.",
+        ]
+    )
+    answer = client.generate(asked, _Answer, evidence)
+    if answer is None:
+        return None
+    if answer.value is not None:
+        if answer.value not in {o.value for o in options}:
+            client.last_refusal = coded("MA0005", f"{answer.value!r} was not offered")
+            return None
+        return Chosen(value=answer.value, why=answer.why)
+    return Proposed(
+        id=answer.proposed_id or "",
+        description=answer.proposed_description or "",
+        why=answer.why,
+    )

@@ -177,7 +177,7 @@
       "candidates": [
         {
           "value": "reads",
-          "note": "channel 0 in main.nf"
+          "note": "the module's channel name"
         }
       ],
       "evidence": [
@@ -189,6 +189,10 @@
           "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
+      ],
+      "after": "consumes[0].type_id",
+      "channels": [
+        "reads"
       ]
     },
     {
@@ -294,7 +298,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "priority_because",
@@ -322,7 +328,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[0].type_id",
@@ -427,7 +435,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.html",
           "text": "*.html: FastQC report — *_{fastqc.html}"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[1].type_id",
@@ -532,7 +542,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[2].type_id",
@@ -637,7 +649,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "roles",
@@ -702,7 +716,10 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     }
-  ]
+  ],
+  "proposed": {}
 }

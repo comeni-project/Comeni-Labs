@@ -15,11 +15,11 @@ two that drift.
 `ports.py`'s point and the reason the return type has always been optional.
 """
 
-from mendel_ai.choice import Option, choose_many, choose_one
+from mendel_ai.choice import Option, Proposed, choose_many, choose_one, choose_or_propose
 from mendel_ai.client import Client
 
 from mendel_forge.observe import Observation
-from mendel_forge.scaffold import FilledValue, Filler, Hole
+from mendel_forge.scaffold import FilledValue, Filler, Hole, Proposal
 
 _LIST_VALUED = ("roles",)
 """Fields holding several members of one closed set.
@@ -30,6 +30,23 @@ why they need `choose_many` rather than `choose_one`.
 """
 
 _LIST_SUFFIXES = ("state", "state_required")
+
+_MAY_PROPOSE = ("type_id",)
+"""Fields whose answer may legitimately not exist yet.
+
+**Only `type_id` for now**, because that is where the failure was measured and because it is a
+single-valued choice from a closed vocabulary — the shape `choose_or_propose` handles. `roles`
+is also a closed vocabulary and a new role is also proposable, but it is list-valued and
+"propose one member of a set while choosing others" is a different question that nothing has
+asked yet. Widening this is a change with a measurement behind it, not a guess.
+
+A port *name* is deliberately absent: it is not a vocabulary, and since its candidates now come
+from the type_id there is always a reachable right answer.
+"""
+
+
+def _may_propose(field: str) -> bool:
+    return field.rsplit(".", 1)[-1] in _MAY_PROPOSE
 
 
 def _is_list_valued(field: str) -> bool:
@@ -44,7 +61,7 @@ class ModelFiller:
         self.client = client
         self.model_id = model_id
 
-    def fill(self, hole: Hole, observation: Observation) -> FilledValue | None:
+    def fill(self, hole: Hole, observation: Observation) -> FilledValue | Proposal | None:
         if not hole.candidates:
             return None
 
@@ -72,7 +89,26 @@ class ModelFiller:
             )
 
         value: object
-        if _is_list_valued(hole.field):
+        if _may_propose(hole.field):
+            # **The one hole where "none of these" is a real answer.** A type_id is chosen from
+            # a closed vocabulary, and for a tool nobody has written a contract for the right
+            # type routinely does not exist yet — `star/align` emits nineteen channels and the
+            # vocabulary can type one of them. Forcing a pick there produces a wrong type, and a
+            # wrong type routes. Spec §3.1.
+            answered = choose_or_propose(
+                self.client, question, options, evidence, proposing="a new declared type"
+            )
+            if answered is None:
+                return None
+            if isinstance(answered, Proposed):
+                return Proposal(
+                    id=answered.id,
+                    description=answered.description,
+                    why=answered.why,
+                    by=self.model_id,
+                )
+            value, why = answered.value, answered.why
+        elif _is_list_valued(hole.field):
             many = choose_many(self.client, question, options, evidence)
             if many is None:
                 return None

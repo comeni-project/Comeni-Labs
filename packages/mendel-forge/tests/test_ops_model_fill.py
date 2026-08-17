@@ -149,3 +149,59 @@ def test_the_declined_reason_distinguishes_prose_from_a_refusal(workspace: Path)
     result = ops.fill_with_model(_request(workspace), filler=Always())
     prose = next(o for o in result.outcomes if o.field == "priority_because")
     assert "free text" in (prose.declined_because or "")
+
+
+class ProposesFor:
+    """Proposes for one field, declines everything else."""
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+
+    def fill(self, hole: Hole, observation: Observation):
+        from mendel_forge.scaffold import Proposal
+
+        if hole.field != self.field:
+            return None
+        return Proposal(
+            id="star.log", description="a STAR run log", why="nothing fits", by="test/model"
+        )
+
+
+def test_a_proposal_is_persisted_and_the_hole_stays_open(workspace: Path) -> None:
+    """A proposal is not a fill. `is_complete()` stays false and the draft cannot land,
+    because a contract citing an undeclared type is the load-time refusal invariant 7 makes."""
+    field = "produces[0].type_id"
+    result = ops.fill_with_model(_request(workspace), filler=ProposesFor(field))
+    found = Workspace(root=workspace).load("fastqc")
+
+    assert found.scaffold.proposed[field].id == "star.log"
+    assert field not in found.scaffold.filled
+    assert found.scaffold.hole(field) is not None
+    assert not found.scaffold.is_complete()
+
+    outcome = next(o for o in result.outcomes if o.field == field)
+    assert outcome.filled is False
+    assert outcome.proposed_id == "star.log"
+    assert "new entry is proposed" in (outcome.declined_because or "")
+
+
+def test_landing_a_draft_with_a_proposal_says_what_it_wants(workspace: Path) -> None:
+    from mendel_forge import assemble
+
+    ops.fill_with_model(_request(workspace), filler=ProposesFor("produces[0].type_id"))
+    found = Workspace(root=workspace).load("fastqc")
+    with pytest.raises(ValueError) as raised:
+        assemble.to_yaml(found.scaffold, approved_by="me", approved_at="2026-08-17")
+    assert "MF0004" in str(raised.value)
+    assert "star.log" in str(raised.value)
+
+
+def test_a_proposal_for_a_field_that_is_not_a_hole_is_refused(workspace: Path) -> None:
+    found = Workspace(root=workspace).load("fastqc")
+    from mendel_forge.scaffold import Proposal
+
+    with pytest.raises(ValueError) as raised:
+        found.scaffold.propose(
+            "not_a_field", Proposal(id="x", description="d", why="w", by="m")
+        )
+    assert "MF0002" in str(raised.value)

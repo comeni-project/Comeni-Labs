@@ -20,7 +20,7 @@ from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
 from mendel_forge.observe import Excerpt, Observation
-from mendel_forge.scaffold import Candidate, FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import FilledValue, Filler, Hole, Scaffold
 
 _WHY_OPEN = {
     "roles": (
@@ -154,10 +154,16 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 f"{index} — the module calls it {', '.join(slot)}",
                 why_open="a port name says what the channel carries; the module's says what "
                 "the process calls it, and the two are not the same choice",
-                candidates=[
-                    Candidate(value=name, note=f"channel {index} in main.nf") for name in offered
-                ],
+                candidates=candidates.for_field(
+                    f"consumes[{index}].name", stack, channels=tuple(offered)
+                ),
                 evidence=_evidence_for(obs, offered[0] if offered else None),
+                # **Answered after its type, and its candidates recomputed then.** Twenty-four
+                # of thirty shipped ports are named after a segment of their own type_id, so
+                # until the type is known the right answer may not be offerable at all — which
+                # is exactly how `multiqc` came to be handed one candidate and it was wrong.
+                after=f"consumes[{index}].type_id",
+                channels=tuple(offered),
             )
         )
         # **Name the channel in the question.** `consumes[1]` is an index, and an index is not
@@ -248,10 +254,22 @@ def _require_complete(scaffold: Scaffold) -> None:
     if scaffold.is_complete():
         return
     open_fields = ", ".join(h.field for h in sorted(scaffold.holes, key=lambda h: h.field))
-    raise ValueError(
+    message = (
         coded("MF0004", f"{scaffold.target} has {len(scaffold.holes)} open hole(s)")
         + f"\n  open: {open_fields}"
     )
+    if scaffold.proposed:
+        # **A proposal is why a hole is open, not a reason it is closed.** Saying so here is
+        # the difference between "somebody has not looked at this" and "the vocabulary cannot
+        # express it and here is what it would take" — different work, different reviewer.
+        wanted = ", ".join(
+            f"{field} wants {p.id!r}" for field, p in sorted(scaffold.proposed.items())
+        )
+        message += (
+            f"\n  {len(scaffold.proposed)} of them propose a new declared entry: {wanted}"
+            "\n  approve the entry into the registry first, then fill the hole with it"
+        )
+    raise ValueError(message)
 
 
 def _drafted_by(scaffold: Scaffold) -> str:
