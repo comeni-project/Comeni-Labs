@@ -986,6 +986,7 @@ version = "0.1.0"
 source = { editable = "packages/mendel-forge" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "mendel-ai" },
     { name = "mendel-compiler" },
     { name = "mendel-resolver" },
     { name = "pydantic" },
@@ -1001,6 +1002,7 @@ http = [
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.115" },
+    { name = "mendel-ai", editable = "packages/mendel-ai" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
