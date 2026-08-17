@@ -118,7 +118,7 @@ CLOSED_PACKAGES = {
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
-IMPURE_PACKAGES: list[str] = ["mendel-forge"]
+IMPURE_PACKAGES: list[str] = ["mendel-forge", "mendel-ai"]
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
 
@@ -126,9 +126,11 @@ decision rather than an omission.
 three packages and this is not one of them — the arrow points mendel-forge -> the pure
 packages, and `test_no_pure_package_imports_an_impure_one` is what holds that direction.
 
-`mendel-ai` and `mendel-api` are still absent, and are deliberately *not* listed ahead of
-time: a name in a classification list that matches no directory is a guard nobody is
-running, and `test_every_package_is_classified` refuses that too.
+`mendel-ai` arrived with forge Phase 2 and is where the network lives — it is the package
+the purity guards exist to keep the pure three away from. `mendel-api` is still absent, and
+is deliberately *not* listed ahead of time: a name in a classification list that matches no
+directory is a guard nobody is running, and `test_every_package_is_classified` refuses that
+too.
 
 A67, issue #31: the scan globs `packages/<name>/src`, and a missing directory yields nothing
 while the assertion runs over an empty list — so a package intended pure but renamed carries
