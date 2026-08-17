@@ -3657,3 +3657,45 @@ Run before starting, and again at Checkpoint D.
   - Task 11's skeleton is one hard-coded shape. The moment a second is needed, move to Jinja.
   - Task 13's `_routes` is the least-specified rung. If it proves noisy, narrowing it is
     legitimate — say so in the checkpoint rather than silently loosening the assertion.
+
+---
+
+## Corrections, recorded during execution (2026-08-17)
+
+Every plan in `notes/` carries these, because `notes/README.md` says to expect to correct a plan
+you are executing. Five, and the two that mattered were found by running the thing rather than
+by reading it.
+
+**Task 12 was pulled forward into Task 4.** The plan predicted that both directions of
+`tests/test_diagnostics_ownership.py` would be silently green while `MF` codes were declared and
+emitted. The blindness is **not symmetric**: `test_every_declared_code_is_emitted` compares the
+whole registry against the same `MD`-only scan, so declaring `MF0002` turned it red *falsely* —
+the code was emitted and the scan could not see it. `test_every_emitted_code_is_declared` was the
+genuinely blind one. Deferring would have left the gate red for eight tasks.
+
+**Task 9 omitted `consumes[]` holes entirely, and that is the plan's most serious error.** Its own
+self-review flagged the field as "derived weakly"; in fact it was absent, so a draft could report
+no holes and still produce a contract with zero input ports — `MD0102` at rung 4, and
+`is_complete()` false in the worst possible way. `scaffold_for` now emits one name/type_id hole
+pair per module input channel, with the module's channel names as candidates for the name. Found
+by running the loop end to end while writing the guide; every test was green, because every
+fixture was hand-written with its ports already in place.
+
+**Task 6's locators were absolute.** `str(main_nf)` put the executor's worktree path into every
+fact, making the golden file machine-dependent — the same class as issue #46. Caught by reading
+the golden file before committing it, which Task 21 explicitly instructs.
+
+**Task 4's `Hole.legal` rejected every legal answer for a list field.** `roles` candidates are
+legal *members*, not legal *values*.
+
+**`MF0008` was used twice.** Task 13's implementation notes did not name a code for an uncoded
+loader refusal; the one invented for it took `MF0008`, which Task 14 had reserved for the
+workspace. The verification fallback is `MF0009`.
+
+**Two smaller ones.** `tools/generate_diagnostics_doc.py` refuses a `concern` with no heading —
+three new headings were needed. And Task 18's `explain` test asserted on the `says:` line, which
+`explain` does not print.
+
+**One soft spot the plan flagged did not materialise.** Task 13's `_routes` was called "the
+least-specified rung" and expected to be noisy; it fires once on the shipped registry, for a
+genuine terminal output, and needed no narrowing.
