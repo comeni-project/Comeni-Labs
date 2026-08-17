@@ -1010,6 +1010,26 @@ MA0003:
     Not a refusal, because a hole nobody answered is a hole a person still sees. The
     fill that timed out is reported as declined and the draft keeps every fill made
     before it — a flaky network must not cost a draft.
+MA0006:
+  emitted_by: ai
+  concern: model-output
+  says: "the model's answer was longer than the field allows"
+  fires_on: [forge fill --model]
+  refuses: false
+  fix: |
+    Nothing — the answer is discarded whole and the hole stays open for a person. The limit
+    is in the schema the model was given, so a model that overruns was told the number and
+    did not keep to it.
+  explanation: |
+    Separated from MA0004 on purpose. "The answer did not match the shape" is true of an
+    overlong rationale and useless for it: this is the one shape violation with an obvious
+    cause, and a refusal that cannot say why it refused is a refusal somebody guesses at.
+
+    The rationale is capped because it is the one free-text field a model writes here. The
+    cap does not close that side channel — it makes it the wrong shape for the things worth
+    smuggling through it, a script body or a priority_because essay. **Refused rather than
+    truncated:** a silently shortened rationale is a reviewer reading half a sentence and not
+    knowing it.
 MA0004:
   emitted_by: ai
   concern: model-output
@@ -1263,11 +1283,27 @@ validation arm to record it:
 ```python
         try:
             return shape.model_validate_json(payload)
-        except ValidationError:
-            self.last_refusal = coded(
-                "MA0004", f"the answer did not match {shape.__name__}"
-            )
+        except ValidationError as failure:
+            self.last_refusal = _why_refused(shape, failure)
             return None
+```
+
+and add the helper below `_json_in`:
+
+```python
+def _why_refused(shape: type[BaseModel], failure: ValidationError) -> str:
+    """Which shape violation, not merely that there was one.
+
+    **A refusal that cannot say why it refused is a refusal somebody guesses at.** An overlong
+    rationale is the one violation with an obvious cause and an obvious fix, so it gets its own
+    code; reading Pydantic's own error types rather than checking a field by name means any
+    capped field in any shape reports itself, not just the one this was written for.
+    """
+    too_long = [e for e in failure.errors() if e["type"] == "string_too_long"]
+    if too_long:
+        fields = ", ".join(".".join(str(part) for part in e["loc"]) for e in too_long)
+        return coded("MA0006", f"{fields} was longer than the field allows")
+    return coded("MA0004", f"the answer did not match {shape.__name__}")
 ```
 
 and initialise `self.last_refusal: str | None = None` in `__init__`, with a docstring:
@@ -1281,10 +1317,44 @@ and initialise `self.last_refusal: str | None = None` in `__init__`, with a docs
 Add a test for it in `test_generate.py`:
 
 ```python
+import json
+
+from pydantic import Field
+
+
+class Capped(BaseModel):
+    value: str
+    why: str = Field(max_length=500)
+
+
 def test_a_shape_mismatch_is_reported_with_its_code() -> None:
     client = Client(ACCESS, transport=Fixed('{"value": "qc"}'))
     assert client.generate("pick one", Answer, []) is None
     assert "MA0004" in (client.last_refusal or "")
+
+
+def test_an_overlong_field_is_refused_with_its_own_code() -> None:
+    """Not MA0004. The one shape violation with an obvious cause says so."""
+    body = json.dumps({"value": "qc", "why": "x" * 5000})
+    client = Client(ACCESS, transport=Fixed(body))
+    assert client.generate("pick one", Capped, []) is None
+    assert "MA0006" in (client.last_refusal or "")
+    assert "MA0004" not in (client.last_refusal or "")
+
+
+def test_the_overlong_refusal_names_the_field() -> None:
+    """A code alone does not tell a reader which field overran."""
+    body = json.dumps({"value": "qc", "why": "x" * 5000})
+    client = Client(ACCESS, transport=Fixed(body))
+    client.generate("pick one", Capped, [])
+    assert "why" in (client.last_refusal or "")
+
+
+def test_the_declared_limit_reaches_the_prompt() -> None:
+    """A model told the number can keep to it; one punished for not guessing cannot."""
+    transport = Fixed('{"value": "qc", "why": "w"}')
+    Client(ACCESS, transport=transport).generate("pick one", Capped, [])
+    assert "500" in transport.prompts[0]
 ```
 
 - [ ] **Step 6: Run the tests**
@@ -1382,7 +1452,7 @@ can be checked mechanically, and it is why the forge attempts candidate-bearing 
 """
 
 from mendel_ai.access import ModelAccess
-from mendel_ai.choice import Choice, Choices, Option, choose_many, choose_one
+from mendel_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
 from mendel_ai.client import Client
 
 ACCESS = ModelAccess(model="test/model")
@@ -1447,6 +1517,25 @@ def test_a_declined_generate_stays_declined() -> None:
     assert choose_one(_client("not json at all"), "which role?", OPTIONS, []) is None
 
 
+def test_an_overlong_rationale_is_refused_whole() -> None:
+    """Refused rather than truncated: a shortened rationale is half a sentence a reviewer
+    reads without knowing it was shortened."""
+    import json
+
+    body = json.dumps({"value": "qc_per_sample", "why": "x" * (WHY_LIMIT + 1)})
+    client = _client(body)
+    assert choose_one(client, "which role?", OPTIONS, []) is None
+    assert "MA0006" in (client.last_refusal or "")
+
+
+def test_a_rationale_at_the_limit_is_accepted() -> None:
+    """An off-by-one here silently costs every long-but-legal answer."""
+    import json
+
+    body = json.dumps({"value": "qc_per_sample", "why": "x" * WHY_LIMIT})
+    assert choose_one(_client(body), "which role?", OPTIONS, []) is not None
+
+
 def test_no_options_is_none_rather_than_a_free_answer() -> None:
     """A hole with no candidates is free text, and #70 gates it. Asking anyway would be the
     one thing this design says it does not do."""
@@ -1483,7 +1572,7 @@ and routing a model's answer through it means one rule rather than two that drif
 """
 
 from comeni_core.diagnostics import coded
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_ai.client import Client
 
@@ -1498,11 +1587,25 @@ class Option(BaseModel):
     """Where this option is declared, so the answer can cite something a reviewer can check."""
 
 
+WHY_LIMIT = 500
+"""How long a rationale may be.
+
+A sentence or two. **This is the only free-text field a model writes in this package**, and the
+cap is what makes it the wrong shape for the things worth smuggling through it — a module's
+script body, or a `priority_because` essay. It does not close the side channel and is not sold as
+doing so (spec §4.3.1).
+
+A first number, expected to move once there are real drafts to look at. `MA0006` is what a reader
+sees when it bites, so moving it is a decision somebody makes with evidence rather than a silence
+somebody discovers.
+"""
+
+
 class Choice(BaseModel):
     model_config = _NO_EXTRAS
 
     value: str
-    why: str
+    why: str = Field(max_length=WHY_LIMIT)
 
 
 class Choices(BaseModel):
@@ -1510,7 +1613,7 @@ class Choices(BaseModel):
 
     values: list[str]
     """May be empty. 'None of these' is a real answer to a closed choice."""
-    why: str
+    why: str = Field(max_length=WHY_LIMIT)
 
 
 def _question(question: str, options: list[Option]) -> str:
@@ -2941,7 +3044,18 @@ attempts and what it will not, that a declined hole is a hole a person answers, 
 **Use output you actually saw.** Phase 1's guide is written from real runs, and writing this one
 from real runs is what found two of that phase's five corrections.
 
-- [ ] **Step 7: Check links and commit**
+- [ ] **Step 7: `CLAUDE.md`'s protection-profile table**
+
+The table's own line says *"Never configurable at any level: the four doors, typed payloads, an
+`EgressRecord` per crossing, tier 4 always flagged…"*. Add, immediately below it:
+
+> **None of this is implemented yet, and saying so is the point** — see
+> [#71](https://github.com/comeni-project/Comeni-Labs/issues/71). Every row above describes a
+> subsystem that does not exist: the prompt door, compiler repair and tier-4 resolution are all
+> Plan 3 or later. The profiles govern the **build path**; offline authoring in `mendel-forge` is
+> outside them, for the same reason it is not a fifth egress door.
+
+- [ ] **Step 8: Check links and commit**
 
 ```bash
 make links
@@ -3037,27 +3151,38 @@ Run against the spec after the plan is written, before execution starts.
 | §3.3 `ModuleSpec` line numbers first | 1, 2 |
 | §3.4 `mendel-ai` holds the client | 3–7 |
 | §3.5 `forge fill --model` | 10 |
-| §3.6 `sealed` makes no model call | **gap — see below** |
+| §3.6 `sealed` does not reach the forge | 13 (the argument), and the finding is issue #71 |
 | §4.1 dependencies and the arrow | 3 |
 | §4.2 the surface | 5, 6 |
-| §4.3, §4.3.1 the guard and its limits | 5, 6 (the cap: **gap — see below**) |
+| §4.3, §4.3.1 the guard and its limits | 5 (`MA0006` and `_why_refused`), 6 (`WHY_LIMIT`) |
 | §4.4 the three lanes | 4 |
 | §5 the forge side, §5.1 data flow | 8, 9 |
 | §6 error handling | 5, 6 |
 | §7 testing | 7 |
 | §8 the two weaknesses | 14 (recorded in the journal) |
 
-**Two gaps found, and both are recorded rather than papered over:**
+**Two gaps were found by this review, and both are now closed** — recorded here because a
+review that finds nothing is a review nobody ran.
 
-1. **§3.6 — `sealed` makes no forge model call — has no task.** The forge has no protection
-   profile plumbing at all today: nothing in `mendel_forge` reads a profile, and adding it is
-   more than a flag check. **Decision needed from the operator before execution:** either add a
-   task that plumbs a profile into `ops.fill_with_model`, or file it as an issue and let Phase 2
-   ship without it. Filing is defensible — `--model` is opt-in, so a `sealed` deployment simply
-   does not type it — but "defensible" is not "decided", and the spec asserts the behaviour.
-2. **§4.3.1's rationale-length cap has no task.** It is one field and one `MA` code, and it
-   belongs in Task 5. **Add it there before executing Task 5**, or drop the claim from the spec —
-   the spec must not describe a guard the code does not have.
+1. **§3.6 asserted a behaviour justified by the analogy §1 rejects.** It said `sealed` makes no
+   forge model call, "the profile table's logic applied straight". But a search for
+   `ProtectionProfile`, `SEALED` or `GUARDED` across every package returns **nothing** — the
+   three profiles are documented and implemented in zero lines — and every row in their table
+   describes the build path: a prompt door, a gate failure, a repair, a tier-4 decision. None is
+   about offline authoring. So a profile has nothing to say about the forge, for exactly the
+   reason it is not a fifth door. §3.6 is rewritten to argue that, Task 13 carries it into the
+   documentation, and the finding that the profiles are wholly unimplemented is
+   [#71](https://github.com/comeni-project/Comeni-Labs/issues/71) — larger than this phase, and
+   to be designed once when doors 1–3 exist to be governed.
+
+2. **§4.3.1 described a rationale cap with no task behind it.** Now `WHY_LIMIT` in Task 6, as
+   `Field(max_length=...)` on both `Choice.why` and `Choices.why` — the cap lives in the declared
+   shape, so the JSON Schema handed to the model states the limit and the model is told the
+   constraint rather than punished for not guessing it. **It gets `MA0006` rather than folding
+   into `MA0004`**: "the answer did not match the shape" is true of an overlong rationale and
+   useless for it, and a refusal that cannot say why it refused is one somebody guesses at.
+   `_why_refused` reads Pydantic's own `string_too_long` error type, so **any** capped field in
+   **any** shape reports itself correctly — not just the one it was written for.
 
 **Placeholder scan:** clean. Every code step carries the code; every test step carries the test.
 The one `render.show` step (Task 12 Step 3) gives a shape and says explicitly to match the

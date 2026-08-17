@@ -161,10 +161,37 @@ candidate-bearing hole. The documented loop stays six steps.
 `draft` stays deterministic and takes no model flag — the golden scaffold test pins its output on
 the `NoFiller` path and the two modes must stay cleanly separable.
 
-### 3.6 `sealed` makes no forge model call
+### 3.6 `sealed` does not reach the forge — corrected 2026-08-17
 
-The profile table's logic applied straight. Under `sealed` the prompt door is closed and tier 4
-blocks the build; a forge that reached a provider anyway would be the one inconsistency.
+**The first version of this section said "`sealed` makes no forge model call", justified as "the
+profile table's logic applied straight". That is the same analogy §1 rejects**, and it was caught
+by the plan's own coverage review rather than by anyone reading the section.
+
+Two facts settle it. First, **no protection-profile code exists anywhere** — a search for
+`ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, and the three
+profiles are documented in `CLAUDE.md` and `clinical-data-protection.md` and implemented in zero
+lines. Second, and the reason why: **every row in the profile table describes the build path.**
+
+| profile row | who would implement it | exists |
+|---|---|---|
+| prompt door sends / confirms / closed | goal extraction | no |
+| `GateFailure.tool_message` included / `None` | compiler repair | no |
+| repair proposes / applies | compiler repair | no |
+| tier 4 flags / blocks the build | ambiguity resolver | no |
+
+Not one row is about offline authoring. So a profile has nothing to say about the forge, for the
+same reason it is not a fifth door: **a `sealed` laboratory's concern is patient data on the
+build path, and its forge is drafting contracts from public nf-core modules.**
+
+**A laboratory that wants no model calls from an installation does not configure
+`MENDEL_MODEL`.** That is stronger than a profile check, not weaker — there is nothing to reach a
+provider *with*, rather than a check that has to be reached before it can refuse.
+
+**What this phase does instead:** files the finding that the protection profiles are wholly
+unimplemented. That is much larger than this phase, and it should be designed once when doors 1–3
+exist to be governed — not bolted onto one forge verb, which would put the first implementation
+of a cross-cutting clinical concern in the least central place in the codebase, governing the one
+subsystem it does not apply to.
 
 ---
 
@@ -258,10 +285,21 @@ guard, and that is the right direction for both.**
   `DecisionRecord.reason`, which is one of the free-text fields invariant 14 enumerates and which
   `clinical-data-protection.md` §4.2 names as model-written prose riding in a typed bundle.
 
-A rationale is capped in length and **refused rather than truncated** when a model overruns, with
-an `MA` code. A silently truncated rationale is a reviewer reading half a sentence without knowing
-it. The cap does not close the side channel; it makes it the wrong shape for the things worth
-smuggling — a script body or a `priority_because` essay.
+A rationale is capped in length and **refused rather than truncated** when a model overruns. A
+silently truncated rationale is a reviewer reading half a sentence without knowing it. The cap
+does not close the side channel; it makes it the wrong shape for the things worth smuggling — a
+script body or a `priority_because` essay.
+
+**The cap lives in the declared shape**, as `Field(max_length=...)`, which is this package's own
+principle applied to itself: the JSON Schema handed to the model states the limit, so the model
+is told the constraint rather than punished for not guessing it, and an overrun fails the same
+validation every other shape violation fails.
+
+**It gets its own diagnostic — `MA0006` — rather than folding into `MA0004`.** A refusal that
+cannot say *why* it refused is a refusal somebody guesses at, and "the answer did not match the
+shape" would be true and useless for the one shape violation with an obvious fix. `generate`
+distinguishes them by reading the `ValidationError`'s own error types for `string_too_long`,
+which means **any** capped field in **any** shape reports itself correctly, not just this one.
 
 ### 4.4 The three lanes
 
