@@ -16,6 +16,7 @@ import os
 import re
 import sys
 
+from mendel_ai.access import ModelAccess
 from mendel_compiler import conformance
 
 from mendel_forge import ops
@@ -97,15 +98,21 @@ def _run(argv: list[str] | None = None) -> int:
         )
         return _emit(args, result, render.show(result))
 
-    if args.command == "fill" and args.model:
+    if args.command == "fill" and args.model is not None:
+        # Bare `--model` means "the one I configured"; `--model <id>` overrides it. Either way
+        # the key and base URL come from the environment, because a credential on a command
+        # line is a credential in a shell history.
+        access = ModelAccess.require_from_env(
+            {**os.environ, **({"MENDEL_MODEL": args.model} if args.model else {})}
+        )
         model_result = ops.fill_with_model(
             ops.ModelFillRequest(
                 name=args.name,
                 field=args.field,
                 workspace_root=args.workspace,
-                model=args.model,
-                api_key=os.environ.get("MENDEL_API_KEY") or None,
-                base_url=os.environ.get("MENDEL_BASE_URL") or None,
+                model=access.model,
+                api_key=access.api_key,
+                base_url=access.base_url,
             )
         )
         return _emit(args, model_result, render.model_fill(model_result))

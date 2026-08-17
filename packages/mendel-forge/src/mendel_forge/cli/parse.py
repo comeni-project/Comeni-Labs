@@ -57,7 +57,13 @@ def parser() -> argparse.ArgumentParser:
     fill.add_argument("--by")
     fill.add_argument("--why")
     fill.add_argument("--list", action="store_true", help="the value is a comma-separated list")
-    fill.add_argument("--model", help="a model id; attempts candidate-bearing holes only")
+    fill.add_argument(
+        "--model",
+        nargs="?",
+        const="",
+        default=None,
+        help="attempt candidate-bearing holes with a model. Bare --model reads MENDEL_MODEL",
+    )
     fill.add_argument("--workspace", type=Path, default=_WORKSPACE)
 
     check = verbs.add_parser("check", help="does the registry still match its sources")
@@ -96,7 +102,7 @@ def parse(argv: list[str] | None = None) -> argparse.Namespace:
     args = root.parse_args(argv)
 
     if args.command == "fill":
-        if args.model:
+        if args.model is not None:
             claimed = [
                 name
                 for name, value in (("value", args.value), ("--by", args.by), ("--why", args.why))

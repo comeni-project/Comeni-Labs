@@ -6,7 +6,7 @@ nowhere to put a subscription token.
 """
 
 import pytest
-from mendel_ai.access import ModelAccess
+from mendel_ai.access import ModelAccess, NoModelError
 from pydantic import ValidationError
 
 
@@ -78,3 +78,24 @@ def test_from_env_reads_the_mapping_it_is_given_and_not_the_process() -> None:
         assert ModelAccess.from_env({}) is None
     finally:
         del os.environ["MENDEL_MODEL"]
+
+
+def test_require_from_env_refuses_with_a_code() -> None:
+    """`MA0001` must be reachable. It was declared, emitted, and unreachable for a day —
+    `Client.for_env` raised it and nothing but a test ever called `Client.for_env`."""
+    with pytest.raises(NoModelError) as raised:
+        ModelAccess.require_from_env({})
+    assert "MA0001" in str(raised.value)
+
+
+def test_the_refusal_names_the_variables_to_set() -> None:
+    with pytest.raises(NoModelError) as raised:
+        ModelAccess.require_from_env({})
+    message = str(raised.value)
+    assert "MENDEL_MODEL" in message
+    assert "MENDEL_API_KEY" in message
+    assert "--model" in message
+
+
+def test_require_from_env_returns_the_access_when_configured() -> None:
+    assert ModelAccess.require_from_env({"MENDEL_MODEL": "m"}).model == "m"

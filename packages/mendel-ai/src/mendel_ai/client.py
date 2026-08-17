@@ -19,27 +19,19 @@ network, and it is what the recorded fixtures plug into.
 
 import json
 import re
-from collections.abc import Mapping
 from typing import Protocol, TypeVar, runtime_checkable
 
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ValidationError
 
-from mendel_ai.access import ModelAccess
+from mendel_ai.access import ModelAccess, NoModelError
 
 T = TypeVar("T", bound=BaseModel)
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
 
 
-class NoModelError(ValueError):
-    """Nothing was configured and something asked for a model. `MA0001`.
-
-    **A `ValueError` because that is the refusal contract every caller already catches** —
-    `mendel_forge.ops`' docstring states it, and both forge transports catch it in one place
-    and turn it into an exit code or a 4xx. A `RuntimeError` here reached the user as a
-    traceback, which is how it was found: by running the documented loop by hand.
-    """
+__all__ = ["Client", "LiteLLMTransport", "ModelUnavailableError", "NoModelError", "Transport"]
 
 
 class ModelUnavailableError(ValueError):
@@ -70,16 +62,6 @@ class Client:
         **Cleared on success.** A stale refusal read after a later success would name the wrong
         call, and a caller reporting per hole reads this once per hole.
         """
-
-    @classmethod
-    def for_env(cls, env: Mapping[str, str]) -> "Client":
-        access = ModelAccess.from_env(env)
-        if access is None:
-            raise NoModelError(
-                coded("MA0001", "no model is configured")
-                + "\n  set MENDEL_MODEL, and MENDEL_API_KEY or MENDEL_BASE_URL"
-            )
-        return cls(access)
 
     def generate(self, instruction: str, shape: type[T], evidence: list[str]) -> T | None:
         """Ask, then validate. `None` when the model declines or its answer will not fit."""

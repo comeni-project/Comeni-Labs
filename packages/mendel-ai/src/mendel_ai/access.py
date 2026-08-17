@@ -17,7 +17,18 @@ is the opposite of what `--no-ai`-by-default means.
 
 from collections.abc import Mapping
 
+from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict
+
+
+class NoModelError(ValueError):
+    """Nothing was configured and something asked for a model. `MA0001`.
+
+    **A `ValueError` because that is the refusal contract every caller already catches** —
+    `mendel_forge.ops`' docstring states it, and both forge transports catch it in one place
+    and turn it into an exit code or a 4xx.
+    """
+
 
 MODEL = "MENDEL_MODEL"
 API_KEY = "MENDEL_API_KEY"
@@ -37,6 +48,28 @@ class ModelAccess(BaseModel):
     base_url: str | None = None
     """Set for a local or self-hosted OpenAI-compatible endpoint; `None` for a provider."""
     timeout_seconds: float = 60.0
+
+    @classmethod
+    def require_from_env(cls, env: Mapping[str, str]) -> "ModelAccess":
+        """`from_env`, but a missing model is `MA0001` rather than `None`.
+
+        **The raising form is the one a transport calls**, because "nothing is configured" is
+        a refusal a user can act on and `None` is a value somebody forgets to check. The
+        non-raising form stays for the question *is anything configured at all*.
+
+        This raises here, in `mendel-ai`, rather than in whichever CLI resolves the
+        configuration — `MA0001` is declared `emitted_by: ai`, and
+        `tests/test_diagnostics_ownership.py` checks a code is raised by the package that owns
+        it. Moving the raise would move the code.
+        """
+        access = cls.from_env(env)
+        if access is None:
+            raise NoModelError(
+                coded("MA0001", "no model is configured")
+                + f"\n  set {MODEL}, and {API_KEY} for a provider or {BASE_URL} for a local one"
+                + "\n  or pass --model <id> explicitly"
+            )
+        return access
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> "ModelAccess | None":

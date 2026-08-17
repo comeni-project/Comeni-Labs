@@ -124,7 +124,7 @@ nothing in the forge reaches a provider, and that is the mode CI runs.
 ```console
 $ export MENDEL_MODEL=anthropic/claude-sonnet-4-5
 $ export MENDEL_API_KEY=sk-...
-$ uv run forge fill fastqc --model "$MENDEL_MODEL"
+$ uv run forge fill fastqc --model
 fastqc:
   filled   produces[0].type_id = 'qc.report'
            FastQC emits an HTML report per sample rather than any sequence data
@@ -133,10 +133,14 @@ fastqc:
   1 hole(s) still open
 ```
 
+**Bare `--model` reads `MENDEL_MODEL`**; `--model <id>` overrides it for one call. The key and
+base URL always come from the environment, because a credential on a command line is a
+credential in a shell history.
+
 Name one field to attempt only that one:
 
 ```console
-$ uv run forge fill fastqc roles --model "$MENDEL_MODEL"
+$ uv run forge fill fastqc roles --model
 ```
 
 **A model answers only the holes with candidates.** Those are the ones whose legal answers come

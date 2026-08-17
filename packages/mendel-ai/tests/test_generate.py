@@ -6,9 +6,8 @@ Every test here injects a transport. No test in this repository may call a live 
 
 import json
 
-import pytest
 from mendel_ai.access import ModelAccess
-from mendel_ai.client import Client, NoModelError, Transport
+from mendel_ai.client import Client, Transport
 from pydantic import BaseModel, Field
 
 ACCESS = ModelAccess(model="test/model")
@@ -69,16 +68,6 @@ def test_the_shape_reaches_the_prompt() -> None:
     transport = Fixed('{"value": "qc", "why": "w"}')
     Client(ACCESS, transport=transport).generate("pick one", Answer, [])
     assert "why" in transport.prompts[0] and "value" in transport.prompts[0]
-
-
-def test_no_model_configured_raises_a_coded_refusal() -> None:
-    with pytest.raises(NoModelError) as raised:
-        Client.for_env({})
-    assert "MA0001" in str(raised.value)
-
-
-def test_a_configured_env_builds_a_client() -> None:
-    assert isinstance(Client.for_env({"MENDEL_MODEL": "test/model"}), Client)
 
 
 def test_transport_is_a_protocol_anything_can_satisfy() -> None:
