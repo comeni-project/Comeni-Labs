@@ -79,7 +79,10 @@ derived is a typed **hole** a person fills. `ports.py` declares `HoleFiller` and
 mode. `mendel-ai` and `mendel-api` still do not exist. **Phase 2 wires a model into the forge,
 and its first question is the fifth egress door** — a model call sends tool documentation to a
 provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
-`notes/specs/2026-08-16-the-forge.md` §10.3 is the argument.
+`notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and
+[`notes/journal/2026-08-17-the-forge.md`](notes/journal/2026-08-17-the-forge.md) **§Phase 2** is
+the handoff — what is already built, three things that look like blockers and are not, and the
+decisions Phase 1 deliberately left open.
 
 ### What is open
 
