@@ -78,7 +78,7 @@ fixture harness every later AI subsystem inherits. What is deferred is one *adap
 | `LLMResolver(AmbiguityResolver)` | Plan 3, beside the review screens. Invariant 6 flags tier 4 even at high confidence, so a model answer still needs a human — the screen is what makes tier 4 tractable, not the model |
 | `AiProvenance.available` threading | [#69](https://github.com/comeni-project/Comeni-Labs/issues/69). A `comeni-core` artifact design question, and Plan 3's first task |
 | Model fills for prose holes | [#70](https://github.com/comeni-project/Comeni-Labs/issues/70). `priority_because` is the one free-prose value that lands in the registry, and it is the one nothing can check |
-| Goal extraction (door 1) | A different subsystem, a different egress door, and genuinely a free-text problem — see §4.3 |
+| Goal extraction (door 1) | A different subsystem behind a different egress door, with its own protection-profile rules. It needs no new `mendel-ai` surface — `Goal` is a shape `generate` can validate against — but door 1 is the taint source and deserves its own reviewed design |
 | A `--no-ai` flag | §1.1 |
 
 ---
@@ -147,7 +147,10 @@ is work aimed at the wrong target, and the evidence is the input a filler is *mo
 
 ### 3.4 `mendel-ai` holds the client, not the resolver
 
-See §2. The seam it exposes is §4.
+See §2 for what that means and §4 for the surface. **Refined after the decision**: the surface
+is one `generate` primitive validating model output against a declared shape, with closed choice
+as a helper over it — not closed choice as the primitive. §4.3 records why the first version was
+wrong, since the rule drafter runs next and does not fit a list of options.
 
 ### 3.5 `forge fill <target> --model`
 
@@ -179,32 +182,79 @@ a name matching no directory is a guard nobody runs).
 
 ### 4.2 The surface
 
-**Closed choice, and nothing else.** There is no free-text generation call in the package.
+**One primitive: model output validated against a declared shape before any caller sees it.**
+
+```python
+def generate(instruction: str, shape: type[T], evidence: list[str]) -> T | None
+```
+
+`shape` is a Pydantic model. The response is parsed and validated against it; a response that
+will not validate returns `None` rather than something half-built. **`None` stays legal** — a
+filler that always answers is a filler that invents, and `ports.py` already says so.
+
+Closed choice is then a **helper, not the primitive**:
 
 ```python
 def choose_one(question: str, options: list[Option], evidence: list[str]) -> Choice | None
 def choose_many(question: str, options: list[Option], evidence: list[str]) -> Choices | None
 ```
 
-`Option` is a value plus a note saying where it is declared. `Choice` carries the picked value and
-a free-text `why`; `Choices` carries several values and one `why`. **`None` stays legal** — a
-filler that always answers is a filler that invents, and `ports.py` already says so.
+Two of them because some holes are list-valued: `roles` and `produces[].state` take several
+members from one closed set, which is why `Hole.legal` checks member by member and why a
+single-value return cannot fill them. Both validate membership on top of the shape validation, so
+a value outside the options is refused before it reaches a caller.
 
-**Two methods rather than one, because some holes are list-valued.** `roles` and
-`produces[].state` take several members from one closed set — which is why `Hole.legal` checks
-member by member, and why a single-value return cannot fill them. The future `AmbiguityResolver`
-uses `choose_one` only; `Resolution.chosen` is singular.
+### 4.3 Why the primitive is shaped this way, and the version of it that was wrong
 
-**The narrowness is doing work.** A package that cannot generate prose cannot quietly start
-writing `priority_because`. Adding free-text generation is then a reviewable change to a package
-whose whole surface is two functions, which is the gate #70 describes.
+**The first draft of this section said "closed choice, and nothing else", and it was wrong twice.**
+Recorded rather than replaced, because both errors are ones this repository has a documented
+history with.
 
-### 4.3 The known future cost
+**Wrong about the line.** It drew the boundary at *closed choice versus generation*. The
+boundary the rest of the system actually enforces is:
 
-Goal extraction (door 1) **is** a free-text problem and will need a second primitive. That is a
-real future change, and it is the right shape for one: door 1 is the taint source with its own
-protection-profile rules, and it deserves a reviewed addition rather than riding in on a generic
-API that existed for convenience.
+> whatever the model produces is validated against a declared shape before anyone sees it.
+
+Closed vocabularies, contracts checked against modules, `Hole.legal`, invariant 7 enforced when a
+value is written rather than when a file is read — none of those say the model may not speak.
+They say nothing it says is taken on trust. Closed choice is a **special case** of that, where
+the shape is *one of these values*.
+
+**Wrong about the next consumer.** It was designed against `AmbiguityResolver`, which is Plan 3.
+The next consumer is the **rule drafter** (`notes/README.md` row 16), and drafting a tier-3 rule
+is not picking from a list — it is a `when` clause, a threshold, a `derives:` transform chain and
+a citation. Goal extraction is the same story one phase further out. Three of the four known
+consumers do not fit closed choice, and the nearest one in time was the one the design ignored.
+
+Both fit `generate` without a new surface: the rule format already has a validator with its own
+`MD03xx` diagnostics, and `Goal` is a Pydantic model. **What does not fit is a module's script
+body** — it has no shape to validate against, which is exactly why `MF0005` refuses it and why §8
+calls it the load-bearing refusal. That is the real boundary, and it is a defensible one.
+
+### 4.3.1 What the guard is, and what it is not
+
+**Cost-raising, not a proof** — the same claim invariant 1 makes about purity, in the same words,
+for the same reason.
+
+`Choice.why` is free text: the model writes a rationale and the package returns it. So a caller
+determined to get prose out can hand `generate` a one-field shape and read the field. That is
+contrived, it is visible in review, and it is not prevented. Saying the package *cannot* generate
+prose would be the same mistake `CLAUDE.md` records about invariant 1 — sold as structural until
+audit A1 built a pure-package TCP socket out of allowlisted imports. **Weaker claim, stronger
+guard, and that is the right direction for both.**
+
+**Where a rationale lands differs by consumer, and the property does not transfer:**
+
+- **In the forge it is discarded.** `contract_from` reads only `filled.value`, so `FilledValue.why`
+  never reaches the registry. It exists for the reviewer looking at the draft.
+- **In the future ambiguity resolver it persists.** `Resolution.reason` becomes
+  `DecisionRecord.reason`, which is one of the free-text fields invariant 14 enumerates and which
+  `clinical-data-protection.md` §4.2 names as model-written prose riding in a typed bundle.
+
+A rationale is capped in length and **refused rather than truncated** when a model overruns, with
+an `MA` code. A silently truncated rationale is a reviewer reading half a sentence without knowing
+it. The cap does not close the side channel; it makes it the wrong shape for the things worth
+smuggling — a script body or a `priority_because` essay.
 
 ### 4.4 The three lanes
 
@@ -296,7 +346,8 @@ needs it is being reasonable. Unchanged.
 ## 9. Task shape
 
 Roughly fourteen, in dependency order: `ModuleSpec` positions → per-fact excerpts → `mendel-ai`
-skeleton and classification → `ModelAccess` and the lanes → the client and the two choose calls →
+skeleton and classification → `ModelAccess` and the lanes → the client and `generate` → the
+`choose_one`/`choose_many` helpers →
 `MA` diagnostics → the fixture harness and the live-model guard → `ModelFiller` → `ops.fill`'s
 model mode → CLI flag → HTTP surface → `forge show` marking → docs (§1.1, `ARCHITECTURE.md` §10,
 the guide) → journal.
