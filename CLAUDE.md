@@ -304,8 +304,20 @@ Violating any of these breaks the product claim, not just a test.
 13. **Self-hosted is not a degraded tier.** Same registry, same resolver, byte-identical
     output. The hosted instance sells convenience, never capability. Anything that would only
     work on our infrastructure is a design error.
-14. **Data leaves through four declared doors and no others** — goal extraction, tier-4
-    resolution, compiler repair, publication. Each carries one declared payload type, and
+14. **Pipeline data leaves through four declared doors and no others** — goal extraction,
+    tier-4 resolution, compiler repair, publication.
+    **The doors track the prompt taint path**, which is what
+    `docs/design/clinical-data-protection.md` §4.2 states and what this one-line summary lost:
+    *free text enters at exactly one door*, and the question for anything else is whether it is
+    downstream of it. The four are one path — prompt, goal, build, pipeline, publish.
+    **The forge is not on that path and is not a fifth door** (decided 2026-08-17,
+    `notes/specs/2026-08-17-forge-phase-2.md` §1). It has no prompt, takes no `Goal` and writes
+    no `pipeline.yml`; it reads vendored modules and registry files and produces registry data a
+    build later consumes — the offline authoring half of invariant 2. `AiPoint` corroborates
+    this without being changed: invariant 3 declares three runtime AI points and the forge is
+    not one of them. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired a
+    model into the forge, and that is the point.
+    Each door carries one declared payload type, and
     **ten** fields across the whole surface may hold free text: `PromptRequest.prompt`,
     `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
     `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
@@ -387,6 +399,15 @@ Never configurable at any level: the four doors, typed payloads, an `EgressRecor
 tier 4 always flagged, typed-only publish bundles, no patient data received. `guarded` is the
 default because the unconfigured install is the one most likely to exist.
 
+**None of this table is implemented yet, and saying so is the point** —
+[#71](https://github.com/comeni-project/Comeni-Labs/issues/71). A search for
+`ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, because every
+row describes a subsystem that does not exist: the prompt door, compiler repair and tier-4
+resolution are all Plan 3 or later. **The profiles govern the build path**, and offline
+authoring in `mendel-forge` is outside them for the same reason it is not a fifth egress door.
+A laboratory wanting no model calls from an installation does not configure `MENDEL_MODEL`,
+which is stronger than a check: there is nothing to reach a provider *with*.
+
 **Say "Mendel does not receive patient data" — never "anonymised".** Genetic data are not
 reliably anonymisable and pseudonymised data stays personal data under GDPR Art. 9. The accurate
 claim is also the stronger one: minimisation by non-receipt.
@@ -414,8 +435,9 @@ packages/
     rules/             the rule format, the tables, the validator
   mendel-compiler/   IR → Nextflow DSL2, validation gates, repair      PURE
     cli/               the verbs — resolve_verbs, artifact_verbs, report
-  mendel-ai/         LiteLLM port implementations                      impure
+  mendel-ai/         generate(shape) over LiteLLM; closed-choice helpers  impure
   mendel-forge/      sources, scaffolds with typed holes, verify, land  impure
+    filler.py          ModelFiller — a model behind the HoleFiller seam
     sources/           the Source protocol, and the nf-core adapter
     cli/  http/         two transports over ops.py; neither holds logic
   mendel-api/        FastAPI surface                                   impure
@@ -472,8 +494,10 @@ Open source, self-hostable, public registry. Revenue is the hosted service only.
 **Model access — three lanes.** `--no-ai` (none; what CI runs), self-hosted (BYO API key, or
 a local model over an OpenAI-compatible endpoint — Ollama and vLLM both qualify), and
 Comeni-hosted (our keys). `mendel-ai` reaches all of them through one LiteLLM adapter behind
-the `mendel_resolver.ports` protocols. **The `--no-ai` flag itself arrives with Plan 2** —
-through Plan 1 there is no AI path to switch off, so every build is already that lane.
+the `mendel_resolver.ports` protocols. **`--no-ai` is still not a flag, and forge Phase 2 did
+not add one** — the forge's model path is opt-in through `forge fill --model`, so its default
+*is* the no-AI lane, the same argument that made `NoFiller` not-a-flag. `mendel build` has no AI
+path at all until the tier-4 ambiguity resolver arrives with Plan 3.
 
 **Registry.** Public curated base — the `comeni-registry` repo, data files with signed tags —
 plus zero or more private overlays via repeated `--registry`. A lab that never publishes is
@@ -702,8 +726,11 @@ already been wrong once, when it named a gate that could not pass.
 - **`-stub-run` is the fast validation tier.** nf-core modules all define stub blocks, so the
   whole DAG executes with dummy outputs in seconds. Iterate the repair loop there; only the
   final candidate pays for `-profile test`.
-- **`--no-ai` must keep working forever** once Plan 2 adds it. It is how the deterministic
-  guarantee stays testable, and it is the mode CI runs in. `--registry` is repeatable and
+- **`--no-ai` must keep working forever** once something adds it — which nothing has. Forge
+  Phase 2 made the forge able to call a model and did *not* add the flag: `forge fill --model`
+  is opt-in, so there is nothing to switch off and nothing to leave accidentally on. It becomes
+  meaningful when the tier-4 resolver lands in Plan 3, and then it is how the deterministic
+  guarantee stays testable and the mode CI runs in. `--registry` is repeatable and
   ships in Plan 1, since Task 5 builds the stacking it exposes.
 - **Import modules, not symbols, where tests monkeypatch.** `from x import f` binds past a
   later patch of `x.f`.
