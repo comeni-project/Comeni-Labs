@@ -213,7 +213,16 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
     if arity is not None:
         filled["nf_inputs.arity"] = _derived(arity, obs, "input_arity")
 
-    holes.append(_hole("roles", stack, obs, why=_WHY_OPEN["roles"], excluding=ident))
+    holes.append(
+        _hole(
+            "roles",
+            stack,
+            obs,
+            why=_WHY_OPEN["roles"],
+            excluding=ident,
+            what=_roles_question(stack, ident),
+        )
+    )
     holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
 
     return Scaffold(
@@ -340,3 +349,29 @@ def to_yaml(scaffold: Scaffold, *, approved_by: str, approved_at: str) -> str:
     contract = contract_from(scaffold, approved_by=approved_by, approved_at=approved_at)
     body = contract.model_dump(mode="json", exclude_defaults=True)
     return "declares: contract\n" + yaml.safe_dump(body, sort_keys=False, width=100)
+
+
+def _roles_question(stack: Layers, ident: str) -> str:
+    """What to ask for `roles`, including how many roles contracts here actually declare.
+
+    **Derived, never asserted.** Every shipped contract declares exactly one role, and the
+    measured failure was a model picking two or three — `[alignment, bam_indexing, bam_sorting]`
+    for STAR, where a person wrote `[alignment]`. Telling it the observed distribution is
+    stronger than telling it to "choose the smallest set", which was tried and did not work.
+
+    Counted from the stack at draft time rather than written into this sentence, because a
+    number repeated in prose is a number that goes stale while everything around it stays true
+    (A71/A72). If the registry grows a two-role contract this text changes on its own, and it
+    stops claiming something that is no longer so.
+    """
+    others = [c for c in stack.registry.contracts.values() if c.id.split("@")[0] != ident]
+    counts = {len(c.roles) for c in others}
+    asked = "the job this tool does in a pipeline"
+    if counts == {1}:
+        return (
+            f"{asked} — every one of the {len(others)} contracts in this registry "
+            "declares exactly one role"
+        )
+    if counts:
+        return f"{asked} — contracts here declare between {min(counts)} and {max(counts)} roles"
+    return asked

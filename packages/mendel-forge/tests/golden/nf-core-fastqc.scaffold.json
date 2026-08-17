@@ -655,7 +655,7 @@
     },
     {
       "field": "roles",
-      "what": "a value for roles",
+      "what": "the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role",
       "why_open": "a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool",
       "candidates": [
         {
