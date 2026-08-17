@@ -70,7 +70,7 @@ def test_the_scan_sees_the_names_it_is_looking_for() -> None:
     """
     tree = ast.parse("LiteLLMTransport()\nx.RecordingTransport\n")
     found = {getattr(node, "id", None) or getattr(node, "attr", None) for node in ast.walk(tree)}
-    assert FORBIDDEN <= found
+    assert found >= FORBIDDEN
 
 
 def test_the_scan_actually_reads_some_files() -> None:
