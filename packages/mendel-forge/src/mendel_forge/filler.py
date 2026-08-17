@@ -15,7 +15,14 @@ two that drift.
 `ports.py`'s point and the reason the return type has always been optional.
 """
 
-from mendel_ai.choice import Option, Proposed, choose_many, choose_one, choose_or_propose
+from mendel_ai.choice import (
+    Option,
+    Proposed,
+    choose_many,
+    choose_one,
+    choose_or_propose,
+    suggest,
+)
 from mendel_ai.client import Client
 
 from mendel_forge.observe import Observation
@@ -89,7 +96,16 @@ class ModelFiller:
             )
 
         value: object
-        if _may_propose(hole.field):
+        if not hole.closed:
+            # **Suggested, not restricted.** A port name is not a vocabulary, so the candidates
+            # are examples of what this registry calls such a port and the model may answer
+            # something else. Closing it made `multiqc`'s `reports` unreachable — a legal name
+            # that was simply not on a list this codebase invented.
+            answered = suggest(self.client, question, options, evidence)
+            if answered is None:
+                return None
+            value, why = answered.value, answered.why
+        elif _may_propose(hole.field):
             # **The one hole where "none of these" is a real answer.** A type_id is chosen from
             # a closed vocabulary, and for a tool nobody has written a contract for the right
             # type routinely does not exist yet — `star/align` emits nineteen channels and the

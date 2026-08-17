@@ -58,7 +58,20 @@ class Hole(BaseModel):
     what: str
     why_open: str
     candidates: list[Candidate] = Field(default_factory=list)
-    """Empty means free text. Non-empty means a closed choice, enforced by `fill`."""
+    """What may go here. Empty means nothing is known; see `closed` for whether the list
+    binds."""
+    closed: bool = True
+    """Whether `candidates` is the *whole* of what is legal, or only what is suggested.
+
+    **Not everything with candidates is a closed vocabulary, and treating it as one was a
+    measured mistake.** Invariant 7 closes *vocabularies* — types, states, roles — and enforces
+    that at load time. A port **name** is not one of those: `PortName` is a shape alias, and
+    `ModuleContract` accepts any valid identifier. Binding a name to a list this module
+    invented is what made `multiqc`'s `reports` unreachable — a perfectly legal name that
+    simply was not offered.
+
+    So a name hole is open, with candidates as guidance, and a type or role hole is closed.
+    """
     evidence: list[Excerpt] = Field(default_factory=list)
     after: str | None = None
     """A field that must be answered first, because this hole's candidates depend on it.
@@ -81,7 +94,7 @@ class Hole(BaseModel):
         `["qc_per_sample"]` while accepting `"qc_per_sample"`, which is backwards for
         the field it is guarding.
         """
-        if not self.candidates:
+        if not self.candidates or not self.closed:
             return True
         allowed = {c.value for c in self.candidates}
         if isinstance(value, list | set | frozenset | tuple):

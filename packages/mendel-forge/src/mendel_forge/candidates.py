@@ -64,12 +64,22 @@ def for_field(
         # `multiqc_files` — while the right answer sat below it. Position bias is real and it
         # was pointing at the wrong candidate, so the registry's own convention leads now and
         # the channel name comes last.
+        # **Names humans chose, not strings derived from the type id.**
+        #
+        # Splitting `type_id` into segments was measured and was a net loss. It made three
+        # unwinnable ports winnable and broke five that were already right: offered `fastq`
+        # beside `reads` for `fastq.reads`, the model took `fastq`; offered `genome` and
+        # `star` beside `index`, it took those. The namespace segment of a type id reads like
+        # a name and is almost never the one a person picked — twenty-four of thirty shipped
+        # ports match a segment, but the *last* one, and inventing the rest invented wrong
+        # answers.
+        #
+        # Reordering was tried first and did not help, which is what ruled position bias out:
+        # `reads` was listed first and `fastq` was still chosen. The pull is semantic, so the
+        # fix is to stop offering the thing being pulled toward.
         offered: dict[str, str] = {}
         for name in _named_by(stack, type_id, excluding):
             offered[name] = f"what other contracts call an {type_id} port"
-        for part in [p for p in type_id.split(".") if p]:
-            offered.setdefault(part, f"from the type {type_id}")
-            offered.setdefault(f"{part}s", f"from the type {type_id}, plural")
         for name in channels:
             offered.setdefault(name, "the module's internal channel name")
         return [Candidate(value=v, note=n) for v, n in offered.items()]

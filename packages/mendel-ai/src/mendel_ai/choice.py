@@ -200,3 +200,29 @@ def choose_or_propose(
         description=answer.proposed_description or "",
         why=answer.why,
     )
+
+
+def suggest(
+    client: Client, question: str, options: list[Option], evidence: list[str]
+) -> Choice | None:
+    """An answer guided by examples rather than restricted to them.
+
+    **The counterpart to `choose_one`, for a field that is not a vocabulary.** Closed choice is
+    right where closure is real and enforced — invariant 7's types, states and roles all fail to
+    load if undeclared. It is wrong where the domain is open, and imposing it there does not make
+    the answer safer; it makes the right answer unreachable, which is how a legal port name came
+    to be refused for not appearing on a list.
+
+    The options are shown as what this registry has called such a thing before. Nothing checks
+    membership, because there is nothing to check it against.
+    """
+    shown = "\n".join(
+        f"- {o.value}" + (f"  ({o.note})" if o.note else "") for o in options
+    )
+    asked = (
+        f"{question}\n\nNames used for this elsewhere in the registry, as a guide — you may "
+        f"answer with one of them or with something else if it fits better:\n{shown}"
+        if options
+        else question
+    )
+    return client.generate(asked, Choice, evidence)

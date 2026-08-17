@@ -180,6 +180,7 @@
           "note": "the module's channel name"
         }
       ],
+      "closed": false,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -289,6 +290,7 @@
           "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -307,6 +309,7 @@
       "what": "a value for priority_because",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",
       "candidates": [],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -426,6 +429,7 @@
           "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -533,6 +537,7 @@
           "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -640,6 +645,7 @@
           "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -695,6 +701,7 @@
           "note": "declared role — used by trimgalore"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
