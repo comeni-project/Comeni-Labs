@@ -19,7 +19,7 @@ from comeni_core.diagnostics import coded
 from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
-from mendel_forge.observe import Observation
+from mendel_forge.observe import Excerpt, Observation
 from mendel_forge.scaffold import Candidate, FilledValue, Filler, Hole, Scaffold
 
 _WHY_OPEN = {
@@ -68,15 +68,51 @@ def _derived(value: Any, obs: Observation, name: str) -> FilledValue:
 
 
 def _hole(
-    field: str, stack: Layers, obs: Observation, *, why: str, type_id: str | None = None
+    field: str,
+    stack: Layers,
+    obs: Observation,
+    *,
+    why: str,
+    type_id: str | None = None,
+    what: str | None = None,
+    port: str | None = None,
 ) -> Hole:
+    """One open field.
+
+    `what` overrides the generic phrasing, and `port` narrows the evidence to that port's own
+    documentation. Both exist because the generic form was measured and found wanting: a hole
+    reading *"a value for produces[0].type_id"* carrying every port's documentation is a
+    question that does not say which port it is about, and a model answered all three of
+    `fastqc`'s outputs identically because the prompts differed only in an index digit.
+    """
     return Hole(
         field=field,
-        what=f"a value for {field}",
+        what=what or f"a value for {field}",
         why_open=why,
         candidates=candidates.for_field(field, stack, type_id=type_id),
-        evidence=list(obs.prose),
+        evidence=_evidence_for(obs, port),
     )
+
+
+def _evidence_for(obs: Observation, port: str | None) -> list[Excerpt]:
+    """The tool's description, plus the documentation for one port when one is named.
+
+    **Every hole used to carry every excerpt.** With per-port prose that is both noisy and
+    large — `star/align` documents twenty-six ports — and an oversized prompt does not degrade
+    gracefully: its instruction gets buried and the model answers a different question. Sending
+    a port's own line instead is smaller *and* more relevant, which is the rare change that
+    costs nothing to get both.
+
+    Falls back to everything when no port matches, because less evidence is a worse hole and
+    an empty one is a useless hole.
+    """
+    if port is None:
+        return list(obs.prose)
+    described = [e for e in obs.prose if e.locator.endswith(f".{port}")]
+    if not described:
+        return list(obs.prose)
+    general = [e for e in obs.prose if e.locator.endswith(":description")]
+    return [*general, *described]
 
 
 def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -> Scaffold:
@@ -121,11 +157,23 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 candidates=[
                     Candidate(value=name, note=f"channel {index} in main.nf") for name in offered
                 ],
-                evidence=list(obs.prose),
+                evidence=_evidence_for(obs, offered[0] if offered else None),
             )
         )
+        # **Name the channel in the question.** `consumes[1]` is an index, and an index is not
+        # something a tool's documentation talks about; `index` and `gtf` are. Three of the
+        # seven type_id misses measured on 2026-08-17 were second inputs answered with the
+        # first input's type, which is what "channel 1" invites when nothing says what it is.
+        called = ", ".join(offered) or f"channel {index}"
         holes.append(
-            _hole(f"consumes[{index}].type_id", stack, obs, why=_WHY_OPEN["type_id"])
+            _hole(
+                f"consumes[{index}].type_id",
+                stack,
+                obs,
+                why=_WHY_OPEN["type_id"],
+                what=f"the semantic type of the input the module calls {called}",
+                port=offered[0] if offered else None,
+            )
         )
 
     emits = obs.fact("emits") or []
@@ -133,7 +181,16 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         filled[f"produces[{index}].name"] = _derived(emits, obs, "emits").model_copy(
             update={"value": emit}
         )
-        holes.append(_hole(f"produces[{index}].type_id", stack, obs, why=_WHY_OPEN["type_id"]))
+        holes.append(
+            _hole(
+                f"produces[{index}].type_id",
+                stack,
+                obs,
+                why=_WHY_OPEN["type_id"],
+                what=f"the semantic type of the output the module emits as {emit}",
+                port=emit,
+            )
+        )
 
     arity = obs.fact("input_arity")
     if arity is not None:

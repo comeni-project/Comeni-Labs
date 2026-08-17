@@ -93,7 +93,24 @@ class NfCoreSource:
 def _prose(module_dir: Path, root: Path) -> list[Excerpt]:
     """`meta.yml` is a scaffold, not a contract — it declares outputs as `type: file` with a
     filename pattern. Its English is still the best evidence a reviewer has for what a port
-    *means*, which is exactly the judgement a hole asks for."""
+    *means*, which is exactly the judgement a hole asks for.
+
+    **One excerpt per port, in English.** This used to emit `text=str(entry)` for the whole
+    `input:` and `output:` blocks — a Python `repr` of parsed YAML, nested quotes and `\\n`
+    escapes and Groovy-map noise, with the one useful sentence buried inside it. Two things
+    were wrong with that and both were measured rather than argued:
+
+    - **A reader learns nothing from it.** `'FastQC report'` and `pattern: *.html` are in
+      there, and no model picked them out — every output port of `fastqc` was answered
+      `fastq.reads`, the tool's *input* type, which is what the description mentions.
+    - **It is enormous.** `star/align` declares nineteen emit channels, so its `output:` repr
+      ran to ~13,000 characters. The prompt built from it buried its own instruction, and the
+      model answered by *explaining the YAML* instead of choosing: twenty-nine holes, twenty-nine
+      declines, fifty minutes.
+
+    Locators are per port — `meta.yml:output.html` — so a caller asking about one port can
+    select the evidence for that port rather than sending all of them.
+    """
     meta = module_dir / "meta.yml"
     if not meta.exists():
         return []
@@ -103,11 +120,59 @@ def _prose(module_dir: Path, root: Path) -> list[Excerpt]:
     at = meta.relative_to(root)
     found = []
     if isinstance(data.get("description"), str):
-        found.append(Excerpt(locator=f"{at}:description", text=data["description"]))
+        found.append(Excerpt(locator=f"{at}:description", text=data["description"].strip()))
     for key in ("input", "output"):
-        entry = data.get(key)
-        if entry is not None:
-            found.append(Excerpt(locator=f"{at}:{key}", text=str(entry)))
+        for port, described in _described_ports(data.get(key)).items():
+            found.append(Excerpt(locator=f"{at}:{key}.{port}", text=described))
+    return found
+
+
+def _described_ports(entry: object) -> dict[str, str]:
+    """`{port name: one English line}` out of `meta.yml`'s nested input/output shape.
+
+    nf-core writes an output as `{name: [[{meta: …}, {"*.html": {description, pattern}}]]}`
+    and an input as a bare list of those inner lists. Both bottom out in `{name: {description,
+    pattern, type}}`, so one walk handles them: collect every mapping that has a `description`,
+    and name it after the key it hangs off.
+
+    **Best effort, and silence rather than noise when the shape is unfamiliar.** A `meta.yml`
+    this cannot read yields no excerpt for that block, which leaves a hole with less evidence —
+    strictly better than a hole with a `repr` of a dict, which is what it replaced.
+    """
+    found: dict[str, str] = {}
+
+    def described(node: object) -> str | None:
+        if not isinstance(node, dict):
+            return None
+        parts = [
+            str(node[k]).strip()
+            for k in ("description", "pattern")
+            if isinstance(node.get(k), str) and node[k].strip()
+        ]
+        return " — ".join(parts) or None
+
+    def walk(node: object, port: str | None) -> None:
+        if isinstance(node, list):
+            for item in node:
+                walk(item, port)
+            return
+        if not isinstance(node, dict):
+            return
+        for key, value in node.items():
+            if key == "meta":
+                continue  # the Groovy sample map, on every single port and never the answer
+            text = described(value)
+            name = port or str(key)
+            if text and name not in found:
+                found[name] = f"{key}: {text}" if port else text
+            else:
+                walk(value, port or str(key))
+
+    if isinstance(entry, dict):
+        for port, value in entry.items():
+            walk(value, port)
+    else:
+        walk(entry, None)
     return found
 
 

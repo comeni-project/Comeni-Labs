@@ -104,14 +104,52 @@ def test_a_declined_model_leaves_the_hole_open() -> None:
     assert _filler("not json").fill(TYPE_ID, OBSERVATION) is None
 
 
-def test_the_evidence_and_prose_reach_the_prompt() -> None:
+def test_the_holes_evidence_reaches_the_prompt() -> None:
     transport = Fixed('{"values": ["qc_per_sample"], "why": "w"}')
     ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
         ROLES, OBSERVATION
     )
-    prompt = transport.prompts[0]
-    assert "main.nf:3" in prompt
-    assert "Runs FastQC on sequencing reads" in prompt
+    assert "main.nf:3" in transport.prompts[0]
+
+
+def test_the_observations_prose_is_not_appended_on_top_of_it() -> None:
+    """**The hole's evidence is already scoped.** `assemble` narrows a port's evidence to that
+    port's own documentation; appending `observation.prose` again puts every other port back,
+    which is how one `star/align` question came to carry ~13,000 characters and get answered
+    with an essay about YAML instead of a choice."""
+    transport = Fixed('{"values": ["qc_per_sample"], "why": "w"}')
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        ROLES, OBSERVATION
+    )
+    assert "Runs FastQC on sequencing reads" not in transport.prompts[0]
+
+
+def test_why_open_reaches_the_prompt() -> None:
+    """It did not, and it is where the scaffold explains the judgement being asked for —
+    three of the misses measured on 2026-08-17 were a distinction this sentence draws."""
+    transport = Fixed('{"values": ["qc_per_sample"], "why": "w"}')
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        ROLES, OBSERVATION
+    )
+    assert ROLES.why_open in transport.prompts[0]
+
+
+def test_a_list_valued_hole_is_told_to_choose_the_smallest_true_set() -> None:
+    """Two of three role misses were over-selection — a plausible extra value added on top of
+    the right one."""
+    transport = Fixed('{"values": ["qc_per_sample"], "why": "w"}')
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        ROLES, OBSERVATION
+    )
+    assert "smallest set" in transport.prompts[0]
+
+
+def test_a_single_valued_hole_is_not_told_that() -> None:
+    transport = Fixed('{"value": "qc.report", "why": "w"}')
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        TYPE_ID, OBSERVATION
+    )
+    assert "smallest set" not in transport.prompts[0]
 
 
 def test_the_field_name_reaches_the_prompt() -> None:

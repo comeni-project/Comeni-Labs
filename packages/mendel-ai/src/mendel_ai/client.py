@@ -86,15 +86,24 @@ def _prompt(instruction: str, shape: type[BaseModel], evidence: list[str]) -> st
     """The shape is shown, not described. A model asked for a shape it never saw cannot
     produce it, and the JSON Schema is the shape's own account of itself — including any
     declared length limit, so the model is told the constraint rather than punished for not
-    guessing it."""
-    parts = [
+    guessing it.
+
+    **Evidence first, instruction last.** The first version put the instruction on top and the
+    evidence under it, which works while the evidence is small and fails completely when it is
+    not: given ~13,000 characters of documentation, `gemma3:12b` answered by *explaining the
+    documentation* rather than choosing — twenty-nine holes, twenty-nine declines. The
+    instruction has to be the last thing read, and it has to say that nothing but JSON is
+    wanted, because "answer with JSON" alone leaves prose looking permitted alongside it."""
+    parts = []
+    if evidence:
+        parts += ["Evidence:", *(f"- {line}" for line in evidence), ""]
+    parts += [
         instruction,
         "",
-        "Answer with JSON only, matching this schema exactly:",
+        "Answer with JSON only, matching this schema exactly. Output nothing else — no "
+        "explanation, no commentary, no markdown outside the JSON:",
         json.dumps(shape.model_json_schema(), indent=2, sort_keys=True),
     ]
-    if evidence:
-        parts += ["", "Evidence:", *(f"- {line}" for line in evidence)]
     return "\n".join(parts)
 
 
