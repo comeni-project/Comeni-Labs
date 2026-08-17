@@ -134,6 +134,18 @@ class Scaffold(BaseModel):
     def _sorted_proposed(self, proposed: dict[str, Proposal]) -> dict[str, Proposal]:
         return {name: proposed[name] for name in sorted(proposed)}
 
+    def replacing(self, hole: Hole) -> "Scaffold":
+        """This scaffold with one hole swapped for an updated version of itself.
+
+        A dependent hole's candidates are recomputed once what it depends on is filled, and
+        the recomputed hole has to *be* the scaffold's hole — otherwise `fill` validates the
+        answer against the stale candidate list and refuses a value the model was correctly
+        offered.
+        """
+        return self.model_copy(
+            update={"holes": [hole if h.field == hole.field else h for h in self.holes]}
+        )
+
     def propose(self, field: str, proposal: Proposal) -> "Scaffold":
         """Record that nothing declared fits this field. **The hole stays open.**"""
         if self.hole(field) is None:

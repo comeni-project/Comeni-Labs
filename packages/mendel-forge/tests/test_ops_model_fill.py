@@ -205,3 +205,59 @@ def test_a_proposal_for_a_field_that_is_not_a_hole_is_refused(workspace: Path) -
             "not_a_field", Proposal(id="x", description="d", why="w", by="m")
         )
     assert "MF0002" in str(raised.value)
+
+
+class PicksFromCandidates:
+    """Answers with whatever the hole currently offers — so a stale candidate list shows up."""
+
+    def fill(self, hole: Hole, observation: Observation):
+        if not hole.candidates:
+            return None
+        return FilledValue(
+            value=hole.candidates[-1].value, filler=Filler.MODEL, by="test/model", why="last"
+        )
+
+
+def test_a_refreshed_candidate_is_accepted_by_the_scaffold_that_offered_it(
+    tmp_path: Path,
+) -> None:
+    """**The whole draft died on this.** A dependent hole's candidates are recomputed once its
+    type is filled, and the recomputed hole has to *be* the scaffold's hole — otherwise `fill`
+    validates against the stale list and refuses a value the model was correctly offered, with
+    MF0003, taking the tool down rather than the hole."""
+    scaffold = _scaffold()
+    with_dependent = scaffold.model_copy(
+        update={
+            "holes": [
+                *scaffold.holes,
+                Hole(
+                    field="consumes[0].type_id",
+                    what="the type",
+                    why_open="not derivable",
+                    candidates=[Candidate(value="qc.report")],
+                ),
+                Hole(
+                    field="consumes[0].name",
+                    what="the name",
+                    why_open="a choice",
+                    candidates=[Candidate(value="multiqc_files")],
+                    after="consumes[0].type_id",
+                    channels=("multiqc_files",),
+                ),
+            ]
+        }
+    )
+    Workspace(root=tmp_path).save(Draft(name="fastqc", scaffold=with_dependent, module=None))
+
+    result = ops.fill_with_model(
+        ops.ModelFillRequest(
+            name="fastqc",
+            workspace_root=tmp_path,
+            model="test/model",
+            registry_root=Path("registry"),
+        ),
+        filler=PicksFromCandidates(),
+    )
+    name = next(o for o in result.outcomes if o.field == "consumes[0].name")
+    assert name.filled, f"a refreshed candidate was refused: {name.declined_because}"
+    assert name.value != "multiqc_files", "candidates were never refreshed at all"

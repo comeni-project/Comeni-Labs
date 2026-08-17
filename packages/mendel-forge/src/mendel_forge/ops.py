@@ -292,7 +292,13 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
 
     outcomes: list[ModelFillOutcome] = []
     for hole in targets:
+        # **The refreshed hole replaces the stored one.** Handing the filler a copy with fresh
+        # candidates while the scaffold kept the stale list meant `Scaffold.fill` looked the
+        # hole up by field and refused its own model's answer with MF0003 — and the raise took
+        # down the whole draft, not the one hole. `hisat2/align` and `star/align` both died
+        # that way on a legal answer.
         hole = _with_fresh_candidates(hole, found.scaffold, stack)
+        found = found.model_copy(update={"scaffold": found.scaffold.replacing(hole)})
         answer = filler.fill(hole, found.scaffold.observation)
         if isinstance(answer, Proposal):
             found = found.model_copy(
