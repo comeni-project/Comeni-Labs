@@ -87,3 +87,21 @@ def _holes(holes) -> list[str]:
         if hole.candidates:
             lines.append(f"      one of: {', '.join(c.value for c in hole.candidates)}")
     return lines
+
+
+def model_fill(result: ops.ModelFillResult) -> str:
+    """Both outcomes, always.
+
+    A hole the model declined is the one a person now has to answer, so hiding it would hide
+    the work rather than the failure.
+    """
+    lines = [f"{result.name}:"]
+    for outcome in result.outcomes:
+        if outcome.filled:
+            lines.append(f"  filled   {outcome.field} = {outcome.value!r}")
+            lines.append(f"           {outcome.why}")
+        else:
+            lines.append(f"  open     {outcome.field}")
+            lines.append(f"           {outcome.declined_because}")
+    lines.append(f"  {len(result.remaining)} hole(s) still open")
+    return "\n".join(lines)

@@ -32,12 +32,19 @@ T = TypeVar("T", bound=BaseModel)
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
 
 
-class NoModelError(RuntimeError):
-    """Nothing was configured and something asked for a model. `MA0001`."""
+class NoModelError(ValueError):
+    """Nothing was configured and something asked for a model. `MA0001`.
+
+    **A `ValueError` because that is the refusal contract every caller already catches** —
+    `mendel_forge.ops`' docstring states it, and both forge transports catch it in one place
+    and turn it into an exit code or a 4xx. A `RuntimeError` here reached the user as a
+    traceback, which is how it was found: by running the documented loop by hand.
+    """
 
 
-class ModelUnavailableError(RuntimeError):
-    """The provider refused credentials. `MA0002`."""
+class ModelUnavailableError(ValueError):
+    """The provider refused credentials, rejected the request, or could not be reached.
+    `MA0002` and `MA0007`."""
 
 
 @runtime_checkable
@@ -157,5 +164,15 @@ class LiteLLMTransport:
         except litellm.Timeout as failure:
             raise TimeoutError(
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
+            ) from failure
+        except Exception as failure:
+            # **Everything else, rather than the two shapes that were anticipated.** A model
+            # id with no provider prefix raises `BadRequestError`, which escaped as a raw
+            # traceback with LiteLLM's own stderr banner on top of it — found by running the
+            # documented loop by hand, not by any test. A transport boundary that lets a
+            # third-party exception through is a transport boundary that reports somebody
+            # else's error message to our user.
+            raise ModelUnavailableError(
+                coded("MA0007", f"{access.model}: {failure}")
             ) from failure
         return response.choices[0].message.content or ""

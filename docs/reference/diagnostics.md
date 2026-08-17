@@ -150,6 +150,7 @@ decline to curate one.
 | `MA0001` | no model is configured, and something asked for one |
 | `MA0002` | the provider refused the credentials |
 | `MA0003` | the model did not answer within the timeout |
+| `MA0007` | the provider rejected the request, or could not be reached |
 
 ## What a model answered
 

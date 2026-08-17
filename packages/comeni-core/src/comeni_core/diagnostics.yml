@@ -1849,3 +1849,24 @@ MA0005:
     The same value is refused a second time by `Hole.legal` on the way into a scaffold. That
     is not redundant: it is the check that already existed for a person's fill, and routing
     a model's answer through it means one rule rather than two that can drift.
+MA0007:
+  emitted_by: ai
+  concern: model-access
+  says: "the provider rejected the request, or could not be reached"
+  fires_on: [forge fill --model]
+  refuses: true
+  fix: |
+    Check `MENDEL_MODEL` names a provider as well as a model — LiteLLM wants
+    `<provider>/<model>`, so `anthropic/claude-sonnet-4-5` rather than `claude-sonnet-4-5`.
+    For a local endpoint, check `MENDEL_BASE_URL` points at something that is running.
+
+    The provider's own message is included after the colon.
+  explanation: |
+    The catch-all for a transport failure that is neither a credential problem (`MA0002`)
+    nor a timeout (`MA0003`). It exists because those two were the only shapes anticipated,
+    and a model id with no provider prefix raises neither — it escaped as a raw traceback
+    with the provider library's own stderr banner above it.
+
+    **A transport boundary that lets a third-party exception through reports somebody
+    else's error message to our user.** Wrapping it costs the original message nothing:
+    it is quoted verbatim after the model id.

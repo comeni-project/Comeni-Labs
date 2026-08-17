@@ -50,13 +50,14 @@ def parser() -> argparse.ArgumentParser:
     _reads_a_draft(verbs.add_parser("show", help="a draft's filled fields and open holes"))
     _reads_a_draft(verbs.add_parser("verify", help="run the five-rung ladder over a draft"))
 
-    fill = verbs.add_parser("fill", help="answer one hole")
+    fill = verbs.add_parser("fill", help="answer one hole, by hand or with a model")
     fill.add_argument("name")
-    fill.add_argument("field")
-    fill.add_argument("value")
-    fill.add_argument("--by", required=True)
-    fill.add_argument("--why", required=True)
+    fill.add_argument("field", nargs="?", help="omit with --model to attempt every hole")
+    fill.add_argument("value", nargs="?")
+    fill.add_argument("--by")
+    fill.add_argument("--why")
     fill.add_argument("--list", action="store_true", help="the value is a comma-separated list")
+    fill.add_argument("--model", help="a model id; attempts candidate-bearing holes only")
     fill.add_argument("--workspace", type=Path, default=_WORKSPACE)
 
     check = verbs.add_parser("check", help="does the registry still match its sources")
@@ -82,3 +83,33 @@ def parser() -> argparse.ArgumentParser:
     explain.add_argument("target", nargs="?")
 
     return root
+
+
+def parse(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse and validate. **The one place a combination of flags is judged.**
+
+    `fill` takes a hand answer or a model, and argparse cannot express *these three are
+    required unless that flag is set*. Doing it here rather than in the dispatcher keeps the
+    rule beside the arguments it is about, and keeps `cli/__init__` free of decisions.
+    """
+    root = parser()
+    args = root.parse_args(argv)
+
+    if args.command == "fill":
+        if args.model:
+            claimed = [
+                name
+                for name, value in (("value", args.value), ("--by", args.by), ("--why", args.why))
+                if value
+            ]
+            if claimed:
+                # `--by` on a model fill is a person putting their name to a model's answer,
+                # which is the one thing the provenance design exists to keep apart.
+                root.error(
+                    f"--model settles a hole itself; drop {', '.join(claimed)}. "
+                    "The model id is recorded as the filler."
+                )
+        elif not (args.field and args.value and args.by and args.why):
+            root.error("a hand fill needs a field, a value, --by and --why (or use --model)")
+
+    return args
