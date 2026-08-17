@@ -147,6 +147,7 @@ class LiteLLMTransport:
                 api_key=access.api_key,
                 base_url=access.base_url,
                 timeout=access.timeout_seconds,
+                temperature=access.temperature,
             )
         except litellm.AuthenticationError as failure:
             raise ModelUnavailableError(

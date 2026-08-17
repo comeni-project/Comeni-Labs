@@ -34,6 +34,7 @@ MODEL = "MENDEL_MODEL"
 API_KEY = "MENDEL_API_KEY"
 BASE_URL = "MENDEL_BASE_URL"
 TIMEOUT = "MENDEL_TIMEOUT_SECONDS"
+TEMPERATURE = "MENDEL_TEMPERATURE"
 
 
 class ModelAccess(BaseModel):
@@ -48,6 +49,19 @@ class ModelAccess(BaseModel):
     base_url: str | None = None
     """Set for a local or self-hosted OpenAI-compatible endpoint; `None` for a provider."""
     timeout_seconds: float = 60.0
+    temperature: float = 0.0
+    """Sampling randomness. **Zero by default, and that default is the point.**
+
+    Nothing set this until 2026-08-17, so every call sampled at the provider's default — which
+    for Ollama is non-zero. Two drafts of the same tool could differ, and an accuracy figure
+    measured across configurations was partly measuring the dice: a two-point difference
+    between prompt designs is not distinguishable from sampling noise.
+
+    The forge does not claim determinism — "same goal in, same pipeline out" is the resolver
+    and compiler — but *unreproducible* is a different thing from *not guaranteed*. A person
+    re-running `forge fill --model` on the same draft should get the same answer, and a
+    measurement comparing two prompts should be comparing two prompts.
+    """
 
     @classmethod
     def require_from_env(cls, env: Mapping[str, str]) -> "ModelAccess":
@@ -91,4 +105,5 @@ class ModelAccess(BaseModel):
             api_key=env.get(API_KEY) or None,
             base_url=env.get(BASE_URL) or None,
             timeout_seconds=float(timeout) if timeout else 60.0,
+            temperature=float(env.get(TEMPERATURE, "").strip() or 0.0),
         )

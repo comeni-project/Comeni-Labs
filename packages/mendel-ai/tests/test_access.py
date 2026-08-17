@@ -99,3 +99,16 @@ def test_the_refusal_names_the_variables_to_set() -> None:
 
 def test_require_from_env_returns_the_access_when_configured() -> None:
     assert ModelAccess.require_from_env({"MENDEL_MODEL": "m"}).model == "m"
+
+
+def test_sampling_is_deterministic_by_default() -> None:
+    """**Nothing set this until 2026-08-17**, so every call sampled at the provider's default
+    and two runs of the same draft could differ. An accuracy figure compared across prompt
+    designs was partly measuring the dice."""
+    assert ModelAccess(model="m").temperature == 0.0
+    assert ModelAccess.from_env({"MENDEL_MODEL": "m"}).temperature == 0.0
+
+
+def test_it_can_be_raised_deliberately() -> None:
+    access = ModelAccess.from_env({"MENDEL_MODEL": "m", "MENDEL_TEMPERATURE": "0.7"})
+    assert access.temperature == 0.7
