@@ -248,7 +248,13 @@ def _with_fresh_candidates(hole: Hole, scaffold: Scaffold, stack: "Layers | None
     return hole.model_copy(
         update={
             "candidates": candidates.for_field(
-                hole.field, stack, type_id=str(settled.value), channels=hole.channels
+                hole.field,
+                stack,
+                type_id=str(settled.value),
+                channels=hole.channels,
+                excluding=scaffold.filled["id"].value.split("@")[0]
+                if "id" in scaffold.filled
+                else None,
             )
         }
     )

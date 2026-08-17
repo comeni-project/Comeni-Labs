@@ -76,6 +76,7 @@ def _hole(
     type_id: str | None = None,
     what: str | None = None,
     port: str | None = None,
+    excluding: str | None = None,
 ) -> Hole:
     """One open field.
 
@@ -89,7 +90,9 @@ def _hole(
         field=field,
         what=what or f"a value for {field}",
         why_open=why,
-        candidates=candidates.for_field(field, stack, type_id=type_id),
+        candidates=candidates.for_field(
+            field, stack, type_id=type_id, excluding=excluding
+        ),
         evidence=_evidence_for(obs, port),
     )
 
@@ -133,7 +136,10 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         if obs.fact(name) is not None:
             filled[field] = _derived(obs.fact(name), obs, name)
         else:
-            holes.append(_hole(field, stack, obs, why=_WHY_OPEN.get(field, "not derivable")))
+            holes.append(
+                _hole(field, stack, obs, why=_WHY_OPEN.get(field, "not derivable"),
+                      excluding=ident)
+            )
 
     # **One port per module input channel.** Nextflow matches arity, and a contract with no
     # `nf_inputs` gets one channel per `consumes` port — so a draft with no input ports at all
@@ -155,7 +161,10 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 why_open="a port name says what the channel carries; the module's says what "
                 "the process calls it, and the two are not the same choice",
                 candidates=candidates.for_field(
-                    f"consumes[{index}].name", stack, channels=tuple(offered)
+                    f"consumes[{index}].name",
+                    stack,
+                    channels=tuple(offered),
+                    excluding=ident,
                 ),
                 evidence=_evidence_for(obs, offered[0] if offered else None),
                 # **Answered after its type, and its candidates recomputed then.** Twenty-four
@@ -177,6 +186,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 stack,
                 obs,
                 why=_WHY_OPEN["type_id"],
+                excluding=ident,
                 what=f"the semantic type of the input the module calls {called}",
                 port=offered[0] if offered else None,
             )
@@ -193,6 +203,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 stack,
                 obs,
                 why=_WHY_OPEN["type_id"],
+                excluding=ident,
                 what=f"the semantic type of the output the module emits as {emit}",
                 port=emit,
             )
@@ -202,7 +213,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
     if arity is not None:
         filled["nf_inputs.arity"] = _derived(arity, obs, "input_arity")
 
-    holes.append(_hole("roles", stack, obs, why=_WHY_OPEN["roles"]))
+    holes.append(_hole("roles", stack, obs, why=_WHY_OPEN["roles"], excluding=ident))
     holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
 
     return Scaffold(

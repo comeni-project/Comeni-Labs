@@ -133,9 +133,15 @@ def test_it_reads_input_documentation_from_meta_yml():
 def test_every_vendored_module_parses():
     """A parser that works on the six modules someone tested it against is not a parser."""
     found = sorted(VENDOR.rglob("modules/nf-core/**/main.nf"))
-    # Without this the test passes when the glob matches nothing, which is how a parser
+    # Without a floor this test passes when the glob matches nothing, which is how a parser
     # comes to be "verified" against an empty tree.
-    assert len(found) == 10, f"expected the whole vendored spine, globbed {len(found)}"
+    #
+    # **A floor rather than an exact count.** This asserted `== 10` and broke the moment
+    # somebody vendored a module, which is an ordinary thing to do — and the failure said
+    # "expected the whole vendored spine" while nothing was wrong with the spine. An exact
+    # count here measures how many modules happen to be checked out, not whether the parser
+    # works, which is the same lesson A71/A72 taught about numbers written down by hand.
+    assert len(found) >= 10, f"expected at least the vendored spine, globbed {len(found)}"
 
     failures = []
     for main_nf in found:

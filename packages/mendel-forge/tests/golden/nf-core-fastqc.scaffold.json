@@ -202,35 +202,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -270,7 +270,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -282,11 +282,11 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
       "evidence": [
@@ -339,35 +339,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -407,7 +407,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -419,11 +419,11 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
       "evidence": [
@@ -446,35 +446,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -514,7 +514,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -526,11 +526,11 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
       "evidence": [
@@ -553,35 +553,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -621,7 +621,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -633,11 +633,11 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
       "evidence": [
@@ -660,27 +660,27 @@
       "candidates": [
         {
           "value": "alignment",
-          "note": "declared role"
+          "note": "declared role — used by hisat2/align, star/align"
         },
         {
           "value": "bam_indexing",
-          "note": "declared role"
+          "note": "declared role — used by samtools/index"
         },
         {
           "value": "bam_sorting",
-          "note": "declared role"
+          "note": "declared role — used by samtools/sort"
         },
         {
           "value": "index_building",
-          "note": "declared role"
+          "note": "declared role — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "profiling",
-          "note": "declared role"
+          "note": "declared role — used by profile/collect, profile/fastqc"
         },
         {
           "value": "qc_aggregation",
-          "note": "declared role"
+          "note": "declared role — used by multiqc"
         },
         {
           "value": "qc_per_sample",
@@ -688,11 +688,11 @@
         },
         {
           "value": "quantification",
-          "note": "declared role"
+          "note": "declared role — used by subread/featurecounts"
         },
         {
           "value": "trimming",
-          "note": "declared role"
+          "note": "declared role — used by trimgalore"
         }
       ],
       "evidence": [
