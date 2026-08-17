@@ -2340,6 +2340,7 @@ fired *by itself*, without anybody arranging it.
 | 2026-08-17 | `tests/test_purity.py::test_no_pure_package_imports_an_impure_one` | a commented-out `import mendel_forge` appended to `comeni_core/__init__.py` | failed | names the offending path |
 | 2026-08-17 | `tests/test_diagnostics_ownership.py::test_every_emitted_code_is_declared` | `coded("MF0002", …)` renamed to `MF9999` in `scaffold.py` | **passed before the fix, failed after** | names the undeclared code |
 | 2026-08-17 | `packages/mendel-forge/tests/test_http.py::test_no_route_contains_a_branch` | an `if` added to the `/check` route returning the same value down both paths | failed | prints the offending route body |
+| 2026-08-17 | `tests/test_no_live_model.py::test_no_test_file_names_a_live_transport` | `from mendel_ai.client import LiteLLMTransport` added to `packages/mendel-ai/tests/test_recorded.py` | failed | names the file, the line, the name, and what to use instead |
 
 **The write-boundary message, verbatim:**
 
@@ -2357,6 +2358,27 @@ direction, `test_every_declared_code_is_emitted`, compares the whole registry ag
 `MD`-only scan, so declaring the first `MF` code turned it red *falsely* within the minute. The
 pattern is now `[A-Z]{2}\d{4}`, and `test_the_scan_sees_every_declared_prefix` checks it against
 the registry's own prefixes rather than a hand-kept list.
+
+**The live-model guard's message, verbatim:**
+
+```
+E  AssertionError: a test reaches a live model:
+E      packages/mendel-ai/tests/test_recorded.py:74 names LiteLLMTransport
+E
+E    Use RecordedTransport with a committed fixture, or an injected fake.
+```
+
+**This guard is new in forge Phase 2, and `CLAUDE.md` had asked for it since before it could
+exist** — *"no test may call a live model"* was written when there was no model to call, so
+nothing enforced it. It is a name scan over the two transports that actually reach a provider,
+and it carries the same standing as invariant 1's scan: **cost-raising, not a proof.** It cannot
+see a transport built dynamically. What it catches is the thing that actually happens — somebody
+reaches for the real transport because the fake was inconvenient — and it names the file, the
+line and the alternative when it does.
+
+Two of its three tests exist because of A67: one asserts the matcher trips on text that should
+trip it, and one asserts the file list is not empty. A guard running over nothing goes green
+*faster*, which is the direction nobody investigates.
 
 **A fourth defect was found by reading a generated artifact rather than by any guard**, and it is
 recorded here because that is the pattern issue #46 established. The first golden scaffold
