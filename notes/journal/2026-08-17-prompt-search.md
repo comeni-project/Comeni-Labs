@@ -110,6 +110,40 @@ Each cost a measurement to establish, and none is visible in the code that remai
 Two of the three are the registry disagreeing with itself. **No prompt fixes that**, and whether
 to make the naming consistent is a decision about the data rather than about the model.
 
+## The headline number is the wrong number — grade by consequence
+
+**Operator's call, 2026-08-17, and it changes the reading of everything above.** A hit/miss
+average treats every field as equally important, and they are not remotely equal. Scoring the
+last run by what a wrong answer actually *costs*:
+
+| band | what a miss does | accuracy |
+|---|---|---|
+| **routing** — `consumes[].type_id`, `produces[].type_id` | changes which tools connect. A wrong type routes, silently, and builds a different pipeline | **96%** (24/25) |
+| **rule targeting** — `roles` | a tier-3 rule targets a role, so a wrong one aims the rules elsewhere | **100%** (10/10) |
+| **port label** — `consumes[].name` | a label. Routing is by `type_id`; a reviewer renames it in seconds | 60% (9/15) |
+| | **weighted on what changes the pipeline** | **97%** (34/35) |
+
+So the 86% headline is dragged down almost entirely by the least consequential field measured,
+and **on everything that affects the built pipeline the model is at 97%** — one miss, the
+`samtools/index` direction confusion.
+
+`produces[].name` is deliberately not in that table: it is derived from the module's emit
+channels rather than asked, and `MD0105` refuses a contract whose port name is not an emit the
+process declares. A field a machine can check does not need a model to be graded on it.
+
+**Two consequences for how this is measured from now on.**
+
+- **The spike's flat percentage should be replaced by a banded one.** A single number that
+  averages "which pipeline gets built" with "what the port is called" hides the only thing worth
+  knowing. Not implemented yet — this entry is the record that it should be.
+- **Incompleteness is expected and is not the same as being wrong.** A draft that omits a port
+  or a parameter is a draft somebody extends later, which is what happens when a human writes one
+  too — the shipped `star/align` contract declares one of nineteen emit channels for exactly that
+  reason. A *wrong type* is a different kind of failure from a *missing port*, and grading them
+  alike is what makes ~90% look like a problem rather than a good place to start.
+
+**~90% overall, 97% on what routes, is a starting position rather than a shortfall.**
+
 ## The process finding, which may outlast the technical ones
 
 **Six defects were found today. Three were in the measurement, not the product**: ports matched
