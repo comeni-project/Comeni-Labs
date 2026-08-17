@@ -59,13 +59,19 @@ def for_field(
         # it outright, where "the module's channel name is bams" invites the channel name —
         # which is what the model kept picking. Same source as the role exemplars, and for the
         # same reason: a port name is a convention of this registry, not a fact about the tool.
-        named = _named_by(stack, type_id, excluding)
-        offered = {name: "the module's channel name" for name in channels}
-        for name in named:
+        # **Order matters, and the first version had it backwards.** The module's channel name
+        # was listed first and chosen every time across three tools — `input`, `bams`,
+        # `multiqc_files` — while the right answer sat below it. Position bias is real and it
+        # was pointing at the wrong candidate, so the registry's own convention leads now and
+        # the channel name comes last.
+        offered: dict[str, str] = {}
+        for name in _named_by(stack, type_id, excluding):
             offered[name] = f"what other contracts call an {type_id} port"
         for part in [p for p in type_id.split(".") if p]:
             offered.setdefault(part, f"from the type {type_id}")
             offered.setdefault(f"{part}s", f"from the type {type_id}, plural")
+        for name in channels:
+            offered.setdefault(name, "the module's internal channel name")
         return [Candidate(value=v, note=n) for v, n in offered.items()]
 
     if base == "roles":

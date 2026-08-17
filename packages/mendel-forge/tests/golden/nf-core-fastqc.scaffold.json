@@ -172,7 +172,7 @@
   "holes": [
     {
       "field": "consumes[0].name",
-      "what": "what this contract calls the thing arriving on channel 0 — the module calls it meta, reads",
+      "what": "what this contract calls the thing arriving on channel 0",
       "why_open": "a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice",
       "candidates": [
         {

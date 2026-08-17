@@ -213,8 +213,10 @@ class PicksFromCandidates:
     def fill(self, hole: Hole, observation: Observation):
         if not hole.candidates:
             return None
+        # The *first* candidate, which is the registry-derived one — the channel name is
+        # deliberately last now, so picking from the end would test the opposite of the point.
         return FilledValue(
-            value=hole.candidates[-1].value, filler=Filler.MODEL, by="test/model", why="last"
+            value=hole.candidates[0].value, filler=Filler.MODEL, by="test/model", why="first"
         )
 
 
@@ -261,3 +263,4 @@ def test_a_refreshed_candidate_is_accepted_by_the_scaffold_that_offered_it(
     name = next(o for o in result.outcomes if o.field == "consumes[0].name")
     assert name.filled, f"a refreshed candidate was refused: {name.declined_because}"
     assert name.value != "multiqc_files", "candidates were never refreshed at all"
+    assert name.value in {"qc", "qcs", "report", "reports", "zip"}, name.value

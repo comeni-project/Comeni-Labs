@@ -156,8 +156,13 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         holes.append(
             Hole(
                 field=f"consumes[{index}].name",
-                what="what this contract calls the thing arriving on channel "
-                f"{index} — the module calls it {', '.join(slot)}",
+                # **The module's channel name is deliberately not repeated here.** It used to
+                # be — "the module calls it meta, input" — which named the wrong answer in the
+                # question, offered it first, and hoped for something else. That clause dates
+                # from Phase 1, when channel names were the only candidates and saying so was
+                # the whole of the help. It is one candidate among several now, and the
+                # sentence was arguing for it.
+                what=f"what this contract calls the thing arriving on channel {index}",
                 why_open="a port name says what the channel carries; the module's says what "
                 "the process calls it, and the two are not the same choice",
                 candidates=candidates.for_field(

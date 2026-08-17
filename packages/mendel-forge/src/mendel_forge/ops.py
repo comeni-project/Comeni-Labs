@@ -28,6 +28,7 @@ from mendel_forge import assemble, candidates, modulegen, sources
 from mendel_forge.filler import ModelFiller
 from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
+from mendel_forge.observe import Excerpt
 from mendel_forge.ports import HoleFiller
 from mendel_forge.scaffold import FilledValue, Filler, Hole, Proposal, Scaffold
 from mendel_forge.sources import ToolRef
@@ -240,13 +241,18 @@ def _with_fresh_candidates(hole: Hole, scaffold: Scaffold, stack: "Layers | None
     asking both from the same fixed candidate list produced a model that answered `gtf` for one
     and `genome.index.hisat2` for the other — the same port, contradicted across two calls.
     """
+    siblings = _settled_ports(scaffold)
     if hole.after is None or stack is None:
-        return hole
+        # **Still gains its siblings.** Only a name hole declares `after`, and the port whose
+        # type was answered `alignment.bai` for a BAM input is a type hole — the one that most
+        # needs to know what the tool's other ports already are.
+        return hole.model_copy(update={"evidence": [*hole.evidence, *siblings]})
     settled = scaffold.filled.get(hole.after)
     if settled is None:
-        return hole
+        return hole.model_copy(update={"evidence": [*hole.evidence, *siblings]})
     return hole.model_copy(
         update={
+            "evidence": [*hole.evidence, *siblings],
             "candidates": candidates.for_field(
                 hole.field,
                 stack,
@@ -258,6 +264,32 @@ def _with_fresh_candidates(hole: Hole, scaffold: Scaffold, stack: "Layers | None
             )
         }
     )
+
+
+def _settled_ports(scaffold: Scaffold) -> list[Excerpt]:
+    """What this tool's other ports have already been decided to be.
+
+    **The same defect as asking about a port by index, one level up.** `samtools/index`'s own
+    documentation for its input port reads `"input file"` — no signal at all — so a model falls
+    back on the tool description, which says *index*, and answers `alignment.bai`. The tool does
+    produce a `.bai`; just not there.
+
+    Meanwhile the answer sits in the same scaffold: the *output* port is already settled. Saying
+    so turns "what type is this port" into "what type is this port, given the others", which is
+    the question a person answers.
+
+    Recomputed per hole rather than baked in at draft time, because what is settled changes as
+    the draft is filled — the first hole sees nothing and the last sees everything.
+    """
+    decided = [
+        (field.removesuffix(".type_id"), str(value.value))
+        for field, value in sorted(scaffold.filled.items())
+        if field.endswith(".type_id")
+    ]
+    return [
+        Excerpt(locator="this draft", text=f"{port} has already been settled as {type_id}")
+        for port, type_id in decided
+    ]
 
 
 def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> ModelFillResult:
