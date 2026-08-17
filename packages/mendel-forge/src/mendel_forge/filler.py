@@ -49,8 +49,27 @@ class ModelFiller:
             return None
 
         options = [Option(value=c.value, note=c.note) for c in hole.candidates]
-        evidence = [f"{e.locator}: {e.text}" for e in (*hole.evidence, *observation.prose)]
-        question = f"{hole.what}\n\nThis is the field {hole.field} of a Mendel module contract."
+        # **The hole's own evidence, not the whole observation.** `assemble` narrows a port's
+        # evidence to that port's documentation; appending `observation.prose` again put every
+        # other port back and was how `star/align` came to send ~13,000 characters per question.
+        evidence = [f"{e.locator}: {e.text}" for e in hole.evidence]
+        # **`why_open` is sent.** It was not, and it is where the scaffold explains the actual
+        # judgement — for a port name it says the contract's name and the module's channel name
+        # are different choices, which is the distinction three of the measured misses got
+        # wrong while the sentence explaining it sat unused in the Hole.
+        question = "\n\n".join(
+            [
+                f"{hole.what}.",
+                f"Why this is a judgement rather than something readable: {hole.why_open}.",
+                f"You are filling the field {hole.field} of a Mendel module contract "
+                f"for the tool {observation.ref_id}.",
+            ]
+        )
+        if _is_list_valued(hole.field):
+            question += (
+                "\n\nChoose the smallest set that is true of this tool. "
+                "Do not add a value merely because the tool touches it."
+            )
 
         value: object
         if _is_list_valued(hole.field):
