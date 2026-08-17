@@ -54,9 +54,16 @@ def for_field(
         # module calls it, since that is sometimes right and always worth offering.
         if type_id is None:
             return [Candidate(value=name, note="the module's channel name") for name in channels]
-        segments = [part for part in type_id.split(".") if part]
+        # **What other contracts already call a port of this type.** The decisive evidence:
+        # asked what to call an `alignment.bam` input, "other contracts call this bam" answers
+        # it outright, where "the module's channel name is bams" invites the channel name —
+        # which is what the model kept picking. Same source as the role exemplars, and for the
+        # same reason: a port name is a convention of this registry, not a fact about the tool.
+        named = _named_by(stack, type_id, excluding)
         offered = {name: "the module's channel name" for name in channels}
-        for part in segments:
+        for name in named:
+            offered[name] = f"what other contracts call an {type_id} port"
+        for part in [p for p in type_id.split(".") if p]:
             offered.setdefault(part, f"from the type {type_id}")
             offered.setdefault(f"{part}s", f"from the type {type_id}, plural")
         return [Candidate(value=v, note=n) for v, n in offered.items()]
@@ -161,3 +168,20 @@ def _carried_by(stack: Layers, excluding: str | None = None) -> dict[str, list[s
         for port in (*contract.consumes, *contract.produces):
             found.setdefault(port.type_id, []).append(_tool(contract.id))
     return found
+
+
+def _named_by(stack: Layers, type_id: str, excluding: str | None = None) -> list[str]:
+    """What existing contracts name their ports of this type, most common first.
+
+    A port name is a convention of this registry — `alignment.bam` is called `bam` in four
+    contracts — and until now the only candidate carrying any authority was the module's own
+    channel name, which is the one the measurement showed the model wrongly preferring.
+    """
+    seen: dict[str, int] = {}
+    for contract in stack.registry.contracts.values():
+        if excluding and contract.id.split("@")[0] == excluding:
+            continue
+        for port in (*contract.consumes, *contract.produces):
+            if port.type_id == type_id:
+                seen[port.name] = seen.get(port.name, 0) + 1
+    return [name for name, _ in sorted(seen.items(), key=lambda kv: (-kv[1], kv[0]))]
