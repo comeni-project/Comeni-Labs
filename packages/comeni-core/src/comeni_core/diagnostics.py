@@ -56,6 +56,13 @@ class EmittedBy(StrEnum):
     COMPILER = "compiler"
     RESOLVER = "resolver"
     FORGE = "forge"
+    AI = "ai"
+    """`mendel-ai` — reaching a model, and what comes back.
+
+    Arrived with forge Phase 2, the first time anything in this repository could call a model.
+    Its codes are about **access** (nothing configured, credentials refused, no answer in time)
+    and **output** (an answer that will not fit the shape it was asked for). Neither is about a
+    pipeline, which is why they are their own concern rather than an extension of routing."""
     API = "api"
 
 

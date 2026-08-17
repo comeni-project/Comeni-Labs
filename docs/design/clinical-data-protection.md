@@ -140,6 +140,16 @@ prompt in a signed public registry is in every clone's history forever.
 | compiler repair | `RepairRequest` | the IR + `GateFailure` | `mendel-ai` |
 | publication | `Pipeline` | the `pipeline.yml` artifact — goal, steps, settings, decisions, digests | `mendel-api` |
 
+**These four are one path, and that is what makes the list complete.** Prompt → goal → build →
+pipeline → publish. §4.2's taint rule below is the reason: free text enters at exactly one door,
+and everything else is judged by whether it is downstream of it.
+
+**Offline authoring is outside this boundary.** `mendel-forge` reads vendored modules and
+registry files and produces registry data; it has no prompt and no `Goal`, and a laboratory can
+deploy Mendel and never run it. A model call it makes is **not a fifth door** — decided
+2026-08-17, and argued in `notes/specs/2026-08-17-forge-phase-2.md` §1. Invariant 3's `AiPoint`
+list is the corroboration: three runtime AI points, and the forge is not one of them.
+
 Payload **types** are declared in a new `comeni_core/egress.py`; **transmission** stays in the
 impure packages. Invariant 1 already prevents a pure package from opening a socket, so pure code
 decides what may leave and impure code does the leaving. Neither can do the other's job.

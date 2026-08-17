@@ -23,6 +23,7 @@ dependencies = [
   "comeni-core>=0.1.0",
   "mendel-resolver>=0.1.0",
   "mendel-compiler>=0.1.0",
+  "mendel-ai>=0.1.0",
   "pydantic>=2.9",
   "pyyaml>=6.0",
 ]

@@ -18,12 +18,16 @@ from pathlib import Path
 from typing import Any
 
 from comeni_core.diagnostics import coded
+from mendel_ai.access import ModelAccess
+from mendel_ai.client import Client
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict
 
 from mendel_forge import assemble, modulegen, sources
+from mendel_forge.filler import ModelFiller
 from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
+from mendel_forge.ports import HoleFiller
 from mendel_forge.scaffold import FilledValue, Filler, Hole
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
@@ -118,6 +122,39 @@ class FillResult(BaseModel):
     remaining: list[str]
 
 
+class ModelFillRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str | None = None
+    """`None` attempts every candidate-bearing hole."""
+    workspace_root: Path
+    model: str
+    api_key: str | None = None
+    base_url: str | None = None
+
+
+class ModelFillOutcome(BaseModel):
+    model_config = _NO_EXTRAS
+
+    field: str
+    filled: bool
+    value: Any | None = None
+    why: str | None = None
+    declined_because: str | None = None
+    """Why a hole was not filled. **Never `None` when `filled` is false** — a hole nobody
+    attempted must not look like a hole that does not exist, and 'it has no candidates' and
+    'the model declined' are different problems with different fixes."""
+
+
+class ModelFillResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    outcomes: list[ModelFillOutcome]
+    remaining: list[str]
+
+
 class VerifyRequest(BaseModel):
     model_config = _NO_EXTRAS
 
@@ -185,6 +222,65 @@ def fill(req: FillRequest) -> FillResult:
         name=req.name,
         field=req.field,
         remaining=sorted(h.field for h in filled.holes),
+    )
+
+
+def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> ModelFillResult:
+    """Attempt each hole, persisting after each one.
+
+    **Per fill, not per batch.** A provider dying after eight of fifteen holes must cost
+    nothing — the draft is what the forge accumulates, and an all-or-nothing batch makes a
+    flaky network expensive.
+
+    `filler` is injected by tests; `None` builds a `ModelFiller` from the request. This is a
+    separate verb from `fill` rather than a mode on it because `FillRequest`'s `value`, `by`
+    and `why` are all required and a model fill supplies none of them up front — sharing one
+    request model would mean weakening the hand-fill path to suit the model one.
+    """
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
+    if filler is None:
+        filler = ModelFiller(
+            Client(ModelAccess(model=req.model, api_key=req.api_key, base_url=req.base_url)),
+            model_id=req.model,
+        )
+
+    targets = [h for h in found.scaffold.holes if req.field is None or h.field == req.field]
+    if req.field is not None and not targets:
+        raise ValueError(coded("MF0002", f"{req.field} is not a hole in {req.name}"))
+
+    outcomes: list[ModelFillOutcome] = []
+    for hole in targets:
+        answer = filler.fill(hole, found.scaffold.observation)
+        if answer is None:
+            outcomes.append(
+                ModelFillOutcome(
+                    field=hole.field,
+                    filled=False,
+                    declined_because=(
+                        "no candidates — free text, and a person answers it"
+                        if not hole.candidates
+                        else "the model declined or its answer did not validate"
+                    ),
+                )
+            )
+            continue
+        found = found.model_copy(
+            update={
+                "scaffold": found.scaffold.fill(
+                    hole.field, answer.value, Filler.MODEL, by=answer.by, why=answer.why
+                )
+            }
+        )
+        workspace.save(found)
+        outcomes.append(
+            ModelFillOutcome(field=hole.field, filled=True, value=answer.value, why=answer.why)
+        )
+
+    return ModelFillResult(
+        name=req.name,
+        outcomes=outcomes,
+        remaining=sorted(h.field for h in found.scaffold.holes),
     )
 
 

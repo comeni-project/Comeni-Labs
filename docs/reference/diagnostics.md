@@ -142,3 +142,20 @@ decline to curate one.
 |---|---|
 | `MF0100` | a draft may not be landed on the registry's default branch |
 | `MF0101` | the registry checkout has uncommitted changes |
+
+## Reaching a model
+
+| Code | Says |
+|---|---|
+| `MA0001` | no model is configured, and something asked for one |
+| `MA0002` | the provider refused the credentials |
+| `MA0003` | the model did not answer within the timeout |
+| `MA0007` | the provider rejected the request, or could not be reached |
+
+## What a model answered
+
+| Code | Says |
+|---|---|
+| `MA0004` | the model's answer did not match the shape it was asked for |
+| `MA0005` | the model picked a value it was not offered |
+| `MA0006` | the model's answer was longer than the field allows |

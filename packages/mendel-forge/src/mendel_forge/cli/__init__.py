@@ -12,17 +12,24 @@ branches on, so the two should not look alike.
 """
 
 import datetime
+import os
 import re
 import sys
 
+from mendel_ai.access import ModelAccess
 from mendel_compiler import conformance
 
 from mendel_forge import ops
 from mendel_forge.cli import parse, render
 
-_CODE = re.compile(r"\bMF\d{4}\b")
-"""`MF` only. A forge refusal is explained by `forge explain`; pointing a reader at
-`mendel explain` for a code `mendel` never raises would send them to the wrong verb."""
+_CODE = re.compile(r"\b(?:MF|MA)\d{4}\b")
+"""`MF` and `MA` — the two prefixes a forge command can raise.
+
+A forge refusal is explained by `forge explain`; pointing a reader at `mendel explain` for a
+code `mendel` never raises would send them to the wrong verb. `MA` joined with Phase 2, when
+`forge fill --model` became able to fail on model access rather than on a scaffold — and a
+reader who typed `--model` and got `MA0001` with no pointer is exactly the person who needs
+one."""
 
 
 def _with_pointer(message: str) -> str:
@@ -46,7 +53,7 @@ def _emit(args, result, text: str) -> int:
 
 def _run(argv: list[str] | None = None) -> int:
     parser = parse.parser()
-    args = parser.parse_args(argv)
+    args = parse.parse(argv)
 
     if args.command == "explain":
         if not args.target:
@@ -90,6 +97,25 @@ def _run(argv: list[str] | None = None) -> int:
             )
         )
         return _emit(args, result, render.show(result))
+
+    if args.command == "fill" and args.model is not None:
+        # Bare `--model` means "the one I configured"; `--model <id>` overrides it. Either way
+        # the key and base URL come from the environment, because a credential on a command
+        # line is a credential in a shell history.
+        access = ModelAccess.require_from_env(
+            {**os.environ, **({"MENDEL_MODEL": args.model} if args.model else {})}
+        )
+        model_result = ops.fill_with_model(
+            ops.ModelFillRequest(
+                name=args.name,
+                field=args.field,
+                workspace_root=args.workspace,
+                model=access.model,
+                api_key=access.api_key,
+                base_url=access.base_url,
+            )
+        )
+        return _emit(args, model_result, render.model_fill(model_result))
 
     if args.command == "fill":
         value = [part.strip() for part in args.value.split(",")] if args.list else args.value

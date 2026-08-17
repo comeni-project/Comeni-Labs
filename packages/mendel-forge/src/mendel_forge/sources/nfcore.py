@@ -41,24 +41,47 @@ class NfCoreSource:
         # depend on the checkout path while `make verify` stayed green. A locator has to name
         # a file a reviewer on another machine can open.
         at = str(main_nf.relative_to(root))
+        source_lines = main_nf.read_text().splitlines()
 
-        def fact(value: object) -> Fact:
-            return Fact(
-                value=value, evidence=Excerpt(locator=at, text=f"{spec.process} in main.nf")
-            )
+        def fact(value: object, position: str | None = None) -> Fact:
+            """`position` is a key into `ModuleSpec.lines`.
+
+            **`None` means derived rather than read.** Citing a line for a value nothing read
+            from that line is a false citation, and worse than a vague one — a reviewer who
+            follows it finds text that does not support the claim, and has no way to tell that
+            from a claim that is simply wrong.
+            """
+            line = spec.lines.get(position) if position else None
+            if line is None:
+                return Fact(value=value, evidence=Excerpt(locator=at, text=f"read from {at}"))
+            # A block fact quotes the whole block. `input:` and `output:` are headers; what
+            # they declare underneath is the evidence, and a citation reading `text: "output:"`
+            # names a real line while teaching a reader nothing.
+            end = spec.lines.get(f"{position}.end", line)
+            quoted = [text.strip() for text in source_lines[line - 1 : end]]
+            # A block match runs to the blank line before the next keyword, so the span ends
+            # in whitespace. Quoting it would cite a line that says nothing and put a stray
+            # newline in every golden file.
+            while len(quoted) > 1 and not quoted[-1]:
+                quoted.pop()
+            end = line + len(quoted) - 1
+            locator = f"{at}:{line}" if end == line else f"{at}:{line}-{end}"
+            return Fact(value=value, evidence=Excerpt(locator=locator, text="\n".join(quoted)))
 
         facts = {
-            "process": fact(spec.process),
-            "emits": fact(list(spec.emits)),
-            "input_arity": fact(len(spec.inputs)),
-            "input_names": fact([slot.names for slot in spec.inputs]),
-            "meta_reads": fact(sorted({read.key for read in spec.meta_reads})),
-            "reads_ext_args": fact(spec.reads_ext_args),
-            "reads_ext_prefix": fact(spec.reads_ext_prefix),
+            "process": fact(spec.process, "process"),
+            "emits": fact(list(spec.emits), "outputs"),
+            "input_arity": fact(len(spec.inputs), "inputs"),
+            "input_names": fact([slot.names for slot in spec.inputs], "inputs"),
+            # The input block, not the first read: the fact is the *set* of keys, and citing
+            # one of them would claim the others came from there too.
+            "meta_reads": fact(sorted({read.key for read in spec.meta_reads}), "inputs"),
+            "reads_ext_args": fact(spec.reads_ext_args, "reads_ext_args"),
+            "reads_ext_prefix": fact(spec.reads_ext_prefix, "reads_ext_prefix"),
             "nf_include": fact(f"modules/nf-core/{ref.ident}/main"),
         }
         if spec.container:
-            facts["container"] = fact(spec.container)
+            facts["container"] = fact(spec.container, "container")
         if spec.documented:
             facts["documented_inputs"] = fact([d.name for d in spec.documented])
 

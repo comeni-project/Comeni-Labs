@@ -46,8 +46,10 @@ the order.
 | 11 | `../audits/2026-08-11-round-four-audit.md` | Round four audit — **complete.** A55–A75, four critical (A55, A57, A58, A59). All four review streams landed. **A14 did not close** |
 | 12 | `2026-08-13-closing-round-four.md` | Plan 1.12 — **complete, and the last audit-driven plan** (decided 2026-08-13). Closed A55, A56, A57, A58, A59 and A70; the other fifteen findings are carried as issues |
 | 13 | `../audits/2026-08-14-design-audit.md` | The design audit — **complete.** Not like rounds one to four: it asked whether the *design* delivers the claim, rather than whether the code matches the design. Four streams, and the split it produced — *"same goal in → same pipeline out"* holds, *"nothing was guessed silently"* did not, and Plan 1.14 closed it — is the most useful thing it returned. This row said **next, not yet run** for two days after it ran, which is the drift A71 and A72 are about |
-| 14 | `2026-08-16-the-forge-phase-1.md` + `../specs/2026-08-16-the-forge.md` | **The forge, Phase 1 — DONE, 2026-08-17.** Twenty-three tasks, seven checkpoints, all executed. `mendel-forge` is the first impure package and calls no model: a source is read, facts are derived, and everything else is a typed hole a person fills. Five corrections to the plan are recorded in [`journal/2026-08-17-the-forge.md`](journal/2026-08-17-the-forge.md); the two that mattered are that the diagnostics ownership guard was blind to every non-`MD` prefix, and that a draft could report no holes while producing a contract with no input ports. **Phase 2 has no plan yet and should not get one before the fifth-door question is settled** — that journal entry's Phase 2 section is the handoff. Deterministic scaffolding only; a model fills holes in Phase 2. Plan 2 was deleted rather than corrected (operator's decision, 2026-08-16) — both documents were verified against the Plan 1.12 tree, fourteen merged pull requests ago, and neither knew about `AiProvenance`, `MD0225`, `coded()`, `declares:` or the registry being a separate repository. `43b1ce0` is the last commit holding them, and [`journal/2026-08-17.md`](journal/2026-08-17.md) is the argument. The runtime-AI and prompt→goal halves of the old Plan 2 are separate subsystems needing their own specs |
-| 15 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references |
+| 14 | `2026-08-16-the-forge-phase-1.md` + `../specs/2026-08-16-the-forge.md` | **The forge, Phase 1 — DONE, 2026-08-17.** Twenty-three tasks, seven checkpoints, all executed. `mendel-forge` is the first impure package and calls no model: a source is read, facts are derived, and everything else is a typed hole a person fills. Five corrections to the plan are recorded in [`journal/2026-08-17-the-forge.md`](journal/2026-08-17-the-forge.md); the two that mattered are that the diagnostics ownership guard was blind to every non-`MD` prefix, and that a draft could report no holes while producing a contract with no input ports. **The fifth-door question is settled: there is no door 5** (2026-08-17) — invariant 14 tracks prompt-derived data on the build path, `docs/design/clinical-data-protection.md` §4.2's taint rule is the scope it always had, and the forge is offline authoring outside it. That journal entry's Phase 2 section is still the handoff for everything else. Deterministic scaffolding only; a model fills holes in Phase 2. Plan 2 was deleted rather than corrected (operator's decision, 2026-08-16) — both documents were verified against the Plan 1.12 tree, fourteen merged pull requests ago, and neither knew about `AiProvenance`, `MD0225`, `coded()`, `declares:` or the registry being a separate repository. `43b1ce0` is the last commit holding them, and [`journal/2026-08-17.md`](journal/2026-08-17.md) is the argument. The runtime-AI and prompt→goal halves of the old Plan 2 are separate subsystems needing their own specs |
+| 15 | [`2026-08-17-forge-phase-2.md`](plans/2026-08-17-forge-phase-2.md) + [`../specs/2026-08-17-forge-phase-2.md`](specs/2026-08-17-forge-phase-2.md) | **DONE, 2026-08-17.** Fourteen tasks, all executed; `make verify` green. Six corrections are recorded in [`journal/2026-08-17-forge-phase-2.md`](journal/2026-08-17-forge-phase-2.md), and the two that mattered were found by running the loop by hand with every test green: every model-access failure reached the user as a traceback, and a model id with no provider prefix escaped as a third-party exception. **The fifth-door question is answered — there is no door 5**, and `DOORS` and `tests/test_egress.py` did not change, which is the evidence rather than the claim. One decision moved during execution: the surface is `generate(shape)` with closed choice as a helper, not closed choice as the primitive, because the rule drafter runs next and does not fit a list of options. A model fills holes the deterministic scaffold left open. Four decisions taken 2026-08-17, before any plan: candidate-bearing holes only by default with prose holes behind an explicit flag; a model fill lands as an **answer** marked model-filled, since `Filler.MODEL` and the model id in `FilledValue.by` already reach `Provenance.drafted_by` and no schema changes; `ModuleSpec` gains **line numbers first**, so `Excerpt.text` quotes the line rather than naming the file — which buys conformance diagnostics the same thing; and a new **`mendel-ai` holds transport only** — LiteLLM client, config, retries — with no `AmbiguityResolver`, because that seam has no spec and invariant 9's replay requirement makes it unguessable. `sealed` makes no forge model call. The golden scaffold test stays pinned to `NoFiller` |
+| 16 | `../specs/2026-08-13-the-rule-drafter.md` | **The rule drafter — scheduled 2026-08-17, spec only, no plan yet.** Moved ahead of Plan 3 on the argument that each step shrinks the next one's job: nothing currently authors tier-3 rules, so every ambiguity falls to tier 4 by default, and tier 3 is the differentiator. Its spec names four hard prerequisites and a central risk, and `CLAUDE.md` says read it before building any part of the forge. Issue #38's closing note is the hardest part — the drafting question and the measuring question are the same one, and a measurement has no `meta.yml` to be ground truth |
+| 17 | `2026-08-02-mendel-api-and-dashboard.md` | Plan 3 — predates the types it references. **Gains the tier-4 ambiguity resolver and [#69](https://github.com/comeni-project/Comeni-Labs/issues/69)**, decided 2026-08-17: invariant 6 flags tier 4 even at high model confidence, so a model answer still needs a human, and the thing that makes tier 4 tractable is the review screen rather than the model. Resolver and screen are one feature. #69 — `AiProvenance.available` hardcoded to `[]`, which `MD0225` refuses the moment a resolver writes `source: model` — is its **first design task**, not an assumption |
 
 ### Why that order
 
@@ -98,6 +100,39 @@ and Plan 2 Task 4 builds `ReplayingResolver` in `mendel-ai`. They are not the sa
 replays recorded decisions when a curated bundle is edited, the other caches model answers
 across runs — but they are close enough that building both without noticing gives two ways to
 do one thing. Whichever runs second should absorb the first rather than duplicate it.
+
+### Forge Phase 2, then the rule drafter, then Plan 3 — decided 2026-08-17
+
+**Each step shrinks the next one's job.** That is the whole argument, and it is why the tier-4
+ambiguity resolver — the piece that looks most like "the AI work" — comes last rather than first.
+
+- **The forge fills the registry.** A tier-3 rule cannot match against contracts that do not
+  exist, and hand-authoring a registry was never the plan.
+- **The rule drafter fills tier 3**, which is what tier 4 is the fallback *from*. Nothing
+  currently authors a tier-3 rule, so today every ambiguity the ladder cannot settle lands at
+  tier 4 by default. Building a model into tier 4 first would be optimising the fallback path
+  while the primary one sits empty.
+- **Plan 3 then builds the review queue against a queue as small as it is going to get**, and
+  builds the resolver beside the screen that consumes its answer.
+
+**Why the resolver belongs with the GUI and not in its own phase.** Invariant 6 says tier 4 is
+always flagged, *even at high model confidence*. So a model answer does not remove the human — it
+saves them composing a reply to a question they must still decide. The thing that makes tier 4
+tractable is therefore the review screen, and a suggestion with nowhere to be reviewed is half a
+feature that invariant 6 guarantees stays half. Today a person answers a tier-4 question by
+editing `pipeline.yml` with an `override_reason`, which Plan 1.14 built because that person had
+nowhere to say why (A77).
+
+**The argument against, recorded because it is real:** #69 is a `comeni-core` artifact design
+question, and putting it inside a frontend plan is how design questions get answered badly. It is
+row 17's *first* task rather than an assumption for exactly that reason, and it is filed as an
+issue rather than left in this table so it cannot be quietly skipped.
+
+**The other argument against:** this order moves the v1 success criterion no further than the two
+plans before it did. Its one unmet clause is the plain-language prompt — goal extraction, door 1
+— which is a *third* AI subsystem, distinct from both the forge filler and the ambiguity
+resolver, and it is scheduled nowhere. If v1 becomes the priority, that is the row to insert, and
+this order is the thing to revisit.
 
 ### The loop's exit criterion was overridden on 2026-08-13
 

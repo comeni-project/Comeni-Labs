@@ -8,8 +8,8 @@
       "container": {
         "value": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:6",
+          "text": "container \"${workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container"
         }
       },
       "documented_inputs": {
@@ -19,7 +19,7 @@
         ],
         "evidence": {
           "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "text": "read from modules/nf-core/fastqc/main.nf"
         }
       },
       "emits": {
@@ -29,15 +29,15 @@
           "versions_fastqc"
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:13-16",
+          "text": "output:\ntuple val(meta), path(\"*.html\"), emit: html\ntuple val(meta), path(\"*.zip\"), emit: zip\ntuple val(\"${task.process}\"), val('fastqc'), eval('fastqc --version | sed \"/FastQC v/!d; s/.*v//\"'), emit: versions_fastqc, topic: versions"
         }
       },
       "input_arity": {
         "value": 1,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
       "input_names": {
@@ -48,8 +48,8 @@
           ]
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
       "meta_reads": {
@@ -57,36 +57,36 @@
           "id"
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
       "nf_include": {
         "value": "modules/nf-core/fastqc/main",
         "evidence": {
           "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "text": "read from modules/nf-core/fastqc/main.nf"
         }
       },
       "process": {
         "value": "FASTQC",
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:1",
+          "text": "process FASTQC {"
         }
       },
       "reads_ext_args": {
         "value": true,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:22",
+          "text": "def args = task.ext.args ?: ''"
         }
       },
       "reads_ext_prefix": {
         "value": true,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "FASTQC in main.nf"
+          "locator": "modules/nf-core/fastqc/main.nf:23",
+          "text": "def prefix = task.ext.prefix ?: \"${meta.id}\""
         }
       }
     },
@@ -110,7 +110,7 @@
       "value": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:6"
     },
     "id": {
       "value": "nf-core/fastqc@0.12.1",
@@ -128,31 +128,31 @@
       "value": 1,
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:10-11"
     },
     "nf_process": {
       "value": "FASTQC",
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:1"
     },
     "produces[0].name": {
       "value": "html",
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "produces[1].name": {
       "value": "zip",
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "produces[2].name": {
       "value": "versions_fastqc",
       "filler": "derived",
       "by": "nf-core",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "provenance.source": {
       "value": "nf-core",

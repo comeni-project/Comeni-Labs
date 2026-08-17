@@ -480,9 +480,51 @@ mendel-forge/
   workspace.py   drafts on disk, outside every layer
   land.py        the one thing that writes to a registry
   ops.py         one typed function per verb — the only layer with logic
-  ports.py       HoleFiller — the Phase 2 seam, and NoFiller
+  ports.py       HoleFiller — the seam, NoFiller, and since Phase 2 ModelFiller
+  filler.py      ModelFiller — a model behind that seam
   cli/  http/    two transports over ops.py, neither holding logic
 ```
+
+### Phase 2 — a model behind the seam
+
+`mendel_forge.filler.ModelFiller` implements `HoleFiller` over `mendel-ai`. It attempts
+**candidate-bearing holes only**: those are the holes whose legal answers come off the layer
+stack, so an answer is checkable, and `Hole.legal` refuses one that is not. A hole with no
+candidates is free text and is **declined without being sent** — stronger than asking and
+discarding, because no prose about it ever leaves. Issue #70 gates the other direction, and
+`priority_because` is the one such value that would reach a registry.
+
+Every answer is validated twice: `mendel_ai.choose_*` refuses a value the model was not
+offered, and `hole.legal` refuses it again on the way in. The second is not redundancy — it is
+the check a person's fill already goes through, so a model's answer meets one rule rather than
+a second that can drift from it.
+
+A model fill lands as an **answer**, not a proposal, carrying `Filler.MODEL` and the model id;
+`assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
+lands with the model named in the file and **no artifact schema changed**. `forge show` prints
+`(filler, by)` beside every value, so a reviewer sees which a model settled without opening
+anything.
+
+**The forge is not an egress door.** Invariant 14's doors track the prompt taint path — prompt,
+goal, build, pipeline, publish — and the forge is offline authoring outside it, reading vendored
+modules and registry files. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired
+a model in. `notes/specs/2026-08-17-forge-phase-2.md` §1 is the argument.
+
+### `mendel-ai` — model access
+
+One primitive: `generate(instruction, shape, evidence)` validates a model's answer against a
+declared Pydantic shape before any caller sees it, and returns `None` when it declines or will
+not validate. `choose_one` and `choose_many` are helpers for the closed-choice case; two of them
+because `roles` and `produces[].state` take several members from one closed set.
+
+The boundary is not *the model may not speak* but **nothing it says is taken on trust** — the
+same rule closed vocabularies and contract-versus-module checking already enforce. A drafted rule
+has the rule validator; a `Goal` is a Pydantic model. A module's script body has no shape, which
+is why `MF0005` refuses it.
+
+The package holds **no Mendel domain types** — it speaks in strings and shapes its caller
+declares, which is what lets the tier-4 ambiguity resolver reuse it unchanged in Plan 3. It is
+impure and classified as such. `MA0001`–`MA0007` are its diagnostics.
 
 ### A scaffold is not a half-built contract
 

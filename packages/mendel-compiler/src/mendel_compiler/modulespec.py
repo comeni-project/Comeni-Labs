@@ -88,6 +88,20 @@ class ModuleSpec(BaseModel):
     Absent from three of the ten vendored modules, which is what gives `MD0108` real
     negatives to find rather than a check that can only ever pass."""
     documented: list[DocumentedInput] = Field(default_factory=list)
+    lines: dict[str, int] = Field(default_factory=dict)
+    """Where each fact was read, 1-indexed, keyed by fact.
+
+    `"process"`, `"container"`, `"inputs"`, `"outputs"`, `"reads_ext_args"`,
+    `"reads_ext_prefix"`, `f"emits.{name}"`, `f"inputs.{position}"`,
+    `f"meta_reads.{variable}.{key}"`. **A fact the module does not have has no key** — an
+    absent position must not read as line zero.
+
+    A parallel map rather than a `line` on `InputSlot` and `MetaRead`, because `emits` is a
+    `list[str]` that `conformance.py` and the forge both read; changing its element type is a
+    breaking change for no gain. Added for the forge, whose evidence excerpts were citing one
+    location for every fact — but a conformance diagnostic naming a line is the larger prize
+    and is deliberately left for its own change.
+    """
 
     @classmethod
     def parse(cls, main_nf: Path) -> "ModuleSpec":
@@ -97,18 +111,83 @@ class ModuleSpec(BaseModel):
         if process is None:
             raise ValueError(f"{main_nf}: no `process NAME {{` declaration")
 
+        slots = _slots(source, main_nf)
+        emits = _emits(source)
+        meta_reads = [MetaRead(variable=v, key=k) for v, k in dict.fromkeys(_META.findall(source))]
+
         return cls(
             process=process.group(1),
-            inputs=_slots(source, main_nf),
-            emits=_emits(source),
+            inputs=slots,
+            emits=emits,
             container=_container(source),
-            meta_reads=[
-                MetaRead(variable=v, key=k) for v, k in dict.fromkeys(_META.findall(source))
-            ],
+            meta_reads=meta_reads,
             reads_ext_args="task.ext.args" in source,
             reads_ext_prefix="task.ext.prefix" in source,
             documented=_documented(main_nf.parent / "meta.yml"),
+            lines=_positions(source, process, slots, emits, meta_reads),
         )
+
+
+def _line_of(source: str, offset: int) -> int:
+    """1-indexed line containing `offset`. `str.count` over a slice is exact and cheap."""
+    return source.count("\n", 0, offset) + 1
+
+
+def _positions(
+    source: str,
+    process: re.Match[str],
+    slots: list[InputSlot],
+    emits: list[str],
+    meta_reads: list[MetaRead],
+) -> dict[str, int]:
+    """Where each fact was read. Absent facts get no key — see `ModuleSpec.lines`."""
+    found = {"process": _line_of(source, process.start())}
+
+    for key, pattern in (
+        ("inputs", _INPUT_BLOCK),
+        ("outputs", _OUTPUT_BLOCK),
+        ("container", _CONTAINER),
+    ):
+        match = pattern.search(source)
+        if match is not None:
+            found[key] = _line_of(source, match.start())
+            if match.re.groups and key in ("inputs", "outputs"):
+                # **The block's last line, so a citation can quote what it declares.**
+                # `input:` and `output:` are headers; the declarations under them are the
+                # evidence. A citation reading `text: "output:"` names a real line and still
+                # teaches a reader nothing, which is the defect this whole field exists to fix.
+                # `end(1)` is the end of the block's *content* — `end()` would run into the
+                # `script:` line the pattern uses as a terminator.
+                found[f"{key}.end"] = _line_of(source, match.end(1) - 1)
+
+    for key, needle in (
+        ("reads_ext_args", "task.ext.args"),
+        ("reads_ext_prefix", "task.ext.prefix"),
+    ):
+        at = source.find(needle)
+        if at != -1:
+            found[key] = _line_of(source, at)
+
+    for name in emits:
+        match = re.search(rf"\bemit:\s*{re.escape(name)}\b", source)
+        if match is not None:
+            found[f"emits.{name}"] = _line_of(source, match.start())
+
+    for slot in slots:
+        for name in slot.names:
+            if not name:
+                continue
+            match = re.search(rf"\b(?:val|path|eval|env|stdout)\s*\(\s*{re.escape(name)}\b", source)
+            if match is not None:
+                found[f"inputs.{slot.position}"] = _line_of(source, match.start())
+                break
+
+    for read in meta_reads:
+        match = re.search(rf"\b{re.escape(read.variable)}\.{re.escape(read.key)}\b", source)
+        if match is not None:
+            found[f"meta_reads.{read.variable}.{read.key}"] = _line_of(source, match.start())
+
+    return found
 
 
 def _container(source: str) -> str | None:

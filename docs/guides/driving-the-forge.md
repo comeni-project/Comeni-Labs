@@ -116,6 +116,69 @@ roles filled; 3 left: priority_because, produces[1].type_id, produces[2].type_id
 A value outside the candidates is refused with `MF0003`, and a field that is not open with
 `MF0002`.
 
+### Filling with a model
+
+`--model` asks a model to answer the open holes instead. It is **opt-in**: with no `--model`,
+nothing in the forge reaches a provider, and that is the mode CI runs.
+
+```console
+$ export MENDEL_MODEL=anthropic/claude-sonnet-4-5
+$ export MENDEL_API_KEY=sk-...
+$ uv run forge fill fastqc --model
+fastqc:
+  filled   produces[0].type_id = 'qc.report'
+           FastQC emits an HTML report per sample rather than any sequence data
+  open     priority_because
+           no candidates — free text, and a person answers it
+  1 hole(s) still open
+```
+
+**Bare `--model` reads `MENDEL_MODEL`**; `--model <id>` overrides it for one call. The key and
+base URL always come from the environment, because a credential on a command line is a
+credential in a shell history.
+
+Name one field to attempt only that one:
+
+```console
+$ uv run forge fill fastqc roles --model
+```
+
+**A model answers only the holes with candidates.** Those are the ones whose legal answers come
+off the layer stack, so the answer can be checked — and it is, twice: once against the options
+the model was handed, and again by the same rule that checks a person's fill. A hole with no
+candidates is free text, and the model is never asked about it at all. `priority_because` is the
+one such field, and letting a model write it is
+[#70](https://github.com/comeni-project/Comeni-Labs/issues/70).
+
+**A model fill lands as an answer, not a suggestion**, and `forge show` says who settled each
+value:
+
+```console
+$ uv run forge show fastqc
+filled:
+  nf_process = 'FASTQC'  (derived, nf-core)
+  produces[0].type_id = 'qc.report'  (model, anthropic/claude-sonnet-4-5)
+  roles = ['qc_per_sample']  (hand, rafael)
+```
+
+That marker is the whole reason landing a model fill directly is honest: the model id follows
+the value into `provenance.drafted_by` when you `land`, so the contract in the registry names
+what drafted it. **Read the diff before you land it** — a model answering a closed choice is
+checkable, and checked, but "checkable" is not "correct".
+
+Three things that can go wrong, each with a code:
+
+```console
+$ uv run forge fill fastqc --model claude-sonnet-4-5
+forge: MA0007: claude-sonnet-4-5: LLM Provider NOT provided...
+  run: forge explain MA0007
+```
+
+LiteLLM wants `<provider>/<model>`. With no `MENDEL_MODEL` at all you get `MA0001`; if the model
+answers with something that is not the shape it was asked for, the hole simply stays open and
+the reason is `MA0004`. None of these lose work already done — the draft is saved after **each**
+fill, so a provider dying halfway costs you the holes it had not reached yet and nothing else.
+
 ## 5. Verify
 
 Five rungs, cheapest first, stopping at the first refusal so you see the cause rather than a
