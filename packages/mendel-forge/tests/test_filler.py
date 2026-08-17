@@ -175,3 +175,88 @@ def test_it_has_the_shape_the_port_declares() -> None:
 
     filler: HoleFiller = _filler('{"value": "qc.report", "why": "w"}')
     assert filler.fill(TYPE_ID, OBSERVATION) is not None
+
+
+class Proposes:
+    """A transport whose model always declines and proposes instead."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    def send(self, access, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return (
+            '{"value": null, "proposed_id": "star.log", '
+            '"proposed_description": "a STAR run log", "why": "no declared type is a log"}'
+        )
+
+
+def test_a_type_hole_may_be_answered_with_a_proposal() -> None:
+    """The measured failure: star/align emits nineteen channels and the vocabulary can type
+    one. Forcing a pick there produces a wrong type, and a wrong type routes."""
+    from mendel_forge.scaffold import Proposal
+
+    filler = ModelFiller(Client(ACCESS, transport=Proposes()), model_id="test/model")
+    answered = filler.fill(TYPE_ID, OBSERVATION)
+    assert isinstance(answered, Proposal)
+    assert answered.id == "star.log"
+    assert answered.by == "test/model"
+
+
+def test_the_prompt_offers_the_proposal_route() -> None:
+    transport = Proposes()
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        TYPE_ID, OBSERVATION
+    )
+    assert "none of them fits" in transport.prompts[0]
+    assert "a new declared type" in transport.prompts[0]
+
+
+def test_a_name_hole_may_not_propose() -> None:
+    """A port name is not a vocabulary, and since its candidates now come from the type_id
+    there is always a reachable right answer."""
+    hole = Hole(
+        field="consumes[0].name",
+        what="what to call it",
+        why_open="a choice",
+        candidates=[Candidate(value="bam")],
+    )
+    transport = Proposes()
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        hole, OBSERVATION
+    )
+    assert "none of them fits" not in transport.prompts[0]
+
+
+OPEN_NAME = Hole(
+    field="consumes[0].name",
+    what="what to call it",
+    why_open="a choice",
+    candidates=[Candidate(value="zip", note="what other contracts call a qc.report port")],
+    closed=False,
+)
+
+
+def test_an_open_hole_accepts_an_answer_that_was_not_offered() -> None:
+    """**A port name is not a vocabulary.** `PortName` is a shape alias and ModuleContract
+    accepts any valid identifier, so binding the answer to a list this codebase invented made
+    multiqc's `reports` — a perfectly legal name — unreachable."""
+    filled = _filler('{"value": "reports", "why": "it carries qc reports"}').fill(
+        OPEN_NAME, OBSERVATION
+    )
+    assert filled is not None
+    assert filled.value == "reports"
+
+
+def test_an_open_hole_still_shows_what_the_registry_calls_it() -> None:
+    transport = Fixed('{"value": "reports", "why": "w"}')
+    ModelFiller(Client(ACCESS, transport=transport), model_id="test/model").fill(
+        OPEN_NAME, OBSERVATION
+    )
+    assert "zip" in transport.prompts[0]
+    assert "you may" in transport.prompts[0]
+
+
+def test_a_closed_hole_still_refuses_what_was_not_offered() -> None:
+    """Invariant 7 is unchanged: a type is a vocabulary and stays one."""
+    assert _filler('{"value": "invented", "why": "w"}').fill(TYPE_ID, OBSERVATION) is None

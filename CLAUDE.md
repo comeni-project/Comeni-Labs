@@ -810,11 +810,24 @@ already been wrong once, when it named a gate that could not pass.
   `diagnostics.yml` is the TypeScript/Rust shape already: one declarative file, generated
   consumers. A database is legitimate only as a **derived, gitignored index** once loading is
   measurably slow, which at 37 files it is not.
-- **There is no vector memory store, and adding one is a design error.** Mem0/Zep/Letta answer
-  "what did this user say before". Mendel's institutional memory is `contracts/`, `rules/`,
-  `vocabularies/` and decision records — versioned, approved, diffable, citable. A fuzzy
-  recall layer beside them could influence resolution without passing the forge, which breaks
-  invariant 2. Federation is registry distribution, solved by git and a lockfile.
+- **There is no vector memory store, and there is none for the MVP** — decided 2026-08-17,
+  narrowing a flat "adding one is a design error". Mem0/Zep/Letta answer "what did this user
+  say before". Mendel's institutional memory is `contracts/`, `rules/`, `vocabularies/` and
+  decision records — versioned, approved, diffable, citable. A fuzzy recall layer beside them
+  could influence resolution without passing the forge, which breaks invariant 2. Federation is
+  registry distribution, solved by git and a lockfile.
+  **What replaced the generic argument is a measurement**: grounding a model in the registry
+  turned out to need *exact* retrieval, not similarity — `candidates.for_field` names which
+  contracts already use each role and type, and every fact it retrieves is versioned,
+  attributable to an approving human, and visible in a diff. Embeddings would give the same
+  shape of help with none of those properties, and exemplar *ranking* at scale is `ORDER BY`
+  rather than cosine distance.
+  **At scale it is needed, and the case is specific rather than general** (operator, 2026-08-17):
+  **proposal deduplication** and **analogy retrieval**. Once a model can propose vocabulary
+  entries, two drafts will propose `qc.report` and `quality.summary` for one thing — an exact
+  lookup cannot see that they are the same, and no `ORDER BY` finds "contracts like this tool"
+  when the role is exactly what is unknown. Those two are semantic by nature. Reach for a store
+  when *those* problems appear, not for "the AI needs memory".
 
 ## Testing
 

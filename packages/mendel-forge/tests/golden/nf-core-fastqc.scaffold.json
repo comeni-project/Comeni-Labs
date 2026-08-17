@@ -172,14 +172,15 @@
   "holes": [
     {
       "field": "consumes[0].name",
-      "what": "what this contract calls the thing arriving on channel 0 — the module calls it meta, reads",
+      "what": "what this contract calls the thing arriving on channel 0",
       "why_open": "a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice",
       "candidates": [
         {
           "value": "reads",
-          "note": "channel 0 in main.nf"
+          "note": "the module's channel name"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -189,6 +190,10 @@
           "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
+      ],
+      "after": "consumes[0].type_id",
+      "channels": [
+        "reads"
       ]
     },
     {
@@ -198,35 +203,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -266,7 +271,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -278,13 +283,14 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -294,13 +300,16 @@
           "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "priority_because",
       "what": "a value for priority_because",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",
       "candidates": [],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -322,7 +331,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[0].type_id",
@@ -331,35 +342,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -399,7 +410,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -411,13 +422,14 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -427,7 +439,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.html",
           "text": "*.html: FastQC report — *_{fastqc.html}"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[1].type_id",
@@ -436,35 +450,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -504,7 +518,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -516,13 +530,14 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -532,7 +547,9 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "produces[2].type_id",
@@ -541,35 +558,35 @@
       "candidates": [
         {
           "value": "alignment.bai",
-          "note": "declared type"
+          "note": "declared type — used by samtools/index"
         },
         {
           "value": "alignment.bam",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, samtools/index, samtools/sort, +2 more"
         },
         {
           "value": "annotation.gtf",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/align, star/genomegenerate, +1 more"
         },
         {
           "value": "counts.matrix",
-          "note": "declared type"
+          "note": "declared type — used by subread/featurecounts"
         },
         {
           "value": "fastq.reads",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "genome.index.hisat2",
-          "note": "declared type"
+          "note": "declared type — used by hisat2/align, hisat2/build"
         },
         {
           "value": "genome.index.star",
-          "note": "declared type"
+          "note": "declared type — used by star/align, star/genomegenerate"
         },
         {
           "value": "measurement.adapter_content",
@@ -609,7 +626,7 @@
         },
         {
           "value": "measurement.read_length",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect, profile/fastqc"
         },
         {
           "value": "measurement.rrna_fraction",
@@ -621,13 +638,14 @@
         },
         {
           "value": "profile.yml",
-          "note": "declared type"
+          "note": "declared type — used by profile/collect"
         },
         {
           "value": "qc.report",
-          "note": "declared type"
+          "note": "declared type — used by multiqc"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -637,36 +655,38 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     },
     {
       "field": "roles",
-      "what": "a value for roles",
+      "what": "the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role",
       "why_open": "a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool",
       "candidates": [
         {
           "value": "alignment",
-          "note": "declared role"
+          "note": "declared role — used by hisat2/align, star/align"
         },
         {
           "value": "bam_indexing",
-          "note": "declared role"
+          "note": "declared role — used by samtools/index"
         },
         {
           "value": "bam_sorting",
-          "note": "declared role"
+          "note": "declared role — used by samtools/sort"
         },
         {
           "value": "index_building",
-          "note": "declared role"
+          "note": "declared role — used by hisat2/build, star/genomegenerate"
         },
         {
           "value": "profiling",
-          "note": "declared role"
+          "note": "declared role — used by profile/collect, profile/fastqc"
         },
         {
           "value": "qc_aggregation",
-          "note": "declared role"
+          "note": "declared role — used by multiqc"
         },
         {
           "value": "qc_per_sample",
@@ -674,13 +694,14 @@
         },
         {
           "value": "quantification",
-          "note": "declared role"
+          "note": "declared role — used by subread/featurecounts"
         },
         {
           "value": "trimming",
-          "note": "declared role"
+          "note": "declared role — used by trimgalore"
         }
       ],
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
@@ -702,7 +723,10 @@
           "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
-      ]
+      ],
+      "after": null,
+      "channels": []
     }
-  ]
+  ],
+  "proposed": {}
 }

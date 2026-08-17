@@ -20,7 +20,7 @@ from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
 from mendel_forge.observe import Excerpt, Observation
-from mendel_forge.scaffold import Candidate, FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import FilledValue, Filler, Hole, Scaffold
 
 _WHY_OPEN = {
     "roles": (
@@ -76,6 +76,7 @@ def _hole(
     type_id: str | None = None,
     what: str | None = None,
     port: str | None = None,
+    excluding: str | None = None,
 ) -> Hole:
     """One open field.
 
@@ -89,7 +90,9 @@ def _hole(
         field=field,
         what=what or f"a value for {field}",
         why_open=why,
-        candidates=candidates.for_field(field, stack, type_id=type_id),
+        candidates=candidates.for_field(
+            field, stack, type_id=type_id, excluding=excluding
+        ),
         evidence=_evidence_for(obs, port),
     )
 
@@ -133,7 +136,10 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         if obs.fact(name) is not None:
             filled[field] = _derived(obs.fact(name), obs, name)
         else:
-            holes.append(_hole(field, stack, obs, why=_WHY_OPEN.get(field, "not derivable")))
+            holes.append(
+                _hole(field, stack, obs, why=_WHY_OPEN.get(field, "not derivable"),
+                      excluding=ident)
+            )
 
     # **One port per module input channel.** Nextflow matches arity, and a contract with no
     # `nf_inputs` gets one channel per `consumes` port — so a draft with no input ports at all
@@ -150,14 +156,28 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         holes.append(
             Hole(
                 field=f"consumes[{index}].name",
-                what="what this contract calls the thing arriving on channel "
-                f"{index} — the module calls it {', '.join(slot)}",
+                # **The module's channel name is deliberately not repeated here.** It used to
+                # be — "the module calls it meta, input" — which named the wrong answer in the
+                # question, offered it first, and hoped for something else. That clause dates
+                # from Phase 1, when channel names were the only candidates and saying so was
+                # the whole of the help. It is one candidate among several now, and the
+                # sentence was arguing for it.
+                what=f"what this contract calls the thing arriving on channel {index}",
                 why_open="a port name says what the channel carries; the module's says what "
                 "the process calls it, and the two are not the same choice",
-                candidates=[
-                    Candidate(value=name, note=f"channel {index} in main.nf") for name in offered
-                ],
+                candidates=candidates.for_field(
+                    f"consumes[{index}].name",
+                    stack,
+                    channels=tuple(offered),
+                    excluding=ident,
+                ),
                 evidence=_evidence_for(obs, offered[0] if offered else None),
+                # **Answered after its type, and its candidates recomputed then.** Twenty-four
+                # of thirty shipped ports are named after a segment of their own type_id, so
+                # until the type is known the right answer may not be offerable at all — which
+                # is exactly how `multiqc` came to be handed one candidate and it was wrong.
+                after=f"consumes[{index}].type_id",
+                channels=tuple(offered),
             )
         )
         # **Name the channel in the question.** `consumes[1]` is an index, and an index is not
@@ -171,6 +191,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 stack,
                 obs,
                 why=_WHY_OPEN["type_id"],
+                excluding=ident,
                 what=f"the semantic type of the input the module calls {called}",
                 port=offered[0] if offered else None,
             )
@@ -187,6 +208,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 stack,
                 obs,
                 why=_WHY_OPEN["type_id"],
+                excluding=ident,
                 what=f"the semantic type of the output the module emits as {emit}",
                 port=emit,
             )
@@ -196,7 +218,16 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
     if arity is not None:
         filled["nf_inputs.arity"] = _derived(arity, obs, "input_arity")
 
-    holes.append(_hole("roles", stack, obs, why=_WHY_OPEN["roles"]))
+    holes.append(
+        _hole(
+            "roles",
+            stack,
+            obs,
+            why=_WHY_OPEN["roles"],
+            excluding=ident,
+            what=_roles_question(stack, ident),
+        )
+    )
     holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
 
     return Scaffold(
@@ -248,10 +279,22 @@ def _require_complete(scaffold: Scaffold) -> None:
     if scaffold.is_complete():
         return
     open_fields = ", ".join(h.field for h in sorted(scaffold.holes, key=lambda h: h.field))
-    raise ValueError(
+    message = (
         coded("MF0004", f"{scaffold.target} has {len(scaffold.holes)} open hole(s)")
         + f"\n  open: {open_fields}"
     )
+    if scaffold.proposed:
+        # **A proposal is why a hole is open, not a reason it is closed.** Saying so here is
+        # the difference between "somebody has not looked at this" and "the vocabulary cannot
+        # express it and here is what it would take" — different work, different reviewer.
+        wanted = ", ".join(
+            f"{field} wants {p.id!r}" for field, p in sorted(scaffold.proposed.items())
+        )
+        message += (
+            f"\n  {len(scaffold.proposed)} of them propose a new declared entry: {wanted}"
+            "\n  approve the entry into the registry first, then fill the hole with it"
+        )
+    raise ValueError(message)
 
 
 def _drafted_by(scaffold: Scaffold) -> str:
@@ -311,3 +354,29 @@ def to_yaml(scaffold: Scaffold, *, approved_by: str, approved_at: str) -> str:
     contract = contract_from(scaffold, approved_by=approved_by, approved_at=approved_at)
     body = contract.model_dump(mode="json", exclude_defaults=True)
     return "declares: contract\n" + yaml.safe_dump(body, sort_keys=False, width=100)
+
+
+def _roles_question(stack: Layers, ident: str) -> str:
+    """What to ask for `roles`, including how many roles contracts here actually declare.
+
+    **Derived, never asserted.** Every shipped contract declares exactly one role, and the
+    measured failure was a model picking two or three — `[alignment, bam_indexing, bam_sorting]`
+    for STAR, where a person wrote `[alignment]`. Telling it the observed distribution is
+    stronger than telling it to "choose the smallest set", which was tried and did not work.
+
+    Counted from the stack at draft time rather than written into this sentence, because a
+    number repeated in prose is a number that goes stale while everything around it stays true
+    (A71/A72). If the registry grows a two-role contract this text changes on its own, and it
+    stops claiming something that is no longer so.
+    """
+    others = [c for c in stack.registry.contracts.values() if c.id.split("@")[0] != ident]
+    counts = {len(c.roles) for c in others}
+    asked = "the job this tool does in a pipeline"
+    if counts == {1}:
+        return (
+            f"{asked} — every one of the {len(others)} contracts in this registry "
+            "declares exactly one role"
+        )
+    if counts:
+        return f"{asked} — contracts here declare between {min(counts)} and {max(counts)} roles"
+    return asked
