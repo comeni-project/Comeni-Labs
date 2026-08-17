@@ -31,6 +31,7 @@ PACKAGE_OF = {
     "resolver": "mendel-resolver",
     "compiler": "mendel-compiler",
     "forge": "mendel-forge",
+    "ai": "mendel-ai",
     "api": "mendel-api",
 }
 

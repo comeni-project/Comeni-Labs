@@ -1749,3 +1749,85 @@ MF0101:
     has changes makes that commit ambiguous — either it sweeps up work nobody reviewed,
     or it leaves the branch in a state the author did not intend. Refusing is cheap and
     the alternative is a commit somebody has to unpick.
+MA0001:
+  emitted_by: ai
+  concern: model-access
+  says: "no model is configured, and something asked for one"
+  fires_on: [forge fill --model]
+  refuses: true
+  fix: |
+    Set `MENDEL_MODEL`, and either `MENDEL_API_KEY` for a provider or `MENDEL_BASE_URL`
+    for a local endpoint:
+
+        export MENDEL_MODEL=anthropic/claude-sonnet-4-5
+        export MENDEL_API_KEY=sk-...
+
+    Or drop `--model` — every forge verb works without one, and that is the lane CI runs.
+  explanation: |
+    There is deliberately no default model. A default would make an unconfigured install
+    reach a provider the first time somebody typed `--model`, which is the opposite of
+    what a no-AI default means. Refusing here costs one environment variable and makes
+    "did this build talk to anybody" answerable by reading the configuration.
+MA0002:
+  emitted_by: ai
+  concern: model-access
+  says: "the provider refused the credentials"
+  fires_on: [forge fill --model]
+  refuses: true
+  fix: |
+    Check `MENDEL_API_KEY`. For a local endpoint set `MENDEL_BASE_URL` and leave the key
+    unset — a local model needs no credential, and sending an empty one looks like a
+    credential to a provider that wanted none.
+  explanation: |
+    Separated from a generic transport failure because the two have different fixes and
+    a retry helps neither. An authentication failure is a configuration error and is
+    reported as one.
+MA0003:
+  emitted_by: ai
+  concern: model-access
+  says: "the model did not answer within the timeout"
+  fires_on: [forge fill --model]
+  refuses: false
+  fix: |
+    Raise `MENDEL_TIMEOUT_SECONDS`, or use a smaller model. A local endpoint on a cold
+    cache is the common cause — the first call loads weights.
+
+        export MENDEL_TIMEOUT_SECONDS=180
+  explanation: |
+    Not a refusal, because a hole nobody answered is a hole a person still sees. The
+    fill that timed out is reported as declined and the draft keeps every fill made
+    before it — a flaky network must not cost a draft.
+MA0004:
+  emitted_by: ai
+  concern: model-output
+  says: "the model's answer did not match the shape it was asked for"
+  fires_on: [forge fill --model]
+  refuses: false
+  fix: |
+    Nothing, usually — the hole is left open and a person answers it. If it happens for
+    every hole, the model is too small for structured output; try a larger one.
+  explanation: |
+    **This is the guard, working.** The whole reason `generate` takes a shape is that a
+    model's answer is checked against a declaration before any caller sees it. An answer
+    that will not validate is discarded rather than repaired, because a half-built value
+    is worse than an open hole: the hole is visible and the half-built value is not.
+MA0006:
+  emitted_by: ai
+  concern: model-output
+  says: "the model's answer was longer than the field allows"
+  fires_on: [forge fill --model]
+  refuses: false
+  fix: |
+    Nothing — the answer is discarded whole and the hole stays open for a person. The limit
+    is in the schema the model was given, so a model that overruns was told the number and
+    did not keep to it.
+  explanation: |
+    Separated from `MA0004` on purpose. "The answer did not match the shape" is true of an
+    overlong rationale and useless for it: this is the one shape violation with an obvious
+    cause, and a refusal that cannot say why it refused is a refusal somebody guesses at.
+
+    The rationale is capped because it is the one free-text field a model writes here. The
+    cap does not close that side channel — it makes it the wrong shape for the things worth
+    smuggling through it, a script body or a `priority_because` essay. **Refused rather than
+    truncated:** a silently shortened rationale is a reviewer reading half a sentence and
+    not knowing it.
