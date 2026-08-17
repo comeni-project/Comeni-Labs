@@ -65,6 +65,11 @@ def fill_draft(req: ops.FillRequest) -> ops.FillResult:
     return ops.fill(req)
 
 
+@app.post("/drafts/fill-with-model")
+def fill_draft_with_model(req: ops.ModelFillRequest) -> ops.ModelFillResult:
+    return ops.fill_with_model(req)
+
+
 @app.post("/drafts/verify")
 def verify_draft(req: ops.VerifyRequest) -> ops.VerifyResult:
     return ops.verify_(req)
