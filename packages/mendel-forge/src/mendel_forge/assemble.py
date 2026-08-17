@@ -178,7 +178,6 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
                 # is exactly how `multiqc` came to be handed one candidate and it was wrong.
                 after=f"consumes[{index}].type_id",
                 channels=tuple(offered),
-                closed=False,
             )
         )
         # **Name the channel in the question.** `consumes[1]` is an index, and an index is not

@@ -180,7 +180,7 @@
           "note": "the module's channel name"
         }
       ],
-      "closed": false,
+      "closed": true,
       "evidence": [
         {
           "locator": "modules/nf-core/fastqc/meta.yml:description",
