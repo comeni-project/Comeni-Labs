@@ -20,3 +20,21 @@ arrives (`notes/README.md` row 17). `comeni-core` is imported for `coded()` and 
 Read `notes/specs/2026-08-17-forge-phase-2.md` §4 before changing this package's surface —
 §4.3 records two ways the first design of it was wrong.
 """
+
+from mendel_ai.access import ModelAccess
+from mendel_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
+from mendel_ai.client import Client, ModelUnavailableError, NoModelError, Transport
+
+__all__ = [
+    "WHY_LIMIT",
+    "Choice",
+    "Choices",
+    "Client",
+    "ModelAccess",
+    "ModelUnavailableError",
+    "NoModelError",
+    "Option",
+    "Transport",
+    "choose_many",
+    "choose_one",
+]

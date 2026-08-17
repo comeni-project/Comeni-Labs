@@ -156,4 +156,5 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MA0004` | the model's answer did not match the shape it was asked for |
+| `MA0005` | the model picked a value it was not offered |
 | `MA0006` | the model's answer was longer than the field allows |

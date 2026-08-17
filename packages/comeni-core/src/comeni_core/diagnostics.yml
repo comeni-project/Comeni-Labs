@@ -1831,3 +1831,21 @@ MA0006:
     smuggling through it, a script body or a `priority_because` essay. **Refused rather than
     truncated:** a silently shortened rationale is a reviewer reading half a sentence and
     not knowing it.
+MA0005:
+  emitted_by: ai
+  concern: model-output
+  says: "the model picked a value it was not offered"
+  fires_on: [forge fill --model]
+  refuses: false
+  fix: |
+    Nothing — the answer is discarded and the hole stays open for a person. If it happens
+    on every closed choice, the model is ignoring its options; try a larger one.
+  explanation: |
+    A closed choice is the half of model output that can be checked mechanically, and this
+    is the check. Invariant 7 says vocabularies are closed: a contract naming an undeclared
+    state fails to load, and refusing here moves that refusal earlier — to when the value is
+    written rather than when the file is read.
+
+    The same value is refused a second time by `Hole.legal` on the way into a scaffold. That
+    is not redundant: it is the check that already existed for a person's fill, and routing
+    a model's answer through it means one rule rather than two that can drift.
