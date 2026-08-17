@@ -12,6 +12,12 @@ pipeline, reading what it decided, and tuning it.
 3. [Diagnostic codes](reference/diagnostics.md) — why something was refused
 4. [The four tiers](concepts/tiers.md) — what each decision commits you to
 
+## I am writing the registry Mendel reads
+
+The other loop. Mendel reads declared data; the forge is how it gets written.
+
+4a. **[Driving the forge](guides/driving-the-forge.md)** — discover, draft, fill, verify, land
+
 ## I am running a pipeline Mendel produced
 
 5. [Getting started](guides/getting-started.md) — install, build, run

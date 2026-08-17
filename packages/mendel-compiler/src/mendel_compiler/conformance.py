@@ -64,7 +64,7 @@ class Diagnostic(BaseModel):
         )
 
 
-__all__ = ["Diagnostic", "check", "explain", "module_path"]
+__all__ = ["Diagnostic", "against", "check", "explain", "module_path"]
 
 
 def module_path(contract: ModuleContract, module_root: Path) -> Path:
@@ -99,13 +99,20 @@ def check(
                 )
             )
             continue
-        found += _against(contract, ModuleSpec.parse(path), path)
+        found += against(contract, ModuleSpec.parse(path), path)
     if measurements is not None:
         found += _meta_keys(registry, module_root, measurements)
     return sorted(found, key=lambda d: (d.where, d.code, d.detail))
 
 
-def _against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
+def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
+    """Every way *one* contract disagrees with *one* module.
+
+    Public because the forge checks a single draft where `check` checks a whole registry,
+    and `Registry` has no constructor that takes one in-memory contract — it loads from
+    disk or wraps a `Stacked`. Reaching into another package's underscore to get at this
+    would be worse than naming it, so it is named.
+    """
     found: list[Diagnostic] = []
 
     if contract.nf_process != spec.process:

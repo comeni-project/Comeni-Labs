@@ -1,0 +1,48 @@
+[project]
+name = "mendel-forge"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Scaffolding and verification for the Mendel registry"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{name = "Rafael Correia"}]
+keywords = ["bioinformatics", "nextflow", "workflow", "reproducibility", "pipeline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
+
+# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
+dependencies = [
+  "comeni-core>=0.1.0",
+  "mendel-resolver>=0.1.0",
+  "mendel-compiler>=0.1.0",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+http = ["fastapi>=0.115"]
+
+[project.urls]
+Homepage = "https://github.com/comeni-project/Comeni-Labs"
+Documentation = "https://github.com/comeni-project/Comeni-Labs/tree/main/docs"
+Repository = "https://github.com/comeni-project/Comeni-Labs"
+Issues = "https://github.com/comeni-project/Comeni-Labs/issues"
+Changelog = "https://github.com/comeni-project/Comeni-Labs/blob/main/CHANGELOG.md"
+
+[project.scripts]
+forge = "mendel_forge.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mendel_forge"]

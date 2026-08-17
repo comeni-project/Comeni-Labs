@@ -34,12 +34,20 @@ PACKAGE_OF = {
     "api": "mendel-api",
 }
 
-EMISSION = re.compile(r"""(?:coded\(\s*|code=)["'](MD\d{4})["']""")
+EMISSION = re.compile(r"""(?:coded\(\s*|code=)["']([A-Z]{2}\d{4})["']""")
 """The two shapes an emission can take, and there are only two.
 
 `coded("MD0001", …)` builds a message; `Diagnostic(code="MD0100", …)` builds an object that
 carries the code as a field and validates it there. `\\s*` because wrapping a long call puts the
 code on its own line.
+
+**`[A-Z]{2}`, not `MD`.** This read `MD\\d{4}` until the forge landed. The blindness was not
+symmetric, which is why it is worth writing down: `test_every_declared_code_is_emitted`
+compares the whole registry against this scan, so it fired *loudly and falsely* the moment
+`MF0002` was declared — the code was emitted, the scan simply could not see it. The other
+direction stayed silently green and would have let an undeclared `MF9999` through. A guard
+scoped to one prefix goes blind the day a second subsystem appears, and
+`test_the_scan_sees_every_declared_prefix` is what makes that loud instead.
 """
 
 SOURCES = [
@@ -113,3 +121,21 @@ def test_a_docstring_mention_is_not_an_emission():
     assert "comeni-core" in _emitted()["MD0001"]
     core_text = next(text for package, text in SOURCES if "def coded(" in text)
     assert 'f"MD0001: {where} is not valid YAML"' in core_text, "the example moved; update this"
+
+
+def test_the_scan_sees_every_declared_prefix():
+    """A prefix the pattern does not match is a whole subsystem the guard is blind to.
+
+    `MF` codes were declared and emitted while both ownership directions were expected to
+    stay green, because `EMISSION` matched `MD` alone. The prefixes are a closed set —
+    `EmittedBy` names the subsystems and the header of `diagnostics.yml` names the
+    letters — so the pattern is checked against the registry rather than maintained by
+    hand.
+    """
+    declared = {code[:2] for code in REGISTRY}
+    seen = {code[:2] for code in _emitted()}
+    missing = sorted(declared - seen)
+    assert missing == [], (
+        f"codes with these prefixes are declared but the emission scan matches none of "
+        f"them; widen EMISSION: {missing}"
+    )

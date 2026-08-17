@@ -14,6 +14,8 @@
 #   MD0200-MD0299  the pipeline file: a setting, an override, or the format
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
+#   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
+#   MF0100-MF0199  the forge: landing a draft into a registry
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -1582,3 +1584,168 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MF0001:
+  emitted_by: forge
+  concern: scaffolding
+  says: "no such source, or a tool reference that does not name one"
+  fires_on: [forge discover, forge draft]
+  refuses: true
+  fix: |
+    Run `forge sources` for the registered names, and spell a reference
+    `<source>:<tool>` — `nf-core:fastqc`, not `fastqc`.
+  explanation: |
+    A reference without a source is ambiguous the moment a second source exists, and a
+    second source is the reason the ingestion layer is a protocol at all. Refusing the
+    bare form now costs one colon and prevents a reference that means different things
+    on two machines.
+MF0002:
+  emitted_by: forge
+  concern: scaffolding
+  says: "that field is not a hole in this scaffold"
+  fires_on: [forge fill]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the fields that are open. A field already filled is
+    changed with `forge fill --force`, which records the overwrite.
+  explanation: |
+    Filling a field that is not open would either overwrite something the source
+    proved, or invent a field the target model does not have. Both are silent in a
+    plain dictionary, which is why a scaffold refuses rather than accepts.
+MF0003:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the value is not one this hole declares as legal"
+  fires_on: [forge fill]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the candidates. If the value you want is genuinely
+    absent, the declaration it would come from — a type, a role — does not exist yet,
+    and it is a separate draft that must land first.
+  explanation: |
+    Invariant 7 says vocabularies are closed: a contract naming an undeclared state
+    fails to load. A hole carrying its legal values enforces that when the value is
+    written rather than when the file is read, which turns a load-time refusal a
+    reviewer sees late into an immediate one. A hole with no candidates accepts free
+    text — prose fields have no enumerable domain.
+MF0004:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the scaffold still has open holes and cannot become a declared file"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Run `forge show <draft>` for the open fields and `forge fill` for each. Every hole
+    names why it is open and what values are legal there.
+  explanation: |
+    A scaffold is not a half-built contract — the model it becomes validates and forbids
+    extras, so a partially-valid one is unrepresentable. Defaulting the missing fields
+    would let the forge invent a value with a straight face, which is the thing a hole
+    exists to prevent. The refusal is the design working, not a failure.
+MF0005:
+  emitted_by: forge
+  concern: scaffolding
+  says: "the generated module's script body has not been written"
+  fires_on: [forge verify]
+  refuses: true
+  fix: |
+    Open the generated `main.nf` and replace the marked line with the tool's command,
+    reading its arguments from `task.ext.args` as every nf-core module does. Then
+    `forge verify` again.
+  explanation: |
+    A source that ships no Nextflow module gives the forge a container and a name. The
+    process declaration, the stub block and the versions block follow from those; the
+    command line does not. Writing a plausible one would produce a module that launches
+    and does the wrong thing — a green run with wrong results, which is the failure this
+    project is built to avoid. So it is a hole, and the marker refuses until it is filled.
+MF0006:
+  emitted_by: forge
+  concern: verification
+  says: "nothing in the layer can route to this contract — **warns, never blocks**"
+  fires_on: [forge verify]
+  refuses: false
+  fix: |
+    Check the output `type_id` and `state` against what other contracts consume. If
+    nothing consumes them, the contract is a leaf — legitimate for a terminal reporting
+    step, and worth a second look for anything else.
+  explanation: |
+    A contract nothing reaches changes no pipeline. It is the inert case the rule
+    drafter's impact analysis is about, one level down: a mechanism that runs and
+    changes nothing. It warns rather than refuses because a laboratory adding a tool
+    before the goal that needs it is doing something reasonable, and because a leaf step
+    that only produces reports is genuinely unreachable-from-below.
+MF0007:
+  emitted_by: forge
+  concern: verification
+  says: "the filled scaffold does not construct a valid contract"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Read the field paths in the message — they are Pydantic's, so they point at the
+    exact key. A value filled by hand into a workspace draft can be the wrong *shape*
+    even when it is a legal *value*, which is what this catches.
+  explanation: |
+    Every hole is filled and the model still refuses. That is not the hole mechanism
+    failing: a hole asks whether a field has an answer, and `ModuleContract` asks
+    whether the answer is well-formed. A draft edited as JSON in the workspace bypasses
+    `fill` and its candidate list, so this rung is the one that catches a hand edit
+    putting a string where a list belongs.
+MF0009:
+  emitted_by: forge
+  concern: verification
+  says: "the loader refused the draft and gave no diagnostic code"
+  fires_on: [forge verify, forge land]
+  refuses: true
+  fix: |
+    Read the message — it is the loader's own. An undeclared `type_id` is the common
+    case, and the fix is to declare the type in a layer below this one, or correct the
+    id.
+  explanation: |
+    Not every refusal in the loaders carries a code yet: `UnknownStateError` has MD0009
+    and `UnknownRoleError` has MD0302, but `UnknownTypeError` is raised bare. Rather
+    than mint an `MF` twin for conditions that already have `MD` codes, the forge
+    reports whichever code the loader gave and falls back to this one when it gave
+    none. When issue #18 gives those sites codes, this stops firing for them — which is
+    the right direction, and why this is a fallback rather than the contract's own code.
+MF0008:
+  emitted_by: forge
+  concern: workspace
+  says: "no such draft, or a draft name that is not a plain name"
+  fires_on: [forge show, forge fill, forge verify, forge land]
+  refuses: true
+  fix: |
+    Run `forge list` for the drafts that exist. A name is a plain identifier — letters,
+    digits, hyphens and underscores — because it becomes a directory.
+  explanation: |
+    A draft name reaches the filesystem, so a name containing a path separator would let
+    a draft be written outside the workspace. Restricting the name is prevention by
+    construction; validating the resolved path afterwards is detection, and the two are
+    not the same guarantee.
+MF0100:
+  emitted_by: forge
+  concern: landing
+  says: "a draft may not be landed on the registry's default branch"
+  fires_on: [forge land]
+  refuses: true
+  fix: |
+    Pass `--branch` naming a new branch — `forge/<tool>` is the convention. Merge it
+    after review, which is the review invariant 2 asks for.
+  explanation: |
+    Invariant 2 says a human approves what the forge drafts. Committing straight onto
+    the default branch of a registry checkout skips that, and a registry is the thing
+    every pipeline's digests pin. The branch is the approval queue, and it is a git
+    branch rather than a service so that a laboratory landing into a private overlay
+    gets exactly the path the public registry gets.
+MF0101:
+  emitted_by: forge
+  concern: landing
+  says: "the registry checkout has uncommitted changes"
+  fires_on: [forge land]
+  refuses: true
+  fix: |
+    Commit or stash what is already in the tree, then land again. `git status` in the
+    registry checkout names the files.
+  explanation: |
+    Landing creates a branch and commits exactly the files it wrote. A tree that already
+    has changes makes that commit ambiguous — either it sweeps up work nobody reviewed,
+    or it leaves the branch in a state the author did not intend. Refusing is cheap and
+    the alternative is a commit somebody has to unpick.

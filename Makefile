@@ -1,4 +1,4 @@
-.PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile clean
+.PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile forge clean
 
 registry-present:  ## refuse early if the registry submodule was not checked out
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
@@ -72,3 +72,14 @@ profile:        ## emit a pipeline that measures the input data
 
 clean:          ## remove build outputs
 	rm -rf build/ profile-build/ dist/ .pytest_cache/ .ruff_cache/
+
+forge:          ## draft one nf-core module into a scratch workspace and show it
+	@rm -rf .forge-demo
+	uv run forge draft nf-core:samtools/sort --name sort --version 1.21.0 \
+	  --workspace .forge-demo
+	@echo
+	uv run forge verify sort --workspace .forge-demo || true
+# The whole loop in one command, for somebody meeting the forge for the first time. It ends
+# on `verify` refusing, which is the point: a fresh draft has holes, and MF0004 is the design
+# working rather than failing. `|| true` because that refusal exits 1 and this target is a
+# demonstration, not a gate.

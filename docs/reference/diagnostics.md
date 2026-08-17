@@ -111,3 +111,34 @@ decline to curate one.
 | `MD0313` | a row exits at tier 2 and cites nothing |
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
+
+## The forge — a scaffold, its holes, and filling them
+
+| Code | Says |
+|---|---|
+| `MF0001` | no such source, or a tool reference that does not name one |
+| `MF0002` | that field is not a hole in this scaffold |
+| `MF0003` | the value is not one this hole declares as legal |
+| `MF0004` | the scaffold still has open holes and cannot become a declared file |
+| `MF0005` | the generated module's script body has not been written |
+
+## The forge — whether a draft holds up
+
+| Code | Says |
+|---|---|
+| `MF0006` | nothing in the layer can route to this contract — **warns, never blocks** |
+| `MF0007` | the filled scaffold does not construct a valid contract |
+| `MF0009` | the loader refused the draft and gave no diagnostic code |
+
+## The forge — drafts on disk
+
+| Code | Says |
+|---|---|
+| `MF0008` | no such draft, or a draft name that is not a plain name |
+
+## The forge — landing a draft into a registry
+
+| Code | Says |
+|---|---|
+| `MF0100` | a draft may not be landed on the registry's default branch |
+| `MF0101` | the registry checkout has uncommitted changes |

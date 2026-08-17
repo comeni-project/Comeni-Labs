@@ -118,13 +118,16 @@ CLOSED_PACKAGES = {
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
-IMPURE_PACKAGES: list[str] = []
+IMPURE_PACKAGES: list[str] = ["mendel-forge"]
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
 
-**Empty today**, because `mendel-ai`, `mendel-forge` and `mendel-api` do not exist yet —
-Plan 2 and Plan 3 create them. Listing them here in advance would be the same defect one
-step ahead: a name in a classification list that matches no directory is a guard nobody is
+`mendel-forge` ingests tool sources and, from Phase 2, calls a model. Invariant 1 names
+three packages and this is not one of them — the arrow points mendel-forge -> the pure
+packages, and `test_no_pure_package_imports_an_impure_one` is what holds that direction.
+
+`mendel-ai` and `mendel-api` are still absent, and are deliberately *not* listed ahead of
+time: a name in a classification list that matches no directory is a guard nobody is
 running, and `test_every_package_is_classified` refuses that too.
 
 A67, issue #31: the scan globs `packages/<name>/src`, and a missing directory yields nothing
@@ -536,4 +539,24 @@ def test_the_attribute_exemption_names_a_file_that_exists():
     root = pathlib.Path(__file__).parent.parent
     assert (root / ATTRIBUTE_EXEMPT_PATH).exists(), (
         f"{ATTRIBUTE_EXEMPT_PATH} does not exist, so the exemption covers nothing"
+    )
+
+
+def test_no_pure_package_imports_an_impure_one():
+    """The dependency arrow, asserted rather than assumed.
+
+    `mendel-forge` importing `mendel-resolver` is the design. The reverse would put an
+    impure package inside the purity boundary by transitivity, and the AST scan would
+    not see it — it scans the pure packages' own imports, and `mendel_forge` is not on
+    any banlist because it is not supposed to be reachable at all.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    offenders = []
+    for pkg in [*CLOSED_PACKAGES, *BANLIST_PACKAGES]:
+        for path in sorted((root / "packages" / pkg / "src").rglob("*.py")):
+            if "mendel_forge" in path.read_text():
+                offenders.append(str(path.relative_to(root)))
+    assert offenders == [], (
+        "a pure package references mendel_forge; the dependency arrow points the other "
+        f"way: {offenders}"
     )

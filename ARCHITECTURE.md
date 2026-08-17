@@ -458,3 +458,106 @@ holds it.
 This plan changed none of that seam. Runtime AI stays confined to three declared points —
 goal extraction, tier-4 resolution, compiler repair — and tier 3 remains a pure lookup whose
 miss demotes to tier 4 rather than reaching for a model.
+
+---
+
+## 10. The forge — where declared data comes from
+
+Everything above reads the registry. **`mendel-forge` is how a registry gets written**, and it
+is the first impure package: it is not scanned by `tests/test_purity.py`, it is listed in
+`IMPURE_PACKAGES`, and `test_no_pure_package_imports_an_impure_one` holds the arrow pointing
+`mendel-forge → the pure packages` and never back.
+
+```
+mendel-forge/
+  observe.py     Excerpt, Fact, Observation — what a source proved, and where from
+  scaffold.py    Filler, FilledValue, Candidate, Hole, Scaffold
+  sources/       the Source protocol, and the nf-core adapter
+  candidates.py  what a hole will accept, read off the layer stack
+  assemble.py    Observation -> Scaffold, and Scaffold -> ModuleContract
+  modulegen.py   a skeleton main.nf for a source that ships none
+  verify.py      the five-rung ladder
+  workspace.py   drafts on disk, outside every layer
+  land.py        the one thing that writes to a registry
+  ops.py         one typed function per verb — the only layer with logic
+  ports.py       HoleFiller — the Phase 2 seam, and NoFiller
+  cli/  http/    two transports over ops.py, neither holding logic
+```
+
+### A scaffold is not a half-built contract
+
+This is the decision everything else follows from. `ModuleContract` validates and forbids
+extras, so a *partially valid* contract is unrepresentable — and it must stay that way, because
+the moment one is constructible somebody persists one. So the forge never builds a contract it
+cannot finish. It holds an `Observation` plus a list of `Hole`s, and calls `contract_from` only
+when the last hole is filled; while any remains, that call raises `MF0004`.
+
+The consequence is the property worth stating plainly: **the forge cannot emit an invalid
+declared file.** It emits a valid one, or something that is honestly not one yet and says which
+fields it is missing and why.
+
+A `Hole` carries `what`, `why_open`, the `Candidate`s that are legal there, and the `Excerpt`s
+bearing on it. The candidates are **invariant 7 moved earlier** — vocabularies are closed, so a
+contract naming an undeclared state fails to load; a hole carrying its legal values turns that
+load-time refusal into a fill-time one, and turns Phase 2's open prompt into a closed choice.
+
+**What is a hole and what is derived was measured, not assumed** —
+`notes/audits/2026-08-16-forge-derivability.md`, run against all twelve shipped contracts. Two
+rows moved when measured: a contract's input port name is *not* the module's channel name (four
+of twelve rename), and an output port name is one of up to nineteen emits.
+
+### The five-rung ladder
+
+`verify()` asks five questions, cheapest first, and stops at the first refusal so a reviewer
+sees the cause rather than a wall of consequences.
+
+| rung | asks | on failure |
+|---|---|---|
+| `COMPLETE` | are all the holes filled? | `MF0004`, refuses |
+| `CONSTRUCTS` | does `ModuleContract` accept it? | `MF0007`, refuses |
+| `LOADS` | does the layer stack declare every type, state and role? | the loader's own code, refuses |
+| `CONFORMS` | does it agree with the module? | `MD0101`–`MD0106`, reused not twinned |
+| `ROUTES` | can anything consume what it produces? | `MF0006`, **warns** |
+
+**Four of the five are existing machinery pointed at a draft instead of a build.** A second
+implementation of *"is this contract sound"* would disagree with the first one inside a plan.
+Rung 4 calls `conformance.against`, which is `check`'s per-contract half made public for this.
+
+Two weaknesses, stated rather than left to be found. **Rung 4 is a transcription check when the
+module was forge-generated** — contract and module descend from one `Observation`, so agreement
+proves the two code paths match, not that either is right; it is a real check only against a
+vendored module, where the module is foreign ground truth. And **rung 5 warns**, because a
+laboratory adding a tool before the goal that needs it is being reasonable.
+
+### One operations layer, two transports
+
+`ops.py` holds one typed function per verb, pydantic in and pydantic out. `cli/` renders those
+results and `http/` serialises them; neither decides anything, and
+`test_no_route_contains_a_branch` refuses an `if` in a route. `test_http.py` compares
+`forge --json <verb>` against the HTTP body **directly**, so a transport that grows logic fails
+rather than drifts. Plan 3's GUI calls the HTTP app rather than reimplementing a verb to display
+it.
+
+### Landing is the invariant-2 boundary
+
+`land.py` is the only thing in the package that writes under a registry root, and
+`tests/test_forge_write_boundary.py` is a static scan holding that over every other module. It
+creates a branch, writes the files, and commits — refusing the default branch (`MF0100`), a
+dirty tree (`MF0101`) and an incomplete draft (`MF0004`).
+
+**It does not open a pull request.** Invariant 13 says self-hosted is not a degraded tier, so a
+laboratory landing into a private local overlay must get the identical path to the one the
+public registry gets; making GitHub the approval mechanism would break that for every lab that
+never pushes anywhere. The branch *is* the approval queue.
+
+### No model, by construction
+
+`ports.py` declares `HoleFiller` and ships `NoFiller`, which declines every hole. **`--no-ai` is
+not a flag in the forge — it is the only mode**, so there is nothing to leave accidentally on.
+A filler returns the same `FilledValue` a human's `forge fill` produces, differing only in
+`filler` and `by`, and `by` is copied verbatim into `Provenance.drafted_by` — a field every
+contract has carried since the first one.
+
+**Phase 2's first question is not an implementation question.** A forge model call sends tool
+documentation to a provider, and invariant 14 says data leaves through *four* declared doors.
+Read §10.3 of `notes/specs/2026-08-16-the-forge.md` before writing an adapter.
