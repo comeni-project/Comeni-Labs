@@ -35,6 +35,21 @@ class Band(StrEnum):
     PROSE = "prose"
     """Free text with no candidates. A model is never asked (issue #70)."""
 
+    @property
+    def rank(self) -> int:
+        """Consequence order — lower is worse to get wrong. `docs/design/forge-review.md` §4.
+
+        **Declared rather than derived from the member order or the value.** `Band` is a
+        `StrEnum`, so `sorted()` compares the strings and produces cosmetic, prose, routing —
+        alphabetical order that reads as a priority. That shipped, and the queue put port
+        labels above the fields that decide which pipeline gets built.
+
+        Drift (1) and blocked proposals (2) are the design's first two rungs and have no
+        member yet: drift is phase 5, proposals are phase 3. The numbers are left free so
+        they arrive in the right place rather than at the end.
+        """
+        return {Band.ROUTING: 3, Band.PROSE: 4, Band.COSMETIC: 5}[self]
+
 
 _COSMETIC_SUFFIXES = (".name",)
 _PROSE_SUBJECTS = frozenset({"priority_because"})
@@ -106,4 +121,9 @@ def aggregate(questions: list[OpenQuestion]) -> list[OpenQuestion]:
             found.asked_by.extend(q.asked_by)
     for q in merged.values():
         q.asked_by.sort()
-    return sorted(merged.values(), key=lambda q: (q.band, q.subject, q.suggested or ""))
+    # Ask before Confirm — design §4. `suggested is None` sorts False < True, so an
+    # unanswered question comes first within a band.
+    return sorted(
+        merged.values(),
+        key=lambda q: (q.band.rank, q.suggested is not None, q.subject, q.suggested or ""),
+    )
