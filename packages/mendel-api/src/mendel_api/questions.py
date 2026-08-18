@@ -12,6 +12,7 @@ slice lands — it is the other subclass of the same `comeni_core.review.Questio
 why the projection is small. Nothing here is named for the forge.
 """
 
+from datetime import datetime
 from enum import StrEnum
 
 from comeni_core.review import Candidate, Excerpt
@@ -83,9 +84,16 @@ class OpenQuestion(BaseModel):
     evidence: list[Excerpt]
     suggested: str | None = None
     """What a model answered, when one did. `None` means nobody has."""
+    changed_at: datetime | None = None
+    """When the newest draft asking this last moved. `None` where it is not known.
+
+    On an aggregated row it is the MAXIMUM across the drafts asking, because the question a
+    reviewer wants to see is one that moved *at all*, not one where everything moved."""
 
 
-def question_from_hole(hole: Hole, *, draft: str) -> OpenQuestion:
+def question_from_hole(
+    hole: Hole, *, draft: str, changed_at: datetime | None = None
+) -> OpenQuestion:
     return OpenQuestion(
         subject=hole.subject,
         what=hole.what,
@@ -95,6 +103,7 @@ def question_from_hole(hole: Hole, *, draft: str) -> OpenQuestion:
         candidates=list(hole.candidates),
         closed=hole.closed,
         evidence=list(hole.evidence),
+        changed_at=changed_at,
     )
 
 
@@ -119,6 +128,8 @@ def aggregate(questions: list[OpenQuestion]) -> list[OpenQuestion]:
             merged[key] = q.model_copy(update={"asked_by": list(q.asked_by)})
         else:
             found.asked_by.extend(q.asked_by)
+            if q.changed_at and (found.changed_at is None or q.changed_at > found.changed_at):
+                found.changed_at = q.changed_at
     for q in merged.values():
         q.asked_by.sort()
     # Ask before Confirm — design §4. `suggested is None` sorts False < True, so an
