@@ -96,3 +96,33 @@ def test_an_answer_records_who_settled_it_and_why():
 def test_an_answer_forbids_extra_fields():
     with pytest.raises(ValidationError):
         Answer(value="x", by="y", how=ValueSource.HUMAN, why="z", confidence=1.0)
+
+
+def test_an_ambiguity_is_a_question():
+    from comeni_core.plan.decision import Ambiguity
+
+    assert issubclass(Ambiguity, Question)
+
+
+def test_a_resolution_is_an_answer():
+    from comeni_core.plan.decision import Resolution
+
+    assert issubclass(Resolution, Answer)
+
+
+def test_a_resolution_still_narrows_its_value():
+    """Spec §4.2: `Answer.value` is `Any` and `Resolution` narrows it to `ParamValue`.
+    If the narrowing silently did not happen, this is the only thing that notices."""
+    from comeni_core.plan.decision import Resolution
+
+    with pytest.raises(ValidationError):
+        Resolution(value=object(), by="x", how=ValueSource.RESOLVER, why="y")
+
+
+def test_a_resolution_keeps_its_confidence():
+    """A forge fill has no confidence; inventing one on the base would be a field nothing
+    writes."""
+    from comeni_core.plan.decision import Resolution
+
+    assert "confidence" in Resolution.model_fields
+    assert "confidence" not in Answer.model_fields

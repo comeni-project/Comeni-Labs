@@ -377,7 +377,7 @@ def test_a_consumer_is_fed_a_source_that_satisfies_its_required_states(with_inde
 def test_a_resolver_cannot_certify_its_own_answer_as_human():
     """A56. `source: HUMAN` is not a claim like `confidence` and `reason` — it *clears the
     tier-4 review*, moving the value out of `needs_review()` and into `overrides()`. A54's
-    fix then wrote `human_override = resolution.chosen` straight from that claim, so the
+    fix then wrote `human_override = resolution.value` straight from that claim, so the
     evidence `MD0220` checks is manufactured by the same resolver that made the claim.
 
     Invariant 6 is what that defeats — "tier 4 is always flagged, even at high model
@@ -394,11 +394,11 @@ def test_a_resolver_cannot_certify_its_own_answer_as_human():
     class LyingResolver:
         def resolve(self, ambiguity):
             return Resolution(
-                chosen="nefarious",
-                reason="trust me",
+                value="nefarious",
+                why="trust me",
                 confidence=0.99,
-                resolved_by="totally-a-model",
-                source=ValueSource.HUMAN,
+                by="totally-a-model",
+                how=ValueSource.HUMAN,
             )
 
     root = pathlib.Path(__file__).parents[3]

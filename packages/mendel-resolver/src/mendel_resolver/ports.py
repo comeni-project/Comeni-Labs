@@ -30,11 +30,11 @@ class FlagOnlyResolver:
         if not ambiguity.candidates:
             raise NoCandidatesError(f"no candidates for {ambiguity.key()}")
         return Resolution(
-            chosen=ambiguity.candidates[0],
-            reason=(
+            value=ambiguity.candidates[0],
+            why=(
                 f"no rule covered {ambiguity.subject!r}; selected the first of "
                 f"{len(ambiguity.candidates)} candidates without judgement — please review"
             ),
             confidence=0.0,
-            resolved_by="flag-only",
+            by="flag-only",
         )

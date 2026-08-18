@@ -438,19 +438,19 @@ def _choose(
     # Falling back to `ordered[0]` when the answer is not a candidate keeps the same
     # posture `ReplayResolver._still_applies` already takes towards a record whose options
     # have moved: a forged or stale answer is not trusted, it is ignored.
-    chosen = next((c for c in tied if c.id == resolution.chosen), tied[0])
+    chosen = next((c for c in tied if c.id == resolution.value), tied[0])
     plan.decisions.append(
         ProducerDecision(
             key=ambiguity.key(),
             subject=ambiguity.subject,
             candidates=ambiguity.candidates,
-            # What was built, not what was asked for. Recording `resolution.chosen` here
+            # What was built, not what was asked for. Recording `resolution.value` here
             # would let the record drift from the pipeline again the moment the fallback
             # above fires, which is the defect one level down.
             chosen=chosen.id,
-            reason=resolution.reason,
+            reason=resolution.why,
             confidence=resolution.confidence,
-            resolved_by=resolution.resolved_by,
+            resolved_by=resolution.by,
         )
     )
     # What actually happened, not what happens by default. It read "chosen by id order"
@@ -458,9 +458,9 @@ def _choose(
     # which is the case a reviewer most needs described correctly: the record said the
     # machine shrugged when a person had decided. A33.
     how = (
-        f"chosen by id order ({resolution.resolved_by} did not name a candidate)"
-        if chosen.id != resolution.chosen
-        else f"chosen by {resolution.resolved_by}: {resolution.reason}"
+        f"chosen by id order ({resolution.by} did not name a candidate)"
+        if chosen.id != resolution.value
+        else f"chosen by {resolution.by}: {resolution.why}"
     )
     return (
         chosen,
@@ -473,5 +473,5 @@ def _choose(
         # asks whether the answer was actually taken: crediting a person with a choice the
         # router made instead is the mirror of A8, where a record stated a choice the
         # pipeline did not make.
-        resolution.source if chosen.id == resolution.chosen else ValueSource.RESOLVER,
+        resolution.how if chosen.id == resolution.value else ValueSource.RESOLVER,
     )

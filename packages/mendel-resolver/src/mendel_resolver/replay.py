@@ -94,7 +94,7 @@ class ReplayResolver:
         if record is not None and self._still_applies(record, ambiguity):
             self.replayed.append(key)
             return Resolution(
-                chosen=_chosen(record),
+                value=_chosen(record),
                 # **A person's reason where there is one, the record's otherwise.**
                 #
                 # Prefixing it with "replayed from a recorded decision" was the plan's
@@ -112,14 +112,14 @@ class ReplayResolver:
                 # happened **before** the person arrived. So the artifact carried
                 # `source: human` beside a sentence saying nobody had judged it, and asked a
                 # reader to review something already reviewed. A77, A111.
-                reason=_replayed_reason(record),
+                why=_replayed_reason(record),
                 confidence=record.confidence,
-                resolved_by="replay",
+                by="replay",
                 # Who settled it, which `resolved_by` cannot say: the implementation
                 # replaying a person's answer is still `replay`. Set only when the record
                 # carries an override, so a replayed *resolver* choice stays a resolver
                 # choice and keeps its review flag.
-                source=(
+                how=(
                     ValueSource.HUMAN
                     if record.human_override is not None
                     else ValueSource.RESOLVER

@@ -25,7 +25,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.plan.tiers import Tier
+from comeni_core.review import Answer, Question, ValueSource
 from comeni_core.spell.marks import (
     ContractId,
     DecisionKey,
@@ -49,7 +50,7 @@ class DecisionKind(StrEnum):
     SOURCE = "source"
 
 
-class Ambiguity(BaseModel):
+class Ambiguity(Question):
     """A question the deterministic ladder could not answer.
 
     **This is a door, and it was the only one with no type discipline.** A32: `candidates:
@@ -62,10 +63,14 @@ class Ambiguity(BaseModel):
     A model sitting behind this port sees what the registry declares and nothing else.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     node_id: NodeId
     subject: Subject
+    """Re-narrowed from `Question.subject`, which is a plain `str`.
+
+    `Subject` is a declared mark and this value reaches `pipeline.yml` through every
+    decision record, so the looser base type must not win by inheritance. Same move
+    `Resolution` makes on `value`.
+    """
 
     def key(self) -> str:
         return f"{self.node_id}.{self.subject}"
@@ -121,28 +126,35 @@ is *total* — a fourth kind added without a slot at the door would fail that te
 quietly not be told to a model."""
 
 
-class Resolution(BaseModel):
+class Resolution(Answer):
     """The answer coming back through the port. Also a boundary, in the other direction."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    chosen: ParamValue
-    reason: Line
+    value: ParamValue
+    """Re-narrowed from `Answer.value`, which is `Any`. The base is deliberately looser
+    than this subclass — see the spec's §4.2."""
+    why: Line
     confidence: float = 0.0
-    resolved_by: ResolverId = "flag-only"
+    """Stays on this subclass. A forge fill has no confidence, and putting the field on
+    `Answer` would declare one that nothing writes."""
+    by: ResolverId = "flag-only"
     """A declared id, not a bare `str`: this is written into every `DecisionRecord` and
-    reaches a publish bundle, and it is filled in by whatever implements the port."""
-    source: ValueSource = ValueSource.RESOLVER
+    reaches a publish bundle, and it is filled in by whatever implements the port.
+
+    Was `resolved_by`. Renamed to the shared `Answer.by` in Plan 2.5 — the forge's
+    `FilledValue.by` carried the same fact (a username, a model id, a resolver id) under
+    the shorter name, and one of the two spellings had to go.
+    """
+    how: ValueSource = ValueSource.RESOLVER
     """Who settled it, as distinct from *how well* (`tier`) and *by which implementation*
-    (`resolved_by`).
+    (`by`). Was `source`.
 
     Only `ReplayResolver` sets this to `HUMAN`, and only when the record it replayed carries
     a `human_override` — the one field in the system that is by design a person's answer.
-    `resolved_by` cannot carry it: that names the implementation, and the implementation
-    replaying a human's answer is still `replay`.
+    `by` cannot carry it: that names the implementation, and the implementation replaying a
+    human's answer is still `replay`.
 
     Defaulted rather than required so nothing else changes shape. A resolver could set it
-    untruthfully, which is the same standing as `confidence` and `reason` — the port is a
+    untruthfully, which is the same standing as `confidence` and `why` — the port is a
     boundary against undeclared *shapes*, never against a component of ours lying in a
     declared one.
     """

@@ -268,7 +268,7 @@ def _source_for(
         # A non-candidate answer falls back rather than being trusted, exactly as
         # `router._choose` and `ReplayResolver._still_applies` do.
         chosen = next(
-            (s for s in equally_good if f"{s[0]}.{s[1]}" == resolution.chosen),
+            (s for s in equally_good if f"{s[0]}.{s[1]}" == resolution.value),
             equally_good[-1],
         )
         decisions.append(
@@ -278,9 +278,9 @@ def _source_for(
                 candidates=ambiguity.candidates,
                 # What was wired, not what was asked for.
                 chosen=f"{chosen[0]}.{chosen[1]}",
-                reason=resolution.reason,
+                reason=resolution.why,
                 confidence=resolution.confidence,
-                resolved_by=resolution.resolved_by,
+                resolved_by=resolution.by,
             )
         )
     return chosen
@@ -382,7 +382,7 @@ def _resolve_param(
     # site becomes symmetric with the other two on the day it does. A33.
     # A54 said the decision must carry the evidence behind a `source: HUMAN`, and that is
     # still right. A56 is that the evidence was taken *from the claim*: `human_override` was
-    # written as `resolution.chosen` whenever the resolver said `HUMAN`, so a resolver both
+    # written as `resolution.value` whenever the resolver said `HUMAN`, so a resolver both
     # cleared its own tier-4 review and produced the proof `MD0220` checks against.
     #
     # `HUMAN` is unlike `confidence` and `reason`, which are claims a resolver is entitled to
@@ -397,17 +397,17 @@ def _resolve_param(
     # hostile adapter halt a laboratory's build instead — a denial of service in exchange for
     # a guarantee demotion already gives.
     override = backed.get(ambiguity.key())
-    honoured = resolution.source is ValueSource.HUMAN and override == resolution.chosen
+    honoured = resolution.how is ValueSource.HUMAN and override == resolution.value
     decisions.append(
         ParamDecision(
             key=ambiguity.key(),
             subject=param_name,
             candidates=ambiguity.candidates,
-            chosen=resolution.chosen,
-            reason=resolution.reason,
+            chosen=resolution.value,
+            reason=resolution.why,
             confidence=resolution.confidence,
-            resolved_by=resolution.resolved_by,
-            human_override=resolution.chosen if honoured else None,
+            resolved_by=resolution.by,
+            human_override=resolution.value if honoured else None,
         )
     )
     # **Tier 4 stays tier 4 when a human answers it.** Collapsing an override to tier 1
@@ -420,12 +420,12 @@ def _resolve_param(
     # is HUMAN and `overrides()` lists it instead. Invariant 6 says tier 4 is always
     # *flagged*; it does not say the flag can never be answered.
     return ResolvedValue(
-        value=resolution.chosen,
+        value=resolution.value,
         tier=Tier.AMBIGUOUS,
-        # Not `resolution.source`: see the note above. An unbacked `HUMAN` becomes `RESOLVER`,
+        # Not `resolution.how`: see the note above. An unbacked `HUMAN` becomes `RESOLVER`,
         # which is what keeps the value in `needs_review()`.
         source=ValueSource.HUMAN if honoured else ValueSource.RESOLVER,
-        reason=resolution.reason,
+        reason=resolution.why,
     )
 
 
