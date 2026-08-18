@@ -20,10 +20,12 @@ from pydantic import BaseModel, ConfigDict
 
 from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.plan.ir import PipelineIR
+from comeni_core.review.question import Excerpt
 from comeni_core.spell.marks import (
     ContractId,
     Digest,
     EdgeRef,
+    Line,
     NfPath,
     NodeId,
     StateName,
@@ -119,11 +121,28 @@ class AmbiguityRequest(EgressPayload):
     `tests/test_egress.py`: a field added to an ambiguity that has nowhere to land here is a
     field a model would silently not be told, which is the quiet half of A32. `type_id` and
     `required` were exactly that — `SourceAsked` carries them and the door had no slot.
+
+    **`what`, `why_open`, `closed` and `evidence` arrived with Plan 2.5**, when `Ambiguity`
+    became a `Question` and inherited them. They are not incidental padding: the forge
+    measured a local model at 69% without them and 88% with, and two of the three fixes
+    behind that jump were *say what the question is about* and *make the evidence readable*.
+    A door carrying bare candidates rebuilds the 69% configuration on the build path.
+
+    **`candidates` keeps the door's own stricter typing.** `Question.candidates` is
+    `list[Candidate]` — a value and a note a reviewer reads. Here it stays
+    `list[CandidateRef]`, which is `ContractId | EdgeRef | None`, because A129 records that
+    this payload accepted only one of the three `*Asked` types until their *values* were
+    checked rather than their field names. Widening the door to the base's looser shape
+    would undo that.
     """
 
     node_id: NodeId
     subject: Subject
+    what: Line = ""
+    why_open: Line = ""
     candidates: list[CandidateRef] = []
+    closed: bool = True
+    evidence: list[Excerpt] = []
     states: list[StateName] = []
     """States required of the thing being chosen. Was `list[TypeId]`, which is a different
     vocabulary — nothing had ever put a value in it, so nothing disagreed."""

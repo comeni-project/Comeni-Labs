@@ -2387,3 +2387,46 @@ written carried an **absolute** evidence locator —
 golden file machine-dependent and putting the author's checkout path into every draft. Every test
 was green. `test_no_locator_is_an_absolute_path` now holds it, but the guard exists *because
 somebody looked at the file*, which is the same way `digest_of_directory` was caught.
+
+---
+
+## 2026-08-18 — `tests/test_egress.py`, door 2's new fields (Plan 2.5)
+
+**Watched failing, twice, and one of the two failures was not staged at all.**
+
+Plan 2.5 makes `Ambiguity` a subclass of `comeni_core.review.Question`, which gives it four
+fields the forge had always carried on a `Hole`. Door 2's payload is asserted to be *the union
+of what the `*Asked` types carry*, so the totality guard went red **on its own** at the re-base
+commit (`4eefca3`) — no revert needed, and the plan predicted the message before the code was
+written:
+
+```
+AssertionError: ParamAsked.what has nowhere to go in AmbiguityRequest, so a
+model behind door 2 would never be told it
+```
+
+That is the guard forcing a decision into the open rather than letting it be skipped: *does a
+tier-4 model call get the quoted source lines?* It was answered yes, and
+`test_the_door_carries_what_the_forge_measured_a_model_needs` is the answer written as a test.
+
+**The staged revert** deleted `evidence` from `AmbiguityRequest` and printed both halves:
+
+```
+AssertionError: ParamAsked.evidence has nowhere to go in AmbiguityRequest, so a
+model behind door 2 would never be told it
+
+AssertionError: evidence does not cross door 2, so a tier-4 model call is the
+configuration the forge measured at 69%
+```
+
+The second message is the one worth having. A shape guard can only say *a field has no slot*; it
+cannot say *and here is what it costs*. The forge's prompt search measured 69% → 88%, and two of
+the three fixes behind that jump were "say what the question is about" and "make the evidence
+readable" — so the guard cites a measurement rather than an opinion.
+
+**What the allowlist extracted on the way through, unprompted.** Making `Excerpt` reachable from
+a payload tripped three further guards in one run, and each demanded a real change rather than an
+exemption: `locator` and `text` were bare `str` (now `Text`), and `Excerpt` was unfrozen (now
+frozen, so what a reviewer read is what is sent). None of this was in the plan. It is what an
+allowlist buys over a blocklist — A19, A20 and A30 were each a shape nobody had thought to
+forbid, and this is the same guard catching a shape nobody had thought to *permit*.

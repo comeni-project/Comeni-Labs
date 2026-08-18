@@ -318,7 +318,7 @@ Violating any of these breaks the product claim, not just a test.
     not one of them. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired a
     model into the forge, and that is the point.
     Each door carries one declared payload type, and
-    **ten** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    **fourteen** fields across the whole surface may hold free text: `PromptRequest.prompt`,
     `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
     `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
     `axis_reason` on `Why` and `ResolvedValue` plus `ParamDecision.override_reason`.
@@ -338,6 +338,22 @@ Violating any of these breaks the product claim, not just a test.
     it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
     holds is the sort of thing a literal list exists to put in front of somebody, and it has
     now done so five times.
+    **Eleven through fourteen arrived together, with Plan 2.5**, and they are a *refactor*
+    increase of the A16 kind rather than four new kinds of string: `Ambiguity` became a
+    `comeni_core.review.Question`, so `what` and `why_open` — which the forge had carried on
+    every `Hole` since Phase 1 — reach door 2 too, along with `Excerpt.locator` and
+    `Excerpt.text`. They were **let through rather than stripped**, on a measurement: the
+    forge's prompt search took a local model from 69% to 88%, and two of the three fixes
+    behind that were *the question never said what it was about* and *the evidence was not
+    readable*. A door handing a model bare candidates rebuilds the 69% configuration on the
+    build path. `test_the_door_carries_what_the_forge_measured_a_model_needs` holds it, so
+    removing them fails rather than quietly regressing.
+    **`Excerpt` is the first entry that is not an author.** Every other field is composed by
+    somebody; these two are *quoted* — a source file already holds the text and an excerpt
+    copies it. That is a weaker claim than the rest of the list makes, and it is written down
+    because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
+    What bounds it is the source: excerpts come from vendored modules and registry files,
+    which are public, and never from a prompt or a goal.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in

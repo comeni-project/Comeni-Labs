@@ -18,6 +18,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from comeni_core.spell.marks import Text
+
 _NO_EXTRAS = ConfigDict(extra="forbid")
 
 
@@ -50,10 +52,25 @@ class Excerpt(BaseModel):
     blunt rather than wrong, and rewording is cheaper than teaching it to read Python.)
     """
 
-    model_config = _NO_EXTRAS
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    """Frozen, because an `Excerpt` reaches door 2 through `Ambiguity.evidence` and what a
+    reviewer read must be what is sent. `tests/test_egress.py` demanded this the moment the
+    type became reachable from a payload, which is the allowlist working as intended."""
 
-    locator: str
-    text: str
+    locator: Text
+    """A `file:line` or a URL. `Text` rather than a bare `str` because it crosses a door and
+    invariant 14 admits no undeclared string — it is a pointer rather than prose, but there
+    is no closed vocabulary of source locations to type it against."""
+
+    text: Text
+    """The quoted span itself.
+
+    **Free text that is quoted rather than composed**, which is a weaker claim than the other
+    entries on that list: nobody writes this sentence, a source file already contains it and
+    this copies it. It is still free text and still listed literally in
+    `tests/test_egress.py`, because the boundary is widened by editing the file that says
+    *these are all the ways data leaves*.
+    """
 
 
 class Candidate(BaseModel):
