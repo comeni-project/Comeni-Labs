@@ -81,3 +81,29 @@ def question_from_hole(hole: Hole, *, draft: str) -> OpenQuestion:
         closed=hole.closed,
         evidence=list(hole.evidence),
     )
+
+
+def aggregate(questions: list[OpenQuestion]) -> list[OpenQuestion]:
+    """Collapse identical work into one row, keyed by `(subject, suggested)`.
+
+    **Not by subject alone.** Two drafts asked the same question and a model answered them
+    differently is precisely the disagreement a reviewer is scanning for, and merging those
+    rows would hide it — the `samtools/faidx` case in the design's confirmable screen.
+
+    `asked_by` is sorted because workspace order is directory order, and directory order
+    moves under a refactor nobody asked for; the same argument as `Scaffold._sorted_holes`.
+
+    The input is never mutated: a projection that edits its argument is one you cannot call
+    twice, and the route calls it on a list it did not build.
+    """
+    merged: dict[tuple[str, str | None], OpenQuestion] = {}
+    for q in questions:
+        key = (q.subject, q.suggested)
+        found = merged.get(key)
+        if found is None:
+            merged[key] = q.model_copy(update={"asked_by": list(q.asked_by)})
+        else:
+            found.asked_by.extend(q.asked_by)
+    for q in merged.values():
+        q.asked_by.sort()
+    return sorted(merged.values(), key=lambda q: (q.band, q.subject, q.suggested or ""))

@@ -25,7 +25,13 @@ def test_we_added_no_routes_to_the_forge():
     from fastapi.routing import APIRoute
     from starlette.routing import Mount
 
-    under_forge = [r for r in create_app().routes if r.path.startswith("/forge")]
+    # `getattr`, not `r.path`: include_router puts an _IncludedRouter in app.routes and it
+    # carries no path at all. Assuming every route has one is how this test broke the first
+    # time a router was added rather than a route.
+    under_forge = [
+        r for r in create_app().routes
+        if str(getattr(r, "path", "")).startswith("/forge")
+    ]
     assert [type(r) for r in under_forge] == [Mount], (
         f"expected exactly one mount, got {[(type(r).__name__, r.path) for r in under_forge]}"
     )

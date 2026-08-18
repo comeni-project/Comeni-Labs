@@ -9,6 +9,8 @@ own docstring names this plan as the thing that mounts it.
 from fastapi import FastAPI
 from mendel_forge.http import app as forge_app
 
+from mendel_api.routes import questions as questions_routes
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="mendel-api", version="0.1.0")
@@ -19,6 +21,7 @@ def create_app() -> FastAPI:
         a directory — conflating the two makes a liveness probe do real work."""
         return {"ok": True}
 
+    app.include_router(questions_routes.router)
     app.mount("/forge", forge_app)
     return app
 
