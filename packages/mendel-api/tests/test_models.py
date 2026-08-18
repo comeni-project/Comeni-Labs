@@ -21,4 +21,4 @@ def test_the_registry_is_not_in_the_database():
     import mendel_api.models as m
 
     tables = {v.__tablename__ for v in vars(m).values() if hasattr(v, "__tablename__")}
-    assert tables == {"source_check"}, f"unexpected tables: {tables - {'source_check'}}"
+    assert tables == {"source_check", "queue_visit"}, f"unexpected: {tables}"
