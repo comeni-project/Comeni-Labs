@@ -16,7 +16,16 @@ Three kinds live here:
   `2026-08-17-forge-phase-2.md` (**the phase that puts a model behind `HoleFiller` and creates
   `mendel-ai`** — and §1 resolves the fifth-door question Phase 1 left open: there is no door 5,
   because invariant 14 tracks prompt-derived data on the build path and the forge is offline
-  authoring outside it).
+  authoring outside it),
+  `2026-08-17-vocabulary-proposals.md` (**what a hole needs that the vocabulary cannot express
+  yet** — a proposal leaves the hole *open*, because a contract citing an undeclared type is the
+  load-time refusal invariant 7 already makes),
+  `2026-08-18-the-shared-question.md` (**Plan 2.5 — one `Question` and one `Answer` shared by the
+  forge and the build path, and deliberately NOT one blocking rule**; §3.1 is why the difference
+  must stay in the containers and the ports rather than becoming a field), and
+  `2026-08-18-plan-3-thin.md` (**deliberately thin**: Plan 3 consumes the types Plan 2.5 moved, so
+  specifying it in detail first would repeat exactly what got the original Plan 2 deleted. It
+  records the decisions and leaves the detail to be written against the code).
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.

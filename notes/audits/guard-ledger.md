@@ -2430,3 +2430,27 @@ exemption: `locator` and `text` were bare `str` (now `Text`), and `Excerpt` was 
 frozen, so what a reviewer read is what is sent). None of this was in the plan. It is what an
 allowlist buys over a blocklist — A19, A20 and A30 were each a shape nobody had thought to
 forbid, and this is the same guard catching a shape nobody had thought to *permit*.
+
+### `test_the_candidates_still_bind` — the same day, and it is why `make residue` is a number
+
+Plan 2.5 added one refusal-shaped test in `mendel-resolver` and the residue count went **up by
+one**. The plan said it should not, so it was chased rather than accepted — which is the whole
+point of A69 making the number derivable instead of asserted.
+
+Reverted by setting `closed=False` on the `ProducerAsked` the router builds:
+
+```
+assert asked.closed is True
+E   AssertionError: assert False is True
+     where False = ProducerAsked(subject='producer:alignment.bam', …).closed
+```
+
+**What it protects.** `closed` is inherited from `Question` and a routing tie is genuinely a
+closed choice — the answer has to be one of the tied contracts. The forge measured that opening
+a closed field was the *worst* prompt configuration tested, six points below closing it, so a
+build-path question that silently went open would be repeating a mistake already paid for.
+
+**The message is honest but not ideal**: it says the value is wrong, not what that costs. The
+egress guard above does better because its assertion carries the 69% figure in its own message.
+Written down as the difference between a guard that reports a fact and a guard that reports a
+consequence.
