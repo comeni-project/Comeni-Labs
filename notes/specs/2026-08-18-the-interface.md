@@ -135,25 +135,113 @@ show a pipeline it already resolves deterministically.
 
 ## 4. Phase 0 — the foundation
 
-### 4.1 Routing
+### 4.1 Routing — three destinations, and everything else is a view
 
-`react-router` with a nested layout: one `Shell` route wrapping everything, so nav state and the
-registry panel survive navigation.
+`react-router`, with one `Shell` route wrapping everything so nav state and the registry panel
+survive navigation.
+
+**The design's rule decides the shape**, and following it caught a mistake in this spec's first
+draft:
+
+> A page earns its place by being a different **kind of work**, not a different **subject**.
+> …A question is an item in the queue. A proposal is an item in the queue. Drift is a state of a
+> contract. *By module* is a grouping of the queue; *Confirmable* is a filter of it.
+
+The first draft gave proposals their own destination. **That is wrong** — it would put the same
+work in two places and make the queue's counts lie.
 
 ```
-/                        redirect to /forge/queue for the whole of 3A; the landing is 3B
-/forge/queue             the queue
-/forge/queue/:subject    one question           ← the panel opens beside it
-/forge/proposals         proposals
-/forge/proposals/:id     one proposal
-/forge/contracts         what has landed
-/forge/contracts/:id     one module, read only
-/forge/contracts/:id/drift   resolve drift
-/forge/sources           what can be read
+/                                    → /forge/queue          (temporary; the landing is 3B)
+
+/forge/queue                         DESTINATION — the list
+  ?band=confirmable|cosmetic|prose   filter
+  ?group=question|module             grouping   (default: question)
+  ?sort=consequence|recent           sort       (default: consequence)
+  ?since=last-visit                  the maintenance filter
+  ?lookup=<type-id>                  the registry panel, open beside whatever is showing
+/forge/queue/question/:subject       an item — one question
+/forge/queue/proposal/:id            an item — nothing fits
+
+/forge/contracts                     DESTINATION — what has landed
+  ?state=drifted|matching|unverifiable
+  ?source=<name>   ?role=<name>
+/forge/contracts/:id                 one module, read only
+  ?file=main.nf|meta.yml|environment.yml
+/forge/contracts/:id/drift           a STATE of a contract, not a destination
+
+/forge/sources                       DESTINATION — what can be read
 ```
 
-**Deep links are a requirement, not a nicety.** A curator who finds a bad answer must be able to
-send someone the URL of the question, which means the question's identity lives in the path.
+**Every filter, grouping, sort and panel is in the URL.** A curator who finds a bad answer must
+be able to send someone the link to exactly what they were looking at — the question, the
+filtered queue, the type they had open. That is why `?lookup=` is a query parameter rather than
+component state: the panel is *addressable* without being a *destination*, which is precisely
+what "a lookup, not a destination" means once it has to be built.
+
+**Drift rows appear in the queue and resolve under contracts.** The queue is the index of work;
+the detail lives with the thing it is about. Following the row navigates to
+`/forge/contracts/:id/drift`, which is the design's *"drift is a state of a contract"* made
+literal.
+
+### 4.1a Every designed screen, and where it lives
+
+All ten artboards, so nothing in the design is left without a home. This table is the check the
+operator asked for.
+
+| # | Artboard | Lives at | Kind |
+|---|---|---|---|
+| 1 | QUEUE · the list | `/forge/queue` | destination |
+| 2 | QUEUE · answer one | `/forge/queue/question/:subject` | item |
+| 3 | QUEUE · look up without leaving | `?lookup=<type-id>` on any route | panel |
+| 4 | QUEUE · confirm many | `/forge/queue?band=confirmable` | filter |
+| 5 | QUEUE · filter cleared | rendered when a filtered queue is empty | state |
+| 6 | QUEUE · nothing fits | `/forge/queue/proposal/:id` | item |
+| 7 | QUEUE · grouped by module | `/forge/queue?group=module` | grouping |
+| 8 | CONTRACTS · the list | `/forge/contracts` | destination |
+| 9 | CONTRACTS · browse one | `/forge/contracts/:id` | item |
+| 10 | CONTRACTS · resolve drift | `/forge/contracts/:id/drift` | state |
+| — | SOURCES | `/forge/sources` | destination, **undesigned** (`forge-review.md` §9) |
+
+**Screen 5 is a state, not a route, and it carries real content**: emptying a filter reports what
+it *unblocked* — *"Two modules can land now"* — then offers the next work in consequence order.
+It is not an empty-list placeholder.
+
+### 4.1b What the queue must carry, from the design
+
+Taken from `forge-review.md` §4 rather than restated loosely, because these are the claims the
+implementation either honours or quietly drops.
+
+**Sort is by consequence, and this is the order:**
+
+1. **Drift** — a contract that *was* true and now is not; it breaks pipelines that already run.
+2. **Blocked** — a proposal the vocabulary needs before a module can land.
+3. **Ask** — a question a model would not answer.
+4. **Confirm** — a model answered; you are checking.
+5. **Label / Draft** — cosmetic, or not started.
+
+**Three bands, from the forge's own measurement** — 97% on the fields that change which pipeline
+gets built, ~60% on port labels. Confirmable is *a list you scan*, needs-you is *one at a time*,
+and cosmetic is visibly demoted. `mendel_api.questions.Band` already encodes this.
+
+**Three things keep it bounded as the registry grows**, and each is a constraint rather than an
+accident:
+
+- **The facet rail never grows** — six fixed kinds, whatever the registry size.
+- **The health strip is O(1)** — it is summary data, so it may sit above everything.
+- **Identical work collapses into one row** — `consumes[0].type_id → alignment.bam ×11`.
+  `aggregate()` already does this.
+
+**Keyboard**: `J`/`K` move, `↵` opens, `A` accepts, `E` opens evidence.
+
+**Evidence is collapsed to one line by default.** This is the change that removes the overwhelm:
+on a confirmable question you never open it, and the screen is a question, three options and a
+button.
+
+**"Nothing here fits" is always visible** as an option on a question, never buried — invariant
+7's escape hatch, and a closed choice with no way to decline forces a wrong answer.
+
+**The suggestion is marked `MODEL`, explicitly.** Who answered is what a reviewer needs, and a
+model suggestion and a human answer oblige different amounts of trust.
 
 ### 4.2 The mutation pattern
 
@@ -202,7 +290,7 @@ in and out, service functions holding the logic so routes stay three lines.
 | `GET` | `/questions` | exists |
 | `POST` | `/questions/answer` | `ops.fill`, one draft |
 | `POST` | `/questions/answer-all` | **new** — one answer across every draft asking it |
-| `GET`/`POST` | `/proposals`, `/proposals/{id}/decide` | the vocabulary queue |
+| `GET`/`POST` | `/questions/proposals`, `/questions/proposals/{id}/decide` | proposals are queue items, so they hang off the queue rather than becoming a sibling resource |
 | `GET` | `/contracts`, `/contracts/{id}` | the registry, and one module |
 | `GET`/`POST` | `/contracts/{id}/drift`, `/drift/accept` | `ops.check`, `ops.update` |
 | `GET` | `/registry/types/{id}` | the lookup panel |
