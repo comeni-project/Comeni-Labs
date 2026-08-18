@@ -1,4 +1,8 @@
-# The interface — from a viewer to a tool
+# Plan 3 — the interface, in three parts
+
+**3A the Forge · 3B the landing page · 3C Mendel.** Named by the operator on 2026-08-18. This
+spec details **3A** and states what B and C are for; each gets its own spec, written against the
+code the previous one lands.
 
 **Status:** design spec, written 2026-08-18 with the operator, against the code that exists,
 the interface that was designed, and the conventions in `../../Cladewright` and
@@ -84,22 +88,48 @@ cheapest test of every pattern at once.
 Each states what you can do at the end. **A phase that ends with something you cannot use says
 so in its own heading.**
 
+### 3A — the Forge. This spec.
+
 | # | Phase | At the end you can… |
 |---|---|---|
-| 0 | Foundation | …answer one question through the shell. Nothing else. |
-| 1 | Landing | …see everything needing you across both halves, and click into it. |
-| 2 | Queue | …filter, sort, and work the queue as designed. |
-| 3 | Answering | …answer one question, or the same question across every draft asking it. |
-| 4 | Proposals | …approve, rename or reject a vocabulary proposal. |
-| 5 | Contracts & module | …browse what has landed and read one contract against its source. |
-| 6 | Drift | …see what moved and take the source's value. |
-| 7 | Sources & drafting | …discover a tool and draft it, without the CLI. |
-| 8 | Compose & prod | …bring the whole thing up with one command. |
+| 0 | Foundation | …answer one question through the shell. **Nothing else.** |
+| 1 | Queue | …filter, sort, and work the queue as designed. |
+| 2 | Answering | …answer one question, or the same question across every draft asking it. |
+| 3 | Proposals | …approve, rename or reject a vocabulary proposal. |
+| 4 | Contracts & module | …browse what has landed and read one contract against its source. |
+| 5 | Drift | …see what moved and take the source's value. |
+| 6 | Sources & drafting | …discover a tool and draft it, without the CLI. |
+| 7 | Compose & prod | …bring the whole thing up with one command. |
 
-**Mendel's half is not in this list.** It needs the orchestration extraction (`resolve_verbs.run`
-is argparse-shaped) and DAG layout before its first route is usable — see
-[`2026-08-18-plan-3.md`](2026-08-18-plan-3.md) §4.1 and §4.8. It is a second spec, after the
-forge is a tool.
+**`/` redirects to `/forge/queue` for the whole of 3A**, and that is temporary rather than a
+design position. The landing page is 3B; a placeholder home built now would be thrown away.
+
+### 3B — the landing page
+
+*"What needs you today"* across both halves. It comes **after** 3A rather than before it for one
+reason: a landing page is a projection of work that exists elsewhere, and until the forge's
+routes are real there is nothing true to project. Building it first means inventing its content.
+
+It gains Mendel's items in 3C without changing shape — which is the test of whether §5's
+`/attention` endpoint was designed correctly.
+
+### 3C — Mendel
+
+The pipeline builder: canvas, provenance bar, settings cards, review rail. **The half a biologist
+uses**, and the one that moves the v1 criterion.
+
+It is last because it is the only part with prerequisites that are not interface work: the
+orchestration extraction (`resolve_verbs.run` is argparse-shaped, so no API can call it) and DAG
+layout — [`2026-08-18-plan-3.md`](2026-08-18-plan-3.md) §4.1 and §4.8.
+
+**Two things make it cheaper than it looks.** The registry already routes: `mendel build --goal
+examples/rnaseq-goal.yml` produces a five-module spine today, so the data a canvas renders exists
+without the forge having grown anything. And `docs/design/dashboard.html` is 922 lines of working
+pan, zoom, drag and orthogonal wire routing — a React port has something to follow rather than
+invent.
+
+**AI is not in 3C either.** #69 first, then the tier-4 resolver; both are after the builder can
+show a pipeline it already resolves deterministically.
 
 ---
 
@@ -111,7 +141,7 @@ forge is a tool.
 registry panel survive navigation.
 
 ```
-/                        landing
+/                        redirect to /forge/queue for the whole of 3A; the landing is 3B
 /forge/queue             the queue
 /forge/queue/:subject    one question           ← the panel opens beside it
 /forge/proposals         proposals
@@ -251,7 +281,8 @@ The `.env.example` is committed and `.env` is ignored, as there.
 
 ## 9. Out of scope
 
-- **Mendel's half** — its own spec, after the forge is a tool.
+- **The landing page (3B) and Mendel (3C)** — each its own spec, written against the code the
+  previous part lands. §3 says what they are and why they sit in that order.
 - **Auth** — deferred; adding it later changes one field's source.
 - **The prompt door** — plain language → `Goal`, after Plan 3.
 - **The rule drafter** — behind Plan 3.
@@ -269,6 +300,9 @@ exists to make being wrong visible immediately. Phases 1–7 should each be shor
 foundation is the point of doing it first.
 
 Stated in sessions rather than weeks, per the operator's correction on 2026-08-18 that my
-estimates run an order of magnitude long: **phase 0 one session, phases 1–8 roughly one each**,
-and the ones most likely to break that are 3 (`answer-all` needs real refusal semantics) and 5
-(the module page is dense and needs two indexes that do not exist).
+estimates run an order of magnitude long: **phase 0 one session, phases 1–7 roughly one each**,
+and the ones most likely to break that are phase 2 (`answer-all` needs real refusal semantics)
+and phase 4 (the module page is dense and needs two indexes that do not exist).
+
+**3B is short.** **3C is the big one**, and it is the only part whose cost is dominated by
+something other than interface work — DAG layout.
