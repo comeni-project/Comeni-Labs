@@ -33,8 +33,11 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > tests, `make residue` for guard coverage, `len(DeclaredKind)` for kinds,
 > `tests/test_egress.py` for the free-text fields.
 
-**Plan 1 through Plan 1.15 are complete, and the design audit has run.** Plan 2 is next. The
-ordered list of every plan, with its status and the argument for its position, is
+**Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
+done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is five phases of eight complete
+as of 2026-08-18**, on the branch `plan-3-slice-1`, which is pushed and **not merged**. Drift (5),
+sources and drafting (6) and compose (7) remain, then 3B's landing page and 3C's Mendel builder.
+The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
 
@@ -76,7 +79,8 @@ distinction is the point of Plan 2 Phase 1. `comeni-core`, `mendel-resolver` and
 is entirely deterministic: a source is read, facts are derived, and everything that cannot be
 derived is a typed **hole** a person fills. `ports.py` declares `HoleFiller` and ships
 `NoFiller`, which declines everything, so `--no-ai` is not a flag in the forge but the only
-mode. `mendel-ai` and `mendel-api` still do not exist. **Phase 2 wires a model into the forge,
+mode. `mendel-ai` exists (transport only) and **`mendel-api` and `frontend/` exist as of Plan
+3A** — see the journal. **Phase 2 wires a model into the forge,
 and its first question is the fifth egress door** — a model call sends tool documentation to a
 provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
 `notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and

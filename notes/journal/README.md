@@ -16,6 +16,15 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
+> **2026-08-18 has NINE entries and alphabetical order lies.** The one to read first is
+> [`2026-08-18-the-day.md`](2026-08-18-the-day.md) — five phases of the forge interface, what is
+> true, what a fresh reader will wrongly assume, and what is next. `the-shared-question.md` sorts
+> last and is that morning's Plan 2.5 entry.
+>
+> **When a day has several entries, name the entry point here.** A directory listing cannot say
+> which of nine is the summary, and "most recent" below means *most recent by date*, not by
+> filename.
+
 **Newest first, and stop when you have enough.** Each entry is written so the top third —
 where things stand, what is next — is sufficient for most sessions. The rest is there for
 when you need to know *why* something is the way it is.
