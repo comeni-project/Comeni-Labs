@@ -12,10 +12,12 @@ from mendel_forge.http import app as forge_app
 from mendel_api.refusals import refusal_handler
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
+from mendel_api.routes import registry as registry_routes
 
 TAGS = [
     {"name": "questions", "description": "What is open, and how it gets closed."},
     {"name": "health", "description": "Whether the service is up, and what the registry holds."},
+    {"name": "registry", "description": "The declared data, read only."},
 ]
 
 
@@ -51,6 +53,7 @@ def create_app() -> FastAPI:
     # only a hard refresh shows it.
     app.include_router(questions_routes.router, prefix="/api")
     app.include_router(health_routes.router, prefix="/api")
+    app.include_router(registry_routes.router, prefix="/api")
     app.mount("/api/forge", forge_app)
     return app
 

@@ -29,6 +29,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions", "get"): "listQuestions",
         ("/api/questions/answer", "post"): "answerQuestion",
         ("/api/visits", "post"): "markVisited",
+        ("/api/registry/types/{id}", "get"): "lookupType",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }
