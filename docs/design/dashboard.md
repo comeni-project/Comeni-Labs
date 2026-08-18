@@ -86,8 +86,29 @@ product whose claim is provenance and whose components are named for historical 
 ### Scale
 
 `--r: 3px` corner radius throughout — near-square, instrument-like, deliberately not
-`rounded-lg`. `--pad: 20px` panel padding. Type scale: 21 / 16 / 15 / 14 / 13 / 12.5 / 11.5 /
-11 / 10.5 / 10. Uppercase labels carry `0.14em` tracking.
+`rounded-lg`. `--pad: 20px` panel padding.
+
+**Six type roles, and a size belongs to a role rather than to a screen.** Both halves of the
+product draw from this one list.
+
+| px | Role | Where |
+|---|---|---|
+| 26 | page title | the forge's detail pages; the canvas has none |
+| 21 | brand | the wordmark, and display headings |
+| 15 | **object title** | a card, a node inspector, a panel *about a thing* |
+| 13 | **body and data** | the workhorse — prose and monospace values share it |
+| 11.5 | secondary | supporting lines under a value |
+| 10 | label | uppercase, `.13em` tracking, one value |
+
+**This replaced a ten-step scale on 2026-08-18, and the ten steps were not the problem — the
+*spellings* were.** `dashboard.html` used eleven distinct sizes and **nine** tracking values;
+`16`, `15` and `14` were three spellings of one job (naming an object), and all seven positive
+tracking values sat on 10px uppercase labels. The forge's screens were worse: **seventeen**
+sizes. Density is what a reference tool is for, and it stops being readable when hierarchy is
+carried by variety instead of by difference — so the scale is short and a role owns its size.
+
+Only two trackings survive beside `.13em`, and both are negative: `-.015em` on the wordmark and
+`-.01em` on node names, which is display type being tightened rather than a label being spaced.
 
 ---
 
