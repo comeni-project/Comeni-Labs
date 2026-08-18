@@ -17,7 +17,7 @@ from mendel_api.db import session_scope
 from mendel_api.models import SourceCheck
 from mendel_api.settings import settings
 
-router = APIRouter(prefix="/health")
+router = APIRouter(prefix="/health", tags=["health"])
 
 
 class Strip(BaseModel):
@@ -58,7 +58,11 @@ def strip_from(
     )
 
 
-@router.get("/registry")
+@router.get(
+    "/registry",
+    operation_id="registryHealth",
+    summary="What the registry holds, and when it was last checked",
+)
 def registry_health() -> Strip:
     stack = layers.load([settings.registry_root])
     with session_scope() as session:

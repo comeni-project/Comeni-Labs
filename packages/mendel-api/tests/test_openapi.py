@@ -1,0 +1,74 @@
+"""The schema is the contract, so it gets a guard.
+
+`frontend/src/api/schema.d.ts` is generated from this document and an agent driving Mendel
+reads the same document — two consumers, one artifact. Everything asserted here is something
+that is *invisible* until a client is generated and wrong: FastAPI happily emits
+`answer_questions_answer_post` as an operation id, and happily documents a 422 in a shape the
+route never returns.
+"""
+
+from mendel_api.main import create_app
+
+
+def _schema() -> dict:
+    return create_app().openapi()
+
+
+def _operations(schema: dict):
+    for path, methods in schema["paths"].items():
+        for method, op in methods.items():
+            yield path, method, op
+
+
+def test_every_operation_is_named_by_hand():
+    """FastAPI's default id is `{function}_{path}_{method}` — `listQuestions` becomes
+    `queue_questions_get`, which is what a generated client method would be called. The
+    literal list is the point: adding a route means editing this test."""
+    got = {(p, m): op.get("operationId") for p, m, op in _operations(_schema())}
+    assert got == {
+        ("/questions", "get"): "listQuestions",
+        ("/questions/answer", "post"): "answerQuestion",
+        ("/health", "get"): "liveness",
+        ("/health/registry", "get"): "registryHealth",
+    }
+
+
+def test_every_operation_carries_a_tag():
+    """An untagged operation lands in a `default` bucket, which is where operations go to
+    become undiscoverable once there are thirty of them."""
+    untagged = [f"{m.upper()} {p}" for p, m, op in _operations(_schema()) if not op.get("tags")]
+    assert untagged == []
+
+
+def test_every_operation_says_what_it_does():
+    missing = [f"{m.upper()} {p}" for p, m, op in _operations(_schema()) if not op.get("summary")]
+    assert missing == []
+
+
+def test_the_coded_refusal_is_in_the_schema():
+    """The gap this closes: `mendel_forge.http` answers a coded refusal correctly and says
+    nothing about it in its document, so a generated client types `detail` as the validation
+    array and the UI renders nothing for the one message a curator must read."""
+    schema = _schema()
+    assert "Refusal" in schema["components"]["schemas"]
+
+    answer = schema["paths"]["/questions/answer"]["post"]
+    got = answer["responses"]["422"]["content"]["application/json"]["schema"]
+    assert got["$ref"].endswith("/Refusal")
+
+
+def test_the_refusal_schema_is_a_bare_ref():
+    """A `$ref` with sibling keywords is legal JSON Schema and renders wrongly in every
+    generator worth using — `openapi-typescript` produces an intersection nobody meant. This
+    caught exactly that: declaring `model` *and* a hand-rolled `anyOf` merged into both."""
+    schema = create_app().openapi()
+    got = schema["paths"]["/questions/answer"]["post"]["responses"]["422"]
+    assert list(got["content"]["application/json"]["schema"]) == ["$ref"]
+
+
+def test_the_answer_response_is_typed():
+    """A route returning an untyped dict generates `unknown` on the client, and every use of
+    it then needs a cast — which is how a generated client stops being worth generating."""
+    ok = create_app().openapi()["paths"]["/questions/answer"]["post"]["responses"]["200"]
+    ref = ok["content"]["application/json"]["schema"]["$ref"]
+    assert ref.endswith("/Answered")

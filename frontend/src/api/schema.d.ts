@@ -12,11 +12,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Health
+         * Is the service up
          * @description Liveness only. What the *registry* looks like is `/health/registry`, which walks
          *     a directory — conflating the two makes a liveness probe do real work.
          */
-        get: operations["health_health_get"];
+        get: operations["liveness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -33,16 +33,41 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Queue
+         * Every open question, collapsed
          * @description Every open question in the workspace, collapsed.
          *
          *     `show` needs the registry and the source as well as the workspace: a hole's candidates
          *     are recomputed from the layer stack rather than stored, so a draft cannot be read
          *     without the registry it was drafted against.
          */
-        get: operations["queue_questions_get"];
+        get: operations["listQuestions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/questions/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle one question on one draft
+         * @description Settle one question. Three lines, because the logic is a service.
+         *
+         *     **No `try`.** A `ValueError` from below carries a coded refusal — `MF0002`, `MF0003`, or
+         *     the reason check — and `create_app` turns it into a 422 for every route at once, exactly
+         *     as `mendel_forge.http` does. Catching it here would be a second spelling of one contract,
+         *     and the second spelling is the one that drifts.
+         */
+        post: operations["answerQuestion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -56,8 +81,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Registry Health */
-        get: operations["registry_health_health_registry_get"];
+        /** What the registry holds, and when it was last checked */
+        get: operations["registryHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -70,6 +95,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnswerRequest */
+        AnswerRequest: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            /** Value */
+            value: unknown;
+            /** Why */
+            why: string;
+            /** By */
+            by?: string | null;
+        };
+        /** Answered */
+        Answered: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            /** Remaining */
+            remaining: string[];
+        };
         /**
          * Band
          * @description How much a wrong answer costs, which is not the same as how likely one is.
@@ -159,6 +206,14 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * Refusal
+         * @description A coded refusal. `detail` is `"<code>: <message>"` — `forge explain <code>` expands it.
+         */
+        Refusal: {
+            /** Detail */
+            detail: string;
+        };
         /** Strip */
         Strip: {
             /** Contracts */
@@ -181,7 +236,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    health_health_get: {
+    liveness: {
         parameters: {
             query?: never;
             header?: never;
@@ -203,7 +258,7 @@ export interface operations {
             };
         };
     };
-    queue_questions_get: {
+    listQuestions: {
         parameters: {
             query?: never;
             header?: never;
@@ -223,7 +278,40 @@ export interface operations {
             };
         };
     };
-    registry_health_health_registry_get: {
+    answerQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Answered"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    registryHealth: {
         parameters: {
             query?: never;
             header?: never;
