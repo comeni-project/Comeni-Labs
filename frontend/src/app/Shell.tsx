@@ -1,4 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
+
+import { Lookup } from "../forge/Lookup";
+import { useUrlState } from "./useUrlState";
 
 /** Two workspaces and one lookup — `docs/design/forge-review.md` §3.
  *
@@ -58,15 +62,44 @@ export function Shell() {
           <Soon title="Where drafts come from — phase 6">Sources</Soon>
         </div>
 
-        <button
-          className={`ml-auto text-body bg-transparent border-0 ${gone}`}
-          aria-disabled="true"
-          title="Registry lookup — phase 2"
-        >
-          Registry
-        </button>
+        <RegistryBox />
       </nav>
       <Outlet />
+      <Lookup />
     </div>
+  );
+}
+
+/** The Registry control.
+ *
+ * **A box rather than a toggle**, because a lookup with no id is useless — the button has to
+ * carry a type to look up. It sets `?lookup=`, so the panel is linkable like everything else,
+ * and `Lookup` renders in the Shell so it survives moving between questions.
+ */
+function RegistryBox() {
+  const [, setLookup] = useUrlState("lookup", "");
+  const [typed, setTyped] = useState("");
+
+  return (
+    <form
+      className="ml-auto flex items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (typed.trim()) setLookup(typed.trim());
+      }}
+    >
+      <label className="text-body text-ink-2" htmlFor="registry-lookup">
+        Registry
+      </label>
+      <input
+        id="registry-lookup"
+        aria-label="look a type up"
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder="alignment.bam"
+        className="font-data text-secondary border border-line-2 bg-surface rounded-r
+                   px-2 py-1 w-[160px]"
+      />
+    </form>
   );
 }
