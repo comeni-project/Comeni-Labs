@@ -70,6 +70,11 @@ def propose_draft(req: ops.ProposeRequest) -> ops.ProposeResult:
     return ops.propose(req)
 
 
+@app.post("/drafts/decide")
+def decide_draft(req: ops.DecideRequest) -> ops.DecideResult:
+    return ops.decide(req)
+
+
 @app.post("/drafts/fill-with-model")
 def fill_draft_with_model(req: ops.ModelFillRequest) -> ops.ModelFillResult:
     return ops.fill_with_model(req)

@@ -32,7 +32,7 @@ from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
 from mendel_forge.observe import Excerpt
 from mendel_forge.ports import HoleFiller
-from mendel_forge.scaffold import FilledValue, Hole, Proposal, Scaffold
+from mendel_forge.scaffold import Decision, FilledValue, Hole, Proposal, Scaffold
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
 from mendel_forge.verify import verify as _run_verify
@@ -152,6 +152,30 @@ class ProposeResult(BaseModel):
     remaining: list[str]
     """**Still contains `field`.** A proposal is not a fill — the hole stays open, and a
     caller reading `remaining` to decide whether a draft can land must get that answer."""
+
+
+class DecideRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    decision: Decision
+    why: str
+    by: str
+    workspace_root: Path
+    id: str | None = None
+    """A better id than the one proposed. `None` keeps the proposal's own."""
+
+
+class DecideResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    decision: Decision
+    value: str | None
+    """What was written, on an approval. `None` on a rejection — the hole is still open."""
+    remaining: list[str]
 
 
 class ModelFillRequest(BaseModel):
@@ -284,6 +308,21 @@ def propose(req: ProposeRequest) -> ProposeResult:
         name=req.name,
         field=req.field,
         remaining=sorted(h.subject for h in proposed.holes),
+    )
+
+
+def decide(req: DecideRequest) -> DecideResult:
+    """Approve or reject a proposal. `Scaffold.decide` holds the asymmetry."""
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
+    settled = found.scaffold.decide(req.field, req.decision, by=req.by, why=req.why, id=req.id)
+    workspace.save(found.model_copy(update={"scaffold": settled}))
+    return DecideResult(
+        name=req.name,
+        field=req.field,
+        decision=req.decision,
+        value=settled.filled[req.field].value if req.decision is Decision.APPROVED else None,
+        remaining=sorted(h.subject for h in settled.holes),
     )
 
 

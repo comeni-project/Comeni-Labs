@@ -77,6 +77,15 @@ def parser() -> argparse.ArgumentParser:
     propose.add_argument("--why", required=True)
     propose.add_argument("--workspace", type=Path, default=_WORKSPACE)
 
+    decide = verbs.add_parser("decide", help="approve or reject a proposal")
+    decide.add_argument("name")
+    decide.add_argument("field")
+    decide.add_argument("decision", choices=["approved", "rejected"])
+    decide.add_argument("--id", help="approve under a different id")
+    decide.add_argument("--by", required=True)
+    decide.add_argument("--why", required=True)
+    decide.add_argument("--workspace", type=Path, default=_WORKSPACE)
+
     check = verbs.add_parser("check", help="does the registry still match its sources")
     check.add_argument("--registry", type=Path, default=_REGISTRY)
     check.add_argument("--source-root", type=Path, default=_VENDOR)

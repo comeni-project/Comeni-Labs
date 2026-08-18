@@ -98,6 +98,17 @@ def propose(result: ops.ProposeResult) -> str:
     )
 
 
+def decide(result: ops.DecideResult) -> str:
+    """**Says which way it went and what it left.** A rejection that printed like an approval
+    would tell a curator their draft is closer to landing than it is."""
+    if result.value is None:
+        return (
+            f"{result.field} rejected; the hole is open again — "
+            f"{len(result.remaining)} left: {', '.join(result.remaining)}"
+        )
+    return f"{result.field} approved as {result.value}; {len(result.remaining)} left"
+
+
 def model_fill(result: ops.ModelFillResult) -> str:
     """Both outcomes, always.
 

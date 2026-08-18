@@ -21,6 +21,7 @@ from mendel_compiler import conformance
 
 from mendel_forge import ops
 from mendel_forge.cli import parse, render
+from mendel_forge.scaffold import Decision
 
 _CODE = re.compile(r"\b(?:MF|MA)\d{4}\b")
 """`MF` and `MA` — the two prefixes a forge command can raise.
@@ -144,6 +145,20 @@ def _run(argv: list[str] | None = None) -> int:
             )
         )
         return _emit(args, result, render.propose(result))
+
+    if args.command == "decide":
+        result = ops.decide(
+            ops.DecideRequest(
+                name=args.name,
+                field=args.field,
+                decision=Decision(args.decision),
+                id=args.id,
+                why=args.why,
+                by=args.by,
+                workspace_root=args.workspace,
+            )
+        )
+        return _emit(args, result, render.decide(result))
 
     if args.command == "verify":
         result = ops.verify_(
