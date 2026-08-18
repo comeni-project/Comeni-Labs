@@ -1,0 +1,47 @@
+"""Background work. Nothing long-running may sit in a request.
+
+`ops.check` walks every contract against its source; the forge's own measurements put a
+model fill at 227s for one module and a stub gate at up to 900s cold. None of that belongs
+in a request, and ARQ is where it goes.
+"""
+
+from datetime import UTC, datetime
+
+from arq.connections import RedisSettings
+from mendel_forge import ops
+
+from mendel_api.db import session_scope
+from mendel_api.models import SourceCheck
+from mendel_api.settings import settings
+
+
+async def check_sources(ctx: dict) -> dict[str, int]:
+    """Compare the registry against its vendored sources, and remember that it happened.
+
+    **Vendored, not upstream.** `ops.check` reads `source_root`, which is the vendored copy
+    — issue #64 is the missing half, and until it lands nothing here can say *a newer
+    version is available*. The UI must not imply otherwise.
+    """
+    result = ops.check(
+        ops.CheckRequest(
+            registry_root=settings.registry_root,
+            source_root=settings.source_root,
+        )
+    )
+    with session_scope() as session:
+        session.add(
+            SourceCheck(
+                ran_at=datetime.now(UTC),
+                checked=result.checked,
+                drifted=len(result.drift),
+                skipped=len(result.skipped),
+            )
+        )
+    return {"checked": result.checked, "drifted": len(result.drift)}
+
+
+class WorkerSettings:
+    functions = [check_sources]
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+    cron_jobs: list = []
+    """The nightly schedule lands with Compose in Task 8, where there is a Redis to run it."""

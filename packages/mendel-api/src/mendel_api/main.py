@@ -9,6 +9,7 @@ own docstring names this plan as the thing that mounts it.
 from fastapi import FastAPI
 from mendel_forge.http import app as forge_app
 
+from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
 
 
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     app.include_router(questions_routes.router)
+    app.include_router(health_routes.router)
     app.mount("/forge", forge_app)
     return app
 
