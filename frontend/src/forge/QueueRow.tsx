@@ -38,10 +38,10 @@ export function QueueRow({
     >
       <span
         className="text-label uppercase tracking-[.13em] font-semibold
-                   data-[band=routing]:text-pea"
+                   data-[band=routing]:text-pea data-[band=blocked]:text-fault"
         data-band={q.band}
       >
-        {q.suggested ? "Confirm" : "Ask"}
+        {q.band === "blocked" ? "Blocked" : q.suggested ? "Confirm" : "Ask"}
       </span>
 
       <div>

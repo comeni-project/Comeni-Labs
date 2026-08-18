@@ -10,6 +10,7 @@ import { useKeys } from "../app/useKeys";
 import { useUrlState } from "../app/useUrlState";
 import { Refusal } from "../ui/Refusal";
 import { Failed, Loading } from "../ui/States";
+import { Decide } from "./Decide";
 import { Evidence } from "./Evidence";
 import { NothingFits } from "./NothingFits";
 
@@ -104,15 +105,8 @@ export function Question() {
 
       {q.proposed && (
         // A declined question must not look like one nobody has reached — that is the whole
-        // point of declining, and losing it loses the reviewer's work silently.
-        <div className="mt-4 border-l-2 border-line-2 pl-4">
-          <p className="text-body text-ink">
-            Declined — <span className="font-data">{q.proposed.id}</span> was proposed by{" "}
-            <span className="font-data">{q.proposed.by}</span>
-          </p>
-          <p className="text-secondary text-ink-2 mt-1">{q.proposed.description}</p>
-          <p className="text-secondary text-ink-3 mt-1">{q.proposed.why}</p>
-        </div>
+        // point of declining. Phase 3 makes the same block actionable.
+        <Decide draft={q.asked_by[0]} subject={subject} proposal={q.proposed} />
       )}
 
       <fieldset className="mt-6 border-0 p-0">
