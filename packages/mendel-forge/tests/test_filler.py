@@ -4,11 +4,12 @@ Every test injects a transport — no test in this repository may reach a live m
 `tests/test_no_live_model.py` is what holds that.
 """
 
+from comeni_core.review import ValueSource
 from mendel_ai.access import ModelAccess
 from mendel_ai.client import Client
 from mendel_forge.filler import ModelFiller
 from mendel_forge.observe import Excerpt, Observation
-from mendel_forge.scaffold import Candidate, Filler, Hole
+from mendel_forge.scaffold import Candidate, Hole
 
 ACCESS = ModelAccess(model="test/model")
 
@@ -35,7 +36,7 @@ def _filler(body: str) -> ModelFiller:
 
 
 ROLES = Hole(
-    field="roles",
+    subject="roles",
     what="what this tool is for",
     why_open="a judgement",
     candidates=[Candidate(value="qc_per_sample", note="declared role")],
@@ -43,13 +44,13 @@ ROLES = Hole(
 )
 
 TYPE_ID = Hole(
-    field="produces[0].type_id",
+    subject="produces[0].type_id",
     what="what the port carries",
     why_open="not derivable",
     candidates=[Candidate(value="qc.report"), Candidate(value="alignment.bam")],
 )
 
-PROSE = Hole(field="priority_because", what="why it ranks", why_open="a judgement")
+PROSE = Hole(subject="priority_because", what="why it ranks", why_open="a judgement")
 
 
 def test_a_single_valued_hole_is_filled() -> None:
@@ -58,7 +59,7 @@ def test_a_single_valued_hole_is_filled() -> None:
     )
     assert filled is not None
     assert filled.value == "qc.report"
-    assert filled.filler is Filler.MODEL
+    assert filled.how is ValueSource.MODEL
     assert filled.by == "test/model"
     assert filled.why == "it emits a report"
 
@@ -76,7 +77,7 @@ def test_a_state_field_is_treated_as_list_valued() -> None:
     """`produces[].state` is the other list-valued shape, and it is suffix-matched rather than
     named — a fixture for it is what stops the suffix rule from being untested."""
     hole = Hole(
-        field="produces[0].state",
+        subject="produces[0].state",
         what="what states the port carries",
         why_open="not derivable",
         candidates=[Candidate(value="coordinate_sorted")],
@@ -216,7 +217,7 @@ def test_a_name_hole_may_not_propose() -> None:
     """A port name is not a vocabulary, and since its candidates now come from the type_id
     there is always a reachable right answer."""
     hole = Hole(
-        field="consumes[0].name",
+        subject="consumes[0].name",
         what="what to call it",
         why_open="a choice",
         candidates=[Candidate(value="bam")],
@@ -229,7 +230,7 @@ def test_a_name_hole_may_not_propose() -> None:
 
 
 OPEN_NAME = Hole(
-    field="consumes[0].name",
+    subject="consumes[0].name",
     what="what to call it",
     why_open="a choice",
     candidates=[Candidate(value="zip", note="what other contracts call a qc.report port")],

@@ -15,6 +15,7 @@ two that drift.
 `ports.py`'s point and the reason the return type has always been optional.
 """
 
+from comeni_core.review import ValueSource
 from mendel_ai.choice import (
     Option,
     Proposed,
@@ -26,7 +27,7 @@ from mendel_ai.choice import (
 from mendel_ai.client import Client
 
 from mendel_forge.observe import Observation
-from mendel_forge.scaffold import FilledValue, Filler, Hole, Proposal
+from mendel_forge.scaffold import FilledValue, Hole, Proposal
 
 _LIST_VALUED = ("roles",)
 """Fields holding several members of one closed set.
@@ -85,11 +86,11 @@ class ModelFiller:
             [
                 f"{hole.what}.",
                 f"Why this is a judgement rather than something readable: {hole.why_open}.",
-                f"You are filling the field {hole.field} of a Mendel module contract "
+                f"You are filling the field {hole.subject} of a Mendel module contract "
                 f"for the tool {observation.ref_id}.",
             ]
         )
-        if _is_list_valued(hole.field):
+        if _is_list_valued(hole.subject):
             question += (
                 "\n\nChoose the smallest set that is true of this tool. "
                 "Do not add a value merely because the tool touches it."
@@ -105,7 +106,7 @@ class ModelFiller:
             if answered is None:
                 return None
             value, why = answered.value, answered.why
-        elif _may_propose(hole.field):
+        elif _may_propose(hole.subject):
             # **The one hole where "none of these" is a real answer.** A type_id is chosen from
             # a closed vocabulary, and for a tool nobody has written a contract for the right
             # type routinely does not exist yet — `star/align` emits nineteen channels and the
@@ -124,7 +125,7 @@ class ModelFiller:
                     by=self.model_id,
                 )
             value, why = answered.value, answered.why
-        elif _is_list_valued(hole.field):
+        elif _is_list_valued(hole.subject):
             many = choose_many(self.client, question, options, evidence)
             if many is None:
                 return None
@@ -137,4 +138,4 @@ class ModelFiller:
 
         if not hole.legal(value):
             return None
-        return FilledValue(value=value, filler=Filler.MODEL, by=self.model_id, why=why)
+        return FilledValue(value=value, how=ValueSource.MODEL, by=self.model_id, why=why)

@@ -16,11 +16,12 @@ import yaml
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Provenance
 from comeni_core.declared.layered import DeclaredKind
 from comeni_core.diagnostics import coded
+from comeni_core.review import ValueSource
 from mendel_resolver.layers import Layers
 
 from mendel_forge import candidates
 from mendel_forge.observe import Excerpt, Observation
-from mendel_forge.scaffold import FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import FilledValue, Hole, Scaffold
 
 _WHY_OPEN = {
     "roles": (
@@ -63,7 +64,7 @@ one here without measuring it there is how an estimate gets back in.
 def _derived(value: Any, obs: Observation, name: str) -> FilledValue:
     evidence = obs.facts[name].evidence
     return FilledValue(
-        value=value, filler=Filler.DERIVED, by=obs.source, why=f"read from {evidence.locator}"
+        value=value, how=ValueSource.DERIVED, by=obs.source, why=f"read from {evidence.locator}"
     )
 
 
@@ -87,7 +88,7 @@ def _hole(
     `fastqc`'s outputs identically because the prompts differed only in an index digit.
     """
     return Hole(
-        field=field,
+        subject=field,
         what=what or f"a value for {field}",
         why_open=why,
         candidates=candidates.for_field(
@@ -124,12 +125,12 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
 
     filled["id"] = FilledValue(
         value=f"{ident}@{version}",
-        filler=Filler.DERIVED,
+        how=ValueSource.DERIVED,
         by=obs.source,
         why=f"the tool's path and version under {obs.source}",
     )
     filled["provenance.source"] = FilledValue(
-        value=obs.source, filler=Filler.DERIVED, by=obs.source, why="the source it was read from"
+        value=obs.source, how=ValueSource.DERIVED, by=obs.source, why="the source it was read from"
     )
 
     for name, field in DERIVED_FIELDS:
@@ -155,7 +156,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         offered = [name for name in slot if not name.startswith("meta")]
         holes.append(
             Hole(
-                field=f"consumes[{index}].name",
+                subject=f"consumes[{index}].name",
                 # **The module's channel name is deliberately not repeated here.** It used to
                 # be — "the module calls it meta, input" — which named the wrong answer in the
                 # question, offered it first, and hoped for something else. That clause dates
@@ -235,7 +236,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
         target=_target(ident),
         observation=obs,
         filled=filled,
-        holes=sorted(holes, key=lambda h: h.field),
+        holes=sorted(holes, key=lambda h: h.subject),
     )
 
 
@@ -278,7 +279,7 @@ def _ports(filled: dict[str, Any], group: str) -> list[dict[str, Any]]:
 def _require_complete(scaffold: Scaffold) -> None:
     if scaffold.is_complete():
         return
-    open_fields = ", ".join(h.field for h in sorted(scaffold.holes, key=lambda h: h.field))
+    open_fields = ", ".join(h.subject for h in sorted(scaffold.holes, key=lambda h: h.subject))
     message = (
         coded("MF0004", f"{scaffold.target} has {len(scaffold.holes)} open hole(s)")
         + f"\n  open: {open_fields}"
@@ -300,11 +301,17 @@ def _require_complete(scaffold: Scaffold) -> None:
 def _drafted_by(scaffold: Scaffold) -> str:
     """`hand` when a person filled every non-derived hole; the model id when one did.
 
-    Phase 2 needs no change here: `Filler.MODEL` already exists and `by` already carries
+    Phase 2 needs no change here: `ValueSource.MODEL` already exists and `by` already carries
     the id, so a model-filled scaffold lands with its model named in the file.
+
+    **The `"hand"` is a string literal and must stay one.** It is what `Provenance.drafted_by`
+    carries into a landed contract, and it is *not* `ValueSource.HUMAN.value`. That is the
+    whole reason Plan 2.5 could fold `Filler.HAND` into `ValueSource.HUMAN` without moving a
+    byte of any published registry artifact — the enum never reached one. The spec's §4.3
+    first claimed the opposite and was corrected by reading this function.
     """
-    fillers = {v.filler: v.by for v in scaffold.filled.values()}
-    return fillers.get(Filler.MODEL, "hand")
+    sources = {v.how: v.by for v in scaffold.filled.values()}
+    return sources.get(ValueSource.MODEL, "hand")
 
 
 def contract_from(scaffold: Scaffold, *, approved_by: str, approved_at: str) -> ModuleContract:

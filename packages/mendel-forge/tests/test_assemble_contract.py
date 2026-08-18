@@ -1,14 +1,15 @@
 import pytest
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.layered import DeclaredKind
+from comeni_core.review import ValueSource
 from mendel_forge.assemble import contract_from, to_yaml
 from mendel_forge.observe import Excerpt, Fact, Observation
-from mendel_forge.scaffold import FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import FilledValue, Hole, Scaffold
 
 
 def _complete() -> Scaffold:
     def derived(value):
-        return FilledValue(value=value, filler=Filler.DERIVED, by="nf-core", why="main.nf")
+        return FilledValue(value=value, how=ValueSource.DERIVED, by="nf-core", why="main.nf")
 
     return Scaffold(
         kind=DeclaredKind.CONTRACTS,
@@ -25,13 +26,13 @@ def _complete() -> Scaffold:
             "container": derived("quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0"),
             "produces[0].name": derived("zip"),
             "produces[0].type_id": FilledValue(
-                value="qc.report", filler=Filler.HAND, by="rafael", why="it is a report"
+                value="qc.report", how=ValueSource.HUMAN, by="rafael", why="it is a report"
             ),
             "roles": FilledValue(
-                value=["qc_per_sample"], filler=Filler.HAND, by="rafael", why="it QCs a sample"
+                value=["qc_per_sample"], how=ValueSource.HUMAN, by="rafael", why="it QCs a sample"
             ),
             "priority_because": FilledValue(
-                value="the only QC tool", filler=Filler.HAND, by="rafael", why="no alternative"
+                value="the only QC tool", how=ValueSource.HUMAN, by="rafael", why="no alternative"
             ),
             "provenance.source": derived("nf-core"),
         },
@@ -59,7 +60,7 @@ def test_a_scaffold_with_a_hole_refuses_rather_than_defaulting():
     """The property everything rests on. A default here would be the forge inventing a
     value with a straight face, which is what a hole exists to prevent."""
     incomplete = _complete().model_copy(
-        update={"holes": [Hole(field="roles", what="w", why_open="o")]}
+        update={"holes": [Hole(subject="roles", what="w", why_open="o")]}
     )
     with pytest.raises(ValueError, match="MF0004") as caught:
         contract_from(incomplete, approved_by="r", approved_at="2026-08-20")

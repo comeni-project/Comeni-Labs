@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from comeni_core.diagnostics import coded
+from comeni_core.review import ValueSource
 from mendel_ai.access import ModelAccess
 from mendel_ai.client import Client
 from mendel_resolver import layers
@@ -30,7 +31,7 @@ from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
 from mendel_forge.observe import Excerpt
 from mendel_forge.ports import HoleFiller
-from mendel_forge.scaffold import FilledValue, Filler, Hole, Proposal, Scaffold
+from mendel_forge.scaffold import FilledValue, Hole, Proposal, Scaffold
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
 from mendel_forge.verify import verify as _run_verify
@@ -225,12 +226,12 @@ def show(req: ShowRequest) -> ShowResult:
 def fill(req: FillRequest) -> FillResult:
     workspace = Workspace(root=req.workspace_root)
     found = workspace.load(req.name)
-    filled = found.scaffold.fill(req.field, req.value, Filler.HAND, by=req.by, why=req.why)
+    filled = found.scaffold.fill(req.field, req.value, ValueSource.HUMAN, by=req.by, why=req.why)
     workspace.save(found.model_copy(update={"scaffold": filled}))
     return FillResult(
         name=req.name,
         field=req.field,
-        remaining=sorted(h.field for h in filled.holes),
+        remaining=sorted(h.subject for h in filled.holes),
     )
 
 
@@ -254,7 +255,7 @@ def _with_fresh_candidates(hole: Hole, scaffold: Scaffold, stack: "Layers | None
         update={
             "evidence": [*hole.evidence, *siblings],
             "candidates": candidates.for_field(
-                hole.field,
+                hole.subject,
                 stack,
                 type_id=str(settled.value),
                 channels=hole.channels,
@@ -312,7 +313,7 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
             model_id=req.model,
         )
 
-    targets = [h for h in found.scaffold.holes if req.field is None or h.field == req.field]
+    targets = [h for h in found.scaffold.holes if req.field is None or h.subject == req.field]
     if req.field is not None and not targets:
         raise ValueError(coded("MF0002", f"{req.field} is not a hole in {req.name}"))
     # **Dependencies first.** A port's name candidates come from its type, so a hole carrying
@@ -334,12 +335,12 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
         answer = filler.fill(hole, found.scaffold.observation)
         if isinstance(answer, Proposal):
             found = found.model_copy(
-                update={"scaffold": found.scaffold.propose(hole.field, answer)}
+                update={"scaffold": found.scaffold.propose(hole.subject, answer)}
             )
             workspace.save(found)
             outcomes.append(
                 ModelFillOutcome(
-                    field=hole.field,
+                    field=hole.subject,
                     filled=False,
                     proposed_id=answer.id,
                     proposed_description=answer.description,
@@ -351,7 +352,7 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
         if answer is None:
             outcomes.append(
                 ModelFillOutcome(
-                    field=hole.field,
+                    field=hole.subject,
                     filled=False,
                     declined_because=(
                         "no candidates — free text, and a person answers it"
@@ -364,19 +365,19 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
         found = found.model_copy(
             update={
                 "scaffold": found.scaffold.fill(
-                    hole.field, answer.value, Filler.MODEL, by=answer.by, why=answer.why
+                    hole.subject, answer.value, ValueSource.MODEL, by=answer.by, why=answer.why
                 )
             }
         )
         workspace.save(found)
         outcomes.append(
-            ModelFillOutcome(field=hole.field, filled=True, value=answer.value, why=answer.why)
+            ModelFillOutcome(field=hole.subject, filled=True, value=answer.value, why=answer.why)
         )
 
     return ModelFillResult(
         name=req.name,
         outcomes=outcomes,
-        remaining=sorted(h.field for h in found.scaffold.holes),
+        remaining=sorted(h.subject for h in found.scaffold.holes),
     )
 
 
