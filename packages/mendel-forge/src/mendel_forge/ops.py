@@ -24,7 +24,7 @@ from mendel_ai.access import ModelAccess
 from mendel_ai.client import Client
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_forge import assemble, candidates, modulegen, sources
 from mendel_forge.filler import ModelFiller
@@ -104,6 +104,9 @@ class ShowResult(BaseModel):
     target: str
     holes: list[Hole]
     filled: dict[str, FilledValue]
+    proposed: dict[str, Proposal] = Field(default_factory=dict)
+    """Field -> what it needs declared. Keyed by field because two ports may need the same
+    new type and a reviewer should see both places it was wanted."""
     module: str | None = None
     changed_at: datetime | None = None
     """When the draft was last written. `None` where a caller did not ask — the CLI
@@ -127,6 +130,28 @@ class FillResult(BaseModel):
     name: str
     field: str
     remaining: list[str]
+
+
+class ProposeRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    id: str
+    description: str
+    why: str
+    by: str
+    workspace_root: Path
+
+
+class ProposeResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    remaining: list[str]
+    """**Still contains `field`.** A proposal is not a fill — the hole stays open, and a
+    caller reading `remaining` to decide whether a draft can land must get that answer."""
 
 
 class ModelFillRequest(BaseModel):
@@ -224,6 +249,7 @@ def show(req: ShowRequest) -> ShowResult:
         target=found.scaffold.target,
         holes=found.scaffold.holes,
         filled=found.scaffold.filled,
+        proposed=found.scaffold.proposed,
         module=found.module,
         changed_at=workspace.changed_at(req.name),
     )
@@ -238,6 +264,26 @@ def fill(req: FillRequest) -> FillResult:
         name=req.name,
         field=req.field,
         remaining=sorted(h.subject for h in filled.holes),
+    )
+
+
+def propose(req: ProposeRequest) -> ProposeResult:
+    """Record that nothing declared fits this hole.
+
+    The mirror of `fill`, with one difference that is the entire point: the hole stays open.
+    `Scaffold.propose` enforces that the field is a hole and raises `MF0002` otherwise.
+    """
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
+    proposed = found.scaffold.propose(
+        req.field,
+        Proposal(id=req.id, description=req.description, why=req.why, by=req.by),
+    )
+    workspace.save(found.model_copy(update={"scaffold": proposed}))
+    return ProposeResult(
+        name=req.name,
+        field=req.field,
+        remaining=sorted(h.subject for h in proposed.holes),
     )
 
 

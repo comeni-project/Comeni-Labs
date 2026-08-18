@@ -131,6 +131,20 @@ def _run(argv: list[str] | None = None) -> int:
         )
         return _emit(args, result, render.fill(result))
 
+    if args.command == "propose":
+        result = ops.propose(
+            ops.ProposeRequest(
+                name=args.name,
+                field=args.field,
+                id=args.id,
+                description=args.description,
+                why=args.why,
+                by=args.by,
+                workspace_root=args.workspace,
+            )
+        )
+        return _emit(args, result, render.propose(result))
+
     if args.command == "verify":
         result = ops.verify_(
             ops.VerifyRequest(

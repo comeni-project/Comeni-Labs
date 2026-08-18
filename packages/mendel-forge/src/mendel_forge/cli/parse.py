@@ -66,6 +66,17 @@ def parser() -> argparse.ArgumentParser:
     )
     fill.add_argument("--workspace", type=Path, default=_WORKSPACE)
 
+    propose = verbs.add_parser(
+        "propose", help="decline a hole: nothing declared fits, and here is what would"
+    )
+    propose.add_argument("name")
+    propose.add_argument("field")
+    propose.add_argument("id", help="the type id being proposed")
+    propose.add_argument("--description", required=True)
+    propose.add_argument("--by", required=True)
+    propose.add_argument("--why", required=True)
+    propose.add_argument("--workspace", type=Path, default=_WORKSPACE)
+
     check = verbs.add_parser("check", help="does the registry still match its sources")
     check.add_argument("--registry", type=Path, default=_REGISTRY)
     check.add_argument("--source-root", type=Path, default=_VENDOR)
