@@ -35,6 +35,10 @@ it demotes certainty to metadata. Drawing incompleteness as incompleteness is th
 
 ## 2. Tokens
 
+**This section governs both halves of the product** — the Mendel canvas and the forge's
+screens ([`forge-review.md`](forge-review.md)). There is one copy of the system and it lives
+here, because this is where it was first written.
+
 ### Colour
 
 Neutrals are biased toward the accent rather than pure grey — a pure mid-grey reads as
