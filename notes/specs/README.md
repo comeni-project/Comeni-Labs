@@ -28,6 +28,11 @@ Three kinds live here:
   §2.1 is the argument for building the foundation before the routes, and every phase states what
   you can and cannot do at the end of it, because the failure it corrects was a checkpoint that
   said "the queue on screen" without saying nothing on it worked),
+  `2026-08-18-answering.md` (**Plan 3A phase 2** — the answer screen, and the two decisions the
+  interface spec left open: `answer-all` is best-effort and reports every refusal, because the
+  design's own worked example is a batch with one wrong member; and phase 2 *creates* proposals
+  while phase 3 decides them, because a closed choice with no way to decline forces a wrong
+  answer),
   `2026-08-18-plan-3.md` (**the API and the interface** — written after Plan 2.5 landed and after
   the interface was designed, which is why it could be specific. Its §4 is the substance: what
   must exist underneath for the screens to be true rather than decorative, each entry naming the
