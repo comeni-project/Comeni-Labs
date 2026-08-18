@@ -444,6 +444,7 @@ packages/
   comeni-core/       types, contract schema, pipeline IR, registry     PURE
     declared/          what a registry layer holds, and how it stacks
     goal/              what is asked for, and what was measured
+    review/            what is open, and how it gets closed — Question, Answer
     plan/              what was decided — the IR, the tiers, the records
     artifact/          pipeline.yml, the lockfile, the gates, the doors
     spell/             how a value is spelled on its way to a tool
@@ -456,18 +457,23 @@ packages/
     filler.py          ModelFiller — a model behind the HoleFiller seam
     sources/           the Source protocol, and the nf-core adapter
     cli/  http/         two transports over ops.py; neither holds logic
-  mendel-api/        FastAPI surface                                   impure
+  mendel-api/        FastAPI surface — DOES NOT EXIST YET, Plan 3       impure
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
-frontend/      React + TS + Vite + Tailwind SPA
+frontend/      DOES NOT EXIST YET — Plan 3 creates it. React + TS + Vite + Tailwind
 ```
 
 **The subpackages inside `comeni-core` are a pipeline through the system**, named for the stage
-rather than the type: what is *declared*, what is *asked*, what was *planned*, what is *emitted*,
-and how it is *spelled*. Issue #41 split them out of one flat directory of nineteen modules; the
+rather than the type: what is *declared*, what is *asked*, what is *open*, what was *planned*,
+what is *emitted*, and how it is *spelled*. `review/` is Plan 2.5's, and it is the one stage both
+halves of the system pass through — the forge asks about a contract it is drafting and the
+resolver asks about a pipeline it is building, and until 2026-08-18 those were two vocabularies
+for one idea. **Its base classes are inert**: whether an unanswered question *blocks* lives in
+the container and the port, never on the type. `HoleFiller.fill()` may return `None` and
+`AmbiguityResolver.resolve()` may not, and that is the whole of the difference. Issue #41 split them out of one flat directory of nineteen modules; the
 public surface of `comeni_core` did not change, and `comeni_core.__init__` is what holds it
 stable. `mendel_resolver.rules` and `mendel_compiler.cli` were single modules and became packages
 in the same change — `rules/__init__.py` re-exports, because a package's `__init__` is its own
