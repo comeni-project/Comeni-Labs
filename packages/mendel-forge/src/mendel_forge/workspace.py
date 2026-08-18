@@ -13,6 +13,7 @@ how to spell a frozenset.
 
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 from comeni_core.diagnostics import coded
@@ -51,6 +52,20 @@ class Workspace(BaseModel):
         path = directory / "draft.json"
         path.write_text(draft.model_dump_json(indent=2) + "\n")
         return path
+
+    def changed_at(self, name: str) -> datetime:
+        """When this draft was last written, in UTC.
+
+        **Timezone-aware on purpose.** It is compared against a stored visit time, and a
+        naive datetime raises `TypeError` at that comparison rather than where it was made.
+        """
+        path = self._dir(name) / "draft.json"
+        if not path.exists():
+            raise ValueError(
+                coded("MF0008", f"no draft named {name!r}")
+                + f"\n  drafts: {', '.join(self.names()) or '(none)'}"
+            )
+        return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
 
     def load(self, name: str) -> Draft:
         path = self._dir(name) / "draft.json"

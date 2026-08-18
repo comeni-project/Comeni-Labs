@@ -14,6 +14,7 @@ one place per transport, turns into an exit code or a 4xx.
 request claim every capability, which is the opposite of what a typed surface is for.
 """
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -104,6 +105,9 @@ class ShowResult(BaseModel):
     holes: list[Hole]
     filled: dict[str, FilledValue]
     module: str | None = None
+    changed_at: datetime | None = None
+    """When the draft was last written. `None` where a caller did not ask — the CLI
+    prints a draft and does not need it; the queue's "what moved" filter does."""
 
 
 class FillRequest(BaseModel):
@@ -213,13 +217,15 @@ def draft(req: DraftRequest) -> DraftResult:
 
 
 def show(req: ShowRequest) -> ShowResult:
-    found = Workspace(root=req.workspace_root).load(req.name)
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
     return ShowResult(
         name=found.name,
         target=found.scaffold.target,
         holes=found.scaffold.holes,
         filled=found.scaffold.filled,
         module=found.module,
+        changed_at=workspace.changed_at(req.name),
     )
 
 
