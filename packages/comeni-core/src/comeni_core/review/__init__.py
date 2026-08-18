@@ -10,6 +10,7 @@ is why `ValueSource` lives in `review/answer.py` rather than in `plan/tiers.py` 
 first written. See the spec's §9.1.
 """
 
+from comeni_core.review.answer import Answer, ValueSource
 from comeni_core.review.question import Candidate, Excerpt, Question
 
-__all__ = ["Candidate", "Excerpt", "Question"]
+__all__ = ["Answer", "Candidate", "Excerpt", "Question", "ValueSource"]
