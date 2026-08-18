@@ -100,7 +100,7 @@ describes both consumers, since the forge does not plan and the resolver does no
 (`Subject`), and already serialised into `pipeline.yml` through the decision records. Renaming
 the *forge's* side costs a golden file; renaming the *build's* side would cost an artifact.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/comeni-core/tests/test_review_base.py
@@ -165,7 +165,7 @@ def test_the_base_carries_no_behaviour_beyond_legality():
     assert behaviour <= allowed, f"unexpected behaviour on the base: {behaviour - allowed}"
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_review_base.py -v
@@ -173,7 +173,7 @@ uv run pytest packages/comeni-core/tests/test_review_base.py -v
 
 Expected: collection error — `ModuleNotFoundError: No module named 'comeni_core.review'`.
 
-- [ ] **Step 3: Write `question.py`**
+- [x] **Step 3: Write `question.py`**
 
 ```python
 # packages/comeni-core/src/comeni_core/review/question.py
@@ -302,7 +302,7 @@ from comeni_core.review.question import Candidate, Excerpt, Question
 __all__ = ["Candidate", "Excerpt", "Question"]
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_review_base.py -v
@@ -310,7 +310,7 @@ uv run pytest packages/comeni-core/tests/test_review_base.py -v
 
 Expected: 6 passed.
 
-- [ ] **Step 5: Confirm purity is unmoved**
+- [x] **Step 5: Confirm purity is unmoved**
 
 ```bash
 uv run pytest tests/test_purity.py -q; echo "exit=$?"
@@ -318,7 +318,7 @@ uv run pytest tests/test_purity.py -q; echo "exit=$?"
 
 Expected: `exit=0`. A new module in a pure package is exactly what that scan exists to see.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/review/ packages/comeni-core/tests/test_review_base.py
@@ -345,7 +345,7 @@ from `review/`, so a `review → plan` import is a cycle. Moving it and re-expor
 existing `from comeni_core.plan.tiers import ValueSource` working and the package's public
 surface unchanged. Spec §9.1.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # append to packages/comeni-core/tests/test_review_base.py
@@ -392,7 +392,7 @@ def test_an_answer_forbids_extra_fields():
         Answer(value="x", by="y", how=ValueSource.HUMAN, why="z", confidence=1.0)
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_review_base.py -k "derived or spelling or tiers or answer" -v
@@ -400,7 +400,7 @@ uv run pytest packages/comeni-core/tests/test_review_base.py -k "derived or spel
 
 Expected: `ModuleNotFoundError: No module named 'comeni_core.review.answer'`.
 
-- [ ] **Step 3: Create `answer.py` by moving `ValueSource` out of `tiers.py`**
+- [x] **Step 3: Create `answer.py` by moving `ValueSource` out of `tiers.py`**
 
 Cut the whole `class ValueSource` block — including every docstring on its members, which are
 load-bearing — out of `packages/comeni-core/src/comeni_core/plan/tiers.py` and paste it into the
@@ -485,7 +485,7 @@ from comeni_core.review.answer import ValueSource
 __all__ = ["ReviewLevel", "Tier", "ValueSource"]
 ```
 
-- [ ] **Step 4: Extend `review/__init__.py`**
+- [x] **Step 4: Extend `review/__init__.py`**
 
 ```python
 from comeni_core.review.answer import Answer, ValueSource
@@ -494,7 +494,7 @@ from comeni_core.review.question import Candidate, Excerpt, Question
 __all__ = ["Answer", "Candidate", "Excerpt", "Question", "ValueSource"]
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_review_base.py -v
@@ -504,7 +504,7 @@ uv run pytest packages/comeni-core packages/mendel-resolver -q; echo "exit=$?"
 Expected: the new tests pass, and **nothing else breaks** — the re-export is what guarantees
 that. If anything fails on `ValueSource`, the re-export is missing or `__all__` is wrong.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/review/ \
@@ -536,7 +536,7 @@ mechanical and both move the golden scaffold. `Hole.what`, `.why_open`, `.candid
 `.evidence` and `FilledValue.value`, `.by`, `.why` all keep their names — they were already the
 base's names, which is why the base was drawn there.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-forge/tests/test_scaffold_rebase.py
@@ -604,7 +604,7 @@ def fastqc_scaffold():
     return Scaffold.model_validate(json.loads(path.read_text()))
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/mendel-forge/tests/test_scaffold_rebase.py -v
@@ -612,7 +612,7 @@ uv run pytest packages/mendel-forge/tests/test_scaffold_rebase.py -v
 
 Expected: `TypeError` or assertion failures — `Hole` is not a `Question` subclass yet.
 
-- [ ] **Step 3: Re-base `scaffold.py`**
+- [x] **Step 3: Re-base `scaffold.py`**
 
 Replace the `Filler`, `FilledValue`, `Candidate` and `Hole` definitions with:
 
@@ -660,7 +660,7 @@ Then, throughout `scaffold.py`, rename `hole.field` → `hole.subject`. The affe
 the signature's `filler: Filler` parameter becomes `how: ValueSource`, and the `FilledValue`
 construction becomes `FilledValue(value=value, by=by, how=how, why=why)`.
 
-- [ ] **Step 4: Point `observe.py` at the shared `Excerpt`**
+- [x] **Step 4: Point `observe.py` at the shared `Excerpt`**
 
 ```python
 # packages/mendel-forge/src/mendel_forge/observe.py
@@ -674,7 +674,7 @@ Delete the local `class Excerpt` definition — its docstring moved into
 `"Excerpt"` in it; if it does not, add none — the module has not needed one so far and this
 change does not make it need one.
 
-- [ ] **Step 5: Sweep the four call-site modules**
+- [x] **Step 5: Sweep the four call-site modules**
 
 ```bash
 grep -rn --include='*.py' 'Filler\.\|\.filler\|\.field\b' packages/mendel-forge/
@@ -705,7 +705,7 @@ def _drafted_by(scaffold: Scaffold) -> str:
     return sources.get(ValueSource.MODEL, "hand")
 ```
 
-- [ ] **Step 6: Run the forge suite and fix what falls out**
+- [x] **Step 6: Run the forge suite and fix what falls out**
 
 ```bash
 uv run pytest packages/mendel-forge -q; echo "exit=$?"
@@ -715,7 +715,7 @@ Expected: the golden scaffold test fails, and only it, plus any test still namin
 `.field`. **One diagnostic run, then one fix pass** — do not patch-and-rerun ten times.
 `CLAUDE.md` records that loop costing three hours estimated at one.
 
-- [ ] **Step 7: Regenerate the golden scaffold, then READ the diff**
+- [x] **Step 7: Regenerate the golden scaffold, then READ the diff**
 
 ```bash
 uv run pytest packages/mendel-forge -k golden --snapshot-update 2>/dev/null || \
@@ -728,7 +728,7 @@ The diff must contain **only** `field:` → `subject:` and `filler:` → `how:` 
 order — is a real regression wearing a rename's clothes. This is the step that caught the block
 facts citing their own header on 2026-08-17.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 uv run ruff check packages/mendel-forge; echo "lint exit=$?"
@@ -753,7 +753,7 @@ git commit -m "refactor(forge): a hole is a question, and a fill is an answer"
 Rule 2. Task 5 makes it green by answering the question it asks. Do not route around it, and do
 not weaken the test.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # append to packages/comeni-core/tests/test_review_base.py
@@ -791,7 +791,7 @@ def test_a_resolution_keeps_its_confidence():
     assert "confidence" not in Answer.model_fields
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_review_base.py -k "ambiguity or resolution" -v
@@ -799,7 +799,7 @@ uv run pytest packages/comeni-core/tests/test_review_base.py -k "ambiguity or re
 
 Expected: `assert issubclass(Ambiguity, Question)` fails.
 
-- [ ] **Step 3: Re-base `Ambiguity`**
+- [x] **Step 3: Re-base `Ambiguity`**
 
 ```python
 from comeni_core.review import Answer, Question, ValueSource
@@ -856,7 +856,7 @@ grep -rn --include='*.py' '\.chosen\|resolved_by\|resolution\.source\|resolution
 The known sites are `mendel_resolver/ports.py` (`FlagOnlyResolver`), `mendel_resolver/resolve.py`
 (around lines 400 and 427), `mendel_resolver/replay.py` (around line 123), and their tests.
 
-- [ ] **Step 4: Run the fast suite, then the egress guard specifically**
+- [x] **Step 4: Run the fast suite, then the egress guard specifically**
 
 ```bash
 uv run pytest packages/ -q; echo "exit=$?"
@@ -870,7 +870,7 @@ AssertionError: ParamAsked.what has nowhere to go in AmbiguityRequest, so a
 model behind door 2 would never be told it
 ```
 
-- [ ] **Step 5: Record the red guard before fixing it**
+- [x] **Step 5: Record the red guard before fixing it**
 
 Write the exact failure message into the commit body. This is the guard doing its job and the
 record is worth more than the fix.
@@ -925,7 +925,7 @@ than a free string — and A129 records that it accepted only one of three `*Ask
 their *values* were checked, not just their names. **Keep the door's stricter typing** and
 project `Candidate.value` into it; do not widen the door to the base's shape.
 
-- [ ] **Step 1: Extend the guard first, so the fix is testable**
+- [x] **Step 1: Extend the guard first, so the fix is testable**
 
 ```python
 # append to tests/test_egress.py
@@ -945,7 +945,7 @@ def test_the_door_carries_what_the_forge_measured_a_model_needs():
         )
 ```
 
-- [ ] **Step 2: Run both guards and watch them fail**
+- [x] **Step 2: Run both guards and watch them fail**
 
 ```bash
 uv run pytest tests/test_egress.py -q; echo "exit=$?"
@@ -953,7 +953,7 @@ uv run pytest tests/test_egress.py -q; echo "exit=$?"
 
 Expected: two failures — the totality assertion from Task 4, and the new content one.
 
-- [ ] **Step 3: Widen `AmbiguityRequest`**
+- [x] **Step 3: Widen `AmbiguityRequest`**
 
 ```python
 class AmbiguityRequest(EgressPayload):
@@ -987,7 +987,7 @@ class AmbiguityRequest(EgressPayload):
 strings, so it needs to be added to the allowlist of permitted leaf shapes **explicitly**, which
 is the whole point of that test being an allowlist rather than a blocklist.
 
-- [ ] **Step 4: Run the full guard set**
+- [x] **Step 4: Run the full guard set**
 
 ```bash
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
@@ -996,7 +996,7 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
 
 Expected: `exit=0`.
 
-- [ ] **Step 5: Watch the new guard fail on purpose, and record it**
+- [x] **Step 5: Watch the new guard fail on purpose, and record it**
 
 Per A14, a guard never watched failing may be inert rather than merely weak.
 
@@ -1008,12 +1008,12 @@ uv run pytest tests/test_egress.py -q 2>&1 | tail -20
 
 Append the printed message to `notes/audits/guard-ledger.md` as a new row.
 
-- [ ] **Step 6: Update `CLAUDE.md`'s free-text count**
+- [x] **Step 6: Update `CLAUDE.md`'s free-text count**
 
 Edit the invariant 14 paragraph. The count moves from ten; state the new number, name the new
 fields, and say that `Excerpt.text` is *quoted* rather than composed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/comeni-core tests/test_egress.py notes/audits/guard-ledger.md CLAUDE.md
@@ -1038,7 +1038,7 @@ to know *where each candidate came from*, and the data is already in hand at the
 (`producers_of` has the registry and the layers). `ParamAsked` and `SourceAsked` keep empty
 evidence, which is honest: the field exists and nothing lies about being filled.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-resolver/tests/test_evidence.py
@@ -1070,7 +1070,7 @@ Write `_producer_ambiguity_for` and `two_layer_registry` against the existing fi
 `packages/mendel-resolver/tests/` — `test_resolve.py` already builds layered registries and is
 the shape to copy.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_evidence.py -v
@@ -1078,7 +1078,7 @@ uv run pytest packages/mendel-resolver/tests/test_evidence.py -v
 
 Expected: `assert len(ambiguity.evidence) == len(...)` fails with `0 == 2`.
 
-- [ ] **Step 3: Populate it where `ProducerAsked` is constructed**
+- [x] **Step 3: Populate it where `ProducerAsked` is constructed**
 
 Find the construction site in `resolve.py` and add:
 
@@ -1108,13 +1108,13 @@ If `registry.path_of` does not exist, the layer path is on `layers.Layers.paths`
 without checking what is already there**; the plan is written against code and this line is the
 one most likely to be wrong.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 uv run pytest packages/mendel-resolver -q; echo "exit=$?"
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-resolver
@@ -1130,7 +1130,7 @@ git commit -m "feat(resolver): a tier-4 producer question cites where each candi
 - Modify: `ARCHITECTURE.md`
 - Modify: `CLAUDE.md` (the architecture block)
 
-- [ ] **Step 1: Export the new types**
+- [x] **Step 1: Export the new types**
 
 ```python
 from comeni_core.review import Answer, Candidate, Excerpt, Question, ValueSource
@@ -1138,7 +1138,7 @@ from comeni_core.review import Answer, Candidate, Excerpt, Question, ValueSource
 
 Keep `__all__` sorted, as the file already is.
 
-- [ ] **Step 2: Add `review/` to the architecture block in `CLAUDE.md`**
+- [x] **Step 2: Add `review/` to the architecture block in `CLAUDE.md`**
 
 ```
   comeni-core/       types, contract schema, pipeline IR, registry     PURE
@@ -1150,18 +1150,18 @@ Keep `__all__` sorted, as the file already is.
     spell/             how a value is spelled on its way to a tool
 ```
 
-- [ ] **Step 3: Write the `ARCHITECTURE.md` section**
+- [x] **Step 3: Write the `ARCHITECTURE.md` section**
 
 One section describing `Question`/`Answer`, the two subclass families, and — most importantly —
 **why the blocking is not on the types**. Point at spec §3.1 rather than re-arguing it.
 
-- [ ] **Step 4: Check every link still resolves**
+- [x] **Step 4: Check every link still resolves**
 
 ```bash
 make links; echo "exit=$?"
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/comeni-core ARCHITECTURE.md CLAUDE.md
@@ -1174,7 +1174,7 @@ git commit -m "docs: review/ is a lifecycle stage, and the blocking is not on th
 
 **Files:** none modified unless something is wrong.
 
-- [ ] **Step 1: Prove `pipeline.yml` is byte-identical**
+- [x] **Step 1: Prove `pipeline.yml` is byte-identical**
 
 The claim in the spec's §4.3 is that no published artifact changes. Prove it rather than assert
 it — the same move that caught the machine-dependent layer digest on 2026-08-16, where
@@ -1196,7 +1196,7 @@ that is a decision point, not a hill to push through.
 Simpler alternative if the stash dance is awkward: build on `main` in a second worktree and diff
 across the two.
 
-- [ ] **Step 2: Confirm the emitted digests are unmoved**
+- [x] **Step 2: Confirm the emitted digests are unmoved**
 
 ```bash
 sha256sum /tmp/after/main.nf /tmp/after/nextflow.config
@@ -1207,7 +1207,7 @@ grep -n "main.nf\|nextflow.config" /tmp/after/pipeline.yml
 issue #41, unmoved by everything since. A digest that moves here must be explained in the commit
 message or reverted.
 
-- [ ] **Step 3: Full verification**
+- [x] **Step 3: Full verification**
 
 ```bash
 make verify; echo "exit=$?"
@@ -1219,7 +1219,7 @@ is readable is tight enough to hide a lint failure, which cost four tasks of a r
 
 Expected: `exit=0`.
 
-- [ ] **Step 4: Residue and the guard ledger**
+- [x] **Step 4: Residue and the guard ledger**
 
 ```bash
 make residue
@@ -1229,14 +1229,14 @@ make residue ARGS=--list | head -20
 The number should not have risen. A new guard added in Task 5 without a ledger row would show
 here.
 
-- [ ] **Step 5: Update the indexes**
+- [x] **Step 5: Update the indexes**
 
 Add a row to `notes/README.md`'s plan table between forge Phase 2 (row 15) and the rule drafter
 (row 16), recording that Plan 2.5 ran and what it decided. Add the two specs to
 `notes/specs/README.md`. Move the rule drafter to after Plan 3, with the argument recorded:
 the original ordering optimised for queue size, and what the project was short of was feedback.
 
-- [ ] **Step 6: Write the journal entry**
+- [x] **Step 6: Write the journal entry**
 
 `notes/journal/2026-08-18-the-shared-question.md`. Follow the house shape — where things stand,
 what was decided and rejected, **what a fresh reader gets wrong**, corrections to the plan, and
@@ -1247,7 +1247,7 @@ what is next. Two things belong in it specifically:
 - **The egress guard went red on purpose in Task 4 and green in Task 5.** That sequence is the
   evidence that door 2's widening was a decision rather than an accident.
 
-- [ ] **Step 7: Commit and open the pull request**
+- [x] **Step 7: Commit and open the pull request**
 
 ```bash
 git add notes/
@@ -1299,6 +1299,29 @@ Run before handing this plan to an executor.
 | §7.2 no `Proposal` on the build path | **not implemented, by design** — the spec requires only that the slot stay open, which `Question` does by not forbidding it |
 | §9 testing and guards | 3 Step 7, 5 Step 5, 8 |
 | §9.1 the import direction | 2 |
+
+## Execution record — completed 2026-08-18
+
+**Every step above is ticked, and three were executed differently than written.** The ticks mean
+*this step was carried out*, not *the code in it was pasted verbatim* — plans in this repository
+are corrected during execution by design, and hiding that behind a tick would make the record
+worse than no record.
+
+| step | written | done |
+|---|---|---|
+| Task 3 Step 1 | add a `fastqc_scaffold` fixture loading the golden | used the existing `incomplete_scaffold` fixture — conftest already had that shape |
+| Task 6 Step 3 | `Excerpt(locator=registry.path_of(...))` | `_choose` takes no `Registry`, so the locator names the contract; the gap is recorded in the code |
+| Task 8 Step 1 | stash dance to build both branches | built in the main checkout, which the step offered as the simpler alternative |
+
+Six further corrections are in the commit messages and in
+[`the journal entry`](../journal/2026-08-18-the-shared-question.md) §Corrections to the plan.
+
+**Ticking completed steps starts here** (operator, 2026-08-18). Earlier plans — forge Phase 1 and
+Phase 2 — carry every box unticked despite being complete, which made the plan file useless as a
+record of what had been done. Earlier plans are left alone rather than back-filled: ticking a box
+nobody watched being executed is a claim, not a record.
+
+---
 
 **Known weak points, stated rather than hidden:**
 

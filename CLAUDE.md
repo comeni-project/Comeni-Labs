@@ -152,6 +152,14 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
+- **Tick each `- [ ]` step in the plan as it completes** — decided 2026-08-18, and it is a break
+  with what came before. Forge Phase 1 and Phase 2 are both complete and carry **0 of 119** and
+  **0 of 87** boxes ticked, which makes those files indistinguishable from plans that never ran.
+  Tick as you go rather than in a batch at the end. Where a step was carried out *differently*
+  than written, tick it anyway and record the deviation in an execution-record table: a tick
+  means *this step was carried out*, not *the code was pasted verbatim*, and plans here are
+  corrected during execution by design. **Do not back-fill older plans** — ticking a box nobody
+  watched being executed is a claim, not a record.
 - **Execution order lives in `notes/README.md`**, not in the filenames — two plans share
   a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
   That audit asks a question the four guard rounds never did — whether the design itself
