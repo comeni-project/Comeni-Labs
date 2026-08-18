@@ -30,6 +30,10 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer", "post"): "answerQuestion",
         ("/api/visits", "post"): "markVisited",
         ("/api/registry/types/{id}", "get"): "lookupType",
+        # FastAPI strips the `:path` converter when generating OpenAPI, so this reads
+        # `{id}` even though the route is declared `{id:path}` — a contract id has slashes.
+        ("/api/contracts", "get"): "listContracts",
+        ("/api/contracts/{id}", "get"): "readContract",
         ("/api/questions/answer-all", "post"): "answerAll",
         ("/api/questions/propose", "post"): "proposeType",
         ("/api/questions/proposals/decide", "post"): "decideProposal",

@@ -193,6 +193,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every contract, worst first */
+        get: operations["listContracts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One contract, its module, and what points at it */
+        get: operations["readContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -265,6 +299,16 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** ContractRow */
+        ContractRow: {
+            /** Id */
+            id: string;
+            /** Roles */
+            roles: string[];
+            /** Source */
+            source: string;
+            status: components["schemas"]["Status"];
         };
         /** DecideRequest */
         DecideRequest: {
@@ -345,6 +389,46 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** Listing */
+        Listing: {
+            /** Rows */
+            rows: components["schemas"]["ContractRow"][];
+            /** Total */
+            total: number;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+        };
+        /** ModulePage */
+        ModulePage: {
+            /** Id */
+            id: string;
+            /** Roles */
+            roles: string[];
+            /** Container */
+            container: string | null;
+            /** Consumes */
+            consumes: components["schemas"]["Port"][];
+            /** Produces */
+            produces: components["schemas"]["Port"][];
+            /** Source Path */
+            source_path: string | null;
+            /** Emits Total */
+            emits_total: number | null;
+            /** Emits Declared */
+            emits_declared: number | null;
+            /** Rules Aiming */
+            rules_aiming: string[];
+            /** Inputs From */
+            inputs_from: string[];
+            /** Outputs Feed */
+            outputs_feed: string[];
+            /** Competes With */
+            competes_with: string[];
+            /** Pipeline Pins */
+            pipeline_pins?: null;
+        };
         /** OpenQuestion */
         OpenQuestion: {
             /** Subject */
@@ -373,6 +457,13 @@ export interface components {
          * @enum {string}
          */
         Ordering: "consequence" | "recent";
+        /** Port */
+        Port: {
+            /** Name */
+            name: string;
+            /** Type Id */
+            type_id: string;
+        };
         /**
          * Proposal
          * @description What a hole needs that the vocabulary cannot express yet.
@@ -462,6 +553,11 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /**
+         * Status
+         * @enum {string}
+         */
+        Status: "drifted" | "unverifiable" | "matching";
         /** Strip */
         Strip: {
             /** Contracts */
@@ -775,6 +871,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TypeCard"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listContracts: {
+        parameters: {
+            query?: {
+                /** @description Only this status. */
+                against?: components["schemas"]["Status"] | null;
+                /** @description Only contracts with this role. */
+                role?: string | null;
+                /** @description Only this namespace. */
+                source?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModulePage"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
