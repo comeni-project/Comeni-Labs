@@ -1,16 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { QueueRow } from "./QueueRow";
 
 type QueueResponse = components["schemas"]["QueueResponse"];
 type Strip = components["schemas"]["Strip"];
-
-const get = async <T,>(path: string): Promise<T> => {
-  const r = await fetch(path);
-  if (!r.ok) throw new Error(`${path} → ${r.status}`);
-  return r.json() as Promise<T>;
-};
 
 /** The health strip. O(1) — it never grows with the registry, which is why it can sit
  *  above everything without becoming a list. */
