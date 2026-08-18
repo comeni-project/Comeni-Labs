@@ -138,6 +138,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questions/proposals/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve, rename or reject a proposal
+         * @description One route, not two. Approve and reject are one decision with a value, and separate
+         *     endpoints would let them drift apart.
+         */
+        post: operations["decideProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health/registry": {
         parameters: {
             query?: never;
@@ -228,7 +249,7 @@ export interface components {
          *     one worth knowing.
          * @enum {string}
          */
-        Band: "routing" | "cosmetic" | "prose";
+        Band: "routing" | "cosmetic" | "prose" | "blocked";
         /**
          * Candidate
          * @description One thing that may be answered, and where it comes from.
@@ -245,6 +266,40 @@ export interface components {
              */
             note: string;
         };
+        /** DecideRequest */
+        DecideRequest: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            decision: components["schemas"]["Decision"];
+            /** Why */
+            why: string;
+            /** Id */
+            id?: string | null;
+            /** By */
+            by?: string | null;
+        };
+        /** Decided */
+        Decided: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            /** Value */
+            value: string | null;
+            /** Still Open */
+            still_open: boolean;
+        };
+        /**
+         * Decision
+         * @description What a reviewer said about a proposal.
+         *
+         *     `OPEN` is the default because a proposal arrives undecided, and a default of anything
+         *     else would make an unreviewed proposal look reviewed.
+         * @enum {string}
+         */
+        Decision: "open" | "approved" | "rejected";
         /**
          * Excerpt
          * @description A span of source text and a resolvable pointer to it.
@@ -343,6 +398,23 @@ export interface components {
             why: string;
             /** By */
             by: string;
+            /** @default open */
+            decision: components["schemas"]["Decision"];
+            /**
+             * Decided By
+             * @default
+             */
+            decided_by: string;
+            /**
+             * Decided Why
+             * @default
+             */
+            decided_why: string;
+            /**
+             * Decided Id
+             * @default
+             */
+            decided_id: string;
         };
         /** ProposeRequest */
         ProposeRequest: {
@@ -619,6 +691,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Proposed"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    decideProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Decided"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */

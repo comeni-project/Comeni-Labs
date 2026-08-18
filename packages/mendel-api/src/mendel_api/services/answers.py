@@ -3,6 +3,7 @@
 from typing import Any
 
 from mendel_forge import ops
+from mendel_forge.scaffold import Decision
 from pydantic import BaseModel
 
 from mendel_api.identity import default_author
@@ -141,3 +142,42 @@ def propose_one(
         )
     )
     return Proposed(draft=result.name, subject=result.field, still_open=True)
+
+
+class Decided(BaseModel):
+    draft: str
+    subject: str
+    value: str | None
+    still_open: bool
+    """`True` after a rejection — the hole reopened and the row stays. Same field and same
+    argument as `Proposed.still_open`: the UI must not remove a row that is still work."""
+
+
+def decide_proposal(
+    *, draft: str, subject: str, decision: Decision, id: str | None, why: str, by: str | None
+) -> Decided:
+    """Approve or reject a proposal.
+
+    A **rename is approve-with-a-different-id**, not a third verb: they differ only in what
+    gets written, and two endpoints would let them drift apart.
+    """
+    if not why.strip():
+        raise ValueError("a decision needs a reason: the next reviewer has only this to read")
+
+    result = ops.decide(
+        ops.DecideRequest(
+            name=draft,
+            field=subject,
+            decision=decision,
+            id=id,
+            why=why,
+            by=by or default_author(),
+            workspace_root=settings.workspace_root,
+        )
+    )
+    return Decided(
+        draft=result.name,
+        subject=result.field,
+        value=result.value,
+        still_open=result.value is None,
+    )

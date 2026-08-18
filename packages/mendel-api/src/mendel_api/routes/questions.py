@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
+from mendel_forge.scaffold import Decision
 from pydantic import BaseModel
 
 from mendel_api.questions import Band
@@ -11,9 +12,11 @@ from mendel_api.refusals import REFUSES
 from mendel_api.services.answers import (
     Answered,
     AnsweredAll,
+    Decided,
     Proposed,
     answer_all,
     answer_one,
+    decide_proposal,
     propose_one,
 )
 from mendel_api.services.queue import Grouping, Ordering, QueueResponse
@@ -141,6 +144,34 @@ def propose(req: ProposeRequest) -> Proposed:
         subject=req.subject,
         id=req.id,
         description=req.description,
+        why=req.why,
+        by=req.by,
+    )
+
+
+class DecideRequest(BaseModel):
+    draft: str
+    subject: str
+    decision: Decision
+    why: str
+    id: str | None = None
+    by: str | None = None
+
+
+@router.post(
+    "/questions/proposals/decide",
+    operation_id="decideProposal",
+    summary="Approve, rename or reject a proposal",
+    responses=REFUSES,
+)
+def decide(req: DecideRequest) -> Decided:
+    """One route, not two. Approve and reject are one decision with a value, and separate
+    endpoints would let them drift apart."""
+    return decide_proposal(
+        draft=req.draft,
+        subject=req.subject,
+        decision=req.decision,
+        id=req.id,
         why=req.why,
         by=req.by,
     )

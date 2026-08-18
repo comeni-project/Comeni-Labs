@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from comeni_core.review import Candidate, Excerpt
-from mendel_forge.scaffold import Hole, Proposal
+from mendel_forge.scaffold import Decision, Hole, Proposal
 from pydantic import BaseModel, ConfigDict
 
 
@@ -35,6 +35,9 @@ class Band(StrEnum):
     """Port labels. Routing is by `type_id`; a reviewer renames one in seconds."""
     PROSE = "prose"
     """Free text with no candidates. A model is never asked (issue #70)."""
+    BLOCKED = "blocked"
+    """A question a proposal is waiting on. Not more likely to be wrong — it is the thing
+    stopping a module from landing, which is design §4's second rung."""
 
     @property
     def rank(self) -> int:
@@ -45,23 +48,29 @@ class Band(StrEnum):
         alphabetical order that reads as a priority. That shipped, and the queue put port
         labels above the fields that decide which pipeline gets built.
 
-        Drift (1) and blocked proposals (2) are the design's first two rungs and have no
-        member yet: drift is phase 5, proposals are phase 3. The numbers are left free so
-        they arrive in the right place rather than at the end.
+        Drift (1) is the design's first rung and has no member yet — it is phase 5. Blocked
+        (2) arrived with phase 3, in the slot that was left for it.
         """
-        return {Band.ROUTING: 3, Band.PROSE: 4, Band.COSMETIC: 5}[self]
+        return {Band.BLOCKED: 2, Band.ROUTING: 3, Band.PROSE: 4, Band.COSMETIC: 5}[self]
 
 
 _COSMETIC_SUFFIXES = (".name",)
 _PROSE_SUBJECTS = frozenset({"priority_because"})
 
 
-def band_for(subject: str) -> Band:
-    """Derived from the subject, never stored on the hole.
+def band_for(subject: str, *, proposal: Proposal | None = None) -> Band:
+    """Derived from the question, never stored on the hole.
 
-    A stored band would be a second place that decides what a field costs, and it would go
-    stale the first time a field is added. This reads the one authority: the field itself.
+    **It reads two things, and it used to read one.** The subject says what a wrong answer
+    costs; an *open* proposal says the question is blocking a landing, which outranks that.
+    A decided proposal — approved or rejected — blocks nothing, so the question returns to
+    the band its subject gives it.
+
+    Still derived rather than stored: a stored band would be a second place deciding what a
+    field costs, and it would go stale the first time a field or a decision is added.
     """
+    if proposal is not None and proposal.decision is Decision.OPEN:
+        return Band.BLOCKED
     if subject in _PROSE_SUBJECTS:
         return Band.PROSE
     if subject.endswith(_COSMETIC_SUFFIXES):
@@ -105,7 +114,7 @@ def question_from_hole(
         subject=hole.subject,
         what=hole.what,
         why_open=hole.why_open,
-        band=band_for(hole.subject),
+        band=band_for(hole.subject, proposal=proposed),
         asked_by=[draft],
         candidates=list(hole.candidates),
         closed=hole.closed,
