@@ -9,6 +9,20 @@ from mendel_api.identity import default_author
 from mendel_api.settings import settings
 
 
+class RefusedDraft(BaseModel):
+    draft: str
+    detail: str
+    """The coded refusal, as the forge wrote it. `forge explain <code>` expands it."""
+
+
+class AnsweredAll(BaseModel):
+    subject: str
+    settled: list[str]
+    refused: list[RefusedDraft]
+    """Empty means nothing refused. **Never omitted** — a caller must not have to infer that
+    a partial write happened from the length of `settled`."""
+
+
 class Answered(BaseModel):
     draft: str
     subject: str
@@ -42,3 +56,52 @@ def answer_one(*, draft: str, subject: str, value: Any, why: str, by: str | None
         )
     )
     return Answered(draft=result.name, subject=result.field, remaining=result.remaining)
+
+
+def answer_all(*, subject: str, value: Any, why: str, by: str | None) -> AnsweredAll:
+    """Settle one question on every draft that asks it.
+
+    **Best-effort, and every refusal is reported** — spec §3.1. The design's worked example is
+    a batch with one wrong member (`samtools/faidx` takes a FASTA), and all-or-nothing would
+    block the others exactly when the throughput move is most useful.
+
+    **Atomic per draft** comes free: `ops.fill` writes a whole draft or raises.
+
+    Sorted by draft name, because workspace order is directory order and directory order moves
+    under a refactor nobody asked for.
+    """
+    if not why.strip():
+        raise ValueError("an answer needs a reason: every value carries one a reader can act on")
+
+    author = by or default_author()
+    settled: list[str] = []
+    refused: list[RefusedDraft] = []
+
+    for name in sorted(ops.list_(ops.ListRequest(workspace_root=settings.workspace_root)).names):
+        shown = ops.show(
+            ops.ShowRequest(
+                name=name,
+                registry_root=settings.registry_root,
+                source_root=settings.source_root,
+                workspace_root=settings.workspace_root,
+            )
+        )
+        if not any(h.subject == subject for h in shown.holes):
+            continue
+        try:
+            ops.fill(
+                ops.FillRequest(
+                    name=name,
+                    field=subject,
+                    value=value,
+                    by=author,
+                    why=why,
+                    workspace_root=settings.workspace_root,
+                )
+            )
+        except ValueError as refusal:
+            refused.append(RefusedDraft(draft=name, detail=str(refusal)))
+        else:
+            settled.append(name)
+
+    return AnsweredAll(subject=subject, settled=settled, refused=refused)
