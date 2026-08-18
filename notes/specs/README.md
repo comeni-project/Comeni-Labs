@@ -33,6 +33,11 @@ Three kinds live here:
   design's own worked example is a batch with one wrong member; and phase 2 *creates* proposals
   while phase 3 decides them, because a closed choice with no way to decline forces a wrong
   answer),
+  `2026-08-18-deciding-proposals.md` (**Plan 3A phase 3** — approving, renaming and rejecting.
+  The vocabulary file is written at *land* time in one commit with the contract, honouring
+  "one review, not two"; approving deliberately bypasses candidate validation, because an
+  approved proposal is by definition not among the candidates; and `verify` checks against the
+  registry *as this draft would leave it*),
   `2026-08-18-plan-3.md` (**the API and the interface** — written after Plan 2.5 landed and after
   the interface was designed, which is why it could be specific. Its §4 is the substance: what
   must exist underneath for the screens to be true rather than decorative, each entry naming the
