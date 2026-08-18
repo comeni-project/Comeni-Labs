@@ -140,10 +140,23 @@ class Question(BaseModel):
         rather than the legal *values* — comparing the whole list against them rejects
         `["qc_per_sample"]` while accepting `"qc_per_sample"`, which is backwards for
         the field it is guarding.
+
+        **A candidate is a `Candidate` or a bare id, and both are legitimate.** The forge
+        offers `Candidate(value=..., note=...)` so a reviewer can see where an option is
+        declared. The build path re-narrows `candidates` to `list[ContractId]`,
+        `list[ParamValue]` or `list[EdgeRef]` — plain declared-id strings — because door 2's
+        payload types them as `CandidateRef` and A129 records that this payload accepted only
+        one of the three `*Asked` types until their *values* were checked rather than their
+        field names. Loosening the door to carry `Candidate` would undo that, so the shapes
+        stay different and this method reads both.
+
+        Found by `packages/mendel-resolver/tests/test_evidence.py`, which is the first thing
+        ever to call `legal()` on the build path: before Plan 2.5 `Ambiguity` had no such
+        method, so inheriting one that assumed the forge's shape broke it silently.
         """
         if not self.candidates or not self.closed:
             return True
-        allowed = {c.value for c in self.candidates}
+        allowed = {c.value if isinstance(c, Candidate) else c for c in self.candidates}
         if isinstance(value, list | set | frozenset | tuple):
             return all(member in allowed for member in value)
         return value in allowed

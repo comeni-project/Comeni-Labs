@@ -22,6 +22,7 @@ from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
+from comeni_core.review import Excerpt
 from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, Field
 
@@ -421,10 +422,42 @@ def _choose(
     # the tie at all. The artifact then said "nothing distinguishes" three contracts that
     # `priority` distinguishes deliberately. Audit A125.
     tied = [contract for contract in ordered if rank(contract)[:2] == best[:2]]
+    # `what`, `why_open` and `evidence` are inherited from `Question` (Plan 2.5). Until then
+    # a tier-4 producer question handed a reviewer a list of contract ids and nothing to judge
+    # them on, while the forge had quoted evidence on every hole from its first day — the
+    # asymmetry the spec's §7.1 is about. It also matters to door 2: the forge measured a
+    # model at 69% without the question saying what it was about and 88% with.
+    #
+    # **The evidence is the registry's own reason for ranking each candidate.** That is what
+    # `priority_because` is for, and A128 is about it being empty — so a tie between two
+    # contracts that both left it blank produces citations that say so, which is itself the
+    # honest report.
+    #
+    # The locator names the contract rather than the *layer* it came from. `_layer_name`
+    # exists and would be better, but it needs the `Registry`, and `_choose` does not take
+    # one — threading a ninth parameter into a function whose own docstring calls its return
+    # "one past what a tuple should carry" is a refactor this did not authorise. Recorded as
+    # a known gap rather than done badly.
     ambiguity = ProducerAsked(
         node_id=_node_id(tied[0]),
         subject=f"producer:{type_id}",
+        what=f"which contract produces {type_id}",
+        why_open=(
+            f"{len(tied)} contracts produce it and nothing distinguishes them; "
+            f"invariant 8 says a tie is ambiguity, not a coin flip"
+        ),
         candidates=sorted(c.id for c in tied),
+        evidence=[
+            Excerpt(
+                locator=contract.id,
+                text=(
+                    f"priority {contract.priority}: {contract.priority_because}"
+                    if contract.priority_because
+                    else f"priority {contract.priority}, with no stated reason (A128)"
+                ),
+            )
+            for contract in sorted(tied, key=lambda c: c.id)
+        ],
         states=sorted(states),
     )
     resolution = resolver.resolve(ambiguity)
