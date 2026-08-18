@@ -96,6 +96,20 @@ def land(
         _write(registry / module_path, draft.module)
         written.append(str(module_path))
 
+    for type_id in sorted(set(draft.scaffold.approved().values())):
+        # Three lines, matching what the registry already holds — see
+        # `registry/types/alignment.bai.yml`. States are empty on purpose: a new type's
+        # states are a separate judgement, and `add_states:` is how a layer extends them.
+        #
+        # In the SAME commit as the contract, which is the whole of §4.2's "one review, not
+        # two": a type proposed with no consumer is a type nobody can judge.
+        vocabulary_path = Path("types") / f"{type_id}.yml"
+        _write(
+            registry / vocabulary_path,
+            f"declares: vocabulary\nid: {type_id}\nstates: []\n",
+        )
+        written.append(str(vocabulary_path))
+
     _git(registry, "add", *written)
     _git(
         registry,
