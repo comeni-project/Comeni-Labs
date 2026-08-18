@@ -8,7 +8,14 @@ from pydantic import BaseModel
 
 from mendel_api.questions import Band
 from mendel_api.refusals import REFUSES
-from mendel_api.services.answers import Answered, answer_one
+from mendel_api.services.answers import (
+    Answered,
+    AnsweredAll,
+    Proposed,
+    answer_all,
+    answer_one,
+    propose_one,
+)
 from mendel_api.services.queue import Grouping, Ordering, QueueResponse
 from mendel_api.services.queue import read as queue_read
 from mendel_api.services.visits import mark as mark_visited
@@ -88,4 +95,52 @@ def answer(req: AnswerRequest) -> Answered:
     """
     return answer_one(
         draft=req.draft, subject=req.subject, value=req.value, why=req.why, by=req.by
+    )
+
+
+class AnswerAllRequest(BaseModel):
+    subject: str
+    value: Any
+    why: str
+    by: str | None = None
+
+
+@router.post(
+    "/questions/answer-all",
+    operation_id="answerAll",
+    summary="Settle one question on every draft that asks it",
+    responses=REFUSES,
+)
+def answer_every(req: AnswerAllRequest) -> AnsweredAll:
+    """**A partial batch is a 200, not a 207 and not a 422.** The operation did what it was
+    asked and is reporting what it found; the refusals are in the body with their codes.
+    A 207 is a status no generated client models usefully.
+    """
+    return answer_all(subject=req.subject, value=req.value, why=req.why, by=req.by)
+
+
+class ProposeRequest(BaseModel):
+    draft: str
+    subject: str
+    id: str
+    description: str
+    why: str
+    by: str | None = None
+
+
+@router.post(
+    "/questions/propose",
+    operation_id="proposeType",
+    summary="Decline a question — nothing declared fits",
+    responses=REFUSES,
+)
+def propose(req: ProposeRequest) -> Proposed:
+    """Invariant 7's escape hatch. The hole stays open; `still_open` says so in the payload."""
+    return propose_one(
+        draft=req.draft,
+        subject=req.subject,
+        id=req.id,
+        description=req.description,
+        why=req.why,
+        by=req.by,
     )

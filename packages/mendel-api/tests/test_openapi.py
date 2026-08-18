@@ -30,6 +30,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer", "post"): "answerQuestion",
         ("/api/visits", "post"): "markVisited",
         ("/api/registry/types/{id}", "get"): "lookupType",
+        ("/api/questions/answer-all", "post"): "answerAll",
+        ("/api/questions/propose", "post"): "proposeType",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }

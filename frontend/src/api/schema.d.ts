@@ -96,6 +96,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questions/answer-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle one question on every draft that asks it
+         * @description **A partial batch is a 200, not a 207 and not a 422.** The operation did what it was
+         *     asked and is reporting what it found; the refusals are in the body with their codes.
+         *     A 207 is a status no generated client models usefully.
+         */
+        post: operations["answerAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questions/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a question — nothing declared fits
+         * @description Invariant 7's escape hatch. The hole stays open; `still_open` says so in the payload.
+         */
+        post: operations["proposeType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health/registry": {
         parameters: {
             query?: never;
@@ -113,10 +155,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A type's states, and which contracts use it */
+        get: operations["lookupType"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnswerAllRequest */
+        AnswerAllRequest: {
+            /** Subject */
+            subject: string;
+            /** Value */
+            value: unknown;
+            /** Why */
+            why: string;
+            /** By */
+            by?: string | null;
+        };
         /** AnswerRequest */
         AnswerRequest: {
             /** Draft */
@@ -138,6 +208,15 @@ export interface components {
             subject: string;
             /** Remaining */
             remaining: string[];
+        };
+        /** AnsweredAll */
+        AnsweredAll: {
+            /** Subject */
+            subject: string;
+            /** Settled */
+            settled: string[];
+            /** Refused */
+            refused: components["schemas"]["RefusedDraft"][];
         };
         /**
          * Band
@@ -230,6 +309,7 @@ export interface components {
             evidence: components["schemas"]["Excerpt"][];
             /** Suggested */
             suggested?: string | null;
+            proposed?: components["schemas"]["Proposal"] | null;
             /** Changed At */
             changed_at?: string | null;
         };
@@ -238,6 +318,56 @@ export interface components {
          * @enum {string}
          */
         Ordering: "consequence" | "recent";
+        /**
+         * Proposal
+         * @description What a hole needs that the vocabulary cannot express yet.
+         *
+         *     **Not a fill.** A hole with a proposal stays open: `is_complete()` is still false and
+         *     `contract_from` still refuses, because a contract whose port cites an undeclared type is
+         *     the load-time refusal invariant 7 already makes. What a proposal changes is that the hole
+         *     now says *why* it is open — "nothing declared fits, and here is what would" — rather than
+         *     looking like a field nobody has reached.
+         *
+         *     **Not a vocabulary file either.** It lives in the workspace draft. Nothing writes
+         *     `vocabularies/`; a person moves it, which is invariant 2's approval step and the whole of
+         *     what bounds a model inventing an id and a sentence.
+         *
+         *     See `notes/specs/2026-08-17-vocabulary-proposals.md`.
+         */
+        Proposal: {
+            /** Id */
+            id: string;
+            /** Description */
+            description: string;
+            /** Why */
+            why: string;
+            /** By */
+            by: string;
+        };
+        /** ProposeRequest */
+        ProposeRequest: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            /** Id */
+            id: string;
+            /** Description */
+            description: string;
+            /** Why */
+            why: string;
+            /** By */
+            by?: string | null;
+        };
+        /** Proposed */
+        Proposed: {
+            /** Draft */
+            draft: string;
+            /** Subject */
+            subject: string;
+            /** Still Open */
+            still_open: boolean;
+        };
         /** QueueResponse */
         QueueResponse: {
             /** Questions */
@@ -253,6 +383,13 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** RefusedDraft */
+        RefusedDraft: {
+            /** Draft */
+            draft: string;
+            /** Detail */
+            detail: string;
+        };
         /** Strip */
         Strip: {
             /** Contracts */
@@ -265,6 +402,17 @@ export interface components {
             types: number;
             /** Checked At */
             checked_at: string | null;
+        };
+        /** TypeCard */
+        TypeCard: {
+            /** Id */
+            id: string;
+            /** States */
+            states: string[];
+            /** Produced By */
+            produced_by: string[];
+            /** Consumed By */
+            consumed_by: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -418,6 +566,72 @@ export interface operations {
             };
         };
     };
+    answerAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerAllRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnsweredAll"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    proposeType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Proposed"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
     registryHealth: {
         parameters: {
             query?: never;
@@ -434,6 +648,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Strip"];
+                };
+            };
+        };
+    };
+    lookupType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypeCard"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };
