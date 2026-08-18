@@ -8,6 +8,14 @@ import type { components } from "./schema";
 
 type Refusal = components["schemas"]["Refusal"];
 
+/** Every path this module is given is relative to the API root.
+ *
+ * It is `/api` because the frontend owns `/forge/*` in the browser and the API mounts the
+ * forge transport at the same prefix — one origin, two namespaces, and the dev proxy resolved
+ * it in the API's favour so every deep link 404'd. Callers pass `/questions`; the prefix lives
+ * here and nowhere else. */
+const ROOT = "/api";
+
 export class Refused extends Error {}
 
 async function body(r: Response): Promise<unknown> {
@@ -19,13 +27,13 @@ async function body(r: Response): Promise<unknown> {
 }
 
 export async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path);
+  const r = await fetch(ROOT + path);
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;
 }
 
 export async function post<T>(path: string, payload: unknown): Promise<T> {
-  const r = await fetch(path, {
+  const r = await fetch(ROOT + path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

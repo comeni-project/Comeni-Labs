@@ -26,10 +26,10 @@ def test_every_operation_is_named_by_hand():
     literal list is the point: adding a route means editing this test."""
     got = {(p, m): op.get("operationId") for p, m, op in _operations(_schema())}
     assert got == {
-        ("/questions", "get"): "listQuestions",
-        ("/questions/answer", "post"): "answerQuestion",
-        ("/health", "get"): "liveness",
-        ("/health/registry", "get"): "registryHealth",
+        ("/api/questions", "get"): "listQuestions",
+        ("/api/questions/answer", "post"): "answerQuestion",
+        ("/api/health", "get"): "liveness",
+        ("/api/health/registry", "get"): "registryHealth",
     }
 
 
@@ -52,7 +52,7 @@ def test_the_coded_refusal_is_in_the_schema():
     schema = _schema()
     assert "Refusal" in schema["components"]["schemas"]
 
-    answer = schema["paths"]["/questions/answer"]["post"]
+    answer = schema["paths"]["/api/questions/answer"]["post"]
     got = answer["responses"]["422"]["content"]["application/json"]["schema"]
     assert got["$ref"].endswith("/Refusal")
 
@@ -62,13 +62,13 @@ def test_the_refusal_schema_is_a_bare_ref():
     generator worth using — `openapi-typescript` produces an intersection nobody meant. This
     caught exactly that: declaring `model` *and* a hand-rolled `anyOf` merged into both."""
     schema = create_app().openapi()
-    got = schema["paths"]["/questions/answer"]["post"]["responses"]["422"]
+    got = schema["paths"]["/api/questions/answer"]["post"]["responses"]["422"]
     assert list(got["content"]["application/json"]["schema"]) == ["$ref"]
 
 
 def test_the_answer_response_is_typed():
     """A route returning an untyped dict generates `unknown` on the client, and every use of
     it then needs a cast — which is how a generated client stops being worth generating."""
-    ok = create_app().openapi()["paths"]["/questions/answer"]["post"]["responses"]["200"]
+    ok = create_app().openapi()["paths"]["/api/questions/answer"]["post"]["responses"]["200"]
     ref = ok["content"]["application/json"]["schema"]["$ref"]
     assert ref.endswith("/Answered")

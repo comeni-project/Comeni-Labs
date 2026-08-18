@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     // The API is a separate process; the browser talks to one origin.
-    proxy: { "/questions": "http://localhost:8000", "/health": "http://localhost:8000",
-             "/forge": "http://localhost:8000" },
+    // One prefix, so the SPA keeps every other path — including its own `/forge/*` routes,
+    // which this proxy used to swallow.
+    proxy: { "/api": "http://localhost:8000" },
   },
   test: {
     // happy-dom rather than jsdom: jsdom pulls @asamuzakjp/css-color, which require()s

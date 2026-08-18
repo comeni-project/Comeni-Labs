@@ -11,7 +11,7 @@ from mendel_api.main import create_app
 
 def test_the_forge_is_mounted_under_forge():
     client = TestClient(create_app())
-    assert client.get("/forge/sources").status_code == 200
+    assert client.get("/api/forge/sources").status_code == 200
 
 
 def test_we_added_no_routes_to_the_forge():
@@ -30,7 +30,7 @@ def test_we_added_no_routes_to_the_forge():
     # time a router was added rather than a route.
     under_forge = [
         r for r in create_app().routes
-        if str(getattr(r, "path", "")).startswith("/forge")
+        if str(getattr(r, "path", "")).startswith("/api/forge")
     ]
     assert [type(r) for r in under_forge] == [Mount], (
         f"expected exactly one mount, got {[(type(r).__name__, r.path) for r in under_forge]}"
@@ -40,4 +40,4 @@ def test_we_added_no_routes_to_the_forge():
 
 def test_health_answers_before_anything_else_is_built():
     client = TestClient(create_app())
-    assert client.get("/health").json()["ok"] is True
+    assert client.get("/api/health").json()["ok"] is True

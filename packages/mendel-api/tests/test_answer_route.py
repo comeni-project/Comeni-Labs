@@ -19,7 +19,7 @@ def test_answering_returns_what_is_left(monkeypatch):
     def answer(**kw):
         return Answered(draft=kw["draft"], subject=kw["subject"], remaining=["roles"])
 
-    r = _client(monkeypatch, answer).post("/questions/answer", json={
+    r = _client(monkeypatch, answer).post("/api/questions/answer", json={
         "draft": "fastqc", "subject": "consumes[0].type_id",
         "value": "fastq.reads", "why": "it reads FASTQs",
     })
@@ -34,7 +34,7 @@ def test_a_refusal_comes_back_as_422_with_its_code_intact(monkeypatch):
     def refuse(**kw):
         raise ValueError("MF0003: 'nonsense' is not legal for roles")
 
-    r = _client(monkeypatch, refuse).post("/questions/answer", json={
+    r = _client(monkeypatch, refuse).post("/api/questions/answer", json={
         "draft": "fastqc", "subject": "roles", "value": "nonsense", "why": "w",
     })
     assert r.status_code == 422
@@ -50,7 +50,7 @@ def test_a_missing_reason_is_refused_before_the_forge_is_called(monkeypatch):
 
     r = _client(monkeypatch, lambda **kw: (_ for _ in ()).throw(
         ValueError("an answer needs a reason")))
-    resp = r.post("/questions/answer", json={
+    resp = r.post("/api/questions/answer", json={
         "draft": "fastqc", "subject": "roles", "value": "x", "why": "",
     })
     assert resp.status_code == 422

@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/health": {
+    "/api/health": {
         parameters: {
             query?: never;
             header?: never;
@@ -25,7 +25,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/questions": {
+    "/api/questions": {
         parameters: {
             query?: never;
             header?: never;
@@ -49,7 +49,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/questions/answer": {
+    "/api/questions/answer": {
         parameters: {
             query?: never;
             header?: never;
@@ -74,7 +74,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/health/registry": {
+    "/api/health/registry": {
         parameters: {
             query?: never;
             header?: never;

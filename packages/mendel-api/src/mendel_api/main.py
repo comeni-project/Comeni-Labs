@@ -36,15 +36,22 @@ def create_app() -> FastAPI:
     # One handler, as `mendel_forge.http` does: a coded refusal is a 422 whatever raised it.
     app.add_exception_handler(ValueError, refusal_handler)
 
-    @app.get("/health", operation_id="liveness", summary="Is the service up", tags=["health"])
+    @app.get(
+        "/api/health", operation_id="liveness", summary="Is the service up", tags=["health"]
+    )
     def health() -> dict[str, bool]:
         """Liveness only. What the *registry* looks like is `/health/registry`, which walks
         a directory — conflating the two makes a liveness probe do real work."""
         return {"ok": True}
 
-    app.include_router(questions_routes.router)
-    app.include_router(health_routes.router)
-    app.mount("/forge", forge_app)
+    # **Everything under `/api`, and that is not decoration.** The frontend owns `/forge/*`
+    # as browser routes and this app mounts the forge transport at `/forge` too; served on one
+    # origin, the dev proxy sent `/forge/queue` to the API and every deep link 404'd. Found by
+    # loading a URL rather than by a test — client-side navigation never leaves the SPA, so
+    # only a hard refresh shows it.
+    app.include_router(questions_routes.router, prefix="/api")
+    app.include_router(health_routes.router, prefix="/api")
+    app.mount("/api/forge", forge_app)
     return app
 
 
