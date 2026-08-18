@@ -158,7 +158,7 @@ $ uv run forge show fastqc
 filled:
   nf_process = 'FASTQC'  (derived, nf-core)
   produces[0].type_id = 'qc.report'  (model, anthropic/claude-sonnet-4-5)
-  roles = ['qc_per_sample']  (hand, rafael)
+  roles = ['qc_per_sample']  (human, rafael)
 ```
 
 That marker is the whole reason landing a model fill directly is honest: the model id follows

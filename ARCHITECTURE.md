@@ -527,8 +527,8 @@ is the first impure package: it is not scanned by `tests/test_purity.py`, it is 
 
 ```
 mendel-forge/
-  observe.py     Excerpt, Fact, Observation — what a source proved, and where from
-  scaffold.py    Filler, FilledValue, Candidate, Hole, Scaffold
+  observe.py     Fact, Observation — what a source proved, and where from
+  scaffold.py    FilledValue, Hole, Proposal, Scaffold — Question/Answer subclasses
   sources/       the Source protocol, and the nf-core adapter
   candidates.py  what a hole will accept, read off the layer stack
   assemble.py    Observation -> Scaffold, and Scaffold -> ModuleContract
@@ -556,10 +556,10 @@ offered, and `hole.legal` refuses it again on the way in. The second is not redu
 the check a person's fill already goes through, so a model's answer meets one rule rather than
 a second that can drift from it.
 
-A model fill lands as an **answer**, not a proposal, carrying `Filler.MODEL` and the model id;
-`assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
+A model fill lands as an **answer**, not a proposal, carrying `ValueSource.MODEL` and the model
+id; `assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
 lands with the model named in the file and **no artifact schema changed**. `forge show` prints
-`(filler, by)` beside every value, so a reviewer sees which a model settled without opening
+`(how, by)` beside every value, so a reviewer sees which a model settled without opening
 anything.
 
 **The forge is not an egress door.** Invariant 14's doors track the prompt taint path — prompt,
