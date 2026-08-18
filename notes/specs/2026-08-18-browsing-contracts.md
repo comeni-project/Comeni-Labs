@@ -116,9 +116,19 @@ fault. `notes/specs/2026-08-17-vocabulary-proposals.md` §6 records that nothing
 *considered and omitted* from *missed*, and this page is where that gap becomes visible rather
 than where it gets closed.
 
-**A module that cannot be read reports nothing**, not zero. `module_path` may not exist — that is
-what `unverifiable` means — and rendering *"0 of 0"* for an unreadable module is the same class of
-falsehood as folding `skipped` into `matching`.
+**A module that cannot be read reports nothing**, not zero. Rendering *"0 of 0"* for a module
+nobody opened is the same class of falsehood as folding `skipped` into `matching`.
+
+**`unverifiable` and "no module file" are different things, and an earlier draft of this section
+said they were the same.** Measured:
+
+- `ops.check` skips a contract when **no registered source adapter** can re-fetch the tool's
+  truth — the two `comeni/` contracts, because nothing knows how to read a `comeni/` tool.
+- `emits_total` is `None` when **the vendored `main.nf` is absent**.
+
+**Every contract in this registry has a vendored module**, so `emits_total` is never `None`
+today and the `comeni/` contracts are unverifiable *with* a readable module. The two conditions
+are independent and the page must not imply otherwise.
 
 ### 3.5 Read-only stays read-only, structurally
 
