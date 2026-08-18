@@ -23,9 +23,11 @@ Three kinds live here:
   `2026-08-18-the-shared-question.md` (**Plan 2.5 — one `Question` and one `Answer` shared by the
   forge and the build path, and deliberately NOT one blocking rule**; §3.1 is why the difference
   must stay in the containers and the ports rather than becoming a field), and
-  `2026-08-18-plan-3-thin.md` (**deliberately thin**: Plan 3 consumes the types Plan 2.5 moved, so
-  specifying it in detail first would repeat exactly what got the original Plan 2 deleted. It
-  records the decisions and leaves the detail to be written against the code).
+  `2026-08-18-plan-3.md` (**the API and the interface** — written after Plan 2.5 landed and after
+  the interface was designed, which is why it could be specific. Its §4 is the substance: what
+  must exist underneath for the screens to be true rather than decorative, each entry naming the
+  screen that needs it. It replaced a deliberately thin predecessor that existed only to hold the
+  decisions until the code and the design caught up).
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.

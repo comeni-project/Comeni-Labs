@@ -35,6 +35,10 @@ it demotes certainty to metadata. Drawing incompleteness as incompleteness is th
 
 ## 2. Tokens
 
+**This section governs both halves of the product** — the Mendel canvas and the forge's
+screens ([`forge-review.md`](forge-review.md)). There is one copy of the system and it lives
+here, because this is where it was first written.
+
 ### Colour
 
 Neutrals are biased toward the accent rather than pure grey — a pure mid-grey reads as
@@ -86,50 +90,92 @@ product whose claim is provenance and whose components are named for historical 
 ### Scale
 
 `--r: 3px` corner radius throughout — near-square, instrument-like, deliberately not
-`rounded-lg`. `--pad: 20px` panel padding. Type scale: 21 / 16 / 15 / 14 / 13 / 12.5 / 11.5 /
-11 / 10.5 / 10. Uppercase labels carry `0.14em` tracking.
+`rounded-lg`. `--pad: 20px` panel padding.
+
+**Six type roles, and a size belongs to a role rather than to a screen.** Both halves of the
+product draw from this one list.
+
+| px | Role | Where |
+|---|---|---|
+| 26 | page title | the forge's detail pages; the canvas has none |
+| 21 | brand | the wordmark, and display headings |
+| 15 | **object title** | a card, a node inspector, a panel *about a thing* |
+| 13 | **body and data** | the workhorse — prose and monospace values share it |
+| 11.5 | secondary | supporting lines under a value |
+| 10 | label | uppercase, `.13em` tracking, one value |
+
+**This replaced a ten-step scale on 2026-08-18, and the ten steps were not the problem — the
+*spellings* were.** `dashboard.html` used eleven distinct sizes and **nine** tracking values;
+`16`, `15` and `14` were three spellings of one job (naming an object), and all seven positive
+tracking values sat on 10px uppercase labels. The forge's screens were worse: **seventeen**
+sizes. Density is what a reference tool is for, and it stops being readable when hierarchy is
+carried by variety instead of by difference — so the scale is short and a role owns its size.
+
+Only two trackings survive beside `.13em`, and both are negative: `-.015em` on the wordmark and
+`-.01em` on node names, which is display type being tightened rather than a label being spaced.
+
+**Spacing had the same disease and was fixed the same day.** `dashboard.html` carried **19**
+distinct padding values and the forge's screens **30**, every one chosen by eye. One scale now,
+shared by both halves:
+
+`2 · 4 · 6 · 10 · 14 · 20 · 28 · 40 · 60`
+
+Roughly 1.4× growth — dense at the bottom where rows and controls live, generous at the top where
+sections separate. A value that is not on the scale is a bug, not a preference.
 
 ---
 
-## 3. Port language
+## 3. Ports
 
-Position already encodes input vs output, so **shape encodes the data family** — five marks,
-learnable in one sitting, letting a user read compatibility without reading text.
+A port is a **dot**. Position encodes direction — top edge in, bottom edge out — and the type is
+**text**, on hover and on the wire when a node is hovered.
 
-| Mark | Family | Rationale |
-|---|---|---|
-| `▽` triangle | sequence reads | directional, arrow-like |
-| `◇` diamond | alignments | a mapping between two things |
-| `□` square | matrices and tables | tabular |
-| `○` circle | references and annotations | static, no direction |
-| `▭` slot | reports and logs | aggregate-shaped |
-
-Two further channels on the same 15px mark:
+Two channels survive, and both are binary:
 
 - **Filled vs hollow** — whether required states are satisfied. A hollow port is literally an
   unfilled socket; it is exactly where the router inserts a gap-filling step.
 - **Doubled outline** — accepts many (`1..*`). MULTIQC's input announces its cardinality
   without a label.
 
-A fourth channel (optional vs required) was cut — three is the limit at this size. Optional
-inputs render at reduced opacity instead.
+### What was removed, and why — 2026-08-18
 
-Ports on top edge = inputs, bottom edge = outputs, evenly distributed across the node width.
-Hovering shows type, port id, and cardinality.
+This section used to specify **five shapes** encoding the data family (triangle for reads,
+diamond for alignments, square for matrices, circle for references, slot for reports), plus a
+colour per family. Both are gone, and the operator's judgement was that they were *"too abstract
+to be worth anything"*.
+
+**The tell was already in the design: it shipped a permanently visible shape key.** An encoding
+that needs its legend on screen at all times is not an encoding — it is a lookup with extra
+steps, and the reader pays for it on every glance while the information sits one hover away in
+plain words. Colour had the identical defect.
+
+**What the two survivors have that the five marks did not** is that each is *binary* and each is
+something a reader acts on. "This socket is unfilled" and "this accepts many" are facts you do
+something about. "This is the alignment family" is a fact you look up.
+
+**The marks left the module picker too**, and for a different reason: a mark is a *connection
+point*, and in a list there is nothing to connect to. The picker shows the name and an `io` line
+in words, and you see the ports the moment the module reaches the canvas.
+
+**What this costs, stated rather than waved past.** The original claim — read compatibility
+without reading text — is genuinely gone. Two ports of different families now look identical
+until hovered. The judgement is that the claim was never being collected on: five abstract
+shapes are learnable in principle and were not learned in practice, which is what a permanent
+key on screen is evidence of.
 
 ---
 
 ## 4. Layout
 
 ```
-┌─ nav ─────────────────────────────────────────────────────────┐
+┌─ nav ──────────────────────────── run pipeline · 2 to decide ─┐
 ├──────────┬╥──────────────────────────────────────╥┬───────────┤
-│ modules  │║  how Mendel decided  (provenance bar) ║│ ask / step│
-│ search   │║ ──────────────────────────────────── ║│ details   │
-│ grouped  │║                                      ║│           │
-│ by role  │║   pan + zoom canvas, drag nodes      ║├───────────┤
-│          │║                                      ║│ before you│
-│          │║  shape key ───────────────────────── ║│ run       │
+│ modules  │║  how Mendel decided  (provenance bar) ║│ ask ·step │
+│ search   │║ ──────────────────────────────────── ║│ ·review 2 │
+│ grouped  │║                                      ║├───────────┤
+│ by role  │║   pan + zoom canvas, drag nodes      ║│           │
+│  ╷hover  │║                                      ║│  one tab  │
+│  └─card  │║                                      ║│  at a time│
 └──────────┴╨──────────────────────────────────────╨┴───────────┘
              ↑ drag to resize, double-click to collapse
 ```
@@ -141,13 +187,23 @@ Hovering shows type, port id, and cardinality.
 - **Provenance bar** above the canvas: a 10px strip segmented proportionally by tier, with
   "N% settled without judgement" as the honest headline. Clicking a band isolates those
   steps. This is the product thesis compressed into one element.
-- **Shape key** below the canvas, always visible while the vocabulary is still being learned.
+- **Hovering a module** in the picker opens a description card beside the panel — what the tool
+  does, and the thing you would actually choose on (*STAR is fastest but wants 32 GB; HISAT2 is
+  the low-memory alternative*). It is a card rather than a tooltip because the content is a
+  sentence, and it sits beside the panel rather than under the cursor so it never covers the rows
+  you are scanning.
 
 ### Canvas
 
 Pan by dragging empty space; wheel zooms toward the cursor, clamped 30%–220%. The dot grid
 scales with the view so it reads as a surface, not a backdrop. Node drag divides deltas by
 the zoom factor. Buttons for −/+/reset/Fit, bottom right.
+
+**Wires are orthogonal, not bezier** — 2026-08-18. They route down, across, down, with 7px
+rounded corners so the graph still reads as drawn rather than as a schematic. The reason is
+crossings: two curves meeting at a shallow angle are genuinely indistinguishable, and you cannot
+tell which is which at the intersection. Two right angles you can. The type label sits centred on
+the horizontal run, which is the only stretch with room for it.
 
 ---
 
@@ -173,7 +229,9 @@ Parameters with alternatives render as a `<select>`; free values as an input.
 
 ## 6. Right rail
 
-Two tabs over a persistent review strip.
+**Three tabs, one at a time.** It was two tabs *plus* a permanently pinned review strip, which
+put two jobs in one column and read as clutter. Review is a tab now, with its undecided count as
+a badge that hides at zero — nothing was lost, and a whole stacked section went.
 
 **Ask Mendel.** The chat's reply is an **editable goal card** — have / want / samples /
 organism — not prose. This is the AI boundary made visible: the model's only job here is
@@ -184,8 +242,17 @@ bubble would hide the seam that makes the system trustworthy.
 judged parameter with **what else was considered and why each was rejected** — the decision
 record's `candidates` field rendered directly.
 
-**Before you run.** Red items first, then yellow. "Run pipeline" stays disabled while any
-red remains, in both the rail and the nav.
+**Review.** Red items first, then yellow; clicking one selects that step on the canvas.
+
+**One "Run pipeline" button, in the nav.** There were two — one in the nav and one in the review
+strip — and both were disabled by the same condition, so the second said nothing the first had
+not. The nav carries the blocking count beside it (*2 to decide*), which is the part that was
+actually load-bearing.
+
+**The composer is pinned to the bottom of the chat tab** and the conversation scrolls above it,
+opening at the newest message. A composer is a control, and a control that scrolls away with the
+content is a control you have to go looking for. Only the chat tab pins; `Step` and `Review` are
+plain scrolling bodies, because neither has a control to hold down.
 
 ---
 

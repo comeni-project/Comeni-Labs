@@ -16,8 +16,8 @@ actually does.
 | [clinical-data-protection.md](clinical-data-protection.md) | the egress boundary, the three protection profiles, why "anonymised" is the wrong word | partly — the boundary exists, `ProfilePolicy` does not |
 | [federation.md](federation.md) | registry stacking, provider access, pipeline publication, licensing | partly — stacking exists, publication does not |
 | [declared-data.md](declared-data.md) | why declared data is files and not a database, and where a derived index would be legitimate | yes — this is what the code already does |
-| [dashboard.md](dashboard.md) + [dashboard.html](dashboard.html) | the review UI, with a self-contained mockup | no |
-| [forge-review.md](forge-review.md) + [forge-review.html](forge-review.html) | the contract approval queue, with a self-contained mockup | no |
+| [dashboard.md](dashboard.md) + [dashboard.html](dashboard.html) | **the Mendel builder**, with a self-contained mockup. §2 carries the token, type and spacing system that governs **both halves** | no |
+| [forge-review.md](forge-review.md) | **the forge interface**, redesigned 2026-08-18 — one queue, three destinations, ten screens. Its mockups are a design canvas rather than a committed page | no |
 
 The two `.html` files open in a browser with no build step and no network access.
 
