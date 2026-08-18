@@ -83,3 +83,14 @@ forge:          ## draft one nf-core module into a scratch workspace and show it
 # on `verify` refusing, which is the point: a fresh draft has holes, and MF0004 is the design
 # working rather than failing. `|| true` because that refusal exits 1 and this target is a
 # demonstration, not a gate.
+
+client:  ## regenerate the TypeScript client from the API's own schema
+	uv run python -c "import json; from mendel_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.json
+	cd frontend && npx openapi-typescript openapi.json -o src/api/schema.d.ts
+
+migrate:  ## apply database migrations
+	cd packages/mendel-api && uv run alembic upgrade head
+
+dev:  ## Postgres, Redis and the frontend, together
+	docker compose up -d postgres redis
+	cd frontend && npm run dev

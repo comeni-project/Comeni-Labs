@@ -1,0 +1,59 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Tailwind MIRRORS the tokens; it does not redefine them.
+
+   Six type roles and the nine-step spacing scale come from `docs/design/dashboard.md` §2.
+   A utility that invents a seventh size is exactly the drift this indirection exists to
+   prevent — the set had seventeen sizes before 2026-08-18 and every one was picked by eye. */
+@theme {
+  --font-ui: var(--font-ui);
+  --font-data: var(--font-data);
+  --font-display: var(--font-display);
+
+  --text-title: 26px;
+  --text-brand: 21px;
+  --text-object: 15px;
+  --text-body: 13px;
+  --text-secondary: 11.5px;
+  --text-label: 10px;
+
+  --spacing-1: 2px;
+  --spacing-2: 4px;
+  --spacing-3: 6px;
+  --spacing-4: 10px;
+  --spacing-5: 14px;
+  --spacing-6: 20px;
+  --spacing-7: 28px;
+  --spacing-8: 40px;
+  --spacing-9: 60px;
+
+  --radius-r: 3px;
+
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-pea: var(--pea);
+  --color-pea-soft: var(--pea-soft);
+  --color-on-pea: var(--on-pea);
+  --color-measured: var(--measured);
+  --color-measured-soft: var(--measured-soft);
+  --color-undecided: var(--undecided);
+  --color-undecided-soft: var(--undecided-soft);
+  --color-fault: var(--fault);
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
