@@ -11,6 +11,7 @@ invalid declared file.** It emits either a valid one, or something that is hones
 yet and says which fields it is missing and why.
 """
 
+from enum import StrEnum
 from typing import Any
 
 from comeni_core.declared.layered import DeclaredKind
@@ -71,6 +72,18 @@ class Hole(Question):
     lands without re-reading the source."""
 
 
+class Decision(StrEnum):
+    """What a reviewer said about a proposal.
+
+    `OPEN` is the default because a proposal arrives undecided, and a default of anything
+    else would make an unreviewed proposal look reviewed.
+    """
+
+    OPEN = "open"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Proposal(BaseModel):
     """What a hole needs that the vocabulary cannot express yet.
 
@@ -94,6 +107,15 @@ class Proposal(BaseModel):
     why: str
     by: str
     """The model id that proposed it. `Provenance.drafted_by`'s argument, one document over."""
+    decision: Decision = Decision.OPEN
+    decided_by: str = ""
+    decided_why: str = ""
+    decided_id: str = ""
+    """What was actually approved, when a reviewer renamed it. Empty otherwise.
+
+    `id` keeps what was *proposed* — a rename is a judgement about somebody's suggestion, and
+    dropping the suggestion loses the judgement's subject.
+    """
 
 
 class Scaffold(BaseModel):
@@ -133,6 +155,59 @@ class Scaffold(BaseModel):
         if self.hole(field) is None:
             raise ValueError(coded("MF0002", f"{field} is not a hole in this scaffold"))
         return self.model_copy(update={"proposed": {**self.proposed, field: proposal}})
+
+    def decide(
+        self, field: str, decision: Decision, *, by: str, why: str, id: str | None = None
+    ) -> "Scaffold":
+        """Approve or reject a proposal.
+
+        **Approving does not go through `fill`, and that is deliberate.** `fill` refuses a
+        value outside the hole's candidates (`MF0003`) and that refusal is a guarantee; an
+        approved proposal is by definition not among them, which is what proposing means.
+        This is a second act with a different precondition — *a named human approved it* —
+        and it still records `by`, `why` and a `ValueSource`, so nothing becomes untraceable.
+
+        **Rejecting reopens the hole and keeps the record.** Deleting the proposal would
+        leave a hole indistinguishable from one nobody has reached.
+        """
+        proposal = self.proposed.get(field)
+        if proposal is None:
+            raise ValueError(coded("MF0002", f"{field} has no proposal in {self.target}"))
+
+        settled = proposal.model_copy(
+            update={
+                "decision": decision,
+                "decided_by": by,
+                "decided_why": why,
+                "decided_id": id or "",
+            }
+        )
+        proposed = {**self.proposed, field: settled}
+
+        if decision is not Decision.APPROVED:
+            return self.model_copy(update={"proposed": proposed})
+
+        value = id or proposal.id
+        return self.model_copy(
+            update={
+                "proposed": proposed,
+                "filled": {
+                    **self.filled,
+                    field: FilledValue(value=value, by=by, how=ValueSource.HUMAN, why=why),
+                },
+                "holes": [h for h in self.holes if h.subject != field],
+            }
+        )
+
+    def approved(self) -> dict[str, str]:
+        """Field -> the type id a reviewer approved. `land` writes one file per entry, so a
+        rejected or undecided proposal appearing here would put an unapproved type into the
+        registry."""
+        return {
+            field: (p.decided_id or p.id)
+            for field, p in self.proposed.items()
+            if p.decision is Decision.APPROVED
+        }
 
     @field_serializer("holes")
     def _sorted_holes(self, holes: list[Hole]) -> list[dict[str, Any]]:
