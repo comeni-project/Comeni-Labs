@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 
 import "./main.css";
 import { Shell } from "./app/Shell";
+import { Queue } from "./forge/Queue";
 
 const client = new QueryClient();
 
@@ -11,8 +12,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
       <Shell>
-        {/* the queue lands in Task 7 */}
-        <div />
+        <Queue />
       </Shell>
     </QueryClientProvider>
   </StrictMode>,

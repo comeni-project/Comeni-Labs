@@ -9,5 +9,12 @@ export default defineConfig({
     proxy: { "/questions": "http://localhost:8000", "/health": "http://localhost:8000",
              "/forge": "http://localhost:8000" },
   },
-  test: { environment: "jsdom", globals: true, setupFiles: "./src/setupTests.ts" },
+  test: {
+    // happy-dom rather than jsdom: jsdom pulls @asamuzakjp/css-color, which require()s
+    // an ES module and dies under Node 22 in every vitest pool. happy-dom has no such
+    // chain and these are component tests, not browser-fidelity tests.
+    environment: "happy-dom",
+    globals: true,
+    setupFiles: "./src/setupTests.ts",
+  },
 });
