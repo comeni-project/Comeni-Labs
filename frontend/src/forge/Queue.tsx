@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
 import { get } from "../api/client";
+import { Empty, Failed, Loading } from "../ui/States";
 import { Controls } from "./Controls";
+import { useRowKeys } from "./useRowKeys";
 import type { components } from "../api/schema";
 import { QueueRow } from "./QueueRow";
 
@@ -81,20 +83,40 @@ export function Queue() {
     queryFn: () => get<QueueResponse>(`/questions${search ? `?${search}` : ""}`),
   });
 
+  const questions = data?.questions ?? [];
+  const { index } = useRowKeys(questions.map((q) => q.subject));
+  const grouped = params.get("group") === "module";
+
   return (
     <div className="grid grid-rows-[34px_1fr] overflow-hidden">
       <Health />
       <div className="grid grid-cols-[216px_1fr] overflow-hidden">
-        <Facets questions={data?.questions ?? []} />
+        <Facets questions={questions} />
         <div className="overflow-auto">
           <Controls rows={data?.questions.length} total={data?.total} />
 
-          {isLoading && <p className="p-6 text-ink-3">Reading the workspace…</p>}
-          {error && <p className="p-6 text-fault">{String(error)}</p>}
-          {data?.questions.length === 0 && (
-            <p className="p-6 text-ink-3">Nothing open. Draft a module to give the queue work.</p>
+          {isLoading && <Loading what="the workspace" />}
+          {error && <Failed error={error} />}
+          {questions.length === 0 && !isLoading && (
+            <Empty title="Nothing open." next="Draft a module to give the queue work." />
           )}
-          {data?.questions.map((q) => <QueueRow key={`${q.subject}:${q.suggested}`} q={q} />)}
+          {questions.map((q, i) => (
+            // The key carries `asked_by` because under `group=module` the same subject
+            // appears once per draft, and a duplicate React key renders one row and drops
+            // the rest.
+            <QueueRow
+              key={`${q.subject}:${q.suggested}:${q.asked_by.join(",")}`}
+              q={q}
+              selected={i === index}
+              // Only on the first row of each module, so a run of rows reads as one block
+              // rather than repeating its own title.
+              heading={
+                grouped && q.asked_by[0] !== questions[i - 1]?.asked_by[0]
+                  ? q.asked_by[0]
+                  : undefined
+              }
+            />
+          ))}
         </div>
       </div>
     </div>
