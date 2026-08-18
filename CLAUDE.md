@@ -465,13 +465,15 @@ packages/
     filler.py          ModelFiller — a model behind the HoleFiller seam
     sources/           the Source protocol, and the nf-core adapter
     cli/  http/         two transports over ops.py; neither holds logic
-  mendel-api/        FastAPI surface — DOES NOT EXIST YET, Plan 3       impure
+  mendel-api/        FastAPI surface; mounts the forge, projects questions  impure
+    routes/            questions, health — validate, dispatch, serialise
+    questions.py       OpenQuestion: one schema, two consumers
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
-frontend/      DOES NOT EXIST YET — Plan 3 creates it. React + TS + Vite + Tailwind
+frontend/      React 19 + TS + Vite + Tailwind 4. src/api/ is GENERATED from openapi.json
 ```
 
 **The subpackages inside `comeni-core` are a pipeline through the system**, named for the stage
@@ -709,7 +711,10 @@ uv run forge land fastqc --registry ../comeni-registry --by "$USER"
 # verb with a git commit behind it, and registry/ here is a submodule at detached HEAD.
 ```
 
-`make dev` and `make migrate` arrive with Plan 3, along with the API and its migrations.
+`make dev` starts Postgres and Redis and the frontend; `make migrate` applies migrations;
+`make client` regenerates `frontend/src/api/` from the API's own schema. **Never hand-edit
+that directory** — a generated client is what makes the IR types unable to drift between
+the halves, and editing it is how that guarantee is lost quietly.
 
 **`ruff format` is not a gate and CI does not check it.** 28 files are hand-wrapped in ways
 the formatter would undo; a formatting sweep belongs in its own reviewable commit rather than

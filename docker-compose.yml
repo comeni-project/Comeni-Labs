@@ -1,0 +1,30 @@
+# Postgres and Redis for local development.
+#
+# The registry is NOT here and never will be: declared data is files by decision
+# (issue #43), so there is nothing to seed and nothing to migrate for it.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mendel
+      POSTGRES_PASSWORD: mendel
+      POSTGRES_DB: mendel
+    ports: ["5432:5432"]
+    volumes: ["mendel-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mendel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mendel-pg:

@@ -17,12 +17,17 @@ const get = async <T,>(path: string): Promise<T> => {
 function Health() {
   const { data } = useQuery({ queryKey: ["health"], queryFn: () => get<Strip>("/health/registry") });
   if (!data) return <div className="h-[34px] border-b border-line bg-surface-2" />;
+  // Until a check has run, `matching` and `unverifiable` are 0 because nothing was
+  // measured — not because nothing matches. Rendering "0 match their source" on a fresh
+  // database reads as catastrophe when the truth is "unknown", so those two are withheld
+  // rather than shown as zeroes. Found by running against an empty database.
+  const checked = data.checked_at !== null;
   return (
     <div className="flex items-center gap-6 px-6 h-[34px] bg-surface-2 border-b border-line
                     text-secondary text-ink-2">
       <span><b className="font-data text-ink">{data.contracts}</b> contracts</span>
-      <span><b className="font-data text-ink">{data.matching}</b> match their source</span>
-      {data.unverifiable > 0 && (
+      {checked && <span><b className="font-data text-ink">{data.matching}</b> match their source</span>}
+      {checked && data.unverifiable > 0 && (
         // Reported rather than folded into `matching`: a contract nothing checks looks
         // exactly like a contract that agrees.
         <span><b className="font-data text-ink">{data.unverifiable}</b> unverifiable</span>
@@ -64,6 +69,8 @@ function Facets({ questions }: { questions: QueueResponse["questions"] }) {
     </div>
   );
 }
+
+export { Health };
 
 export function Queue() {
   const { data, isLoading, error } = useQuery({
