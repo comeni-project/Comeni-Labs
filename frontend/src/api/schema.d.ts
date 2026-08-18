@@ -33,16 +33,38 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every open question, collapsed
-         * @description Every open question in the workspace, collapsed.
+         * Every open question, filtered, ordered and collapsed
+         * @description The queue.
          *
-         *     `show` needs the registry and the source as well as the workspace: a hole's candidates
-         *     are recomputed from the layer stack rather than stored, so a draft cannot be read
-         *     without the registry it was drafted against.
+         *     **Every control is a query parameter and none of them is a header or a body**, because a
+         *     curator who finds a bad answer must be able to send somebody the link to the screen they
+         *     were looking at — spec §4.1.
          */
         get: operations["listQuestions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark now as seen, for the since-last-visit filter
+         * @description **Deliberately not a side effect of reading the queue.** If a GET stamped a visit, the
+         *     next GET would have a baseline of a moment ago and *what changed since I last looked*
+         *     would be permanently empty — right once, then wrong forever.
+         */
+        post: operations["markVisited"];
         delete?: never;
         options?: never;
         head?: never;
@@ -179,6 +201,16 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * Grouping
+         * @enum {string}
+         */
+        Grouping: "question" | "module";
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** OpenQuestion */
         OpenQuestion: {
             /** Subject */
@@ -198,7 +230,14 @@ export interface components {
             evidence: components["schemas"]["Excerpt"][];
             /** Suggested */
             suggested?: string | null;
+            /** Changed At */
+            changed_at?: string | null;
         };
+        /**
+         * Ordering
+         * @enum {string}
+         */
+        Ordering: "consequence" | "recent";
         /** QueueResponse */
         QueueResponse: {
             /** Questions */
@@ -226,6 +265,27 @@ export interface components {
             types: number;
             /** Checked At */
             checked_at: string | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** Visited */
+        Visited: {
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
         };
     };
     responses: never;
@@ -260,7 +320,16 @@ export interface operations {
     };
     listQuestions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this band. */
+                band?: components["schemas"]["Band"] | null;
+                /** @description One row per question, or per draft. */
+                group?: components["schemas"]["Grouping"];
+                /** @description Worst-to-get-wrong, or newest. */
+                sort?: components["schemas"]["Ordering"];
+                /** @description Only what moved since you last looked. */
+                since_last_visit?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -274,6 +343,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    markVisited: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Visited"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };

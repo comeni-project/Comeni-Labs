@@ -28,6 +28,7 @@ def test_every_operation_is_named_by_hand():
     assert got == {
         ("/api/questions", "get"): "listQuestions",
         ("/api/questions/answer", "post"): "answerQuestion",
+        ("/api/visits", "post"): "markVisited",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }

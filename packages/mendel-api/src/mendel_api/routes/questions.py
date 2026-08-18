@@ -1,51 +1,66 @@
 """`/questions` — the one surface React and an agent share."""
 
-from typing import Any
+from datetime import datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter
-from mendel_forge import ops
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from mendel_api.questions import OpenQuestion, aggregate, question_from_hole
+from mendel_api.questions import Band
 from mendel_api.refusals import REFUSES
 from mendel_api.services.answers import Answered, answer_one
-from mendel_api.settings import settings
+from mendel_api.services.queue import Grouping, Ordering, QueueResponse
+from mendel_api.services.queue import read as queue_read
+from mendel_api.services.visits import mark as mark_visited
 
 router = APIRouter(tags=["questions"])
-
-
-class QueueResponse(BaseModel):
-    questions: list[OpenQuestion]
-    total: int
-    """Before aggregation. The list is short because rows collapse; the count must not be,
-    or the queue understates how much work is open."""
 
 
 @router.get(
     "/questions",
     operation_id="listQuestions",
-    summary="Every open question, collapsed",
+    summary="Every open question, filtered, ordered and collapsed",
 )
-def queue() -> QueueResponse:
-    """Every open question in the workspace, collapsed.
+def queue(
+    # `Annotated` rather than `Query(...)` as a default: it is FastAPI's current idiom and
+    # it keeps the default a value, which is what `B008` is about — a call in a default is
+    # evaluated once at import and shared.
+    band: Annotated[Band | None, Query(description="Only this band.")] = None,
+    group: Annotated[
+        Grouping, Query(description="One row per question, or per draft.")
+    ] = Grouping.QUESTION,
+    sort: Annotated[
+        Ordering, Query(description="Worst-to-get-wrong, or newest.")
+    ] = Ordering.CONSEQUENCE,
+    since_last_visit: Annotated[
+        bool, Query(description="Only what moved since you last looked.")
+    ] = False,
+) -> QueueResponse:
+    """The queue.
 
-    `show` needs the registry and the source as well as the workspace: a hole's candidates
-    are recomputed from the layer stack rather than stored, so a draft cannot be read
-    without the registry it was drafted against.
+    **Every control is a query parameter and none of them is a header or a body**, because a
+    curator who finds a bad answer must be able to send somebody the link to the screen they
+    were looking at — spec §4.1.
     """
-    names = ops.list_(ops.ListRequest(workspace_root=settings.workspace_root)).names
-    found: list[OpenQuestion] = []
-    for name in names:
-        shown = ops.show(
-            ops.ShowRequest(
-                name=name,
-                registry_root=settings.registry_root,
-                source_root=settings.source_root,
-                workspace_root=settings.workspace_root,
-            )
-        )
-        found += [question_from_hole(h, draft=name) for h in shown.holes]
-    return QueueResponse(questions=aggregate(found), total=len(found))
+    return queue_read(band=band, group=group, sort=sort, since_last_visit=since_last_visit)
+
+
+class Visited(BaseModel):
+    seen_at: datetime
+
+
+@router.post(
+    "/visits",
+    operation_id="markVisited",
+    summary="Mark now as seen, for the since-last-visit filter",
+    responses=REFUSES,
+)
+def visit() -> Visited:
+    """**Deliberately not a side effect of reading the queue.** If a GET stamped a visit, the
+    next GET would have a baseline of a moment ago and *what changed since I last looked*
+    would be permanently empty — right once, then wrong forever.
+    """
+    return Visited(seen_at=mark_visited(None))
 
 
 class AnswerRequest(BaseModel):
