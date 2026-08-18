@@ -116,62 +116,62 @@
   "filled": {
     "container": {
       "value": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:6"
     },
     "id": {
       "value": "nf-core/fastqc@0.12.1",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "the tool's path and version under nf-core"
     },
     "nf_include": {
       "value": "modules/nf-core/fastqc/main",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf"
     },
     "nf_inputs.arity": {
       "value": 1,
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:10-11"
     },
     "nf_process": {
       "value": "FASTQC",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:1"
     },
     "produces[0].name": {
       "value": "html",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "produces[1].name": {
       "value": "zip",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "produces[2].name": {
       "value": "versions_fastqc",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "read from modules/nf-core/fastqc/main.nf:13-16"
     },
     "provenance.source": {
       "value": "nf-core",
-      "filler": "derived",
       "by": "nf-core",
+      "how": "derived",
       "why": "the source it was read from"
     }
   },
   "holes": [
     {
-      "field": "consumes[0].name",
+      "subject": "consumes[0].name",
       "what": "what this contract calls the thing arriving on channel 0",
       "why_open": "a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice",
       "candidates": [
@@ -197,7 +197,7 @@
       ]
     },
     {
-      "field": "consumes[0].type_id",
+      "subject": "consumes[0].type_id",
       "what": "the semantic type of the input the module calls reads",
       "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
       "candidates": [
@@ -305,7 +305,7 @@
       "channels": []
     },
     {
-      "field": "priority_because",
+      "subject": "priority_because",
       "what": "a value for priority_because",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",
       "candidates": [],
@@ -336,7 +336,7 @@
       "channels": []
     },
     {
-      "field": "produces[0].type_id",
+      "subject": "produces[0].type_id",
       "what": "the semantic type of the output the module emits as html",
       "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
       "candidates": [
@@ -444,7 +444,7 @@
       "channels": []
     },
     {
-      "field": "produces[1].type_id",
+      "subject": "produces[1].type_id",
       "what": "the semantic type of the output the module emits as zip",
       "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
       "candidates": [
@@ -552,7 +552,7 @@
       "channels": []
     },
     {
-      "field": "produces[2].type_id",
+      "subject": "produces[2].type_id",
       "what": "the semantic type of the output the module emits as versions_fastqc",
       "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
       "candidates": [
@@ -660,7 +660,7 @@
       "channels": []
     },
     {
-      "field": "roles",
+      "subject": "roles",
       "what": "the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role",
       "why_open": "a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool",
       "candidates": [

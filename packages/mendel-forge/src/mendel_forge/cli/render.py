@@ -28,7 +28,7 @@ def draft(result: ops.DraftResult) -> str:
 
 def show(result: ops.ShowResult) -> str:
     lines = [f"{result.name} -> {result.target}", "", "filled:"]
-    lines += [f"  {field} = {v.value!r}  ({v.filler}, {v.by})" for field, v in
+    lines += [f"  {field} = {v.value!r}  ({v.how}, {v.by})" for field, v in
               sorted(result.filled.items())]
     lines += ["", f"open ({len(result.holes)}):"]
     lines += _holes(result.holes)
@@ -81,7 +81,7 @@ def listing(names: list[str]) -> str:
 def _holes(holes) -> list[str]:
     lines = []
     for hole in holes:
-        lines.append(f"  {hole.field}")
+        lines.append(f"  {hole.subject}")
         lines.append(f"      what: {hole.what}")
         lines.append(f"      why open: {hole.why_open}")
         if hole.candidates:

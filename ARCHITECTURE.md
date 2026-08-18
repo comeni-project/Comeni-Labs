@@ -297,6 +297,63 @@ the CLI reported "0 requiring review" while an aligner had been chosen alphabeti
 
 ---
 
+## 4a. One question, two behaviours
+
+The forge and the build path both ask a reviewer questions, and until 2026-08-18 each had its
+own vocabulary for doing so. `comeni_core/review/` is the shared one.
+
+```
+Question                    base — subject, what, why_open, candidates, closed, evidence
+  ├── Hole                  forge. Held by Scaffold, answered by HoleFiller
+  └── Ambiguity             build. Held by the resolver, answered by AmbiguityResolver
+        ├── ParamAsked
+        ├── ProducerAsked
+        └── SourceAsked
+
+Answer                      base — value, by, how, why
+  ├── FilledValue           forge
+  └── Resolution            build  (adds `confidence`)
+```
+
+`ValueSource` is the one provenance vocabulary — `RESOLVER / GOAL / HUMAN / MODEL / MEASURED /
+DERIVED`. The forge's `Filler` is gone: `HAND` was `HUMAN` under a second name.
+
+**The base classes are inert, and that is the load-bearing part.** A hole *blocks* — 
+`Scaffold.is_complete()` gates `contract_from`, so the forge structurally cannot emit an invalid
+declared file. An ambiguity *ships flagged* — the pipeline is built and runnable, marked tier 4.
+That difference is **not** a field and **not** an overridden method. It lives in the container
+and in the port, and the cleanest statement of it is the two signatures:
+
+```python
+class HoleFiller(Protocol):
+    def fill(self, hole: Hole, observation: Observation) -> FilledValue | None: ...
+
+class AmbiguityResolver(Protocol):
+    def resolve(self, ambiguity: Ambiguity) -> Resolution: ...
+```
+
+**One may return `None`. The other may not.** A filler that always answers is a filler that
+invents; `FlagOnlyResolver` must always answer, because that is what keeps a pipeline runnable
+with no model and makes the flagged count an honest measure of rule coverage.
+
+Putting `blocks: bool` — or a `blocks()` method — on `Question` would trade a structural
+guarantee for a runtime check on a value, which is the mistake this repository records about
+invariant 1. `notes/specs/2026-08-18-the-shared-question.md` §3.1 is the argument; a test asserts
+the base carries no behaviour beyond `legal()`.
+
+**Two shapes of candidate, deliberately.** The forge offers `Candidate(value, note)` so a
+reviewer sees where an option is declared; the build path narrows `candidates` to bare declared
+ids, because door 2 types them as `CandidateRef` and A129 records that payload accepting only one
+of three `*Asked` types until *values* were checked rather than names. `Question.legal()` reads
+both.
+
+**What the door gained.** `AmbiguityRequest` carries `what`, `why_open`, `closed` and `evidence`
+now. Not padding: the forge measured a local model at 69% without them and 88% with, and two of
+the three fixes behind that were *the question never said what it was about* and *the evidence
+was not readable*.
+
+---
+
 ## 5. Ports versus channels
 
 A contract port is *semantic*: a typed thing the module consumes. A process input is
@@ -470,8 +527,8 @@ is the first impure package: it is not scanned by `tests/test_purity.py`, it is 
 
 ```
 mendel-forge/
-  observe.py     Excerpt, Fact, Observation — what a source proved, and where from
-  scaffold.py    Filler, FilledValue, Candidate, Hole, Scaffold
+  observe.py     Fact, Observation — what a source proved, and where from
+  scaffold.py    FilledValue, Hole, Proposal, Scaffold — Question/Answer subclasses
   sources/       the Source protocol, and the nf-core adapter
   candidates.py  what a hole will accept, read off the layer stack
   assemble.py    Observation -> Scaffold, and Scaffold -> ModuleContract
@@ -499,10 +556,10 @@ offered, and `hole.legal` refuses it again on the way in. The second is not redu
 the check a person's fill already goes through, so a model's answer meets one rule rather than
 a second that can drift from it.
 
-A model fill lands as an **answer**, not a proposal, carrying `Filler.MODEL` and the model id;
-`assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
+A model fill lands as an **answer**, not a proposal, carrying `ValueSource.MODEL` and the model
+id; `assemble._drafted_by` writes that into `Provenance.drafted_by`, so a model-filled contract
 lands with the model named in the file and **no artifact schema changed**. `forge show` prints
-`(filler, by)` beside every value, so a reviewer sees which a model settled without opening
+`(how, by)` beside every value, so a reviewer sees which a model settled without opening
 anything.
 
 **The forge is not an egress door.** Invariant 14's doors track the prompt taint path — prompt,

@@ -28,7 +28,7 @@ def test_draft_ingests_and_saves(tmp_path):
 def test_show_returns_holes_with_their_candidates(tmp_path):
     ops.draft(ops.DraftRequest(ref="nf-core:fastqc", name="fastqc", **_ctx(tmp_path)))
     shown = ops.show(ops.ShowRequest(name="fastqc", **_ctx(tmp_path)))
-    hole = next(h for h in shown.holes if h.field.endswith("type_id"))
+    hole = next(h for h in shown.holes if h.subject.endswith("type_id"))
     assert hole.candidates
 
 
@@ -45,7 +45,7 @@ def test_fill_persists(tmp_path):
         )
     )
     shown = ops.show(ops.ShowRequest(name="fastqc", **_ctx(tmp_path)))
-    assert "roles" not in {h.field for h in shown.holes}
+    assert "roles" not in {h.subject for h in shown.holes}
     assert shown.filled["roles"].value == ["qc_per_sample"]
 
 
@@ -67,5 +67,5 @@ def test_the_default_filler_declines_every_hole():
     from mendel_forge.ports import NoFiller
     from mendel_forge.scaffold import Hole
 
-    hole = Hole(field="roles", what="w", why_open="o")
+    hole = Hole(subject="roles", what="w", why_open="o")
     assert NoFiller().fill(hole, Observation(source="s", ref_id="r")) is None

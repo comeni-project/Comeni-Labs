@@ -6,9 +6,10 @@ wrong is a usage error somebody guesses at.
 """
 
 import pytest
+from comeni_core.review import ValueSource
 from mendel_forge import ops
 from mendel_forge.cli import parse, render
-from mendel_forge.scaffold import FilledValue, Filler
+from mendel_forge.scaffold import FilledValue
 
 
 def test_a_hand_fill_still_requires_value_by_and_why() -> None:
@@ -85,10 +86,10 @@ def test_show_marks_a_model_fill_distinctly() -> None:
             holes=[],
             filled={
                 "roles": FilledValue(
-                    value=["qc_per_sample"], filler=Filler.MODEL, by="test/model", why="w"
+                    value=["qc_per_sample"], how=ValueSource.MODEL, by="test/model", why="w"
                 ),
                 "nf_process": FilledValue(
-                    value="FASTQC", filler=Filler.DERIVED, by="nf-core", why="read from main.nf"
+                    value="FASTQC", how=ValueSource.DERIVED, by="nf-core", why="read from main.nf"
                 ),
             },
             module=None,
@@ -106,7 +107,7 @@ def test_show_does_not_mark_a_derived_fill_as_a_model_one() -> None:
             holes=[],
             filled={
                 "nf_process": FilledValue(
-                    value="FASTQC", filler=Filler.DERIVED, by="nf-core", why="read from main.nf"
+                    value="FASTQC", how=ValueSource.DERIVED, by="nf-core", why="read from main.nf"
                 )
             },
             module=None,
@@ -124,9 +125,9 @@ def test_show_names_who_settled_every_value() -> None:
             target="fastqc",
             holes=[],
             filled={
-                "a": FilledValue(value="x", filler=Filler.MODEL, by="test/model", why="w"),
-                "b": FilledValue(value="y", filler=Filler.HAND, by="rafael", why="w"),
-                "c": FilledValue(value="z", filler=Filler.DERIVED, by="nf-core", why="w"),
+                "a": FilledValue(value="x", how=ValueSource.MODEL, by="test/model", why="w"),
+                "b": FilledValue(value="y", how=ValueSource.HUMAN, by="rafael", why="w"),
+                "c": FilledValue(value="z", how=ValueSource.DERIVED, by="nf-core", why="w"),
             },
             module=None,
         )

@@ -10,16 +10,17 @@ about.
 
 import pytest
 from comeni_core.declared.layered import DeclaredKind
+from comeni_core.review import ValueSource
 from mendel_forge.observe import Excerpt, Fact, Observation
-from mendel_forge.scaffold import FilledValue, Filler, Scaffold
+from mendel_forge.scaffold import FilledValue, Scaffold
 
 
 def _derived(value):
-    return FilledValue(value=value, filler=Filler.DERIVED, by="nf-core", why="main.nf")
+    return FilledValue(value=value, how=ValueSource.DERIVED, by="nf-core", why="main.nf")
 
 
 def _hand(value, why):
-    return FilledValue(value=value, filler=Filler.HAND, by="rafael", why=why)
+    return FilledValue(value=value, how=ValueSource.HUMAN, by="rafael", why=why)
 
 
 @pytest.fixture
@@ -82,7 +83,7 @@ def incomplete_scaffold(complete_scaffold) -> Scaffold:
         update={
             "holes": [
                 Hole(
-                    field="roles",
+                    subject="roles",
                     what="the job this contract does",
                     why_open="a module declares no role",
                 )

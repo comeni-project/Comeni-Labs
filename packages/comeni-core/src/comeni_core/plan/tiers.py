@@ -8,6 +8,13 @@ cannot drift from the table in the code.
 
 from enum import IntEnum, StrEnum
 
+# `ValueSource` lives in `review/answer.py` so that `review/` need not import `plan/` —
+# `plan/decision.py` imports `Question` from there, and the reverse edge would be a cycle.
+# Re-exported because 25 call sites and the package's public surface name it here.
+from comeni_core.review.answer import ValueSource
+
+__all__ = ["PremiseOrigin", "ReviewLevel", "Tier", "ValueSource", "review_level_for"]
+
 
 class Tier(IntEnum):
     STRUCTURAL = 1
@@ -15,54 +22,6 @@ class Tier(IntEnum):
     DATA_PROFILED = 3
     AMBIGUOUS = 4
 
-
-class ValueSource(StrEnum):
-    """Who decided a value, recorded separately from how well it was decided.
-
-    A tier says *how* something was settled; it should not also have to say *who*. A user
-    who pins a parameter has legitimately removed the ambiguity, so the tier is still
-    structural — but a reviewer needs to see that Mendel did not derive it. Same shape as
-    measured-versus-asserted in the profiling spec, and for the same reason.
-    """
-
-    RESOLVER = "resolver"
-    GOAL = "goal"
-    HUMAN = "human"
-    """A person answered an ambiguity **after** resolution had faced it and flagged it.
-
-    Deliberately not the same as `GOAL`, and the tier is what makes the difference visible.
-    A goal pin is tier 1: the user removed the ambiguity before anything looked at it, so no
-    choice existed to be made. An override is tier 4 that stayed tier 4 — resolution met a
-    real ambiguity, could not settle it, and a human settled it in the artifact.
-
-    Collapsing the two would erase that the pipeline contains a question somebody had to
-    answer, and it would erase it precisely on the pipelines most worth reviewing. So the
-    tier is kept and the *review* is what clears: see `PipelineIR.overrides()`.
-    """
-    MODEL = "model"
-    """A model answered an ambiguity the deterministic ladder could not settle.
-
-    Distinct from `HUMAN` for the reason `HUMAN` is distinct from `GOAL`: *who* settled a
-    thing is what a reviewer needs, and the three answers oblige different amounts of trust.
-
-    **Nothing writes this until Plan 2.** It is declared now rather than then so that a model
-    adapter has somewhere truthful to write on the day it exists, instead of the enum arriving
-    alongside the first thing that needs it — which is the moment a shortcut gets taken.
-
-    **It is a claim, not a proof.** A resolver sets its own `source`, and an adapter that
-    writes `resolver` here is indistinguishable from the deterministic ladder. Same standing as
-    `confidence` and `reason`, and recorded as such in round three's inheritance notes. What
-    *is* provable is the negative, and that lives on `Pipeline.ai` — see `AiProvenance`. A130.
-    """
-    MEASURED = "measured"
-    """A tool produced this value by looking at the data, and named itself.
-
-    The distinction that matters clinically: a measured 150bp read length is a fact a
-    profiling run established, while an asserted one is a claim by whoever typed the goal
-    file. Both are legitimate; only one is checkable. The `sealed` protection profile is
-    meant to refuse a tier-3 decision resting on an assertion — issue #2, once Plan 2
-    builds `ProfilePolicy`. Recording provenance here is what makes that check possible.
-    """
 
 
 class PremiseOrigin(StrEnum):

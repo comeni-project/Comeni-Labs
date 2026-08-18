@@ -8,9 +8,10 @@ from pathlib import Path
 
 import pytest
 from comeni_core.declared.layered import DeclaredKind
+from comeni_core.review import ValueSource
 from mendel_forge import ops
 from mendel_forge.observe import Observation
-from mendel_forge.scaffold import Candidate, FilledValue, Filler, Hole, Scaffold
+from mendel_forge.scaffold import Candidate, FilledValue, Hole, Scaffold
 from mendel_forge.workspace import Draft, Workspace
 
 
@@ -22,12 +23,12 @@ def _scaffold() -> Scaffold:
         filled={},
         holes=[
             Hole(
-                field="produces[0].type_id",
+                subject="produces[0].type_id",
                 what="what the port carries",
                 why_open="not derivable",
                 candidates=[Candidate(value="qc.report")],
             ),
-            Hole(field="priority_because", what="why it ranks", why_open="a judgement"),
+            Hole(subject="priority_because", what="why it ranks", why_open="a judgement"),
         ],
     )
 
@@ -45,7 +46,7 @@ class Always:
         if not hole.candidates:
             return None
         return FilledValue(
-            value=hole.candidates[0].value, filler=Filler.MODEL, by="test/model", why="because"
+            value=hole.candidates[0].value, how=ValueSource.MODEL, by="test/model", why="because"
         )
 
 
@@ -66,7 +67,7 @@ class Explodes:
             raise RuntimeError("provider went away")
         self.filled += 1
         return FilledValue(
-            value=hole.candidates[0].value, filler=Filler.MODEL, by="test/model", why="because"
+            value=hole.candidates[0].value, how=ValueSource.MODEL, by="test/model", why="because"
         )
 
 
@@ -93,7 +94,7 @@ def test_a_prose_hole_is_reported_as_declined_rather_than_omitted(workspace: Pat
 def test_the_fill_is_persisted(workspace: Path) -> None:
     ops.fill_with_model(_request(workspace), filler=Always())
     found = Workspace(root=workspace).load("fastqc")
-    assert found.scaffold.filled["produces[0].type_id"].filler is Filler.MODEL
+    assert found.scaffold.filled["produces[0].type_id"].how is ValueSource.MODEL
     assert found.scaffold.filled["produces[0].type_id"].by == "test/model"
 
 
@@ -122,7 +123,7 @@ def test_a_provider_dying_mid_batch_keeps_what_was_filled(tmp_path: Path) -> Non
             "holes": [
                 *scaffold.holes,
                 Hole(
-                    field="consumes[0].type_id",
+                    subject="consumes[0].type_id",
                     what="what the port takes",
                     why_open="not derivable",
                     candidates=[Candidate(value="fastq.reads")],
@@ -160,7 +161,7 @@ class ProposesFor:
     def fill(self, hole: Hole, observation: Observation):
         from mendel_forge.scaffold import Proposal
 
-        if hole.field != self.field:
+        if hole.subject != self.field:
             return None
         return Proposal(
             id="star.log", description="a STAR run log", why="nothing fits", by="test/model"
@@ -216,7 +217,7 @@ class PicksFromCandidates:
         # The *first* candidate, which is the registry-derived one — the channel name is
         # deliberately last now, so picking from the end would test the opposite of the point.
         return FilledValue(
-            value=hole.candidates[0].value, filler=Filler.MODEL, by="test/model", why="first"
+            value=hole.candidates[0].value, how=ValueSource.MODEL, by="test/model", why="first"
         )
 
 
@@ -233,13 +234,13 @@ def test_a_refreshed_candidate_is_accepted_by_the_scaffold_that_offered_it(
             "holes": [
                 *scaffold.holes,
                 Hole(
-                    field="consumes[0].type_id",
+                    subject="consumes[0].type_id",
                     what="the type",
                     why_open="not derivable",
                     candidates=[Candidate(value="qc.report")],
                 ),
                 Hole(
-                    field="consumes[0].name",
+                    subject="consumes[0].name",
                     what="the name",
                     why_open="a choice",
                     candidates=[Candidate(value="multiqc_files")],

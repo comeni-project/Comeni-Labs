@@ -1552,7 +1552,7 @@ def test_a32_the_seam_a_model_sits_behind_is_a_declared_type():
     # And the answer coming back is a boundary too — `resolved_by` reaches every decision
     # record and therefore a publish bundle.
     with pytest.raises(ValidationError):
-        Resolution(chosen=None, reason="r", resolved_by="a\nb")
+        Resolution(value=None, why="r", by="a\nb")
 
 
 def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
@@ -1576,9 +1576,9 @@ def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
     class _PicksLast:
         def resolve(self, ambiguity):
             return Resolution(
-                chosen=sorted(ambiguity.candidates)[-1],
-                reason="a person read both modules and chose",
-                resolved_by="human",
+                value=sorted(ambiguity.candidates)[-1],
+                why="a person read both modules and chose",
+                by="human",
             )
 
     layer = tmp_path / "registry"
@@ -1741,7 +1741,7 @@ def test_a_human_override_on_a_parameter_is_replayed_at_all():
     resolution = resolver.resolve(
         ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None])
     )
-    assert resolution.chosen == "illumina", "the human's answer must be the answer"
+    assert resolution.value == "illumina", "the human's answer must be the answer"
     assert resolver.replayed == ["star_align.seq_platform"]
     assert resolver.fresh == [], "an answered question is not a new one"
 
@@ -2009,7 +2009,7 @@ def test_a126_a_legacy_producer_key_still_replays():
 
     resolution = resolver.resolve(_asked_producer(same))
 
-    assert resolution.chosen == "nf-core/star/align@1.11.0"
+    assert resolution.value == "nf-core/star/align@1.11.0"
     assert resolver.replayed == ["producer:alignment.bam"]
     assert resolver.orphaned == []
 

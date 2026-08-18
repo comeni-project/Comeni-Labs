@@ -22,6 +22,7 @@ from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionRecord, ProducerAsked, ProducerDecision
 from comeni_core.plan.ir import Tier
 from comeni_core.plan.tiers import ValueSource
+from comeni_core.review import Excerpt
 from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, Field
 
@@ -421,10 +422,42 @@ def _choose(
     # the tie at all. The artifact then said "nothing distinguishes" three contracts that
     # `priority` distinguishes deliberately. Audit A125.
     tied = [contract for contract in ordered if rank(contract)[:2] == best[:2]]
+    # `what`, `why_open` and `evidence` are inherited from `Question` (Plan 2.5). Until then
+    # a tier-4 producer question handed a reviewer a list of contract ids and nothing to judge
+    # them on, while the forge had quoted evidence on every hole from its first day — the
+    # asymmetry the spec's §7.1 is about. It also matters to door 2: the forge measured a
+    # model at 69% without the question saying what it was about and 88% with.
+    #
+    # **The evidence is the registry's own reason for ranking each candidate.** That is what
+    # `priority_because` is for, and A128 is about it being empty — so a tie between two
+    # contracts that both left it blank produces citations that say so, which is itself the
+    # honest report.
+    #
+    # The locator names the contract rather than the *layer* it came from. `_layer_name`
+    # exists and would be better, but it needs the `Registry`, and `_choose` does not take
+    # one — threading a ninth parameter into a function whose own docstring calls its return
+    # "one past what a tuple should carry" is a refactor this did not authorise. Recorded as
+    # a known gap rather than done badly.
     ambiguity = ProducerAsked(
         node_id=_node_id(tied[0]),
         subject=f"producer:{type_id}",
+        what=f"which contract produces {type_id}",
+        why_open=(
+            f"{len(tied)} contracts produce it and nothing distinguishes them; "
+            f"invariant 8 says a tie is ambiguity, not a coin flip"
+        ),
         candidates=sorted(c.id for c in tied),
+        evidence=[
+            Excerpt(
+                locator=contract.id,
+                text=(
+                    f"priority {contract.priority}: {contract.priority_because}"
+                    if contract.priority_because
+                    else f"priority {contract.priority}, with no stated reason (A128)"
+                ),
+            )
+            for contract in sorted(tied, key=lambda c: c.id)
+        ],
         states=sorted(states),
     )
     resolution = resolver.resolve(ambiguity)
@@ -438,19 +471,19 @@ def _choose(
     # Falling back to `ordered[0]` when the answer is not a candidate keeps the same
     # posture `ReplayResolver._still_applies` already takes towards a record whose options
     # have moved: a forged or stale answer is not trusted, it is ignored.
-    chosen = next((c for c in tied if c.id == resolution.chosen), tied[0])
+    chosen = next((c for c in tied if c.id == resolution.value), tied[0])
     plan.decisions.append(
         ProducerDecision(
             key=ambiguity.key(),
             subject=ambiguity.subject,
             candidates=ambiguity.candidates,
-            # What was built, not what was asked for. Recording `resolution.chosen` here
+            # What was built, not what was asked for. Recording `resolution.value` here
             # would let the record drift from the pipeline again the moment the fallback
             # above fires, which is the defect one level down.
             chosen=chosen.id,
-            reason=resolution.reason,
+            reason=resolution.why,
             confidence=resolution.confidence,
-            resolved_by=resolution.resolved_by,
+            resolved_by=resolution.by,
         )
     )
     # What actually happened, not what happens by default. It read "chosen by id order"
@@ -458,9 +491,9 @@ def _choose(
     # which is the case a reviewer most needs described correctly: the record said the
     # machine shrugged when a person had decided. A33.
     how = (
-        f"chosen by id order ({resolution.resolved_by} did not name a candidate)"
-        if chosen.id != resolution.chosen
-        else f"chosen by {resolution.resolved_by}: {resolution.reason}"
+        f"chosen by id order ({resolution.by} did not name a candidate)"
+        if chosen.id != resolution.value
+        else f"chosen by {resolution.by}: {resolution.why}"
     )
     return (
         chosen,
@@ -473,5 +506,5 @@ def _choose(
         # asks whether the answer was actually taken: crediting a person with a choice the
         # router made instead is the mirror of A8, where a record stated a choice the
         # pipeline did not make.
-        resolution.source if chosen.id == resolution.chosen else ValueSource.RESOLVER,
+        resolution.how if chosen.id == resolution.value else ValueSource.RESOLVER,
     )

@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from comeni_core.review import ValueSource
 from mendel_forge.assemble import scaffold_for
-from mendel_forge.scaffold import Filler
 from mendel_forge.sources import ToolRef
 from mendel_forge.sources.nfcore import NfCoreSource
 from mendel_resolver import layers
@@ -19,29 +19,29 @@ def _scaffold():
 def test_the_process_name_arrives_filled_and_derived():
     filled = _scaffold().filled["nf_process"]
     assert filled.value == "FASTQC"
-    assert filled.filler is Filler.DERIVED
+    assert filled.how is ValueSource.DERIVED
     assert filled.by == "nf-core"
     assert filled.why, "a derived value still has to say why — the evidence locator"
 
 
 def test_semantic_fields_arrive_as_holes():
-    open_fields = {h.field for h in _scaffold().holes}
+    open_fields = {h.subject for h in _scaffold().holes}
     assert "roles" in open_fields
     assert any(f.endswith("type_id") for f in open_fields)
 
 
 def test_every_hole_says_why_it_is_open():
     for hole in _scaffold().holes:
-        assert hole.why_open, f"{hole.field} is open with no stated reason"
+        assert hole.why_open, f"{hole.subject} is open with no stated reason"
 
 
 def test_a_type_id_hole_carries_the_declared_types_as_candidates():
-    hole = next(h for h in _scaffold().holes if h.field.endswith("type_id"))
+    hole = next(h for h in _scaffold().holes if h.subject.endswith("type_id"))
     assert "qc.report" in [c.value for c in hole.candidates]
 
 
 def test_a_hole_carries_the_prose_that_bears_on_it():
-    hole = next(h for h in _scaffold().holes if h.field == "produces[0].type_id")
+    hole = next(h for h in _scaffold().holes if h.subject == "produces[0].type_id")
     assert hole.evidence, "meta.yml's description of the output should reach the hole"
 
 
@@ -65,6 +65,6 @@ def test_a_source_with_no_module_holes_everything_the_module_would_have_given():
     scaffold = scaffold_for(
         obs, layers.load(ROOT / "registry"), ident="opaque/widget", version="1.4.0"
     )
-    open_fields = {h.field for h in scaffold.holes}
+    open_fields = {h.subject for h in scaffold.holes}
     assert "nf_process" in open_fields
     assert "container" not in open_fields, "the container WAS derivable from tool.yml"

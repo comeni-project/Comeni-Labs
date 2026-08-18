@@ -152,6 +152,14 @@ That is the operator's instruction, not a suggestion. Concretely:
   as the default way to write code.
 - **Work in a worktree**, not the main checkout. Plan 1 used `.worktrees/plan-1-spine`; that one
   is merged and removed.
+- **Tick each `- [ ]` step in the plan as it completes** — decided 2026-08-18, and it is a break
+  with what came before. Forge Phase 1 and Phase 2 are both complete and carry **0 of 119** and
+  **0 of 87** boxes ticked, which makes those files indistinguishable from plans that never ran.
+  Tick as you go rather than in a batch at the end. Where a step was carried out *differently*
+  than written, tick it anyway and record the deviation in an execution-record table: a tick
+  means *this step was carried out*, not *the code was pasted verbatim*, and plans here are
+  corrected during execution by design. **Do not back-fill older plans** — ticking a box nobody
+  watched being executed is a claim, not a record.
 - **Execution order lives in `notes/README.md`**, not in the filenames — two plans share
   a date. Plans 1.5–1.12 are complete; **the design audit is next**, then Plan 2, then Plan 3.
   That audit asks a question the four guard rounds never did — whether the design itself
@@ -318,7 +326,7 @@ Violating any of these breaks the product claim, not just a test.
     not one of them. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired a
     model into the forge, and that is the point.
     Each door carries one declared payload type, and
-    **ten** fields across the whole surface may hold free text: `PromptRequest.prompt`,
+    **fourteen** fields across the whole surface may hold free text: `PromptRequest.prompt`,
     `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
     `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
     `axis_reason` on `Why` and `ResolvedValue` plus `ParamDecision.override_reason`.
@@ -338,6 +346,22 @@ Violating any of these breaks the product claim, not just a test.
     it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
     holds is the sort of thing a literal list exists to put in front of somebody, and it has
     now done so five times.
+    **Eleven through fourteen arrived together, with Plan 2.5**, and they are a *refactor*
+    increase of the A16 kind rather than four new kinds of string: `Ambiguity` became a
+    `comeni_core.review.Question`, so `what` and `why_open` — which the forge had carried on
+    every `Hole` since Phase 1 — reach door 2 too, along with `Excerpt.locator` and
+    `Excerpt.text`. They were **let through rather than stripped**, on a measurement: the
+    forge's prompt search took a local model from 69% to 88%, and two of the three fixes
+    behind that were *the question never said what it was about* and *the evidence was not
+    readable*. A door handing a model bare candidates rebuilds the 69% configuration on the
+    build path. `test_the_door_carries_what_the_forge_measured_a_model_needs` holds it, so
+    removing them fails rather than quietly regressing.
+    **`Excerpt` is the first entry that is not an author.** Every other field is composed by
+    somebody; these two are *quoted* — a source file already holds the text and an excerpt
+    copies it. That is a weaker claim than the rest of the list makes, and it is written down
+    because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
+    What bounds it is the source: excerpts come from vendored modules and registry files,
+    which are public, and never from a prompt or a goal.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in
@@ -428,6 +452,7 @@ packages/
   comeni-core/       types, contract schema, pipeline IR, registry     PURE
     declared/          what a registry layer holds, and how it stacks
     goal/              what is asked for, and what was measured
+    review/            what is open, and how it gets closed — Question, Answer
     plan/              what was decided — the IR, the tiers, the records
     artifact/          pipeline.yml, the lockfile, the gates, the doors
     spell/             how a value is spelled on its way to a tool
@@ -440,18 +465,23 @@ packages/
     filler.py          ModelFiller — a model behind the HoleFiller seam
     sources/           the Source protocol, and the nf-core adapter
     cli/  http/         two transports over ops.py; neither holds logic
-  mendel-api/        FastAPI surface                                   impure
+  mendel-api/        FastAPI surface — DOES NOT EXIST YET, Plan 3       impure
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
-frontend/      React + TS + Vite + Tailwind SPA
+frontend/      DOES NOT EXIST YET — Plan 3 creates it. React + TS + Vite + Tailwind
 ```
 
 **The subpackages inside `comeni-core` are a pipeline through the system**, named for the stage
-rather than the type: what is *declared*, what is *asked*, what was *planned*, what is *emitted*,
-and how it is *spelled*. Issue #41 split them out of one flat directory of nineteen modules; the
+rather than the type: what is *declared*, what is *asked*, what is *open*, what was *planned*,
+what is *emitted*, and how it is *spelled*. `review/` is Plan 2.5's, and it is the one stage both
+halves of the system pass through — the forge asks about a contract it is drafting and the
+resolver asks about a pipeline it is building, and until 2026-08-18 those were two vocabularies
+for one idea. **Its base classes are inert**: whether an unanswered question *blocks* lives in
+the container and the port, never on the type. `HoleFiller.fill()` may return `None` and
+`AmbiguityResolver.resolve()` may not, and that is the whole of the difference. Issue #41 split them out of one flat directory of nineteen modules; the
 public surface of `comeni_core` did not change, and `comeni_core.__init__` is what holds it
 stable. `mendel_resolver.rules` and `mendel_compiler.cli` were single modules and became packages
 in the same change — `rules/__init__.py` re-exports, because a package's `__init__` is its own

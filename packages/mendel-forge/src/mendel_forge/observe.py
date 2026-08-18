@@ -8,36 +8,12 @@ job, and keeping the two apart is what lets a second source exist at all.
 
 from typing import Any
 
+# `Excerpt` moved to comeni_core.review.question in Plan 2.5 — a build-path question
+# that quotes its evidence needs the same type. Re-exported so call sites here do not move.
+from comeni_core.review.question import Excerpt
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
-
-
-class Excerpt(BaseModel):
-    """A span of source text and a resolvable pointer to it.
-
-    `locator` is a `file:line` or a URL — never a bare claim. The rule drafter's §3.2
-    makes the same demand of a citation for the same reason: a reviewer approving
-    something is approving that the quoted text supports it, and they cannot do that
-    without the text.
-
-    **A file locator is relative to the root it was read under, never absolute.** An
-    absolute one carries the machine into every draft and every golden file, which is the
-    defect issue #46 found in `digest_of_directory` — and it was a golden file that caught
-    it here too, on the first one written.
-
-    **`text` is weaker than this docstring asks for, today.** The nf-core source sets one
-    excerpt per fact naming the process and the file rather than quoting the line the fact
-    was read from, because `ModuleSpec` records no line numbers. That is enough to find the
-    evidence and not enough to read it without opening the file — a real gap, and the right
-    place to close it is `ModuleSpec`, so that conformance diagnostics gain line numbers at
-    the same time.
-    """
-
-    model_config = _NO_EXTRAS
-
-    locator: str
-    text: str
 
 
 class Fact(BaseModel):

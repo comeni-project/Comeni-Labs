@@ -31,7 +31,7 @@ def test_a_recorded_decision_replays_rather_than_being_re_asked():
     ambiguity = _ambiguity()
     resolver = ReplayResolver([_record(ambiguity)])
     resolution = resolver.resolve(ambiguity)
-    assert resolution.chosen == "b"
+    assert resolution.value == "b"
     assert resolver.replayed == [ambiguity.key()]
 
 
@@ -39,13 +39,13 @@ def test_a_human_override_wins_over_the_original_choice():
     """The whole point of `human_override`: a person disagreed, and that must stick."""
     ambiguity = _ambiguity()
     resolver = ReplayResolver([_record(ambiguity, chosen="b", human_override="a")])
-    assert resolver.resolve(ambiguity).chosen == "a"
+    assert resolver.resolve(ambiguity).value == "a"
 
 
 def test_a_replayed_resolution_says_it_was_replayed():
     ambiguity = _ambiguity()
     resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
-    assert resolution.resolved_by == "replay"
+    assert resolution.by == "replay"
 
 
 def test_a_replayed_reason_is_the_recorded_one_verbatim():
@@ -60,13 +60,13 @@ def test_a_replayed_reason_is_the_recorded_one_verbatim():
     """
     ambiguity = _ambiguity()
     resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
-    assert resolution.reason == "recorded earlier"
+    assert resolution.why == "recorded earlier"
 
 
 def test_an_unrecorded_decision_falls_through_to_the_fallback():
     resolver = ReplayResolver([])
     resolution = resolver.resolve(_ambiguity())
-    assert resolution.resolved_by == "flag-only"
+    assert resolution.by == "flag-only"
     assert resolver.fresh == [_ambiguity().key()]
 
 
@@ -84,7 +84,7 @@ def test_a_record_whose_candidates_changed_is_not_replayed():
     widened = ParamAsked(
         node_id="star_align", subject="aligner", candidates=["a", "b", "c"]
     )
-    assert resolver.resolve(widened).resolved_by == "flag-only"
+    assert resolver.resolve(widened).by == "flag-only"
     assert widened.key() in resolver.stale
     assert widened.key() not in resolver.fresh
 
@@ -92,7 +92,7 @@ def test_a_record_whose_candidates_changed_is_not_replayed():
 def test_a_record_whose_choice_is_no_longer_a_candidate_is_not_replayed():
     ambiguity = _ambiguity()
     resolver = ReplayResolver([_record(ambiguity, chosen="gone")])
-    assert resolver.resolve(ambiguity).resolved_by == "flag-only"
+    assert resolver.resolve(ambiguity).by == "flag-only"
 
 
 def test_a_human_override_that_is_no_longer_a_candidate_is_not_replayed():
@@ -100,14 +100,14 @@ def test_a_human_override_that_is_no_longer_a_candidate_is_not_replayed():
     person's answer to a question that no longer exists is not honouring it."""
     ambiguity = _ambiguity()
     resolver = ReplayResolver([_record(ambiguity, chosen="a", human_override="gone")])
-    assert resolver.resolve(ambiguity).resolved_by == "flag-only"
+    assert resolver.resolve(ambiguity).by == "flag-only"
 
 
 def test_replay_is_deterministic_over_duplicate_keys():
     """Two records for one key is a corrupt bundle. First wins, and it is documented."""
     ambiguity = _ambiguity()
     resolver = ReplayResolver([_record(ambiguity, chosen="a"), _record(ambiguity, chosen="b")])
-    assert resolver.resolve(ambiguity).chosen == "a"
+    assert resolver.resolve(ambiguity).value == "a"
 
 
 def test_no_candidates_still_raises():
@@ -223,7 +223,7 @@ def test_a_stale_record_is_reported_as_stale_rather_than_as_fresh():
     resolver = ReplayResolver([_record(ambiguity)])
     widened = ParamAsked(node_id="star_align", subject="aligner", candidates=["a", "b", "c"])
 
-    assert resolver.resolve(widened).resolved_by == "flag-only"
+    assert resolver.resolve(widened).by == "flag-only"
     assert resolver.stale == [widened.key()]
     assert resolver.replayed == []
     assert resolver.fresh == [], "it was not fresh — there was a record, and it was dropped"
@@ -296,4 +296,4 @@ def test_replay_still_emits_the_recorded_reason_verbatim():
     and federation §4.1 requires an upgraded pipeline to reproduce byte-identical Nextflow."""
     ambiguity = _ambiguity()
     resolution = ReplayResolver([_record(ambiguity)]).resolve(ambiguity)
-    assert resolution.reason == "recorded earlier"
+    assert resolution.why == "recorded earlier"

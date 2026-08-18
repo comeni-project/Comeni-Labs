@@ -57,6 +57,32 @@ FREE_TEXT_FIELDS = {
     # It is listed rather than exempted for the reason the whole list is literal: widening
     # the boundary should mean editing a file that says *these are all the ways data leaves*.
     ("Why", "reason"),
+    # Eleventh through fourteenth, Plan 2.5, and they arrive as a GROUP for one reason:
+    # `Ambiguity` became a `comeni_core.review.Question`, so the four fields the forge had
+    # always carried on a `Hole` now reach door 2 as well. Two are prose and two are the
+    # excerpt they point at.
+    #
+    # **Why they were let through rather than stripped.** The forge measured a local model
+    # re-deriving shipped contracts at 69% and then 88%, and two of the three fixes behind
+    # that were exactly *the question never said what it was about* (`what`) and *the
+    # evidence was a Python repr nobody could read* (`evidence`). Door 2 hands a tier-4
+    # question to a model. Carrying candidates and nothing else would rebuild the measured
+    # 69% configuration on the build path, having already paid to learn it.
+    # `test_the_door_carries_what_the_forge_measured_a_model_needs` is that argument as a
+    # test, so removing them fails rather than silently regressing.
+    ("AmbiguityRequest", "what"),
+    ("AmbiguityRequest", "why_open"),
+    # **`Excerpt` is the first author on this list that is not an author.** Every other entry
+    # is composed by somebody — a user, a contract author, a rule author, the resolver, a
+    # reviewer. These two are *quoted*: a source file already contains the text and an
+    # excerpt copies it, with `locator` naming where. That is a weaker claim than the rest of
+    # the list makes and it is written down rather than assumed, because "it is only quoted"
+    # is exactly the kind of reasoning that widens a boundary without anybody noticing.
+    #
+    # What bounds it is the source: excerpts are read from vendored modules and registry
+    # files, which are public data, and never from a prompt or a goal.
+    ("Excerpt", "locator"),
+    ("Excerpt", "text"),
     # Eighth and ninth, Plan 1.14 Task 5, and they are **one field splitting in two** rather
     # than a new kind of string crossing — the same pattern as A16 turning four `reason`
     # entries into six. `reason` was answering two questions at once: why this decision is
@@ -340,7 +366,7 @@ def test_every_door_declares_an_egress_payload():
 
 
 def test_free_text_lives_only_where_declared():
-    """Seven fields, not two, and not six.
+    """Fourteen fields, not two, and not six, and not ten.
 
     CLAUDE.md said "exactly two" for a plan and a half while this list held four, then six;
     the list is the honest count and the prose is what drifts. Six became seven when
@@ -786,3 +812,25 @@ def test_every_mark_carries_a_validator_or_is_listed_as_a_label():
         "a declared ID alias with no validator is a `str` with a label. Give it one, or add "
         f"it to `marks.LABEL_ONLY` with the reason:\n  {unvalidated}"
     )
+
+
+def test_the_door_carries_what_the_forge_measured_a_model_needs():
+    """Not a shape check — a content one.
+
+    The forge's prompt search (`notes/journal/2026-08-17-prompt-search.md`) measured a local
+    model going from 69% to 88% on three fixes, and two of them were **the question did not
+    say what it was about** and **the evidence was not readable**. Door 2 projects a tier-4
+    question to a model. A door that carries candidates and nothing else rebuilds the 69%
+    configuration on the build path, having already paid to learn it.
+
+    `closed` is here for the third measurement: opening a closed field was the *worst*
+    configuration tested, six points below closing it, so whether the candidate list binds
+    is something the model must be told rather than left to infer.
+    """
+    from comeni_core.artifact.egress import AmbiguityRequest
+
+    for needed in ("what", "why_open", "closed", "evidence"):
+        assert needed in AmbiguityRequest.model_fields, (
+            f"{needed} does not cross door 2, so a tier-4 model call is the configuration "
+            f"the forge measured at 69%"
+        )

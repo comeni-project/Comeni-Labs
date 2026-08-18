@@ -81,10 +81,10 @@ class _PicksLast:
 
     def resolve(self, ambiguity: Ambiguity) -> Resolution:
         return Resolution(
-            chosen=ambiguity.candidates[-1],
-            reason="audit fixture: deliberately not the first candidate",
+            value=ambiguity.candidates[-1],
+            why="audit fixture: deliberately not the first candidate",
             confidence=1.0,
-            resolved_by="audit",
+            by="audit",
         )
 
 
@@ -99,10 +99,10 @@ class _PicksFirst:
 
     def resolve(self, ambiguity: Ambiguity) -> Resolution:
         return Resolution(
-            chosen=ambiguity.candidates[0],
-            reason="audit fixture: deliberately not the last candidate",
+            value=ambiguity.candidates[0],
+            why="audit fixture: deliberately not the last candidate",
             confidence=1.0,
-            resolved_by="audit",
+            by="audit",
         )
 
 
@@ -219,10 +219,10 @@ def test_a_resolver_naming_a_non_candidate_falls_back_rather_than_trusting(tied)
     class _Forges:
         def resolve(self, ambiguity: Ambiguity) -> Resolution:
             return Resolution(
-                chosen="audit/aligner-nonexistent@9.9.9",
-                reason="forged",
+                value="audit/aligner-nonexistent@9.9.9",
+                why="forged",
                 confidence=1.0,
-                resolved_by="audit",
+                by="audit",
             )
 
     registry, rules, measurements, vocabulary = tied
@@ -243,10 +243,10 @@ def test_the_resolver_is_asked_once_per_ambiguity(tied):
         def resolve(self, ambiguity: Ambiguity) -> Resolution:
             self.seen.append(ambiguity.key())
             return Resolution(
-                chosen=ambiguity.candidates[-1],
-                reason="counting",
+                value=ambiguity.candidates[-1],
+                why="counting",
                 confidence=1.0,
-                resolved_by="audit",
+                by="audit",
             )
 
     registry, rules, measurements, vocabulary = tied
@@ -311,7 +311,7 @@ def test_an_edge_record_names_the_edge_that_was_built(two_equally_good_sources):
 
     This exists because the fix introduces the *possibility* of disagreement — the record
     is now written after a `next(...)` that can fall back — and recording
-    `resolution.chosen` instead of `chosen` would reopen on the edge side exactly what A8
+    `resolution.value` instead of `chosen` would reopen on the edge side exactly what A8
     was on the producer side. It is a guard against the next version of this file.
     """
     goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"])

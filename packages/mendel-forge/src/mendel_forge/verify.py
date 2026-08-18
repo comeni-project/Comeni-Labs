@@ -113,7 +113,7 @@ def _load_failure(contract_id: str, message: str, *, code: str) -> Diagnostic:
 def _complete(scaffold: Scaffold) -> Verdict:
     if scaffold.is_complete():
         return Verdict(rung=Rung.COMPLETE)
-    open_fields = sorted(h.field for h in scaffold.holes)
+    open_fields = sorted(h.subject for h in scaffold.holes)
     return Verdict(
         rung=Rung.COMPLETE,
         refused=True,
