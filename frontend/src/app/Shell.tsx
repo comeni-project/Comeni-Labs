@@ -58,7 +58,7 @@ export function Shell() {
 
         <div className="flex gap-[2px]">
           <Tab to="/forge/queue">Queue</Tab>
-          <Soon title="What has landed — phase 4">Contracts</Soon>
+          <Tab to="/forge/contracts">Contracts</Tab>
           <Soon title="Where drafts come from — phase 6">Sources</Soon>
         </div>
 

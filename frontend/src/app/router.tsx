@@ -1,6 +1,8 @@
 import { Navigate, type RouteObject } from "react-router";
 
 import { Question } from "../forge/Question";
+import { Contracts } from "../forge/Contracts";
+import { Module } from "../forge/Module";
 import { Queue } from "../forge/Queue";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
@@ -20,6 +22,10 @@ export const routes: RouteObject[] = [
       { path: "/", element: <Navigate to="/forge/queue" replace /> },
       { path: "/forge/queue", element: <Queue /> },
       { path: "/forge/queue/question/:subject", element: <Question /> },
+      { path: "/forge/contracts", element: <Contracts /> },
+      // `/*` rather than `:id`, because a contract id contains slashes —
+      // `nf-core/samtools/index@1.21.0`. `useParams()["*"]` is the id.
+      { path: "/forge/contracts/*", element: <Module /> },
     ],
   },
 ];
