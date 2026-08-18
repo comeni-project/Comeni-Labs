@@ -105,3 +105,39 @@ def answer_all(*, subject: str, value: Any, why: str, by: str | None) -> Answere
             settled.append(name)
 
     return AnsweredAll(subject=subject, settled=settled, refused=refused)
+
+
+class Proposed(BaseModel):
+    draft: str
+    subject: str
+    still_open: bool
+    """**Always `True`.** A proposal is not a fill — the hole stays open, `is_complete()` is
+    still false and `land` still refuses. It is a field rather than a comment because the UI
+    must not render a declined question as settled."""
+
+
+def propose_one(
+    *, draft: str, subject: str, id: str, description: str, why: str, by: str | None
+) -> Proposed:
+    """Record that nothing declared fits — invariant 7's escape hatch.
+
+    A closed choice with no way to decline forces a wrong answer, which is the defect
+    `notes/specs/2026-08-17-vocabulary-proposals.md` was written about.
+    """
+    if not why.strip():
+        raise ValueError("a proposal needs a reason: a reviewer has only this to judge by")
+    if not description.strip():
+        raise ValueError("a proposal needs a description: an id alone is a name nobody can review")
+
+    result = ops.propose(
+        ops.ProposeRequest(
+            name=draft,
+            field=subject,
+            id=id,
+            description=description,
+            why=why,
+            by=by or default_author(),
+            workspace_root=settings.workspace_root,
+        )
+    )
+    return Proposed(draft=result.name, subject=result.field, still_open=True)

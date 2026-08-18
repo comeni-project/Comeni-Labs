@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from comeni_core.review import Candidate, Excerpt
-from mendel_forge.scaffold import Hole
+from mendel_forge.scaffold import Hole, Proposal
 from pydantic import BaseModel, ConfigDict
 
 
@@ -84,6 +84,9 @@ class OpenQuestion(BaseModel):
     evidence: list[Excerpt]
     suggested: str | None = None
     """What a model answered, when one did. `None` means nobody has."""
+    proposed: Proposal | None = None
+    """Set when somebody declined this question — nothing declared fits, and here is what
+    would. The hole is still open; this is why."""
     changed_at: datetime | None = None
     """When the newest draft asking this last moved. `None` where it is not known.
 
@@ -92,7 +95,11 @@ class OpenQuestion(BaseModel):
 
 
 def question_from_hole(
-    hole: Hole, *, draft: str, changed_at: datetime | None = None
+    hole: Hole,
+    *,
+    draft: str,
+    changed_at: datetime | None = None,
+    proposed: Proposal | None = None,
 ) -> OpenQuestion:
     return OpenQuestion(
         subject=hole.subject,
@@ -104,6 +111,7 @@ def question_from_hole(
         closed=hole.closed,
         evidence=list(hole.evidence),
         changed_at=changed_at,
+        proposed=proposed,
     )
 
 
@@ -130,6 +138,10 @@ def aggregate(questions: list[OpenQuestion]) -> list[OpenQuestion]:
             found.asked_by.extend(q.asked_by)
             if q.changed_at and (found.changed_at is None or q.changed_at > found.changed_at):
                 found.changed_at = q.changed_at
+            # A merged row keeps the first proposal it saw: one draft declining is enough to
+            # say the question was declined, and the row is the question rather than a draft.
+            if found.proposed is None and q.proposed is not None:
+                found.proposed = q.proposed
     for q in merged.values():
         q.asked_by.sort()
     # Ask before Confirm — design §4. `suggested is None` sorts False < True, so an

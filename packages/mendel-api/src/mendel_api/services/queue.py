@@ -66,7 +66,10 @@ def read(
             )
         )
         found += [
-            question_from_hole(h, draft=name, changed_at=shown.changed_at) for h in shown.holes
+            question_from_hole(
+                h, draft=name, changed_at=shown.changed_at, proposed=shown.proposed.get(h.subject)
+            )
+            for h in shown.holes
         ]
 
     total = len(found)
