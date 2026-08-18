@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render as raw, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
+
 import { describe, expect, it } from "vitest";
 
 import type { OpenQuestion } from "./QueueRow";
@@ -16,6 +18,10 @@ const q = (over: Partial<OpenQuestion> = {}): OpenQuestion => ({
   suggested: null,
   ...over,
 });
+
+/** A row links to its question, so it needs router context. Wrapping here rather than
+ *  changing the component: the link is the point — it is what made the row usable. */
+const render = (ui: React.ReactNode) => raw(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("QueueRow", () => {
   it("shows how many drafts ask one question", () => {

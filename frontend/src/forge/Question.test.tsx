@@ -62,6 +62,7 @@ describe("answering one question", () => {
     await userEvent.type(screen.getByLabelText(/reason/i), "trying it");
     await userEvent.click(screen.getByRole("button", { name: /accept/i }));
 
-    await waitFor(() => expect(screen.getByText(/MF0003/)).toBeTruthy());
+    // Twice: in the message the API sent, and in the `forge explain MF0003` hint beside it.
+    await waitFor(() => expect(screen.getAllByText(/MF0003/).length).toBe(2));
   });
 });

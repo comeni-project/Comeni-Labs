@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Queue } from "./Queue";
@@ -29,7 +30,13 @@ describe("the queue, end to end from a response", () => {
       ok: true, json: async () => (String(url).includes("health") ? STRIP : REAL),
     })));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><Queue /></QueryClientProvider>);
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <Queue />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
 
     await waitFor(() => expect(screen.getByText("consumes[0].type_id")).toBeTruthy());
     expect(screen.getByText("roles")).toBeTruthy();

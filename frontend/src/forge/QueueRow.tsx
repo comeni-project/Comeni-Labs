@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 import type { components } from "../api/schema";
 
 export type OpenQuestion = components["schemas"]["OpenQuestion"];
@@ -33,7 +35,12 @@ export function QueueRow({ q }: { q: OpenQuestion }) {
         {n} {n === 1 ? "module" : "modules"}
       </span>
 
-      <a href="#" className="text-body text-pea no-underline">Answer</a>
+      <Link
+        to={`/forge/queue/question/${encodeURIComponent(q.subject)}`}
+        className="text-body text-pea no-underline"
+      >
+        Answer
+      </Link>
     </div>
   );
 }
