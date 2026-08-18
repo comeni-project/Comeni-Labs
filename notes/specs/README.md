@@ -23,6 +23,11 @@ Three kinds live here:
   `2026-08-18-the-shared-question.md` (**Plan 2.5 — one `Question` and one `Answer` shared by the
   forge and the build path, and deliberately NOT one blocking rule**; §3.1 is why the difference
   must stay in the containers and the ports rather than becoming a field), and
+  `2026-08-18-the-interface.md` (**from a viewer to a tool** — written after slice 1 shipped a
+  working backend and a frontend with zero event handlers. Its §1 is an honest inventory of that,
+  §2.1 is the argument for building the foundation before the routes, and every phase states what
+  you can and cannot do at the end of it, because the failure it corrects was a checkpoint that
+  said "the queue on screen" without saying nothing on it worked),
   `2026-08-18-plan-3.md` (**the API and the interface** — written after Plan 2.5 landed and after
   the interface was designed, which is why it could be specific. Its §4 is the substance: what
   must exist underneath for the screens to be true rather than decorative, each entry naming the
