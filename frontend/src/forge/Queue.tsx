@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 
 import { get } from "../api/client";
+import { Controls } from "./Controls";
 import type { components } from "../api/schema";
 import { QueueRow } from "./QueueRow";
 
@@ -68,9 +70,15 @@ function Facets({ questions }: { questions: QueueResponse["questions"] }) {
 export { Health };
 
 export function Queue() {
+  const [params] = useSearchParams();
+  const search = params.toString();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["questions"],
-    queryFn: () => get<QueueResponse>("/questions"),
+    // The URL is part of the key, so changing a control refetches rather than showing the
+    // previous answer under new controls. `useAnswer` invalidates `["questions"]`, which is
+    // a PREFIX of this — TanStack invalidates by prefix, so answering still refreshes every
+    // filtered view. Do not narrow that key.
+    queryKey: ["questions", search],
+    queryFn: () => get<QueueResponse>(`/questions${search ? `?${search}` : ""}`),
   });
 
   return (
@@ -79,16 +87,7 @@ export function Queue() {
       <div className="grid grid-cols-[216px_1fr] overflow-hidden">
         <Facets questions={data?.questions ?? []} />
         <div className="overflow-auto">
-          <div className="flex items-center gap-5 px-6 py-4 border-b border-line-2">
-            <span className="text-body text-ink-2">Sorted by</span>
-            <span className="text-body font-semibold border border-line-2 bg-surface rounded-r px-3 py-1">
-              consequence
-            </span>
-            <span className="ml-auto text-secondary text-ink-3">
-              <span className="font-data">{data?.questions.length ?? 0}</span> rows ·{" "}
-              <span className="font-data">{data?.total ?? 0}</span> questions
-            </span>
-          </div>
+          <Controls rows={data?.questions.length} total={data?.total} />
 
           {isLoading && <p className="p-6 text-ink-3">Reading the workspace…</p>}
           {error && <p className="p-6 text-fault">{String(error)}</p>}
