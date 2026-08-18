@@ -240,8 +240,41 @@ button.
 **"Nothing here fits" is always visible** as an option on a question, never buried — invariant
 7's escape hatch, and a closed choice with no way to decline forces a wrong answer.
 
+**Context is prose, not cards**, and it names who is asking: *"Asked by `samtools/index`,
+`samtools/sort` and `picard/markduplicates` — answering once settles all three."* That sentence
+is the throughput move made visible, and it is what the `answer-all` endpoint exists to honour.
+The first design draft put the same information in a bordered card and it read as clutter.
+
 **The suggestion is marked `MODEL`, explicitly.** Who answered is what a reviewer needs, and a
 model suggestion and a human answer oblige different amounts of trust.
+
+### 4.1c What contracts and drift must carry, from the design
+
+The queue is not the only place an implementation can quietly drop a claim.
+
+**The contracts list distinguishes `unverifiable` from `matching`.** A contract no source could
+re-read is neither drifted nor agreeing, and `CheckResult.skipped`'s own docstring is the reason:
+*a contract nothing checks looks exactly like a contract that agrees.* Slice 1 already got this
+wrong once and was corrected — 12 contracts, 10 checked, and the strip claimed 12 matched.
+
+**The module page is dense on purpose, and read-only stays read-only.** Contracts change through
+the queue (a question) or through drift resolution (a diff you accept), both of which record
+*why*. A free-text edit surface has nowhere to put the reason, and every value carrying a reason
+is the product claim. Its right column is everything that points *at* the module — the tier-3
+rules aiming at its roles, what its inputs come from and its output feeds, what it competes with,
+how many pipelines pin it — and those need two indexes that do not exist yet
+([`2026-08-18-plan-3.md`](2026-08-18-plan-3.md) §4.4, §4.5).
+
+**Drift shows every field checked, not only the one that differs.** Four matching rows and then
+*"11 further fields checked, all matching"*. Without that, *"one field drifted"* is an
+unfalsifiable claim — the reviewer cannot tell a thorough check from a shallow one.
+
+**And drift answers the only question a maintainer really has**: does this change what gets
+built? *"Nothing routes differently — `container` is not read by the router, so every pipeline
+that resolved to this contract still resolves to it."* That verdict is a real computation
+([`2026-08-18-plan-3.md`](2026-08-18-plan-3.md) §4.7) and it must be **derived from the field**
+rather than hardcoded per case, or it is wrong the first time a field is added. A container bump
+and a `type_id` change are wildly different events and the screen must say which this is.
 
 ### 4.2 The mutation pattern
 
