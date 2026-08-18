@@ -38,6 +38,11 @@ Three kinds live here:
   "one review, not two"; approving deliberately bypasses candidate validation, because an
   approved proposal is by definition not among the candidates; and `verify` checks against the
   registry *as this draft would leave it*),
+  `2026-08-18-browsing-contracts.md` (**Plan 3A phase 4** — the contracts list and the module
+  page. Drift status comes from `ops.check` per request cached on the registry digest, with the
+  cold cost at scale stated rather than discovered; `unverifiable` is a facet and never folded
+  into `matching`; and two things are recorded as *absent* rather than faked — pipeline pins,
+  and per-field origin, which is discarded when a draft lands),
   `2026-08-18-plan-3.md` (**the API and the interface** — written after Plan 2.5 landed and after
   the interface was designed, which is why it could be specific. Its §4 is the substance: what
   must exist underneath for the screens to be true rather than decorative, each entry naming the
