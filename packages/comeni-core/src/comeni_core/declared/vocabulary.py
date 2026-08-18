@@ -210,6 +210,25 @@ class Vocabulary(BaseModel):
         """
         return cls.of(stack(layers_of(layers), cls.kind()))
 
+    def with_proposals(self, ids: Iterable[str]) -> "Vocabulary":
+        """This vocabulary plus the types a draft is proposing to add, each stateless.
+
+        **Derived, never mutated** — the same argument as `with_measurements`: the loaded
+        vocabulary is what the registry says, and asking *what if I added these* must not
+        change that for every other caller.
+
+        **A declared type is never overwritten.** Its states are real and a proposal's
+        emptiness is not; silently emptying them would be a very quiet way to break routing.
+
+        States are empty because a new type's states are a separate judgement, and inventing
+        them at approval time would be the reviewer guessing at a second thing while judging
+        the first. `add_states:` is how a later layer extends them — invariant 11.
+        """
+        added = {id: frozenset() for id in ids if id not in self.types}
+        if not added:
+            return self
+        return self.model_copy(update={"types": {**self.types, **added}})
+
     def with_measurements(self, registry: "MeasurementRegistry") -> "Vocabulary":
         """Derive a stateless `measurement.<id>` type per declaration.
 
