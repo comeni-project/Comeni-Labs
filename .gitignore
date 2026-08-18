@@ -41,3 +41,6 @@ frontend/dist/
 # ignored above; this is the path `EnterWorktree` and background agents use, and a
 # `git add -A` will otherwise commit them as embedded-repo gitlinks.
 .claude/worktrees/
+
+# mendel-api local state
+/workspace/
