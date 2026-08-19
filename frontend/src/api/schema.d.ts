@@ -176,6 +176,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The four tiers, and what each is called where a person reads it
+         * @description **The vocabulary, served rather than retyped.**
+         *
+         *     The four names lived in a React file and in `docs/design/dashboard.html` — two copies with
+         *     nothing holding them together, which is exactly the drift `diagnostics.yml` exists to
+         *     prevent. `comeni_core.plan.tiers.TIER_VOCABULARY` is now the single declaration and this is
+         *     how an interface reads it.
+         */
+        get: operations["listTiers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/registry/types/{id}": {
         parameters: {
             query?: never;
@@ -1226,6 +1251,22 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
         };
+        /**
+         * TierCard
+         * @description One tier, as an interface needs to say it.
+         */
+        TierCard: {
+            /** Tier */
+            tier: number;
+            /** Name */
+            name: string;
+            /** Group */
+            group: string;
+            /** What */
+            what: string;
+            /** Colour */
+            colour: string;
+        };
         /** TypeCard */
         TypeCard: {
             /** Id */
@@ -1540,6 +1581,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Strip"];
+                };
+            };
+        };
+    };
+    listTiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TierCard"][];
                 };
             };
         };

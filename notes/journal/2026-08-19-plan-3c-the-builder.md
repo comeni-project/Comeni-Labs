@@ -89,6 +89,63 @@ AI is not in 3C. Stated in the plan up front rather than discovered in phase 7.
 on the design's own gap list. Browsing the registry already has a home in `Tools`, and a second
 catalogue here would be the duplication 3D spent a phase removing.
 
+## What the operator said when they looked, and it is the handoff
+
+Three sessions of review, and the last one reframed the whole thing. Written here in their words
+because a paraphrase would soften it.
+
+> **it should check that your pipeline is also valid AND give you the resolved one, basically the
+> AI can "use" the builder, such as a human would**
+
+**3C built a visualiser and it needs to become a builder.** That is not a polish item. A goal goes
+in, the resolver searches, the canvas draws what it found, and nothing on it can be changed. Galaxy
+is the other thing: you assemble by hand and the tool checks you. The spec is
+[`2026-08-19-the-builder-is-a-builder.md`](../specs/2026-08-19-the-builder-is-a-builder.md) and it
+is **NOT VERIFIED** — written against types that were read, not exercised.
+
+The insight worth keeping: **it is the same knowledge from a different route.** `resolve()`
+searches for edges; a builder is handed edges and asked whether they hold. Every fact a check needs
+is already declared — `produces[].state`, `consumes[].state_required`, `.accepts`, `.cardinality`,
+`producers_of`. What is missing is a verb, not data.
+
+**The entire forge needs testing and general rework.** It has never been used in anger by anybody
+but its author, and 3D's redesign fixed what a walk-through found rather than what a user did.
+Specifically unexamined: the drafting loop end to end with a person who did not write it, whether
+the queue's ordering survives more than eleven questions, and whether `land` does the right thing
+when two drafts touch one tool.
+
+**And a smaller one, recorded so it is not rediscovered:** the forge's `Standing` union in
+`src/forge/standing.ts` hardcodes `drifted | unverifiable | matching | drafted | undrafted`. Those
+are the API's own enum values rather than invented words, so it is not the same defect as the tier
+vocabulary — but the *order* and the display treatment are typed in two places, and that is the
+shape the tier bug had.
+
+## What was wrong with what I built, in the operator's order
+
+1. **Fake affordances.** A module row was `draggable` with an `onDragStart` that set data nothing
+   read. A port had `cursor-crosshair` and an `onStartWire` prop declared and never passed. Both
+   are removed; the module list says *reference only — placeholder* on the screen.
+2. **A dragged node left its wires behind.** The offset was local state and the wires drew from
+   the backend's points, so the graph broke the moment you touched it. Offsets moved up to the
+   builder and the elbow is recomputed from the moved ends.
+3. **The tier names were hardcoded** — `Standard practice`, `Check the premise` — in a React file,
+   with a second copy in `dashboard.html` and nothing holding them together. The operator was
+   right to ask whether the bar was invented. **It was not**: the counts are real and every one
+   traces to a decision. But nothing in the repository agreed those were the words.
+   `comeni_core.plan.tiers.TIER_VOCABULARY` is the single declaration now,
+   `GET /api/registry/tiers` serves it, `useTiers` reads it.
+4. **Five features were cut unilaterally** — the module catalogue, ports, the AI tab, the module
+   card, the settings modal — each written up as a "deliberate deviation" in this plan and this
+   journal. **Recording a unilateral cut is not asking.** All five are restored.
+
+**The operator's own diagnosis, kept because it is the most useful sentence here:**
+
+> you cant be given such a big task with examples or you hyperfocus on delivering something
+> visible and become incredibly dumb
+
+That is what the deviation table shows when read as a whole: every cut was in the direction of
+something demonstrable sooner.
+
 ## What is next
 
 1. **Alignment tuning**, which the operator deferred to after the plan.

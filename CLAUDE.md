@@ -65,7 +65,17 @@ life and are now `GET /api/tools` behind a status board that answers *is everyth
 it lists anything. **Eight words the interface used without defining now have definitions**
 ([`docs/reference/glossary.md`](docs/reference/glossary.md), `?` from anywhere).
 
-**3C — the Mendel builder — is next**, and it is what the landing page's argument depends on: if
+**Plan 3C is COMPLETE as of 2026-08-19**, on `plan-3c-builder`, and it built a **visualiser
+rather than a builder** — which is the handoff. `/build` shows a pipeline the resolver already
+produced: DAG layout computed in Python so the canvas is as deterministic as the emitted `.nf`,
+ports, tier rails, a provenance bar answering *how much was settled without judgement*, and a
+settings card. **Nothing on it can be changed.** The operator's reframing is that it must be a
+Galaxy-style builder — you assemble, it checks you, and it also shows what the resolver would do —
+and `notes/specs/2026-08-19-the-builder-is-a-builder.md` is that spec, **NOT VERIFIED**. The
+insight worth carrying: it is *the same knowledge from a different route*, so nothing new needs
+declaring. **The entire forge also needs testing and general rework**; see the 3C journal.
+
+**3C was the Mendel builder**, and it is what the landing page's argument depends on: if
 3C's half turns out to be a second queue, that page should be cut the way the Overview was.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this

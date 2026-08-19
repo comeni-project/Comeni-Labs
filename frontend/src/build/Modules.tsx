@@ -78,12 +78,17 @@ export function Modules({ inPipeline }: { inPipeline: Set<string> }) {
               key={module.contract_id}
               data-testid="module-row"
               data-in-pipeline={inPipeline.has(module.contract_id) || undefined}
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData("text/plain", module.contract_id)}
+              // **Not draggable, and that is the honest state.** It was `draggable` with an
+              // `onDragStart` that set data nothing read — a control that moves under your hand
+              // and does nothing, which is worse than one that is plainly not offered.
+              //
+              // Dropping a module here has nowhere to go yet: a `Goal` cannot pin a module, so
+              // "add this to the pipeline" is not expressible in the engine today. That is the
+              // builder-versus-visualiser gap — see the spec.
               onMouseEnter={(e) =>
                 setHovered({ module, top: e.currentTarget.offsetTop })
               }
-              className="px-4 py-1.5 flex items-baseline gap-2 cursor-grab active:cursor-grabbing
+              className="px-4 py-1.5 flex items-baseline gap-2 cursor-default
                          hover:bg-surface-2 data-[in-pipeline]:font-semibold"
             >
               <span className="font-data text-body text-ink truncate">{module.tool}</span>
@@ -98,6 +103,10 @@ export function Modules({ inPipeline }: { inPipeline: Set<string> }) {
         </div>
       ))}
       {hovered && <Card module={hovered.module} top={hovered.top} />}
+      <p className="px-4 py-3 text-label text-ink-3 m-0">
+        Reference only — placeholder. Adding a module to a pipeline needs a builder, and this
+        canvas shows what the engine resolved rather than something you assemble.
+      </p>
     </div>
   );
 }

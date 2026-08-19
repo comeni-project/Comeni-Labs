@@ -44,6 +44,13 @@ const PIPELINE = {
   needs_review: ["star_align"],
 };
 
+const TIERS = [
+  { tier: 1, name: "Forced", group: "Forced by inputs", what: "", colour: "pea" },
+  { tier: 2, name: "Convention", group: "Standard practice", what: "", colour: "pea-soft" },
+  { tier: 3, name: "Measured", group: "Check the premise", what: "", colour: "measured" },
+  { tier: 4, name: "Undecided", group: "Needs your decision", what: "", colour: "undecided" },
+];
+
 function at() {
   vi.stubGlobal(
     "fetch",
@@ -51,7 +58,11 @@ function at() {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => (String(url).includes("/modules") ? MODULES : PIPELINE),
+        json: async () => (String(url).includes("/tiers")
+            ? TIERS
+            : String(url).includes("/modules")
+              ? MODULES
+              : PIPELINE),
       }),
     ),
   );
@@ -86,11 +97,16 @@ describe("what the design asked for", () => {
     expect(rows.some((r) => r.textContent?.includes("hisat2/align"))).toBe(true);
   });
 
-  it("makes a module draggable", async () => {
+  it("does not pretend a module can be dragged in", async () => {
+    // **It was `draggable` with an `onDragStart` that set data nothing read** — a control that
+    // moves under your hand and does nothing. A `Goal` cannot pin a module, so *add this to the
+    // pipeline* is not expressible in the engine today; the honest state is a reference list
+    // that says so. The builder-versus-visualiser gap is a spec, not a `draggable` attribute.
     at();
     fireEvent.click(await screen.findByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
-    expect(rows[0].getAttribute("draggable")).toBe("true");
+    expect(rows[0].getAttribute("draggable")).toBeNull();
+    expect(screen.getByText(/reference only — placeholder/i)).toBeTruthy();
   });
 
   it("opens a card beside the panel when a module is hovered", async () => {

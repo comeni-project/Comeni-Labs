@@ -11,6 +11,37 @@ const CORNER = 7;
  * points, not an SVG `d` — how tightly a corner turns is presentation, and computing a path
  * string in the compiler would put rendering in a pure package.
  */
+/** Where a wire runs once its ends have been dragged.
+ *
+ * **This is not layout, and the distinction matters.** `layout.py` decides where every node
+ * belongs and this does not touch that: a drag is a temporary translation a person applies while
+ * looking, and the two endpoints move with their nodes. The elbow is then the design's own rule
+ * applied to the moved ends — vertical, across at the midpoint, vertical — because translating
+ * the original corner points instead would leave a wire bent around a place its node no longer is.
+ *
+ * The alternative was leaving wires where the backend put them, which is what shipped first: a
+ * dragged node detached from every line reaching it, so the graph broke the moment you touched
+ * it. A graph you cannot rearrange is fine; one that lies when you do is not.
+ */
+function moved(wire: Wire, from: Offset, to: Offset): Wire {
+  if (!from.x && !from.y && !to.x && !to.y) return wire;
+  const points = wire.points;
+  const start = { x: points[0].x + from.x, y: points[0].y + from.y };
+  const end = {
+    x: points[points.length - 1].x + to.x,
+    y: points[points.length - 1].y + to.y,
+  };
+  const mid = Math.round((start.y + end.y) / 2);
+  return {
+    ...wire,
+    points:
+      start.x === end.x
+        ? [start, end]
+        : [start, { x: start.x, y: mid }, { x: end.x, y: mid }, end],
+    label_at: { x: Math.round((start.x + end.x) / 2), y: mid - 6 },
+  };
+}
+
 function d(wire: Wire): string {
   const p = wire.points;
   if (p.length < 3) return `M${p[0].x},${p[0].y} L${p[p.length - 1].x},${p[p.length - 1].y}`;
@@ -45,14 +76,19 @@ function d(wire: Wire): string {
  * The stroke says the tier of the step the wire *leaves*, so uncertainty propagates down the
  * graph rather than stopping at the node that introduced it.
  */
+type Offset = { x: number; y: number };
+const STILL: Offset = { x: 0, y: 0 };
+
 export function Wires({
   wires,
   tierOf,
+  offsets,
   width,
   height,
 }: {
   wires: Wire[];
   tierOf: (id: string) => number;
+  offsets: Record<string, Offset>;
   width: number;
   height: number;
 }) {
@@ -63,7 +99,12 @@ export function Wires({
       height={height}
       aria-hidden
     >
-      {wires.map((wire) => {
+      {wires.map((original) => {
+        const wire = moved(
+          original,
+          offsets[original.from_node] ?? STILL,
+          offsets[original.to_node] ?? STILL,
+        );
         const tier = tierOf(wire.from_node);
         return (
           <g key={`${wire.from_node}.${wire.from_port}-${wire.to_node}.${wire.to_port}`}>

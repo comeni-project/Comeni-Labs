@@ -30,6 +30,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer", "post"): "answerQuestion",
         ("/api/visits", "post"): "markVisited",
         ("/api/registry/types/{id}", "get"): "lookupType",
+        # The tier vocabulary, served rather than retyped into an interface.
+        ("/api/registry/tiers", "get"): "listTiers",
         # FastAPI strips the `:path` converter when generating OpenAPI, so this reads
         # `{id}` even though the route is declared `{id:path}` — a contract id has slashes.
         ("/api/contracts/{id}", "get"): "readContract",

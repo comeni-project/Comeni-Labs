@@ -96,6 +96,10 @@ export function Builder() {
   const [selected, setSelected] = useState<string | null>(null);
   const [isolated, setIsolated] = useState<string | null>(null);
   const [carded, setCarded] = useState<string | null>(null);
+  // **Node offsets live here, not in each node.** They were local state, which meant a dragged
+  // node left its wires behind — the graph broke the moment you touched it. The wires read them
+  // too, so both ends of a line move with the box they belong to.
+  const [offsets, setOffsets] = useState<Record<string, { x: number; y: number }>>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["pipeline", "example"],
@@ -200,6 +204,7 @@ export function Builder() {
             <Wires
               wires={data.layout.wires}
               tierOf={(id) => data.layout.nodes.find((n) => n.id === id)?.tier ?? 2}
+              offsets={offsets}
               width={data.layout.width}
               height={data.layout.height}
             />
@@ -213,6 +218,8 @@ export function Builder() {
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
                 onOpenSettings={() => setCarded(placed.id)}
+                offset={offsets[placed.id] ?? { x: 0, y: 0 }}
+                onDrag={(by) => setOffsets((all) => ({ ...all, [placed.id]: by }))}
               />
             ))}
           </>

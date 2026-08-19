@@ -19,6 +19,13 @@ const MODULES = [
     roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "x" },
 ];
 
+const TIERS = [
+  { tier: 1, name: "Forced", group: "Forced by inputs", what: "", colour: "pea" },
+  { tier: 2, name: "Convention", group: "Standard practice", what: "", colour: "pea-soft" },
+  { tier: 3, name: "Measured", group: "Check the premise", what: "", colour: "measured" },
+  { tier: 4, name: "Undecided", group: "Needs your decision", what: "", colour: "undecided" },
+];
+
 function at(body: unknown = PIPELINE) {
   vi.stubGlobal(
     "fetch",
@@ -30,7 +37,11 @@ function at(body: unknown = PIPELINE) {
         // an object; a stub returning the same body for every URL made the picker iterate a
         // pipeline and crash the whole tree, which surfaced as *no rail* rather than as
         // anything about modules.
-        json: async () => (String(url).includes("/modules") ? MODULES : body),
+        json: async () => (String(url).includes("/tiers")
+            ? TIERS
+            : String(url).includes("/modules")
+              ? MODULES
+              : body),
       }),
     ),
   );

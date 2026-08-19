@@ -1,20 +1,20 @@
 import type { components } from "../api/schema";
+import { useTiers } from "./useTiers";
 
 type Built = components["schemas"]["BuiltPipeline"];
 
-/** What each tier is called, in the words a person would use.
+/** The fill for each tier, by **token name from the API** rather than by a table here.
  *
- * **Not "tier 3".** `dashboard.md` §7's copy rule and `CLAUDE.md`'s own table: a tier is a
- * mechanism and a reader needs the consequence. *Check the premise* is what yellow means.
+ * The names come over the wire; only the mapping from a token name to a Tailwind class stays,
+ * because that is a rendering detail and `tokens.css` is where the palette lives.
  */
-const BAND: Record<string, { name: string; fill: string }> = {
-  "1": { name: "Forced by inputs", fill: "bg-pea" },
-  "2": { name: "Standard practice", fill: "bg-pea opacity-[.42]" },
-  "3": { name: "Check the premise", fill: "bg-[var(--measured)]" },
-  "4": { name: "Needs your decision", fill: "bg-[var(--undecided)]" },
+const FILL: Record<string, string> = {
+  pea: "bg-pea",
+  "pea-soft": "bg-pea opacity-[.42]",
+  measured: "bg-[var(--measured)]",
+  undecided: "bg-[var(--undecided)]",
+  "line-2": "bg-line-2",
 };
-
-const ORDER = ["1", "2", "3", "4"];
 
 /** How Mendel decided — **the product thesis compressed into one element** (`dashboard.md` §4).
  *
@@ -35,8 +35,11 @@ export function Provenance({
   isolated: string | null;
   onIsolate: (tier: string | null) => void;
 }) {
+  const words = useTiers();
   const total = Object.values(data.provenance).reduce((a, b) => a + b, 0);
-  const bands = ORDER.filter((tier) => (data.provenance[tier] ?? 0) > 0);
+  const bands = words.tiers
+    .map((card) => String(card.tier))
+    .filter((tier) => (data.provenance[tier] ?? 0) > 0);
   const undecided = data.needs_review.length;
 
   return (
@@ -69,12 +72,12 @@ export function Provenance({
             key={tier}
             data-testid="band"
             data-tier={tier}
-            aria-label={`${data.provenance[tier]} ${BAND[tier].name}`}
-            title={`${data.provenance[tier]} of ${total} — ${BAND[tier].name}`}
+            aria-label={`${data.provenance[tier]} ${words.name(Number(tier))}`}
+            title={`${data.provenance[tier]} of ${total} — ${words.what(Number(tier))}`}
             onClick={() => onIsolate(isolated === tier ? null : tier)}
             style={{ flexGrow: data.provenance[tier] }}
             className={`h-full rounded-[1px] border-0 p-0 cursor-pointer transition-opacity
-                        ${BAND[tier].fill}
+                        ${FILL[words.colour(Number(tier))] ?? ""}
                         ${isolated && isolated !== tier ? "opacity-25" : ""}`}
           />
         ))}
@@ -83,8 +86,8 @@ export function Provenance({
       <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-secondary text-ink-2">
         {bands.map((tier) => (
           <span key={tier} className="flex items-baseline gap-2">
-            <span className={`w-2 h-2 self-center rounded-[1px] ${BAND[tier].fill}`} />
-            <b className="font-data">{data.provenance[tier]}</b> {BAND[tier].name}
+            <span className={`w-2 h-2 self-center rounded-[1px] ${FILL[words.colour(Number(tier))] ?? ""}`} />
+            <b className="font-data">{data.provenance[tier]}</b> {words.name(Number(tier))}
           </span>
         ))}
       </div>

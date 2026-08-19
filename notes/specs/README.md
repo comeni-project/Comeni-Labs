@@ -80,6 +80,13 @@ Three kinds live here:
   **nothing in production ever assigns it** — five `suggested=` hits repo-wide, all in tests.
   §7 orders the work ranking → layout → help, because a denser board over unranked candidates
   only renders an unanswerable question faster.)
+  `2026-08-19-the-builder-is-a-builder.md` (**NOT VERIFIED, and next.** 3C built a visualiser;
+  the operator's reframing is that it must be a Galaxy-style builder — you assemble, it checks,
+  and it also shows what the resolver would do. The insight is that this is **the same knowledge
+  from a different route**: `resolve()` searches for edges, a builder is handed edges and asks
+  whether they hold, and every fact a check needs — `produces[].state`,
+  `consumes[].state_required`, `.accepts`, `.cardinality` — is already declared. It changes
+  nothing about `Goal`, because a builder edits a *pipeline* rather than a question.)
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.

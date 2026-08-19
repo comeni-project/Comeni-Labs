@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import type { components } from "../api/schema";
 import { Port, portX } from "./Port";
 
@@ -35,6 +33,8 @@ export function Node({
   selected,
   onSelect,
   onOpenSettings,
+  offset,
+  onDrag,
 }: {
   placed: Placed;
   step: Step | undefined;
@@ -43,17 +43,21 @@ export function Node({
   selected: boolean;
   onSelect: () => void;
   onOpenSettings?: () => void;
+  offset: { x: number; y: number };
+  onDrag: (by: { x: number; y: number }) => void;
 }) {
-  const [nudge, setNudge] = useState({ x: 0, y: 0 });
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     const sx = e.clientX;
     const sy = e.clientY;
-    const from = nudge;
+    const from = offset;
     const move = (ev: PointerEvent) =>
       // **Divided by the zoom**, or a node at 50% travels twice as far as the cursor.
-      setNudge({ x: from.x + (ev.clientX - sx) / zoom, y: from.y + (ev.clientY - sy) / zoom });
+      // **Reported upward, not kept here.** It was local state, which meant a dragged node left
+      // its wires behind — the graph broke the moment you touched it, which is worse than a
+      // graph you cannot rearrange.
+      onDrag({ x: from.x + (ev.clientX - sx) / zoom, y: from.y + (ev.clientY - sy) / zoom });
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -73,8 +77,8 @@ export function Node({
       onPointerDown={onPointerDown}
       onClick={onSelect}
       style={{
-        left: `${Math.round(placed.x + nudge.x)}px`,
-        top: `${Math.round(placed.y + nudge.y)}px`,
+        left: `${Math.round(placed.x + offset.x)}px`,
+        top: `${Math.round(placed.y + offset.y)}px`,
         width: placed.width,
       }}
       className="absolute flex rounded-r border border-line-2 border-l-0 bg-surface

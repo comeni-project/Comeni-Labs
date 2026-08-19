@@ -1,4 +1,5 @@
 import type { components } from "../api/schema";
+import { useTiers } from "./useTiers";
 
 type Step = components["schemas"]["StepView"];
 type Setting = components["schemas"]["SettingView"];
@@ -9,12 +10,12 @@ type Setting = components["schemas"]["SettingView"];
  * point of the card rather than a nicety: most settings need no attention, and the card says so
  * without hiding them.
  */
-const GROUPS: { tier: number; name: string; open: boolean }[] = [
-  { tier: 4, name: "Needs your decision", open: true },
-  { tier: 3, name: "Check the premise", open: true },
-  { tier: 2, name: "Standard practice", open: false },
-  { tier: 1, name: "Forced by inputs", open: false },
-];
+/** Which groups open by default — `dashboard.md` §5. **The two that need a person.**
+ *
+ * The *order* and the *open* flag are a design decision and stay here; the **names** come from
+ * the API, because they are a vocabulary and this was one of two places retyping it. */
+const OPEN_BY_DEFAULT = new Set([4, 3]);
+const GROUP_ORDER = [4, 3, 2, 1];
 
 const EDGE: Record<number, string> = {
   1: "border-l-pea",
@@ -59,9 +60,12 @@ function Row({ setting }: { setting: Setting }) {
  * somewhere to put the answer — which is the same reason a dragged node does not stay dragged.
  */
 export function Settings({ step, onClose }: { step: Step; onClose: () => void }) {
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    rows: step.settings.filter((setting) => setting.tier === group.tier),
+  const words = useTiers();
+  const groups = GROUP_ORDER.map((tier) => ({
+    tier,
+    name: words.group(tier),
+    open: OPEN_BY_DEFAULT.has(tier),
+    rows: step.settings.filter((setting) => setting.tier === tier),
   })).filter((group) => group.rows.length > 0);
 
   return (

@@ -21,17 +21,20 @@ type PortView = components["schemas"]["PortView"];
  * a permanent legend, which is a lookup with extra steps. Two shapes for two *directions* is not
  * that: direction is not a lookup, it is the thing the shape is.
  *
+ * **A port is not draggable yet, and the cursor no longer says it is.** `cursor-crosshair` and an
+ * `onStartWire` that was declared and never passed promised a drag-to-connect that does not
+ * exist — the design lists it as a gap and this plan did not close it. A promise nothing keeps
+ * costs more than an absence.
+ *
  * **Hover names it on the canvas**, rather than only in a `title`. A native tooltip waits a
  * second, renders outside the design, and cannot be read at a glance while tracing a wire.
  */
 export function Port({
   port,
   x,
-  onStartWire,
 }: {
   port: PortView;
   x: number;
-  onStartWire?: () => void;
 }) {
   const [over, setOver] = useState(false);
   const size = 16;
@@ -47,16 +50,13 @@ export function Port({
       aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${port.type_id}${
         port.met ? "" : " — nothing feeds this"
       }`}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        onStartWire?.();
-      }}
+      onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}
       onFocus={() => setOver(true)}
       onBlur={() => setOver(false)}
       style={{ left: x - size / 2, [inbound ? "top" : "bottom"]: -8 }}
-      className={`absolute w-4 h-4 p-0 border-0 bg-transparent leading-none cursor-crosshair z-10
+      className={`absolute w-4 h-4 p-0 border-0 bg-transparent leading-none cursor-help z-10
                   ${port.met ? "text-ink-3" : "text-[var(--undecided)]"}
                   hover:[&>svg]:scale-125 focus-visible:[&>svg]:scale-125`}
     >
