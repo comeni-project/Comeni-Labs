@@ -36,6 +36,36 @@ nf-core:multiqc
 A reference is `<source>:<tool>`. The bare form is refused (`MF0001`): it is ambiguous the moment
 a second source exists, and a second source is why the ingestion layer is a protocol at all.
 
+### In the interface
+
+`/forge/sources` is the same list with the column that makes it useful — what has been *done*
+with each tool:
+
+| state | means |
+|---|---|
+| `undrafted` | neither drafted nor landed. **This is what you can start**, so it sorts first |
+| `drafted` | a draft in the workspace is about this tool — answer it in the queue |
+| `landed` | a contract with this module key is in the registry |
+
+`drafted` is derived from each draft's `id`, not from its name: a draft called `mydraft` for
+`samtools/faidx` shows against that tool, because the name is a label you chose.
+
+**The version is asked for, never prefilled**, and that is a measurement rather than caution:
+
+| tool | container | contract |
+|---|---|---|
+| `nf-core/multiqc` | `multiqc:1.35--c17fb…` | `@1.35` ✓ |
+| `nf-core/samtools/index` | `htslib_samtools:**1.24**--d697…` | `@**1.21.0**` ✗ |
+| `nf-core/star/align` | `htslib_samtools_star_gawk:ae438e9a…` | `@1.11.0` — **no tag at all** |
+
+Two of the thirteen vendored tools have a container with no version in it, and one shipped
+contract disagrees with the tag it does have. The form shows the container **beside** the field
+as evidence, which is what every other answer in this interface is given. The stakes are lower
+than they look: contracts are pinned by *digest*, not version.
+
+**Drafting onto a name that is taken is refused** — `MF0010`. Before that refusal existed,
+`Workspace.save` replaced every answer, proposal and decision on the draft and said nothing.
+
 ## 2. Draft
 
 ```console
