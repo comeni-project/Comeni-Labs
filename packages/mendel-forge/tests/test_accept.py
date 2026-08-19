@@ -190,3 +190,34 @@ def test_a_field_that_is_not_one_top_level_line_is_refused():
 
     # And the half that must pass, so the refusal is not passing for the wrong reason.
     assert "nf_process: OTHER\n" in land._patch_line(absent, "nf_process", "OTHER")
+
+
+def test_it_refuses_a_registry_that_is_not_a_git_checkout(broken_registry):
+    """The rung phase 5 missed, and the one a container makes normal.
+
+    `broken_registry` copies with `.git` excluded, so this is exactly what an image built by
+    `COPY registry/ ...` holds: the right files and no repository. Before MF0107 this raised a
+    `CalledProcessError` — a 500 with a git traceback where a sentence belongs.
+    """
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    assert not (registry / ".git").exists(), "the fixture now carries a repo — this is vacuous"
+
+    with pytest.raises(ValueError, match="MF0107"):
+        _accept(registry)
+
+
+def test_it_refuses_a_git_pointer_that_resolves_to_nothing(broken_registry):
+    """The shape a bind-mounted submodule has inside a container, and the reason this rung
+    cannot be `(registry / ".git").exists()`.
+
+    Measured: a submodule's `.git` is a FILE reading `gitdir: ../../../.git/worktrees/…`. Copy
+    or mount that directory anywhere else and the file is present while git answers
+    `fatal: not a git repository`. The shortcut was in this plan's first draft and would have
+    made the diagnostic miss the case it exists for.
+    """
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    (registry / ".git").write_text("gitdir: ../../../.git/nowhere/at/all\n")
+    assert (registry / ".git").exists(), "the fixture must LOOK like a checkout"
+
+    with pytest.raises(ValueError, match="MF0107"):
+        _accept(registry)

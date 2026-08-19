@@ -1843,6 +1843,26 @@ MF0106:
     versions of one module — which is what makes a version bump a decision rather than an
     ambiguity, invariant 11. Asking for the module key alone finds nothing, and that is the
     common way here.
+MF0107:
+  emitted_by: forge
+  concern: landing
+  says: "the registry is not a git checkout"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Point `MENDEL_REGISTRY_ROOT` at a git checkout you can write to. In a container that means
+    mounting a CLONE — the registry baked into the image is a copy of the files, and a
+    submodule's `.git` is a pointer that resolves to nothing inside a container.
+  explanation: |
+    Accepting a drift is a commit: it is how a value taken from a source gets a reason, an
+    author and a place in history. A directory of the right files cannot carry any of that,
+    and `git` answers `exit 128` rather than anything a person can act on.
+
+    This is the case a container makes normal rather than exotic, which is why it survived
+    three sibling refusals until one was built. `make dev` clones the registry for exactly
+    this reason: a submodule's `.git` is a FILE holding `gitdir: ../../../.git/worktrees/...`,
+    so it is present inside a bind-mount while every git call fails. The check is
+    `git rev-parse`, not whether `.git` exists.
 MA0001:
   emitted_by: ai
   concern: model-access

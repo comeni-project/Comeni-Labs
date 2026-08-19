@@ -197,6 +197,21 @@ def _refuse_an_unwritable_checkout(registry: Path, branch: str) -> None:
     branch it was handed. Accepting onto a checkout sitting on `main` is fine; accepting
     *into* `main` is not.
     """
+    # **First, because the three below all shell out to git and a non-repository makes every
+    # one of them exit 128.** `git rev-parse`, not `(registry / ".git").exists()`: a submodule's
+    # `.git` is a FILE holding `gitdir: ../../../.git/worktrees/…`, so it is present inside a
+    # bind-mounted container while git resolves it to nothing. Measured, phase 8.
+    try:
+        _git(registry, "rev-parse", "--git-dir")
+    except subprocess.CalledProcessError:
+        raise ValueError(
+            coded("MF0107", f"{registry} is not a git checkout")
+            + "\n  accepting a drift is a commit, and a directory of files cannot carry one"
+            + "\n  point MENDEL_REGISTRY_ROOT at a checkout you can write to — in a container,"
+            " mount a CLONE: a submodule's `.git` is a pointer at a path on the host and it"
+            " resolves to nothing inside the container"
+        ) from None
+
     on = _git(registry, "branch", "--show-current")
     if not on:
         raise ValueError(
