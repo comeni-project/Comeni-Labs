@@ -91,8 +91,18 @@ def _hole(
         subject=field,
         what=what or f"a value for {field}",
         why_open=why,
+        # **`port` reaches the candidates now, not only the evidence.** It has been a parameter
+        # of this function since Phase 2 and was spent entirely on `_evidence_for` — so the one
+        # fact that says which type a hole is about was present at the call site and thrown
+        # away. Alphabetical order was the result: `genome.fasta` sixth of twenty-two for a
+        # port literally called `fa`.
+        #
+        # **`tool=excluding` is one fact used twice, not two that happen to agree.** `excluding`
+        # is the module key of the tool being drafted, which is exactly what the ranking needs
+        # to know which tool is asking — giving the scorer its own parameter would let the two
+        # drift apart silently, and the whole value of signal 3 is that they cannot.
         candidates=candidates.for_field(
-            field, stack, type_id=type_id, excluding=excluding
+            field, stack, type_id=type_id, excluding=excluding, port=port, tool=excluding
         ),
         evidence=_evidence_for(obs, port),
     )

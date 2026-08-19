@@ -27,30 +27,28 @@ def stack() -> Layers:
     return load([ROOT / "registry"])
 
 
-def _holes(stack: Layers) -> list[tuple[str, str, str, tuple[str, ...]]]:
-    """Every port in the registry as `(tool, port_name, true_type, this contract's inputs)`."""
+def _holes(stack: Layers) -> list[tuple[str, str, str]]:
+    """Every port in the registry as `(tool, port_name, true_type)`.
+
+    **No input types.** A fourth signal reading the namespace of what the module consumes was
+    built and deleted: it measured 0 gain, and at draft time every `consumes[N].type_id` is
+    still an open hole, so there is nothing to read. Measuring it here would have measured a
+    condition the forge never runs in.
+    """
     out = []
     for contract in stack.registry.contracts.values():
         tool = contract.id.split("@")[0]
-        inputs = tuple(port.type_id for port in contract.consumes)
-        for port in contract.consumes:
-            out.append((tool, port.name, port.type_id, ()))
-        for port in contract.produces:
-            out.append((tool, port.name, port.type_id, inputs))
+        for port in [*contract.consumes, *contract.produces]:
+            out.append((tool, port.name, port.type_id))
     return out
 
 
 def _top1(stack: Layers) -> tuple[int, int]:
     holes = _holes(stack)
     hit = 0
-    for tool, port, truth, inputs in holes:
+    for tool, port, truth in holes:
         offered = candidates.for_field(
-            "produces[0].type_id",
-            stack,
-            excluding=tool,
-            port=port,
-            tool=tool,
-            input_types=inputs,
+            "produces[0].type_id", stack, excluding=tool, port=port, tool=tool
         )
         if offered and offered[0].value == truth:
             hit += 1

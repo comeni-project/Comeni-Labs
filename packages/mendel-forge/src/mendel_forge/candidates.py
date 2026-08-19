@@ -24,12 +24,7 @@ def _base(field: str) -> str:
     return _INDEX.sub("[]", field)
 
 
-def _fit(
-    type_name: str,
-    port: str | None,
-    tool: str | None,
-    input_types: tuple[str, ...],
-) -> int:
+def _fit(type_name: str, port: str | None, tool: str | None) -> int:
     """How well a declared type fits the port being asked about. Higher is better.
 
     **Arithmetic over declared data, never a model.** Invariant 2 is untouched: this proposes an
@@ -45,19 +40,30 @@ def _fit(
     1. **The port is the type's last segment.** `fa`/`fasta` -> `genome.fasta`, `bam` ->
        `alignment.bam`. Alone this is 63%.
     2. **The port is any segment.** `index` -> `genome.index.star`. Takes it to 73%.
+    2b. **The port abbreviates the last segment.** `fa` -> `genome.fasta`. **This one measures
+       zero on the corpus and is kept anyway**, which needs saying: the corpus is the twelve
+       *landed* contracts, and the case this fixes is a tool that is not landed. Drafting
+       `samtools/faidx` — a real undrafted tool — asks about a port called `fa`, which is an
+       abbreviation rather than a segment, and without this every candidate ties at 0 and
+       alphabetical order returns `alignment.bai`. A corpus of landed tools cannot measure the
+       tools the forge exists to draft, and that limit is the reason for the exception rather
+       than an excuse for it. Two characters minimum, so a one-letter port cannot sweep.
     3. **The tool's own name shares a segment with the type.** This breaks the ambiguity nothing
        else can: a port called `index` is `alignment.bai` on `samtools/index` and
        `genome.index.star` on `star/genomegenerate`, and the *only* thing separating them is
        which tool is being drafted. Signals 1 and 2 alone actively mislead there.
-    4. **The type shares a namespace with something the module consumes.** A tool taking an
-       `alignment.bam` tends to emit another `alignment.*`. Inputs only, and only for outputs —
-       an input cannot be justified by itself.
+    **Two signals were tried and removed, and both are worth recording.**
 
-    **What was tried and is deliberately absent: popularity.** Ranking by how many contracts
-    already carry a type is the obvious fifth signal and it is a trap — it would lift the common
-    types in *every* hole regardless of the question, which is the alphabetical failure with a
-    different sort key. If it is ever added it must take `excluding`, for the reason
-    `_played_by` gives.
+    *The namespace of what the module consumes* — a tool taking an `alignment.bam` tends to emit
+    another `alignment.*` — was implemented, measured at **exactly 0 gain** (25/30 with and
+    without), and deleted. It also could not have worked where it was wanted: at draft time every
+    `consumes[N].type_id` is still an open hole, so there are no input types to read. A signal
+    that is both unmeasurable and zero is a claim the code makes that no test holds.
+
+    *Popularity* — how many contracts already carry a type — is the obvious next one and is Ranking by how many contracts
+    a trap: it would lift the common types in *every* hole regardless of the question, which is
+    the alphabetical failure with a different sort key. If it is ever added it must take
+    `excluding`, for the reason `_played_by` gives.
     """
     if port is None:
         return 0
@@ -67,10 +73,10 @@ def _fit(
         score += 30
     if port in segments:
         score += 20
+    if len(port) >= 2 and segments[-1].startswith(port):
+        score += 25
     if tool and any(segment in tool.split("/") for segment in segments):
         score += 20
-    if any(segments[0] == other.split(".")[0] for other in input_types):
-        score += 10
     return score
 
 
@@ -83,7 +89,6 @@ def for_field(
     excluding: str | None = None,
     port: str | None = None,
     tool: str | None = None,
-    input_types: tuple[str, ...] = (),
 ) -> list[Candidate]:
     base = _base(field)
 
@@ -98,7 +103,7 @@ def for_field(
         # Name is the tiebreak, so the order is total and the forge stays deterministic.
         ranked = sorted(
             stack.vocabulary.types,
-            key=lambda name: (-_fit(name, port, tool, input_types), name),
+            key=lambda name: (-_fit(name, port, tool), name),
         )
         return [
             Candidate(value=name, note=_note("declared type", carried.get(name, ())))

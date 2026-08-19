@@ -284,7 +284,7 @@ The port name is already at the call site — `assemble.py:197` passes `port=off
 `assemble.py:214` passes `port=emit` — and `_hole` uses it **only** for `_evidence_for`. The
 ranking signal is present and discarded.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/mendel-forge/tests/test_hole_ranking.py`:
 
@@ -328,7 +328,7 @@ def test_a_produces_hole_offers_its_own_type_first() -> None:
     assert hole.candidates[0].value == "genome.fasta"
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_hole_ranking.py -v`
 
@@ -340,7 +340,7 @@ and three names in the first draft were wrong: the source method is `ingest` (no
 takes a `ToolRef` and a root (not a string), and `scaffold_for` names its keyword `ident` (not
 `name`). If it still disagrees, read `ops.draft` and correct the test rather than the source.
 
-- [ ] **Step 3: Forward `port` and the two new facts through `_hole`**
+- [x] **Step 3: Forward `port` and the two new facts through `_hole`**
 
 In `packages/mendel-forge/src/mendel_forge/assemble.py`, in `_hole` (line ~71), change the
 `candidates.for_field` call to pass the port through:
@@ -362,7 +362,7 @@ and add `input_types: tuple[str, ...] = ()` to `_hole`'s keyword arguments.
     # happen to agree, and giving the scorer its own would let them drift apart silently.
 ```
 
-- [ ] **Step 4: Pass the consumed types to the `produces` holes**
+- [x] **Step 4: Pass the consumed types to the `produces` holes**
 
 In the `emits` loop (`assemble.py:203-216`), the input types are not yet known — the `consumes`
 type_id holes are still open at draft time. **So `input_types` is empty on a fresh draft and
@@ -378,13 +378,13 @@ Add to the `produces` `_hole` call:
                 ),
 ```
 
-- [ ] **Step 5: Run both tests**
+- [x] **Step 5: Run both tests**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_hole_ranking.py packages/mendel-forge/tests/test_candidate_ranking.py -v`
 
 Expected: both PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-forge/src/mendel_forge/assemble.py packages/mendel-forge/tests/test_hole_ranking.py
@@ -479,6 +479,32 @@ git commit -m "feat(api): write the producer suggested never had"
 - [ ] **Step 2: Record the measured number** in the execution record: top-1 before, after, and
       anything tried and rejected.
 - [ ] **Step 3: Commit**
+
+### Task 1.3 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–3 | yes | The verified `ingest`/`ToolRef`/`ident=` chain worked first time. Test failed with `alignment.bai` — alphabetically first — exactly as predicted. |
+| 4 | **no — the step was deleted** | `input_types` was measured at **0 gain** (25/30 with and without) and is structurally unusable where it was wanted: at draft time every `consumes[N].type_id` is still an open hole, so there is nothing to read. The fact is also `input_names`, not `consumes`. Signal 4 was removed from `_fit` rather than plumbed. |
+| 5 | **no — two runs** | Forwarding `port` did not fix the test. `samtools/faidx` **is not in the registry**, and its port is `fa` — an *abbreviation* of `fasta`, not a segment — so every candidate tied at 0. Added signal 2b, prefix matching. |
+| 6 | yes | |
+
+**A golden file caught it, which is what they are for.** `nf-core-fastqc.scaffold.json` moved and
+was regenerated with `FORGE_GOLDEN=update` and then *read*, as its own docstring demands. What
+reading it showed: `consumes[0]` (port `reads`) now offers `fastq.reads` first, and
+`produces[0..2]` — ports `html`, `zip`, `versions_fastqc` — are unchanged from alphabetical,
+because those names say nothing about a type. **That is the honest shape of this change: it helps
+where the port name carries meaning, does nothing where it does not, and never makes a hole
+worse**, since a tie falls back to exactly today's order. The five misses in 25/30 are all of
+this kind.
+
+**The 2b decision is the interesting one and is deliberately inconsistent with the 1.3.4 one.**
+Both measure 0 on the corpus; one was deleted and one kept. The difference is *why* they measure
+zero: signal 4 has no input to read at draft time and never will, while 2b's case — an undrafted
+tool — is simply absent from a corpus made of landed contracts. **The corpus cannot measure the
+tools the forge exists to draft**, and that is a limit of the measurement rather than a licence
+to add whatever. It is written into the docstring so the next person weighs it rather than
+inherits it.
 
 ---
 
