@@ -20,6 +20,7 @@ from fastapi import FastAPI
 
 from mendel_api.refusals import refusal_handler
 from mendel_api.routes import attention as attention_routes
+from mendel_api.routes import build as build_routes
 from mendel_api.routes import contracts as contracts_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     # router is greedy: a route registered after it returns 200 with the wrong body rather than
     # 404, which cost phase 5 an afternoon. `/tools` has no path parameter and cannot be
     # swallowed, but the ordering rule is cheaper to keep than to rediscover.
+    app.include_router(build_routes.router, prefix="/api")
     app.include_router(tools_routes.router, prefix="/api")
     app.include_router(attention_routes.router, prefix="/api")
     return app

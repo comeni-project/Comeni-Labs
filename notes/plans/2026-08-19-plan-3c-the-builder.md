@@ -365,15 +365,31 @@ should be plumb.
 - Produces: `GET /api/pipeline/example` → the same, built from `examples/rnaseq-goal.yml`, so
   the screen has something to open on before anything can author a goal.
 
-- [ ] **Step 1: Write the failing test** — the example route returns a spine with steps, wires
+- [x] **Step 1: Write the failing test** — the example route returns a spine with steps, wires
       with points, and a provenance count summing to the number of decisions.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Implement**, composing `orchestrate.build` and `layout.of`. Cache on the goal's
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Implement**, composing `orchestrate.build` and `layout.of`. Cache on the goal's
       digest the way `registry.stack()` caches — a resolve is ~0.4s and the 0.5s budget is the
       operator's stated floor.
-- [ ] **Step 4: Add it to `test_every_operation_is_named_by_hand`** — that guard holds a literal
+- [x] **Step 4: Add it to `test_every_operation_is_named_by_hand`** — that guard holds a literal
       list and will refuse until you do.
-- [ ] **Step 5: `make client`, `make verify`, commit.**
+- [x] **Step 5: `make client`, `make verify`, commit.**
+
+### Phase 2 execution record
+
+Carried out as written. Two operations rather than one — `POST /api/pipeline` and
+`GET /api/pipeline/example` — and the literal-list guard refused both until they were added by
+hand, which is the fourth time this plan's ancestors have recorded that guard doing its job.
+
+**`StepView` is not `Step`, deliberately.** A `Step` carries its module digest, its container and
+its include path, none of which a node on a canvas draws; sending them would triple the payload
+for a screen that shows a name and a tier.
+
+**`settled_share` excludes tier 3, and that is the only interesting number here.** The headline
+is *N% settled without judgement*, and a rule matching measured data is not that —
+`CLAUDE.md` calls tier 3 yellow because the machinery worked and the premise still needs
+checking. Counting it as settled would make the bar the one dishonest element on the screen,
+which is precisely the element `dashboard.md` §4 calls "the product thesis compressed".
 
 ---
 

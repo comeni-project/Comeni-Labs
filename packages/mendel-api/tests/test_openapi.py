@@ -44,6 +44,11 @@ def test_every_operation_is_named_by_hand():
         # the same commit as the screens that called them — this list is where that was checked.
         # `POST /sources/draft` survives because drafting is still started from a row.
         ("/api/tools", "get"): "listTools",
+        # **The build path, reachable at last.** `resolve_verbs.run` was argparse-shaped until
+        # Plan 3C phase 0, so no route could exist here at all. `POST` because a `Goal` is a
+        # document — profile, wants, producer pins — and a URL is the wrong place for one.
+        ("/api/pipeline", "post"): "buildPipeline",
+        ("/api/pipeline/example", "get"): "examplePipeline",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",
         ("/api/health", "get"): "liveness",
