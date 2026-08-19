@@ -884,16 +884,39 @@ anything and is harder to read than the one it replaced.
 
 **Files:** Modify `frontend/src/home/Home.tsx`, `home/Standing.tsx`, `services/attention.py`.
 
-- [ ] **Step 1: Re-read the page against the screens that now exist.** Its *Where to go* block
+- [x] **Step 1: Re-read the page against the screens that now exist.** Its *Where to go* block
       names Queue, Contracts and Sources — two of which no longer exist as destinations.
-- [ ] **Step 2: Repoint `attention.py`** at `services/tools.py` so the front door and the board
+- [x] **Step 2: Repoint `attention.py`** at `services/tools.py` so the front door and the board
       cannot disagree about what is open.
-- [ ] **Step 3: Decide whether `Standing` survives** now that the board says the same thing
+- [x] **Step 3: Decide whether `Standing` survives** now that the board says the same thing
       better. If it does not, delete it and its tests — do not leave it rendering a second
       answer to one question.
-- [ ] **Step 4: Look at it in a browser** — both `:5173` and `:80`. **This step is the
+- [x] **Step 4: Look at it in a browser** — both `:5173` and `:80`. **This step is the
       operator's**, and 3B shipped without it.
-- [ ] **Step 5: `make verify`, journal, indexes, commit.**
+- [x] **Step 5: `make verify`, journal, indexes, commit.**
+
+### Phase 6 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1 | yes, and it found two link defects | *Where to go* named three destinations, two of which became redirects in phase 3. And `attention.py` pointed at `/forge/contracts?against=drifted` — a `<Navigate>` redirect replaces the whole location with a **fixed** query, so the filter was discarded and *1 no longer agrees → open* landed on every landed tool. |
+| 2 | **already done in Task 3.2** | `attention.py` was repointed at `tools.board()` when the two listings merged, because reading them separately meant the front door and the board could disagree about how many contracts drifted. |
+| 3 | **decided: narrowed, not deleted** | See below. |
+| 4 | **not done — it is the operator's** | No browser here. What was done is a jsdom render read as copy, which is what found the duplicated undrafted row. It does not cover what only eyes cover. |
+| 5 | yes | exit 0. |
+
+**Step 3 was the real question and the answer was neither of the plan's two.** `Standing` said
+*10 agree with their module · 2 have no source that can re-read them* — now exactly what the
+board says, better, on the screen where you can act on it. Deleting it would have lost the half no
+working screen answers; keeping it would have left the front door as a second, staler copy of the
+board. **It narrowed**: a stranger asks *what does this thing know*, a curator asks *is anything
+wrong*, and the board owns the second now.
+
+**Reading it found one more duplication.** *2 tools nobody has drafted* appeared in *What needs
+you* and again in *What is here* — same number, one screen. The inventory line went; between it
+and a call to act on the same fact, the call wins. `undrawn` therefore has no row today, and that
+is correct: **the strokes serve the content, not the reverse.** Keeping a row alive to exhibit a
+stroke is the legend problem `forge-review.md` cut the port shapes over.
 
 ---
 
