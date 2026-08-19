@@ -11,8 +11,14 @@ from enum import StrEnum
 from mendel_forge import ops
 from pydantic import BaseModel
 
-from mendel_api.questions import Band, OpenQuestion, aggregate, question_from_hole
-from mendel_api.services import visits
+from mendel_api.questions import (
+    Band,
+    OpenQuestion,
+    aggregate,
+    question_from_drift,
+    question_from_hole,
+)
+from mendel_api.services import checked, visits
 from mendel_api.settings import settings
 
 
@@ -34,9 +40,12 @@ class Ordering(StrEnum):
 class QueueResponse(BaseModel):
     questions: list[OpenQuestion]
     total: int
-    """Open questions in the workspace, BEFORE filtering and before collapsing. The list is
-    short because rows collapse and filters narrow; the count must not be, or the queue
-    understates how much work is open."""
+    """Open **work**, BEFORE filtering and before collapsing: questions in the workspace plus
+    drift in the registry. The list is short because rows collapse and filters narrow; the
+    count must not be, or the queue understates how much there is to do.
+
+    **It counted questions only until phase 5**, and this docstring changed with the code
+    rather than after somebody noticed — a count whose meaning moves silently is A71."""
 
 
 def read(
@@ -53,6 +62,10 @@ def read(
     are recomputed from the layer stack rather than stored, so a draft cannot be read
     without the registry it was drafted against.
     """
+    # Drift first, and through the shared digest-cached check rather than a second
+    # `ops.check` — this is the home page, and an uncached sweep is ~0.5s on every request.
+    drifted = [question_from_drift(d) for d in checked.result().drift]
+
     names = ops.list_(ops.ListRequest(workspace_root=settings.workspace_root)).names
 
     found: list[OpenQuestion] = []
@@ -72,11 +85,15 @@ def read(
             for h in shown.holes
         ]
 
-    total = len(found)
+    total = len(found) + len(drifted)
 
     # `None` means this person has never been here, and that must show EVERYTHING. Reading
     # it as "nothing is newer than never" empties the queue for the one reader least able
     # to tell that it is wrong.
+    # **Drift is exempt, deliberately.** Nothing records when a source moved, so a drift row
+    # has no `changed_at` and cannot be filtered by recency — and *changed since my last
+    # visit* is the maintenance filter, which is the case drift IS. Dropping rung 1 out of the
+    # maintenance view would be the wrong half to hide.
     if since_last_visit:
         seen = visits.last(who)
         if seen is not None:
@@ -84,12 +101,19 @@ def read(
 
     if band is not None:
         found = [q for q in found if q.band is band]
+        drifted = [q for q in drifted if q.band is band]
 
-    rows = aggregate(found) if group is Grouping.QUESTION else _by_module(found)
+    # **Drift rows never go through `aggregate()`.** It collapses on subject, and two
+    # contracts drifting on one field are two pieces of work with two values that one accept
+    # cannot settle. They are already in consequence order, being rung 1.
+    rows = drifted + (aggregate(found) if group is Grouping.QUESTION else _by_module(found))
 
     if sort is Ordering.RECENT:
         # `datetime.min` is not timezone-aware and cannot be compared with a stored time, so
-        # rows without a time are partitioned out rather than given a fake one.
+        # rows without a time are partitioned out rather than given a fake one. **Drift rows
+        # have no time either, so `sort=recent` puts them last** — which is the honest answer
+        # to "what moved most recently" rather than a demotion, and it is why consequence is
+        # the default.
         timed = [r for r in rows if r.changed_at is not None]
         untimed = [r for r in rows if r.changed_at is None]
         rows = sorted(timed, key=lambda r: r.changed_at, reverse=True) + untimed

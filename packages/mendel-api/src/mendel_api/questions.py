@@ -16,6 +16,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from comeni_core.review import Candidate, Excerpt
+from mendel_forge.ops import Drift
 from mendel_forge.scaffold import Decision, Hole, Proposal
 from pydantic import BaseModel, ConfigDict
 
@@ -29,6 +30,10 @@ class Band(StrEnum):
     one worth knowing.
     """
 
+    DRIFT = "drift"
+    """A contract that WAS true and now is not. Design §4's first rung, and it outranks a
+    proposal that blocks a landing because it breaks pipelines that already run rather than
+    holding up one that does not exist yet."""
     ROUTING = "routing"
     """Types and roles. A wrong answer routes, silently, and builds a different pipeline."""
     COSMETIC = "cosmetic"
@@ -48,10 +53,16 @@ class Band(StrEnum):
         alphabetical order that reads as a priority. That shipped, and the queue put port
         labels above the fields that decide which pipeline gets built.
 
-        Drift (1) is the design's first rung and has no member yet — it is phase 5. Blocked
-        (2) arrived with phase 3, in the slot that was left for it.
+        Drift (1) arrived with phase 5, into the slot this docstring had been holding for it
+        since phase 0. Blocked (2) arrived with phase 3, the same way.
         """
-        return {Band.BLOCKED: 2, Band.ROUTING: 3, Band.PROSE: 4, Band.COSMETIC: 5}[self]
+        return {
+            Band.DRIFT: 1,
+            Band.BLOCKED: 2,
+            Band.ROUTING: 3,
+            Band.PROSE: 4,
+            Band.COSMETIC: 5,
+        }[self]
 
 
 _COSMETIC_SUFFIXES = (".name",)
@@ -78,8 +89,30 @@ def band_for(subject: str, *, proposal: Proposal | None = None) -> Band:
     return Band.ROUTING
 
 
+class RowKind(StrEnum):
+    """What a row IS, which decides where following it leads.
+
+    One row shape for every kind of work is firm (design §8), and a row still has to know
+    whether it leads to a question or to a contract. Derived nowhere and stored here because
+    it is a fact about the row's origin rather than about its content.
+    """
+
+    QUESTION = "question"
+    DRIFT = "drift"
+
+
 class OpenQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    kind: RowKind = RowKind.QUESTION
+    """Defaulted, so every existing construction is unchanged."""
+    about: str | None = None
+    """The contract a drift row is about. `None` on a question.
+
+    **`asked_by` was NOT reused for this.** Its docstring says *which drafts ask it*, and
+    putting a contract id there would be a lie in a field that already has a meaning, told to
+    save one field — spec §3.4. It would also be found by whoever next reads `aggregate()`.
+    """
 
     subject: str
     what: str
@@ -158,4 +191,33 @@ def aggregate(questions: list[OpenQuestion]) -> list[OpenQuestion]:
     return sorted(
         merged.values(),
         key=lambda q: (q.band.rank, q.suggested is not None, q.subject, q.suggested or ""),
+    )
+
+
+def question_from_drift(found: Drift) -> OpenQuestion:
+    """A drift, as a queue row.
+
+    `candidates` stays empty: a drift is not answered by choosing, and a row offering the
+    source value as a candidate would invite `POST /questions/answer` on a contract that has
+    no draft behind it. Following it leads to `/forge/contracts/:about/drift`, which is the
+    design's *"drift is a state of a contract"* made literal.
+
+    **A conformance drift reads differently from a value drift** and uses the same two
+    fields: `registry_says` is then the diagnostic's summary and `source_says` is its fix, so
+    the row still says what moved and what to do. `Drift.code` is how a reader tells which.
+    """
+    what = found.field or found.code or "this contract"
+    return OpenQuestion(
+        kind=RowKind.DRIFT,
+        about=found.contract_id,
+        subject=f"{found.contract_id}#{found.field or found.code}",
+        what=f"{what} moved" if found.code is None else f"{what}: {found.registry_says}",
+        why_open=(
+            f"the registry says {found.registry_says!r}; the source says {found.source_says!r}"
+        ),
+        band=Band.DRIFT,
+        asked_by=[],
+        candidates=[],
+        closed=False,
+        evidence=[],
     )

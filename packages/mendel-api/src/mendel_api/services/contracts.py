@@ -1,24 +1,16 @@
 """What has landed, and how it stands against its source.
 
-**The check is cached on the registry's digest**, not on a clock. `ops.check` reads every
-vendored module — measured at 0.40s for twelve contracts — which is fine once per registry
-state and not fine per request. A digest key means a changed registry invalidates it and an
-unchanged one never re-reads; a time-based cache would serve a stale answer for exactly as
-long as it was wrong.
-
-**The cold path is what breaks first at scale.** At the 5,800 contracts the design says this
-page must survive, 0.40s becomes roughly three minutes. The fix then is a table the worker
-writes, which the operator's decision on 2026-08-18 deliberately declined for now.
+**The check is cached on the registry's digest**, and that cache moved to
+`services/checked.py` in phase 5 when the queue became a second caller. The argument for it is
+there; what stays here is what a *status* is.
 """
 
 from enum import StrEnum
-from functools import lru_cache
 
-from comeni_core.artifact.digest import digest_of_directory
-from mendel_forge import ops
 from mendel_resolver import layers
 from pydantic import BaseModel
 
+from mendel_api.services import checked
 from mendel_api.settings import settings
 
 
@@ -54,16 +46,15 @@ class Listing(BaseModel):
     every other."""
 
 
-@lru_cache(maxsize=4)
-def _checked(digest: str) -> tuple[frozenset[str], frozenset[str]]:
-    """`(drifted ids, unverifiable ids)` for a registry in this exact state.
+def _standing() -> tuple[frozenset[str], frozenset[str]]:
+    """`(drifted ids, unverifiable ids)` for the registry as it now stands.
 
-    The digest is the argument rather than a global, so `lru_cache` does the invalidation and
-    there is no hand-written expiry to get wrong.
+    **Drifted is either checker.** A contract whose module renamed an `emit:` label breaks
+    emission and has no value drift at all, and it read `matching` until phase 5 — the same
+    class of falsehood as folding `skipped` into `matching`, one checker over. A reader asking
+    *does this still describe its module* does not care which check noticed. Spec §3.5.
     """
-    result = ops.check(
-        ops.CheckRequest(registry_root=settings.registry_root, source_root=settings.source_root)
-    )
+    result = checked.result()
     return frozenset(d.contract_id for d in result.drift), frozenset(result.skipped)
 
 
@@ -82,8 +73,7 @@ def listing(
     source: str | None = None,
 ) -> Listing:
     stack = layers.load([settings.registry_root])
-    digest = str(digest_of_directory(settings.registry_root))
-    drifted, skipped = _checked(digest)
+    drifted, skipped = _standing()
 
     rows = [
         ContractRow(

@@ -7,6 +7,7 @@ grouping that loses which draft asked, a sort that quietly falls back to alphabe
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from mendel_api import questions
 from mendel_api.questions import Band
 from mendel_api.services import queue
 
@@ -100,3 +101,81 @@ def test_a_first_visit_shows_everything_rather_than_nothing(two_drafts, monkeypa
     monkeypatch.setattr("mendel_api.services.queue.visits.last", lambda who: None)
     got = queue.read(since_last_visit=True)
     assert len(got.questions) > 0
+
+
+@pytest.fixture
+def _drifted(monkeypatch, broken_registry_copy):
+    """The real check, over a real registry with a real break in it.
+
+    Not a stubbed `CheckResult`: the thing most likely to be wrong is the projection from a
+    `Drift` to a row, and a hand-built fixture would agree with whatever the projection
+    assumed. `two_drafts` still stands in for the workspace, which is a different half.
+    """
+    from mendel_api.services import checked
+    from mendel_api.settings import settings
+
+    def _point_at(*breaks):
+        registry = None
+        for relative, was, now in breaks:
+            registry = broken_registry_copy(relative, was, now)
+        monkeypatch.setattr(settings, "registry_root", registry)
+        checked._run.cache_clear()
+        return registry
+
+    yield _point_at
+    checked._run.cache_clear()
+
+
+FASTQC = "tools/nf-core/fastqc/fastqc.contract.yml"
+MULTIQC = "tools/nf-core/multiqc/multiqc.contract.yml"
+
+
+def test_a_drifted_contract_is_the_first_row_in_the_queue(two_drafts, _drifted):
+    _drifted((FASTQC, "nf_process: FASTQC", "nf_process: WRONG"))
+
+    rows = queue.read().questions
+    assert rows, "the queue is empty — the fixture did not take"
+    assert rows[0].kind is questions.RowKind.DRIFT
+    assert rows[0].band is Band.DRIFT
+    assert rows[0].about == "nf-core/fastqc@0.12.1"
+    assert "WRONG" in rows[0].why_open and "FASTQC" in rows[0].why_open
+
+
+def test_a_drift_row_is_not_collapsed_with_another_contracts(two_drafts, _drifted):
+    """Two contracts drifting on one field are two pieces of work with two values, and one
+    accept cannot settle both. `aggregate()` collapses on subject, so a drift row's subject
+    carries the contract id — and drift rows do not go through `aggregate()` at all."""
+    _drifted(
+        (FASTQC, "nf_process: FASTQC", "nf_process: WRONG"),
+        (MULTIQC, "nf_process: MULTIQC", "nf_process: ALSOWRONG"),
+    )
+
+    drift_rows = [r for r in queue.read().questions if r.kind is questions.RowKind.DRIFT]
+    assert len({r.about for r in drift_rows}) == 2
+    assert all(r.candidates == [] for r in drift_rows)
+
+
+def test_a_question_row_is_not_about_a_contract(two_drafts):
+    rows = [r for r in queue.read().questions if r.kind is questions.RowKind.QUESTION]
+    assert rows, "no question rows — the workspace fixture is empty"
+    assert all(r.about is None for r in rows)
+
+
+def test_drift_survives_the_since_last_visit_filter(two_drafts, _drifted, monkeypatch):
+    """Nothing records when a source moved, so a drift row has no `changed_at` — and
+    *changed since my last visit* is the maintenance filter, which is exactly the case drift
+    is. Filtering rung 1 out of the maintenance view would hide the wrong half.
+
+    `visits.last` is stubbed rather than reached: it needs Postgres, and CI has none — which
+    phase 1's audit found the hard way. The baseline is *now*, so every question is older
+    than it and only the exemption can put a row in this list.
+    """
+    from mendel_api.services import visits
+
+    monkeypatch.setattr(visits, "last", lambda who: datetime.now(UTC))
+    _drifted((FASTQC, "nf_process: FASTQC", "nf_process: WRONG"))
+
+    rows = queue.read(since_last_visit=True, who="whoever").questions
+    # Two rows, not one: `nf_process` is checked by BOTH checkers, so one edit is a value
+    # drift and MD0101 — the overlap spec §3.1 declares rather than merges away.
+    assert rows and all(r.kind is questions.RowKind.DRIFT for r in rows)

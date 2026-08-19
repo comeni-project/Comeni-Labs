@@ -6,7 +6,7 @@ docstring says a contract nothing checks looks exactly like a contract that agre
 1 shipped that confusion once.
 """
 
-from mendel_api.services import contracts
+from mendel_api.services import checked, contracts
 from mendel_api.services.contracts import Status
 
 
@@ -62,16 +62,22 @@ def test_a_role_filter_uses_the_declared_roles():
 def test_the_check_is_cached_on_the_registry_digest(monkeypatch):
     """0.40s per request is fine once and not fine per keystroke. Keyed on the digest so a
     changed registry invalidates it — a time-based cache would serve a stale answer for
-    exactly as long as it was wrong."""
+    exactly as long as it was wrong.
+
+    **The cache moved to `services/checked.py` in phase 5**, when the queue became a second
+    caller; this test moved with it rather than being deleted. It still reaches a private
+    name to clear it, which couples it to `lru_cache` being the mechanism — worth it, because
+    without clearing it passes or fails depending on what ran before it.
+    """
     calls = []
-    real = contracts.ops.check
+    real = checked.ops.check
 
     def counted(req):
         calls.append(req)
         return real(req)
 
-    monkeypatch.setattr(contracts.ops, "check", counted)
-    contracts._checked.cache_clear()
+    monkeypatch.setattr(checked.ops, "check", counted)
+    checked._run.cache_clear()
 
     contracts.listing()
     contracts.listing()
@@ -93,10 +99,10 @@ def test_a_conformance_failure_is_drift(monkeypatch, broken_registry_copy):
         "tools/nf-core/fastqc/fastqc.contract.yml", "name: zip", "name: nonesuch"
     )
     monkeypatch.setattr(settings, "registry_root", registry)
-    contracts._checked.cache_clear()
+    checked._run.cache_clear()
 
     listing = contracts.listing()
     row = next(r for r in listing.rows if r.id.startswith("nf-core/fastqc"))
     assert row.status is Status.DRIFTED
     assert listing.counts["drifted"] == 1
-    contracts._checked.cache_clear()
+    checked._run.cache_clear()

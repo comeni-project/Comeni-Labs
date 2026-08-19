@@ -343,7 +343,7 @@ export interface components {
          *     one worth knowing.
          * @enum {string}
          */
-        Band: "routing" | "cosmetic" | "prose" | "blocked";
+        Band: "drift" | "routing" | "cosmetic" | "prose" | "blocked";
         /**
          * Candidate
          * @description One thing that may be answered, and where it comes from.
@@ -544,6 +544,10 @@ export interface components {
         };
         /** OpenQuestion */
         OpenQuestion: {
+            /** @default question */
+            kind: components["schemas"]["RowKind"];
+            /** About */
+            about?: string | null;
             /** Subject */
             subject: string;
             /** What */
@@ -666,6 +670,16 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /**
+         * RowKind
+         * @description What a row IS, which decides where following it leads.
+         *
+         *     One row shape for every kind of work is firm (design §8), and a row still has to know
+         *     whether it leads to a question or to a contract. Derived nowhere and stored here because
+         *     it is a fact about the row's origin rather than about its content.
+         * @enum {string}
+         */
+        RowKind: "question" | "drift";
         /**
          * Status
          * @enum {string}
