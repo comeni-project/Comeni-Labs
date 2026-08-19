@@ -227,6 +227,82 @@ fast. Every one of these is fine and none of them should be touched.
 
 ---
 
+## A142 — `diagnostics.yml` is 95KB and parsed at import time · **major**
+
+```python
+# comeni_core/diagnostics.py:104
+REGISTRY: dict[str, DiagnosticSpec] = _load()
+```
+
+Measured:
+
+```
+diagnostics.yml           95 KB
+  pure-python SafeLoader   69.5 ms    <- paid at IMPORT
+  CSafeLoader               4.8 ms    -> 15×
+```
+
+**Every CLI invocation pays it, every test process pays it, every worker start pays it.** The
+`mendel --help` floor is **350ms** on this machine, and a fifth of it is parsing a diagnostics
+catalogue to print a usage string.
+
+A134's one-line fix takes it to 4.8ms without moving the load off import — which is the right
+order, because `REGISTRY` being eager is what makes an undeclared code unrepresentable rather
+than a lazy failure, and that guarantee is worth more than the remaining 4.8ms.
+
+---
+
+## A143 — after the YAML fixes, the next wall is the same structural defect in the filesystem · **moderate**
+
+Profiling the load **with A133 and A134 applied**, the remaining ~23ms is dominated by `pathlib`:
+
+```
+29,600 Path.__init__      over 10 loads   =  ~2,960 Path objects per load, for 39 files
+ 3,360 Path.walk
+ 5,900 _select_from
+```
+
+`stack()` runs once per `DeclaredKind`, so it **re-walks the layer 5–6 times per load** — the same
+scan-per-kind that A133 is about, showing up in the directory traversal rather than in the parse.
+
+This is recorded as its own finding only so the fix is not declared complete when the parse count
+drops: **bucketing once fixes both**, and a fix that memoises the parse without collapsing the
+walk leaves this behind.
+
+---
+
+## A144 — caching a `Layers` is cheap, which is what makes A132 safe · **informational**
+
+```
+   12 contracts    retained  0.2 MB
+ 2000 contracts    retained 10.6 MB   (peak 16.0 MB)
+```
+
+Roughly 5KB per contract, so the design's 5,800 is ~30MB held. A132 proposes keeping one of these
+per registry state; on memory grounds that is free, and it is measured here rather than assumed
+because "cache the whole registry" is exactly the sentence that deserves a number under it.
+
+**One caveat, not measured:** `lru_cache` offers no single-flight, so two concurrent cold requests
+both pay the full load. At 244ms that is a real thundering herd; after the fixes it is ~5ms and
+stops mattering.
+
+---
+
+## A145 — routing does not degrade at scale; loading does · **informational**
+
+```
+mendel build, 12-contract registry     1.47 s
+mendel build, 500-contract registry    5.09 s   of which ~4.3 s is layers.load
+```
+
+The synthetic 500 all produce the same type, so `producers_of` returns 500 candidates and the
+router has to order every one of them — the worst shape available. It costs **under a second**.
+
+The second half of A141's negative result: the resolver is not where the time goes, at any size
+tested.
+
+---
+
 ## What the fixes are worth — measured, not projected
 
 | | `layers.load` |
@@ -242,6 +318,7 @@ Which lands as:
 |---|---|---|
 | a registry-touching request | ~250 ms | **~10 ms** |
 | `mendel build` | 1.47 s | **~0.4 s** |
+| any CLI invocation's floor | 350 ms | **~285 ms** (A142) |
 | the fast test suite | ~3.5 min | **projected well under a minute** |
 | navigating between screens | a refetch every time | **instant** (A137) |
 
@@ -255,8 +332,11 @@ projection rather than stated as a number.
 - **Postgres and the worker.** The database holds two small tables and nothing here touched them.
 - **The frontend bundle** is 357KB (108KB gzipped) and was not investigated; it is a local tool
   loaded once, and A137 is the frontend cost that is paid repeatedly.
-- **Concurrency.** Everything measured is single-request. Sync handlers in a threadpool means two
-  slow requests do not serialise, but nothing here tested that.
+- **Concurrency.** Everything measured is single-request. Sync handlers in a threadpool mean two
+  slow requests do not serialise, but nothing here tested that, and A144 names the single-flight
+  gap a cache introduces.
+- **The CLI beyond its import floor.** `mendel --help` is 350ms and A142 explains a fifth of it;
+  what the remaining ~280ms of import is has not been broken down.
 - **The synthetic registries are homogeneous** — 2000 copies of one contract with distinct ids.
   They stress the loader honestly and do **not** stress routing, which is where a heterogeneous
   registry would differ.

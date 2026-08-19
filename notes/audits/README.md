@@ -20,4 +20,5 @@ is the tool *fast enough to use* — against a budget the operator stated in a s
 second for anything done in a browser, because this is a tool and not a server. Its method is
 measurement rather than revert-and-watch, and its most useful result is a **negative** one:
 the codebase is not full of inefficiency, it has one slow function that everything calls.
-A132–A141, of which A141 is the negative result and is recorded on purpose.
+A132–A145, of which A141, A144 and A145 are negative or supporting results and are
+recorded on purpose.
