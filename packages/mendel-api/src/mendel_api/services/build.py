@@ -16,7 +16,6 @@ expiry to get wrong — the same shape `services/registry.py` uses.
 """
 
 from functools import lru_cache
-from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
@@ -26,10 +25,13 @@ from pydantic import BaseModel
 
 from mendel_api.settings import settings
 
-EXAMPLE = Path("examples/rnaseq-goal.yml")
-"""The five-module RNA-seq spine. **The screen has to open on something** and nothing can author
-a goal until the prompt door exists, which is after #69 — so until then this is what a person
-sees first, and it is a real build rather than a fixture."""
+# The five-module RNA-seq spine. **The screen has to open on something** and nothing can author a
+# goal until the prompt door exists, which is after #69 — so until then this is what a person
+# sees first, and it is a real build rather than a fixture.
+#
+# Its path is `settings.example_goal` and not a constant here: a bare relative path resolves
+# against the process's working directory, which is the repository root under pytest and `/app`
+# in a container. That difference is a 500 that no test in this file could have caught.
 
 
 class Point(BaseModel):
@@ -166,4 +168,4 @@ def of(goal: Goal) -> BuiltPipeline:
 
 def example() -> BuiltPipeline:
     """The spine, from the goal committed in `examples/`."""
-    return of(Goal.model_validate(yaml_strict.load(EXAMPLE)))
+    return of(Goal.model_validate(yaml_strict.load(settings.example_goal)))

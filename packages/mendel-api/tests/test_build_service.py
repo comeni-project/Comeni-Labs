@@ -67,3 +67,32 @@ def test_a_goal_that_names_a_path_is_refused():
     client = TestClient(create_app(), raise_server_exceptions=False)
     sent = client.post("/api/pipeline", json={"have": ["fastq.reads"], "input": "/data/s1.fq"})
     assert sent.status_code == 422
+
+
+def test_every_configured_root_is_absolute_in_the_compose_file():
+    """**The defect checkpoint 1 found, turned into a test.**
+
+    `EXAMPLE` was `Path("examples/rnaseq-goal.yml")` — a bare relative path, resolved against the
+    process's working directory. That is the repository root under pytest and `/app` in a
+    container, so every test here passed and the endpoint answered 500 the first time the stack
+    came up.
+
+    The general form is not *did somebody remember to configure this one*: it is that a service
+    reading a path from settings must be handed an absolute one, and the compose file is where
+    that is decided. A new `MENDEL_*_ROOT` default that nothing overrides will fail here.
+    """
+    import re
+    from pathlib import Path
+
+    from mendel_api.settings import Settings
+
+    compose = (Path(__file__).resolve().parents[3] / "docker-compose.yml").read_text()
+    declared = {
+        f"MENDEL_{name.upper()}"
+        for name, field in Settings.model_fields.items()
+        if field.annotation is Path
+    }
+    for key in sorted(declared):
+        found = re.search(rf"{key}: *(\S+)", compose)
+        assert found, f"{key} is a path setting that docker-compose.yml never sets"
+        assert found.group(1).startswith("/"), f"{key} is relative in the container"

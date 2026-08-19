@@ -433,6 +433,27 @@ _exist_yet` now asserts **zero** disabled destinations, which is the same move `
 test made when 3B built the landing page: a list that reaches zero is an assertion to turn
 around, not one to delete.
 
+### Checkpoint 1 found a defect before anybody looked at a pixel
+
+**`GET /api/pipeline/example` answered 500 in the container and 200 everywhere else.**
+
+`EXAMPLE = Path("examples/rnaseq-goal.yml")` — a bare relative path, resolved against the
+process's working directory. That is the repository root under pytest and `/app` in a container,
+where `examples/` was not even mounted. Eight tests passed over it.
+
+Fixed the way every other root already works: `settings.example_goal`, `MENDEL_EXAMPLE_GOAL` in
+the compose file, and `./examples:/app/examples:ro` beside `vendor`. **Read-only, because it is a
+committed example rather than state.**
+
+**The guard is the general form, not the instance.**
+`test_every_configured_root_is_absolute_in_the_compose_file` reads `Settings.model_fields`, keeps
+every `Path`, and asserts the compose file sets each one to an absolute path. A new
+`MENDEL_*` path default that nothing overrides now fails a test instead of a container. Watched
+failing by making the value relative.
+
+**This is the checkpoint earning itself on the phase where there was nothing to see.** The plan
+justified checkpoints as a design safeguard; the first one paid for itself on plumbing.
+
 ### ▸ CHECKPOINT 1 — stop here
 
 - [ ] **Run `make dev` and hand it over.** Say: *the shell only — drag both panel edges,
