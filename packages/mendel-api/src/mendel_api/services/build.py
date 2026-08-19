@@ -23,6 +23,7 @@ from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel
 
+from mendel_api.services import registry
 from mendel_api.settings import settings
 
 # The five-module RNA-seq spine. **The screen has to open on something** and nothing can author a
@@ -87,6 +88,47 @@ class SettingView(BaseModel):
     cite the STAR paper as the reason HISAT2 was chosen."""
 
 
+class PortView(BaseModel):
+    """One port of a step, as the canvas draws it.
+
+    **A port is a dot** — `dashboard.md` §3, which records that a five-shape family code was
+    removed because *an encoding that needs its legend on screen at all times is a lookup rather
+    than an encoding*. Two channels survive because each is binary and each means something a
+    reader acts on: **hollow** when a required input is unmet, **doubled** when it accepts many.
+    The type is text, on hover.
+    """
+
+    name: str
+    type_id: str
+    side: str
+    """`in` or `out`."""
+    met: bool
+    """False when nothing in this pipeline feeds it — the hollow dot. Always true for an
+    output, which cannot be unmet."""
+
+
+class ModuleView(BaseModel):
+    """A contract the left panel offers, for dragging onto the canvas.
+
+    **Every landed contract, not only the ones in this pipeline.** The first cut of the builder
+    listed the pipeline's own steps, which is a table of contents rather than a picker — you
+    cannot drag a module in from a list that only contains what is already there.
+
+    **There is no description, and the registry has nowhere to put one.** `ModuleContract` has no
+    `summary` field and `priority_because` is empty on all twelve shipped contracts, so the card
+    shows what a contract actually knows: its roles, what it needs, what it makes, and its
+    container. The prose the design's card shows would need a registry schema change — issue #78.
+    """
+
+    contract_id: str
+    tool: str
+    process: str
+    roles: list[str]
+    needs: list[str]
+    makes: list[str]
+    container: str
+
+
 class StepView(BaseModel):
     """One step, as a canvas needs it — **not the whole `Step`.**
 
@@ -100,6 +142,10 @@ class StepView(BaseModel):
     contract_id: str
     tier: int
     reason: str
+    ports: list[PortView]
+    """**Every port, not only the connected ones.** A wire is drawn from the layout; a port is
+    drawn on the node whether anything reaches it or not — an unmet input is exactly the thing a
+    reader needs to see, and it has no wire by definition."""
     settings: list[SettingView]
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
@@ -127,6 +173,31 @@ class BuiltPipeline(BaseModel):
 def _view(built: orchestrate.Built) -> BuiltPipeline:
     placed = layout.of(built.ir)
     by_id = {step.id: step for step in built.pipeline.steps}
+    # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
+    # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
+    # arrives from `params.gtf` — so checking edges alone drew a hollow *unmet* dot on a
+    # perfectly satisfied input, on the one encoding that exists to flag real problems. A
+    # false alarm on it costs more than the signal is worth.
+    fed = {(edge.to_node, edge.to_port) for edge in built.ir.edges}
+    entered = {channel.type_id for channel in built.pipeline.channels}
+
+    def ports_of(node_id: str) -> list[PortView]:
+        step = by_id.get(node_id)
+        if step is None:
+            return []
+        contract = built.layers.registry.get(step.module.contract_id)
+        return [
+            PortView(
+                name=port.name,
+                type_id=port.type_id,
+                side="in",
+                met=(node_id, port.name) in fed or port.type_id in entered,
+            )
+            for port in contract.consumes
+        ] + [
+            PortView(name=port.name, type_id=port.type_id, side="out", met=True)
+            for port in contract.produces
+        ]
 
     steps = [
         StepView(
@@ -135,6 +206,7 @@ def _view(built: orchestrate.Built) -> BuiltPipeline:
             contract_id=by_id[node.id].module.contract_id if node.id in by_id else "",
             tier=node.tier,
             reason=by_id[node.id].why.reason if node.id in by_id else "",
+            ports=ports_of(node.id),
             settings=[
                 SettingView(
                     name=setting.name,
@@ -212,6 +284,30 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
 
 def of(goal: Goal) -> BuiltPipeline:
     return _built(goal.model_dump_json(), str(digest_of_directory(settings.registry_root)))
+
+
+def modules() -> list[ModuleView]:
+    """Every landed contract, for the picker.
+
+    Reads the same cached stack every other service does, so offering the whole registry costs
+    nothing a build was not already paying.
+    """
+    stack = registry.stack()
+    return sorted(
+        (
+            ModuleView(
+                contract_id=contract.id,
+                tool=contract.id.partition("@")[0].partition("/")[2] or contract.id,
+                process=contract.nf_process,
+                roles=list(contract.roles),
+                needs=[port.type_id for port in contract.consumes],
+                makes=[port.type_id for port in contract.produces],
+                container=contract.container,
+            )
+            for contract in stack.registry.all()
+        ),
+        key=lambda module: (module.roles[0] if module.roles else "", module.tool),
+    )
 
 
 def example() -> BuiltPipeline:

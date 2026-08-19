@@ -8,7 +8,7 @@ import { routes } from "../app/router";
 
 const step = (id: string, tier: number) => ({
   id, process: id.toUpperCase(), contract_id: `nf-core/${id}@1.0`,
-  tier, reason: "because", settings: [],
+  tier, reason: "because", ports: [], settings: [],
 });
 const node = (id: string, tier: number, y: number) => ({
   id, rank: 0, order: 0, x: 0, y, width: 232, height: 56, tier,
@@ -34,10 +34,25 @@ const RISKY = {
   needs_review: ["e"],
 };
 
+const MODULES = [
+  { contract_id: "nf-core/star/align@1.11.0", tool: "star/align", process: "STAR_ALIGN",
+    roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "x" },
+];
+
 function at(body: unknown = FIVE) {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }),
+    vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        // **One stub, two shapes.** `/pipeline/modules` answers a list and `/pipeline/example`
+        // an object; a stub returning the same body for every URL made the picker iterate a
+        // pipeline and crash the whole tree, which surfaced as *no rail* rather than as
+        // anything about modules.
+        json: async () => (String(url).includes("/modules") ? MODULES : body),
+      }),
+    ),
   );
   render(
     <QueryClientProvider client={makeClient()}>

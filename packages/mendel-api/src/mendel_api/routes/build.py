@@ -14,7 +14,7 @@ from mendel_resolver.goal import Goal
 
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
-from mendel_api.services.build import BuiltPipeline
+from mendel_api.services.build import BuiltPipeline, ModuleView
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -32,6 +32,22 @@ def example() -> BuiltPipeline:
     goal, not a fixture: if the registry changes underneath it, this changes.
     """
     return service.example()
+
+
+@router.get(
+    "/modules",
+    operation_id="listModules",
+    summary="Every landed contract, for the picker",
+)
+def modules() -> list[ModuleView]:
+    """**Every contract, not only the ones in a pipeline.**
+
+    The builder's left panel is a picker you drag from; a list containing only what is already on
+    the canvas is a table of contents. `GET /tools` answers a different question — *what is the
+    state of everything* — and carries drift, drafts and undrafted tools, none of which can be
+    dragged onto a canvas.
+    """
+    return service.modules()
 
 
 @router.post(

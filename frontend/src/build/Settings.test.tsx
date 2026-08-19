@@ -13,6 +13,7 @@ const STEP = {
   contract_id: "nf-core/star/align@1.11.0",
   tier: 3,
   reason: "a rule matched",
+  ports: [],
   settings: [
     setting("seq_platform", 4, null),
     setting("star_ignore_sjdbgtf", 2, "False"),

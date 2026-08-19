@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { components } from "../api/schema";
+import { Port, portX } from "./Port";
 
 type Placed = components["schemas"]["PlacedNode"];
 type Step = components["schemas"]["StepView"];
@@ -33,6 +34,7 @@ export function Node({
   dim = false,
   selected,
   onSelect,
+  onOpenSettings,
 }: {
   placed: Placed;
   step: Step | undefined;
@@ -40,6 +42,7 @@ export function Node({
   dim?: boolean;
   selected: boolean;
   onSelect: () => void;
+  onOpenSettings?: () => void;
 }) {
   const [nudge, setNudge] = useState({ x: 0, y: 0 });
 
@@ -80,6 +83,19 @@ export function Node({
                  data-[selected]:shadow-[0_0_0_2px_var(--ink)]
                  data-[dim]:opacity-20 transition-[box-shadow,opacity]"
     >
+      {/* Ports sit on the node's edges, spread by the same formula that anchors the wires —
+          so a wire lands on its dot rather than near it. */}
+      {(["in", "out"] as const).map((side) => {
+        const ports = (step?.ports ?? []).filter((port) => port.side === side);
+        return ports.map((port, i) => (
+          <Port
+            key={`${side}.${port.name}`}
+            port={port}
+            x={portX(placed.width, ports.length, i)}
+          />
+        ));
+      })}
+
       <div className={`w-1 shrink-0 rounded-l-r ${RAIL[placed.tier] ?? "bg-line-2"}`} />
       <div className="flex-1 min-w-0 p-[10px]">
         <div className="font-data text-body font-semibold tracking-[-.01em] text-ink truncate">
@@ -90,9 +106,18 @@ export function Node({
         </div>
         {step && step.settings.length > 0 && (
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-secondary text-ink-2">
+            <button
+              data-testid="open-settings"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenSettings?.();
+              }}
+              className="text-secondary text-ink-2 bg-transparent border-0 p-0 cursor-pointer
+                         underline decoration-dotted underline-offset-2 hover:text-ink"
+            >
               {step.settings.length} {step.settings.length === 1 ? "setting" : "settings"}
-            </span>
+            </button>
             {/* **The worst tier among its parameters, on the node.** `dashboard.html` does the
                 same: a step can be settled and still hold a parameter nobody judged, and a
                 reader scanning the canvas has to be able to see that without opening a card. */}

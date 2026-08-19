@@ -7,7 +7,8 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
 import { Node } from "./Node";
-import { Steps } from "./Steps";
+import { LeftPanel } from "./LeftPanel";
+import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Rail } from "./Rail";
@@ -94,6 +95,7 @@ export function Builder() {
   const box = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [isolated, setIsolated] = useState<string | null>(null);
+  const [carded, setCarded] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["pipeline", "example"],
@@ -138,7 +140,7 @@ export function Builder() {
         collapsed={left.collapsed}
         onExpand={() => left.setCollapsed(false)}
       >
-        {data && <Steps data={data} selected={selected} onSelect={setSelected} />}
+        {data && <LeftPanel data={data} selected={selected} onSelect={setSelected} />}
       </Side>
       <Grip
         side="left"
@@ -210,6 +212,7 @@ export function Builder() {
                 dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
+                onOpenSettings={() => setCarded(placed.id)}
               />
             ))}
           </>
@@ -241,6 +244,30 @@ export function Builder() {
         )}
       </Side>
       </div>
+
+      {/* **A modal, opened from the node's own button** — `dashboard.md` §5. The rail's Step tab
+          shows the same card for the selected step; this is the path from the canvas, which is
+          where a person is when they wonder what a step is set to. */}
+      {carded && data && (
+        <div
+          className="fixed inset-0 z-40 flex items-start justify-center pt-[10vh] px-6
+                     bg-[color-mix(in_srgb,var(--ink)_35%,transparent)]"
+          onClick={() => setCarded(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[560px] max-h-[70vh] overflow-auto rounded-r border
+                       border-line bg-surface shadow-[0_4px_16px_var(--shadow)]"
+          >
+            <Settings
+              step={data.steps.find((s) => s.id === carded)!}
+              onClose={() => setCarded(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

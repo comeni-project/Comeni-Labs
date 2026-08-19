@@ -49,6 +49,10 @@ def test_every_operation_is_named_by_hand():
         # document — profile, wants, producer pins — and a URL is the wrong place for one.
         ("/api/pipeline", "post"): "buildPipeline",
         ("/api/pipeline/example", "get"): "examplePipeline",
+        # Every landed contract, for the builder's picker. Distinct from `listTools`, which
+        # answers *what is the state of everything* and carries drafts and undrafted tools —
+        # neither of which can be dragged onto a canvas.
+        ("/api/pipeline/modules", "get"): "listModules",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",
         ("/api/health", "get"): "liveness",

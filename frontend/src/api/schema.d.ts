@@ -285,6 +285,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every landed contract, for the picker
+         * @description **Every contract, not only the ones in a pipeline.**
+         *
+         *     The builder's left panel is a picker you drag from; a list containing only what is already on
+         *     the canvas is a table of contents. `GET /tools` answers a different question — *what is the
+         *     state of everything* — and carries drift, drafts and undrafted tools, none of which can be
+         *     dragged onto a canvas.
+         */
+        get: operations["listModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline": {
         parameters: {
             query?: never;
@@ -836,6 +861,35 @@ export interface components {
             /** Pipeline Pins */
             pipeline_pins?: null;
         };
+        /**
+         * ModuleView
+         * @description A contract the left panel offers, for dragging onto the canvas.
+         *
+         *     **Every landed contract, not only the ones in this pipeline.** The first cut of the builder
+         *     listed the pipeline's own steps, which is a table of contents rather than a picker — you
+         *     cannot drag a module in from a list that only contains what is already there.
+         *
+         *     **There is no description, and the registry has nowhere to put one.** `ModuleContract` has no
+         *     `summary` field and `priority_because` is empty on all twelve shipped contracts, so the card
+         *     shows what a contract actually knows: its roles, what it needs, what it makes, and its
+         *     container. The prose the design's card shows would need a registry schema change — issue #78.
+         */
+        ModuleView: {
+            /** Contract Id */
+            contract_id: string;
+            /** Tool */
+            tool: string;
+            /** Process */
+            process: string;
+            /** Roles */
+            roles: string[];
+            /** Needs */
+            needs: string[];
+            /** Makes */
+            makes: string[];
+            /** Container */
+            container: string;
+        };
         /** OpenQuestion */
         OpenQuestion: {
             /** @default question */
@@ -942,6 +996,26 @@ export interface components {
             name: string;
             /** Type Id */
             type_id: string;
+        };
+        /**
+         * PortView
+         * @description One port of a step, as the canvas draws it.
+         *
+         *     **A port is a dot** — `dashboard.md` §3, which records that a five-shape family code was
+         *     removed because *an encoding that needs its legend on screen at all times is a lookup rather
+         *     than an encoding*. Two channels survive because each is binary and each means something a
+         *     reader acts on: **hollow** when a required input is unmet, **doubled** when it accepts many.
+         *     The type is text, on hover.
+         */
+        PortView: {
+            /** Name */
+            name: string;
+            /** Type Id */
+            type_id: string;
+            /** Side */
+            side: string;
+            /** Met */
+            met: boolean;
         };
         /**
          * Proposal
@@ -1134,6 +1208,8 @@ export interface components {
             tier: number;
             /** Reason */
             reason: string;
+            /** Ports */
+            ports: components["schemas"]["PortView"][];
             /** Settings */
             settings: components["schemas"]["SettingView"][];
         };
@@ -1645,6 +1721,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuiltPipeline"];
+                };
+            };
+        };
+    };
+    listModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleView"][];
                 };
             };
         };

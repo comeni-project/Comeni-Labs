@@ -27,7 +27,7 @@ export function Rail({
   onSelect: (id: string | null) => void;
   onCollapse: () => void;
 }) {
-  const [tab, setTab] = useState<"step" | "review">("review");
+  const [tab, setTab] = useState<"ask" | "step" | "review">("review");
   const step = data.steps.find((s) => s.id === selected);
 
   const open = data.steps.flatMap((s) =>
@@ -39,7 +39,7 @@ export function Rail({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-1 px-3 py-2 border-b border-line">
-        {(["step", "review"] as const).map((one) => (
+        {(["ask", "step", "review"] as const).map((one) => (
           <button
             key={one}
             data-testid={`tab-${one}`}
@@ -50,7 +50,7 @@ export function Rail({
                        data-[active]:text-ink data-[active]:font-semibold
                        data-[active]:shadow-[inset_0_-2px_0_var(--pea)]"
           >
-            {one === "step" ? "Step" : "Review"}
+            {one === "ask" ? "Ask" : one === "step" ? "Step" : "Review"}
             {one === "review" && open.length > 0 && (
               // Hidden at zero — `dashboard.md` §6. A badge showing 0 is a badge that has
               // stopped meaning anything.
@@ -68,6 +68,39 @@ export function Rail({
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
+        {tab === "ask" && (
+          <div data-testid="ask" className="p-4">
+            <p className="text-body text-ink m-0">
+              Describe an analysis and Mendel turns it into a <b className="font-normal">goal</b>
+              {" "}— have, want, samples, organism — which you correct before anything runs.
+            </p>
+            <div className="mt-4 rounded-r border border-dashed border-line-2 p-4">
+              <p className="text-secondary text-ink-2 m-0">
+                {/* **The slot, not the thing.** This is door 1, the prompt door, and it is the
+                    one place in the product where free text enters. It is deliberately not wired:
+                    the interface spec says AI is not in 3C, and #69 comes first. The tab exists
+                    because the design has three and because a rail that gains a tab later moves
+                    everything a person had learned the position of. */}
+                Not wired yet. The prompt door is the first of Mendel&rsquo;s three AI points and
+                it opens after{" "}
+                <a
+                  href="https://github.com/comeni-project/Comeni-Labs/issues/69"
+                  className="text-pea"
+                >
+                  #69
+                </a>
+                .
+              </p>
+              <p className="text-secondary text-ink-3 mt-3 mb-0">
+                What arrives here is an <b className="font-normal text-ink-2">editable goal
+                card</b>, never a chat bubble — the model&rsquo;s only job is prose to typed goal,
+                and rendering it as conversation would hide the seam that makes the answer
+                checkable.
+              </p>
+            </div>
+          </div>
+        )}
+
         {tab === "step" &&
           (step ? (
             <Settings step={step} onClose={() => onSelect(null)} />

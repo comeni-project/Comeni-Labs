@@ -14,10 +14,25 @@ const PIPELINE = {
   needs_review: [],
 };
 
+const MODULES = [
+  { contract_id: "nf-core/star/align@1.11.0", tool: "star/align", process: "STAR_ALIGN",
+    roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "x" },
+];
+
 function at(body: unknown = PIPELINE) {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }),
+    vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        // **One stub, two shapes.** `/pipeline/modules` answers a list and `/pipeline/example`
+        // an object; a stub returning the same body for every URL made the picker iterate a
+        // pipeline and crash the whole tree, which surfaced as *no rail* rather than as
+        // anything about modules.
+        json: async () => (String(url).includes("/modules") ? MODULES : body),
+      }),
+    ),
   );
   render(
     <QueryClientProvider client={makeClient()}>
