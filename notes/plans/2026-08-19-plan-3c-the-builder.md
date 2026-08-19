@@ -278,7 +278,7 @@ two branches.
 - **Coordinates are integers**, so a golden file compares exactly and no float formatting can
   drift between machines.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """Where the boxes go.
@@ -310,15 +310,47 @@ def test_nothing_overlaps(spine_ir):
     ...
 ```
 
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Implement.** Longest-path layering for columns, then order within a column to
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Implement.** Longest-path layering for columns, then order within a column to
       reduce crossings (median heuristic, two passes — sufficient for a spine, and say so in the
       docstring rather than implying more).
-- [ ] **Step 4: Wire routing.** Orthogonal, down-across-down, **7px corners** — `dashboard.md`
+- [x] **Step 4: Wire routing.** Orthogonal, down-across-down, **7px corners** — `dashboard.md`
       §4's reason is crossings, and it must be quoted in the docstring so a later refactor to
       beziers has to argue with it.
-- [ ] **Step 5: Golden file, read not just regenerated.**
-- [ ] **Step 6: `make verify`, commit.**
+- [x] **Step 5: Golden file, read not just regenerated.**
+- [x] **Step 6: `make verify`, commit.**
+
+### Phase 1 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | Eight tests, watched failing on the missing module. |
+| 3 | **no — the graph flows the other way** | See below. |
+| 4 | yes, to the pixel | `NW = 232`, column pitch 338 from the design's two hand-placed nodes, `CR = 7`, `portX(count, i) = NW * (i+1)/(count+1)` — all read out of `dashboard.html` rather than chosen. |
+| 5 | yes, and it earned itself twice | See below. |
+| 6 | yes | 1412 passed. |
+
+**The graph flows DOWNWARD, and this plan assumed sideways.** `dashboard.html`'s `elbow()` routes
+vertical → horizontal at the midpoint → vertical, and its two hand-placed nodes share `top:6` at
+different `left`. **Every structural assertion in the test file would have passed on a sideways
+graph** — "a producer is left of its consumer" is as satisfiable as "above". The design is the
+only thing that said which way is down, which is the concrete argument for the plan's standing
+instruction to read it.
+
+**Reading the golden file found two defects no test had.**
+
+1. **Ordering is not placement.** With `x = order * COL_PITCH` every rank began at zero, so
+   `star_align` — the node both roots converge on — hung at the left edge while a feeder sat
+   338px away and its wire crossed the whole graph. `_x_of` now centres a node on the median of
+   its feeders and packs collisions at pitch: Sugiyama's fourth step, in the smallest honest form.
+2. **A bare median picks the upper of two**, so the fix half-worked: `star_align` moved to sit
+   directly *under* `trimgalore`. Averaging the middle two puts it between them at x=169, with
+   both feeder runs matched. Both are now tests, because both looked fine until the numbers were
+   read out.
+
+**And a third: a straight drop was emitting four points**, two of them identical, which hands the
+renderer a zero-length segment to round — a 7px corner becoming a visible nick in a wire that
+should be plumb.
 
 ---
 

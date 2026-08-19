@@ -1,0 +1,132 @@
+{
+  "nodes": [
+    {
+      "id": "star_genomegenerate",
+      "rank": 0,
+      "order": 0,
+      "x": 0,
+      "y": 0,
+      "w": 232,
+      "h": 56,
+      "tier": 2
+    },
+    {
+      "id": "trimgalore",
+      "rank": 0,
+      "order": 1,
+      "x": 338,
+      "y": 0,
+      "w": 232,
+      "h": 56,
+      "tier": 2
+    },
+    {
+      "id": "star_align",
+      "rank": 1,
+      "order": 0,
+      "x": 169,
+      "y": 128,
+      "w": 232,
+      "h": 78,
+      "tier": 3
+    },
+    {
+      "id": "samtools_sort",
+      "rank": 2,
+      "order": 0,
+      "x": 169,
+      "y": 278,
+      "w": 232,
+      "h": 56,
+      "tier": 2
+    },
+    {
+      "id": "subread_featurecounts",
+      "rank": 3,
+      "order": 0,
+      "x": 169,
+      "y": 406,
+      "w": 232,
+      "h": 56,
+      "tier": 2
+    }
+  ],
+  "wires": [
+    {
+      "from": "samtools_sort.bam",
+      "to": "subread_featurecounts.bam",
+      "type": "alignment.bam",
+      "points": [
+        [
+          285,
+          334
+        ],
+        [
+          285,
+          406
+        ]
+      ]
+    },
+    {
+      "from": "star_align.bam",
+      "to": "samtools_sort.bam",
+      "type": "alignment.bam",
+      "points": [
+        [
+          285,
+          206
+        ],
+        [
+          285,
+          278
+        ]
+      ]
+    },
+    {
+      "from": "star_genomegenerate.index",
+      "to": "star_align.index",
+      "type": "genome.index.star",
+      "points": [
+        [
+          116,
+          56
+        ],
+        [
+          116,
+          92
+        ],
+        [
+          246,
+          92
+        ],
+        [
+          246,
+          128
+        ]
+      ]
+    },
+    {
+      "from": "trimgalore.reads",
+      "to": "star_align.reads",
+      "type": "fastq.reads",
+      "points": [
+        [
+          454,
+          56
+        ],
+        [
+          454,
+          92
+        ],
+        [
+          324,
+          92
+        ],
+        [
+          324,
+          128
+        ]
+      ]
+    }
+  ]
+}
