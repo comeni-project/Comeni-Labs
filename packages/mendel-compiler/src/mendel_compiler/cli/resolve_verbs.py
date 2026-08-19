@@ -19,14 +19,12 @@ from pathlib import Path
 import yaml
 from comeni_core import yaml_strict
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.declared.layer import layer_name
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
-from mendel_resolver.resolve import resolve
 from mendel_resolver.router import UnroutableError
 
-from mendel_compiler import conformance, pipeline_file
+from mendel_compiler import orchestrate, pipeline_file
 from mendel_compiler.cli.artifact_verbs import _refuse_a_divergent_directory
 from mendel_compiler.cli.report import (
     _displacement_line,
@@ -43,31 +41,21 @@ def run(args, parser) -> int:
     the usage line and exits 2, which is argparse's contract with the user. Building a second
     parser here to call `error` on would be a second usage string, and two would drift.
     """
-    loaded = layers.load(args.registry or [args.root / "registry"])
-    vocab, registry, rules = loaded.vocabulary, loaded.registry, loaded.rules
+    roots = args.registry or [args.root / "registry"]
+    loaded = layers.load(roots)
+    # **Only the registry survives here.** `vocabulary` and `rules` went with the resolve into
+    # `orchestrate.build`; what the CLI still needs a registry for is `profile`, which reads the
+    # ports of the contracts the IR actually chose. Ruff catching the other two unused is the
+    # extraction being real rather than a re-export.
+    registry = loaded.registry
 
-    # Conformance: does each contract tell the truth about its module? `-stub-run` cannot
-    # answer this — nf-core stubs never read their inputs, so a process handed an empty
-    # tuple where a genome belongs is exactly as green as one handed a genome.
-    #
-    # `args.root / "vendor"` is the module *source*, not `nf_include`'s prefix. `nf_include`
-    # says where a module lands in the generated pipeline; these are deliberately not the
-    # same path.
-    diagnostics = conformance.check(
-        registry, args.root / "vendor", measurements=loaded.measurements
-    )
-    unverified = [d.where for d in diagnostics if d.code == "MD0100"]
-    blocking = [d for d in diagnostics if d.code != "MD0100"]
-    for diagnostic in diagnostics:
+    # **Reported here, refused in the seam.** Every diagnostic is printed including the
+    # non-blocking `MD0100`s — a reader wants to know which contracts could not be re-read even
+    # when the build proceeds — and then `orchestrate.build` raises on the blocking ones. The
+    # printing is a transport's job and the refusal is not, which is the whole split phase 0
+    # made: an HTTP caller needs the same no as a value, not as stderr and an exit code.
+    for diagnostic in orchestrate.diagnostics_for(roots, args.root / "vendor"):
         print(diagnostic.render(), file=sys.stderr)
-    if blocking:
-        print(
-            f"\nmendel: {len(blocking)} contract(s) disagree with their modules. "
-            f"Nothing was emitted.\n"
-            f"`mendel explain {blocking[0].code}` for the long form.",
-            file=sys.stderr,
-        )
-        return 2
 
     previous: Pipeline | None = None
     resolver = None
@@ -133,19 +121,22 @@ def run(args, parser) -> int:
         # this point for any verb. Doing it here as well would mean `build` was checked
         # twice and `upgrade` once, which is how the gap opened. Audit 2026-08-06, A2.
 
-    ir = resolve(
-        goal,
-        registry,
-        rules,
-        loaded.measurements,
-        vocabulary=vocab,
-        resolver=resolver,
-        layer_names=[layer_name(p) for p in loaded.paths],
-        prior=prior,
-    )
-    ir.unverified = unverified
-
-    pipeline = Pipeline.of(ir, registry, vocab, loaded.measurements, loaded.paths, goal=goal)
+    try:
+        built = orchestrate.build(
+            goal,
+            registry_roots=roots,
+            vendor_root=args.root / "vendor",
+            prior=prior,
+            resolver=resolver,
+        )
+    except orchestrate.ConformanceRefused as refused:
+        print(
+            f"\nmendel: {refused}\n"
+            f"`mendel explain {refused.blocking[0].code}` for the long form.",
+            file=sys.stderr,
+        )
+        return 2
+    ir, pipeline = built.ir, built.pipeline
 
     # **Before anything is written.** A refused upgrade must leave nothing behind — A4's
     # posture, and `MD0203` is a refusal — and reporting after the write meant an orphaned

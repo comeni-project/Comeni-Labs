@@ -113,7 +113,7 @@ written."* **This is a lift, not a rewrite.**
 - **Takes roots, returns objects, writes nothing.** The CLI keeps every path decision and every
   byte written; the API gets the half that has no filesystem in it.
 
-- [ ] **Step 1: Write the failing test — the seam produces what the CLI produces**
+- [x] **Step 1: Write the failing test — the seam produces what the CLI produces**
 
 Create `packages/mendel-compiler/tests/test_orchestrate.py`:
 
@@ -174,7 +174,7 @@ def test_the_seam_and_the_cli_agree_byte_for_byte(tmp_path):
     assert (seam / pipeline_file.FILENAME).read_text() == from_cli
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_orchestrate.py -v`
 Expected: `ModuleNotFoundError: mendel_compiler.orchestrate`.
@@ -186,7 +186,7 @@ point and its `__main__.py` exists precisely so tests can subprocess it — the 
 `mendel` points at `main` directly and never reaches it. Written against `resolve_verbs.py` at
 `1a88867`.
 
-- [ ] **Step 3: Lift the core into `orchestrate.py`**
+- [x] **Step 3: Lift the core into `orchestrate.py`**
 
 Move the block that loads layers, builds the registry, resolves and constructs the `Pipeline` —
 `resolve_verbs.py` lines ~46–150 minus every `args.*` reference — into `orchestrate.build()`.
@@ -214,19 +214,42 @@ runs a tool.
 """
 ```
 
-- [ ] **Step 4: Make the CLI call it**
+- [x] **Step 4: Make the CLI call it**
 
 `resolve_verbs.run` now parses `args`, calls `orchestrate.build(...)`, and writes. Its length
 should fall by roughly half.
 
-- [ ] **Step 5: Run the byte-identity test, then `make verify`**
+- [x] **Step 5: Run the byte-identity test, then `make verify`**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_orchestrate.py -v` then
 `make verify > /tmp/v.log 2>&1; echo $?` — **unpiped**.
 
 Expected: both pass. **A changed golden file here is a defect, not a golden to regenerate.**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
+
+### Phase 0 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | Failed on the missing module, as predicted. |
+| 3 | yes, and the lift claim held | The core moved unchanged. What did **not** move: conformance *printing*. It printed every diagnostic and returned 2, which is a transport's way of saying no; an HTTP caller needs the same refusal as a value. `ConformanceRefused` is a `ValueError`, which `mendel-api` already maps to a coded 422, so one raise serves both without either knowing about the other. `diagnostics_for()` exposes the check so the CLI can still print the non-blocking `MD0100`s before the seam decides. |
+| 4 | yes, and ruff proved it | `vocab` and `rules` became unused in the CLI the moment the resolve left. That is the extraction being real rather than a re-export, and it is worth more than the line count. |
+| 5 | **two runs** | See both findings below. |
+| 6 | yes | |
+
+**The first byte-identity run failed, and the diff was the best possible news.** 540 lines
+agreed and only `emitted:` did not — the CLI's was stamped, the seam's was `null`.
+`pipeline_file.stamp` digests the files **on disk**, so it is inherently a filesystem operation
+and correctly stays in the CLI. The test now runs the same three writes in the same order and
+compares `pipeline.yml` **and** `main.nf`. A seam that produced a different pipeline would have
+diffed in the other 540 lines, and it did not.
+
+**`make verify` exited 2 on a docstring.** `test_no_pure_package_imports_an_impure_one` scans a
+pure package's **file** for the impure module's name, not merely its imports — and this
+module's docstring cited the forge's CLI as the shape it was copying. **The breadth is right**: a
+prose reference is how a dependency gets argued into existence, and the guard cannot tell an
+analogy from an intention. It cost one rewording, and the docstring now records why.
 
 ---
 
