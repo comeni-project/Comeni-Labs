@@ -777,22 +777,58 @@ what it is — the row of a `Board`.
 
 ## Phase 4: the status board
 
-> **Correct this phase against phase 3's real `Board` before executing it.** It is written
-> against the shape declared above, and phase 3 will change it — `notes/README.md` records that
-> writing later phases against types that do not exist is what killed Plan 2.
+> **Corrected against phase 3's real `Board` on 2026-08-19, before executing.** Four things the
+> plan predicted wrongly, which is exactly why this step exists:
+>
+> - **`ToolRow` is `BoardRow`.** Two `ToolRow` classes made OpenAPI emit
+>   `mendel_api__services__tools__ToolRow` into the generated client.
+> - **`Board.checked_at` does not exist.** Dropped in 3.1 — *when was this last checked* is
+>   `SourceCheck.ran_at` from the database, served by `GET /health/registry`, and duplicating it
+>   would let the board and the health strip disagree about one sentence. **The board reads both
+>   endpoints**; both are O(1) and cached.
+> - **`Board` carries `status_counts` as well as `counts`**, because state and agreement are two
+>   axes rather than one — an undrafted tool has no status at all, so a single dictionary would
+>   have had to invent a fourth status meaning *not applicable*.
+> - **`BoardRow.open_questions` exists** and was not in the plan's shape, so the band can say how
+>   much is open without a second query.
 
 **Files:** Create `frontend/src/forge/Board.tsx`; modify `Tools.tsx` to mount it.
 
-- [ ] **Step 1: Write the failing test** — the board renders `—` for `known` when it is `null`,
+- [x] **Step 1: Write the failing test** — the board renders `—` for `known` when it is `null`,
       and never `0`; each figure is a link to the filter that produces it; the cell strip has one
       cell per landed contract.
-- [ ] **Step 2: Run it, watch it fail.**
-- [ ] **Step 3: Build it.** One question — *is everything okay?* Registry agreement as a bar plus
+- [x] **Step 2: Run it, watch it fail.**
+- [x] **Step 3: Build it.** One question — *is everything okay?* Registry agreement as a bar plus
       one cell per contract; catalogue coverage; when it was last checked. Nothing is a list.
       Reuse the certainty strokes from `home/Standing.tsx` rather than inventing a second
       language — extract the `STROKE` map into `ui/` if both need it.
-- [ ] **Step 4: Watch the `—` guard fail** by returning `known=0`.
-- [ ] **Step 5: `npm run build`, `make verify`, commit.**
+- [x] **Step 4: Watch the `—` guard fail** by returning `known=0`.
+- [x] **Step 5: `npm run build`, `make verify`, commit.**
+
+### Phase 4 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | Six tests; five watched failing (the `known` one already passed, because Task 3.2's header rendered it). |
+| 3 | yes, plus an extraction | `standing.ts` holds the five-value scale, because the board draws one cell per contract and each row draws one mark — two colour maps would let the page say two things about one fact, which is spec §1.3's failure at a smaller scale. |
+| 4 | yes | Returning `known ?? 0` fails with `expected '0' to be '—'`. |
+| 5 | yes | |
+
+**Reading the finished board found a duplication no test could.** The board's figures —
+*12 landed · 1 drafted · 1 nobody has drafted · 1 drifted* — sat directly above a chip row
+reporting the same five numbers in a different order. The page said everything twice, adjacent.
+
+**The fix was to delete the chips rather than to move them**: a figure that sets the filter which
+produces it is one thing doing one job, so the figures became the filters and gained an active
+underline and a toggle. What survives below is the text filter and a line saying which filter is
+on. That is Chanel's rule applied to a dashboard — the count and the control were the same
+accessory worn twice.
+
+**Two endpoints, on purpose, and the correction note above says why.** `checked_at` is
+`SourceCheck.ran_at` — what the nightly worker wrote — and `/tools` is composed now. One field
+carrying both would let the board and the health strip disagree about one sentence. On a fresh
+database it renders **never checked**, not a time: `matching` and `unverifiable` are 0 there
+because nothing was measured, not because nothing matches.
 
 ---
 
