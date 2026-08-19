@@ -12,10 +12,12 @@ import { useKeys } from "./useKeys";
  * wordmark naming one workspace was claiming the product is that workspace. Naming the site is
  * the fix that stays true as halves are added.
  *
- * **What does not exist yet says so.** The Builder — Mendel's canvas — is 3C. It is rendered
- * `aria-disabled` rather than as a link, because a link that goes nowhere silently is worse
- * than one that admits it, and six of those were what made slice 1 look finished when nothing
- * on the screen did anything.
+ * **`Builder` became a link in Plan 3C phase 3**, and `Soon` went with it — nothing is disabled
+ * here any more. It was `aria-disabled` for the whole of 3A, 3B and 3D on the rule that a link
+ * going nowhere silently is worse than one that admits it; six of those were what made slice 1
+ * look finished when nothing on the screen did anything. The rule stands and `Soon` is deleted
+ * rather than kept for a future occupant, because a component with no caller is a component that
+ * rots.
  *
  * **`?` opens the glossary, from anywhere.** Eight words appear on these screens without ever
  * being defined — contract, role, type, measurement, drift, hole, band, proposal — and the
@@ -32,15 +34,6 @@ import { useKeys } from "./useKeys";
  */
 const nav = "px-3 py-1.5 text-body no-underline rounded-r transition-colors";
 const here = "font-semibold text-ink shadow-[inset_0_-2px_0_var(--pea)]";
-const gone = "text-ink-3 cursor-not-allowed";
-
-function Soon({ children, title }: { children: string; title: string }) {
-  return (
-    <span className={`${nav} ${gone}`} aria-disabled="true" title={title}>
-      {children}
-    </span>
-  );
-}
 
 function Tab({ to, children }: { to: string; children: string }) {
   return (
@@ -73,7 +66,7 @@ export function Shell() {
         </Link>
 
         <div className="flex gap-[2px] ml-2">
-          <Soon title="The pipeline canvas — Plan 3C">Builder</Soon>
+          <Tab to="/build">Builder</Tab>
           <Tab to="/forge/queue">Forge</Tab>
         </div>
 

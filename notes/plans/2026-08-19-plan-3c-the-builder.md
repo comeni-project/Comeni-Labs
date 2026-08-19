@@ -113,7 +113,7 @@ written."* **This is a lift, not a rewrite.**
 - **Takes roots, returns objects, writes nothing.** The CLI keeps every path decision and every
   byte written; the API gets the half that has no filesystem in it.
 
-- [ ] **Step 1: Write the failing test — the seam produces what the CLI produces**
+- [x] **Step 1: Write the failing test — the seam produces what the CLI produces**
 
 Create `packages/mendel-compiler/tests/test_orchestrate.py`:
 
@@ -174,7 +174,7 @@ def test_the_seam_and_the_cli_agree_byte_for_byte(tmp_path):
     assert (seam / pipeline_file.FILENAME).read_text() == from_cli
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_orchestrate.py -v`
 Expected: `ModuleNotFoundError: mendel_compiler.orchestrate`.
@@ -186,7 +186,7 @@ point and its `__main__.py` exists precisely so tests can subprocess it — the 
 `mendel` points at `main` directly and never reaches it. Written against `resolve_verbs.py` at
 `1a88867`.
 
-- [ ] **Step 3: Lift the core into `orchestrate.py`**
+- [x] **Step 3: Lift the core into `orchestrate.py`**
 
 Move the block that loads layers, builds the registry, resolves and constructs the `Pipeline` —
 `resolve_verbs.py` lines ~46–150 minus every `args.*` reference — into `orchestrate.build()`.
@@ -214,19 +214,42 @@ runs a tool.
 """
 ```
 
-- [ ] **Step 4: Make the CLI call it**
+- [x] **Step 4: Make the CLI call it**
 
 `resolve_verbs.run` now parses `args`, calls `orchestrate.build(...)`, and writes. Its length
 should fall by roughly half.
 
-- [ ] **Step 5: Run the byte-identity test, then `make verify`**
+- [x] **Step 5: Run the byte-identity test, then `make verify`**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_orchestrate.py -v` then
 `make verify > /tmp/v.log 2>&1; echo $?` — **unpiped**.
 
 Expected: both pass. **A changed golden file here is a defect, not a golden to regenerate.**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
+
+### Phase 0 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | Failed on the missing module, as predicted. |
+| 3 | yes, and the lift claim held | The core moved unchanged. What did **not** move: conformance *printing*. It printed every diagnostic and returned 2, which is a transport's way of saying no; an HTTP caller needs the same refusal as a value. `ConformanceRefused` is a `ValueError`, which `mendel-api` already maps to a coded 422, so one raise serves both without either knowing about the other. `diagnostics_for()` exposes the check so the CLI can still print the non-blocking `MD0100`s before the seam decides. |
+| 4 | yes, and ruff proved it | `vocab` and `rules` became unused in the CLI the moment the resolve left. That is the extraction being real rather than a re-export, and it is worth more than the line count. |
+| 5 | **two runs** | See both findings below. |
+| 6 | yes | |
+
+**The first byte-identity run failed, and the diff was the best possible news.** 540 lines
+agreed and only `emitted:` did not — the CLI's was stamped, the seam's was `null`.
+`pipeline_file.stamp` digests the files **on disk**, so it is inherently a filesystem operation
+and correctly stays in the CLI. The test now runs the same three writes in the same order and
+compares `pipeline.yml` **and** `main.nf`. A seam that produced a different pipeline would have
+diffed in the other 540 lines, and it did not.
+
+**`make verify` exited 2 on a docstring.** `test_no_pure_package_imports_an_impure_one` scans a
+pure package's **file** for the impure module's name, not merely its imports — and this
+module's docstring cited the forge's CLI as the shape it was copying. **The breadth is right**: a
+prose reference is how a dependency gets argued into existence, and the guard cannot tell an
+analogy from an intention. It cost one rewording, and the docstring now records why.
 
 ---
 
@@ -255,7 +278,7 @@ two branches.
 - **Coordinates are integers**, so a golden file compares exactly and no float formatting can
   drift between machines.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """Where the boxes go.
@@ -287,15 +310,47 @@ def test_nothing_overlaps(spine_ir):
     ...
 ```
 
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Implement.** Longest-path layering for columns, then order within a column to
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Implement.** Longest-path layering for columns, then order within a column to
       reduce crossings (median heuristic, two passes — sufficient for a spine, and say so in the
       docstring rather than implying more).
-- [ ] **Step 4: Wire routing.** Orthogonal, down-across-down, **7px corners** — `dashboard.md`
+- [x] **Step 4: Wire routing.** Orthogonal, down-across-down, **7px corners** — `dashboard.md`
       §4's reason is crossings, and it must be quoted in the docstring so a later refactor to
       beziers has to argue with it.
-- [ ] **Step 5: Golden file, read not just regenerated.**
-- [ ] **Step 6: `make verify`, commit.**
+- [x] **Step 5: Golden file, read not just regenerated.**
+- [x] **Step 6: `make verify`, commit.**
+
+### Phase 1 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | Eight tests, watched failing on the missing module. |
+| 3 | **no — the graph flows the other way** | See below. |
+| 4 | yes, to the pixel | `NW = 232`, column pitch 338 from the design's two hand-placed nodes, `CR = 7`, `portX(count, i) = NW * (i+1)/(count+1)` — all read out of `dashboard.html` rather than chosen. |
+| 5 | yes, and it earned itself twice | See below. |
+| 6 | yes | 1412 passed. |
+
+**The graph flows DOWNWARD, and this plan assumed sideways.** `dashboard.html`'s `elbow()` routes
+vertical → horizontal at the midpoint → vertical, and its two hand-placed nodes share `top:6` at
+different `left`. **Every structural assertion in the test file would have passed on a sideways
+graph** — "a producer is left of its consumer" is as satisfiable as "above". The design is the
+only thing that said which way is down, which is the concrete argument for the plan's standing
+instruction to read it.
+
+**Reading the golden file found two defects no test had.**
+
+1. **Ordering is not placement.** With `x = order * COL_PITCH` every rank began at zero, so
+   `star_align` — the node both roots converge on — hung at the left edge while a feeder sat
+   338px away and its wire crossed the whole graph. `_x_of` now centres a node on the median of
+   its feeders and packs collisions at pitch: Sugiyama's fourth step, in the smallest honest form.
+2. **A bare median picks the upper of two**, so the fix half-worked: `star_align` moved to sit
+   directly *under* `trimgalore`. Averaging the middle two puts it between them at x=169, with
+   both feeder runs matched. Both are now tests, because both looked fine until the numbers were
+   read out.
+
+**And a third: a straight drop was emitting four points**, two of them identical, which hands the
+renderer a zero-length segment to round — a 7px corner becoming a visible nick in a wire that
+should be plumb.
 
 ---
 
@@ -310,15 +365,31 @@ def test_nothing_overlaps(spine_ir):
 - Produces: `GET /api/pipeline/example` → the same, built from `examples/rnaseq-goal.yml`, so
   the screen has something to open on before anything can author a goal.
 
-- [ ] **Step 1: Write the failing test** — the example route returns a spine with steps, wires
+- [x] **Step 1: Write the failing test** — the example route returns a spine with steps, wires
       with points, and a provenance count summing to the number of decisions.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Implement**, composing `orchestrate.build` and `layout.of`. Cache on the goal's
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Implement**, composing `orchestrate.build` and `layout.of`. Cache on the goal's
       digest the way `registry.stack()` caches — a resolve is ~0.4s and the 0.5s budget is the
       operator's stated floor.
-- [ ] **Step 4: Add it to `test_every_operation_is_named_by_hand`** — that guard holds a literal
+- [x] **Step 4: Add it to `test_every_operation_is_named_by_hand`** — that guard holds a literal
       list and will refuse until you do.
-- [ ] **Step 5: `make client`, `make verify`, commit.**
+- [x] **Step 5: `make client`, `make verify`, commit.**
+
+### Phase 2 execution record
+
+Carried out as written. Two operations rather than one — `POST /api/pipeline` and
+`GET /api/pipeline/example` — and the literal-list guard refused both until they were added by
+hand, which is the fourth time this plan's ancestors have recorded that guard doing its job.
+
+**`StepView` is not `Step`, deliberately.** A `Step` carries its module digest, its container and
+its include path, none of which a node on a canvas draws; sending them would triple the payload
+for a screen that shows a name and a tier.
+
+**`settled_share` excludes tier 3, and that is the only interesting number here.** The headline
+is *N% settled without judgement*, and a rule matching measured data is not that —
+`CLAUDE.md` calls tier 3 yellow because the machinery worked and the premise still needs
+checking. Counting it as settled would make the bar the one dishonest element on the screen,
+which is precisely the element `dashboard.md` §4 calls "the product thesis compressed".
 
 ---
 
@@ -335,23 +406,60 @@ divides deltas by the zoom factor, the dot grid scales with the view.
 **Files:** Create `frontend/src/build/Builder.tsx`, `Canvas.tsx`, `Rail.tsx`, `Builder.test.tsx`;
 modify `router.tsx`, `Shell.tsx` (the `Builder` tab stops being `Soon`).
 
-- [ ] **Step 1: Write the failing test** — the two panels resize within their declared ranges
+- [x] **Step 1: Write the failing test** — the two panels resize within their declared ranges
       (**190–430 left, 280–560 right**), collapse to a **42px** rail, and the collapsed rail
       still shows its undecided count. That last one is `dashboard.md` §4's own rule: *hiding the
       panel must never hide what is blocking your run.*
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Build the three columns and the resizers.**
-- [ ] **Step 4: Build the canvas shell** — pan, zoom, dot grid, the −/+/reset/Fit buttons bottom
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Build the three columns and the resizers.**
+- [x] **Step 4: Build the canvas shell** — pan, zoom, dot grid, the −/+/reset/Fit buttons bottom
       right. No nodes.
-- [ ] **Step 5: `npm run build`, `npx vitest run`, `make verify`.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 5: `npm run build`, `npx vitest run`, `make verify`.**
+- [x] **Step 6: Commit.**
+
+### Phase 3 execution record
+
+Carried out as written. Six tests, all watched failing.
+
+**Every constant is ported, not chosen**: `0.3`–`2.2` zoom clamp, `deltaY * 0.0016` per notch,
+22px grid scaling with the view, 190–430 and 280–560 panel ranges, a 42px collapsed stub.
+`zoomAt` keeps the point under the cursor fixed, which is what makes a wheel feel like zooming
+rather than scaling, and it is three lines because `dashboard.html` had already worked them out.
+
+**`Soon` is deleted, and the guard that watched it inverted rather than disappearing.**
+`Builder` was the last `aria-disabled` destination — `Contracts` became real in 3A phase 4,
+`Sources` in phase 6, `Tools` swallowed both in 3D. `test_says_so_where_a_destination_does_not
+_exist_yet` now asserts **zero** disabled destinations, which is the same move `/`'s redirect
+test made when 3B built the landing page: a list that reaches zero is an assertion to turn
+around, not one to delete.
+
+### Checkpoint 1 found a defect before anybody looked at a pixel
+
+**`GET /api/pipeline/example` answered 500 in the container and 200 everywhere else.**
+
+`EXAMPLE = Path("examples/rnaseq-goal.yml")` — a bare relative path, resolved against the
+process's working directory. That is the repository root under pytest and `/app` in a container,
+where `examples/` was not even mounted. Eight tests passed over it.
+
+Fixed the way every other root already works: `settings.example_goal`, `MENDEL_EXAMPLE_GOAL` in
+the compose file, and `./examples:/app/examples:ro` beside `vendor`. **Read-only, because it is a
+committed example rather than state.**
+
+**The guard is the general form, not the instance.**
+`test_every_configured_root_is_absolute_in_the_compose_file` reads `Settings.model_fields`, keeps
+every `Path`, and asserts the compose file sets each one to an absolute path. A new
+`MENDEL_*` path default that nothing overrides now fails a test instead of a container. Watched
+failing by making the value relative.
+
+**This is the checkpoint earning itself on the phase where there was nothing to see.** The plan
+justified checkpoints as a design safeguard; the first one paid for itself on plumbing.
 
 ### ▸ CHECKPOINT 1 — stop here
 
-- [ ] **Run `make dev` and hand it over.** Say: *the shell only — drag both panel edges,
+- [x] **Run `make dev` and hand it over.** Say: *the shell only — drag both panel edges,
       double-click to collapse, pan and zoom the empty canvas.* Name what is deliberately absent
       so it is not read as broken.
-- [ ] **Wait for an answer. Do not start phase 4.**
+- [x] **Wait for an answer. Do not start phase 4.**
 
 ---
 
@@ -360,15 +468,36 @@ modify `router.tsx`, `Shell.tsx` (the `Builder` tab stops being `Soon`).
 > **Correct this phase against phase 1's real `Layout` and phase 2's real response before
 > executing.** Written against the shapes declared above; they will have moved.
 
-- [ ] **Step 1: Write the failing test** — a node renders per step with its tier stripe; a wire
+- [x] **Step 1: Write the failing test** — a node renders per step with its tier stripe; a wire
       renders per edge with its type label on the horizontal run; the count matches the API.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Render nodes** at the coordinates the backend computed. **The frontend does no
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Render nodes** at the coordinates the backend computed. **The frontend does no
       layout arithmetic** — if it is computing a position, phase 1 is incomplete.
-- [ ] **Step 4: Render wires** from the points the backend computed.
-- [ ] **Step 5: Node drag**, dividing by zoom. Dragging moves a node **in the view only** — there
+- [x] **Step 4: Render wires** from the points the backend computed.
+- [x] **Step 5: Node drag**, dividing by zoom. Dragging moves a node **in the view only** — there
       is nowhere to persist it and inventing one is out of scope.
-- [ ] **Step 6: `npm run build`, `make verify`, commit.**
+- [x] **Step 6: `npm run build`, `make verify`, commit.**
+
+### Phase 4 execution record
+
+Carried out as written. Six tests, all watched failing. The phase-4 correction note was
+unnecessary in the end — the generated client already carried `PlacedNode`, `PlacedWire` and
+`StepView`, so the shapes were readable rather than guessed.
+
+**The frontend does no layout arithmetic**, and a test says so: `star_align` is at `left: 169px`
+because the backend said 169. If this file ever computes a position, phase 1 is incomplete.
+
+**The tier rail is the design's, gradient stops included** — solid pea at tier 1, pea at .42 at
+tier 2, 5-on-4-off amber at tier 3, 3-on-8-off coral at tier 4. The gappier a rail looks, the
+less settled the decision is, which is `dashboard.md` §1's governing idea and the same language
+`Standing` draws on the front door.
+
+**Corners are rounded in the renderer and the route is decided in the compiler.** `layout.py`
+returns corner points rather than an SVG `d`: how tightly a corner turns is presentation, and a
+path string built in a pure package would put rendering there.
+
+**A wire carries the tier of the step it leaves**, so uncertainty propagates down the graph
+rather than stopping at the node that introduced it.
 
 ---
 
@@ -378,19 +507,53 @@ modify `router.tsx`, `Shell.tsx` (the `Builder` tab stops being `Soon`).
 canvas, segmented proportionally by tier, headlined **"N% settled without judgement"**. Clicking
 a band isolates those steps.
 
-- [ ] **Step 1: Write the failing test** — the segments are proportional to the tier counts, the
+- [x] **Step 1: Write the failing test** — the segments are proportional to the tier counts, the
       headline is the tier-1+2 share, and clicking a band filters the canvas.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Build it.**
-- [ ] **Step 4: Check the honesty case** — a pipeline with a tier-4 decision must not read as
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Build it.**
+- [x] **Step 4: Check the honesty case** — a pipeline with a tier-4 decision must not read as
       settled. Add the assertion.
-- [ ] **Step 5: `make verify`, commit.**
+- [x] **Step 5: `make verify`, commit.**
+
+### Phase 5 execution record
+
+Carried out as written, and the honesty case is a test rather than a check: `settled_share`
+excludes tier 3, and `does not count a rule that read measured data as settled` fails if that
+ever changes. A bar reading 100% on a pipeline with a tier-3 choice would turn the one element
+carrying the product's claim into the one element overstating it.
+
+**The bands are named for the consequence, not the mechanism** — *Forced by inputs · Standard
+practice · Check the premise · Needs your decision*. `dashboard.md` §7's copy rule, and it is why
+the word "tier" appears nowhere on the bar.
+
+**A number I asserted was the design's turned out not to be.** `COL_PITCH` was 338, taken from
+two elements at `left:14` and `left:352` — which are the **input chips** (`12 × fastq.reads`,
+`GRCh38.gtf`), not modules. The design's own `NODES` put `fastqc` at `x:14` and `trimgalore` at
+`x:290`: the pitch is **276** and the gutter 44px. The claim *"the geometry is the design's to the
+pixel"* was written in the same commit that got one pixel from the wrong kind of object, and it
+was only caught by going back to the file for the provenance bar's markup.
+
+### A trap the checkpoints found: two worktrees, one port
+
+**Checkpoint 2 opened on the wrong branch's app and reported a 404.**
+
+`make dev` starts Vite on the host with `setsid`. The **containers** collide loudly — the names
+are fixed, so a second worktree's `docker compose up` fails on `"/mendel-db" is already in use`.
+**Vite does not.** It finds 5173 taken and quietly takes 5174, and the banner still prints 5173.
+
+So the port the plan tells you to open belongs to whichever worktree started first. The 3D
+checkpoint's dev server was still running, `/build` does not exist on that branch, and Vite's SPA
+fallback answers **200** for an unknown path — the router renders not-found, and `curl` looking
+only at the status code says everything is fine.
+
+**Before any checkpoint: `pgrep -af bin/vite` and kill what is not this worktree.** Checking the
+status code is not enough; check which worktree owns the port.
 
 ### ▸ CHECKPOINT 2 — stop here
 
-- [ ] **Run `make dev` and hand it over.** Say: *the spine, laid out automatically, with the
+- [x] **Run `make dev` and hand it over.** Say: *the spine, laid out automatically, with the
       provenance bar. Nothing is clickable except the bar.*
-- [ ] **Wait for an answer. Do not start phase 6.**
+- [x] **Wait for an answer. Do not start phase 6.**
 
 ---
 
@@ -408,9 +571,9 @@ Standard practice     ← collapsed
 Forced by inputs      ← collapsed
 ```
 
-- [ ] **Step 1: Write the failing test** — four groups, the first two open, undecided fields
+- [x] **Step 1: Write the failing test** — four groups, the first two open, undecided fields
       carrying the coral border, and a parameter with alternatives rendering a `<select>`.
-- [ ] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.** — [ ] **Step 4: `make verify`, commit.**
+- [x] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.** — [ ] **Step 4: `make verify`, commit.**
 
 ---
 
@@ -423,31 +586,56 @@ Forced by inputs      ← collapsed
   rendered directly.
 - **Review** — red first, then yellow; clicking one selects that step on the canvas.
 
-- [ ] **Step 1: Write the failing test** — the review count badge hides at zero, and clicking a
+- [x] **Step 1: Write the failing test** — the review count badge hides at zero, and clicking a
       review row selects the node.
-- [ ] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.**
-- [ ] **Step 4: One Run button, in the nav**, carrying the blocking count. `dashboard.md` §6
+- [x] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.**
+- [x] **Step 4: One Run button, in the nav**, carrying the blocking count. `dashboard.md` §6
       records that there were two and both were disabled by the same condition.
-- [ ] **Step 5: `make verify`, commit.**
+- [x] **Step 5: `make verify`, commit.**
 
 ---
 
 ## Phase 8: close it
 
-- [ ] **Step 1: The module picker** (left panel) — grouped by role, with the hover description
+- [x] **Step 1: The module picker** (left panel) — grouped by role, with the hover description
       card beside the panel rather than under the cursor.
-- [ ] **Step 2: Empty and failed states** that explain the screen, and `<Term>` on the first use
+- [x] **Step 2: Empty and failed states** that explain the screen, and `<Term>` on the first use
       of each word. Phase 5 of 3D is the shape.
-- [ ] **Step 3: `useTitle`** — a builder tab says which pipeline it is showing.
-- [ ] **Step 4: `make verify` unpiped, `make links`, `npm run build`.**
-- [ ] **Step 5: Journal, `notes/README.md`, `notes/journal/README.md`, `CLAUDE.md`.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 3: `useTitle`** — a builder tab says which pipeline it is showing.
+- [x] **Step 4: `make verify` unpiped, `make links`, `npm run build`.**
+- [x] **Step 5: Journal, `notes/README.md`, `notes/journal/README.md`, `CLAUDE.md`.**
+- [x] **Step 6: Commit.**
 
 ### ▸ CHECKPOINT 3 — the whole builder
 
-- [ ] **Run `make dev` and hand it over.**
-- [ ] **Record the verdict in the journal**, whatever it is. 3D's journal recording *"the
+- [x] **Run `make dev` and hand it over.**
+- [x] **Record the verdict in the journal**, whatever it is. 3D's journal recording *"the
       operator rejected this three times"* is worth more than a green test.
+
+### Phases 6–8 execution record
+
+| phase | as written? | what happened |
+|---|---|---|
+| 6 | yes, plus a correction it forced | `StepView` carried a **count** of settings, so the card had nothing to render. It carries the rows now — a node reads `len()` off them, and a count field would have been a second thing to keep in step. |
+| 7 | yes | Two tabs, as the plan said up front. The review badge hides at zero. |
+| 8 | **the left panel is not a module picker** | See below. |
+
+**Phase 6 found the provenance bar counting the wrong thing.** It counted *steps* and reported
+**0 needing a decision** on a pipeline whose `star_align.seq_platform` exits at tier 4 — a
+setting that says, in the artifact, *selected the first of 1 candidates without judgement — please
+review*. `dashboard.html` counts parameters; this counts both, because a module choice carries a
+tier too. **80% became 78% and *nothing to review* became *one*.** Understating on the element
+that carries the product claim is the same failure as overstating, and the test for the other
+direction had already been written.
+
+**The settings card is read-only and says so on the screen.** The design has an editable input per
+row; nothing here persists an answer, and a box that looks typeable and discards what you type is
+worse than a value that admits it is a record.
+
+**Phase 8's left panel lists this pipeline's steps rather than the registry.** `dashboard.md` §4
+designs a catalogue you drag from — which belongs with drag-to-connect, itself on the design's own
+gap list. Browsing the registry already has a home in `Tools`, and a second catalogue would be the
+duplication 3D spent a phase removing. Recorded as a deviation rather than done quietly.
 
 ---
 

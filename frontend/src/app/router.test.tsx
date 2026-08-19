@@ -40,20 +40,17 @@ describe("routing", () => {
     await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
   });
 
-  it("says so where a destination does not exist yet", () => {
+  it("has no destination left to disable", () => {
     at("/forge/queue");
-    // Six dead `href="#"` links are what made slice 1 look finished. A destination that is
-    // not built is disabled and titled with the phase that builds it.
-    // **One, not two:** `Contracts` became a real link in phase 4 and `Sources` in phase 6.
-    // The list shrinks as phases land, and it must shrink deliberately rather than the
-    // assertion being deleted — `Builder` is the last one, and it is 3C.
+    // **The list reached zero, so the assertion inverts rather than disappearing** — the same
+    // move `/`'s redirect test made when 3B built the landing page.
     //
-    // It was called `Mendel` until 3B, and reading the finished landing page is what caught
-    // it: the page's own title is Mendel, so a greyed-out nav item with the same word read as
-    // the whole product being unbuilt. The tab points at a SCREEN; the product is the site.
-    for (const name of ["Builder"]) {
-      expect(screen.getByText(name).getAttribute("aria-disabled")).toBe("true");
-    }
+    // Six dead `href="#"` links are what made slice 1 look finished. Every unbuilt destination
+    // since has been `aria-disabled` and titled with the phase that builds it: `Contracts` became
+    // real in phase 4, `Sources` in phase 6, `Tools` swallowed both in 3D, and `Builder` — the
+    // last one — became a link in 3C phase 3. `Soon` is deleted rather than kept for a future
+    // occupant, because a component with no caller is a component that rots.
+    expect(document.querySelectorAll('[aria-disabled="true"]').length).toBe(0);
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);
   });
 

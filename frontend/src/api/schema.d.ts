@@ -176,6 +176,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The four tiers, and what each is called where a person reads it
+         * @description **The vocabulary, served rather than retyped.**
+         *
+         *     The four names lived in a React file and in `docs/design/dashboard.html` — two copies with
+         *     nothing holding them together, which is exactly the drift `diagnostics.yml` exists to
+         *     prevent. `comeni_core.plan.tiers.TIER_VOCABULARY` is now the single declaration and this is
+         *     how an interface reads it.
+         */
+        get: operations["listTiers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/registry/types/{id}": {
         parameters: {
             query?: never;
@@ -255,6 +280,77 @@ export interface paths {
         put?: never;
         /** Start a draft from a source */
         post: operations["draftTool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/example": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The RNA-seq spine, from the goal committed in examples/
+         * @description **What the canvas opens on.**
+         *
+         *     Nothing can author a goal until the prompt door exists — that is after #69 — so a screen with
+         *     no starting pipeline would be a screen nobody could reach. This is a real build of a real
+         *     goal, not a fixture: if the registry changes underneath it, this changes.
+         */
+        get: operations["examplePipeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every landed contract, for the picker
+         * @description **Every contract, not only the ones in a pipeline.**
+         *
+         *     The builder's left panel is a picker you drag from; a list containing only what is already on
+         *     the canvas is a table of contents. `GET /tools` answers a different question — *what is the
+         *     state of everything* — and carries drift, drafts and undrafted tools, none of which can be
+         *     dragged onto a canvas.
+         */
+        get: operations["listModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a goal and lay it out
+         * @description A contract that disagrees with its module refuses here as a coded 422 — the same refusal
+         *     the CLI prints and exits 2 on. `orchestrate.ConformanceRefused` is a `ValueError`, which the
+         *     app already maps.
+         */
+        post: operations["buildPipeline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -441,6 +537,20 @@ export interface components {
             /** Draft */
             draft?: string | null;
         };
+        /** BuiltPipeline */
+        BuiltPipeline: {
+            /** Steps */
+            steps: components["schemas"]["StepView"][];
+            layout: components["schemas"]["Placement"];
+            /** Provenance */
+            provenance: {
+                [key: string]: number;
+            };
+            /** Settled Share */
+            settled_share: number;
+            /** Needs Review */
+            needs_review: string[];
+        };
         /**
          * Call
          * @description One thing asking for a person: how much, said plainly, and where it lives.
@@ -469,6 +579,32 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /**
+         * Constraints
+         * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
+         */
+        Constraints: {
+            /** Required States */
+            required_states?: components["schemas"]["RequiredStates"][];
+            /** Params */
+            params?: components["schemas"]["ParamOverride"][];
+        };
+        /**
+         * DataProfile
+         * @description Measured properties of the input data.
+         *
+         *     A list rather than a mapping because `tests/test_egress.py` forbids mappings in
+         *     anything reachable from a payload: a typed key does not prove a *declared* key.
+         *
+         *     Build one through `MeasurementRegistry.profile()`, which is the only place that
+         *     validates values against their declarations — `tests/test_construction.py` enforces
+         *     that. The mapping shorthand below exists because it is the natural way to *write* one
+         *     in a goal file, and because `Goal` needs a default.
+         */
+        DataProfile: {
+            /** Measurements */
+            measurements?: components["schemas"]["Measured"][];
         };
         /** DecideRequest */
         DecideRequest: {
@@ -627,6 +763,25 @@ export interface components {
             /** Why */
             why: string;
         };
+        /** Goal */
+        Goal: {
+            /** Have */
+            have?: components["schemas"]["GoalInput"][];
+            /** Want */
+            want?: string[];
+            constraints?: components["schemas"]["Constraints"];
+            profile?: components["schemas"]["DataProfile"];
+        };
+        /** GoalInput */
+        GoalInput: {
+            /** Type Id */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+        };
         /**
          * Grouping
          * @enum {string}
@@ -684,6 +839,24 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /**
+         * Measured
+         * @description One measurement and where its value came from.
+         *
+         *     A generated profile records the tool; a hand-written goal records nothing, and that is
+         *     an assertion by whoever wrote it. The shorthand is not an abbreviation of provenance —
+         *     it *is* the provenance, which is why a bare scalar is allowed at all.
+         */
+        Measured: {
+            /** Measurement */
+            measurement: string;
+            /** Value */
+            value: number | boolean | string | (number | boolean | string | null)[] | null;
+            /** @default goal */
+            source: components["schemas"]["ValueSource"];
+            /** By */
+            by?: string | null;
+        };
         /** ModulePage */
         ModulePage: {
             /** Id */
@@ -712,6 +885,35 @@ export interface components {
             competes_with: string[];
             /** Pipeline Pins */
             pipeline_pins?: null;
+        };
+        /**
+         * ModuleView
+         * @description A contract the left panel offers, for dragging onto the canvas.
+         *
+         *     **Every landed contract, not only the ones in this pipeline.** The first cut of the builder
+         *     listed the pipeline's own steps, which is a table of contents rather than a picker — you
+         *     cannot drag a module in from a list that only contains what is already there.
+         *
+         *     **There is no description, and the registry has nowhere to put one.** `ModuleContract` has no
+         *     `summary` field and `priority_because` is empty on all twelve shipped contracts, so the card
+         *     shows what a contract actually knows: its roles, what it needs, what it makes, and its
+         *     container. The prose the design's card shows would need a registry schema change — issue #78.
+         */
+        ModuleView: {
+            /** Contract Id */
+            contract_id: string;
+            /** Tool */
+            tool: string;
+            /** Process */
+            process: string;
+            /** Roles */
+            roles: string[];
+            /** Needs */
+            needs: string[];
+            /** Makes */
+            makes: string[];
+            /** Container */
+            container: string;
         };
         /** OpenQuestion */
         OpenQuestion: {
@@ -745,12 +947,100 @@ export interface components {
          * @enum {string}
          */
         Ordering: "consequence" | "recent";
+        /**
+         * ParamOverride
+         * @description A parameter the user pinned. Closed, so it cannot carry a path.
+         *
+         *     Previously these lived as arbitrary keys in an open `dict[str, Any]`, which meant
+         *     `constraints: {seq_platform: /data/patients/PT-4471023/S1_R1.fastq.gz}` validated,
+         *     reached `main.nf`, was labelled tier 1 with review `none`, and *suppressed* the
+         *     tier-4 flag it replaced. Invariant 15 says no input accepts a path; it did.
+         */
+        ParamOverride: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | boolean | string | null;
+        };
+        /** PlacedNode */
+        PlacedNode: {
+            /** Id */
+            id: string;
+            /** Rank */
+            rank: number;
+            /** Order */
+            order: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Tier */
+            tier: number;
+        };
+        /** PlacedWire */
+        PlacedWire: {
+            /** From Node */
+            from_node: string;
+            /** From Port */
+            from_port: string;
+            /** To Node */
+            to_node: string;
+            /** To Port */
+            to_port: string;
+            /** Type Id */
+            type_id: string;
+            /** Points */
+            points: components["schemas"]["Point"][];
+            label_at: components["schemas"]["Point"];
+        };
+        /** Placement */
+        Placement: {
+            /** Nodes */
+            nodes: components["schemas"]["PlacedNode"][];
+            /** Wires */
+            wires: components["schemas"]["PlacedWire"][];
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /** Point */
+        Point: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** Port */
         Port: {
             /** Name */
             name: string;
             /** Type Id */
             type_id: string;
+        };
+        /**
+         * PortView
+         * @description One port of a step, as the canvas draws it.
+         *
+         *     **A port is a dot** — `dashboard.md` §3, which records that a five-shape family code was
+         *     removed because *an encoding that needs its legend on screen at all times is a lookup rather
+         *     than an encoding*. Two channels survive because each is binary and each means something a
+         *     reader acts on: **hollow** when a required input is unmet, **doubled** when it accepts many.
+         *     The type is text, on hover.
+         */
+        PortView: {
+            /** Name */
+            name: string;
+            /** Type Id */
+            type_id: string;
+            /** Side */
+            side: string;
+            /** Met */
+            met: boolean;
         };
         /**
          * Proposal
@@ -842,6 +1132,21 @@ export interface components {
             detail: string;
         };
         /**
+         * RequiredStates
+         * @description States a wanted output must carry.
+         *
+         *     A record rather than a mapping key, because `tests/test_egress.py` forbids mappings in
+         *     anything reachable from a payload and `Goal` became reachable when the publication payload
+         *     started carrying one. `dict[TypeId, list[StateName]]` type-checks perfectly while
+         *     saying nothing about whether the key was ever declared.
+         */
+        RequiredStates: {
+            /** Type Id */
+            type_id: string;
+            /** States */
+            states?: string[];
+        };
+        /**
          * RowKind
          * @description What a row IS, which decides where following it leads.
          *
@@ -851,6 +1156,28 @@ export interface components {
          * @enum {string}
          */
         RowKind: "question" | "drift";
+        /**
+         * SettingView
+         * @description One resolved parameter, as the settings card needs it.
+         *
+         *     **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
+         *     and a box that looks typeable and discards what you type is worse than a value that says it
+         *     is a record. The design's editable field arrives with somewhere to put the answer.
+         */
+        SettingView: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string | null;
+            /** Via */
+            via: string;
+            /** Tier */
+            tier: number;
+            /** Reason */
+            reason: string;
+            /** Axis Reason */
+            axis_reason: string;
+        };
         /**
          * Standing
          * @description What the registry holds. Not what it needs.
@@ -887,6 +1214,30 @@ export interface components {
          * @enum {string}
          */
         Status: "drifted" | "unverifiable" | "matching";
+        /**
+         * StepView
+         * @description One step, as a canvas needs it — **not the whole `Step`.**
+         *
+         *     A `Step` carries its module digest, its container and its include path, none of which a node
+         *     on a canvas draws. Sending them anyway would make the payload three times the size for a
+         *     screen that shows a name and a tier.
+         */
+        StepView: {
+            /** Id */
+            id: string;
+            /** Process */
+            process: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Tier */
+            tier: number;
+            /** Reason */
+            reason: string;
+            /** Ports */
+            ports: components["schemas"]["PortView"][];
+            /** Settings */
+            settings: components["schemas"]["SettingView"][];
+        };
         /** Strip */
         Strip: {
             /** Contracts */
@@ -899,6 +1250,22 @@ export interface components {
             types: number;
             /** Checked At */
             checked_at: string | null;
+        };
+        /**
+         * TierCard
+         * @description One tier, as an interface needs to say it.
+         */
+        TierCard: {
+            /** Tier */
+            tier: number;
+            /** Name */
+            name: string;
+            /** Group */
+            group: string;
+            /** What */
+            what: string;
+            /** Colour */
+            colour: string;
         };
         /** TypeCard */
         TypeCard: {
@@ -1218,6 +1585,26 @@ export interface operations {
             };
         };
     };
+    listTiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TierCard"][];
+                };
+            };
+        };
+    };
     lookupType: {
         parameters: {
             query?: never;
@@ -1366,6 +1753,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DraftResult"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    examplePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuiltPipeline"];
+                };
+            };
+        };
+    };
+    listModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleView"][];
+                };
+            };
+        };
+    };
+    buildPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Goal"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuiltPipeline"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */

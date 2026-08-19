@@ -49,6 +49,7 @@ services:
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
       MENDEL_SOURCE_ROOT: /app/vendor
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
@@ -58,6 +59,8 @@ services:
       # must be able to do what prod can. `make dev` creates it.
       - ./.run/registry:/app/registry
       - ./vendor:/app/vendor
+      # What the builder opens on. Read-only: a committed example, not state.
+      - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
     # **`sh -c`, never `sh -lc`.** A LOGIN shell re-reads `/etc/profile`, which resets `PATH`
     # and drops `/app/.venv/bin` — so `alembic: not found` and the container exits. Measured:
@@ -80,11 +83,14 @@ services:
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
       MENDEL_SOURCE_ROOT: /app/vendor
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
       - ./vendor:/app/vendor
+      # What the builder opens on. Read-only: a committed example, not state.
+      - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
     command: arq mendel_api.worker.WorkerSettings
 
