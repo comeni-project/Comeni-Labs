@@ -22,11 +22,15 @@ from comeni_core.diagnostics import coded
 from comeni_core.review import ValueSource
 from mendel_ai.access import ModelAccess
 from mendel_ai.client import Client
+from mendel_compiler import conformance
+from mendel_compiler.conformance import Diagnostic
+from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_forge import assemble, candidates, modulegen, sources
+from mendel_forge import drift as drift_tables
 from mendel_forge.filler import ModelFiller
 from mendel_forge.land import LandResult
 from mendel_forge.land import land as _run_land
@@ -572,6 +576,134 @@ def check(req: CheckRequest) -> CheckResult:
         checked=checked,
         skipped=sorted(skipped),
         drift=sorted(found, key=lambda d: (d.contract_id, d.field)),
+    )
+
+
+class FieldCheck(BaseModel):
+    model_config = _NO_EXTRAS
+
+    field: str
+    impact: drift_tables.Impact
+    registry_says: str
+    source_says: str
+    agrees: bool
+    locator: str | None
+    """Where the source states it — `file:line`, relative to the source root.
+
+    `None` for `nf_include`, whose fact is **synthesised from the convention** rather than read
+    off a line. The screen must not present that one as a quotation."""
+    excerpt: str | None
+
+
+class Unchecked(BaseModel):
+    model_config = _NO_EXTRAS
+
+    field: str
+    impact: drift_tables.Impact
+    why: str
+
+
+class DriftReport(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    verifiable: bool
+    """A registered source could re-read the tool. `False` is phase 4's `unverifiable`."""
+    module_read: bool
+    """The vendored `main.nf` parsed. A DIFFERENT condition from `verifiable` — phase 4 §3.4."""
+    checks: list[FieldCheck]
+    conformance: list[Diagnostic]
+    unchecked: list[Unchecked]
+    verdict: drift_tables.Verdict
+    says: str
+
+
+class DriftRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    registry_root: Path
+    source_root: Path
+
+
+def _observe(contract_id: str, source_root: Path):
+    """The source's own account of a tool, or `None` when nothing can re-read it."""
+    ref = _ref_for(contract_id)
+    if ref is None:
+        return None
+    try:
+        return sources.get(ref.source).ingest(ref, source_root)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def drift(req: DriftRequest) -> DriftReport:
+    """Everything anything can say about one contract against its source.
+
+    Three groups, and every one of `ModuleContract`'s fields is in exactly one — spec §3.2. The
+    third group is on the report rather than left out of it, because the fields nothing can
+    check include three of the five the router reads.
+    """
+    stack = layers.load(req.registry_root)
+    contract = stack.registry.contracts.get(req.contract_id)
+    if contract is None:
+        known = ", ".join(sorted(stack.registry.contracts)[:5])
+        raise ValueError(
+            coded("MF0106", f"no contract in this registry is {req.contract_id!r}")
+            + f"\n  known: {known}…"
+        )
+
+    checks: list[FieldCheck] = []
+    observation = _observe(req.contract_id, req.source_root)
+    if observation is not None:
+        for fact_name, field in assemble.DERIVED_FIELDS:
+            says = observation.fact(fact_name)
+            if says is None:
+                continue
+            declared = getattr(contract, field, None)
+            evidence = observation.facts[fact_name].evidence
+            locator = evidence.locator if ":" in evidence.locator else None
+            checks.append(
+                FieldCheck(
+                    field=field,
+                    impact=drift_tables.FIELDS[field].impact,
+                    registry_says=str(declared),
+                    source_says=str(says),
+                    agrees=declared == says,
+                    locator=locator,
+                    excerpt=evidence.text if locator else None,
+                )
+            )
+
+    module = conformance.module_path(contract, req.source_root)
+    module_read = module.exists()
+    found = conformance.against(contract, ModuleSpec.parse(module), module) if module_read else []
+
+    checked = {c.field for c in checks} | {
+        field for field, facts in drift_tables.FIELDS.items() if facts.codes
+    }
+    unchecked = [
+        Unchecked(
+            field=field,
+            impact=facts.impact,
+            why="no source states it, and no conformance check reads it",
+        )
+        for field, facts in sorted(drift_tables.FIELDS.items())
+        if field not in checked
+    ]
+
+    disagreeing = [c.field for c in checks if not c.agrees]
+    refusing = [d.code for d in found]
+    verdict = drift_tables.verdict_for(disagreeing=disagreeing, refusing=refusing)
+    return DriftReport(
+        contract_id=req.contract_id,
+        verifiable=observation is not None,
+        module_read=module_read,
+        checks=sorted(checks, key=lambda c: (c.agrees, c.field)),
+        conformance=found,
+        unchecked=unchecked,
+        verdict=verdict,
+        says=drift_tables.sentence_for(verdict, disagreeing=disagreeing, refusing=refusing),
     )
 
 
