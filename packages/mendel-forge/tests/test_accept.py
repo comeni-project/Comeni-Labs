@@ -174,14 +174,19 @@ def test_a_field_that_is_not_one_top_level_line_is_refused():
     No shipped contract spells a value field over several lines, so this is a unit test of the
     guard rather than an end-to-end one — and it is here because the guard is what makes the
     one-line patch safe. Without it the failure mode is a silent no-op or a mangled file.
+
+    It reaches into `land` rather than `ops`: the patch lives with the write, which is the
+    one module in this package allowed to have one.
     """
+    from mendel_forge import land
+
     absent = "id: x\nnf_process: FASTQC\n"
     with pytest.raises(ValueError, match="MF0102"):
-        ops._patch_line(absent, "container", "anything")
+        land._patch_line(absent, "container", "anything")
 
     block = "id: x\ncontainer: >-\n  quay.io/thing:1\n"
     with pytest.raises(ValueError, match="MF0102"):
-        ops._patch_line(block, "container", "anything")
+        land._patch_line(block, "container", "anything")
 
     # And the half that must pass, so the refusal is not passing for the wrong reason.
-    assert "nf_process: OTHER\n" in ops._patch_line(absent, "nf_process", "OTHER")
+    assert "nf_process: OTHER\n" in land._patch_line(absent, "nf_process", "OTHER")

@@ -18,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from comeni_core.declared.contract import ModuleContract
 from comeni_core.diagnostics import coded
 from comeni_core.review import ValueSource
 from mendel_ai.access import ModelAccess
@@ -33,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from mendel_forge import assemble, candidates, modulegen, sources
 from mendel_forge import drift as drift_tables
 from mendel_forge.filler import ModelFiller
-from mendel_forge.land import LandResult, _default_branch, _git
+from mendel_forge.land import LandResult, accept_drift
 from mendel_forge.land import land as _run_land
 from mendel_forge.observe import Excerpt
 from mendel_forge.ports import HoleFiller
@@ -778,37 +777,23 @@ def _file_declaring(registry_root: Path, contract_id: str) -> Path:
     return found[0]
 
 
-def _patch_line(text: str, field: str, value: str) -> str:
-    """Replace the one top-level line declaring `field`, and nothing else.
+def _file_declaring(registry_root: Path, contract_id: str) -> Path:
+    """Which file in the layer declares this contract.
 
-    Refuses anything it cannot see whole — MF0102. The comments in a registry contract are its
-    reasoning, so re-serialising is not an option; see the diagnostic's explanation.
+    A `Registry` deliberately records no path — a contract is content-addressed (audit A10) and
+    a field recording where it was found would make its digest depend on the machine that read
+    it. So this looks, and refuses anything other than exactly one hit.
     """
-    unpatchable = (
-        "\n  a block scalar, a repeated key or a field inside a flow mapping is not"
-        " patchable — edit the file by hand"
-    )
-    lines = text.splitlines(keepends=True)
-    at = [i for i, line in enumerate(lines) if line.startswith(f"{field}: ")]
-    if len(at) != 1:
+    found = [
+        path
+        for path in sorted(registry_root.rglob("*.yml"))
+        if f"id: {contract_id}" in path.read_text()
+    ]
+    if len(found) != 1:
         raise ValueError(
-            coded("MF0102", f"{field!r} appears on {len(at)} top-level lines, expected one")
-            + unpatchable
+            coded("MF0106", f"{len(found)} files declare {contract_id!r} — expected exactly one")
         )
-    # **Starting the line is not enough.** `container: >-` starts with `container: ` and is a
-    # block scalar whose value lives on the lines below; patching it would replace the header
-    # and orphan the body. Found by the test that was written to make the refusal non-vacuous.
-    here = at[0]
-    inline = lines[here][len(field) + 2 :].strip()
-    spills = here + 1 < len(lines) and lines[here + 1][:1].isspace()
-    if not inline or inline[0] in "|>" or spills:
-        raise ValueError(
-            coded("MF0102", f"{field!r} is not a single-line scalar in this contract")
-            + unpatchable
-        )
-    keep = "\n" if lines[here].endswith("\n") else ""
-    lines[here] = f"{field}: {value}{keep}"
-    return "".join(lines)
+    return found[0]
 
 
 def _source_value(report: DriftReport, field: str) -> str:
@@ -822,67 +807,13 @@ def _source_value(report: DriftReport, field: str) -> str:
     return moved[0].source_says
 
 
-def _must_load(patched: str, req: AcceptRequest, now: str) -> None:
-    """The patched text must load as a contract **through the real loader**, before anything
-    is written.
-
-    `ModuleContract.load(path, vocab)` rather than `model_validate(dict)`: it pops `declares:`,
-    it reads the file through `yaml_strict` so a duplicate key refuses rather than silently
-    keeping the last (A31), and it validates every state against the layer's vocabulary —
-    invariant 7. A validator that skipped the vocabulary would accept a patch the registry
-    then refuses to load, which is the one outcome this check exists to prevent.
-
-    It takes a `Path`, so the candidate goes to a temporary file. Writing the real file and
-    rolling back on failure was the alternative and is worse: a failed accept would leave a
-    dirty tree, which is the state `MF0101` refuses.
-    """
-    import tempfile
-
-    vocabulary = layers.load(req.registry_root).vocabulary
-    with tempfile.TemporaryDirectory() as tmp:
-        candidate = Path(tmp) / "candidate.contract.yml"
-        candidate.write_text(patched)
-        try:
-            ModuleContract.load(candidate, vocabulary)
-        except Exception as error:
-            raise ValueError(
-                coded("MF0103", f"{req.contract_id} would not load with {req.field}: {now}")
-                + f"\n{error}"
-            ) from None
-
-
-def _refuse_an_unwritable_checkout(registry_root: Path, branch: str) -> None:
-    """The three ways a checkout is not somewhere to commit. `land()` holds two of them.
-
-    **The default-branch check reads the branch this would commit TO**, which is the branch
-    being created rather than the one HEAD is on — `land()` asks the same question about the
-    branch it was handed. Accepting onto a checkout sitting on `main` is fine; accepting *into*
-    `main` is not.
-    """
-    on = _git(registry_root, "branch", "--show-current")
-    if not on:
-        raise ValueError(
-            coded("MF0105", f"{registry_root} is at a detached HEAD")
-            + "\n  check out a branch, or point MENDEL_REGISTRY_ROOT at a checkout you can"
-            " write to"
-        )
-    default = _default_branch(registry_root) or "main"
-    if branch == default:
-        raise ValueError(
-            coded("MF0100", f"{branch!r} is this registry's default branch")
-            + "\n  accepting commits on a branch — `forge/drift` is the convention"
-        )
-    dirty = _git(registry_root, "status", "--porcelain")
-    if dirty:
-        raise ValueError(coded("MF0101", f"{registry_root} has uncommitted changes") + f"\n{dirty}")
-
-
 def accept(req: AcceptRequest) -> AcceptResult:
     """Take the source's value for one field: patch, validate, commit.
 
-    **Everything that can refuse, refuses before anything is written.** A failed accept must
-    cost nothing — the alternative is a checkout somebody has to reset, which is the state
-    `land()` refuses a dirty tree to avoid.
+    **The write itself lives in `land.py`**, which is the one module in this package that may
+    write under a registry root — invariant 2's boundary, held by
+    `test_only_land_and_the_workspace_write_to_disk`. What is here is the reading half:
+    which field moved, what the source says it should be, and which file declares it.
     """
     report = drift(
         DriftRequest(
@@ -893,36 +824,27 @@ def accept(req: AcceptRequest) -> AcceptResult:
     )
     now = _source_value(report, req.field)
     was = next(c.registry_says for c in report.checks if c.field == req.field)
-
     path = _file_declaring(req.registry_root, req.contract_id)
-    patched = _patch_line(path.read_text(), req.field, now)
-    _must_load(patched, req, now)
 
-    _refuse_an_unwritable_checkout(req.registry_root, req.branch)
-
-    if _git(req.registry_root, "branch", "--show-current") != req.branch:
-        _git(req.registry_root, "checkout", "-b", req.branch)
-    path.write_text(patched)
-    relative = str(path.relative_to(req.registry_root))
-    _git(req.registry_root, "add", relative)
-    _git(
-        req.registry_root,
-        "-c",
-        f"user.email={req.by}@forge.local",
-        "-c",
-        f"user.name={req.by}",
-        "commit",
-        "-m",
-        f"forge: {req.contract_id} {req.field} -> {now}\n\n{req.why}\n\nAccepted by {req.by}.",
+    branch, commit = accept_drift(
+        registry=req.registry_root,
+        path=path,
+        contract_id=req.contract_id,
+        field=req.field,
+        value=now,
+        vocabulary=layers.load(req.registry_root).vocabulary,
+        by=req.by,
+        why=req.why,
+        branch=req.branch,
     )
     return AcceptResult(
         contract_id=req.contract_id,
         field=req.field,
         was=was,
         now=now,
-        path=relative,
-        branch=req.branch,
-        commit=_git(req.registry_root, "rev-parse", "HEAD"),
+        path=str(path.relative_to(req.registry_root)),
+        branch=branch,
+        commit=commit,
     )
 
 

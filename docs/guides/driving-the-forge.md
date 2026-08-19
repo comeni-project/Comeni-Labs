@@ -258,8 +258,59 @@ Does the registry still say what its sources say? **Offline** — whether *upstr
 reported by name rather than folded into the pass, because a contract nothing checks looks
 exactly like a contract that agrees.
 
-When something has drifted, `forge update <contract-id> --name <draft>` re-drafts it from its
-source into the workspace. It writes a draft and never the registry.
+**Two checkers ask this question and they overlap.** `forge check` compares the three values a
+source states outright — `nf_process`, `nf_include`, `container` — and the conformance checks
+`mendel build` already runs compare the contract's *structure* to the module. They agree on
+`nf_process` and `container`, and they are deliberately not merged: one of them must be able to
+refuse a build, and one of them must only report.
+
+### Resolving it in the interface
+
+`/forge/contracts/<id>/drift` shows every field either checker could speak to, what each side
+says, the line in the source it says it at, and a verdict answering the only question a
+maintainer really has — *does this change what gets built?*
+
+It also names the **six fields nothing checks**: `id`, `consumes`, `roles`, `priority`,
+`priority_because` and `provenance`. Four of those are read by the router, so a report listing
+only what it checked would read as a clean bill of health over an unchecked half. A port's
+`type_id` is the most consequential value in a contract and no source can state it — which is
+why it is a question a human answers rather than a fact anything can verify.
+
+**Taking the source's value** patches the one line that declares the field, validates the result
+through the real loader, and commits it on `forge/drift` with who accepted it and why. It never
+re-serialises the file: a registry contract's comments *are* its reasoning, and a YAML dumper
+deletes them.
+
+Three refusals, all before anything is written:
+
+| | |
+|---|---|
+| `MF0105` | the checkout is at a detached HEAD — which `registry/` here is, being a submodule |
+| `MF0101` | the checkout has uncommitted changes |
+| `MF0104` | that field is not drifted, or only a conformance check can see it |
+
+A **structural** disagreement has no accept button, and that is the point: which `emit:` label a
+renamed channel now means is a judgement, and a judgement goes back through the queue.
+`forge update <contract-id> --name <draft>` re-drafts from source into the workspace — it writes
+a draft and never the registry — but note it re-opens **every** hole, including the ones a person
+answered last month.
+
+### Seeing any of it
+
+The shipped registry has **no drift** and every contract conforms, so all of the above renders
+empty against it. To see it work, break a copy on purpose:
+
+```console
+$ git clone registry /tmp/drift-demo && cd /tmp/drift-demo && git checkout -b work
+$ sed -i 's|fastqc:0.12.1--hdfd78af_0|fastqc:0.12.1--WRONGTAG|' \
+    tools/nf-core/fastqc/fastqc.contract.yml
+$ git commit -am "manufacture a drift"
+$ MENDEL_REGISTRY_ROOT=/tmp/drift-demo make dev
+```
+
+The row is then first in the queue, above every question. Accept it, and
+`git -C /tmp/drift-demo show` is the record: one commit, one file, one line, your name and your
+reason.
 
 ## The same verbs over HTTP
 

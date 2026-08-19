@@ -34,9 +34,9 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > `tests/test_egress.py` for the free-text fields.
 
 **Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
-done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is five phases of eight complete
-as of 2026-08-18**, on the branch `plan-3-slice-1`, which is pushed and **not merged**. Drift (5),
-sources and drafting (6) and compose (7) remain, then 3B's landing page and 3C's Mendel builder.
+done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is six phases of eight complete
+as of 2026-08-19**, on the branch `plan-3-slice-1`, which is **not merged**. Sources and drafting
+(6) and compose (7) remain, then 3B's landing page and 3C's Mendel builder.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
