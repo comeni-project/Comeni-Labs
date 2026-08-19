@@ -651,6 +651,8 @@ export interface components {
             closed: boolean;
             /** Evidence */
             evidence?: components["schemas"]["Excerpt"][];
+            /** Suggested */
+            suggested?: string | null;
             /** After */
             after?: string | null;
             /**

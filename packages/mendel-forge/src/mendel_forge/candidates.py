@@ -80,6 +80,31 @@ def _fit(type_name: str, port: str | None, tool: str | None) -> int:
     return score
 
 
+def suggestion(
+    ranked: list[Candidate],
+    *,
+    port: str | None = None,
+    tool: str | None = None,
+) -> str | None:
+    """The top candidate, but **only when something actually put it there**.
+
+    **Ranking without this is worse than not ranking at all**, and it was watched happening.
+    `_fit` returns 0 for every candidate when a port's name says nothing about a type — `gzi`,
+    `sizes`, `versions_samtools` — and the list then falls back to alphabetical order, which is
+    exactly what shipped before. Taking `[0]` regardless made the queue label those holes
+    **Confirm** and offer `alignment.bai`, so a screen that used to admit it was asking began
+    inviting a person to accept the alphabet.
+
+    That is the tier-4 mistake in a different costume: invariant 6 flags an ambiguous decision
+    *even at high model confidence*, for the same reason a suggestion with no evidence behind it
+    must not be dressed as one with. An unfounded hole says **Ask**, which is true.
+    """
+    if not ranked:
+        return None
+    top = ranked[0].value
+    return top if _fit(top, port, tool) > 0 else None
+
+
 def for_field(
     field: str,
     stack: Layers,

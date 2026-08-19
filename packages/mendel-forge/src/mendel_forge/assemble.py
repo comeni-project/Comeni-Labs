@@ -87,6 +87,9 @@ def _hole(
     question that does not say which port it is about, and a model answered all three of
     `fastqc`'s outputs identically because the prompts differed only in an index digit.
     """
+    offered = candidates.for_field(
+        field, stack, type_id=type_id, excluding=excluding, port=port, tool=excluding
+    )
     return Hole(
         subject=field,
         what=what or f"a value for {field}",
@@ -101,9 +104,8 @@ def _hole(
         # is the module key of the tool being drafted, which is exactly what the ranking needs
         # to know which tool is asking — giving the scorer its own parameter would let the two
         # drift apart silently, and the whole value of signal 3 is that they cannot.
-        candidates=candidates.for_field(
-            field, stack, type_id=type_id, excluding=excluding, port=port, tool=excluding
-        ),
+        candidates=offered,
+        suggested=candidates.suggestion(offered, port=port, tool=excluding),
         evidence=_evidence_for(obs, port),
     )
 

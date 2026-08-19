@@ -150,6 +150,17 @@ def question_from_hole(
         band=band_for(hole.subject, proposal=proposed),
         asked_by=[draft],
         candidates=list(hole.candidates),
+        # **The producer this field never had.** `suggested` is read by `aggregate()`, by the
+        # queue's ordering, by `Question.tsx`'s highlight and by `QueueRow`'s Ask/Confirm label
+        # — and until now every `suggested=` in the repository was in a test. So it was `None`
+        # in production, the Confirm branch was unreachable, and the *Ask before Confirm* sort
+        # a few lines below was comparing False to False.
+        #
+        # **Projected, not recomputed.** `candidates[0]` is the tempting shortcut and it is
+        # wrong: the candidates are always ordered, but where nothing scored, that order is the
+        # alphabet. `Hole.suggested` is `None` in exactly that case, so an unfounded hole keeps
+        # saying *Ask* instead of inviting a person to Confirm `alignment.bai`.
+        suggested=hole.suggested,
         closed=hole.closed,
         evidence=list(hole.evidence),
         changed_at=changed_at,

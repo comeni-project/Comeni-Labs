@@ -58,6 +58,15 @@ class Hole(Question):
     runtime check on a value, which is the mistake `CLAUDE.md` records about invariant 1.
     """
 
+    suggested: str | None = None
+    """The candidate the ranking is confident about, or `None` when it is not.
+
+    **Not simply `candidates[0]`** — that is the caller's obvious shortcut and it is wrong. The
+    candidates are always ordered, but when nothing scored, the order is the alphabet and the
+    first entry means nothing. `candidates.suggestion()` is what knows the difference, and it
+    lives beside the scorer because that is the only place the score exists.
+    """
+
     after: str | None = None
     """A field that must be answered first, because this hole's candidates depend on it.
 

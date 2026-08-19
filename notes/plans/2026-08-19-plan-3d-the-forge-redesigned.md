@@ -393,7 +393,7 @@ git commit -m "feat(forge): the port a hole is about reaches its candidates"
 
 ### Task 1.4: write the producer for `suggested`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/mendel-api/tests/test_suggested.py`:
 
@@ -428,14 +428,14 @@ def test_a_hole_with_no_candidates_suggests_nothing() -> None:
     assert _ask(hole, draft="faidx").suggested is None
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_suggested.py -v`
 
 Expected: FAIL — `assert None == 'genome.fasta'`. That failure **is** finding §1.5: the field
 exists, everything reads it, nothing writes it.
 
-- [ ] **Step 3: Set it in `_ask`**
+- [x] **Step 3: Set it in `_ask`**
 
 In `packages/mendel-api/src/mendel_api/questions.py`, inside `_ask`'s `OpenQuestion(...)` call
 (line ~146), add:
@@ -451,7 +451,7 @@ In `packages/mendel-api/src/mendel_api/questions.py`, inside `_ask`'s `OpenQuest
         suggested=hole.candidates[0].value if hole.candidates else None,
 ```
 
-- [ ] **Step 4: Run the test, then the whole API suite**
+- [x] **Step 4: Run the test, then the whole API suite**
 
 Run: `uv run pytest packages/mendel-api -q`
 
@@ -459,19 +459,55 @@ Expected: PASS. **Watch `test_aggregate.py` and `test_band_order.py` especially*
 only files that ever set `suggested`, and they now describe live behaviour rather than a
 hypothetical.
 
-- [ ] **Step 5: Watch the Confirm branch become reachable**
+- [x] **Step 5: Watch the Confirm branch become reachable**
 
 Run: `make client && cd frontend && npx vitest run && npm run build`
 
 Expected: all pass. Then check by hand that a queue row for a ranked hole now reads **Confirm**
 rather than **Ask** — that label has been unreachable since it was written.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api frontend/src/api
 git commit -m "feat(api): write the producer suggested never had"
 ```
+
+### Task 1.4 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | **no — wrong function name** | The projection is `question_from_hole`, not `_ask`. Corrected the test against the code. It then failed with `assert None == 'genome.fasta'`, which **is** finding §1.5. |
+| 3 | **no — the plan's version shipped a defect** | See below. |
+| 4–6 | yes | 369 tests, 73 frontend, build green. |
+
+**Step 5 did what step 5 is for, and it caught a defect the plan itself contained.** Rendering a
+real draft showed the Confirm branch reachable — and reachable on the *wrong* holes.
+`suggested=hole.candidates[0].value` is what the plan told me to write, and for `samtools/faidx`
+it labelled `sizes`, `fai`, `gzi` and `versions_samtools` **Confirm** and offered
+`alignment.bai` for all four. Those ports' names say nothing about a type, every candidate scores
+0, and the list falls back to alphabetical — so the change turned a screen that honestly said
+*Ask* into one inviting a person to accept the alphabet.
+
+**That is the tier-4 mistake in a different costume.** Invariant 6 flags an ambiguous decision
+even at high model confidence, for exactly this reason: a suggestion with no evidence behind it
+must not be dressed as one with. `candidates.suggestion()` now returns the top value only when
+`_fit` scored it above zero, `Hole.suggested` carries it, and `question_from_hole` projects
+rather than recomputes. Two holes now say Confirm on that draft and both are right; the other
+nine say Ask.
+
+**`test_a_hole_keeps_what_is_genuinely_its_own` made me justify where the field lives**, which is
+what that guard is for. `suggested` is on `Hole`, not on the shared `Question` base: the resolver
+ranks candidates too (invariant 8 orders ties by `(surplus, -priority, id)`), so the field would
+compile there and read as natural — and invariant 6 is exactly what it would erode. On the forge
+side it is safe for a reason that does not transfer, invariant 2: a hole is approved by a human
+offline, before anything resolves.
+
+**Known and not fixed:** `consumes[N].name` holes still say Ask. They are built inline rather
+than through `_hole`, and before their type is answered they offer only channel names — which
+Phase 2's own comments record as the case where the single candidate was wrong. Ask is therefore
+*true* there. Not a regression (`suggested` was `None` everywhere before) and not this phase's
+job.
 
 ### Task 1.5: close the phase
 

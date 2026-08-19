@@ -191,6 +191,7 @@
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
+      "suggested": null,
       "after": "consumes[0].type_id",
       "channels": [
         "reads"
@@ -301,6 +302,7 @@
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
+      "suggested": "fastq.reads",
       "after": null,
       "channels": []
     },
@@ -332,6 +334,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -440,6 +443,7 @@
           "text": "*.html: FastQC report — *_{fastqc.html}"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -548,6 +552,7 @@
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -656,6 +661,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -724,6 +730,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     }
