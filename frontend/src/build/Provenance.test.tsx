@@ -8,7 +8,7 @@ import { routes } from "../app/router";
 
 const step = (id: string, tier: number) => ({
   id, process: id.toUpperCase(), contract_id: `nf-core/${id}@1.0`,
-  tier, reason: "because", settings: 0,
+  tier, reason: "because", settings: [],
 });
 const node = (id: string, tier: number, y: number) => ({
   id, rank: 0, order: 0, x: 0, y, width: 232, height: 56, tier,

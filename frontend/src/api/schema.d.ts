@@ -1058,6 +1058,28 @@ export interface components {
          */
         RowKind: "question" | "drift";
         /**
+         * SettingView
+         * @description One resolved parameter, as the settings card needs it.
+         *
+         *     **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
+         *     and a box that looks typeable and discards what you type is worse than a value that says it
+         *     is a record. The design's editable field arrives with somewhere to put the answer.
+         */
+        SettingView: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string | null;
+            /** Via */
+            via: string;
+            /** Tier */
+            tier: number;
+            /** Reason */
+            reason: string;
+            /** Axis Reason */
+            axis_reason: string;
+        };
+        /**
          * Standing
          * @description What the registry holds. Not what it needs.
          */
@@ -1113,7 +1135,7 @@ export interface components {
             /** Reason */
             reason: string;
             /** Settings */
-            settings: number;
+            settings: components["schemas"]["SettingView"][];
         };
         /** Strip */
         Strip: {

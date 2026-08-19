@@ -88,9 +88,23 @@ export function Node({
         <div className="text-label text-ink-3 mt-[2px] truncate">
           {step?.contract_id ?? ""}
         </div>
-        {step && step.settings > 0 && (
-          <div className="mt-2 text-secondary text-ink-2">
-            {step.settings} {step.settings === 1 ? "setting" : "settings"}
+        {step && step.settings.length > 0 && (
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-secondary text-ink-2">
+              {step.settings.length} {step.settings.length === 1 ? "setting" : "settings"}
+            </span>
+            {/* **The worst tier among its parameters, on the node.** `dashboard.html` does the
+                same: a step can be settled and still hold a parameter nobody judged, and a
+                reader scanning the canvas has to be able to see that without opening a card. */}
+            {step.settings.some((s) => s.tier === 4) ? (
+              <span className="text-label uppercase tracking-[.1em] text-[var(--undecided)]">
+                needs your decision
+              </span>
+            ) : step.settings.some((s) => s.tier === 3) ? (
+              <span className="text-label uppercase tracking-[.1em] text-[var(--measured)]">
+                check the premise
+              </span>
+            ) : null}
           </div>
         )}
       </div>

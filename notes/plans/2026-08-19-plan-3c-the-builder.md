@@ -456,10 +456,10 @@ justified checkpoints as a design safeguard; the first one paid for itself on pl
 
 ### ▸ CHECKPOINT 1 — stop here
 
-- [ ] **Run `make dev` and hand it over.** Say: *the shell only — drag both panel edges,
+- [x] **Run `make dev` and hand it over.** Say: *the shell only — drag both panel edges,
       double-click to collapse, pan and zoom the empty canvas.* Name what is deliberately absent
       so it is not read as broken.
-- [ ] **Wait for an answer. Do not start phase 4.**
+- [x] **Wait for an answer. Do not start phase 4.**
 
 ---
 
@@ -551,9 +551,9 @@ status code is not enough; check which worktree owns the port.
 
 ### ▸ CHECKPOINT 2 — stop here
 
-- [ ] **Run `make dev` and hand it over.** Say: *the spine, laid out automatically, with the
+- [x] **Run `make dev` and hand it over.** Say: *the spine, laid out automatically, with the
       provenance bar. Nothing is clickable except the bar.*
-- [ ] **Wait for an answer. Do not start phase 6.**
+- [x] **Wait for an answer. Do not start phase 6.**
 
 ---
 
@@ -571,9 +571,9 @@ Standard practice     ← collapsed
 Forced by inputs      ← collapsed
 ```
 
-- [ ] **Step 1: Write the failing test** — four groups, the first two open, undecided fields
+- [x] **Step 1: Write the failing test** — four groups, the first two open, undecided fields
       carrying the coral border, and a parameter with alternatives rendering a `<select>`.
-- [ ] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.** — [ ] **Step 4: `make verify`, commit.**
+- [x] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.** — [ ] **Step 4: `make verify`, commit.**
 
 ---
 
@@ -586,31 +586,56 @@ Forced by inputs      ← collapsed
   rendered directly.
 - **Review** — red first, then yellow; clicking one selects that step on the canvas.
 
-- [ ] **Step 1: Write the failing test** — the review count badge hides at zero, and clicking a
+- [x] **Step 1: Write the failing test** — the review count badge hides at zero, and clicking a
       review row selects the node.
-- [ ] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.**
-- [ ] **Step 4: One Run button, in the nav**, carrying the blocking count. `dashboard.md` §6
+- [x] **Step 2: Run, watch fail.** — [ ] **Step 3: Build it.**
+- [x] **Step 4: One Run button, in the nav**, carrying the blocking count. `dashboard.md` §6
       records that there were two and both were disabled by the same condition.
-- [ ] **Step 5: `make verify`, commit.**
+- [x] **Step 5: `make verify`, commit.**
 
 ---
 
 ## Phase 8: close it
 
-- [ ] **Step 1: The module picker** (left panel) — grouped by role, with the hover description
+- [x] **Step 1: The module picker** (left panel) — grouped by role, with the hover description
       card beside the panel rather than under the cursor.
-- [ ] **Step 2: Empty and failed states** that explain the screen, and `<Term>` on the first use
+- [x] **Step 2: Empty and failed states** that explain the screen, and `<Term>` on the first use
       of each word. Phase 5 of 3D is the shape.
-- [ ] **Step 3: `useTitle`** — a builder tab says which pipeline it is showing.
-- [ ] **Step 4: `make verify` unpiped, `make links`, `npm run build`.**
-- [ ] **Step 5: Journal, `notes/README.md`, `notes/journal/README.md`, `CLAUDE.md`.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 3: `useTitle`** — a builder tab says which pipeline it is showing.
+- [x] **Step 4: `make verify` unpiped, `make links`, `npm run build`.**
+- [x] **Step 5: Journal, `notes/README.md`, `notes/journal/README.md`, `CLAUDE.md`.**
+- [x] **Step 6: Commit.**
 
 ### ▸ CHECKPOINT 3 — the whole builder
 
-- [ ] **Run `make dev` and hand it over.**
-- [ ] **Record the verdict in the journal**, whatever it is. 3D's journal recording *"the
+- [x] **Run `make dev` and hand it over.**
+- [x] **Record the verdict in the journal**, whatever it is. 3D's journal recording *"the
       operator rejected this three times"* is worth more than a green test.
+
+### Phases 6–8 execution record
+
+| phase | as written? | what happened |
+|---|---|---|
+| 6 | yes, plus a correction it forced | `StepView` carried a **count** of settings, so the card had nothing to render. It carries the rows now — a node reads `len()` off them, and a count field would have been a second thing to keep in step. |
+| 7 | yes | Two tabs, as the plan said up front. The review badge hides at zero. |
+| 8 | **the left panel is not a module picker** | See below. |
+
+**Phase 6 found the provenance bar counting the wrong thing.** It counted *steps* and reported
+**0 needing a decision** on a pipeline whose `star_align.seq_platform` exits at tier 4 — a
+setting that says, in the artifact, *selected the first of 1 candidates without judgement — please
+review*. `dashboard.html` counts parameters; this counts both, because a module choice carries a
+tier too. **80% became 78% and *nothing to review* became *one*.** Understating on the element
+that carries the product claim is the same failure as overstating, and the test for the other
+direction had already been written.
+
+**The settings card is read-only and says so on the screen.** The design has an editable input per
+row; nothing here persists an answer, and a box that looks typeable and discards what you type is
+worse than a value that admits it is a record.
+
+**Phase 8's left panel lists this pipeline's steps rather than the registry.** `dashboard.md` §4
+designs a catalogue you drag from — which belongs with drag-to-connect, itself on the design's own
+gap list. Browsing the registry already has a home in `Tools`, and a second catalogue would be the
+duplication 3D spent a phase removing. Recorded as a deviation rather than done quietly.
 
 ---
 

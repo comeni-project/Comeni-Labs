@@ -28,7 +28,12 @@ def test_the_provenance_counts_every_decision_once():
     not sum to the number of steps, the bar is showing a share of something other than the
     pipeline, which is the one thing it must never do."""
     got = build.example()
-    assert sum(got.provenance.values()) == len(got.steps)
+    # **Every decision, not every step.** A setting exits at its own tier and can be the tier-4
+    # one —  is, on this registry — so a bar counting steps reported
+    # zero needing a decision while one plainly did.
+    assert sum(got.provenance.values()) == len(got.steps) + sum(
+        len(step.settings) for step in got.steps
+    )
 
 
 def test_a_tier_three_choice_is_not_counted_as_settled():
@@ -38,6 +43,19 @@ def test_a_tier_three_choice_is_not_counted_as_settled():
     got = build.example()
     assert got.provenance.get("3", 0) >= 1
     assert got.settled_share < 1.0
+
+
+def test_a_step_is_flagged_when_one_of_its_settings_needs_a_decision():
+    """**Invariant 6, and the bug it caught.**
+
+    `star_align` exits at tier 3 and its `seq_platform` exits at tier 4. Flagging by the step's
+    own tier reported nothing to review on a pipeline that says, in its own artifact,
+    *selected the first of 1 candidates without judgement — please review*.
+    """
+    got = build.example()
+    assert "star_align" in got.needs_review
+    flagged = next(s for s in got.steps if s.id == "star_align")
+    assert any(setting.tier == 4 for setting in flagged.settings)
 
 
 def test_building_twice_gives_the_same_coordinates():

@@ -67,6 +67,26 @@ class Placement(BaseModel):
     height: int
 
 
+class SettingView(BaseModel):
+    """One resolved parameter, as the settings card needs it.
+
+    **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
+    and a box that looks typeable and discards what you type is worse than a value that says it
+    is a record. The design's editable field arrives with somewhere to put the answer.
+    """
+
+    name: str
+    value: str | None
+    """Rendered, not raw — `None` is a value that was never settled and shows as `—`."""
+    via: str
+    tier: int
+    reason: str
+    axis_reason: str
+    """Why this parameter is being decided at all, as distinct from why it got this answer.
+    Plan 1.14 split them because one field was answering both, which is how the registry came to
+    cite the STAR paper as the reason HISAT2 was chosen."""
+
+
 class StepView(BaseModel):
     """One step, as a canvas needs it — **not the whole `Step`.**
 
@@ -80,8 +100,10 @@ class StepView(BaseModel):
     contract_id: str
     tier: int
     reason: str
-    settings: int
-    """How many parameters this step has, so a node can offer *N settings* without the card."""
+    settings: list[SettingView]
+    """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
+    card needs the rows, and a second request to fetch them would make opening a card a network
+    round trip for data the build already had in hand."""
 
 
 class BuiltPipeline(BaseModel):
@@ -113,14 +135,36 @@ def _view(built: orchestrate.Built) -> BuiltPipeline:
             contract_id=by_id[node.id].module.contract_id if node.id in by_id else "",
             tier=node.tier,
             reason=by_id[node.id].why.reason if node.id in by_id else "",
-            settings=len(by_id[node.id].settings) if node.id in by_id else 0,
+            settings=[
+                SettingView(
+                    name=setting.name,
+                    value=None if setting.value is None else str(setting.value),
+                    via=str(setting.via),
+                    tier=int(setting.why.tier),
+                    reason=setting.why.reason,
+                    axis_reason=setting.why.axis_reason,
+                )
+                for setting in (by_id[node.id].settings if node.id in by_id else [])
+            ],
         )
         for node in placed.nodes
     ]
 
+    # **Every decision, step and setting.** The bar counted steps only and reported *0 needing
+    # your decision* on a pipeline whose `seq_platform` exits at tier 4 — understating on the one
+    # element that carries the product's claim, which is the failure
+    # `test_a_tier_three_choice_is_not_counted_as_settled` guards from the other side.
+    #
+    # `dashboard.html` counts parameters (`n.params.forEach(p => c[p.t]++)`) and not the module
+    # choice. Both are counted here, because both carry a tier and both can be tier 4 —
+    # `CLAUDE.md`: *module choices carry a tier too, and `needs_review()` lists a tier-4 one by
+    # node rather than only as a record a reviewer would have to join by hand.*
     provenance: dict[str, int] = {}
     for step in steps:
         provenance[str(step.tier)] = provenance.get(str(step.tier), 0) + 1
+        for setting in step.settings:
+            provenance[str(setting.tier)] = provenance.get(str(setting.tier), 0) + 1
+    decisions = sum(provenance.values())
     settled = sum(n for tier, n in provenance.items() if tier in {"1", "2"})
 
     return BuiltPipeline(
@@ -143,8 +187,12 @@ def _view(built: orchestrate.Built) -> BuiltPipeline:
             height=placed.height,
         ),
         provenance=provenance,
-        settled_share=(settled / len(steps)) if steps else 0.0,
-        needs_review=[step.id for step in steps if step.tier == 4],
+        settled_share=(settled / decisions) if decisions else 0.0,
+        needs_review=[
+            step.id
+            for step in steps
+            if step.tier == 4 or any(setting.tier == 4 for setting in step.settings)
+        ],
     )
 
 

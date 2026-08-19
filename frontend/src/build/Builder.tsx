@@ -7,8 +7,10 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
 import { Node } from "./Node";
+import { Steps } from "./Steps";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
+import { Rail } from "./Rail";
 import { Wires } from "./Wires";
 import { useView } from "./useView";
 
@@ -101,11 +103,34 @@ export function Builder() {
   const blocking = data?.needs_review.length ?? 0;
 
   return (
-    <div
-      ref={box}
-      data-testid="builder"
-      className="grid grid-cols-[auto_5px_1fr_5px_auto] h-full"
-    >
+    <div className="grid grid-rows-[38px_1fr] h-full overflow-hidden">
+      <div className="flex items-center gap-4 px-6 border-b border-line bg-surface">
+        <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
+          RNA-seq spine
+        </span>
+        {/* **One Run button, in the nav.** `dashboard.md` §6 records that there were two — one
+            here and one in the review strip — and both were disabled by the same condition, so
+            the second said nothing the first had not. The blocking count beside it is the part
+            that was load-bearing. */}
+        <button
+          disabled
+          title="Running a pipeline is Wiener's job, and Wiener is not built."
+          className="ml-auto px-3 py-1 rounded-r text-body font-semibold bg-pea
+                     text-[var(--on-pea)] border-0 opacity-40 cursor-not-allowed"
+        >
+          Run pipeline
+        </button>
+        {blocking > 0 && (
+          <span data-testid="blocking" className="text-secondary text-[var(--undecided)]">
+            <b className="font-data">{blocking}</b> to decide
+          </span>
+        )}
+      </div>
+      <div
+        ref={box}
+        data-testid="builder"
+        className="grid grid-cols-[auto_5px_1fr_5px_auto] overflow-hidden"
+      >
       <Side
         side="left"
         title="Modules"
@@ -113,9 +138,7 @@ export function Builder() {
         collapsed={left.collapsed}
         onExpand={() => left.setCollapsed(false)}
       >
-        <p className="px-4 py-3 text-secondary text-ink-3">
-          The module picker arrives with phase 8.
-        </p>
+        {data && <Steps data={data} selected={selected} onSelect={setSelected} />}
       </Side>
       <Grip
         side="left"
@@ -208,17 +231,16 @@ export function Builder() {
         onExpand={() => right.setCollapsed(false)}
         badge={blocking}
       >
-        <p className="px-4 py-3 text-secondary text-ink-3">
-          Step details and review arrive with phase 7.
-        </p>
-        <button
-          data-testid="collapse-right"
-          onClick={() => right.setCollapsed(true)}
-          className="mx-4 text-secondary text-ink-3 bg-transparent border-0 cursor-pointer p-0"
-        >
-          collapse
-        </button>
+        {data && (
+          <Rail
+            data={data}
+            selected={selected}
+            onSelect={setSelected}
+            onCollapse={() => right.setCollapsed(true)}
+          />
+        )}
       </Side>
+      </div>
     </div>
   );
 }

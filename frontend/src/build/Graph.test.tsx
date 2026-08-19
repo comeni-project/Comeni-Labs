@@ -13,9 +13,11 @@ const node = (id: string, x: number, y: number, tier: number) => ({
 const PIPELINE = {
   steps: [
     { id: "trimgalore", process: "TRIMGALORE", contract_id: "nf-core/trimgalore@0.6.10",
-      tier: 2, reason: "the only contract that produces this", settings: 0 },
+      tier: 2, reason: "the only contract that produces this", settings: [] },
     { id: "star_align", process: "STAR_ALIGN", contract_id: "nf-core/star/align@1.11.0",
-      tier: 3, reason: "rule matched read_length >= 70", settings: 1 },
+      tier: 3, reason: "rule matched read_length >= 70",
+      settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
+                   reason: "nobody judged it", axis_reason: "" }] },
   ],
   layout: {
     nodes: [node("trimgalore", 338, 0, 2), node("star_align", 169, 128, 3)],
@@ -83,6 +85,8 @@ describe("the graph", () => {
   });
 
   it("says how many settings a step has, without opening the card", async () => {
+    // The node reads `len()` off the settings it already has. A count field would have been a
+    // second thing to keep in step with the list, and the card needs the list anyway.
     at();
     await waitFor(() => expect(screen.getByText(/1 setting/)).toBeTruthy());
   });
