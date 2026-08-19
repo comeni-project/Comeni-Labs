@@ -1,7 +1,7 @@
-# Compose and prod — Plan 3A phase 7
+# Compose and prod — Plan 3A phase 8
 
 **Status:** written 2026-08-19, against the code phases 0–6 landed.
-**Implements:** [`2026-08-18-the-interface.md`](2026-08-18-the-interface.md) §7 and §3's phase 7 —
+**Implements:** [`2026-08-18-the-interface.md`](2026-08-18-the-interface.md) §7 and §3's phase 8 —
 *bring the whole thing up with one command* — and `worker.py`'s `cron_jobs: []`, whose docstring
 says *"The nightly schedule lands with Compose"*.
 **Follows:** `../../Cladewright/docker-compose.dev.yml` and `../../portfolio/docker-compose.prod.yml`,
@@ -10,7 +10,7 @@ right and this drifted.
 
 ---
 
-## 1. What phase 7 is for
+## 1. What phase 8 is for
 
 Six phases built a tool that a developer runs by hand: `docker compose up postgres redis`, a
 `uvicorn` in one terminal, an `arq` worker in another if they remember, `npm run dev` in a third.
@@ -20,8 +20,12 @@ has been real and *"next nightly"* has been a lie since phase 4.
 At the end, `make dev` brings the whole thing up and prints where it is, and
 `docker-compose.prod.yml` runs the same services with the frontend built and served.
 
-**What phase 7 is not:** not a deployment, not TLS, not auth, not a registry of images. It is the
+**What phase 8 is not:** not a deployment, not TLS, not auth, not a registry of images. It is the
 last phase of 3A and it ends 3A; 3B is the landing page.
+
+**It was phase 7 until 2026-08-19**, when a performance audit inserted one ahead of it — see
+[`2026-08-19-responsiveness.md`](2026-08-19-responsiveness.md). Compose inherits a fast app
+instead of packaging a slow one, which is the right order.
 
 ---
 
