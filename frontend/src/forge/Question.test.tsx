@@ -49,7 +49,7 @@ describe("answering one question", () => {
   });
 
   it("shows the API's refusal rather than a generic failure", async () => {
-    const fetchImpl = vi.fn((url: string, init?: RequestInit) =>
+    const fetchImpl = vi.fn((_url: string, init?: RequestInit) =>
       init?.method === "POST"
         ? Promise.resolve({ ok: false, status: 422,
             json: async () => ({ detail: "MF0003: 'alignment' is not legal for roles" }) })

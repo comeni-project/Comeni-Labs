@@ -1,6 +1,9 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+// `vitest/config`, not `vite`: the `test` block below is vitest's, and vite's own
+// `defineConfig` does not know the key. `npx tsc --noEmit` never noticed — `tsc -b`
+// uses the project references and does, which is why `npm run build` is the gate.
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

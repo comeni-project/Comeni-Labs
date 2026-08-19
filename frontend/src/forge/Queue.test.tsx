@@ -7,6 +7,9 @@ import type { OpenQuestion } from "./QueueRow";
 import { QueueRow } from "./QueueRow";
 
 const q = (over: Partial<OpenQuestion> = {}): OpenQuestion => ({
+  // `kind` is required on the generated type since phase 5 added drift rows. A helper that
+  // omitted it compiled under `tsc --noEmit` and failed under `tsc -b`.
+  kind: "question",
   subject: "consumes[0].type_id",
   what: "what arrives on channel 0",
   why_open: "nf-core declares it as type: file",

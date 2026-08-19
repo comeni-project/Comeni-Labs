@@ -76,7 +76,7 @@ describe("the answer screen", () => {
 
   it("reports a partial batch rather than claiming success", async () => {
     // The one thing that must not be silent. A 200 with refusals is not a success.
-    const fetchImpl = vi.fn((url: string, init?: RequestInit) =>
+    const fetchImpl = vi.fn((_url: string, init?: RequestInit) =>
       init?.method === "POST"
         ? Promise.resolve({
             ok: true, status: 200,

@@ -5,8 +5,12 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Decide } from "./Decide";
+import type { components } from "../api/schema";
 
-const PROPOSAL = {
+// **Annotated, not `satisfies`.** A bare literal widens `decision` to `string`, which is not
+// the generated union; `satisfies` narrows it to `"open"`, which the rejected-proposal case
+// below then cannot widen back. The annotation gives the field exactly the union it needs.
+const PROPOSAL: components["schemas"]["Proposal"] = {
   id: "qc.index_stats",
   description: "per-reference index statistics",
   why: "nothing declared covers idxstats output",
