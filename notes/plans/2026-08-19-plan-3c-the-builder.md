@@ -533,6 +533,22 @@ two elements at `left:14` and `left:352` — which are the **input chips** (`12 
 pixel"* was written in the same commit that got one pixel from the wrong kind of object, and it
 was only caught by going back to the file for the provenance bar's markup.
 
+### A trap the checkpoints found: two worktrees, one port
+
+**Checkpoint 2 opened on the wrong branch's app and reported a 404.**
+
+`make dev` starts Vite on the host with `setsid`. The **containers** collide loudly — the names
+are fixed, so a second worktree's `docker compose up` fails on `"/mendel-db" is already in use`.
+**Vite does not.** It finds 5173 taken and quietly takes 5174, and the banner still prints 5173.
+
+So the port the plan tells you to open belongs to whichever worktree started first. The 3D
+checkpoint's dev server was still running, `/build` does not exist on that branch, and Vite's SPA
+fallback answers **200** for an unknown path — the router renders not-found, and `curl` looking
+only at the status code says everything is fine.
+
+**Before any checkpoint: `pgrep -af bin/vite` and kill what is not this worktree.** Checking the
+status code is not enough; check which worktree owns the port.
+
 ### ▸ CHECKPOINT 2 — stop here
 
 - [ ] **Run `make dev` and hand it over.** Say: *the spine, laid out automatically, with the
