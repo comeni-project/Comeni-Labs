@@ -53,7 +53,15 @@ Three kinds live here:
   spec declares the coverage rather than merging them; *"every field checked"* is made honest by
   naming the six fields nothing checks, three of which the router reads; the verdict is a fold
   over a total classification rather than a case analysis; and accepting patches **one line**,
-  because a registry contract's comments are its reasoning and a YAML dumper deletes them).
+  because a registry contract's comments are its reasoning and a YAML dumper deletes them), and
+  `2026-08-19-sources-and-drafting.md` (**Plan 3A phase 6** — the screen `forge-review.md` §9
+  lists as *undesigned*, so §3's rule is its authority. Its sharpest finding is that the forge's
+  mounted transport **cannot be called from a browser at all** — its request models carry
+  `source_root` and `workspace_root`, and a caller choosing those is the second answer to a
+  question `settings.py` answers once — which is why every phase since 2 has re-exposed forge
+  operations and why `main.py`'s docstring saying otherwise has been false for four phases. The
+  mount is removed. Two more: `Workspace.save` overwrites a draft **silently**, and the contract
+  version is **not derivable** — two vendored tools have containers with no version tag at all).
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
