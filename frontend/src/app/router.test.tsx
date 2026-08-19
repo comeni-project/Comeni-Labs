@@ -40,9 +40,10 @@ describe("routing", () => {
     at("/forge/queue");
     // Six dead `href="#"` links are what made slice 1 look finished. A destination that is
     // not built is disabled and titled with the phase that builds it.
-    // Two, not three: `Contracts` became a real link in phase 4. The list shrinks as phases
-    // land, and it must shrink deliberately rather than the assertion being deleted.
-    for (const name of ["Mendel", "Sources"]) {
+    // **One, not two:** `Contracts` became a real link in phase 4 and `Sources` in phase 6.
+    // The list shrinks as phases land, and it must shrink deliberately rather than the
+    // assertion being deleted — `Mendel` is the last one, and it is 3C.
+    for (const name of ["Mendel"]) {
       expect(screen.getByText(name).getAttribute("aria-disabled")).toBe("true");
     }
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);

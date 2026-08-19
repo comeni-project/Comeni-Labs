@@ -9,8 +9,8 @@ import { useUrlState } from "./useUrlState";
  * Registry is a BUTTON rather than a nav item, deliberately: you consult it mid-decision,
  * and navigating away from a question you are answering is the friction the design removes.
  *
- * **What does not exist yet says so.** Mendel is 3C; Contracts and Sources are 3A phases 4
- * and 6. They are rendered `aria-disabled` rather than as links, because a link that goes
+ * **What does not exist yet says so.** Mendel is 3C. It is rendered `aria-disabled` rather than
+ * as a link, because a link that goes
  * nowhere silently is worse than one that admits it — and six of those were what made slice
  * 1 look finished when nothing on the screen did anything.
  */
@@ -59,7 +59,7 @@ export function Shell() {
         <div className="flex gap-[2px]">
           <Tab to="/forge/queue">Queue</Tab>
           <Tab to="/forge/contracts">Contracts</Tab>
-          <Soon title="Where drafts come from — phase 6">Sources</Soon>
+          <Tab to="/forge/sources">Sources</Tab>
         </div>
 
         <RegistryBox />
