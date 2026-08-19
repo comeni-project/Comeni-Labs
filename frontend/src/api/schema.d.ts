@@ -295,6 +295,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every tool, and how far along it is
+         * @description **Counts come back over everything, never over the filtered view.**
+         *
+         *     A facet counting only what is shown reads 12 in the one you are standing in and 0 in every
+         *     other, which is the opposite of what a facet is for — a defect both of the screens this
+         *     replaces had already found and fixed independently.
+         */
+        get: operations["listTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/attention": {
         parameters: {
             query?: never;
@@ -403,6 +427,23 @@ export interface components {
          * @enum {string}
          */
         Band: "drift" | "routing" | "cosmetic" | "prose" | "blocked";
+        /** Board */
+        Board: {
+            /** Rows */
+            rows: components["schemas"]["mendel_api__services__tools__ToolRow"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            /** Known */
+            known?: number | null;
+            /** Sources */
+            sources: string[];
+        };
         /**
          * Call
          * @description One thing asking for a person: how much, said plainly, and where it lives.
@@ -435,7 +476,7 @@ export interface components {
         /** Catalogue */
         Catalogue: {
             /** Rows */
-            rows: components["schemas"]["ToolRow"][];
+            rows: components["schemas"]["mendel_api__services__sources__ToolRow"][];
             /** Counts */
             counts: {
                 [key: string]: number;
@@ -894,16 +935,6 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
         };
-        /** ToolRow */
-        ToolRow: {
-            /** Ref */
-            ref: string;
-            state: components["schemas"]["State"];
-            /** Contract Id */
-            contract_id?: string | null;
-            /** Draft */
-            draft?: string | null;
-        };
         /** TypeCard */
         TypeCard: {
             /** Id */
@@ -971,6 +1002,47 @@ export interface components {
              * Format: date-time
              */
             seen_at: string;
+        };
+        /** ToolRow */
+        mendel_api__services__sources__ToolRow: {
+            /** Ref */
+            ref: string;
+            state: components["schemas"]["State"];
+            /** Contract Id */
+            contract_id?: string | null;
+            /** Draft */
+            draft?: string | null;
+        };
+        /**
+         * ToolRow
+         * @description One tool. **Named for what a person reads, not for how it is keyed.**
+         */
+        mendel_api__services__tools__ToolRow: {
+            /** Ref */
+            ref: string;
+            /** Tool */
+            tool: string;
+            state: components["schemas"]["State"];
+            status?: components["schemas"]["Status"] | null;
+            /**
+             * Consumes
+             * @default []
+             */
+            consumes: string[];
+            /**
+             * Produces
+             * @default []
+             */
+            produces: string[];
+            /**
+             * Open Questions
+             * @default 0
+             */
+            open_questions: number;
+            /** Contract Id */
+            contract_id?: string | null;
+            /** Draft */
+            draft?: string | null;
         };
     };
     responses: never;
@@ -1447,6 +1519,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listTools: {
+        parameters: {
+            query?: {
+                /** @description Only this stage of a tool's life */
+                state?: components["schemas"]["State"] | null;
+                /** @description Only this agreement status. Landed tools only */
+                against?: components["schemas"]["Status"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -41,6 +41,11 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer-all", "post"): "answerAll",
         ("/api/questions/propose", "post"): "proposeType",
         ("/api/questions/proposals/decide", "post"): "decideProposal",
+        # **`listTools` supersedes `listSources` and `listContracts` as the list the interface
+        # reads.** The two older ones stay until the screens that call them are deleted in the
+        # same phase; if they are still here when `Sources.tsx` and `Contracts.tsx` are gone,
+        # they are dead routes and this list is where that shows up.
+        ("/api/tools", "get"): "listTools",
         ("/api/sources", "get"): "listSources",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",

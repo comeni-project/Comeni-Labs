@@ -646,7 +646,7 @@ class Board(BaseModel):
 
 ### Task 3.1: the service
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `packages/mendel-api/tests/test_tools.py`:
 
@@ -692,9 +692,9 @@ def test_counts_are_over_everything_not_the_filtered_view() -> None:
     assert len(filtered.rows) < len(everything.rows)
 ```
 
-- [ ] **Step 2: Run and watch it fail** — `ModuleNotFoundError: mendel_api.services.tools`.
+- [x] **Step 2: Run and watch it fail** — `ModuleNotFoundError: mendel_api.services.tools`.
 
-- [ ] **Step 3: Write `services/tools.py`**
+- [x] **Step 3: Write `services/tools.py`**
 
 Compose it from the two existing services rather than re-deriving: `sources.catalogue()` already
 computes state and `contracts.listing()` already computes status, and **both are cached on the
@@ -707,10 +707,25 @@ Read the ports off `stack.registry.contracts[...]` for landed rows; leave them e
 
 Set `known=None` with the reason in a docstring citing #77.
 
-- [ ] **Step 4: Run the tests. Then add the route** in `routes/tools.py`, registered **before**
+- [x] **Step 4: Run the tests. Then add the route** in `routes/tools.py`, registered **before**
       any catch-all path — the greedy `/{id:path}` defect cost a phase once.
 
-- [ ] **Step 5: `make client`, then commit.**
+- [x] **Step 5: `make client`, then commit.**
+
+### Task 3.1 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–2 | yes | |
+| 3 | **no — `Board.checked_at` was dropped** | `CheckResult` has no `checked_at`; the health strip reads `SourceCheck.ran_at` from the database, written by the nightly worker. That is a *different fact* from `checked.result()`, which is a check computed now. Carrying it on the board would have forced a choice between two truths and let the board and the health strip disagree about one sentence. The page reads both endpoints — each is O(1) and cached on the registry digest. |
+| 4 | yes, plus a guard | `test_every_operation_is_named_by_hand` holds a literal list of every operation and refused the new one until it was added by hand. That is the guard working: `listTools` is in the list with a note that `listSources`/`listContracts` become dead routes when Task 3.2 deletes their screens. |
+| 5 | yes | |
+
+**One design point the plan did not anticipate: the join is a union, not a lookup.**
+`sources.catalogue()` walks what a source can *discover*, so composing the board by iterating it
+would silently drop any contract whose module is not in `vendor/` — hand-written, or removed
+upstream. Those are exactly the rows a person most needs, because they are the ones nothing can
+re-read. `test_a_landed_contract_appears_even_if_no_source_can_discover_it` holds it.
 
 ### Task 3.2: the page
 

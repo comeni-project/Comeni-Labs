@@ -25,6 +25,7 @@ from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import sources as sources_routes
+from mendel_api.routes import tools as tools_routes
 
 TAGS = [
     {"name": "questions", "description": "What is open, and how it gets closed."},
@@ -71,6 +72,11 @@ def create_app() -> FastAPI:
     app.include_router(registry_routes.router, prefix="/api")
     app.include_router(contracts_routes.router, prefix="/api")
     app.include_router(sources_routes.router, prefix="/api")
+    # **Before `attention`, and nowhere near a catch-all.** `/{id:path}` on the contracts
+    # router is greedy: a route registered after it returns 200 with the wrong body rather than
+    # 404, which cost phase 5 an afternoon. `/tools` has no path parameter and cannot be
+    # swallowed, but the ordering rule is cheaper to keep than to rediscover.
+    app.include_router(tools_routes.router, prefix="/api")
     app.include_router(attention_routes.router, prefix="/api")
     return app
 
