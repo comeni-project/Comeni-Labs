@@ -19,6 +19,7 @@ mount and `mendel_forge.http` were both removed in phase 6 —
 from fastapi import FastAPI
 
 from mendel_api.refusals import refusal_handler
+from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import contracts as contracts_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
@@ -31,6 +32,7 @@ TAGS = [
     {"name": "registry", "description": "The declared data, read only."},
     {"name": "contracts", "description": "What has landed. Read only."},
     {"name": "sources", "description": "What can be read, and starting a draft."},
+    {"name": "attention", "description": "What needs a person, across both halves."},
 ]
 
 
@@ -69,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(registry_routes.router, prefix="/api")
     app.include_router(contracts_routes.router, prefix="/api")
     app.include_router(sources_routes.router, prefix="/api")
+    app.include_router(attention_routes.router, prefix="/api")
     return app
 
 

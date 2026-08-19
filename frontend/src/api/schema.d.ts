@@ -295,6 +295,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What needs a person, across both halves */
+        get: operations["whatNeedsYou"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -367,6 +384,14 @@ export interface components {
             /** Refused */
             refused: components["schemas"]["RefusedDraft"][];
         };
+        /** Attention */
+        Attention: {
+            /** Forge */
+            forge: components["schemas"]["Call"][];
+            /** Mendel */
+            mendel: components["schemas"]["Call"][];
+            standing: components["schemas"]["Standing"];
+        };
         /**
          * Band
          * @description How much a wrong answer costs, which is not the same as how likely one is.
@@ -378,6 +403,19 @@ export interface components {
          * @enum {string}
          */
         Band: "drift" | "routing" | "cosmetic" | "prose" | "blocked";
+        /**
+         * Call
+         * @description One thing asking for a person: how much, said plainly, and where it lives.
+         */
+        Call: {
+            /** What */
+            what: string;
+            /** Where */
+            where: string;
+            /** Count */
+            count: number;
+            urgency: components["schemas"]["Urgency"];
+        };
         /**
          * Candidate
          * @description One thing that may be answered, and where it comes from.
@@ -806,6 +844,32 @@ export interface components {
          */
         RowKind: "question" | "drift";
         /**
+         * Standing
+         * @description What the registry holds. Not what it needs.
+         */
+        Standing: {
+            /** Contracts */
+            contracts: number;
+            /** Matching */
+            matching: number;
+            /** Unverifiable */
+            unverifiable: number;
+            /** Drifted */
+            drifted: number;
+            /** Types */
+            types: number;
+            /** Roles */
+            roles: number;
+            /** Rules */
+            rules: number;
+            /** Measurements */
+            measurements: number;
+            /** Sources */
+            sources: string[];
+            /** Undrafted */
+            undrafted: number;
+        };
+        /**
          * State
          * @enum {string}
          */
@@ -857,6 +921,12 @@ export interface components {
             /** Why */
             why: string;
         };
+        /**
+         * Urgency
+         * @description How much a thing costs if it waits — not how likely it is to matter.
+         * @enum {string}
+         */
+        Urgency: "blocking" | "waiting" | "idle";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1375,6 +1445,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    whatNeedsYou: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attention"];
                 };
             };
         };

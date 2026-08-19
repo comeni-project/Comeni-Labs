@@ -107,7 +107,7 @@ tools     {undrafted: 3, drafted: 0, landed: 10}    sources ['nf-core']
 questions 0
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/mendel-api/tests/test_attention.py
@@ -162,9 +162,9 @@ def test_an_undrafted_tool_is_an_invitation_not_a_warning():
     assert all(c.urgency is Urgency.IDLE for c in undrafted)
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
-- [ ] **Step 3: Write the service**
+- [x] **Step 3: Write the service**
 
 ```python
 # packages/mendel_api/services/attention.py
@@ -206,7 +206,7 @@ properly, not here.
 has needed that note, after `Band.rank` shipped alphabetical and `Impact.rank` and `State.rank`
 were written to avoid it.
 
-- [ ] **Step 4: The route**
+- [x] **Step 4: The route**
 
 ```python
 @router.get("", operation_id="whatNeedsYou", summary="What needs a person, across both halves")
@@ -217,7 +217,7 @@ def attention() -> Attention:
 Mounted at `/api/attention`; the tag goes in `main.py`'s `TAGS` and the operation in
 `test_openapi.py`'s literal list.
 
-- [ ] **Step 5: `make client`, run the API suite, commit**
+- [x] **Step 5: `make client`, run the API suite, commit**
 
 ---
 

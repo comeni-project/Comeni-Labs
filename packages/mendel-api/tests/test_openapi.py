@@ -43,6 +43,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/proposals/decide", "post"): "decideProposal",
         ("/api/sources", "get"): "listSources",
         ("/api/sources/draft", "post"): "draftTool",
+        ("/api/attention", "get"): "whatNeedsYou",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }
