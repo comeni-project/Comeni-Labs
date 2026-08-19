@@ -33,8 +33,41 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > tests, `make residue` for guard coverage, `len(DeclaredKind)` for kinds,
 > `tests/test_egress.py` for the free-text fields.
 
-**Plan 1 through Plan 1.15 are complete, and the design audit has run.** Plan 2 is next. The
-ordered list of every plan, with its status and the argument for its position, is
+**Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
+done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is COMPLETE as of 2026-08-19**, all nine phases, on the
+branch `plan-3-slice-1`, which is **not merged**. `make dev` brings the whole thing up: Postgres,
+Redis, the API, the ARQ worker and nginx serving the built SPA, with Vite on the host for HMR. **Phase 7 was
+responsiveness and it did not exist until an audit created it** — every registry-touching screen
+cost ~250ms warm and one function was responsible
+([`notes/audits/2026-08-19-performance-audit.md`](notes/audits/2026-08-19-performance-audit.md),
+A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s, and the fast test
+suite is 41s where it was 207s — with the emitted pipeline byte-identical.
+
+**Plan 3B is COMPLETE as of 2026-08-19**, on `plan-3b-landing`, branched from `plan-3-slice-1`
+and also unmerged. `/` is a landing page rather than the redirect phase 0 left there, behind one
+endpoint, `GET /api/attention`. **The page counts and links and never renders an item**, and that
+is not a style note — `docs/design/forge-review.md` §3 records an Overview page *designed and
+cut* for answering the same question as the Queue, so the moment a contract id or a question
+subject appears on the front door it has become the page that was cut. A test holds it. Its
+signature element reuses `dashboard.md` §1 rather than inventing anything: certainty is drawn as
+stroke, the same language the canvas will use, so `tokens.css` did not change.
+**Plan 3D is COMPLETE as of 2026-08-19**, on `plan-3d-forge`, branched from `plan-3b-landing`
+and also unmerged. It followed the operator's verdict that the forge was *unusable*, and the
+spec was written after **walking the loop as a user** rather than reading the code — which found
+that it was **not a looks problem**. `forge draft` opens seven `type_id` holes per tool and each
+offered the whole twenty-two-type vocabulary *alphabetically*: measured against the 30 ports of
+the 12 landed contracts, the right type was ranked first in **1 of 30**. Ranking by the port
+name, an abbreviation of it, and the tool's own name puts it first in **25 of 30**, with
+arithmetic over declared data and no model. `OpenQuestion.suggested` — which had every consumer
+and no producer, so `QueueRow`'s *Confirm* branch was unreachable — now has one, and only where
+something actually scored. `Sources` and `Contracts` were one query at two stages of a tool's
+life and are now `GET /api/tools` behind a status board that answers *is everything okay* before
+it lists anything. **Eight words the interface used without defining now have definitions**
+([`docs/reference/glossary.md`](docs/reference/glossary.md), `?` from anywhere).
+
+**3C — the Mendel builder — is next**, and it is what the landing page's argument depends on: if
+3C's half turns out to be a second queue, that page should be cut the way the Overview was.
+The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
 
@@ -76,7 +109,8 @@ distinction is the point of Plan 2 Phase 1. `comeni-core`, `mendel-resolver` and
 is entirely deterministic: a source is read, facts are derived, and everything that cannot be
 derived is a typed **hole** a person fills. `ports.py` declares `HoleFiller` and ships
 `NoFiller`, which declines everything, so `--no-ai` is not a flag in the forge but the only
-mode. `mendel-ai` and `mendel-api` still do not exist. **Phase 2 wires a model into the forge,
+mode. `mendel-ai` exists (transport only) and **`mendel-api` and `frontend/` exist as of Plan
+3A** — see the journal. **Phase 2 wires a model into the forge,
 and its first question is the fifth egress door** — a model call sends tool documentation to a
 provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
 `notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and
@@ -464,14 +498,16 @@ packages/
   mendel-forge/      sources, scaffolds with typed holes, verify, land  impure
     filler.py          ModelFiller — a model behind the HoleFiller seam
     sources/           the Source protocol, and the nf-core adapter
-    cli/  http/         two transports over ops.py; neither holds logic
-  mendel-api/        FastAPI surface — DOES NOT EXIST YET, Plan 3       impure
+    cli/               the transport over ops.py; it holds no logic
+  mendel-api/        FastAPI surface; mounts the forge, projects questions  impure
+    routes/            questions, health — validate, dispatch, serialise
+    questions.py       OpenQuestion: one schema, two consumers
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
-frontend/      DOES NOT EXIST YET — Plan 3 creates it. React + TS + Vite + Tailwind
+frontend/      React 19 + TS + Vite + Tailwind 4. src/api/ is GENERATED from openapi.json
 ```
 
 **The subpackages inside `comeni-core` are a pipeline through the system**, named for the stage
@@ -620,6 +656,7 @@ conversation is a loose end lost.
 | ~~41~~ | code and documentation organisation | **closed 2026-08-16.** Eleven tasks, three emitted digests unmoved. `comeni_core` is five subpackages by lifecycle stage, the working notes left `docs/` for `notes/`, and `make links` checks every relative link in `docs/` and the root |
 | 67 | `mendel explain` never shows the `fix:` field — the long form is the code and the explanation only | undecided; one change, since `forge explain` calls the same function |
 | 64 | `forge check` is offline — it compares the registry against the *vendored* source, never against upstream | after the forge MVP, by the operator's decision 2026-08-16 |
+| 77 | the catalogue cannot report a real total — discovery reads only vendored modules, so `forge discover` sees **13 tools** rather than the ~1,600 nf-core + pegi3s will bring. The Tools board renders `—` rather than `13`: an absence is not a zero. Distinct from #64, which is about *checking* against upstream | needs a `Source.catalogue()`, and a decision about caching — the board must stay inside 0.5s, so it is the worker's job, not the request's |
 | 65 | the pegi3s source adapter — a container registry, and what may honestly be read out of documentation prose | designed for rather than built; `tests/opaque_source.py` is its shape, so the `Source` protocol has had two implementations since day one |
 | ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 
@@ -709,7 +746,12 @@ uv run forge land fastqc --registry ../comeni-registry --by "$USER"
 # verb with a git commit behind it, and registry/ here is a submodule at detached HEAD.
 ```
 
-`make dev` and `make migrate` arrive with Plan 3, along with the API and its migrations.
+`make dev` brings up the whole stack — Postgres, Redis, the API, the worker and nginx — and
+starts Vite on the host for HMR; `make prod` runs the same stack with the unsafe parts removed;
+`make migrate` applies migrations;
+`make client` regenerates `frontend/src/api/` from the API's own schema. **Never hand-edit
+that directory** — a generated client is what makes the IR types unable to drift between
+the halves, and editing it is how that guarantee is lost quietly.
 
 **`ruff format` is not a gate and CI does not check it.** 28 files are hand-wrapped in ways
 the formatter would undo; a formatting sweep belongs in its own reviewable commit rather than

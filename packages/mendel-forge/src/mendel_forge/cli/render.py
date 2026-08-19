@@ -89,6 +89,26 @@ def _holes(holes) -> list[str]:
     return lines
 
 
+def propose(result: ops.ProposeResult) -> str:
+    """**Says the hole is still open**, because a proposal is not a fill and a message that
+    read like `fill`'s would tell a curator their draft is closer to landing than it is."""
+    return (
+        f"{result.field} proposed; the hole stays open — "
+        f"{len(result.remaining)} left: {', '.join(result.remaining)}"
+    )
+
+
+def decide(result: ops.DecideResult) -> str:
+    """**Says which way it went and what it left.** A rejection that printed like an approval
+    would tell a curator their draft is closer to landing than it is."""
+    if result.value is None:
+        return (
+            f"{result.field} rejected; the hole is open again — "
+            f"{len(result.remaining)} left: {', '.join(result.remaining)}"
+        )
+    return f"{result.field} approved as {result.value}; {len(result.remaining)} left"
+
+
 def model_fill(result: ops.ModelFillResult) -> str:
     """Both outcomes, always.
 

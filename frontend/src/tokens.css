@@ -1,0 +1,40 @@
+/* The token system, as CSS custom properties.
+
+   `docs/design/dashboard.md` §2 is AUTHORITATIVE and this file mirrors it — if the two
+   disagree, that document is right. It governs both halves of the product: the Mendel
+   canvas and the forge's screens. */
+:root {
+  --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
+  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
+  --line: #DCE2DF; --line-2: #C4CDC8;
+  --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
+  --measured: #B77B2B; --measured-soft: #F6EBD8;
+  --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
+  --shadow: rgba(18, 21, 26, .14);
+  --r: 3px;
+  --font-display: Georgia, "Iowan Old Style", "Times New Roman", ui-serif, serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
+    --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
+    --line: #2A3134; --line-2: #3A4347;
+    --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
+    --measured: #D9A458; --measured-soft: #2C2416;
+    --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
+    --shadow: rgba(0, 0, 0, .5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
+  --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
+  --line: #2A3134; --line-2: #3A4347;
+  --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
+  --measured: #D9A458; --measured-soft: #2C2416;
+  --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
+  --shadow: rgba(0, 0, 0, .5);
+}

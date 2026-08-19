@@ -24,6 +24,7 @@ from pathlib import Path
 
 from comeni_core.declared.layered import (
     Displacement,
+    bucket,
     declared_entries,
     layers_of,
     stack,
@@ -121,14 +122,18 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                     "not be the bytes pinned.")
                 )
     stacked = layers_of(layers)
-    measured = stack(stacked, MeasurementRegistry.kind())
+    # **One walk for five kinds.** `stack()` computes this itself when it is not given one,
+    # which is what made a load 244ms: five kinds meant five walks of the layer and five
+    # parses of every file to read its `declares:` line. Audit A133.
+    buckets = bucket(stacked)
+    measured = stack(stacked, MeasurementRegistry.kind(), buckets=buckets)
     measurements = MeasurementRegistry.of(measured)
-    declared_types = stack(stacked, Vocabulary.kind())
+    declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
-    named_roles = stack(stacked, RoleVocabulary.kind())
+    named_roles = stack(stacked, RoleVocabulary.kind(), buckets=buckets)
     roles = RoleVocabulary(names=frozenset(named_roles.entries))
     try:
-        contracts = stack(stacked, Registry.kind(vocabulary))
+        contracts = stack(stacked, Registry.kind(vocabulary), buckets=buckets)
     except UnknownStateError as error:
         raise _blame_the_overlay(error, declared_types.displaced) from error
     registry = Registry.of(contracts, stacked)
@@ -137,7 +142,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # layer may legitimately fill a role an overlay declares.
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
-    decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements))
+    decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements), buckets=buckets)
     rules = RuleTable.of(decided, stacked)
     # After assembly, so a decision may read a fact a derivation in another file
     # supplies. Same reason `roles.check` runs here rather than inside a parse.

@@ -135,6 +135,7 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MF0008` | no such draft, or a draft name that is not a plain name |
+| `MF0010` | a draft with that name already exists |
 
 ## The forge — landing a draft into a registry
 
@@ -142,6 +143,12 @@ decline to curate one.
 |---|---|
 | `MF0100` | a draft may not be landed on the registry's default branch |
 | `MF0101` | the registry checkout has uncommitted changes |
+| `MF0102` | the field is not a single top-level scalar and cannot be patched in place |
+| `MF0103` | the patched contract no longer loads, so nothing was written |
+| `MF0104` | that field is not drifted, so there is nothing to accept |
+| `MF0105` | the registry checkout is at a detached HEAD |
+| `MF0106` | no contract in this registry has that id |
+| `MF0107` | the registry is not a git checkout |
 
 ## Reaching a model
 

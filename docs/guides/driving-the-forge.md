@@ -36,6 +36,36 @@ nf-core:multiqc
 A reference is `<source>:<tool>`. The bare form is refused (`MF0001`): it is ambiguous the moment
 a second source exists, and a second source is why the ingestion layer is a protocol at all.
 
+### In the interface
+
+`/forge/sources` is the same list with the column that makes it useful — what has been *done*
+with each tool:
+
+| state | means |
+|---|---|
+| `undrafted` | neither drafted nor landed. **This is what you can start**, so it sorts first |
+| `drafted` | a draft in the workspace is about this tool — answer it in the queue |
+| `landed` | a contract with this module key is in the registry |
+
+`drafted` is derived from each draft's `id`, not from its name: a draft called `mydraft` for
+`samtools/faidx` shows against that tool, because the name is a label you chose.
+
+**The version is asked for, never prefilled**, and that is a measurement rather than caution:
+
+| tool | container | contract |
+|---|---|---|
+| `nf-core/multiqc` | `multiqc:1.35--c17fb…` | `@1.35` ✓ |
+| `nf-core/samtools/index` | `htslib_samtools:**1.24**--d697…` | `@**1.21.0**` ✗ |
+| `nf-core/star/align` | `htslib_samtools_star_gawk:ae438e9a…` | `@1.11.0` — **no tag at all** |
+
+Two of the thirteen vendored tools have a container with no version in it, and one shipped
+contract disagrees with the tag it does have. The form shows the container **beside** the field
+as evidence, which is what every other answer in this interface is given. The stakes are lower
+than they look: contracts are pinned by *digest*, not version.
+
+**Drafting onto a name that is taken is refused** — `MF0010`. Before that refusal existed,
+`Workspace.save` replaced every answer, proposal and decision on the draft and said nothing.
+
 ## 2. Draft
 
 ```console
@@ -258,26 +288,108 @@ Does the registry still say what its sources say? **Offline** — whether *upstr
 reported by name rather than folded into the pass, because a contract nothing checks looks
 exactly like a contract that agrees.
 
-When something has drifted, `forge update <contract-id> --name <draft>` re-drafts it from its
-source into the workspace. It writes a draft and never the registry.
+**Two checkers ask this question and they overlap.** `forge check` compares the three values a
+source states outright — `nf_process`, `nf_include`, `container` — and the conformance checks
+`mendel build` already runs compare the contract's *structure* to the module. They agree on
+`nf_process` and `container`, and they are deliberately not merged: one of them must be able to
+refuse a build, and one of them must only report.
 
-## The same verbs over HTTP
+### Resolving it in the interface
 
-Every verb above is one function in `mendel_forge/ops.py` taking a pydantic request and
-returning a pydantic result. The CLI renders those results; `mendel_forge.http` serialises them.
-Neither holds logic — `test_no_route_contains_a_branch` refuses an `if` in a route, and
-`test_http.py` compares `forge --json <verb>` against the HTTP body directly, so a transport
-that grows logic fails rather than drifts.
+`/forge/contracts/<id>/drift` shows every field either checker could speak to, what each side
+says, the line in the source it says it at, and a verdict answering the only question a
+maintainer really has — *does this change what gets built?*
 
-```python
-from fastapi import FastAPI
-from mendel_forge.http import app
+It also names the **six fields nothing checks**: `id`, `consumes`, `roles`, `priority`,
+`priority_because` and `provenance`. Four of those are read by the router, so a report listing
+only what it checked would read as a clean bill of health over an unchecked half. A port's
+`type_id` is the most consequential value in a contract and no source can state it — which is
+why it is a question a human answers rather than a fact anything can verify.
 
-parent = FastAPI()
-parent.mount("/forge", app)
+**Taking the source's value** patches the one line that declares the field, validates the result
+through the real loader, and commits it on `forge/drift` with who accepted it and why. It never
+re-serialises the file: a registry contract's comments *are* its reasoning, and a YAML dumper
+deletes them.
+
+Three refusals, all before anything is written:
+
+| | |
+|---|---|
+| `MF0105` | the checkout is at a detached HEAD — which `registry/` here is, being a submodule |
+| `MF0101` | the checkout has uncommitted changes |
+| `MF0104` | that field is not drifted, or only a conformance check can see it |
+
+A **structural** disagreement has no accept button, and that is the point: which `emit:` label a
+renamed channel now means is a judgement, and a judgement goes back through the queue.
+`forge update <contract-id> --name <draft>` re-drafts from source into the workspace — it writes
+a draft and never the registry — but note it re-opens **every** hole, including the ones a person
+answered last month.
+
+### Seeing any of it
+
+The shipped registry has **no drift** and every contract conforms, so all of the above renders
+empty against it. To see it work, break a copy on purpose:
+
+```console
+$ git clone registry /tmp/drift-demo && cd /tmp/drift-demo && git checkout -b work
+$ sed -i 's|fastqc:0.12.1--hdfd78af_0|fastqc:0.12.1--WRONGTAG|' \
+    tools/nf-core/fastqc/fastqc.contract.yml
+$ git commit -am "manufacture a drift"
+$ MENDEL_REGISTRY_ROOT=/tmp/drift-demo make dev
 ```
 
-The app binds nothing and has no auth. Plan 3's `mendel-api` mounts it and owns those questions.
+The row is then first in the queue, above every question. Accept it, and
+`git -C /tmp/drift-demo show` is the record: one commit, one file, one line, your name and your
+reason.
+
+## Running it
+
+```console
+$ make dev
+  Forge (HMR):    http://localhost:5173/forge/queue
+  Forge (built):  http://localhost/forge/queue
+  API:            http://localhost:8000/docs
+  Logs:           make dev-logs    ·    Vite: tail -f .run/vite.log
+```
+
+Five services: Postgres, Redis, the API, the ARQ worker, and nginx serving the built SPA. Vite
+runs on the **host** for HMR, so you get both — the fast edit loop on `:5173`, and on `:80` the
+exact path production serves, nginx and all.
+
+`make dev-down` stops everything. `make dev-logs` tails the api and the worker.
+
+**`make prod` is the same stack with the unsafe parts removed** — code baked into the image
+rather than mounted, no auto-reloader, and Postgres, Redis and the API reachable only on the
+compose network. It is one overlay over the same file, so the two cannot drift into two stacks.
+It is **not a deployment posture**: no TLS, no auth, no published image.
+
+### The dev registry is a clone, and that is the point
+
+`make dev` clones `registry/` to `.run/registry` and mounts *that*. It has to:
+
+- `registry/` is a **git submodule**, and a submodule's `.git` is a *file* holding
+  `gitdir: ../../../.git/worktrees/…` — a path that resolves to nothing inside a container. Git
+  answers `fatal: not a git repository`, so accepting a drift would refuse with `MF0107`.
+- the containers run as **your** user, not root, so the commit an accept makes is yours on the
+  host and nothing lands root-owned in `./workspace`.
+
+So drift acceptance works in dev exactly as it does in prod. `make dev-refresh` pulls registry
+changes into the clone when it has no uncommitted work in it, and leaves it alone when it does —
+a `forge/drift` branch you have not merged is work, not staleness.
+
+### Settings
+
+`.env.example` is committed and lists every setting with its default; `make dev` copies it to
+`.env` on first run. The one to read twice is `MENDEL_REGISTRY_ROOT`: point it at a checkout you
+can **write** to, or accepting a drift refuses — `MF0105` at a detached HEAD, `MF0107` at
+anything that is not a checkout at all.
+
+### The nightly check
+
+The worker runs `forge check` at **03:00**, which is what the queue's strip means by
+*next 03:00*. It is deliberately not run at startup: a container restart is not a check-worthy
+event, and a strip reading *checked 4 seconds ago* after every deploy would be measuring
+deploys.
 
 ## What the forge does not do
 

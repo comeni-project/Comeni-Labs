@@ -1720,6 +1720,25 @@ MF0008:
     a draft be written outside the workspace. Restricting the name is prevention by
     construction; validating the resolved path afterwards is detection, and the two are
     not the same guarantee.
+MF0010:
+  emitted_by: forge
+  concern: workspace
+  says: "a draft with that name already exists"
+  fires_on: [forge draft]
+  refuses: true
+  fix: |
+    Pick another name, or delete the draft you meant to replace. `forge show <name>` is what
+    is in it.
+  explanation: |
+    `Workspace.save` writes a draft directory whether or not one is there, so drafting onto a
+    name that is taken replaced every answer, proposal and decision on it and said nothing.
+    A draft is the most expensive artifact in the system — it is a person's judgement, one
+    field at a time, each with a reason — and the cheapest thing to protect it with is a name
+    check.
+
+    Overwriting is deliberately not offered as a flag: the recovery is to pick another name,
+    and the caller always can. The refusal is about the NAME rather than the tool, because two
+    drafts of one tool at two versions is exactly what a version bump looks like.
 MF0100:
   emitted_by: forge
   concern: landing
@@ -1749,6 +1768,101 @@ MF0101:
     has changes makes that commit ambiguous — either it sweeps up work nobody reviewed,
     or it leaves the branch in a state the author did not intend. Refusing is cheap and
     the alternative is a commit somebody has to unpick.
+MF0102:
+  emitted_by: forge
+  concern: landing
+  says: "the field is not a single top-level scalar and cannot be patched in place"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Edit the contract by hand and commit it yourself. `forge accept` changes one line and
+    refuses anything it cannot see whole.
+  explanation: |
+    Accepting a drift rewrites the line that declares one field and nothing else, because a
+    registry contract's comments ARE its reasoning — `samtools/index.contract.yml` carries six
+    lines explaining why a port is named `index`, including a note about a value that was
+    latent until conformance caught it. Re-serialising the file through a YAML dumper would
+    delete every one of them, which is audit A128's shape: a justification living in a comment
+    the loader discards. A one-line patch is what keeps that impossible, and the price is that
+    a field spread over several lines is refused rather than guessed at.
+MF0103:
+  emitted_by: forge
+  concern: landing
+  says: "the patched contract no longer loads, so nothing was written"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Read the message under this one — it is the loader's own refusal. The file on disk is
+    unchanged.
+  explanation: |
+    The value came from the source, which makes it likely to be right and does not make it
+    valid: a container reference the module builds by string interpolation, or a process name
+    that is not an `NfIdentifier`, would land a contract the registry cannot load. Validating
+    the patched text before writing it means a failed accept costs nothing, rather than
+    leaving a checkout that has to be reset.
+MF0104:
+  emitted_by: forge
+  concern: landing
+  says: "that field is not drifted, so there is nothing to accept"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Re-read the drift — `forge drift <contract>` or the drift screen. A field that agrees, or
+    one only a conformance check can see, has no source value to take.
+  explanation: |
+    A stale screen is the ordinary way this fires: somebody accepted the same drift a minute
+    ago, or the vendored module moved underneath. Refusing is what keeps an accept from
+    writing the value it already holds and producing an empty commit that looks like work.
+    A structural disagreement also lands here, and deliberately: which `emit:` label a renamed
+    channel now means is a judgement, and the path for a judgement is a re-draft through the
+    queue.
+MF0105:
+  emitted_by: forge
+  concern: landing
+  says: "the registry checkout is at a detached HEAD"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Check out a branch in the registry, or point `MENDEL_REGISTRY_ROOT` at a checkout you can
+    write to. `registry/` in Comeni-Labs is a submodule pinned to a commit and is not one.
+  explanation: |
+    A submodule sits at the commit its parent pins, and committing onto a detached HEAD makes
+    work that is reachable from nothing — it survives until the next checkout and then does
+    not. `land()` says the same thing about `--registry` in its module docstring; this is that
+    argument reaching a route, where the default configuration hits it first.
+MF0106:
+  emitted_by: forge
+  concern: landing
+  says: "no contract in this registry has that id"
+  fires_on: [forge accept, forge drift]
+  refuses: true
+  fix: |
+    Check the id against `forge check` or the contracts list. It includes the `@version`.
+  explanation: |
+    A contract is addressed by its full id, version included, because a layer may hold two
+    versions of one module — which is what makes a version bump a decision rather than an
+    ambiguity, invariant 11. Asking for the module key alone finds nothing, and that is the
+    common way here.
+MF0107:
+  emitted_by: forge
+  concern: landing
+  says: "the registry is not a git checkout"
+  fires_on: [forge accept]
+  refuses: true
+  fix: |
+    Point `MENDEL_REGISTRY_ROOT` at a git checkout you can write to. In a container that means
+    mounting a CLONE — the registry baked into the image is a copy of the files, and a
+    submodule's `.git` is a pointer that resolves to nothing inside a container.
+  explanation: |
+    Accepting a drift is a commit: it is how a value taken from a source gets a reason, an
+    author and a place in history. A directory of the right files cannot carry any of that,
+    and `git` answers `exit 128` rather than anything a person can act on.
+
+    This is the case a container makes normal rather than exotic, which is why it survived
+    three sibling refusals until one was built. `make dev` clones the registry for exactly
+    this reason: a submodule's `.git` is a FILE holding `gitdir: ../../../.git/worktrees/...`,
+    so it is present inside a bind-mount while every git call fails. The check is
+    `git rev-parse`, not whether `.git` exists.
 MA0001:
   emitted_by: ai
   concern: model-access

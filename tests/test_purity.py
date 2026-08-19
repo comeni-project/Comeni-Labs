@@ -118,7 +118,7 @@ CLOSED_PACKAGES = {
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
-IMPURE_PACKAGES: list[str] = ["mendel-forge", "mendel-ai"]
+IMPURE_PACKAGES: list[str] = ["mendel-forge", "mendel-ai", "mendel-api"]
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
 

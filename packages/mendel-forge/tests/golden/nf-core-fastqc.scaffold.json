@@ -191,6 +191,7 @@
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
+      "suggested": null,
       "after": "consumes[0].type_id",
       "channels": [
         "reads"
@@ -201,6 +202,10 @@
       "what": "the semantic type of the input the module calls reads",
       "why_open": "nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description",
       "candidates": [
+        {
+          "value": "fastq.reads",
+          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
+        },
         {
           "value": "alignment.bai",
           "note": "declared type — used by samtools/index"
@@ -216,10 +221,6 @@
         {
           "value": "counts.matrix",
           "note": "declared type — used by subread/featurecounts"
-        },
-        {
-          "value": "fastq.reads",
-          "note": "declared type — used by hisat2/align, profile/fastqc, star/align, +1 more"
         },
         {
           "value": "genome.fasta",
@@ -301,12 +302,13 @@
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
+      "suggested": "fastq.reads",
       "after": null,
       "channels": []
     },
     {
       "subject": "priority_because",
-      "what": "a value for priority_because",
+      "what": "why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",
       "candidates": [],
       "closed": true,
@@ -332,6 +334,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -440,6 +443,7 @@
           "text": "*.html: FastQC report — *_{fastqc.html}"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -548,6 +552,7 @@
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -656,6 +661,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     },
@@ -724,6 +730,7 @@
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
+      "suggested": null,
       "after": null,
       "channels": []
     }

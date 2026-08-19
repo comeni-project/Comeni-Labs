@@ -1,9 +1,9 @@
-import shutil
 from pathlib import Path
 
 from mendel_forge import ops
 
 ROOT = Path(__file__).resolve().parents[3]
+FASTQC = "tools/nf-core/fastqc/fastqc.contract.yml"
 
 
 def test_the_shipped_registry_has_no_drift_against_the_vendored_modules():
@@ -15,31 +15,35 @@ def test_the_shipped_registry_has_no_drift_against_the_vendored_modules():
     assert result.drift == [], f"{len(result.drift)} disagreements: {result.drift}"
 
 
-def _broken_registry(tmp_path) -> Path:
-    """A copy of the shipped registry with one contract made to disagree with its module."""
-    copy = tmp_path / "registry"
-    shutil.copytree(ROOT / "registry", copy, ignore=shutil.ignore_patterns(".git"))
-    contract = copy / "tools" / "nf-core" / "fastqc" / "fastqc.contract.yml"
-    contract.write_text(contract.read_text().replace("nf_process: FASTQC", "nf_process: WRONG"))
-    return copy
-
-
-def test_drift_is_found_when_a_contract_is_edited(tmp_path):
-    result = ops.check(
-        ops.CheckRequest(registry_root=_broken_registry(tmp_path), source_root=ROOT / "vendor")
-    )
-    assert len(result.drift) == 1
-    drift = result.drift[0]
+def test_drift_is_found_when_a_contract_is_edited(broken_registry):
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    result = ops.check(ops.CheckRequest(registry_root=registry, source_root=ROOT / "vendor"))
+    value_drift = [d for d in result.drift if d.code is None]
+    assert len(value_drift) == 1
+    drift = value_drift[0]
     assert drift.field == "nf_process"
     assert drift.registry_says == "WRONG"
     assert drift.source_says == "FASTQC"
     assert drift.contract_id.startswith("nf-core/fastqc")
 
 
-def test_update_turns_a_drift_into_a_draft(tmp_path):
+def test_both_checkers_report_nf_process_and_that_is_the_documented_overlap(broken_registry):
+    """Spec §3.1: `ops.check` and `conformance` overlap on `nf_process` and `container`.
+
+    They are **not** merged — one must be able to refuse a build and one must only report —
+    so one edit produces two rows, and the screen groups them by field. Asserted rather than
+    left implicit, because a future merge would silently halve this and look like a fix.
+    """
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    result = ops.check(ops.CheckRequest(registry_root=registry, source_root=ROOT / "vendor"))
+    about_nf_process = [d for d in result.drift if d.field == "nf_process"]
+    assert {d.code for d in about_nf_process} == {None, "MD0101"}
+
+
+def test_update_turns_a_drift_into_a_draft(broken_registry, tmp_path):
     from mendel_forge.workspace import Workspace
 
-    registry = _broken_registry(tmp_path)
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
     result = ops.update(
         ops.UpdateRequest(
             contract_id="nf-core/fastqc@0.12.1",
@@ -53,10 +57,10 @@ def test_update_turns_a_drift_into_a_draft(tmp_path):
     assert draft.scaffold.filled["nf_process"].value == "FASTQC"
 
 
-def test_update_does_not_touch_the_registry(tmp_path):
+def test_update_does_not_touch_the_registry(broken_registry, tmp_path):
     """`update` produces a draft. Only `land` writes, and Task 22 is the guard for it."""
-    registry = _broken_registry(tmp_path)
-    path = registry / "tools" / "nf-core" / "fastqc" / "fastqc.contract.yml"
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    path = registry / FASTQC
     before = path.read_text()
     ops.update(
         ops.UpdateRequest(

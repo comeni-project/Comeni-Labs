@@ -19,9 +19,23 @@ def test_a_filled_value_is_an_answer():
 
 def test_a_hole_keeps_what_is_genuinely_its_own():
     """`after` orders holes whose candidates depend on another's answer; the resolver ladder
-    handles that itself. `channels` is nf-core vocabulary. Neither belongs on the base."""
+    handles that itself. `channels` is nf-core vocabulary. Neither belongs on the base.
+
+    **`suggested` was weighed against the base and deliberately kept off it.** The resolver
+    ranks candidates too — invariant 8 orders routing ties by `(surplus, -priority, id)` — so a
+    `suggested` on `Question` would compile and would read as natural. It must not exist there.
+    Invariant 6 says a tier-4 decision is flagged *even at high model confidence*, and a field
+    on the shared base named for the answer is precisely the affordance that erodes it: the
+    next person adding a resolver path has to decline an obvious field rather than reach for a
+    missing one.
+
+    On the forge side it is safe for a reason that does not transfer — invariant 2. A hole is
+    answered by a human approving a draft **offline**, before anything resolves, so a suggestion
+    is drafting help rather than a decision. That asymmetry is the whole argument, and it is why
+    this assertion is a list and not a `>=`.
+    """
     own = set(Hole.model_fields) - set(Question.model_fields)
-    assert own == {"after", "channels"}
+    assert own == {"after", "channels", "suggested"}
 
 
 def test_a_filled_value_adds_nothing_to_the_answer():

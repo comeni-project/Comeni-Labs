@@ -22,7 +22,11 @@ from pathlib import Path
 from comeni_core import diagnostics
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.roles import UnknownRoleError
-from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError
+from comeni_core.declared.vocabulary import (
+    UnknownStateError,
+    UnknownTypeError,
+    Vocabulary,
+)
 from mendel_compiler import conformance
 from mendel_compiler.conformance import Diagnostic
 from mendel_compiler.modulespec import ModuleSpec
@@ -78,7 +82,13 @@ def verify(scaffold: Scaffold, *, registry_root: Path, source_root: Path) -> lis
     stack = layers.load(registry_root)
     contract = assemble.contract_from(scaffold, approved_by="(unapproved)", approved_at="")
 
-    loads = _loads(contract, stack)
+    # The rung answers "if I land this, does it load?", so it reads the vocabulary this draft
+    # WOULD create. Only approved proposals contribute — spec §3.3. Passed explicitly rather
+    # than folded into the stack, so `layers.load`'s result keeps meaning *what the registry
+    # says* for every other caller.
+    vocabulary = stack.vocabulary.with_proposals(scaffold.approved().values())
+
+    loads = _loads(contract, stack, vocabulary)
     verdicts.append(loads)
     if loads.refused:
         return verdicts
@@ -168,10 +178,10 @@ def _constructs(scaffold: Scaffold) -> Verdict:
     return Verdict(rung=Rung.CONSTRUCTS)
 
 
-def _loads(contract: ModuleContract, stack: Layers) -> Verdict:
+def _loads(contract: ModuleContract, stack: Layers, vocabulary: Vocabulary) -> Verdict:
     found: list[Diagnostic] = []
     for check in (
-        lambda: contract.check_against(stack.vocabulary),
+        lambda: contract.check_against(vocabulary),
         lambda: stack.roles.check(contract.id, contract.roles),
     ):
         try:

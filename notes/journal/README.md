@@ -16,6 +16,15 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
+> **2026-08-18 has NINE entries and alphabetical order lies.** The one to read first is
+> [`2026-08-18-the-day.md`](2026-08-18-the-day.md) — five phases of the forge interface, what is
+> true, what a fresh reader will wrongly assume, and what is next. `the-shared-question.md` sorts
+> last and is that morning's Plan 2.5 entry.
+>
+> **When a day has several entries, name the entry point here.** A directory listing cannot say
+> which of nine is the summary, and "most recent" below means *most recent by date*, not by
+> filename.
+
 **Newest first, and stop when you have enough.** Each entry is written so the top third —
 where things stand, what is next — is sufficient for most sessions. The rest is there for
 when you need to know *why* something is the way it is.
@@ -46,8 +55,22 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 ## Entries
 
+> **This table stopped being maintained on 2026-08-13, and twenty-four entries are missing from
+> it** — every 2026-08-14 through 2026-08-19 session, including all nine phases of Plan 3A.
+> Noticed on 2026-08-19 while adding the 3B row. **Until it is backfilled, read the directory
+> listing rather than this table**; the newest row below is not the newest entry.
+>
+> It is the drift A33/A71/A72 are about, in the file whose first section explains why a status
+> file goes stale. A table of entries is a count of entries by another name, and nothing counted
+> it. The entries themselves are fine — they are dated and append-only, which is the property
+> that was being bought. What was lost is the *reading order*, which is the only thing this
+> table was for.
+
 | Date | Session |
 |---|---|
+| [2026-08-19 later still](2026-08-19-plan-3d-the-forge-answerable.md) | **Plan 3D, all six phases.** The forge was unusable and it was not a looks problem: seven `type_id` holes per tool, each offering the whole vocabulary alphabetically — the right type ranked first in **1 of 30** holes, now **25 of 30**. `suggested` had every consumer and no producer. Sources + Contracts became one Tools board; eight words finally have definitions |
+| [2026-08-19 later](2026-08-19-the-front-door-redesigned.md) | The front door redesigned after the operator looked at it. **The hero is a real `pipeline.yml` excerpt** — a tier-3 decision citing a DOI beside a tier-4 one saying *please review*. Wordmark names the site; the Registry box and Lookup panel deleted |
+| [2026-08-19 Plan 3B](2026-08-19-plan-3b-landing.md) | The front door — `/` is a landing page, not a redirect. Certainty drawn as stroke; the page counts and links, never lists. **The `Mendel` nav tab became `Builder`, caught by reading the finished page** |
 | [2026-08-13 evening](2026-08-13-evening.md) | Everything merged; the rule-drafter spec, rule-format limits (#38/#39) and Plan 2's corrections. **Design audit stream 2 died mid-run — artifacts survive, findings do not** |
 | [2026-08-13](2026-08-13.md) | Plan 1.12 — round four's criticals closed (A55–A59, A70); thirteen findings carried as issues. **The last audit-driven plan; Plan 2 is next** |
 | [2026-08-11](2026-08-11.md) | Round four — A55–A75, four critical; A55 is code execution through a shareable `pipeline.yml`. **A14 did not close** |

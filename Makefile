@@ -1,4 +1,16 @@
-.PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile forge clean
+.PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile forge clean \
+	dev dev-down dev-logs dev-refresh prod prod-down client migrate
+
+# The containers run as the host user so bind-mounted files stay yours: git refuses a
+# repository owned by another uid, and root-owned drafts in ./workspace are undeletable.
+export DOCKER_UID := $(shell id -u)
+export DOCKER_GID := $(shell id -g)
+
+DC       := docker compose
+RUN_DIR  := .run
+PIDFILE  := $(RUN_DIR)/vite.pid
+LOGFILE  := $(RUN_DIR)/vite.log
+DEVREG   := $(RUN_DIR)/registry
 
 registry-present:  ## refuse early if the registry submodule was not checked out
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
@@ -83,3 +95,54 @@ forge:          ## draft one nf-core module into a scratch workspace and show it
 # on `verify` refusing, which is the point: a fresh draft has holes, and MF0004 is the design
 # working rather than failing. `|| true` because that refusal exits 1 and this target is a
 # demonstration, not a gate.
+
+client:  ## regenerate the TypeScript client from the API's own schema
+	uv run python -c "import json; from mendel_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.json
+	cd frontend && npx openapi-typescript openapi.json -o src/api/schema.d.ts
+
+migrate:  ## apply database migrations
+	cd packages/mendel-api && uv run alembic upgrade head
+
+dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
+	@test -f .env || cp .env.example .env
+	$(DC) up -d --build
+	@mkdir -p $(RUN_DIR)
+	@if [ -f $(PIDFILE) ] && kill -0 `cat $(PIDFILE)` 2>/dev/null; then \
+		echo "Vite already running (pid `cat $(PIDFILE)`)"; \
+	else \
+		setsid sh -c 'cd frontend && exec npm run dev' > $(LOGFILE) 2>&1 & \
+		echo $$! > $(PIDFILE); sleep 1; \
+	fi
+	@echo ""
+	@echo "  Home (HMR):     http://localhost:5173/"
+	@echo "  Home (built):   http://localhost/"
+	@echo "  Queue:          http://localhost:5173/forge/queue"
+	@echo "  API:            http://localhost:8000/docs"
+	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
+
+# A CLONE of the registry, because a submodule's `.git` is a pointer at a host path that
+# resolves to nothing inside a container — so accepting a drift would refuse with MF0107, and
+# dev must be able to do what prod can.
+$(DEVREG):
+	@mkdir -p $(RUN_DIR)
+	git clone -q registry $(DEVREG)
+	@echo "cloned the registry to $(DEVREG) — this is what the containers write to"
+
+dev-refresh:  ## pull registry changes into the dev clone, if it has no work in it
+	@if [ -z "`git -C $(DEVREG) status --porcelain`" ]; then \
+		git -C $(DEVREG) fetch -q origin && git -C $(DEVREG) reset -q --hard origin/HEAD && \
+		echo "dev registry refreshed"; \
+	else echo "dev registry has uncommitted work — left alone"; fi
+
+dev-down:  ## stop Vite and the stack
+	@if [ -f $(PIDFILE) ]; then kill -- -`cat $(PIDFILE)` 2>/dev/null || true; rm -f $(PIDFILE); fi
+	$(DC) down
+
+dev-logs:  ## tail the api and the worker
+	$(DC) logs -f api worker
+
+prod:  ## the same stack, with the unsafe parts removed
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+prod-down:  ## stop the prod stack
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down

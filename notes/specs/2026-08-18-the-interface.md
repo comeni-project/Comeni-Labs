@@ -99,7 +99,15 @@ so in its own heading.**
 | 4 | Contracts & module | …browse what has landed and read one contract against its source. |
 | 5 | Drift | …see what moved and take the source's value. |
 | 6 | Sources & drafting | …discover a tool and draft it, without the CLI. |
-| 7 | Compose & prod | …bring the whole thing up with one command. |
+| 7 | Responsiveness | …use it. **Inserted 2026-08-19**, by measurement rather than by design. |
+| 8 | Compose & prod | …bring the whole thing up with one command. |
+
+**Phase 7 was not in this spec and the list grew by one**, which is worth a sentence rather than a
+silent edit. Six phases shipped screens nobody had timed; a
+[performance audit](../audits/2026-08-19-performance-audit.md) then measured every
+registry-touching screen at **~250ms warm** against an operator budget of half a second, and found
+one function responsible. The phase exists because a measurement said it should, and it comes
+before compose so that compose packages a fast application rather than a slow one.
 
 **`/` redirects to `/forge/queue` for the whole of 3A**, and that is temporary rather than a
 design position. The landing page is 3B; a placeholder home built now would be thrown away.

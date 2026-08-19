@@ -14,24 +14,26 @@ one place per transport, turns into an exit code or a 4xx.
 request claim every capability, which is the opposite of what a typed surface is for.
 """
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from comeni_core.diagnostics import coded
 from comeni_core.review import ValueSource
-from mendel_ai.access import ModelAccess
-from mendel_ai.client import Client
+from mendel_compiler import conformance
+from mendel_compiler.conformance import Diagnostic
+from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_forge import assemble, candidates, modulegen, sources
-from mendel_forge.filler import ModelFiller
-from mendel_forge.land import LandResult
+from mendel_forge import drift as drift_tables
+from mendel_forge.land import LandResult, accept_drift
 from mendel_forge.land import land as _run_land
 from mendel_forge.observe import Excerpt
 from mendel_forge.ports import HoleFiller
-from mendel_forge.scaffold import FilledValue, Hole, Proposal, Scaffold
+from mendel_forge.scaffold import Decision, FilledValue, Hole, Proposal, Scaffold
 from mendel_forge.sources import ToolRef
 from mendel_forge.verify import Verdict
 from mendel_forge.verify import verify as _run_verify
@@ -103,7 +105,13 @@ class ShowResult(BaseModel):
     target: str
     holes: list[Hole]
     filled: dict[str, FilledValue]
+    proposed: dict[str, Proposal] = Field(default_factory=dict)
+    """Field -> what it needs declared. Keyed by field because two ports may need the same
+    new type and a reviewer should see both places it was wanted."""
     module: str | None = None
+    changed_at: datetime | None = None
+    """When the draft was last written. `None` where a caller did not ask — the CLI
+    prints a draft and does not need it; the queue's "what moved" filter does."""
 
 
 class FillRequest(BaseModel):
@@ -122,6 +130,52 @@ class FillResult(BaseModel):
 
     name: str
     field: str
+    remaining: list[str]
+
+
+class ProposeRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    id: str
+    description: str
+    why: str
+    by: str
+    workspace_root: Path
+
+
+class ProposeResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    remaining: list[str]
+    """**Still contains `field`.** A proposal is not a fill — the hole stays open, and a
+    caller reading `remaining` to decide whether a draft can land must get that answer."""
+
+
+class DecideRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    decision: Decision
+    why: str
+    by: str
+    workspace_root: Path
+    id: str | None = None
+    """A better id than the one proposed. `None` keeps the proposal's own."""
+
+
+class DecideResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    name: str
+    field: str
+    decision: Decision
+    value: str | None
+    """What was written, on an approval. `None` on a rejection — the hole is still open."""
     remaining: list[str]
 
 
@@ -200,9 +254,21 @@ def draft(req: DraftRequest) -> DraftResult:
     stack = layers.load(req.registry_root)
     scaffold = assemble.scaffold_for(observation, stack, ident=_ident(ref), version=req.version)
     module = modulegen.skeleton(scaffold) if modulegen.needs_module(observation) else None
-    Workspace(root=req.workspace_root).save(
-        Draft(name=req.name, scaffold=scaffold, module=module)
-    )
+
+    workspace = Workspace(root=req.workspace_root)
+    # **Before saving, because `Workspace.save` overwrites.** `mkdir(exist_ok=True)` then
+    # `write_text` replaced every answer, proposal and decision on a draft of the same name
+    # and said nothing — true since forge phase 1, and one careless click in a form.
+    #
+    # `names()` rather than a file check: it is the same list `MF0008` prints when a draft is
+    # missing, and two ways of asking *is this a draft* would eventually disagree.
+    if req.name in workspace.names():
+        raise ValueError(
+            coded("MF0010", f"a draft named {req.name!r} already exists")
+            + f"\n  drafts: {', '.join(workspace.names())}"
+            + "\n  pick another name, or delete that one — `forge show` is what is in it"
+        )
+    workspace.save(Draft(name=req.name, scaffold=scaffold, module=module))
     return DraftResult(
         name=req.name,
         target=scaffold.target,
@@ -213,13 +279,16 @@ def draft(req: DraftRequest) -> DraftResult:
 
 
 def show(req: ShowRequest) -> ShowResult:
-    found = Workspace(root=req.workspace_root).load(req.name)
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
     return ShowResult(
         name=found.name,
         target=found.scaffold.target,
         holes=found.scaffold.holes,
         filled=found.scaffold.filled,
+        proposed=found.scaffold.proposed,
         module=found.module,
+        changed_at=workspace.changed_at(req.name),
     )
 
 
@@ -232,6 +301,41 @@ def fill(req: FillRequest) -> FillResult:
         name=req.name,
         field=req.field,
         remaining=sorted(h.subject for h in filled.holes),
+    )
+
+
+def propose(req: ProposeRequest) -> ProposeResult:
+    """Record that nothing declared fits this hole.
+
+    The mirror of `fill`, with one difference that is the entire point: the hole stays open.
+    `Scaffold.propose` enforces that the field is a hole and raises `MF0002` otherwise.
+    """
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
+    proposed = found.scaffold.propose(
+        req.field,
+        Proposal(id=req.id, description=req.description, why=req.why, by=req.by),
+    )
+    workspace.save(found.model_copy(update={"scaffold": proposed}))
+    return ProposeResult(
+        name=req.name,
+        field=req.field,
+        remaining=sorted(h.subject for h in proposed.holes),
+    )
+
+
+def decide(req: DecideRequest) -> DecideResult:
+    """Approve or reject a proposal. `Scaffold.decide` holds the asymmetry."""
+    workspace = Workspace(root=req.workspace_root)
+    found = workspace.load(req.name)
+    settled = found.scaffold.decide(req.field, req.decision, by=req.by, why=req.why, id=req.id)
+    workspace.save(found.model_copy(update={"scaffold": settled}))
+    return DecideResult(
+        name=req.name,
+        field=req.field,
+        decision=req.decision,
+        value=settled.filled[req.field].value if req.decision is Decision.APPROVED else None,
+        remaining=sorted(h.subject for h in settled.holes),
     )
 
 
@@ -305,6 +409,15 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
     and `why` are all required and a model fill supplies none of them up front — sharing one
     request model would mean weakening the hand-fill path to suit the model one.
     """
+    # **Imported here rather than at module scope.** `mendel-ai` is an optional extra of this
+    # package (`mendel-forge[model]`): the served API cannot reach this verb, and the model
+    # client is 152MB of the image. A top-level import made an opt-in path a mandatory
+    # dependency, which is the same mistake `--no-ai` not being a flag exists to avoid.
+    from mendel_ai.access import ModelAccess
+    from mendel_ai.client import Client
+
+    from mendel_forge.filler import ModelFiller
+
     workspace = Workspace(root=req.workspace_root)
     found = workspace.load(req.name)
     if filler is None:
@@ -398,6 +511,14 @@ class Drift(BaseModel):
     field: str
     registry_says: str
     source_says: str
+    code: str | None = None
+    """The conformance diagnostic that found it. `None` means a value comparison did —
+    `registry_says` and `source_says` are then two values rather than a summary and a fix.
+
+    **Two checkers, one list.** A reader asking *does this contract still describe its
+    module* does not care which check noticed; before phase 5 a renamed `emit:` label —
+    which breaks emission — reported as `matching`, because `Status` read the value half
+    only. Spec §3.5."""
 
 
 class CheckRequest(BaseModel):
@@ -406,6 +527,12 @@ class CheckRequest(BaseModel):
     registry_root: Path
     source_root: Path
     """No workspace: `check` reads and reports, and writes nothing anywhere."""
+    stack: Layers | None = None
+    """A layer stack the caller already loaded. `None` loads one.
+
+    The CLI never passes it. `mendel-api` does, because this is one of the two verbs behind the
+    slowest endpoints, and a cache the endpoint's own work bypasses measures nothing (phase 7,
+    audit A132)."""
 
 
 class CheckResult(BaseModel):
@@ -449,11 +576,28 @@ def check(req: CheckRequest) -> CheckResult:
     Offline by decision — whether *upstream* has moved is issue #64. This asks the narrower
     question that needs no network: does what is on this disk still agree with itself.
     """
-    stack = layers.load(req.registry_root)
+    stack = req.stack if req.stack is not None else layers.load(req.registry_root)
     found: list[Drift] = []
     skipped: list[str] = []
     checked = 0
     for contract in stack.registry.all():
+        # **Conformance runs over every contract, including the skipped ones.** `skipped` is
+        # about a missing source *adapter*; a module file is a separate fact, and the two
+        # `comeni/` contracts have a readable module and nothing that can re-draft them
+        # (phase 4 §3.4). So the structural half covers twelve where the value half covers ten.
+        module = conformance.module_path(contract, req.source_root)
+        if module.exists():
+            found += [
+                Drift(
+                    contract_id=contract.id,
+                    field=drift_tables.field_for(diagnostic.code) or "",
+                    registry_says=diagnostic.summary,
+                    source_says=diagnostic.fix,
+                    code=diagnostic.code,
+                )
+                for diagnostic in conformance.against(contract, ModuleSpec.parse(module), module)
+            ]
+
         ref = _ref_for(contract.id)
         if ref is None:
             skipped.append(contract.id)
@@ -480,7 +624,253 @@ def check(req: CheckRequest) -> CheckResult:
     return CheckResult(
         checked=checked,
         skipped=sorted(skipped),
-        drift=sorted(found, key=lambda d: (d.contract_id, d.field)),
+        drift=sorted(found, key=lambda d: (d.contract_id, d.field, d.code or "")),
+    )
+
+
+class FieldCheck(BaseModel):
+    model_config = _NO_EXTRAS
+
+    field: str
+    impact: drift_tables.Impact
+    registry_says: str
+    source_says: str
+    agrees: bool
+    locator: str | None
+    """Where the source states it — `file:line`, relative to the source root.
+
+    `None` for `nf_include`, whose fact is **synthesised from the convention** rather than read
+    off a line. The screen must not present that one as a quotation."""
+    excerpt: str | None
+
+
+class Unchecked(BaseModel):
+    model_config = _NO_EXTRAS
+
+    field: str
+    impact: drift_tables.Impact
+    why: str
+
+
+class DriftReport(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    verifiable: bool
+    """A registered source could re-read the tool. `False` is phase 4's `unverifiable`."""
+    module_read: bool
+    """The vendored `main.nf` parsed. A DIFFERENT condition from `verifiable` — phase 4 §3.4."""
+    checks: list[FieldCheck]
+    conformance: list[Diagnostic]
+    unchecked: list[Unchecked]
+    verdict: drift_tables.Verdict
+    says: str
+
+
+class DriftRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    registry_root: Path
+    source_root: Path
+    stack: Layers | None = None
+    """A layer stack the caller already loaded. `None` loads one — see `CheckRequest.stack`."""
+
+
+def _observe(contract_id: str, source_root: Path):
+    """The source's own account of a tool, or `None` when nothing can re-read it."""
+    ref = _ref_for(contract_id)
+    if ref is None:
+        return None
+    try:
+        return sources.get(ref.source).ingest(ref, source_root)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def drift(req: DriftRequest) -> DriftReport:
+    """Everything anything can say about one contract against its source.
+
+    Three groups, and every one of `ModuleContract`'s fields is in exactly one — spec §3.2. The
+    third group is on the report rather than left out of it, because the fields nothing can
+    check include three of the five the router reads.
+    """
+    stack = req.stack if req.stack is not None else layers.load(req.registry_root)
+    contract = stack.registry.contracts.get(req.contract_id)
+    if contract is None:
+        known = ", ".join(sorted(stack.registry.contracts)[:5])
+        raise ValueError(
+            coded("MF0106", f"no contract in this registry is {req.contract_id!r}")
+            + f"\n  known: {known}…"
+        )
+
+    checks: list[FieldCheck] = []
+    observation = _observe(req.contract_id, req.source_root)
+    if observation is not None:
+        for fact_name, field in assemble.DERIVED_FIELDS:
+            says = observation.fact(fact_name)
+            if says is None:
+                continue
+            declared = getattr(contract, field, None)
+            evidence = observation.facts[fact_name].evidence
+            locator = evidence.locator if ":" in evidence.locator else None
+            checks.append(
+                FieldCheck(
+                    field=field,
+                    impact=drift_tables.FIELDS[field].impact,
+                    registry_says=str(declared),
+                    source_says=str(says),
+                    agrees=declared == says,
+                    locator=locator,
+                    excerpt=evidence.text if locator else None,
+                )
+            )
+
+    module = conformance.module_path(contract, req.source_root)
+    module_read = module.exists()
+    found = conformance.against(contract, ModuleSpec.parse(module), module) if module_read else []
+
+    checked = {c.field for c in checks} | {
+        field for field, facts in drift_tables.FIELDS.items() if facts.codes
+    }
+    unchecked = [
+        Unchecked(
+            field=field,
+            impact=facts.impact,
+            why="no source states it, and no conformance check reads it",
+        )
+        for field, facts in sorted(drift_tables.FIELDS.items())
+        if field not in checked
+    ]
+
+    disagreeing = [c.field for c in checks if not c.agrees]
+    refusing = drift_tables.refusing_of(d.code for d in found)
+    verdict = drift_tables.verdict_for(disagreeing=disagreeing, refusing=refusing)
+    return DriftReport(
+        contract_id=req.contract_id,
+        verifiable=observation is not None,
+        module_read=module_read,
+        checks=sorted(checks, key=lambda c: (c.agrees, c.field)),
+        conformance=found,
+        unchecked=unchecked,
+        verdict=verdict,
+        says=drift_tables.sentence_for(verdict, disagreeing=disagreeing, refusing=refusing),
+    )
+
+
+class AcceptRequest(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    field: str
+    registry_root: Path
+    source_root: Path
+    by: str
+    why: str
+    """Required. A value changed with no reason recorded is the one thing this project is
+    against — and `land()` has `approved_by` for the same reason one field over."""
+    branch: str = "forge/drift"
+
+
+class AcceptResult(BaseModel):
+    model_config = _NO_EXTRAS
+
+    contract_id: str
+    field: str
+    was: str
+    now: str
+    path: str
+    branch: str
+    commit: str
+
+
+def _file_declaring(registry_root: Path, contract_id: str) -> Path:
+    """Which file in the layer declares this contract.
+
+    A `Registry` deliberately records no path — a contract is content-addressed (audit A10) and
+    a field recording where it was found would make its digest depend on the machine that read
+    it. So this looks, and refuses anything other than exactly one hit.
+    """
+    found = [
+        path
+        for path in sorted(registry_root.rglob("*.yml"))
+        if f"id: {contract_id}" in path.read_text()
+    ]
+    if len(found) != 1:
+        raise ValueError(
+            coded("MF0106", f"{len(found)} files declare {contract_id!r} — expected exactly one")
+        )
+    return found[0]
+
+
+def _file_declaring(registry_root: Path, contract_id: str) -> Path:
+    """Which file in the layer declares this contract.
+
+    A `Registry` deliberately records no path — a contract is content-addressed (audit A10) and
+    a field recording where it was found would make its digest depend on the machine that read
+    it. So this looks, and refuses anything other than exactly one hit.
+    """
+    found = [
+        path
+        for path in sorted(registry_root.rglob("*.yml"))
+        if f"id: {contract_id}" in path.read_text()
+    ]
+    if len(found) != 1:
+        raise ValueError(
+            coded("MF0106", f"{len(found)} files declare {contract_id!r} — expected exactly one")
+        )
+    return found[0]
+
+
+def _source_value(report: DriftReport, field: str) -> str:
+    moved = [c for c in report.checks if c.field == field and not c.agrees]
+    if not moved:
+        raise ValueError(
+            coded("MF0104", f"{field!r} on {report.contract_id} is not a value drift")
+            + "\n  only a field a source states outright can be taken; a structural"
+            " disagreement is settled by a re-draft through the queue"
+        )
+    return moved[0].source_says
+
+
+def accept(req: AcceptRequest) -> AcceptResult:
+    """Take the source's value for one field: patch, validate, commit.
+
+    **The write itself lives in `land.py`**, which is the one module in this package that may
+    write under a registry root — invariant 2's boundary, held by
+    `test_only_land_and_the_workspace_write_to_disk`. What is here is the reading half:
+    which field moved, what the source says it should be, and which file declares it.
+    """
+    report = drift(
+        DriftRequest(
+            contract_id=req.contract_id,
+            registry_root=req.registry_root,
+            source_root=req.source_root,
+        )
+    )
+    now = _source_value(report, req.field)
+    was = next(c.registry_says for c in report.checks if c.field == req.field)
+    path = _file_declaring(req.registry_root, req.contract_id)
+
+    branch, commit = accept_drift(
+        registry=req.registry_root,
+        path=path,
+        contract_id=req.contract_id,
+        field=req.field,
+        value=now,
+        vocabulary=layers.load(req.registry_root).vocabulary,
+        by=req.by,
+        why=req.why,
+        branch=req.branch,
+    )
+    return AcceptResult(
+        contract_id=req.contract_id,
+        field=req.field,
+        was=was,
+        now=now,
+        path=str(path.relative_to(req.registry_root)),
+        branch=branch,
+        commit=commit,
     )
 
 

@@ -110,3 +110,35 @@ def orphan_scaffold(complete_scaffold) -> Scaffold:
             }
         }
     )
+
+
+@pytest.fixture
+def broken_registry(tmp_path):
+    """A copy of the shipped registry with one contract made to disagree with its module.
+
+    **A factory, not a directory**, because phase 5 needs several breakages: a value drift on
+    `nf_process`, a structural one on a `produces[].name`, and two of them on one file. It was
+    a module-private helper in `test_ops_maintain.py` until three files needed it.
+
+    The copy is made once and mutated in place, so two calls break two fields of one registry.
+
+    `.git` is excluded: the registry is a submodule, so the copy would otherwise carry a
+    `gitdir:` pointer at a worktree that has nothing to do with `tmp_path` — the same defect
+    issue #46 found in `digest_of_directory`.
+    """
+    import shutil
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+
+    def _break(relative: str, was: str, now: str) -> Path:
+        copy = tmp_path / "registry"
+        if not copy.exists():
+            shutil.copytree(root / "registry", copy, ignore=shutil.ignore_patterns(".git"))
+        contract = copy / relative
+        text = contract.read_text()
+        assert was in text, f"{relative} does not contain {was!r} — the fixture is stale"
+        contract.write_text(text.replace(was, now))
+        return copy
+
+    return _break

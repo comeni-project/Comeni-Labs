@@ -1,0 +1,16 @@
+# The build context is the repository root. Without this it carries the whole object store.
+.git
+.venv
+node_modules
+frontend/node_modules
+frontend/dist
+build/
+.run
+.worktrees
+**/__pycache__
+*.pyc
+*.egg-info
+
+# **`.git` is excluded and that has a consequence worth knowing**: the registry in the image is
+# a copy of files rather than a checkout, so accepting a drift there refuses with MF0107. That
+# is deliberate — `make dev` mounts a writable clone over it, and so does the prod overlay.

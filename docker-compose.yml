@@ -1,0 +1,108 @@
+# The stack. `docker-compose.prod.yml` is an OVERLAY over this one that removes the unsafe
+# parts — a live code mount, an auto-reloader, a database port on the host — and nothing else.
+# Dev can do everything prod can; that is the whole shape of the split.
+#
+# The registry is NOT seeded here and never will be: declared data is files by decision
+# (issue #43), so there is nothing to migrate for it. What IS mounted is a writable CLONE of
+# it, because accepting a drift is a commit and a submodule's `.git` is a pointer that
+# resolves to nothing inside a container. `make dev` makes the clone.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ${DB_CONTAINER_NAME:-mendel-db}
+    environment:
+      POSTGRES_USER: mendel
+      POSTGRES_PASSWORD: mendel
+      POSTGRES_DB: mendel
+    ports: ["${DB_HOST_PORT:-5432}:5432"]
+    volumes: ["mendel-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mendel"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME:-mendel-redis}
+    ports: ["${REDIS_HOST_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  api:
+    build: .
+    container_name: ${API_CONTAINER_NAME:-mendel-api}
+    # **Runs as the host user, not root.** Two things break otherwise, and both were found by
+    # running it: git refuses a bind-mounted repository owned by a different uid ("detected
+    # dubious ownership"), so accepting a drift returns MF0107 against a perfectly good clone;
+    # and every draft written into `./workspace` lands root-owned and undeletable by whoever
+    # started the stack. CLAUDE.md records the same trap for Nextflow's work directories.
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_REDIS_URL: redis://redis:6379
+      MENDEL_REGISTRY_ROOT: /app/registry
+      MENDEL_SOURCE_ROOT: /app/vendor
+      MENDEL_WORKSPACE_ROOT: /app/workspace
+    ports: ["${API_HOST_PORT:-8000}:8000"]
+    volumes:
+      - ./packages:/app/packages
+      # **A CLONE, not the submodule.** A submodule's `.git` is a pointer at a host path that
+      # resolves to nothing in here, so accepting a drift would refuse with MF0107 — and dev
+      # must be able to do what prod can. `make dev` creates it.
+      - ./.run/registry:/app/registry
+      - ./vendor:/app/vendor
+      - ./workspace:/app/workspace
+    # **`sh -c`, never `sh -lc`.** A LOGIN shell re-reads `/etc/profile`, which resets `PATH`
+    # and drops `/app/.venv/bin` — so `alembic: not found` and the container exits. Measured:
+    # `sh -lc` gives `/usr/local/sbin:...` with no venv; `sh -c` keeps it. Cladewright uses
+    # `-lc` and gets away with it because its python is the system one.
+    #
+    # One line on purpose: a folded (>) block keeps a newline before the over-indented flag
+    # and `--reload` is silently dropped.
+    command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build: .
+    container_name: ${WORKER_CONTAINER_NAME:-mendel-worker}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_REDIS_URL: redis://redis:6379
+      MENDEL_REGISTRY_ROOT: /app/registry
+      MENDEL_SOURCE_ROOT: /app/vendor
+      MENDEL_WORKSPACE_ROOT: /app/workspace
+    volumes:
+      - ./packages:/app/packages
+      - ./.run/registry:/app/registry
+      - ./vendor:/app/vendor
+      - ./workspace:/app/workspace
+    command: arq mendel_api.worker.WorkerSettings
+
+  # **In the base, not only in prod**, so dev serves the same path prod does — nginx in front,
+  # the SPA built, `/api` proxied. Vite on the host is ADDITIONAL, for HMR: dev has strictly
+  # more than prod, never less.
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ${WEB_CONTAINER_NAME:-mendel-web}
+    depends_on: [api]
+    # **nginx resolves its upstream once, at startup, and dies if it cannot.** `depends_on`
+    # waits for the container to start rather than for it to serve, so a slow migration or a
+    # crashed api takes nginx down with it and it does not come back. Restarting is the fix
+    # compose gives for exactly this.
+    restart: unless-stopped
+    ports: ["${WEB_HOST_PORT:-80}:80"]
+
+volumes:
+  mendel-pg:

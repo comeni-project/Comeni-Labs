@@ -9,6 +9,7 @@ file you read and edit, and everything else here describes an input to producing
 | | |
 |---|---|
 | [`pipeline-schema.md`](pipeline-schema.md) | the save file — every step, setting and reason |
+| [`glossary.md`](glossary.md) | **the eight words the interface uses** — start here if a screen is using a word at you |
 | [`diagnostics.md`](diagnostics.md) | every code, what it says, and whether it refuses |
 | [`cli.md`](cli.md) | the verbs and their flags |
 | [`goal-schema.md`](goal-schema.md) | what you ask for |

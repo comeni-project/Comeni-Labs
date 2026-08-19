@@ -19,7 +19,7 @@ classes. That is a constraint worth keeping rather than working around: the allo
 unknown unknowns.
 """
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
 
@@ -360,28 +360,59 @@ def declared_kind(path: Path) -> DeclaredKind:
     return _KIND_OF[said]
 
 
-def stack[K, T](layers: Sequence[Layer], kind: Kind[K, T]) -> Stacked[K, T]:
-    """Load one kind across a layer stack. Later layers win, and say so."""
+def bucket(layers: Sequence[Layer]) -> dict[int, dict[DeclaredKind, list[Path]]]:
+    """Which files in each layer declare which kind — asked once, read by every kind.
+
+    **The layer, not a subdirectory of it.** Which files belong to a kind is decided by what
+    each one declares, so the layout is the author's business (comeni-registry#1).
+    `registry.yml` is the layer's account of *itself*, read by `layer_name` before any kind
+    runs — it declares nothing and is exempt, exactly as it was from the unclaimed-file check
+    when kinds were directories.
+
+    **`stack()` used to ask this per kind.** Five kinds meant five walks of every layer and
+    five parses of every file to read one line from it — measured at 7.3ms a pass over the
+    shipped registry, four of them pure repetition, and the `pathlib` cost of the extra walks
+    dominated the profile once the parser was fixed. Audit A133 and A143.
+
+    Keyed by `Layer.index` rather than by name or path: identity is the index, because two
+    layers may share a name (invariant 11).
+    """
+    found: dict[int, dict[DeclaredKind, list[Path]]] = {}
+    for layer in layers:
+        nested = _nested_layers(layer.path)
+        mine: dict[DeclaredKind, list[Path]] = {}
+        for path in _files(layer.path):
+            if path == layer.path / MANIFEST:
+                continue
+            if any(path.is_relative_to(other) for other in nested):
+                continue
+            mine.setdefault(declared_kind(path), []).append(path)
+        found[layer.index] = mine
+    return found
+
+
+def stack[K, T](
+    layers: Sequence[Layer],
+    kind: Kind[K, T],
+    *,
+    buckets: Mapping[int, Mapping[DeclaredKind, list[Path]]] | None = None,
+) -> Stacked[K, T]:
+    """Load one kind across a layer stack. Later layers win, and say so.
+
+    `buckets` is `bucket(layers)`, computed once by a caller loading several kinds —
+    `mendel_resolver.layers.load` loads five. It is **optional** so the single-kind callers,
+    `Registry.load` and `Vocabulary.load`, stay unchanged: one kind has no redundancy to
+    remove, and a required parameter would have been a breaking change for no gain.
+    """
     entries: dict[K, T] = {}
     origin: dict[K, int] = {}
     displaced: list[Displacement] = []
     claimed: set[Path] = set()
     name_of = {layer.index: layer.name for layer in layers}
+    known = buckets if buckets is not None else bucket(layers)
 
     for layer in layers:
-        # **The layer, not a subdirectory of it.** Which files belong to this kind is decided
-        # by what each one declares, so the layout is the author's business (comeni-registry#1).
-        # `registry.yml` is the layer's account of *itself*, read by `layer_name` before any
-        # kind runs — it declares nothing and is exempt, exactly as it was from the
-        # unclaimed-file check when kinds were directories.
-        nested = _nested_layers(layer.path)
-        mine = [
-            p
-            for p in _files(layer.path)
-            if p != layer.path / MANIFEST
-            and not any(p.is_relative_to(other) for other in nested)
-            and declared_kind(p) is kind.which
-        ]
+        mine = list(known.get(layer.index, {}).get(kind.which, []))
         if not mine:
             continue
 

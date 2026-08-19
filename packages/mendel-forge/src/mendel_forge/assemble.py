@@ -87,13 +87,25 @@ def _hole(
     question that does not say which port it is about, and a model answered all three of
     `fastqc`'s outputs identically because the prompts differed only in an index digit.
     """
+    offered = candidates.for_field(
+        field, stack, type_id=type_id, excluding=excluding, port=port, tool=excluding
+    )
     return Hole(
         subject=field,
         what=what or f"a value for {field}",
         why_open=why,
-        candidates=candidates.for_field(
-            field, stack, type_id=type_id, excluding=excluding
-        ),
+        # **`port` reaches the candidates now, not only the evidence.** It has been a parameter
+        # of this function since Phase 2 and was spent entirely on `_evidence_for` — so the one
+        # fact that says which type a hole is about was present at the call site and thrown
+        # away. Alphabetical order was the result: `genome.fasta` sixth of twenty-two for a
+        # port literally called `fa`.
+        #
+        # **`tool=excluding` is one fact used twice, not two that happen to agree.** `excluding`
+        # is the module key of the tool being drafted, which is exactly what the ranking needs
+        # to know which tool is asking — giving the scorer its own parameter would let the two
+        # drift apart silently, and the whole value of signal 3 is that they cannot.
+        candidates=offered,
+        suggested=candidates.suggestion(offered, port=port, tool=excluding),
         evidence=_evidence_for(obs, port),
     )
 
@@ -229,7 +241,23 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
             what=_roles_question(stack, ident),
         )
     )
-    holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
+    holes.append(
+        _hole(
+            "priority_because",
+            stack,
+            obs,
+            why=_WHY_OPEN["priority_because"],
+            # **The one hole that named itself instead of asking.** `what` fell through to
+            # `f"a value for {field}"` — the placeholder the comment on `_hole` complains
+            # about — so the only question in the forge with no candidates to lean on was also
+            # the only one with no question in it.
+            what=(
+                "why this contract should be preferred over another that produces the same "
+                "type — routing ranks candidates by priority, and this is the sentence a "
+                "reviewer reads when it does"
+            ),
+        )
+    )
 
     return Scaffold(
         kind=DeclaredKind.CONTRACTS,
