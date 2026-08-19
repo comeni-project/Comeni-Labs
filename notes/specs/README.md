@@ -70,6 +70,16 @@ Three kinds live here:
   answers *what is this and what does it hold*, which no destination answers — and the
   discipline that keeps it there is that **it counts and links, and never lists an item**.
   If that slips, this page should be cut the way the Overview was.)
+  `2026-08-19-the-forge-redesigned.md` (**Plan 3D**, written after the operator called the forge
+  *unusable* and after walking the whole loop as a user rather than reading the code. Its point
+  is that **this is not a looks problem**: `candidates.for_field` offers the entire 22-type
+  vocabulary, alphabetically, for all seven `type_id` holes on a module — so `genome.fasta`
+  and `measurement.rrna_fraction` are equally prominent answers to *what does `samtools/faidx`
+  emit on the port called `fa`*. §1.5 is the find that makes it cheap: `OpenQuestion.suggested`
+  is plumbed through the API, the ordering, the highlight and the *Ask/Confirm* label, and
+  **nothing in production ever assigns it** — five `suggested=` hits repo-wide, all in tests.
+  §7 orders the work ranking → layout → help, because a denser board over unranked candidates
+  only renders an unanswerable question faster.)
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
