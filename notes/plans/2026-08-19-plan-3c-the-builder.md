@@ -468,15 +468,36 @@ justified checkpoints as a design safeguard; the first one paid for itself on pl
 > **Correct this phase against phase 1's real `Layout` and phase 2's real response before
 > executing.** Written against the shapes declared above; they will have moved.
 
-- [ ] **Step 1: Write the failing test** — a node renders per step with its tier stripe; a wire
+- [x] **Step 1: Write the failing test** — a node renders per step with its tier stripe; a wire
       renders per edge with its type label on the horizontal run; the count matches the API.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Render nodes** at the coordinates the backend computed. **The frontend does no
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Render nodes** at the coordinates the backend computed. **The frontend does no
       layout arithmetic** — if it is computing a position, phase 1 is incomplete.
-- [ ] **Step 4: Render wires** from the points the backend computed.
-- [ ] **Step 5: Node drag**, dividing by zoom. Dragging moves a node **in the view only** — there
+- [x] **Step 4: Render wires** from the points the backend computed.
+- [x] **Step 5: Node drag**, dividing by zoom. Dragging moves a node **in the view only** — there
       is nowhere to persist it and inventing one is out of scope.
-- [ ] **Step 6: `npm run build`, `make verify`, commit.**
+- [x] **Step 6: `npm run build`, `make verify`, commit.**
+
+### Phase 4 execution record
+
+Carried out as written. Six tests, all watched failing. The phase-4 correction note was
+unnecessary in the end — the generated client already carried `PlacedNode`, `PlacedWire` and
+`StepView`, so the shapes were readable rather than guessed.
+
+**The frontend does no layout arithmetic**, and a test says so: `star_align` is at `left: 169px`
+because the backend said 169. If this file ever computes a position, phase 1 is incomplete.
+
+**The tier rail is the design's, gradient stops included** — solid pea at tier 1, pea at .42 at
+tier 2, 5-on-4-off amber at tier 3, 3-on-8-off coral at tier 4. The gappier a rail looks, the
+less settled the decision is, which is `dashboard.md` §1's governing idea and the same language
+`Standing` draws on the front door.
+
+**Corners are rounded in the renderer and the route is decided in the compiler.** `layout.py`
+returns corner points rather than an SVG `d`: how tightly a corner turns is presentation, and a
+path string built in a pure package would put rendering there.
+
+**A wire carries the tier of the step it leaves**, so uncertainty propagates down the graph
+rather than stopping at the node that introduced it.
 
 ---
 

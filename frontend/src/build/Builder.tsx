@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 
 import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
+import { Node } from "./Node";
 import { Grip, RAIL, useWidth } from "./Panels";
+import { Wires } from "./Wires";
 import { useView } from "./useView";
 
 type Built = components["schemas"]["BuiltPipeline"];
@@ -84,7 +87,9 @@ export function Builder() {
   useTitle("Builder");
   const left = useWidth(232, 190, 430);
   const right = useWidth(320, 280, 560);
-  const { view, onWheel, onPointerDown, reset, nudge } = useView();
+  const { view, onWheel, onPointerDown, reset, nudge, fit } = useView();
+  const box = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["pipeline", "example"],
@@ -94,7 +99,11 @@ export function Builder() {
   const blocking = data?.needs_review.length ?? 0;
 
   return (
-    <div data-testid="builder" className="grid grid-cols-[auto_5px_1fr_5px_auto] h-full">
+    <div
+      ref={box}
+      data-testid="builder"
+      className="grid grid-cols-[auto_5px_1fr_5px_auto] h-full"
+    >
       <Side
         side="left"
         title="Modules"
@@ -139,12 +148,42 @@ export function Builder() {
             <button onClick={reset} aria-label="reset the view" className={zoomBtn}>
               reset
             </button>
+            <button
+              aria-label="fit the pipeline"
+              className={zoomBtn}
+              onClick={() => {
+                const r = box.current?.getBoundingClientRect();
+                if (data && r) fit(data.layout.width, data.layout.height, r.width, r.height);
+              }}
+            >
+              fit
+            </button>
           </div>
         }
       >
         {isLoading && <Loading what="the pipeline" />}
         {error && <Failed error={error} />}
-        {/* Phase 4 fills this. An empty canvas here is the phase-3 deliverable. */}
+        {data && (
+          <>
+            {/* Wires first, so a node draws over the line that reaches it rather than under. */}
+            <Wires
+              wires={data.layout.wires}
+              tierOf={(id) => data.layout.nodes.find((n) => n.id === id)?.tier ?? 2}
+              width={data.layout.width}
+              height={data.layout.height}
+            />
+            {data.layout.nodes.map((placed) => (
+              <Node
+                key={placed.id}
+                placed={placed}
+                step={data.steps.find((s) => s.id === placed.id)}
+                zoom={view.k}
+                selected={selected === placed.id}
+                onSelect={() => setSelected(placed.id)}
+              />
+            ))}
+          </>
+        )}
       </Canvas>
 
       <Grip
