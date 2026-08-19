@@ -1720,6 +1720,25 @@ MF0008:
     a draft be written outside the workspace. Restricting the name is prevention by
     construction; validating the resolved path afterwards is detection, and the two are
     not the same guarantee.
+MF0010:
+  emitted_by: forge
+  concern: workspace
+  says: "a draft with that name already exists"
+  fires_on: [forge draft]
+  refuses: true
+  fix: |
+    Pick another name, or delete the draft you meant to replace. `forge show <name>` is what
+    is in it.
+  explanation: |
+    `Workspace.save` writes a draft directory whether or not one is there, so drafting onto a
+    name that is taken replaced every answer, proposal and decision on it and said nothing.
+    A draft is the most expensive artifact in the system — it is a person's judgement, one
+    field at a time, each with a reason — and the cheapest thing to protect it with is a name
+    check.
+
+    Overwriting is deliberately not offered as a flag: the recovery is to pick another name,
+    and the caller always can. The refusal is about the NAME rather than the tool, because two
+    drafts of one tool at two versions is exactly what a version bump looks like.
 MF0100:
   emitted_by: forge
   concern: landing

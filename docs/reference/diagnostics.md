@@ -135,6 +135,7 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MF0008` | no such draft, or a draft name that is not a plain name |
+| `MF0010` | a draft with that name already exists |
 
 ## The forge — landing a draft into a registry
 

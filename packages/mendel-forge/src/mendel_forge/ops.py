@@ -257,9 +257,21 @@ def draft(req: DraftRequest) -> DraftResult:
     stack = layers.load(req.registry_root)
     scaffold = assemble.scaffold_for(observation, stack, ident=_ident(ref), version=req.version)
     module = modulegen.skeleton(scaffold) if modulegen.needs_module(observation) else None
-    Workspace(root=req.workspace_root).save(
-        Draft(name=req.name, scaffold=scaffold, module=module)
-    )
+
+    workspace = Workspace(root=req.workspace_root)
+    # **Before saving, because `Workspace.save` overwrites.** `mkdir(exist_ok=True)` then
+    # `write_text` replaced every answer, proposal and decision on a draft of the same name
+    # and said nothing — true since forge phase 1, and one careless click in a form.
+    #
+    # `names()` rather than a file check: it is the same list `MF0008` prints when a draft is
+    # missing, and two ways of asking *is this a draft* would eventually disagree.
+    if req.name in workspace.names():
+        raise ValueError(
+            coded("MF0010", f"a draft named {req.name!r} already exists")
+            + f"\n  drafts: {', '.join(workspace.names())}"
+            + "\n  pick another name, or delete that one — `forge show` is what is in it"
+        )
+    workspace.save(Draft(name=req.name, scaffold=scaffold, module=module))
     return DraftResult(
         name=req.name,
         target=scaffold.target,
