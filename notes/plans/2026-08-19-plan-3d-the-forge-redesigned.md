@@ -511,8 +511,8 @@ job.
 
 ### Task 1.5: close the phase
 
-- [ ] **Step 1: `make verify`** — unpiped, so the exit code is `make`'s and not `tail`'s.
-- [ ] **Step 2: Record the measured number** in the execution record: top-1 before, after, and
+- [x] **Step 1: `make verify`** — unpiped, so the exit code is `make`'s and not `tail`'s.
+- [x] **Step 2: Record the measured number** in the execution record: top-1 before, after, and
       anything tried and rejected.
 - [ ] **Step 3: Commit**
 
@@ -548,7 +548,7 @@ inherits it.
 
 **Files:** Modify `packages/mendel-forge/src/mendel_forge/assemble.py:232`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/mendel-forge/tests/test_hole_ranking.py`:
 
@@ -560,13 +560,13 @@ def test_every_hole_asks_something() -> None:
         assert not hole.what.startswith("a value for"), hole.subject
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_hole_ranking.py::test_every_hole_asks_something -v`
 
 Expected: FAIL on `priority_because`.
 
-- [ ] **Step 3: Give it a `what`**
+- [x] **Step 3: Give it a `what`**
 
 In `assemble.py`, change line 232 to:
 
@@ -586,12 +586,22 @@ In `assemble.py`, change line 232 to:
     )
 ```
 
-- [ ] **Step 4: Run it, then `make check`. Commit.**
+- [x] **Step 4: Run it, then `make check`. Commit.**
 
 ```bash
 git add packages/mendel-forge
 git commit -m "fix(forge): priority_because asks a question instead of naming itself"
 ```
+
+### Phase 2 execution record
+
+Carried out as written. The golden file moved by exactly one line and it is the question.
+
+**`make verify` exited 2 the first time, and it was lint, not tests** — `ruff` I001 on the new
+test's imports plus an E501 my own docstring edit had mangled into a duplicated fragment. Worth
+recording because the plan's step says *run it unpiped so the exit code is `make`'s*: piping to
+`tail` would have shown a wall of passing tests and hidden a non-zero exit entirely, which is
+the mistake 3B's Task 3 made.
 
 ---
 

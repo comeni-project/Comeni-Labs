@@ -308,7 +308,7 @@
     },
     {
       "subject": "priority_because",
-      "what": "a value for priority_because",
+      "what": "why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does",
       "why_open": "why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about",
       "candidates": [],
       "closed": true,

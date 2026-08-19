@@ -7,9 +7,8 @@ by `Question.tsx`, and switches `QueueRow`'s label from *Ask* to *Confirm* — a
 """
 
 from comeni_core.review import Candidate  # noqa: F401
-from mendel_forge.scaffold import Hole
-
 from mendel_api.questions import question_from_hole
+from mendel_forge.scaffold import Hole
 
 
 def test_the_top_candidate_is_what_is_suggested() -> None:

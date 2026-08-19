@@ -12,9 +12,8 @@ already known, which makes this the one part of the forge with free ground truth
 from pathlib import Path
 
 import pytest
-from mendel_resolver.layers import Layers, load
-
 from mendel_forge import candidates
+from mendel_resolver.layers import Layers, load
 
 ROOT = Path(__file__).resolve().parents[3]
 

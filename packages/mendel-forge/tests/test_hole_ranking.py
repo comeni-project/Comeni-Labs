@@ -6,10 +6,9 @@ a hole whose candidates are unranked is the whole of what made the forge unanswe
 
 from pathlib import Path
 
-from mendel_resolver.layers import load
-
 from mendel_forge import assemble, sources
 from mendel_forge.sources import ToolRef
+from mendel_resolver.layers import load
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -35,3 +34,15 @@ def test_a_produces_hole_offers_its_own_type_first() -> None:
     # the vocabulary is close — but alphabetical order buried it sixth among twenty-two.
     hole = next(h for h in scaffold.holes if h.subject == "produces[0].type_id")
     assert hole.candidates[0].value == "genome.fasta"
+
+
+def test_every_hole_asks_something() -> None:
+    """`assemble.py`'s own comment complains about this string; one hole still used it.
+
+    A hole reading *"a value for priority_because"* is a question with no question in it — the
+    field name spelled twice. Every other hole says what the value is in a sentence a reviewer
+    can read, which is what `Question.what` is documented to be.
+    """
+    scaffold = _scaffold("samtools/faidx", "1.21.0")
+    for hole in scaffold.holes:
+        assert not hole.what.startswith("a value for"), hole.subject

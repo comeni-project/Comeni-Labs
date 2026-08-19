@@ -52,7 +52,8 @@ def _fit(type_name: str, port: str | None, tool: str | None) -> int:
        else can: a port called `index` is `alignment.bai` on `samtools/index` and
        `genome.index.star` on `star/genomegenerate`, and the *only* thing separating them is
        which tool is being drafted. Signals 1 and 2 alone actively mislead there.
-    **Two signals were tried and removed, and both are worth recording.**
+
+    **Two more were considered; one was built and deleted, one was never built.**
 
     *The namespace of what the module consumes* — a tool taking an `alignment.bam` tends to emit
     another `alignment.*` — was implemented, measured at **exactly 0 gain** (25/30 with and
@@ -60,7 +61,7 @@ def _fit(type_name: str, port: str | None, tool: str | None) -> int:
     `consumes[N].type_id` is still an open hole, so there are no input types to read. A signal
     that is both unmeasurable and zero is a claim the code makes that no test holds.
 
-    *Popularity* — how many contracts already carry a type — is the obvious next one and is Ranking by how many contracts
+    *Popularity* — how many contracts already carry a type — was never built, because it is
     a trap: it would lift the common types in *every* hole regardless of the question, which is
     the alphabetical failure with a different sort key. If it is ever added it must take
     `excluding`, for the reason `_played_by` gives.

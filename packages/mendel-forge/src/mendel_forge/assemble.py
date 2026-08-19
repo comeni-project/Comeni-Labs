@@ -241,7 +241,23 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
             what=_roles_question(stack, ident),
         )
     )
-    holes.append(_hole("priority_because", stack, obs, why=_WHY_OPEN["priority_because"]))
+    holes.append(
+        _hole(
+            "priority_because",
+            stack,
+            obs,
+            why=_WHY_OPEN["priority_because"],
+            # **The one hole that named itself instead of asking.** `what` fell through to
+            # `f"a value for {field}"` — the placeholder the comment on `_hole` complains
+            # about — so the only question in the forge with no candidates to lean on was also
+            # the only one with no question in it.
+            what=(
+                "why this contract should be preferred over another that produces the same "
+                "type — routing ranks candidates by priority, and this is the sentence a "
+                "reviewer reads when it does"
+            ),
+        )
+    )
 
     return Scaffold(
         kind=DeclaredKind.CONTRACTS,
