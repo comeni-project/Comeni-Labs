@@ -46,8 +46,12 @@ describe("routing", () => {
     // not built is disabled and titled with the phase that builds it.
     // **One, not two:** `Contracts` became a real link in phase 4 and `Sources` in phase 6.
     // The list shrinks as phases land, and it must shrink deliberately rather than the
-    // assertion being deleted — `Mendel` is the last one, and it is 3C.
-    for (const name of ["Mendel"]) {
+    // assertion being deleted — `Builder` is the last one, and it is 3C.
+    //
+    // It was called `Mendel` until 3B, and reading the finished landing page is what caught
+    // it: the page's own title is Mendel, so a greyed-out nav item with the same word read as
+    // the whole product being unbuilt. The tab points at a SCREEN; the product is the site.
+    for (const name of ["Builder"]) {
       expect(screen.getByText(name).getAttribute("aria-disabled")).toBe("true");
     }
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);

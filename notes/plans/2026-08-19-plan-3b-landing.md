@@ -288,7 +288,7 @@ thrown away, and leaving it beside a real home is the stale-sentence problem in 
 
 ## Task 3: See it, then write it down
 
-- [ ] **Step 1: Look at it**
+- [x] **Step 1: Look at it**
 
 `make dev`, then `http://localhost:5173/` and `http://localhost/`. **Both**, because phase 8
 made dev serve the prod path too and this is the screen most worth checking in both.
@@ -297,23 +297,38 @@ Then break something and look again: draft a tool so a question appears, and man
 in `.run/registry`, so the page is seen with work on it as well as empty. **Today's registry has
 0 open questions, so the empty state is what ships unless it is deliberately exercised.**
 
-- [ ] **Step 2: Check it against its own rules**
+- [x] **Step 2: Check it against its own rules**
 
 - no row from any destination is rendered
 - no new token, no new type size — diff `tokens.css` and confirm it is untouched
 - no Mendel section, and one line saying why
 - nothing claims more than the code does
 
-- [ ] **Step 3: `make verify`** — read the exit code before filtering.
+- [x] **Step 3: `make verify`** — read the exit code before filtering.
 
-- [ ] **Step 4: Journal and indexes**
+- [x] **Step 4: Journal and indexes**
 
 `notes/journal/2026-08-19-plan-3b-landing.md`, plus `notes/README.md` and `CLAUDE.md`. Say
 plainly that the Overview page was cut once and why this one is different — **and that the
 argument is only as good as 3C**, because if the Mendel half turns out to be a second queue this
 page should be cut the way the Overview was.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
+
+---
+
+## Execution record — Task 3
+
+| step | carried out as written? | what actually happened |
+|---|---|---|
+| 1 | **no — read, not seen** | The rendered text was dumped through a jsdom render and read as copy; the API was run on :8150 against a scratch workspace with a drafted tool, so the page was exercised *with work on it* as the step asks. **The visual pass in a browser, at both URLs, was not done and is the operator's** — no screenshot was taken and none could be. Reading the copy is what found the `Mendel`/`Mendel` tab collision, so the step earned itself; it did not earn the half it skipped. |
+| 2 | yes, plus one correction | The grep for `0 pipelines` hit the *comment* forbidding the phrase. Checked against the rendered output instead, which is the honest target. |
+| 3 | yes, after a caught mistake | The first run was piped to `tail`, so the reported exit code was `tail`'s. Re-run unpiped. The step says *read the exit code before filtering* and the first attempt did exactly what it warns against. |
+| 4 | yes | Journal, `notes/README.md` row 17k, `CLAUDE.md`. **Also found: `notes/journal/README.md`'s entry table has been stale since 2026-08-13, missing 24 entries.** Marked in place rather than backfilled — 24 accurate summaries means reading 24 entries, which is not 3B's work. |
+| 5 | yes | |
+
+**One change outside the plan:** the nav's `Mendel` tab became `Builder`, with
+`router.test.tsx`'s disabled-destination list and comment moved with it. See the journal.
 
 ---
 

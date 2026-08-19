@@ -41,8 +41,18 @@ responsiveness and it did not exist until an audit created it** — every regist
 cost ~250ms warm and one function was responsible
 ([`notes/audits/2026-08-19-performance-audit.md`](notes/audits/2026-08-19-performance-audit.md),
 A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s, and the fast test
-suite is 41s where it was 207s — with the emitted pipeline byte-identical. **3B's landing page is
-next**, then 3C's Mendel builder.
+suite is 41s where it was 207s — with the emitted pipeline byte-identical.
+
+**Plan 3B is COMPLETE as of 2026-08-19**, on `plan-3b-landing`, branched from `plan-3-slice-1`
+and also unmerged. `/` is a landing page rather than the redirect phase 0 left there, behind one
+endpoint, `GET /api/attention`. **The page counts and links and never renders an item**, and that
+is not a style note — `docs/design/forge-review.md` §3 records an Overview page *designed and
+cut* for answering the same question as the Queue, so the moment a contract id or a question
+subject appears on the front door it has become the page that was cut. A test holds it. Its
+signature element reuses `dashboard.md` §1 rather than inventing anything: certainty is drawn as
+stroke, the same language the canvas will use, so `tokens.css` did not change.
+**3C — the Mendel builder — is next**, and it is what the landing page's argument depends on: if
+3C's half turns out to be a second queue, this page should be cut the way the Overview was.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.

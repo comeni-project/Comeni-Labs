@@ -9,7 +9,8 @@ import { useUrlState } from "./useUrlState";
  * Registry is a BUTTON rather than a nav item, deliberately: you consult it mid-decision,
  * and navigating away from a question you are answering is the friction the design removes.
  *
- * **What does not exist yet says so.** Mendel is 3C. It is rendered `aria-disabled` rather than
+ * **What does not exist yet says so.** The Builder — Mendel's canvas — is 3C. It is rendered
+ * `aria-disabled` rather than
  * as a link, because a link that goes
  * nowhere silently is worse than one that admits it — and six of those were what made slice
  * 1 look finished when nothing on the screen did anything.
@@ -51,7 +52,7 @@ export function Shell() {
 
         <div className="flex gap-[2px] ml-2">
           <Tab to="/">Home</Tab>
-          <Soon title="The pipeline builder — Plan 3C">Mendel</Soon>
+          <Soon title="The pipeline canvas — Plan 3C">Builder</Soon>
           <Tab to="/forge/queue">Forge</Tab>
         </div>
 
