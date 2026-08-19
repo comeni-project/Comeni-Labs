@@ -83,6 +83,23 @@ describe("the builder shell", () => {
     expect(Number(screen.getByTestId("zoom").dataset.k)).toBe(1);
   });
 
+  it("gives the canvas a track to grow into", async () => {
+    // **A weak guard for a defect no test here can see.** The canvas sits in a flex column under
+    // the provenance bar and everything inside it is absolutely positioned, so without `flex-1`
+    // it sizes to its content — nothing — and the graph renders into a zero-height box. The bar
+    // showed, the nodes did not, and every test in this file still passed: **jsdom has no layout
+    // engine**, so height is not a thing it can be wrong about.
+    //
+    // Asserting a class name is testing a CSS string and it is worth exactly what that is worth.
+    // It is here because it names the failure, so a refactor that drops the class has something
+    // to trip over. The mechanism that actually caught this was a person opening the page, which
+    // is what checkpoint 2 is for.
+    at();
+    const canvas = await screen.findByTestId("canvas");
+    expect(canvas.className).toContain("flex-1");
+    expect(canvas.className).toContain("min-h-0");
+  });
+
   it("draws no nodes, because phase 3 has none to draw", async () => {
     // Named rather than left implicit: an empty canvas at this checkpoint is the deliverable,
     // not a bug, and the next phase is what fills it.
