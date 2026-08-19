@@ -210,6 +210,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/contracts/{id}/drift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What moved between a contract and its source, and what it means */
+        get: operations["readDrift"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contracts/{id}/drift/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take the source's value for one field */
+        post: operations["acceptDrift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/contracts/{id}": {
         parameters: {
             query?: never;
@@ -231,6 +265,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptBody */
+        AcceptBody: {
+            /** Field */
+            field: string;
+            /** By */
+            by: string;
+            /** Why */
+            why: string;
+        };
+        /** AcceptResult */
+        AcceptResult: {
+            /** Contract Id */
+            contract_id: string;
+            /** Field */
+            field: string;
+            /** Was */
+            was: string;
+            /** Now */
+            now: string;
+            /** Path */
+            path: string;
+            /** Branch */
+            branch: string;
+            /** Commit */
+            commit: string;
+        };
         /** AnswerAllRequest */
         AnswerAllRequest: {
             /** Subject */
@@ -344,6 +404,37 @@ export interface components {
          * @enum {string}
          */
         Decision: "open" | "approved" | "rejected";
+        /** Diagnostic */
+        Diagnostic: {
+            /** Code */
+            code: string;
+            /** Where */
+            where: string;
+            /** Summary */
+            summary: string;
+            /** Detail */
+            detail: string;
+            /** Fix */
+            fix: string;
+        };
+        /** DriftReport */
+        DriftReport: {
+            /** Contract Id */
+            contract_id: string;
+            /** Verifiable */
+            verifiable: boolean;
+            /** Module Read */
+            module_read: boolean;
+            /** Checks */
+            checks: components["schemas"]["FieldCheck"][];
+            /** Conformance */
+            conformance: components["schemas"]["Diagnostic"][];
+            /** Unchecked */
+            unchecked: components["schemas"]["Unchecked"][];
+            verdict: components["schemas"]["Verdict"];
+            /** Says */
+            says: string;
+        };
         /**
          * Excerpt
          * @description A span of source text and a resolvable pointer to it.
@@ -379,6 +470,22 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** FieldCheck */
+        FieldCheck: {
+            /** Field */
+            field: string;
+            impact: components["schemas"]["Impact"];
+            /** Registry Says */
+            registry_says: string;
+            /** Source Says */
+            source_says: string;
+            /** Agrees */
+            agrees: boolean;
+            /** Locator */
+            locator: string | null;
+            /** Excerpt */
+            excerpt: string | null;
+        };
         /**
          * Grouping
          * @enum {string}
@@ -389,6 +496,12 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * Impact
+         * @description What reads this field — which is what decides how much a change to it matters.
+         * @enum {string}
+         */
+        Impact: "routes" | "builds" | "records";
         /** Listing */
         Listing: {
             /** Rows */
@@ -582,6 +695,14 @@ export interface components {
             /** Consumed By */
             consumed_by: string[];
         };
+        /** Unchecked */
+        Unchecked: {
+            /** Field */
+            field: string;
+            impact: components["schemas"]["Impact"];
+            /** Why */
+            why: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -595,6 +716,12 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * Verdict
+         * @description The only question a maintainer really has, answered — design §7.
+         * @enum {string}
+         */
+        Verdict: "breaks" | "reroutes" | "rebuilds" | "recorded" | "agrees";
         /** Visited */
         Visited: {
             /**
@@ -916,6 +1043,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readDrift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriftReport"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    acceptDrift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptResult"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
         };

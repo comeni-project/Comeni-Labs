@@ -42,10 +42,24 @@ def test_an_unknown_contract_is_a_coded_refusal():
     assert "not in this registry" in r.json()["detail"]
 
 
-def test_there_is_no_way_to_write_a_contract():
-    """Read-only stays read-only — design §7. Contracts change through the queue or through
-    drift resolution, both of which record why. This is the structural half of that claim."""
+def test_the_only_write_is_accepting_what_the_source_says():
+    """Design §7 says contracts change through the queue or through **drift resolution**,
+    both of which record why. Phase 4 could hold that structurally — no write verb at all —
+    because drift resolution did not exist yet; phase 5 built it, so the claim narrows to
+    what it always meant rather than being deleted.
+
+    **The narrower claim is still structural**: exactly one write, and it is the one that
+    takes a value the SOURCE states rather than one a caller composes. A free-text `PATCH`
+    reaching this router fails here, which is what makes adding one a deliberate act.
+    """
     from mendel_api.routes import contracts as routes
 
-    methods = {m for route in routes.router.routes for m in getattr(route, "methods", set())}
-    assert methods <= {"GET", "HEAD"}, f"a write verb reached the contracts router: {methods}"
+    writes = {
+        (route.path, method)
+        for route in routes.router.routes
+        for method in getattr(route, "methods", set())
+        if method not in {"GET", "HEAD"}
+    }
+    assert writes == {("/contracts/{id:path}/drift/accept", "POST")}, (
+        f"an unexpected write verb reached the contracts router: {writes}"
+    )

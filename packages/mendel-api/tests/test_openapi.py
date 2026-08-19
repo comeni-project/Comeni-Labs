@@ -34,6 +34,10 @@ def test_every_operation_is_named_by_hand():
         # `{id}` even though the route is declared `{id:path}` — a contract id has slashes.
         ("/api/contracts", "get"): "listContracts",
         ("/api/contracts/{id}", "get"): "readContract",
+        # Registered BEFORE the greedy `/{id:path}` above, or they never match — and the
+        # failure is a 200 carrying the module page rather than a 404.
+        ("/api/contracts/{id}/drift", "get"): "readDrift",
+        ("/api/contracts/{id}/drift/accept", "post"): "acceptDrift",
         ("/api/questions/answer-all", "post"): "answerAll",
         ("/api/questions/propose", "post"): "proposeType",
         ("/api/questions/proposals/decide", "post"): "decideProposal",
