@@ -342,6 +342,55 @@ The row is then first in the queue, above every question. Accept it, and
 `git -C /tmp/drift-demo show` is the record: one commit, one file, one line, your name and your
 reason.
 
+## Running it
+
+```console
+$ make dev
+  Forge (HMR):    http://localhost:5173/forge/queue
+  Forge (built):  http://localhost/forge/queue
+  API:            http://localhost:8000/docs
+  Logs:           make dev-logs    ·    Vite: tail -f .run/vite.log
+```
+
+Five services: Postgres, Redis, the API, the ARQ worker, and nginx serving the built SPA. Vite
+runs on the **host** for HMR, so you get both — the fast edit loop on `:5173`, and on `:80` the
+exact path production serves, nginx and all.
+
+`make dev-down` stops everything. `make dev-logs` tails the api and the worker.
+
+**`make prod` is the same stack with the unsafe parts removed** — code baked into the image
+rather than mounted, no auto-reloader, and Postgres, Redis and the API reachable only on the
+compose network. It is one overlay over the same file, so the two cannot drift into two stacks.
+It is **not a deployment posture**: no TLS, no auth, no published image.
+
+### The dev registry is a clone, and that is the point
+
+`make dev` clones `registry/` to `.run/registry` and mounts *that*. It has to:
+
+- `registry/` is a **git submodule**, and a submodule's `.git` is a *file* holding
+  `gitdir: ../../../.git/worktrees/…` — a path that resolves to nothing inside a container. Git
+  answers `fatal: not a git repository`, so accepting a drift would refuse with `MF0107`.
+- the containers run as **your** user, not root, so the commit an accept makes is yours on the
+  host and nothing lands root-owned in `./workspace`.
+
+So drift acceptance works in dev exactly as it does in prod. `make dev-refresh` pulls registry
+changes into the clone when it has no uncommitted work in it, and leaves it alone when it does —
+a `forge/drift` branch you have not merged is work, not staleness.
+
+### Settings
+
+`.env.example` is committed and lists every setting with its default; `make dev` copies it to
+`.env` on first run. The one to read twice is `MENDEL_REGISTRY_ROOT`: point it at a checkout you
+can **write** to, or accepting a drift refuses — `MF0105` at a detached HEAD, `MF0107` at
+anything that is not a checkout at all.
+
+### The nightly check
+
+The worker runs `forge check` at **03:00**, which is what the queue's strip means by
+*next 03:00*. It is deliberately not run at startup: a container restart is not a check-worthy
+event, and a strip reading *checked 4 seconds ago* after every deploy would be measuring
+deploys.
+
 ## What the forge does not do
 
 **It calls no model.** `ports.py` declares `HoleFiller` and ships `NoFiller`, which declines

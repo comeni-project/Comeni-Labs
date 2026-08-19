@@ -1,0 +1,42 @@
+# **Safety, not capability.** Every service the base defines is here; what changes is that code
+# is baked rather than mounted, nothing auto-reloads, and the database and redis are not on the
+# host's network. Dev can do everything this can — that is the whole shape of the split, and it
+# is why this is an overlay rather than a second stack that would drift from the first.
+#
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#     make prod
+#
+# **This is not a deployment posture.** No TLS, no auth — auth is deferred (interface spec §9)
+# — and no published image. It is the same stack with the unsafe parts removed, which is what
+# makes it worth having locally: the path prod serves is the path you can test.
+services:
+  postgres:
+    restart: unless-stopped
+    # **`!reset`, not `[]`.** Compose MERGES sequences across files, so an empty list adds
+    # nothing and the base's published port survives. Measured: postgres was still open
+    # on 5432 with `ports: []` in this file.
+    ports: !reset []   # reachable on the compose network only
+
+  redis:
+    restart: unless-stopped
+    ports: !reset []
+
+  api:
+    restart: unless-stopped
+    ports: !reset []   # nginx reaches it on the compose network
+    # No `./packages` mount: the code is the image. The registry stays a mounted CLONE,
+    # because accepting a drift is a commit and a baked copy of files cannot take one —
+    # MF0107 says so rather than crashing.
+    volumes:
+      - ./.run/registry:/app/registry
+      - ./workspace:/app/workspace
+    command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    restart: unless-stopped
+    volumes:
+      - ./.run/registry:/app/registry
+      - ./workspace:/app/workspace
+
+  web:
+    restart: unless-stopped

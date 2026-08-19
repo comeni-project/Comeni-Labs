@@ -34,14 +34,15 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > `tests/test_egress.py` for the free-text fields.
 
 **Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
-done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is eight phases of nine complete
-as of 2026-08-19**, on the branch `plan-3-slice-1`, which is **not merged**. **Phase 7 was
+done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is COMPLETE as of 2026-08-19**, all nine phases, on the
+branch `plan-3-slice-1`, which is **not merged**. `make dev` brings the whole thing up: Postgres,
+Redis, the API, the ARQ worker and nginx serving the built SPA, with Vite on the host for HMR. **Phase 7 was
 responsiveness and it did not exist until an audit created it** — every registry-touching screen
 cost ~250ms warm and one function was responsible
 ([`notes/audits/2026-08-19-performance-audit.md`](notes/audits/2026-08-19-performance-audit.md),
 A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s, and the fast test
-suite is 60s where it was 207s — with the emitted pipeline byte-identical. Only compose (8)
-remains, then 3B's landing page and 3C's Mendel builder.
+suite is 41s where it was 207s — with the emitted pipeline byte-identical. **3B's landing page is
+next**, then 3C's Mendel builder.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
@@ -720,7 +721,9 @@ uv run forge land fastqc --registry ../comeni-registry --by "$USER"
 # verb with a git commit behind it, and registry/ here is a submodule at detached HEAD.
 ```
 
-`make dev` starts Postgres and Redis and the frontend; `make migrate` applies migrations;
+`make dev` brings up the whole stack — Postgres, Redis, the API, the worker and nginx — and
+starts Vite on the host for HMR; `make prod` runs the same stack with the unsafe parts removed;
+`make migrate` applies migrations;
 `make client` regenerates `frontend/src/api/` from the API's own schema. **Never hand-edit
 that directory** — a generated client is what makes the IR types unable to drift between
 the halves, and editing it is how that guarantee is lost quietly.
