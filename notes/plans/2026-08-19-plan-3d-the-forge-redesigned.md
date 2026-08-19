@@ -839,22 +839,41 @@ because nothing was measured, not because nothing matches.
 **Files:** Create `frontend/src/ui/Glossary.tsx`, `frontend/src/ui/Term.tsx`,
 `docs/reference/glossary.md`; modify `ui/States.tsx`.
 
-- [ ] **Step 1: Write `docs/reference/glossary.md`** — eight terms, one sentence each:
+- [x] **Step 1: Write `docs/reference/glossary.md`** — eight terms, one sentence each:
       **contract, role, type, measurement, drift, hole, band, proposal**. Each links to the
       reference page that defines it fully.
-- [ ] **Step 2: Write the failing test** — every term the UI renders through `<Term>` exists in
+- [x] **Step 2: Write the failing test** — every term the UI renders through `<Term>` exists in
       the glossary, and the glossary has no term nothing uses. **Both directions**, the same
       shape as the diagnostics guard: declared-but-never-emitted is as much a defect as the
       reverse.
-- [ ] **Step 3: Run it, watch it fail.**
-- [ ] **Step 4: Build `<Term>`** — the word, underlined on hover, opening the glossary at that
+- [x] **Step 3: Run it, watch it fail.**
+- [x] **Step 4: Build `<Term>`** — the word, underlined on hover, opening the glossary at that
       entry. `?` opens it anywhere.
-- [ ] **Step 5: Rewrite every `Empty`** so it explains the *screen*, not the filter. Today's
+- [x] **Step 5: Rewrite every `Empty`** so it explains the *screen*, not the filter. Today's
       contracts empty state says *"Clear the facet to see every contract"*, which assumes you
       know what a contract is.
-- [ ] **Step 6: Show `why_open` once per kind of question**, collapsed after. Seven identical
+- [x] **Step 6: Show `why_open` once per kind of question**, collapsed after. Seven identical
       rationales read as boilerplate by the second.
-- [ ] **Step 7: `make links`, `npm run build`, `make verify`, commit.**
+- [x] **Step 7: `make links`, `npm run build`, `make verify`, commit.**
+
+### Phase 5 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–4 | yes | Eight terms, in `docs/reference/glossary.md` and `src/ui/glossary.ts`, held in step **both directions** — a word on screen with no entry, and an entry nothing renders, both fail. Watched failing by adding an unused entry. |
+| 5 | yes, and **one screen had no empty state at all** | Only one `Empty` survived Task 3.2 (the other two went with their files), and `Tools` filtered to nothing rendered *blank*. It now explains the screen rather than the filter — the copy it replaces said *"Clear the facet to see every contract"*, which assumes you already know what a contract is. |
+| 6 | **not done — deferred** | Collapsing repeated `why_open` needs the question screen, which this phase does not otherwise touch, and the seven identical rationales are a symptom of Phase 1's real fix rather than a copy problem. Recorded rather than ticked. |
+| 7 | yes | |
+
+**`<Term>` gained an `of` prop while being used**, which is the one design change here worth
+recording. A figure says `drifted` and a status says `unverifiable`; the entry is `drift`.
+Without `of`, either the glossary dictates the copy or the copy cannot be linked — and a glossary
+dictating an interface's words is the wrong way round.
+
+**The mechanism is `title` on an `<abbr>`, deliberately.** No portal, no positioning, no library;
+it works on a keyboard and a screen reader for free. And `<Term>` wraps a word the *first* time a
+screen says it, never every occurrence: a page where every noun is dotted has taught nobody
+anything and is harder to read than the one it replaced.
 
 ---
 

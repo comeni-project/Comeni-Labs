@@ -1,4 +1,8 @@
+import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+
+import { Glossary } from "../ui/Glossary";
+import { useKeys } from "./useKeys";
 
 /** The frame: identity, then two workspaces, then the sections of the one you are in.
  *
@@ -12,6 +16,12 @@ import { Link, NavLink, Outlet } from "react-router";
  * `aria-disabled` rather than as a link, because a link that goes nowhere silently is worse
  * than one that admits it, and six of those were what made slice 1 look finished when nothing
  * on the screen did anything.
+ *
+ * **`?` opens the glossary, from anywhere.** Eight words appear on these screens without ever
+ * being defined — contract, role, type, measurement, drift, hole, band, proposal — and the
+ * verdict on 2026-08-19 was that the person who co-designed the system could not read its own
+ * interface. It lives in the shell rather than on a page so it is reachable from the screen you
+ * are confused by rather than from a screen you have to go and find.
  *
  * **There is no Registry box.** It was a text input in the nav that took a type id from memory
  * and opened a panel — the operator's verdict was *ugly, unintuitive and useless*, and the
@@ -46,6 +56,9 @@ function Tab({ to, children }: { to: string; children: string }) {
 }
 
 export function Shell() {
+  const [helping, setHelping] = useState(false);
+  useKeys({ "?": () => setHelping(true), escape: () => setHelping(false) });
+
   return (
     <div className="grid grid-rows-[54px_1fr] h-dvh">
       <nav className="flex items-center gap-7 px-6 bg-surface border-b border-line">
@@ -73,8 +86,18 @@ export function Shell() {
           <Tab to="/forge/queue">Queue</Tab>
           <Tab to="/forge/tools">Tools</Tab>
         </div>
+
+        <button
+          onClick={() => setHelping(true)}
+          title="What the words mean"
+          className="ml-auto px-2 py-1 rounded-r bg-transparent border border-line
+                     cursor-pointer text-secondary text-ink-3 hover:text-ink hover:border-line-2"
+        >
+          What the words mean <span className="font-data">?</span>
+        </button>
       </nav>
       <Outlet />
+      {helping && <Glossary onClose={() => setHelping(false)} />}
     </div>
   );
 }

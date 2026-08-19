@@ -103,7 +103,10 @@ export function Queue() {
           {isLoading && <Loading what="the workspace" />}
           {error && <Failed error={error} />}
           {questions.length === 0 && !isLoading && (
-            <Empty title="Nothing open." next="Draft a module to give the queue work." />
+            <Empty
+              title="Nothing is waiting on a decision."
+              next="This page holds every question the forge could not answer from a tool's own documentation — the judgements a person has to make. Draft a tool from Tools and its questions arrive here."
+            />
           )}
           {questions.map((q, i) => (
             // The key carries `asked_by` because under `group=module` the same subject

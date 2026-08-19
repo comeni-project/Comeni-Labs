@@ -7,7 +7,7 @@ import type { components } from "../api/schema";
 import { useDraft } from "../api/useDraft";
 import { useUrlState } from "../app/useUrlState";
 import { Refusal } from "../ui/Refusal";
-import { Failed, Loading } from "../ui/States";
+import { Empty, Failed, Loading } from "../ui/States";
 import { StatusBoard } from "./Board";
 import { STANDING, type Standing } from "./standing";
 
@@ -199,6 +199,24 @@ export function Tools() {
 
       {isLoading && <Loading what="every tool" />}
       {error && <Failed error={error} />}
+      {!isLoading && !error && rows.length === 0 && (
+        // **An empty state explains the screen, not the filter.** The one this replaces said
+        // *"Nothing here. Clear the facet to see every contract."* — which assumes you already
+        // know what a contract is, and the operator's verdict on 2026-08-19 was that nowhere in
+        // the product said.
+        <Empty
+          title={
+            q || state || against
+              ? "No tool matches that."
+              : "No source can see a tool yet."
+          }
+          next={
+            q || state || against
+              ? "Clear the filter above. This page lists every tool a source can read, at whatever stage it has reached — nobody has drafted it, somebody is drafting it, or it has landed in the registry."
+              : "A source reads tools out of vendored modules. Until one does, there is nothing to draft."
+          }
+        />
+      )}
       {rows.map((row) => (
         <Row key={row.ref} row={row} />
       ))}

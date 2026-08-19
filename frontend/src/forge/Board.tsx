@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { useUrlState } from "../app/useUrlState";
+import { Term } from "../ui/Term";
 import { STANDING, type Standing } from "./standing";
 
 type Board = components["schemas"]["Board"];
@@ -44,7 +45,7 @@ function Figure({
   onClick,
 }: {
   n: number | string;
-  of: string;
+  of: React.ReactNode;
   active?: boolean;
   onClick?: () => void;
 }) {
@@ -160,7 +161,7 @@ export function StatusBoard({ board }: { board: Board }) {
         {drifted > 0 && (
           <Figure
             n={drifted}
-            of="drifted"
+            of={<Term of="drift">drifted</Term>}
             active={against === "drifted"}
             onClick={toggleAgainst("drifted")}
           />
