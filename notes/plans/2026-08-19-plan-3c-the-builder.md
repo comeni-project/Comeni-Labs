@@ -406,16 +406,32 @@ divides deltas by the zoom factor, the dot grid scales with the view.
 **Files:** Create `frontend/src/build/Builder.tsx`, `Canvas.tsx`, `Rail.tsx`, `Builder.test.tsx`;
 modify `router.tsx`, `Shell.tsx` (the `Builder` tab stops being `Soon`).
 
-- [ ] **Step 1: Write the failing test** — the two panels resize within their declared ranges
+- [x] **Step 1: Write the failing test** — the two panels resize within their declared ranges
       (**190–430 left, 280–560 right**), collapse to a **42px** rail, and the collapsed rail
       still shows its undecided count. That last one is `dashboard.md` §4's own rule: *hiding the
       panel must never hide what is blocking your run.*
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Build the three columns and the resizers.**
-- [ ] **Step 4: Build the canvas shell** — pan, zoom, dot grid, the −/+/reset/Fit buttons bottom
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Build the three columns and the resizers.**
+- [x] **Step 4: Build the canvas shell** — pan, zoom, dot grid, the −/+/reset/Fit buttons bottom
       right. No nodes.
-- [ ] **Step 5: `npm run build`, `npx vitest run`, `make verify`.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 5: `npm run build`, `npx vitest run`, `make verify`.**
+- [x] **Step 6: Commit.**
+
+### Phase 3 execution record
+
+Carried out as written. Six tests, all watched failing.
+
+**Every constant is ported, not chosen**: `0.3`–`2.2` zoom clamp, `deltaY * 0.0016` per notch,
+22px grid scaling with the view, 190–430 and 280–560 panel ranges, a 42px collapsed stub.
+`zoomAt` keeps the point under the cursor fixed, which is what makes a wheel feel like zooming
+rather than scaling, and it is three lines because `dashboard.html` had already worked them out.
+
+**`Soon` is deleted, and the guard that watched it inverted rather than disappearing.**
+`Builder` was the last `aria-disabled` destination — `Contracts` became real in 3A phase 4,
+`Sources` in phase 6, `Tools` swallowed both in 3D. `test_says_so_where_a_destination_does_not
+_exist_yet` now asserts **zero** disabled destinations, which is the same move `/`'s redirect
+test made when 3B built the landing page: a list that reaches zero is an assertion to turn
+around, not one to delete.
 
 ### ▸ CHECKPOINT 1 — stop here
 
