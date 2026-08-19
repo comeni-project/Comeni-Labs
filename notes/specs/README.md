@@ -61,7 +61,8 @@ Three kinds live here:
   question `settings.py` answers once — which is why every phase since 2 has re-exposed forge
   operations and why `main.py`'s docstring saying otherwise has been false for four phases. The
   mount is removed. Two more: `Workspace.save` overwrites a draft **silently**, and the contract
-  version is **not derivable** — two vendored tools have containers with no version tag at all).
+  version is **not derivable** — two vendored tools have containers with no version tag at all), and
+  `2026-08-19-compose-and-prod.md` (**Plan 3A phase 7, which ends 3A** — one image for the api and the worker, carrying the registry and the vendored modules because they are read on nearly every request. Its sharpest moment is that **phase 6's guard decided a phase 7 design question**: serving the SPA from FastAPI needs `app.mount`, which `test_the_served_surface_is_the_openapi_document` refuses, so nginx is forced rather than chosen. And accepting a drift **crashes** when the registry is not a checkout — the rung phase 5 missed and a container makes normal).
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
