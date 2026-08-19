@@ -76,7 +76,7 @@ The harness comes before the heuristic, because that is how the `name` branch go
 comments record `reordering was tried first and did not help` and `splitting type_id into
 segments was measured and was a net loss`. Without a number those sentences cannot be written.
 
-- [ ] **Step 1: Write the harness as a test that asserts today's floor**
+- [x] **Step 1: Write the harness as a test that asserts today's floor**
 
 Create `packages/mendel-forge/tests/test_candidate_ranking.py`:
 
@@ -148,14 +148,14 @@ def test_the_right_type_is_the_first_candidate(stack: Layers) -> None:
     assert got >= TARGET, f"top-1 is {got:.0%}, target {TARGET:.0%}"
 ```
 
-- [ ] **Step 2: Run it and watch it fail on the signature, then on the number**
+- [x] **Step 2: Run it and watch it fail on the signature, then on the number**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_candidate_ranking.py -v`
 
 Expected: `TypeError: for_field() got an unexpected keyword argument 'port'`. That is the
 signature not existing yet, which is the correct first failure.
 
-- [ ] **Step 3: Commit the harness alone**
+- [x] **Step 3: Commit the harness alone**
 
 ```bash
 git add packages/mendel-forge/tests/test_candidate_ranking.py
