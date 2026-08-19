@@ -24,6 +24,9 @@ describe("the health strip", () => {
     withStrip({ contracts: 12, matching: 0, unverifiable: 0, types: 22, checked_at: null });
     await waitFor(() => expect(screen.getByText(/not checked yet/)).toBeTruthy());
     expect(screen.queryByText(/match their source/)).toBeNull();
+    // And it does not promise a next one either: phase 8 scheduled the check, but saying when
+    // the next one falls does not make the last one exist.
+    expect(screen.queryByText(/next 03:00/)).toBeNull();
   });
 
   it("shows them once one has", async () => {
@@ -33,5 +36,8 @@ describe("the health strip", () => {
     });
     await waitFor(() => expect(screen.getByText(/match their source/)).toBeTruthy());
     expect(screen.getByText(/unverifiable/)).toBeTruthy();
+    // *next nightly* became true in phase 8, when the worker got a cron entry. Phase 4
+    // deliberately withheld it because nothing scheduled anything.
+    expect(screen.getByText(/next 03:00/)).toBeTruthy();
   });
 });

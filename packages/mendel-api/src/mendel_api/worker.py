@@ -7,6 +7,7 @@ in a request, and ARQ is where it goes.
 
 from datetime import UTC, datetime
 
+from arq import cron
 from arq.connections import RedisSettings
 from mendel_forge import ops
 
@@ -43,5 +44,10 @@ async def check_sources(ctx: dict) -> dict[str, int]:
 class WorkerSettings:
     functions = [check_sources]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
-    cron_jobs: list = []
-    """The nightly schedule lands with Compose in Task 8, where there is a Redis to run it."""
+    cron_jobs = [cron(check_sources, hour=3, minute=0)]
+    """03:00 daily, which is what the queue's strip promises when it says *next nightly*.
+
+    **Not `run_at_startup`.** A container restart is not a check-worthy event, and a strip
+    reading *checked 4 seconds ago* after every deploy would be measuring deploys. The cadence
+    is also what the cost affords: `ops.check` walks every contract against its source, 0.48s
+    over twelve and roughly three minutes at the 5,800 the design talks about."""

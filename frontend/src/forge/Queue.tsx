@@ -34,7 +34,12 @@ function Health() {
       <span><b className="font-data text-ink">{data.types}</b> declared types</span>
       <span className="ml-auto text-ink-3">
         {data.checked_at
-          ? <>sources checked <span className="font-data">{new Date(data.checked_at).toLocaleString()}</span></>
+          ? <>sources checked <span className="font-data">{new Date(data.checked_at).toLocaleString()}</span>
+              {" · next 03:00"}</>
+          // **The unchecked branch does not gain it.** Phase 4 withheld "next nightly" because
+          // nothing scheduled anything; phase 8 scheduled it, so the CHECKED branch can say
+          // when the next one is. A fresh database has still never been checked, and saying
+          // when the next one falls does not make the last one exist.
           : "sources not checked yet"}
       </span>
     </div>
