@@ -1,3 +1,4 @@
+import { useTitle } from "../app/useTitle";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -50,6 +51,9 @@ function AskedBy({ drafts }: { drafts: string[] }) {
  */
 export function Question() {
   const { subject = "" } = useParams();
+  // The subject IS the tab's identity — a curator with three questions open needs to see which
+  // is which, and `Question` in all three says nothing.
+  useTitle(subject ? `${subject} · Queue` : "Queue");
   const navigate = useNavigate();
   const [value, setValue] = useState<string | null>(null);
   const [why, setWhy] = useState("");

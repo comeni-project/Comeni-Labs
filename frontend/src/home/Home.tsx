@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
+import { useTitle } from "../app/useTitle";
 import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { Failed, Loading } from "../ui/States";
@@ -98,6 +99,7 @@ function Section({
  * 0. This is what it was waiting for.
  */
 export function Home() {
+  useTitle(); // the front door is the product
   const { data, isLoading, error } = useQuery({
     queryKey: ["attention"],
     queryFn: () => get<Attention>("/attention"),

@@ -1,3 +1,4 @@
+import { useTitle } from "../app/useTitle";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
@@ -77,6 +78,7 @@ function Facets({ questions }: { questions: QueueResponse["questions"] }) {
 export { Health };
 
 export function Queue() {
+  useTitle("Queue");
   const [params] = useSearchParams();
   const search = params.toString();
   const { data, isLoading, error } = useQuery({

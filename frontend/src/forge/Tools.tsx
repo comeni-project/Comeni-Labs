@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
+import { useTitle } from "../app/useTitle";
 import { get, Refused } from "../api/client";
 import type { components } from "../api/schema";
 import { useDraft } from "../api/useDraft";
@@ -160,6 +161,7 @@ function Row({ row }: { row: BoardRow }) {
  * independently, which is the clearest possible sign nobody had noticed.
  */
 export function Tools() {
+  useTitle("Tools");
   const [state] = useUrlState("state", "");
   const [against] = useUrlState("against", "");
   const [q, setQ] = useState("");
