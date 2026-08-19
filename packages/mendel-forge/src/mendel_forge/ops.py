@@ -719,7 +719,7 @@ def drift(req: DriftRequest) -> DriftReport:
     ]
 
     disagreeing = [c.field for c in checks if not c.agrees]
-    refusing = [d.code for d in found]
+    refusing = drift_tables.refusing_of(d.code for d in found)
     verdict = drift_tables.verdict_for(disagreeing=disagreeing, refusing=refusing)
     return DriftReport(
         contract_id=req.contract_id,

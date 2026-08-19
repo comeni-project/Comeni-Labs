@@ -179,3 +179,21 @@ def test_drift_survives_the_since_last_visit_filter(two_drafts, _drifted, monkey
     # Two rows, not one: `nf_process` is checked by BOTH checkers, so one edit is a value
     # drift and MD0101 — the overlap spec §3.1 declares rather than merges away.
     assert rows and all(r.kind is questions.RowKind.DRIFT for r in rows)
+
+
+def test_one_field_drifting_is_one_row_even_when_both_checkers_see_it(two_drafts, _drifted):
+    """**Found by running it, not by a test.** `container` and `nf_process` are checked by
+    both checkers, so one edit produced two queue rows with the same subject leading to the
+    same screen — the same work twice, which is what the queue's collapsing exists to stop.
+
+    The drift SCREEN still shows both, in its two sections: one is what the source says the
+    value is, the other is the diagnostic that refuses. That is the coverage spec §3.1
+    declares. A queue row is a piece of work, and this is one piece of work.
+    """
+    _drifted((FASTQC, "container: quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
+              "container: quay.io/biocontainers/fastqc:0.0.0--stale"))
+
+    rows = [r for r in queue.read().questions if r.kind is questions.RowKind.DRIFT]
+    assert len(rows) == 1
+    # The value row wins, because it is the one that can be accepted.
+    assert "0.0.0--stale" in rows[0].why_open

@@ -221,3 +221,29 @@ def question_from_drift(found: Drift) -> OpenQuestion:
         closed=False,
         evidence=[],
     )
+
+
+def collapse_drift(rows: list[Drift]) -> list[Drift]:
+    """One field drifting is one piece of work, whichever checkers noticed.
+
+    **Found by running the thing.** `container` and `nf_process` are checked by both a value
+    comparison and a conformance diagnostic — the overlap spec §3.1 declares rather than
+    merges — so one edited tag produced two queue rows with the same subject, leading to the
+    same screen. That is the same work twice, which is exactly what the queue's collapsing
+    exists to prevent.
+
+    **The value row wins**, because it is the one that can be accepted: it carries what the
+    source says the value should be, where the diagnostic carries a summary and a fix. The
+    drift SCREEN still shows both, in its two sections — the queue is an index, and the detail
+    lives with the thing it is about.
+
+    This is NOT `aggregate()`: that collapses one question across many drafts, and this
+    collapses many findings about one field. Two contracts drifting on the same field stay two
+    rows, because they are two commits.
+    """
+    best: dict[tuple[str, str], Drift] = {}
+    for found in rows:
+        key = (found.contract_id, found.field or found.code or "")
+        if key not in best or (best[key].code is not None and found.code is None):
+            best[key] = found
+    return sorted(best.values(), key=lambda d: (d.contract_id, d.field, d.code or ""))

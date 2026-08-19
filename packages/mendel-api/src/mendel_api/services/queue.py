@@ -15,6 +15,7 @@ from mendel_api.questions import (
     Band,
     OpenQuestion,
     aggregate,
+    collapse_drift,
     question_from_drift,
     question_from_hole,
 )
@@ -64,7 +65,7 @@ def read(
     """
     # Drift first, and through the shared digest-cached check rather than a second
     # `ops.check` — this is the home page, and an uncached sweep is ~0.5s on every request.
-    drifted = [question_from_drift(d) for d in checked.result().drift]
+    drifted = [question_from_drift(d) for d in collapse_drift(checked.result().drift)]
 
     names = ops.list_(ops.ListRequest(workspace_root=settings.workspace_root)).names
 

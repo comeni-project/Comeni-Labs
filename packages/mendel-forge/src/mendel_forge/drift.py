@@ -15,6 +15,7 @@ written per case is wrong the first time a field is added, and wrong silently.
 from collections.abc import Iterable
 from enum import StrEnum
 
+from comeni_core.diagnostics import REGISTRY
 from pydantic import BaseModel, ConfigDict
 
 
@@ -164,6 +165,16 @@ def field_for(code: str) -> str | None:
         if code in facts.codes:
             return field
     return None
+
+
+def refusing_of(codes: Iterable[str]) -> list[str]:
+    """The subset that actually refuses a build.
+
+    MD0100 warns and never blocks — a contract whose module source is absent is *marked*
+    rather than trusted, which is a different thing from one that cannot be emitted. Reading
+    every diagnostic as a refusal would call that contract broken.
+    """
+    return [code for code in codes if REGISTRY[code].refuses]
 
 
 def verdict_for(*, disagreeing: Iterable[str], refusing: Iterable[str]) -> Verdict:

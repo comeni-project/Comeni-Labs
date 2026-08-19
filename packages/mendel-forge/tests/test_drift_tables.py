@@ -62,3 +62,17 @@ def test_the_sentence_names_the_field_and_says_what_it_means():
     said = drift.sentence_for(drift.Verdict.REBUILDS, disagreeing=["container"], refusing=[])
     assert "container" in said
     assert "routes" in said.lower()
+
+
+def test_only_a_refusing_diagnostic_breaks():
+    """`refusing` means refusing. MD0100 **warns, never blocks** — its own `says` line says
+    so — and a contract with no module source must not read as one that cannot be built.
+
+    Nothing reaches this today: `conformance.against()` does not emit MD0100, and every code
+    it does emit refuses. It is here because the parameter is named for a property that was
+    not being checked, which is a lie waiting to become true the first time a warning is
+    added to that function.
+    """
+    assert not REGISTRY["MD0100"].refuses, "MD0100 gained `refuses` — this test is now wrong"
+    assert drift.refusing_of(["MD0100"]) == []
+    assert drift.refusing_of(["MD0100", "MD0107"]) == ["MD0107"]
