@@ -14,3 +14,10 @@ evidence. `fixtures/` holds frozen inputs an audit refused, kept as the record o
 
 Round briefs (`*-brief.md`) are the method; round audits (`*-audit.md`) are the findings. Each
 finding has an `A`-number, and the numbers never restart.
+
+**[`2026-08-19-performance-audit.md`](2026-08-19-performance-audit.md) asks a third question** —
+is the tool *fast enough to use* — against a budget the operator stated in a sentence: half a
+second for anything done in a browser, because this is a tool and not a server. Its method is
+measurement rather than revert-and-watch, and its most useful result is a **negative** one:
+the codebase is not full of inefficiency, it has one slow function that everything calls.
+A132–A141, of which A141 is the negative result and is recorded on purpose.
