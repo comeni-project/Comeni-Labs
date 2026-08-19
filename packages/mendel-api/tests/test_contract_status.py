@@ -77,3 +77,26 @@ def test_the_check_is_cached_on_the_registry_digest(monkeypatch):
     contracts.listing()
 
     assert len(calls) == 1, "the second call must come from the cache"
+
+
+def test_a_conformance_failure_is_drift(monkeypatch, broken_registry_copy):
+    """A contract that no longer describes its module is DRIFTED, whichever checker noticed.
+
+    Same class of falsehood as folding `skipped` into `matching`, one checker over — the
+    reader asking *does this still describe its module* does not care which check found it.
+    The break here is a renamed emit label, which **no value check can see**: `ops.check`
+    compares three fields and `produces[].name` is not one of them.
+    """
+    from mendel_api.settings import settings
+
+    registry = broken_registry_copy(
+        "tools/nf-core/fastqc/fastqc.contract.yml", "name: zip", "name: nonesuch"
+    )
+    monkeypatch.setattr(settings, "registry_root", registry)
+    contracts._checked.cache_clear()
+
+    listing = contracts.listing()
+    row = next(r for r in listing.rows if r.id.startswith("nf-core/fastqc"))
+    assert row.status is Status.DRIFTED
+    assert listing.counts["drifted"] == 1
+    contracts._checked.cache_clear()

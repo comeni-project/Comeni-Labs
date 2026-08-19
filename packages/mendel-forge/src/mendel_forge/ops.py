@@ -494,6 +494,14 @@ class Drift(BaseModel):
     field: str
     registry_says: str
     source_says: str
+    code: str | None = None
+    """The conformance diagnostic that found it. `None` means a value comparison did —
+    `registry_says` and `source_says` are then two values rather than a summary and a fix.
+
+    **Two checkers, one list.** A reader asking *does this contract still describe its
+    module* does not care which check noticed; before phase 5 a renamed `emit:` label —
+    which breaks emission — reported as `matching`, because `Status` read the value half
+    only. Spec §3.5."""
 
 
 class CheckRequest(BaseModel):
@@ -550,6 +558,23 @@ def check(req: CheckRequest) -> CheckResult:
     skipped: list[str] = []
     checked = 0
     for contract in stack.registry.all():
+        # **Conformance runs over every contract, including the skipped ones.** `skipped` is
+        # about a missing source *adapter*; a module file is a separate fact, and the two
+        # `comeni/` contracts have a readable module and nothing that can re-draft them
+        # (phase 4 §3.4). So the structural half covers twelve where the value half covers ten.
+        module = conformance.module_path(contract, req.source_root)
+        if module.exists():
+            found += [
+                Drift(
+                    contract_id=contract.id,
+                    field=drift_tables.field_for(diagnostic.code) or "",
+                    registry_says=diagnostic.summary,
+                    source_says=diagnostic.fix,
+                    code=diagnostic.code,
+                )
+                for diagnostic in conformance.against(contract, ModuleSpec.parse(module), module)
+            ]
+
         ref = _ref_for(contract.id)
         if ref is None:
             skipped.append(contract.id)
@@ -576,7 +601,7 @@ def check(req: CheckRequest) -> CheckResult:
     return CheckResult(
         checked=checked,
         skipped=sorted(skipped),
-        drift=sorted(found, key=lambda d: (d.contract_id, d.field)),
+        drift=sorted(found, key=lambda d: (d.contract_id, d.field, d.code or "")),
     )
 
 

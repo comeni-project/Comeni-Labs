@@ -18,12 +18,26 @@ def test_the_shipped_registry_has_no_drift_against_the_vendored_modules():
 def test_drift_is_found_when_a_contract_is_edited(broken_registry):
     registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
     result = ops.check(ops.CheckRequest(registry_root=registry, source_root=ROOT / "vendor"))
-    assert len(result.drift) == 1
-    drift = result.drift[0]
+    value_drift = [d for d in result.drift if d.code is None]
+    assert len(value_drift) == 1
+    drift = value_drift[0]
     assert drift.field == "nf_process"
     assert drift.registry_says == "WRONG"
     assert drift.source_says == "FASTQC"
     assert drift.contract_id.startswith("nf-core/fastqc")
+
+
+def test_both_checkers_report_nf_process_and_that_is_the_documented_overlap(broken_registry):
+    """Spec §3.1: `ops.check` and `conformance` overlap on `nf_process` and `container`.
+
+    They are **not** merged — one must be able to refuse a build and one must only report —
+    so one edit produces two rows, and the screen groups them by field. Asserted rather than
+    left implicit, because a future merge would silently halve this and look like a fix.
+    """
+    registry = broken_registry(FASTQC, "nf_process: FASTQC", "nf_process: WRONG")
+    result = ops.check(ops.CheckRequest(registry_root=registry, source_root=ROOT / "vendor"))
+    about_nf_process = [d for d in result.drift if d.field == "nf_process"]
+    assert {d.code for d in about_nf_process} == {None, "MD0101"}
 
 
 def test_update_turns_a_drift_into_a_draft(broken_registry, tmp_path):
