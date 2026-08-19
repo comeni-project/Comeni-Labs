@@ -50,6 +50,7 @@ export function Shell() {
         </span>
 
         <div className="flex gap-[2px] ml-2">
+          <Tab to="/">Home</Tab>
           <Soon title="The pipeline builder — Plan 3C">Mendel</Soon>
           <Tab to="/forge/queue">Forge</Tab>
         </div>

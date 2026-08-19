@@ -22,9 +22,13 @@ function at(path: string) {
 }
 
 describe("routing", () => {
-  it("sends / to the queue, because the landing page is 3B", async () => {
+  it("keeps you at / , because 3B built the landing page", async () => {
+    // **This test used to assert the opposite**, and phase 0 wrote it that way on purpose:
+    // `/` redirected to the queue for the whole of 3A because a placeholder home built then
+    // would have been thrown away. 3B is what it was waiting for, so the assertion inverts
+    // rather than disappearing — the redirect leaving is the deliverable.
     const router = at("/");
-    await waitFor(() => expect(router.state.location.pathname).toBe("/forge/queue"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
   it("keeps the shell mounted across navigation", async () => {

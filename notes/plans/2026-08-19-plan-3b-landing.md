@@ -228,7 +228,7 @@ Mounted at `/api/attention`; the tag goes in `main.py`'s `TAGS` and the operatio
   `frontend/src/home/Home.test.tsx`
 - Modify: `frontend/src/app/router.tsx`, `frontend/src/app/Shell.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Six behaviours, and three of them are things the page must **not** do:
 
@@ -244,9 +244,9 @@ it("says the builder is not built rather than showing it as empty", ...)  // spe
 The fifth is the one worth writing carefully: assert that no element carries a question's
 `subject` or a contract's id — a page that renders one row has become the page that was cut.
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
-- [ ] **Step 3: Build the standing block — the signature**
+- [x] **Step 3: Build the standing block — the signature**
 
 The certainty language from the direction above, in SVG or CSS borders using only existing
 tokens. Each row: a rule, a count, a label, and a link to the destination that owns it.
@@ -256,7 +256,7 @@ this — *"an encoding that needs its legend on screen at all times is a lookup 
 Two strokes are readable without one; if a third is needed, that is a sign the encoding is too
 clever and should be cut back rather than explained.
 
-- [ ] **Step 4: Build the page around it**
+- [x] **Step 4: Build the page around it**
 
 Four blocks, in this order, because it is the order of a person's questions:
 
@@ -267,7 +267,7 @@ Four blocks, in this order, because it is the order of a person's questions:
 
 Keep it under ~180 lines; the standing block is already its own component.
 
-- [ ] **Step 5: `/` becomes a route, and the nav gains Home**
+- [x] **Step 5: `/` becomes a route, and the nav gains Home**
 
 `router.tsx`: replace `<Navigate to="/forge/queue" replace />` with `<Home />`. **Delete the
 redirect and its comment** — that comment says the landing page is 3B and a placeholder would be
@@ -278,11 +278,11 @@ thrown away, and leaving it beside a real home is the stale-sentence problem in 
 
 `router.test.tsx` asserts `/` no longer redirects.
 
-- [ ] **Step 6: The frontend gate**
+- [x] **Step 6: The frontend gate**
 
 `npm run build && npx oxlint src && npx vitest run`. **`npm run build`, not `npx vite build`.**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ---
 
