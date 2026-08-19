@@ -514,7 +514,7 @@ job.
 - [x] **Step 1: `make verify`** — unpiped, so the exit code is `make`'s and not `tail`'s.
 - [x] **Step 2: Record the measured number** in the execution record: top-1 before, after, and
       anything tried and rejected.
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ### Task 1.3 execution record
 
