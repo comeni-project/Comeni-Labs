@@ -44,3 +44,4 @@ frontend/dist/
 
 # mendel-api local state
 /workspace/
+.run/
