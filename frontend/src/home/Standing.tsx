@@ -67,50 +67,50 @@ function Row({
   );
 }
 
-/** What the registry holds — the half a dashboard usually omits.
+/** What the system **knows** — not what state it is in.
  *
- * Not what it needs: that is the other half of the page. This is what makes a front door a
- * place rather than an inbox.
+ * **Narrowed in Plan 3D phase 6, and the narrowing is the point.** This used to say
+ * *10 agree with their module · 2 have no source that can re-read them · 0 no longer do* — which
+ * is now exactly what the Tools board says, better, on the screen where you can act on it. Two
+ * places answering one question is how a number goes stale in one of them, and the front door
+ * would have been the one nobody corrected.
+ *
+ * What survives is the half no working screen answers: **how much vocabulary exists**. A
+ * stranger's question is *what does this thing know*, and a curator's is *is anything wrong* —
+ * the board owns the second now, so this owns the first cleanly instead of half of each.
+ *
+ * **The undrafted row went too**, and for a different reason: it said the same number as *What
+ * needs you* two blocks above, on one screen. Between an inventory line and a call to act on the
+ * same fact, the call wins.
+ *
+ * `undrawn` therefore has no row today. **The strokes serve the content, not the reverse** —
+ * keeping a row alive to exhibit a stroke would be the legend problem `forge-review.md` cut the
+ * port shapes over.
  */
 export function StandingBlock({ standing }: { standing: Standing }) {
   return (
     <div>
       <Row
-        count={standing.matching}
-        label="contracts agree with the module they describe"
+        count={standing.contracts}
+        label="tools have a contract saying what they take and give"
         ground="checked"
       />
-      {standing.drifted > 0 && (
-        <Row
-          count={standing.drifted}
-          label="no longer do"
-          ground="broken"
-          note="was true once"
-        />
-      )}
-      {standing.unverifiable > 0 && (
-        <Row
-          count={standing.unverifiable}
-          label="have no source that can re-read them"
-          ground="unchecked"
-          note="not checked, not agreeing"
-        />
-      )}
       <Row
         count={standing.types}
         label="declared types, across a closed vocabulary"
         ground="checked"
+        note="a contract naming an undeclared one will not load"
+      />
+      <Row
+        count={standing.measurements}
+        label="measurements a rule may read about the data"
+        ground="measured"
       />
       <Row
         count={standing.rules}
-        label={standing.rules === 1 ? "rule reads measured data" : "rules read measured data"}
+        label={standing.rules === 1 ? "rule reads them" : "rules read them"}
         ground="measured"
         note="the design expects many"
-      />
-      <Row
-        count={standing.undrafted}
-        label="tools a source can read that nobody has drafted"
-        ground="undrawn"
       />
     </div>
   );

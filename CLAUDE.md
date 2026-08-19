@@ -51,8 +51,22 @@ cut* for answering the same question as the Queue, so the moment a contract id o
 subject appears on the front door it has become the page that was cut. A test holds it. Its
 signature element reuses `dashboard.md` §1 rather than inventing anything: certainty is drawn as
 stroke, the same language the canvas will use, so `tokens.css` did not change.
+**Plan 3D is COMPLETE as of 2026-08-19**, on `plan-3d-forge`, branched from `plan-3b-landing`
+and also unmerged. It followed the operator's verdict that the forge was *unusable*, and the
+spec was written after **walking the loop as a user** rather than reading the code — which found
+that it was **not a looks problem**. `forge draft` opens seven `type_id` holes per tool and each
+offered the whole twenty-two-type vocabulary *alphabetically*: measured against the 30 ports of
+the 12 landed contracts, the right type was ranked first in **1 of 30**. Ranking by the port
+name, an abbreviation of it, and the tool's own name puts it first in **25 of 30**, with
+arithmetic over declared data and no model. `OpenQuestion.suggested` — which had every consumer
+and no producer, so `QueueRow`'s *Confirm* branch was unreachable — now has one, and only where
+something actually scored. `Sources` and `Contracts` were one query at two stages of a tool's
+life and are now `GET /api/tools` behind a status board that answers *is everything okay* before
+it lists anything. **Eight words the interface used without defining now have definitions**
+([`docs/reference/glossary.md`](docs/reference/glossary.md), `?` from anywhere).
+
 **3C — the Mendel builder — is next**, and it is what the landing page's argument depends on: if
-3C's half turns out to be a second queue, this page should be cut the way the Overview was.
+3C's half turns out to be a second queue, that page should be cut the way the Overview was.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
@@ -642,6 +656,7 @@ conversation is a loose end lost.
 | ~~41~~ | code and documentation organisation | **closed 2026-08-16.** Eleven tasks, three emitted digests unmoved. `comeni_core` is five subpackages by lifecycle stage, the working notes left `docs/` for `notes/`, and `make links` checks every relative link in `docs/` and the root |
 | 67 | `mendel explain` never shows the `fix:` field — the long form is the code and the explanation only | undecided; one change, since `forge explain` calls the same function |
 | 64 | `forge check` is offline — it compares the registry against the *vendored* source, never against upstream | after the forge MVP, by the operator's decision 2026-08-16 |
+| 77 | the catalogue cannot report a real total — discovery reads only vendored modules, so `forge discover` sees **13 tools** rather than the ~1,600 nf-core + pegi3s will bring. The Tools board renders `—` rather than `13`: an absence is not a zero. Distinct from #64, which is about *checking* against upstream | needs a `Source.catalogue()`, and a decision about caching — the board must stay inside 0.5s, so it is the worker's job, not the request's |
 | 65 | the pegi3s source adapter — a container registry, and what may honestly be read out of documentation prose | designed for rather than built; `tests/opaque_source.py` is its shape, so the `Source` protocol has had two implementations since day one |
 | ~~24–36~~ | round four's thirteen carried findings, A60–A69 and A73–A75 | **all closed 2026-08-15.** The guards were hardened rather than the findings argued away: alias resolution in two scans, six stdlib transports banned, nine ID aliases given a shape, the publication payload frozen, and the totality guard given paths instead of names |
 

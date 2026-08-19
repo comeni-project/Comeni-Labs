@@ -142,12 +142,12 @@ export function Home() {
                 Open the forge
               </Link>
               <Link
-                to="/forge/contracts"
+                to="/forge/tools"
                 className="px-4 py-2 rounded-r no-underline text-body text-ink-2
                            border border-line-2 transition-colors
                            hover:text-ink hover:bg-surface-2"
               >
-                Browse the registry
+                Browse the tools
               </Link>
             </div>
           </div>
@@ -203,14 +203,18 @@ export function Home() {
         )}
 
         <Section title="Where to go">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Way to="/forge/queue" name="Queue" holds="Work that needs deciding" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* **Two, not three.** `Contracts` and `Sources` were the same list at two stages
+                of one tool's life and became `Tools` in phase 3. They still resolve as
+                redirects so old links survive — but naming a redirect on the front door would
+                be teaching a stranger a route that exists only for people who learned the old
+                one. */}
+            <Way to="/forge/queue" name="Queue" holds="Questions waiting on a decision" />
             <Way
-              to="/forge/contracts"
-              name="Contracts"
-              holds="What exists — browse one against the tool it describes"
+              to="/forge/tools"
+              name="Tools"
+              holds="Every tool — what has landed, what is being drafted, what nobody has started"
             />
-            <Way to="/forge/sources" name="Sources" holds="What could exist — start a draft" />
           </div>
           <p className="text-secondary text-ink-3 mt-5 mb-0 max-w-[58ch]">
             {/* An absence, not a zero. Nothing stores pipelines, so there is no Mendel

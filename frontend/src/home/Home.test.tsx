@@ -77,13 +77,16 @@ describe("the front door", () => {
     );
   });
 
-  it("draws what the registry holds, and how well-founded each part is", async () => {
-    // **Not the bare total.** The block says 10 agree and 2 cannot be re-read rather than
-    // "12 contracts", because the split is the informative half — a contract nothing checks
-    // is not a contract that agrees. Each row carries the stroke that says which it is.
+  it("draws what the system knows, and how well-founded each part is", async () => {
+    // **Narrowed in phase 6, and the assertion narrowed with it.** This used to check for
+    // "10 agree with their module" and "2 have no source that can re-read them" — which is now
+    // exactly what the Tools board says, on the screen where you can act on it. Two places
+    // answering one question is how a number goes stale in one of them, and the front door is
+    // the one nobody would have corrected.
     at();
-    await waitFor(() => expect(screen.getByText(/agree with the module/i)).toBeTruthy());
-    expect(screen.getByText(/have no source that can re-read them/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/declared types/i)).toBeTruthy());
+    expect(screen.getByText(/measurements a rule may read/i)).toBeTruthy();
+    expect(screen.queryByText(/agree with the module/i)).toBeNull();
     // **Scoped, because `/nf-core/` alone is now ambiguous.** The hero quotes a contract id out
     // of a real `pipeline.yml`, so the bare pattern matches twice — which is the assertion
     // earning its keep rather than failing: the thing under test is that the block names where

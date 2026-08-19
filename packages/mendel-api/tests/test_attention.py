@@ -54,10 +54,17 @@ def test_the_standing_says_what_the_registry_holds():
 def test_an_undrafted_tool_is_an_invitation_not_a_warning():
     """Measured: three vendored tools have no contract. The page offers them as available work
     rather than as a deficiency, which is what `idle` means."""
+    # **Matched on `state=undrafted`, not on the screen's name.** This said `"sources" in
+    # call.where` and broke the moment Plan 3D pointed the link at `/forge/tools` — correctly,
+    # because a test keyed on a URL is testing the router. What it means is *the undrafted call
+    # is idle*, and `state=undrafted` is the part of the link that says which call it is.
     got = attention.whats_open()
-    undrafted = [call for call in got.forge if "sources" in call.where]
+    undrafted = [call for call in got.forge if "state=undrafted" in call.where]
     assert undrafted, "nothing is undrafted — this test is now vacuous"
     assert all(call.urgency is Urgency.IDLE for call in undrafted)
+    # And it points somewhere that keeps the filter. `<Navigate>` on the old path replaces the
+    # whole location with a fixed query, so a link through the redirect silently loses it.
+    assert all(call.where.startswith("/forge/tools") for call in undrafted)
 
 
 def test_nothing_open_is_a_state_it_can_report():

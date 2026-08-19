@@ -98,13 +98,18 @@ def whats_open() -> Attention:
     stack = registry.stack()
     drift = {found.contract_id for found in checked.result().drift}
 
+    # **Straight at `/forge/tools`, not at the redirect.** `/forge/sources` and
+    # `/forge/contracts` still resolve, but `<Navigate>` replaces the whole location with a
+    # *fixed* query — so `?against=drifted` was being discarded and the front door's
+    # "1 no longer agrees → open" landed on every landed tool. A redirect keeps an old link
+    # working; it is not somewhere new links should point.
     calls: list[Call] = []
 
     if drift:
         calls.append(
             Call(
                 what=f"{len(drift)} {_contracts(len(drift))} no longer match their source",
-                where="/forge/contracts?against=drifted",
+                where="/forge/tools?against=drifted",
                 count=len(drift),
                 urgency=Urgency.BLOCKING,
             )
@@ -123,7 +128,7 @@ def whats_open() -> Attention:
         calls.append(
             Call(
                 what=f"{undrafted} {_tools(undrafted)} nobody has drafted",
-                where="/forge/sources?state=undrafted",
+                where="/forge/tools?state=undrafted",
                 count=undrafted,
                 urgency=Urgency.IDLE,
             )
