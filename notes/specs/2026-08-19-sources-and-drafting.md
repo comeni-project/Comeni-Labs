@@ -43,6 +43,7 @@ NOT drafted, and draftable today     3   bedtools/sort, picard/markduplicates, s
 
 | Does **not** exist | Consequence |
 |---|---|
+| any mounted route in the parent's OpenAPI document | §3.2 — measured: 5 request bodies in the document, none of them the forge's |
 | any route the browser can call to discover or draft | §3.1 |
 | any way to know a tool is *drafted* rather than *landed* | the screen would show a stale list |
 | any refusal for drafting over an existing draft | §3.4 — it overwrites, silently |
@@ -74,27 +75,83 @@ The docstring is corrected to say that rather than left describing a rule the co
 following three phases ago — which is A33's shape, and it is a *sentence* rather than a guard, so
 it drifts exactly the way that finding predicts.
 
-### 3.2 The mount is removed
+### 3.2 The served surface is exactly the OpenAPI document, so the mount goes
 
-`app.mount("/api/forge", forge_app)` puts an **unauthenticated** app on the served origin that
-takes arbitrary `registry_root`, `source_root` and `workspace_root` from a request body — and
-`POST /api/forge/drafts/land` runs `git commit` in whatever path it is handed.
+**The principle first, because it decides this without appealing to security.** `main.py`'s own
+description calls the schema *"the contract"* and names its two consumers: `frontend/src/api/` is
+generated from it, and an agent driving Mendel reads it. **FastAPI does not merge a mounted
+sub-app's schema into its parent**, so anything mounted is a surface that exists and is not in the
+contract — invisible to the generated client, invisible to the agent, and typed by nothing.
 
-That was harmless while `mendel_forge.http` was a library object with a test; mounting it on an
-origin a browser reaches is a different thing. And it is **not load-bearing**: nothing in
-`frontend/src` calls it, the mounted routes are not in the parent's OpenAPI document, so the
-generated client has no types for them and cannot have.
+> **The served surface is exactly the OpenAPI document.** A mount is a hole in the contract rather
+> than a route in it.
 
-Three facts, and together they decide it: nothing uses it, nothing can type it, and it accepts
-paths. **It is removed, and `mendel_forge.http` keeps existing** — it is still a complete
-transport with its own tests, still mountable by an operator who wants it, and still what
-`test_http.py` compares against the CLI. What changes is that this app stops mounting it by
-default.
+That rule also rules out the tempting alternative. `include_router(forge_app.router, prefix=…)`
+*would* put those routes in the document — and it is **worse**, because it would advertise, type
+and document operations that take `registry_root`, `source_root` and `workspace_root`, inviting
+exactly the use that should not exist.
 
-**This is a security decision and it is stated as one** rather than folded into a refactor.
-Nothing else in this repository has had one, and the honest version is: no boundary was crossed,
-because nothing was deployed — but an unauthenticated arbitrary-path git commit is the kind of
-thing that is much cheaper to remove now than to find later.
+**The two transports differ in who chooses the context, and that is the whole of it:**
+
+| | context | audience |
+|---|---|---|
+| `mendel_forge.http` | supplied per call, in the request body | someone **embedding** the forge |
+| `mendel-api` | supplied by `settings` | the **served installation** |
+
+Neither is wrong. Mounting one inside the other is: the served app inherits a strictly more
+permissive context model than its own configuration expresses. So a served route is
+**`forge op + settings`**, which is exactly what phases 2–6 already do — what was missing is that
+nobody named it as the rule, and a stale docstring said the opposite instead.
+
+**And `mendel_forge/http/` goes with it, rather than being left unmounted.**
+
+Keeping it was the first draft of this section — *"still a complete transport, still mountable by
+an operator who wants it"* — and that is the sentence that keeps dead code alive. Measured after
+the mount is removed:
+
+| | |
+|---|---|
+| production consumers of `mendel_forge.http` | **zero** |
+| files exercising it | its own two test files, and nothing else |
+| `fastapi` in `mendel-forge` | an **optional extra**, `http = [...]`, that nothing installs |
+| other users of that extra | none — not the root project, not CI, not the Makefile |
+
+Every other reference in the repository is *prose*: docstrings comparing behaviour (*"a coded
+refusal is a 422, as `mendel_forge.http` does it"*), and historical notes. Those describe a
+convention that outlives the module.
+
+**The contradiction is what settles it.** `docs/guides/driving-the-forge.md` documents mounting it,
+with a worked example and no caveat. Removing the mount as unsafe while shipping a guide that tells
+an operator to do exactly that is one product disagreeing with itself in two files. Either it is
+safe to mount or it is not, and §3.2 has just answered that.
+
+So it is deleted: the module, `tests/test_http.py`, `tests/test_http_model_fill.py`, the `http`
+extra, and the guide's *"The same verbs over HTTP"* section. `mendel_forge.http`'s own docstring
+named `mendel-api` as the thing that would mount it and own *who is calling, over what, and whether
+they may* — that assumed auth would arrive alongside. It did not, and the module has no other
+reader.
+
+**What is genuinely lost, stated rather than glossed:** `test_http.py` held CLI-to-HTTP payload
+parity — *two transports over one operation cannot drift*. With one transport that property is
+vacuous, and it does **not** transfer to `mendel-api`, whose payloads are deliberately different
+shapes: `AnswerRequest` is screen-shaped and `FillRequest` is CLI-shaped, which is the point of
+§3.1's rule. What does transfer is *a route holds no logic*, and
+`packages/mendel-api/tests/test_answer_route.py` already asserts it.
+
+**If an embedding transport is ever wanted again**, the right shape is not this one: it is a
+router whose bodies carry no paths and whose context arrives through `Depends`, so it can be
+`include_router`-ed into a served app and appear in the document. That is a different module, and
+nobody has asked for it.
+
+**Two guards, and the second is the general form rather than a one-off:**
+
+- no mounts on the served app — a mount is by construction outside the document
+- no request body field named for a root or a path — the injection this rule exists to prevent
+
+**The security reading is a consequence, not the argument**, and it is worth stating plainly
+anyway: as mounted, `POST /api/forge/drafts/land` ran `git commit` in whatever path an
+unauthenticated request named. Nothing was deployed and no boundary was crossed. It is much
+cheaper to remove now than to find later.
 
 ### 3.3 The version is asked for, never derived
 
