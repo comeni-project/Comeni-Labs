@@ -521,6 +521,12 @@ class CheckRequest(BaseModel):
     registry_root: Path
     source_root: Path
     """No workspace: `check` reads and reports, and writes nothing anywhere."""
+    stack: Layers | None = None
+    """A layer stack the caller already loaded. `None` loads one.
+
+    The CLI never passes it. `mendel-api` does, because this is one of the two verbs behind the
+    slowest endpoints, and a cache the endpoint's own work bypasses measures nothing (phase 7,
+    audit A132)."""
 
 
 class CheckResult(BaseModel):
@@ -564,7 +570,7 @@ def check(req: CheckRequest) -> CheckResult:
     Offline by decision — whether *upstream* has moved is issue #64. This asks the narrower
     question that needs no network: does what is on this disk still agree with itself.
     """
-    stack = layers.load(req.registry_root)
+    stack = req.stack if req.stack is not None else layers.load(req.registry_root)
     found: list[Drift] = []
     skipped: list[str] = []
     checked = 0
@@ -661,6 +667,8 @@ class DriftRequest(BaseModel):
     contract_id: str
     registry_root: Path
     source_root: Path
+    stack: Layers | None = None
+    """A layer stack the caller already loaded. `None` loads one — see `CheckRequest.stack`."""
 
 
 def _observe(contract_id: str, source_root: Path):
@@ -681,7 +689,7 @@ def drift(req: DriftRequest) -> DriftReport:
     third group is on the report rather than left out of it, because the fields nothing can
     check include three of the five the router reads.
     """
-    stack = layers.load(req.registry_root)
+    stack = req.stack if req.stack is not None else layers.load(req.registry_root)
     contract = stack.registry.contracts.get(req.contract_id)
     if contract is None:
         known = ", ".join(sorted(stack.registry.contracts)[:5])

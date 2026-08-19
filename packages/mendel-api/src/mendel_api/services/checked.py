@@ -21,6 +21,7 @@ from functools import lru_cache
 from comeni_core.artifact.digest import digest_of_directory
 from mendel_forge import ops
 
+from mendel_api.services import registry
 from mendel_api.settings import settings
 
 
@@ -29,7 +30,13 @@ def _run(digest: str) -> ops.CheckResult:
     """The digest is the argument rather than a global, so `lru_cache` does the invalidation
     and there is no hand-written expiry to get wrong."""
     return ops.check(
-        ops.CheckRequest(registry_root=settings.registry_root, source_root=settings.source_root)
+        ops.CheckRequest(
+            registry_root=settings.registry_root,
+            source_root=settings.source_root,
+            # The cached stack, or this verb reloads the registry underneath the cache and
+            # the endpoint the cache exists for is the one it cannot reach.
+            stack=registry.stack(),
+        )
     )
 
 

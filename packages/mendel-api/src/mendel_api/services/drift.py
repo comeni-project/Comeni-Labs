@@ -7,6 +7,7 @@ be a second answer to what a drift is.
 from mendel_forge import ops
 from pydantic import BaseModel
 
+from mendel_api.services import registry
 from mendel_api.settings import settings
 
 
@@ -24,6 +25,7 @@ def report(contract_id: str) -> ops.DriftReport:
             contract_id=contract_id,
             registry_root=settings.registry_root,
             source_root=settings.source_root,
+            stack=registry.stack(),
         )
     )
 

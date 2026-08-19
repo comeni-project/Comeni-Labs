@@ -7,11 +7,9 @@ there; what stays here is what a *status* is.
 
 from enum import StrEnum
 
-from mendel_resolver import layers
 from pydantic import BaseModel
 
-from mendel_api.services import checked
-from mendel_api.settings import settings
+from mendel_api.services import checked, registry
 
 
 class Status(StrEnum):
@@ -72,7 +70,7 @@ def listing(
     role: str | None = None,
     source: str | None = None,
 ) -> Listing:
-    stack = layers.load([settings.registry_root])
+    stack = registry.stack()
     drifted, skipped = _standing()
 
     rows = [

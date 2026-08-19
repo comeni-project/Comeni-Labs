@@ -5,10 +5,9 @@ value; the users say whether this is the normal choice, which is the question a 
 actually has mid-decision and the one a description cannot answer.
 """
 
-from mendel_resolver import layers
 from pydantic import BaseModel
 
-from mendel_api.settings import settings
+from mendel_api.services import registry
 
 
 class TypeCard(BaseModel):
@@ -21,7 +20,7 @@ class TypeCard(BaseModel):
 
 
 def type_(id: str) -> TypeCard:
-    stack = layers.load([settings.registry_root])
+    stack = registry.stack()
     states = stack.vocabulary.types.get(id)
     if states is None:
         raise ValueError(

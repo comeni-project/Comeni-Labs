@@ -7,9 +7,9 @@ surface has nowhere to put a reason, and every value carrying one is the product
 
 from mendel_compiler import conformance
 from mendel_compiler.modulespec import ModuleSpec
-from mendel_resolver import layers
 from pydantic import BaseModel
 
+from mendel_api.services import registry
 from mendel_api.settings import settings
 
 
@@ -45,12 +45,12 @@ class ModulePage(BaseModel):
 
 
 def contracts_with_role(role: str) -> list[str]:
-    stack = layers.load([settings.registry_root])
+    stack = registry.stack()
     return sorted(c.id for c in stack.registry.all() if role in c.roles)
 
 
 def read(id: str) -> ModulePage:
-    stack = layers.load([settings.registry_root])
+    stack = registry.stack()
     contract = next((c for c in stack.registry.all() if c.id == id), None)
     if contract is None:
         raise ValueError(f"{id!r} is not in this registry")

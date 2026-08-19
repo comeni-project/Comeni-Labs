@@ -9,13 +9,12 @@ health.
 from datetime import datetime
 
 from fastapi import APIRouter
-from mendel_resolver import layers
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from mendel_api.db import session_scope
 from mendel_api.models import SourceCheck
-from mendel_api.settings import settings
+from mendel_api.services import registry
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -64,7 +63,7 @@ def strip_from(
     summary="What the registry holds, and when it was last checked",
 )
 def registry_health() -> Strip:
-    stack = layers.load([settings.registry_root])
+    stack = registry.stack()
     with session_scope() as session:
         last = session.scalar(select(SourceCheck).order_by(SourceCheck.ran_at.desc()))
     contracts = len(stack.registry.all())

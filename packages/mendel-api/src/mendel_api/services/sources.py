@@ -14,9 +14,9 @@ to a question `settings.py` answers once. Spec §3.1.
 from enum import StrEnum
 
 from mendel_forge import ops
-from mendel_resolver import layers
 from pydantic import BaseModel
 
+from mendel_api.services import registry
 from mendel_api.settings import settings
 
 
@@ -101,7 +101,7 @@ def catalogue(*, state: State | None = None) -> Catalogue:
     refs = ops.discover(ops.DiscoverRequest(source_root=settings.source_root)).refs
     landed = {
         contract.id.partition("@")[0]: contract.id
-        for contract in layers.load(settings.registry_root).registry.all()
+        for contract in registry.stack().registry.all()
     }
     drafted = _drafts()
 
