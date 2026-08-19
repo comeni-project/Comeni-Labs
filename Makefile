@@ -114,8 +114,9 @@ dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 		echo $$! > $(PIDFILE); sleep 1; \
 	fi
 	@echo ""
-	@echo "  Forge (HMR):    http://localhost:5173/forge/queue"
-	@echo "  Forge (built):  http://localhost/forge/queue"
+	@echo "  Home (HMR):     http://localhost:5173/"
+	@echo "  Home (built):   http://localhost/"
+	@echo "  Queue:          http://localhost:5173/forge/queue"
 	@echo "  API:            http://localhost:8000/docs"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 
