@@ -164,7 +164,7 @@ git commit -m "test: how often the right type is the first candidate offered"
 
 ### Task 1.2: rank the type_id candidates
 
-- [ ] **Step 1: Add the four arguments and the scorer**
+- [x] **Step 1: Add the four arguments and the scorer**
 
 In `packages/mendel-forge/src/mendel_forge/candidates.py`, change the signature of `for_field`
 to add four keyword-only arguments after `excluding`:
@@ -233,7 +233,7 @@ def _fit(type_name: str, port: str | None, tool: str | None,
     return score
 ```
 
-- [ ] **Step 2: Sort the `type_id` branch by it**
+- [x] **Step 2: Sort the `type_id` branch by it**
 
 Replace the `type_id` branch body (currently `candidates.py:37-42`) with:
 
@@ -256,7 +256,7 @@ Replace the `type_id` branch body (currently `candidates.py:37-42`) with:
         ]
 ```
 
-- [ ] **Step 3: Run the harness and read the number**
+- [x] **Step 3: Run the harness and read the number**
 
 Run: `uv run pytest packages/mendel-forge/tests/test_candidate_ranking.py -v`
 
@@ -264,14 +264,14 @@ Expected: PASS. If it fails, the assertion prints the actual percentage — do n
 to make it pass. Adjust the weights, re-run, and record what you tried in the execution record,
 the way the `name` branch's comments do.
 
-- [ ] **Step 4: Confirm nothing else regressed**
+- [x] **Step 4: Confirm nothing else regressed**
 
 Run: `uv run pytest packages/mendel-forge packages/mendel-api -q`
 
 Expected: PASS. The four new arguments are all defaulted, so every existing call site is
 unchanged — if something fails here, a call site was passing positionally.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-forge/src/mendel_forge/candidates.py

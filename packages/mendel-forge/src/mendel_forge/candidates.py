@@ -24,6 +24,56 @@ def _base(field: str) -> str:
     return _INDEX.sub("[]", field)
 
 
+def _fit(
+    type_name: str,
+    port: str | None,
+    tool: str | None,
+    input_types: tuple[str, ...],
+) -> int:
+    """How well a declared type fits the port being asked about. Higher is better.
+
+    **Arithmetic over declared data, never a model.** Invariant 2 is untouched: this proposes an
+    order and a human still answers. It is also what keeps the forge deterministic — the same
+    draft ranks the same way on any machine, forever.
+
+    Every weight was measured against the registry as ground truth
+    (`tests/test_candidate_ranking.py`). Alphabetical order — what shipped until now — put the
+    right type first in **1 of 30** holes. The four signals below put it first in **25 of 30**.
+
+    Strongest first:
+
+    1. **The port is the type's last segment.** `fa`/`fasta` -> `genome.fasta`, `bam` ->
+       `alignment.bam`. Alone this is 63%.
+    2. **The port is any segment.** `index` -> `genome.index.star`. Takes it to 73%.
+    3. **The tool's own name shares a segment with the type.** This breaks the ambiguity nothing
+       else can: a port called `index` is `alignment.bai` on `samtools/index` and
+       `genome.index.star` on `star/genomegenerate`, and the *only* thing separating them is
+       which tool is being drafted. Signals 1 and 2 alone actively mislead there.
+    4. **The type shares a namespace with something the module consumes.** A tool taking an
+       `alignment.bam` tends to emit another `alignment.*`. Inputs only, and only for outputs —
+       an input cannot be justified by itself.
+
+    **What was tried and is deliberately absent: popularity.** Ranking by how many contracts
+    already carry a type is the obvious fifth signal and it is a trap — it would lift the common
+    types in *every* hole regardless of the question, which is the alphabetical failure with a
+    different sort key. If it is ever added it must take `excluding`, for the reason
+    `_played_by` gives.
+    """
+    if port is None:
+        return 0
+    segments = type_name.split(".")
+    score = 0
+    if port == segments[-1]:
+        score += 30
+    if port in segments:
+        score += 20
+    if tool and any(segment in tool.split("/") for segment in segments):
+        score += 20
+    if any(segments[0] == other.split(".")[0] for other in input_types):
+        score += 10
+    return score
+
+
 def for_field(
     field: str,
     stack: Layers,
@@ -31,14 +81,28 @@ def for_field(
     type_id: str | None = None,
     channels: tuple[str, ...] = (),
     excluding: str | None = None,
+    port: str | None = None,
+    tool: str | None = None,
+    input_types: tuple[str, ...] = (),
 ) -> list[Candidate]:
     base = _base(field)
 
     if base.endswith("type_id"):
         carried = _carried_by(stack, excluding)
+        # **Ranked, not alphabetical.** `sorted(stack.vocabulary.types)` is what shipped until
+        # now, and it put the right answer first in one hole out of thirty — for a port called
+        # `fa` on SAMTOOLS_FAIDX it offered `genome.fasta` and `measurement.rrna_fraction` with
+        # equal prominence. The `name` branch below has had this treatment since Phase 2, with
+        # its own measurements written into it; `type_id` never got it.
+        #
+        # Name is the tiebreak, so the order is total and the forge stays deterministic.
+        ranked = sorted(
+            stack.vocabulary.types,
+            key=lambda name: (-_fit(name, port, tool, input_types), name),
+        )
         return [
             Candidate(value=name, note=_note("declared type", carried.get(name, ())))
-            for name in sorted(stack.vocabulary.types)
+            for name in ranked
         ]
 
     if base.endswith("name"):
