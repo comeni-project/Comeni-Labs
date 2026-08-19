@@ -8,6 +8,7 @@ import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
 import { Node } from "./Node";
 import { Grip, RAIL, useWidth } from "./Panels";
+import { Provenance } from "./Provenance";
 import { Wires } from "./Wires";
 import { useView } from "./useView";
 
@@ -90,6 +91,7 @@ export function Builder() {
   const { view, onWheel, onPointerDown, reset, nudge, fit } = useView();
   const box = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [isolated, setIsolated] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["pipeline", "example"],
@@ -122,7 +124,11 @@ export function Builder() {
         onNudge={() => {}}
       />
 
-      <Canvas
+      <div className="flex flex-col overflow-hidden">
+        {data && (
+          <Provenance data={data} isolated={isolated} onIsolate={setIsolated} />
+        )}
+        <Canvas
         view={view}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
@@ -178,13 +184,15 @@ export function Builder() {
                 placed={placed}
                 step={data.steps.find((s) => s.id === placed.id)}
                 zoom={view.k}
+                dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
               />
             ))}
           </>
         )}
-      </Canvas>
+        </Canvas>
+      </div>
 
       <Grip
         side="right"

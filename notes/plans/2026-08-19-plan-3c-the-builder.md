@@ -507,13 +507,31 @@ rather than stopping at the node that introduced it.
 canvas, segmented proportionally by tier, headlined **"N% settled without judgement"**. Clicking
 a band isolates those steps.
 
-- [ ] **Step 1: Write the failing test** — the segments are proportional to the tier counts, the
+- [x] **Step 1: Write the failing test** — the segments are proportional to the tier counts, the
       headline is the tier-1+2 share, and clicking a band filters the canvas.
-- [ ] **Step 2: Run, watch fail.**
-- [ ] **Step 3: Build it.**
-- [ ] **Step 4: Check the honesty case** — a pipeline with a tier-4 decision must not read as
+- [x] **Step 2: Run, watch fail.**
+- [x] **Step 3: Build it.**
+- [x] **Step 4: Check the honesty case** — a pipeline with a tier-4 decision must not read as
       settled. Add the assertion.
-- [ ] **Step 5: `make verify`, commit.**
+- [x] **Step 5: `make verify`, commit.**
+
+### Phase 5 execution record
+
+Carried out as written, and the honesty case is a test rather than a check: `settled_share`
+excludes tier 3, and `does not count a rule that read measured data as settled` fails if that
+ever changes. A bar reading 100% on a pipeline with a tier-3 choice would turn the one element
+carrying the product's claim into the one element overstating it.
+
+**The bands are named for the consequence, not the mechanism** — *Forced by inputs · Standard
+practice · Check the premise · Needs your decision*. `dashboard.md` §7's copy rule, and it is why
+the word "tier" appears nowhere on the bar.
+
+**A number I asserted was the design's turned out not to be.** `COL_PITCH` was 338, taken from
+two elements at `left:14` and `left:352` — which are the **input chips** (`12 × fastq.reads`,
+`GRCh38.gtf`), not modules. The design's own `NODES` put `fastqc` at `x:14` and `trimgalore` at
+`x:290`: the pitch is **276** and the gutter 44px. The claim *"the geometry is the design's to the
+pixel"* was written in the same commit that got one pixel from the wrong kind of object, and it
+was only caught by going back to the file for the provenance bar's markup.
 
 ### ▸ CHECKPOINT 2 — stop here
 

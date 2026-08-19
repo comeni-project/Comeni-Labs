@@ -11,9 +11,11 @@ share `top:6` at different `left`. A first pass at this planned it left-to-right
 structural assertion would have passed on the sideways graph — the design is the only thing that
 says which way is down.
 
-**The geometry is the design's, to the pixel.** `NW = 232` and the two sample nodes at
-`left:14` and `left:352` give a column pitch of 338. `CR = 7`. `portX(count, i) =
-NW * (i + 1) / (count + 1)`. Those are not defaults chosen here; changing one means changing
+**The geometry is the design's, and checking that claim twice is the point.** `NW = 232`,
+`CR = 7`, `portX(count, i) = NW * (i + 1) / (count + 1)`, and a column pitch of 276 read off
+`NODES` — `fastqc` at `x:14`, `trimgalore` at `x:290`. The pitch was 338 for one phase because it
+had been measured from the two *input chips* at `left:14` and `left:352`, which are a different
+kind of object entirely. None of these are defaults chosen here; changing one means changing
 `dashboard.html` too, or the two stop being the same screen.
 
 `dashboard.md` §9 calls automatic layout "the largest outstanding piece". It is the only part of
@@ -30,8 +32,15 @@ from comeni_core.plan.ir import PipelineIR
 NODE_W = 232
 """`NW` in `dashboard.html`. The node is a fixed width so a rank is a predictable pitch."""
 
-COL_PITCH = 338
-"""14 → 352 between the design's two hand-placed nodes. `COL_PITCH - NODE_W` is the gutter."""
+COL_PITCH = 276
+"""`14 → 290` between the design's own nodes, so the gutter is 44px.
+
+**This said 338 for one phase, measured off the wrong elements.** The two things at `left:14`
+and `left:352` in `dashboard.html` are the *input chips* — `12 × fastq.reads`, `GRCh38.gtf` —
+not modules, and a chip is not 232 wide. The claim "the geometry is the design's to the pixel"
+was made in the same commit that got one of the pixels from a different kind of object. Reading
+`NODES` is what fixed it: `fastqc` at 14 and `trimgalore` at 290, both at `y:130`.
+"""
 
 HEAD_H = 34
 PORT_ROW = 22

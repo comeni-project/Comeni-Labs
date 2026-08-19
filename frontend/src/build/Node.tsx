@@ -30,12 +30,14 @@ export function Node({
   placed,
   step,
   zoom,
+  dim = false,
   selected,
   onSelect,
 }: {
   placed: Placed;
   step: Step | undefined;
   zoom: number;
+  dim?: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -64,6 +66,7 @@ export function Node({
       data-id={placed.id}
       data-tier={placed.tier}
       data-selected={selected || undefined}
+      data-dim={dim || undefined}
       onPointerDown={onPointerDown}
       onClick={onSelect}
       style={{
@@ -74,7 +77,8 @@ export function Node({
       className="absolute flex rounded-r border border-line-2 border-l-0 bg-surface
                  cursor-grab active:cursor-grabbing
                  hover:shadow-[0_2px_10px_var(--shadow)]
-                 data-[selected]:shadow-[0_0_0_2px_var(--ink)] transition-shadow"
+                 data-[selected]:shadow-[0_0_0_2px_var(--ink)]
+                 data-[dim]:opacity-20 transition-[box-shadow,opacity]"
     >
       <div className={`w-1 shrink-0 rounded-l-r ${RAIL[placed.tier] ?? "bg-line-2"}`} />
       <div className="flex-1 min-w-0 p-[10px]">
