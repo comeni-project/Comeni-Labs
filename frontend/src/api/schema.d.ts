@@ -193,23 +193,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/contracts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Every contract, worst first */
-        get: operations["listContracts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/contracts/{id}/drift": {
         parameters: {
             query?: never;
@@ -253,23 +236,6 @@ export interface paths {
         };
         /** One contract, its module, and what points at it */
         get: operations["readContract"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** What can be read, and what has been done */
-        get: operations["listSources"];
         put?: never;
         post?: never;
         delete?: never;
@@ -430,7 +396,7 @@ export interface components {
         /** Board */
         Board: {
             /** Rows */
-            rows: components["schemas"]["mendel_api__services__tools__ToolRow"][];
+            rows: components["schemas"]["BoardRow"][];
             /** Counts */
             counts: {
                 [key: string]: number;
@@ -443,6 +409,37 @@ export interface components {
             known?: number | null;
             /** Sources */
             sources: string[];
+        };
+        /**
+         * BoardRow
+         * @description One tool. **Named for what a person reads, not for how it is keyed.**
+         */
+        BoardRow: {
+            /** Ref */
+            ref: string;
+            /** Tool */
+            tool: string;
+            state: components["schemas"]["State"];
+            status?: components["schemas"]["Status"] | null;
+            /**
+             * Consumes
+             * @default []
+             */
+            consumes: string[];
+            /**
+             * Produces
+             * @default []
+             */
+            produces: string[];
+            /**
+             * Open Questions
+             * @default 0
+             */
+            open_questions: number;
+            /** Contract Id */
+            contract_id?: string | null;
+            /** Draft */
+            draft?: string | null;
         };
         /**
          * Call
@@ -472,27 +469,6 @@ export interface components {
              * @default
              */
             note: string;
-        };
-        /** Catalogue */
-        Catalogue: {
-            /** Rows */
-            rows: components["schemas"]["mendel_api__services__sources__ToolRow"][];
-            /** Counts */
-            counts: {
-                [key: string]: number;
-            };
-            /** Sources */
-            sources: string[];
-        };
-        /** ContractRow */
-        ContractRow: {
-            /** Id */
-            id: string;
-            /** Roles */
-            roles: string[];
-            /** Source */
-            source: string;
-            status: components["schemas"]["Status"];
         };
         /** DecideRequest */
         DecideRequest: {
@@ -708,17 +684,6 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
-        /** Listing */
-        Listing: {
-            /** Rows */
-            rows: components["schemas"]["ContractRow"][];
-            /** Total */
-            total: number;
-            /** Counts */
-            counts: {
-                [key: string]: number;
-            };
-        };
         /** ModulePage */
         ModulePage: {
             /** Id */
@@ -1003,47 +968,6 @@ export interface components {
              */
             seen_at: string;
         };
-        /** ToolRow */
-        mendel_api__services__sources__ToolRow: {
-            /** Ref */
-            ref: string;
-            state: components["schemas"]["State"];
-            /** Contract Id */
-            contract_id?: string | null;
-            /** Draft */
-            draft?: string | null;
-        };
-        /**
-         * ToolRow
-         * @description One tool. **Named for what a person reads, not for how it is keyed.**
-         */
-        mendel_api__services__tools__ToolRow: {
-            /** Ref */
-            ref: string;
-            /** Tool */
-            tool: string;
-            state: components["schemas"]["State"];
-            status?: components["schemas"]["Status"] | null;
-            /**
-             * Consumes
-             * @default []
-             */
-            consumes: string[];
-            /**
-             * Produces
-             * @default []
-             */
-            produces: string[];
-            /**
-             * Open Questions
-             * @default 0
-             */
-            open_questions: number;
-            /** Contract Id */
-            contract_id?: string | null;
-            /** Draft */
-            draft?: string | null;
-        };
     };
     responses: never;
     parameters: never;
@@ -1325,42 +1249,6 @@ export interface operations {
             };
         };
     };
-    listContracts: {
-        parameters: {
-            query?: {
-                /** @description Only this status. */
-                against?: components["schemas"]["Status"] | null;
-                /** @description Only contracts with this role. */
-                role?: string | null;
-                /** @description Only this namespace. */
-                source?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Listing"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     readDrift: {
         parameters: {
             query?: never;
@@ -1454,38 +1342,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
-                };
-            };
-        };
-    };
-    listSources: {
-        parameters: {
-            query?: {
-                /** @description Only this state. */
-                state?: components["schemas"]["State"] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Catalogue"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

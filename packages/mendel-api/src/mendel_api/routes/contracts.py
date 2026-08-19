@@ -15,14 +15,12 @@ before them, it swallows `…@1.21.0/drift` whole and answers 200 with the modul
 which looks like a working route and is not.
 """
 
-from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from mendel_forge.ops import AcceptResult, DriftReport
 
 from mendel_api.refusals import REFUSES
 from mendel_api.services import drift as drift_service
-from mendel_api.services.contracts import Listing, Status, listing
 from mendel_api.services.drift import AcceptBody
 from mendel_api.services.module_page import ModulePage
 from mendel_api.services.module_page import read as read_module
@@ -30,15 +28,10 @@ from mendel_api.services.module_page import read as read_module
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
-@router.get("", operation_id="listContracts", summary="Every contract, worst first")
-def contracts(
-    against: Annotated[Status | None, Query(description="Only this status.")] = None,
-    role: Annotated[str | None, Query(description="Only contracts with this role.")] = None,
-    source: Annotated[str | None, Query(description="Only this namespace.")] = None,
-) -> Listing:
-    return listing(against=against, role=role, source=source)
-
-
+# **`GET /contracts` was deleted with `Contracts.tsx`.** `GET /tools?state=landed` answers it,
+# and `Listing` survives only because `services/tools.py` composes it. The per-contract routes
+# below stay: the module page and the drift screens are not superseded by anything.
+#
 @router.get(
     "/{id:path}/drift",
     operation_id="readDrift",

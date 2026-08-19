@@ -1,4 +1,9 @@
-"""Browsing contracts, over HTTP."""
+"""One contract, over HTTP.
+
+**The listing tests left with the listing route** — `GET /contracts` was deleted in the same
+commit as `Contracts.tsx`, and its assertions live in `test_tools_route.py`. What is here is
+what `/tools` does not supersede: reading one contract, and the drift write.
+"""
 
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
@@ -6,26 +11,21 @@ from mendel_api.main import create_app
 client = TestClient(create_app(), raise_server_exceptions=False)
 
 
-def test_the_list_comes_back_sorted_worst_first():
-    r = client.get("/api/contracts")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["total"] > 0
-    assert sum(body["counts"].values()) == body["total"]
+def test_the_listing_path_now_falls_through_to_the_greedy_id_route():
+    """**Written because the test that used to be here went vacuous rather than red.**
 
+    It asserted that `/api/contracts?against=broken` is a 422, meaning *a typo'd facet is
+    refused rather than ignored*. Deleting `GET /contracts` did not fail it: the request now
+    matches `/contracts/{id:path}` with an empty id and 422s with `'' is not in this registry`.
+    Same status code, entirely different reason, and a green test asserting nothing.
 
-def test_a_facet_narrows_the_rows():
-    r = client.get("/api/contracts?against=unverifiable")
-    assert r.status_code == 200
-    rows = r.json()["rows"]
-    assert rows, "this registry has unverifiable contracts"
-    assert all(row["status"] == "unverifiable" for row in rows)
-
-
-def test_a_status_that_is_not_one_is_refused_rather_than_ignored():
-    """A typo'd facet must not silently return everything — the URL is what a curator sends
-    somebody, and it has to describe the screen they saw."""
-    assert client.get("/api/contracts?against=broken").status_code == 422
+    A greedy `{id:path}` swallows its own parent path, so removing a sibling route cannot be
+    checked by status code alone. The facet assertion moved to `test_tools_route.py` with the
+    route; this one pins the fall-through so the next person sees it deliberately.
+    """
+    refused = client.get("/api/contracts?against=broken")
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == "'' is not in this registry"
 
 
 def test_a_contract_id_with_slashes_reaches_the_route():

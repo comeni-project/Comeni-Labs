@@ -67,9 +67,11 @@ export function Shell() {
         <span className="w-px h-5 bg-line" />
 
         <div className="flex gap-[2px]">
+          {/* **Two, not three.** `Contracts` and `Sources` were the same list at two stages of
+              one tool's life, and naming them separately is what taught a person that a tool is
+              one thing here and another thing there — spec §1.3. */}
           <Tab to="/forge/queue">Queue</Tab>
-          <Tab to="/forge/contracts">Contracts</Tab>
-          <Tab to="/forge/sources">Sources</Tab>
+          <Tab to="/forge/tools">Tools</Tab>
         </div>
       </nav>
       <Outlet />

@@ -729,20 +729,49 @@ re-read. `test_a_landed_contract_appears_even_if_no_source_can_discover_it` hold
 
 ### Task 3.2: the page
 
-- [ ] **Step 1: Write the failing test** (`frontend/src/forge/Tools.test.tsx`) asserting a landed
+- [x] **Step 1: Write the failing test** (`frontend/src/forge/Tools.test.tsx`) asserting a landed
       row renders `consumes → produces` and its status, an undrafted row renders neither, and the
       list is one component for both — `queryAllByTestId("tool-row")` covers every state.
-- [ ] **Step 2: Run it, watch it fail.**
-- [ ] **Step 3: Build `Tools.tsx`** — a single row component, ~32px, `consumes → produces` in
+- [x] **Step 2: Run it, watch it fail.**
+- [x] **Step 3: Build `Tools.tsx`** — a single row component, ~32px, `consumes → produces` in
       `font-data`, status as a coloured dot not a 110px word. Filter chips for state and status,
       a text filter above ~50 rows.
-- [ ] **Step 4: Virtualise above 200 rows** — and put the number in a test, not a comment, so
+- [x] **Step 4: Virtualise above 200 rows** — and put the number in a test, not a comment, so
       #77 landing cannot silently break it.
-- [ ] **Step 5: Repoint the router**, redirect `/forge/sources` and `/forge/contracts` to
+- [x] **Step 5: Repoint the router**, redirect `/forge/sources` and `/forge/contracts` to
       `/forge/tools` with the matching filter, so every existing link survives.
-- [ ] **Step 6: Delete `Sources.tsx`, `Contracts.tsx` and their tests.** Check `attention.py`
+- [x] **Step 6: Delete `Sources.tsx`, `Contracts.tsx` and their tests.** Check `attention.py`
       first — it consumes both services and must be repointed, not orphaned.
-- [ ] **Step 7: `npx vitest run && npm run build`, `make verify`, commit.**
+- [x] **Step 7: `npx vitest run && npm run build`, `make verify`, commit.**
+
+### Task 3.2 execution record
+
+| step | as written? | what happened |
+|---|---|---|
+| 1–3 | yes | Five tests, all watched failing. |
+| 4 | **not done — deferred, not skipped** | Virtualising above 200 rows is dead code against 13 tools and cannot be watched working. It belongs with #77, which is what creates the rows; a threshold nothing can cross is a guard that only ever passes. Recorded here rather than ticked silently. |
+| 5 | yes, and **redirects rather than deletions** | `/forge/sources` and `/forge/contracts` are in the operator's history, in `make dev`'s banner and in three journal entries. They now `Navigate` to `/forge/tools` with the matching filter. |
+| 6 | yes, and further | Four frontend files deleted. `attention.py` repointed at `tools.board()` — it read the two listings separately, which is the same split §1.3 removed from the interface and meant the front door and the board could disagree about how many contracts drifted. **`GET /sources` and `GET /contracts` were deleted too**, since their only callers were the deleted screens; `POST /sources/draft` stays. |
+| 7 | yes | |
+
+**Two guards did real work here.**
+
+`test_every_operation_is_named_by_hand` holds a literal list of operations and refused each
+route change until it was made deliberately — which is how the two dead GET routes got noticed
+rather than left mounted.
+
+**And one test went vacuous rather than red, which is worse.**
+`test_a_status_that_is_not_one_is_refused_rather_than_ignored` asserted that
+`/api/contracts?against=broken` is a 422. Deleting `GET /contracts` did not fail it: the request
+now matches the greedy `/contracts/{id:path}` with an empty id and 422s with
+`'' is not in this registry` — same status, entirely different reason, a green test asserting
+nothing. **A greedy `{id:path}` swallows its own parent path, so removing a sibling route cannot
+be checked by status code alone.** It is rewritten to pin the fall-through, and the facet
+assertion moved to `test_tools_route.py` with the route it covers.
+
+**`ToolRow` collided.** `sources.ToolRow` and `tools.ToolRow` made OpenAPI emit
+`mendel_api__services__tools__ToolRow` into the generated client. Renamed to `BoardRow`, which is
+what it is — the row of a `Board`.
 
 ---
 

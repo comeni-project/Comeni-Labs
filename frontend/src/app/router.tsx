@@ -1,11 +1,10 @@
-import type { RouteObject } from "react-router";
+import { Navigate, type RouteObject } from "react-router";
 
 import { Question } from "../forge/Question";
-import { Contracts } from "../forge/Contracts";
 import { Home } from "../home/Home";
 import { ContractRoute } from "../forge/ContractRoute";
 import { Queue } from "../forge/Queue";
-import { Sources } from "../forge/Sources";
+import { Tools } from "../forge/Tools";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
 
@@ -26,8 +25,12 @@ export const routes: RouteObject[] = [
       { path: "/", element: <Home /> },
       { path: "/forge/queue", element: <Queue /> },
       { path: "/forge/queue/question/:subject", element: <Question /> },
-      { path: "/forge/contracts", element: <Contracts /> },
-      { path: "/forge/sources", element: <Sources /> },
+      { path: "/forge/tools", element: <Tools /> },
+      // **Redirects, not deletions.** `/forge/sources` and `/forge/contracts` are in the
+      // operator's history, in `make dev`'s banner and in three journal entries. A merged
+      // screen that breaks every link anybody saved is a merge that costs more than it gives.
+      { path: "/forge/sources", element: <Navigate to="/forge/tools?state=undrafted" replace /> },
+      { path: "/forge/contracts", element: <Navigate to="/forge/tools?state=landed" replace /> },
       // `/*` rather than `:id`, because a contract id contains slashes —
       // `nf-core/samtools/index@1.21.0`. `useParams()["*"]` is the id.
       //

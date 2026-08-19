@@ -32,7 +32,6 @@ def test_every_operation_is_named_by_hand():
         ("/api/registry/types/{id}", "get"): "lookupType",
         # FastAPI strips the `:path` converter when generating OpenAPI, so this reads
         # `{id}` even though the route is declared `{id:path}` — a contract id has slashes.
-        ("/api/contracts", "get"): "listContracts",
         ("/api/contracts/{id}", "get"): "readContract",
         # Registered BEFORE the greedy `/{id:path}` above, or they never match — and the
         # failure is a 200 carrying the module page rather than a 404.
@@ -41,12 +40,10 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer-all", "post"): "answerAll",
         ("/api/questions/propose", "post"): "proposeType",
         ("/api/questions/proposals/decide", "post"): "decideProposal",
-        # **`listTools` supersedes `listSources` and `listContracts` as the list the interface
-        # reads.** The two older ones stay until the screens that call them are deleted in the
-        # same phase; if they are still here when `Sources.tsx` and `Contracts.tsx` are gone,
-        # they are dead routes and this list is where that shows up.
+        # **`listTools` replaced `listSources` and `listContracts`**, and both were deleted in
+        # the same commit as the screens that called them — this list is where that was checked.
+        # `POST /sources/draft` survives because drafting is still started from a row.
         ("/api/tools", "get"): "listTools",
-        ("/api/sources", "get"): "listSources",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",
         ("/api/health", "get"): "liveness",

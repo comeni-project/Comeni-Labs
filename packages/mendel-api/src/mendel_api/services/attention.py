@@ -21,7 +21,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
-from mendel_api.services import checked, contracts, queue, registry, sources
+from mendel_api.services import checked, queue, registry, tools
 
 
 class Urgency(StrEnum):
@@ -89,8 +89,11 @@ def whats_open() -> Attention:
     `digest_of_directory` computed once per service. Inside the budget by twenty times, and
     audit A138 records where that stops being true.
     """
-    status = contracts.listing()
-    catalogue = sources.catalogue()
+    # **One board, not two listings.** This read `contracts.listing()` and `sources.catalogue()`
+    # separately, which is the same split spec §1.3 removed from the interface — and it meant the
+    # front door and the tools page could disagree about how many contracts drifted. They now
+    # answer from one composition.
+    board = tools.board()
     open_work = queue.read()
     stack = registry.stack()
     drift = {found.contract_id for found in checked.result().drift}
@@ -115,7 +118,7 @@ def whats_open() -> Attention:
                 urgency=Urgency.WAITING,
             )
         )
-    undrafted = catalogue.counts.get("undrafted", 0)
+    undrafted = board.counts.get("undrafted", 0)
     if undrafted:
         calls.append(
             Call(
@@ -132,15 +135,15 @@ def whats_open() -> Attention:
         forge=calls,
         mendel=[],
         standing=Standing(
-            contracts=status.total,
-            matching=status.counts.get("matching", 0),
-            unverifiable=status.counts.get("unverifiable", 0),
-            drifted=status.counts.get("drifted", 0),
+            contracts=board.counts.get("landed", 0),
+            matching=board.status_counts.get("matching", 0),
+            unverifiable=board.status_counts.get("unverifiable", 0),
+            drifted=board.status_counts.get("drifted", 0),
             types=len(stack.vocabulary.types),
             roles=len(stack.roles.names),
             rules=len(stack.rules.decisions),
             measurements=len(stack.measurements.ids()),
-            sources=catalogue.sources,
+            sources=board.sources,
             undrafted=undrafted,
         ),
     )

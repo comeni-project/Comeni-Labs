@@ -1,21 +1,12 @@
-"""Wiring, the filter, the refusal — and that no path crosses the boundary."""
+"""Drafting, the refusal, and that no path crosses the boundary.
+
+**The catalogue tests left with the catalogue route** — `GET /sources` was deleted in the same
+commit as `Sources.tsx`, and its assertions live in `test_tools_route.py`. The POST stays,
+because drafting is still started from a row.
+"""
 
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
-
-
-def test_the_catalogue_is_served():
-    client = TestClient(create_app())
-    body = client.get("/api/sources").json()
-    assert body["sources"] == ["nf-core"]
-    assert any(r["state"] == "undrafted" for r in body["rows"])
-
-
-def test_the_filter_is_a_query_parameter():
-    client = TestClient(create_app())
-    body = client.get("/api/sources?state=undrafted").json()
-    assert body["rows"], "nothing is undrafted — the fixture registry has changed"
-    assert all(r["state"] == "undrafted" for r in body["rows"])
 
 
 def test_drafting_twice_refuses_with_its_code(tmp_path, monkeypatch):

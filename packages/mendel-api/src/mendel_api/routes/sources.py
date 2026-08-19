@@ -6,15 +6,13 @@ about is a name that is taken, which `MF0010` refuses — before phase 6 that ov
 person's answers and said nothing.
 """
 
-from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from mendel_forge.ops import DraftResult
 from pydantic import BaseModel, ConfigDict
 
 from mendel_api.refusals import REFUSES
 from mendel_api.services import sources as service
-from mendel_api.services.sources import Catalogue, State
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -36,13 +34,10 @@ class DraftBody(BaseModel):
     §3.3 has the measurements. The form shows the container beside this field as evidence."""
 
 
-@router.get("", operation_id="listSources", summary="What can be read, and what has been done")
-def catalogue(
-    state: Annotated[State | None, Query(description="Only this state.")] = None,
-) -> Catalogue:
-    return service.catalogue(state=state)
-
-
+# **`GET /sources` was deleted with `Sources.tsx`.** `GET /tools` supersedes it — one list for
+# one object's life, spec §1.3 — and a route whose only caller is gone is a route that answers a
+# question nobody asks. What stays is the POST, because drafting is still started from a row.
+#
 @router.post(
     "/draft", operation_id="draftTool", summary="Start a draft from a source", responses=REFUSES
 )

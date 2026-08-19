@@ -19,12 +19,12 @@ property and the same warning.
 
 from pydantic import BaseModel
 
-from mendel_api.services import contracts, registry, sources
+from mendel_api.services import contracts, queue, registry, sources
 from mendel_api.services.contracts import Status
 from mendel_api.services.sources import State
 
 
-class ToolRow(BaseModel):
+class BoardRow(BaseModel):
     """One tool. **Named for what a person reads, not for how it is keyed.**"""
 
     ref: str
@@ -49,7 +49,7 @@ class ToolRow(BaseModel):
 
 
 class Board(BaseModel):
-    rows: list[ToolRow]
+    rows: list[BoardRow]
     counts: dict[str, int]
     """State -> how many, **over everything** rather than the filtered view. A facet counting
     only what is shown reads 12 in the one you are standing in and 0 in every other."""
@@ -80,6 +80,14 @@ def board(*, state: str | None = None, against: str | None = None) -> Board:
     listing = contracts.listing()
     stack = registry.stack()
 
+    # **How much work is open on this tool, so the row can say it.** The old sources row said
+    # `answer it in the queue` with no number, which is an instruction rather than information —
+    # a draft with one question left and a draft with eleven read identically.
+    open_by_draft: dict[str, int] = {}
+    for question in queue.read().questions:
+        for draft_name in question.asked_by:
+            open_by_draft[draft_name] = open_by_draft.get(draft_name, 0) + 1
+
     ports = {
         contract.id: (
             [port.type_id for port in contract.consumes],
@@ -90,17 +98,18 @@ def board(*, state: str | None = None, against: str | None = None) -> Board:
     status_of = {row.id: row.status for row in listing.rows}
     seen_from_source = {_key(row.ref): row for row in catalogue.rows}
 
-    rows: list[ToolRow] = []
+    rows: list[BoardRow] = []
     for row in catalogue.rows:
         consumes, produces = ports.get(row.contract_id or "", ([], []))
         rows.append(
-            ToolRow(
+            BoardRow(
                 ref=row.ref,
                 tool=row.ref.partition(":")[2],
                 state=row.state,
                 status=status_of.get(row.contract_id or "") if row.contract_id else None,
                 consumes=consumes,
                 produces=produces,
+                open_questions=open_by_draft.get(row.draft or "", 0),
                 contract_id=row.contract_id,
                 draft=row.draft,
             )
@@ -113,7 +122,7 @@ def board(*, state: str | None = None, against: str | None = None) -> Board:
             continue
         consumes, produces = ports[contract.id]
         rows.append(
-            ToolRow(
+            BoardRow(
                 ref=key.replace("/", ":", 1),
                 tool=key.partition("/")[2],
                 state=State.LANDED,
