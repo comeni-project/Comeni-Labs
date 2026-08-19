@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link } from "react-router";
 
 import { get } from "../api/client";
 import type { components } from "../api/schema";
@@ -58,10 +58,7 @@ function Points({ title, ids }: { title: string; ids: string[] }) {
  * **Read only.** Nothing on this page writes; contracts change through the queue or through
  * drift resolution, both of which record *why*.
  */
-export function Module() {
-  const params = useParams();
-  const id = params["*"] ?? "";
-
+export function Module({ id }: { id: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["contract", id],
     queryFn: () => get<ModulePage>(`/contracts/${id}`),

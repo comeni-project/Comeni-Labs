@@ -1,4 +1,7 @@
+import type { components } from "../api/schema";
 import { useUrlState } from "../app/useUrlState";
+
+type Band = components["schemas"]["Band"];
 
 /** Sort, group and band — the two controls the design says make one page enough
  *  (`forge-review.md` §4), plus the band filter the facet rail names.
@@ -22,6 +25,15 @@ const choose = (set: (next: string) => void) => (e: React.ChangeEvent<HTMLSelect
   set(e.target.value);
   e.target.blur();
 };
+
+/** Every band, in consequence order — the same order as `Band.rank`.
+ *
+ * **`satisfies` ties this to the generated union**, so a band added to the API and not here
+ * is a compile error rather than a filter nobody can reach. It was a hand-written list of
+ * three until phase 5, and `blocked` had been unreachable from the UI since phase 3 with no
+ * test noticing.
+ */
+const BANDS = ["drift", "blocked", "routing", "prose", "cosmetic"] satisfies Band[];
 
 export function Controls({ rows, total }: { rows?: number; total?: number }) {
   const [sort, setSort] = useUrlState("sort", "consequence");
@@ -51,9 +63,11 @@ export function Controls({ rows, total }: { rows?: number; total?: number }) {
         <span className={label}>Band</span>
         <select className={field} value={band} onChange={choose(setBand)}>
           <option value="">all</option>
-          <option value="routing">needs you</option>
-          <option value="cosmetic">cosmetic</option>
-          <option value="prose">prose</option>
+          {BANDS.map((band) => (
+            <option key={band} value={band}>
+              {band === "routing" ? "needs you" : band}
+            </option>
+          ))}
         </select>
       </label>
 

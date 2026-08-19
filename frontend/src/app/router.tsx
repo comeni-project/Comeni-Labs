@@ -2,7 +2,7 @@ import { Navigate, type RouteObject } from "react-router";
 
 import { Question } from "../forge/Question";
 import { Contracts } from "../forge/Contracts";
-import { Module } from "../forge/Module";
+import { ContractRoute } from "../forge/ContractRoute";
 import { Queue } from "../forge/Queue";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
@@ -25,7 +25,10 @@ export const routes: RouteObject[] = [
       { path: "/forge/contracts", element: <Contracts /> },
       // `/*` rather than `:id`, because a contract id contains slashes —
       // `nf-core/samtools/index@1.21.0`. `useParams()["*"]` is the id.
-      { path: "/forge/contracts/*", element: <Module /> },
+      //
+      // **Which is also why `:id/drift` cannot be a second pattern**: react-router has no
+      // splat-in-the-middle, so one component owns the splat and reads the last segment.
+      { path: "/forge/contracts/*", element: <ContractRoute /> },
     ],
   },
 ];

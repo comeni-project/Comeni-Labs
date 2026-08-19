@@ -20,6 +20,9 @@ export function QueueRow({
   heading?: string;
 }) {
   const n = q.asked_by.length;
+  // A drift row is about a CONTRACT, not about drafts: `asked_by` is empty on one, so the
+  // module count would read "0 modules". Three cells differ; the row shape does not.
+  const drift = q.kind === "drift";
   return (
     <>
       {heading && (
@@ -38,10 +41,11 @@ export function QueueRow({
     >
       <span
         className="text-label uppercase tracking-[.13em] font-semibold
-                   data-[band=routing]:text-pea data-[band=blocked]:text-fault"
+                   data-[band=routing]:text-pea data-[band=blocked]:text-fault
+                   data-[band=drift]:text-fault"
         data-band={q.band}
       >
-        {q.band === "blocked" ? "Blocked" : q.suggested ? "Confirm" : "Ask"}
+        {drift ? "Drift" : q.band === "blocked" ? "Blocked" : q.suggested ? "Confirm" : "Ask"}
       </span>
 
       <div>
@@ -49,15 +53,22 @@ export function QueueRow({
         <div className="text-secondary text-ink-2 mt-1">{q.what}</div>
       </div>
 
-      <span className="text-secondary text-ink-3">
-        {n} {n === 1 ? "module" : "modules"}
+      <span className="text-secondary text-ink-3 font-data break-all">
+        {drift ? q.about : `${n} ${n === 1 ? "module" : "modules"}`}
       </span>
 
       <Link
-        to={`/forge/queue/question/${encodeURIComponent(q.subject)}`}
+        // Drift resolves under the contract it is about — the design's *"drift is a state of
+        // a contract"* made literal, and why the queue is an index rather than a home for
+        // every detail.
+        to={
+          drift
+            ? `/forge/contracts/${q.about}/drift`
+            : `/forge/queue/question/${encodeURIComponent(q.subject)}`
+        }
         className="text-body text-pea no-underline"
       >
-        Answer
+        {drift ? "Review" : "Answer"}
       </Link>
     </div>
     </>
