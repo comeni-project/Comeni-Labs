@@ -68,6 +68,7 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
+| [2026-08-19 later](2026-08-19-the-front-door-redesigned.md) | The front door redesigned after the operator looked at it. **The hero is a real `pipeline.yml` excerpt** — a tier-3 decision citing a DOI beside a tier-4 one saying *please review*. Wordmark names the site; the Registry box and Lookup panel deleted |
 | [2026-08-19 Plan 3B](2026-08-19-plan-3b-landing.md) | The front door — `/` is a landing page, not a redirect. Certainty drawn as stroke; the page counts and links, never lists. **The `Mendel` nav tab became `Builder`, caught by reading the finished page** |
 | [2026-08-13 evening](2026-08-13-evening.md) | Everything merged; the rule-drafter spec, rule-format limits (#38/#39) and Plan 2's corrections. **Design audit stream 2 died mid-run — artifacts survive, findings do not** |
 | [2026-08-13](2026-08-13.md) | Plan 1.12 — round four's criticals closed (A55–A59, A70); thirteen findings carried as issues. **The last audit-driven plan; Plan 2 is next** |

@@ -47,16 +47,22 @@ function Row({
   note?: string;
 }) {
   return (
-    <div className="flex items-baseline gap-4 py-2">
+    <div className="flex items-baseline gap-5 py-2.5 border-b border-line last:border-b-0">
       <span
         aria-hidden
         data-testid="ground"
-        className={`w-10 shrink-0 self-center border-t-2 ${STROKE[ground]}`}
+        className={`w-12 shrink-0 self-center border-t-2 ${STROKE[ground]}`}
         data-ground={ground}
       />
-      <b className="font-data text-body text-ink tabular-nums">{count}</b>
+      <b className="font-data text-object text-ink tabular-nums w-9 shrink-0 text-right">
+        {count}
+      </b>
       <span className="text-body text-ink-2">{label}</span>
-      {note && <span className="ml-auto text-label text-ink-3">{note}</span>}
+      {note && (
+        <span className="ml-auto shrink-0 text-label text-ink-3 uppercase tracking-[.1em]">
+          {note}
+        </span>
+      )}
     </div>
   );
 }

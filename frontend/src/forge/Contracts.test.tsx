@@ -54,7 +54,7 @@ describe("the contracts list", () => {
     at();
     // Wait on a ROW, not the facet label: the labels are static and render before the fetch
     // resolves, so waiting on them reads the counts while they are still `{}`. Phase 2's
-    // Lookup test had exactly this bug.
+    // The Lookup panel's test had exactly this bug (that panel was deleted in 3B).
     await waitFor(() => expect(screen.getByText("nf-core/fastqc@0.12.1")).toBeTruthy());
     expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(3);
   });

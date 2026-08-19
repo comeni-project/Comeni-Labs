@@ -11,6 +11,17 @@
   --font-data: var(--font-data);
   --font-display: var(--font-display);
 
+  /* THE FRONT DOOR ONLY. `dashboard.md` §2's six roles govern the tool, where 26px is the
+     largest thing on a dense working screen and must stay that way — a hero size loose in the
+     forge is exactly the drift this indirection exists to stop. These two exist because a
+     landing page has a job the tool does not: be understood by a stranger in ten seconds.
+     If either appears outside `src/home/`, one of the two scales is wrong. */
+  /* Clamped rather than two sizes: a hero that is one role at every width stays one role.
+     44px is the desktop figure; 30px is where the six-word headline stops wrapping to
+     four lines on a 375px screen. */
+  --text-hero: clamp(30px, 6vw, 44px);
+  --text-lede: 16px;
+
   --text-title: 26px;
   --text-brand: 21px;
   --text-object: 15px;
@@ -56,4 +67,12 @@ body {
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* The one page-load motion on the front door: the hero settles rather than appears.
+   Deliberately the only animation in the product — `dashboard.md` treats movement as
+   meaning, so a decorative second one would dilute the first. `motion-safe:` gates it. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
 }

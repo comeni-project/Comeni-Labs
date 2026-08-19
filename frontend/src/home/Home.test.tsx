@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -84,7 +84,12 @@ describe("the front door", () => {
     at();
     await waitFor(() => expect(screen.getByText(/agree with the module/i)).toBeTruthy());
     expect(screen.getByText(/have no source that can re-read them/i)).toBeTruthy();
-    expect(screen.getByText(/nf-core/)).toBeTruthy();
+    // **Scoped, because `/nf-core/` alone is now ambiguous.** The hero quotes a contract id out
+    // of a real `pipeline.yml`, so the bare pattern matches twice — which is the assertion
+    // earning its keep rather than failing: the thing under test is that the block names where
+    // the registry was READ FROM, and that is a different claim from a string appearing on the
+    // page somewhere.
+    expect(screen.getByText(/read from nf-core/i)).toBeTruthy();
 
     const grounds = screen
       .getAllByTestId("ground")
@@ -120,6 +125,23 @@ describe("the front door", () => {
     expect(screen.queryByText(/nf-core\/fastqc@/)).toBeNull();
     expect(screen.queryByText(/consumes\[0\]/)).toBeNull();
     expect(screen.queryAllByTestId("tool-row")).toHaveLength(0);
+  });
+
+  it("renders the same excerpt whatever the API says", async () => {
+    // **The line between illustration and listing**, and the reason the hero is allowed to show
+    // a contract id at all. The excerpt is quoted from
+    // `notes/audits/fixtures/pipeline-v1/pipeline.yml` and is STATIC: it is documentation of the
+    // artifact's format, not a view of the registry's current contents. The moment it varies
+    // with the response it has become the Overview page that was cut (spec §1).
+    at(QUIET);
+    const quiet = (await screen.findByTestId("artifact")).textContent;
+    cleanup();
+    vi.unstubAllGlobals();
+
+    at(BUSY);
+    const busy = (await screen.findByTestId("artifact")).textContent;
+    expect(busy).toBe(quiet);
+    expect(busy).toContain("please review");
   });
 
   it("says the builder is not built rather than showing it as empty", async () => {
