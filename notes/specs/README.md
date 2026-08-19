@@ -47,7 +47,13 @@ Three kinds live here:
   the interface was designed, which is why it could be specific. Its §4 is the substance: what
   must exist underneath for the screens to be true rather than decorative, each entry naming the
   screen that needs it. It replaced a deliberately thin predecessor that existed only to hold the
-  decisions until the code and the design caught up).
+  decisions until the code and the design caught up), and
+  `2026-08-19-resolving-drift.md` (**Plan 3A phase 5** — what moved, what it means, and taking
+  the source's value. Two checkers already ask this question and overlap on two fields, so the
+  spec declares the coverage rather than merging them; *"every field checked"* is made honest by
+  naming the six fields nothing checks, three of which the router reads; the verdict is a fold
+  over a total classification rather than a case analysis; and accepting patches **one line**,
+  because a registry contract's comments are its reasoning and a YAML dumper deletes them).
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
