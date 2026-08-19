@@ -63,7 +63,13 @@ Three kinds live here:
   mount is removed. Two more: `Workspace.save` overwrites a draft **silently**, and the contract
   version is **not derivable** — two vendored tools have containers with no version tag at all), and
   `2026-08-19-compose-and-prod.md` (**Plan 3A phase 8, which ends 3A** — one image for the api and the worker, carrying the registry and the vendored modules because they are read on nearly every request. Its sharpest moment is that **phase 6's guard decided a phase 7 design question**: serving the SPA from FastAPI needs `app.mount`, which `test_the_served_surface_is_the_openapi_document` refuses, so nginx is forced rather than chosen. And accepting a drift **crashes** when the registry is not a checkout — the rung phase 5 missed and a container makes normal), and
-  `2026-08-19-responsiveness.md` (**Plan 3A phase 7, which the audit created** — every registry-touching screen cost 250ms, and one function was responsible. Its decisions split by safety: the pure packages get *speed* and no cache, because a cache in a pure package is how invariant 10 stops being true and because the 1346-test suite is the biggest beneficiary and the one a cache serves worst; only `mendel-api` caches, on the digest, beside the cache phase 4 already built. And the performance property is guarded by **counting, never timing** — a millisecond budget in CI teaches people to re-run.)
+  `2026-08-19-responsiveness.md` (**Plan 3A phase 7, which the audit created** — every registry-touching screen cost 250ms, and one function was responsible. Its decisions split by safety: the pure packages get *speed* and no cache, because a cache in a pure package is how invariant 10 stops being true and because the 1346-test suite is the biggest beneficiary and the one a cache serves worst; only `mendel-api` caches, on the digest, beside the cache phase 4 already built. And the performance property is guarded by **counting, never timing** — a millisecond budget in CI teaches people to re-run.), and
+  `2026-08-19-the-landing-page.md` (**Plan 3B** — and its §1 is the whole spec: an Overview
+  page was designed and CUT once, because it answered the Queue's question, and
+  `forge-review.md` §4 calls the Queue *the only home*. The resolution is that a front door
+  answers *what is this and what does it hold*, which no destination answers — and the
+  discipline that keeps it there is that **it counts and links, and never lists an item**.
+  If that slips, this page should be cut the way the Overview was.)
 - **One scheduled on 2026-08-17, after having been unscheduled on purpose** — `2026-08-13-the-rule-drafter.md`, which now runs after forge Phase 2 and before Plan 3 (`notes/README.md` rows 16 and 17). Tier 3 is the
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
