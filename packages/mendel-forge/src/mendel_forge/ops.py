@@ -20,8 +20,6 @@ from typing import Any
 
 from comeni_core.diagnostics import coded
 from comeni_core.review import ValueSource
-from mendel_ai.access import ModelAccess
-from mendel_ai.client import Client
 from mendel_compiler import conformance
 from mendel_compiler.conformance import Diagnostic
 from mendel_compiler.modulespec import ModuleSpec
@@ -31,7 +29,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_forge import assemble, candidates, modulegen, sources
 from mendel_forge import drift as drift_tables
-from mendel_forge.filler import ModelFiller
 from mendel_forge.land import LandResult, accept_drift
 from mendel_forge.land import land as _run_land
 from mendel_forge.observe import Excerpt
@@ -412,6 +409,15 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
     and `why` are all required and a model fill supplies none of them up front — sharing one
     request model would mean weakening the hand-fill path to suit the model one.
     """
+    # **Imported here rather than at module scope.** `mendel-ai` is an optional extra of this
+    # package (`mendel-forge[model]`): the served API cannot reach this verb, and the model
+    # client is 152MB of the image. A top-level import made an opt-in path a mandatory
+    # dependency, which is the same mistake `--no-ai` not being a flag exists to avoid.
+    from mendel_ai.access import ModelAccess
+    from mendel_ai.client import Client
+
+    from mendel_forge.filler import ModelFiller
+
     workspace = Workspace(root=req.workspace_root)
     found = workspace.load(req.name)
     if filler is None:

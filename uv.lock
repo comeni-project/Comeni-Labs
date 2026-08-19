@@ -1216,22 +1216,27 @@ version = "0.1.0"
 source = { editable = "packages/mendel-forge" }
 dependencies = [
     { name = "comeni-core" },
-    { name = "mendel-ai" },
     { name = "mendel-compiler" },
     { name = "mendel-resolver" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+model = [
+    { name = "mendel-ai" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
-    { name = "mendel-ai", editable = "packages/mendel-ai" },
+    { name = "mendel-ai", marker = "extra == 'model'", editable = "packages/mendel-ai" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
+provides-extras = ["model"]
 
 [[package]]
 name = "mendel-resolver"
