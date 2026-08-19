@@ -1,8 +1,9 @@
 """What a refusal looks like on the wire, and in the schema.
 
 **One place, because two transports over one operation must not disagree.**
-`mendel_forge.http` answers a coded `ValueError` with `422 {"detail": "MF0003: ..."}` and this
-matches it exactly — a client that learned the forge's contract must not need a second one.
+A coded `ValueError` becomes `422 {"detail": "MF0003: ..."}`. That shape came from the forge's
+own transport, which the CLI still matches — a client that learned the forge's contract must not
+need a second one. (That transport was deleted in phase 6; the convention it set outlived it.)
 
 **What is added here is the schema half.** The forge's handler is correct and invisible: nothing
 in its OpenAPI document says a 422 can carry a coded string, so a generated client types the

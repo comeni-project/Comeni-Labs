@@ -30,7 +30,7 @@ def test_answering_returns_what_is_left(monkeypatch):
 def test_a_refusal_comes_back_as_422_with_its_code_intact(monkeypatch):
     """The forge's own transport answers 422 for a coded refusal and this must match it:
     two transports over one operation that disagree on status codes is exactly what
-    mendel_forge.http spent Phase 1 avoiding."""
+    the forge spent Phase 1 avoiding."""
     def refuse(**kw):
         raise ValueError("MF0003: 'nonsense' is not legal for roles")
 

@@ -93,7 +93,7 @@ def answer(req: AnswerRequest) -> Answered:
 
     **No `try`.** A `ValueError` from below carries a coded refusal — `MF0002`, `MF0003`, or
     the reason check — and `create_app` turns it into a 422 for every route at once, exactly
-    as `mendel_forge.http` does. Catching it here would be a second spelling of one contract,
+    as the forge does. Catching it here would be a second spelling of one contract,
     and the second spelling is the one that drifts.
     """
     return answer_one(

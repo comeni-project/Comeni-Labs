@@ -1223,22 +1223,15 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
-[package.optional-dependencies]
-http = [
-    { name = "fastapi" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
-    { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.115" },
     { name = "mendel-ai", editable = "packages/mendel-ai" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
-provides-extras = ["http"]
 
 [[package]]
 name = "mendel-resolver"

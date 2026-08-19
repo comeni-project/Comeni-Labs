@@ -41,6 +41,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/questions/answer-all", "post"): "answerAll",
         ("/api/questions/propose", "post"): "proposeType",
         ("/api/questions/proposals/decide", "post"): "decideProposal",
+        ("/api/sources", "get"): "listSources",
+        ("/api/sources/draft", "post"): "draftTool",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }
@@ -59,7 +61,7 @@ def test_every_operation_says_what_it_does():
 
 
 def test_the_coded_refusal_is_in_the_schema():
-    """The gap this closes: `mendel_forge.http` answers a coded refusal correctly and says
+    """The gap this closes: the forge answers a coded refusal correctly and says
     nothing about it in its document, so a generated client types `detail` as the validation
     array and the UI renders nothing for the one message a curator must read."""
     schema = _schema()

@@ -28,8 +28,6 @@ dependencies = [
   "pyyaml>=6.0",
 ]
 
-[project.optional-dependencies]
-http = ["fastapi>=0.115"]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"

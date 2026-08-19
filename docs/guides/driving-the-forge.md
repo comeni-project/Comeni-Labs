@@ -312,24 +312,6 @@ The row is then first in the queue, above every question. Accept it, and
 `git -C /tmp/drift-demo show` is the record: one commit, one file, one line, your name and your
 reason.
 
-## The same verbs over HTTP
-
-Every verb above is one function in `mendel_forge/ops.py` taking a pydantic request and
-returning a pydantic result. The CLI renders those results; `mendel_forge.http` serialises them.
-Neither holds logic — `test_no_route_contains_a_branch` refuses an `if` in a route, and
-`test_http.py` compares `forge --json <verb>` against the HTTP body directly, so a transport
-that grows logic fails rather than drifts.
-
-```python
-from fastapi import FastAPI
-from mendel_forge.http import app
-
-parent = FastAPI()
-parent.mount("/forge", app)
-```
-
-The app binds nothing and has no auth. Plan 3's `mendel-api` mounts it and owns those questions.
-
 ## What the forge does not do
 
 **It calls no model.** `ports.py` declares `HoleFiller` and ships `NoFiller`, which declines

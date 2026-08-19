@@ -86,7 +86,7 @@ export interface paths {
          *
          *     **No `try`.** A `ValueError` from below carries a coded refusal — `MF0002`, `MF0003`, or
          *     the reason check — and `create_app` turns it into a 422 for every route at once, exactly
-         *     as `mendel_forge.http` does. Catching it here would be a second spelling of one contract,
+         *     as the forge does. Catching it here would be a second spelling of one contract,
          *     and the second spelling is the one that drifts.
          */
         post: operations["answerQuestion"];
@@ -261,6 +261,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What can be read, and what has been done */
+        get: operations["listSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a draft from a source */
+        post: operations["draftTool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -360,6 +394,17 @@ export interface components {
              */
             note: string;
         };
+        /** Catalogue */
+        Catalogue: {
+            /** Rows */
+            rows: components["schemas"]["ToolRow"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Sources */
+            sources: string[];
+        };
         /** ContractRow */
         ContractRow: {
             /** Id */
@@ -416,6 +461,30 @@ export interface components {
             detail: string;
             /** Fix */
             fix: string;
+        };
+        /** DraftBody */
+        DraftBody: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /** DraftResult */
+        DraftResult: {
+            /** Name */
+            name: string;
+            /** Target */
+            target: string;
+            /** Holes */
+            holes: components["schemas"]["Hole"][];
+            /** Filled */
+            filled: {
+                [key: string]: components["schemas"]["FilledValue"];
+            };
+            /** Generated Module */
+            generated_module: boolean;
         };
         /** DriftReport */
         DriftReport: {
@@ -487,6 +556,23 @@ export interface components {
             excerpt: string | null;
         };
         /**
+         * FilledValue
+         * @description A settled hole. Adds nothing to `Answer` — see the spec's §4.2, where that is read
+         *     as a signal the base is drawn at about the right place.
+         *
+         *     `by` is `nf-core` for a derived fact, a username for a hand fill, a model id for a
+         *     model one. `land` copies it verbatim into `Provenance.drafted_by`.
+         */
+        FilledValue: {
+            /** Value */
+            value: unknown;
+            /** By */
+            by: string;
+            how: components["schemas"]["ValueSource"];
+            /** Why */
+            why: string;
+        };
+        /**
          * Grouping
          * @enum {string}
          */
@@ -495,6 +581,45 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * Hole
+         * @description An unanswered question about a contract being drafted.
+         *
+         *     **The blocking lives in `Scaffold`, not here.** `Scaffold.is_complete()` gates
+         *     `contract_from`, so the forge cannot emit an invalid declared file. Putting that on
+         *     this class — as a field or as a method — would trade a structural guarantee for a
+         *     runtime check on a value, which is the mistake `CLAUDE.md` records about invariant 1.
+         */
+        Hole: {
+            /** Subject */
+            subject: string;
+            /**
+             * What
+             * @default
+             */
+            what: string;
+            /**
+             * Why Open
+             * @default
+             */
+            why_open: string;
+            /** Candidates */
+            candidates?: components["schemas"]["Candidate"][];
+            /**
+             * Closed
+             * @default true
+             */
+            closed: boolean;
+            /** Evidence */
+            evidence?: components["schemas"]["Excerpt"][];
+            /** After */
+            after?: string | null;
+            /**
+             * Channels
+             * @default []
+             */
+            channels: string[];
         };
         /**
          * Impact
@@ -681,6 +806,11 @@ export interface components {
          */
         RowKind: "question" | "drift";
         /**
+         * State
+         * @enum {string}
+         */
+        State: "undrafted" | "drafted" | "landed";
+        /**
          * Status
          * @enum {string}
          */
@@ -697,6 +827,16 @@ export interface components {
             types: number;
             /** Checked At */
             checked_at: string | null;
+        };
+        /** ToolRow */
+        ToolRow: {
+            /** Ref */
+            ref: string;
+            state: components["schemas"]["State"];
+            /** Contract Id */
+            contract_id?: string | null;
+            /** Draft */
+            draft?: string | null;
         };
         /** TypeCard */
         TypeCard: {
@@ -730,6 +870,22 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * ValueSource
+         * @description Who decided a value, recorded separately from how well it was decided.
+         *
+         *     A tier says *how* something was settled; it should not also have to say *who*. A user
+         *     who pins a parameter has legitimately removed the ambiguity, so the tier is still
+         *     structural — but a reviewer needs to see that Mendel did not derive it. Same shape as
+         *     measured-versus-asserted in the profiling spec, and for the same reason.
+         *
+         *     **Not `PremiseOrigin`, which also has a `DERIVED`.** That enum answers *how good is this
+         *     as evidence*; this one answers *who settled it*. Its own docstring draws the same line,
+         *     and the two `DERIVED`s mean different things: there, a fact computed from other facts;
+         *     here, a fact read straight off a source file.
+         * @enum {string}
+         */
+        ValueSource: "resolver" | "goal" | "human" | "model" | "measured" | "derived";
         /**
          * Verdict
          * @description The only question a maintainer really has, answered — design §7.
@@ -1145,6 +1301,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModulePage"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listSources: {
+        parameters: {
+            query?: {
+                /** @description Only this state. */
+                state?: components["schemas"]["State"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalogue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draftTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftResult"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
