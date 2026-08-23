@@ -23,7 +23,7 @@ component that would has never had an owner.
 | Measurable vs asserted | Falls out of routability. No flag to maintain |
 | Provenance | Per value. A bare scalar **is** an assertion |
 | Clinical | `sealed` blocks a tier-3 decision driven by an asserted measurement |
-| Execution at scale | The laboratory's own executor. Wiener observes later; it never orchestrates |
+| Execution at scale | The laboratory's own executor. Wiener later dispatches and observes; it never **schedules** — [execution-boundary.md](execution-boundary.md) |
 
 ---
 

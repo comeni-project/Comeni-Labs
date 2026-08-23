@@ -15,6 +15,7 @@ actually does.
 | [conformance.md](conformance.md) | whether "if it compiles, it runs" is reachable here, and what it implies for the forge | no — Plan 1.6 |
 | [clinical-data-protection.md](clinical-data-protection.md) | the egress boundary, the three protection profiles, why "anonymised" is the wrong word | partly — the boundary exists, `ProfilePolicy` does not |
 | [federation.md](federation.md) | registry stacking, provider access, pipeline publication, licensing | partly — stacking exists, publication does not |
+| [execution-boundary.md](execution-boundary.md) | **what Mendel hands to Wiener** — the two runs, why the executor stays out of the artifact, and local/k8s/AWS | no — the gate exists, the executor profiles do not |
 | [declared-data.md](declared-data.md) | why declared data is files and not a database, and where a derived index would be legitimate | yes — this is what the code already does |
 | [dashboard.md](dashboard.md) + [dashboard.html](dashboard.html) | **the Mendel builder**, with a self-contained mockup. §2 carries the token, type and spacing system that governs **both halves** | no |
 | [forge-review.md](forge-review.md) | **the forge interface**, redesigned 2026-08-18 — one queue, three destinations, ten screens. Its mockups are a design canvas rather than a committed page | no |

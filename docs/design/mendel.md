@@ -88,7 +88,7 @@ below serves it.
 | Component | Role | Depends on | Status |
 |---|---|---|---|
 | **Mendel** | prompt → resolved module graph → Nextflow | nothing | **this spec** |
-| Wiener | run pipelines on Azure/AWS, monitor, auto-diagnose failures | Mendel output format | later spec |
+| Wiener | dispatch to a laboratory's executor on Azure/AWS, monitor, auto-diagnose failures. **It does not schedule** — [execution-boundary.md](execution-boundary.md) | Mendel output format | later spec |
 | Nightingale | data analysis / QC agent | Mendel contracts | **parked** |
 | Comeni Code | node-based learning platform; modules become lessons | Mendel registry | separate repo |
 
