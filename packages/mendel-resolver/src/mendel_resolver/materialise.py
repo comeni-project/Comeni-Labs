@@ -11,8 +11,20 @@ goal is *narrower* than one a person would write — it says nothing about const
 data — and that is stated here rather than implied, because a reader of a kept draft will
 otherwise wonder why its goal is so thin.
 
-**Every choice exits at tier 4.** Nothing about a drawn graph was resolved, so nothing may claim
-a lower tier: tier 1 means *no choice existed* and a person picking `star/align` over
+**Settings run the resolver's own ladder, and that is the point rather than a shortcut.**
+`_resolve_param` is what `mendel build` calls, so a drawn node's settings come out at the same
+tiers, with the same premises and the same reasons, as a resolved node's. That is spec §2's
+*"the same knowledge from a different route"* applied to values — and it is what makes `compare`
+mean anything: the two halves then differ only where you actually drew something different, not
+because one route reads defaults and the other reads rules.
+
+`MD0224` is what found this. A contract declares a positional slot a param fills, so a graph with
+no settings emits a workflow with a hole in it and the compiler refuses the file that had just
+been written.
+
+**Every module choice exits at tier 4.** Nothing about a drawn graph was resolved, so
+nothing may claim a lower tier: tier 1 means *no choice existed* and a person picking
+`star/align` over
 `hisat2/align` had a choice and made it. Invariant 6 — tier 4 is always flagged, even when the
 person was certain. That is the honesty mechanism, and a builder is exactly where it would be
 tempting to skip.
@@ -26,6 +38,9 @@ from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Tier, ValueSource
 
 from mendel_resolver.layers import Layers
+from mendel_resolver.ports import FlagOnlyResolver
+from mendel_resolver.premises import build_premises
+from mendel_resolver.resolve import _layer_of, _resolve_param
 
 __all__ = ["goal_of", "ir_of"]
 
@@ -79,10 +94,18 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
     assembled must not be indistinguishable from one a person drew by hand.
     """
     contracts = _contracts(graph, layers)
+    goal = goal_of(graph, layers)
+    resolver = FlagOnlyResolver()
+    # Built once and threaded, exactly as `resolve()` does it: a premise set is a function of
+    # the goal and the derivations, so building it twice is two chances to build it differently.
+    premises = build_premises(
+        goal=goal, derivations=layers.rules.derivations, measurements=layers.measurements
+    )
     drawn_by_model = bool(by)
     source = ValueSource.MODEL if drawn_by_model else ValueSource.HUMAN
     who = "drawn by a model" if drawn_by_model else "drawn by a person"
 
+    decisions: list = []
     nodes = [
         IRNode(
             id=node.id,
@@ -106,6 +129,34 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         for node in graph.nodes
     ]
 
+    # Settings, through the same ladder `resolve()` uses. A param the person already set in the
+    # builder wins — it is on the `DraftNode` — and everything else is decided here.
+    for ir_node, drawn in zip(nodes, graph.nodes, strict=True):
+        contract = contracts[drawn.id]
+        already = {binding.name for binding in drawn.params}
+        for param in contract.params:
+            if param.name in already:
+                continue
+            ir_node.set_param(
+                param.name,
+                _resolve_param(
+                    node_id=ir_node.id,
+                    param_name=param.name,
+                    roles=contract.roles,
+                    implementation=contract.id,
+                    tier_hint=param.tier_hint,
+                    default=param.default,
+                    because=param.because,
+                    from_layer=_layer_of(layers.registry, contract.id),
+                    goal=goal,
+                    rules=layers.rules,
+                    premises=premises,
+                    resolver=resolver,
+                    backed={},
+                    decisions=decisions,
+                ),
+            )
+
     edges = []
     for edge in graph.edges:
         port = next(
@@ -124,7 +175,6 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
             )
         )
 
-    decisions = []
     for node in graph.nodes:
         override = {"model_override": node.contract_id, "model_override_by": by} if drawn_by_model \
             else {"human_override": node.contract_id}

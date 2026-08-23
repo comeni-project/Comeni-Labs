@@ -11,12 +11,15 @@ not a path: no input here accepts a sample identifier, a filename or a path.
 
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.review.verdict import Verdict
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
+from pydantic import BaseModel, ConfigDict
 
+from mendel_api import identity
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
+from mendel_api.services import drafts as draft_service
 from mendel_api.services import registry
 from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
@@ -109,3 +112,77 @@ def compatibility_index(request: Request, response: Response) -> Compatibility |
         return Response(status_code=304, headers={"ETag": etag})
     response.headers["ETag"] = etag
     return validation.index()
+
+
+class DraftIn(BaseModel):
+    """What a client sends to open or update a draft."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    graph: DraftGraph
+    name: str = ""
+
+
+class DraftOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    graph: DraftGraph
+
+
+class Kept(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    """Where the server wrote it. **Returned, never accepted** — invariant 15 is about what
+    an input may carry, and a server saying where it put something is the opposite direction."""
+
+
+@router.post(
+    "/drafts",
+    operation_id="createDraft",
+    summary="Open a draft",
+    status_code=201,
+    responses=REFUSES,
+)
+def create_draft(body: DraftIn) -> DraftOut:
+    """The id is opaque and server-generated. `routes/build.py`'s own header records why the
+    API cannot take a path, and a draft addressed by one would be that rule undone."""
+    draft_id = draft_service.create(body.graph, body.name, identity.default_author())
+    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+
+
+@router.get("/drafts/{draft_id}", operation_id="readDraft", summary="A draft as it stands")
+def read_draft(draft_id: str) -> DraftOut:
+    try:
+        row = draft_service.read(draft_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+    return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph))
+
+
+@router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a draft")
+def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
+    """One write per save, not per edit. The client owns the working graph and sends it whole —
+    a schema that could hold half a graph would be a second definition of what a graph is."""
+    try:
+        draft_service.update(draft_id, body.graph)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+
+
+@router.post(
+    "/drafts/{draft_id}/keep",
+    operation_id="keepDraft",
+    summary="Stop being a draft: write the pipeline.yml",
+    responses=REFUSES,
+)
+def keep_draft(draft_id: str) -> Kept:
+    """**Where `validate` reports and this refuses.** An illegal finding answers 422 with its
+    code; `mendel explain <code>` expands it, the same as everywhere else."""
+    try:
+        return Kept(path=str(draft_service.keep(draft_id)))
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None

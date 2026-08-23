@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     workspace_root: Path = Path("./workspace")
     registry_root: Path = Path("./registry")
     source_root: Path = Path("./vendor")
+    draft_root: Path = Path("./build/drafts")
+    """Where `keep` writes a draft's `pipeline.yml`.
+
+    **The API never receives this path** — invariant 15, and `routes/build.py` says so. A draft
+    is addressed by an opaque id; this is where the server chooses to put the artifact it
+    writes, which is a different fact from a client naming a file.
+    """
     example_goal: Path = Path("./examples/rnaseq-goal.yml")
     """The goal the builder opens on.
 
