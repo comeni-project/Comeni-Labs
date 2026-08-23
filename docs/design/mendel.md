@@ -88,7 +88,7 @@ below serves it.
 | Component | Role | Depends on | Status |
 |---|---|---|---|
 | **Mendel** | prompt → resolved module graph → Nextflow | nothing | **this spec** |
-| Wiener | dispatch to a laboratory's executor on Azure/AWS, monitor, auto-diagnose failures. **It does not schedule** — [execution-boundary.md](execution-boundary.md) | Mendel output format | later spec |
+| Wiener | **run management** — accept, launch, supervise, retry and observe pipeline runs on local/k8s/AWS. Nextflow schedules the *tasks*; Wiener manages the *runs* — [execution-boundary.md](execution-boundary.md) | Mendel output format | later spec |
 | Nightingale | data analysis / QC agent | Mendel contracts | **parked** |
 | Comeni Code | node-based learning platform; modules become lessons | Mendel registry | separate repo |
 
