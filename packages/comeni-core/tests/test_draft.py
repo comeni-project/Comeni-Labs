@@ -10,10 +10,9 @@ import ast
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
-
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from comeni_core.review.verdict import Finding, Level, Verdict
+from pydantic import ValidationError
 
 
 def test_review_does_not_import_plan():
