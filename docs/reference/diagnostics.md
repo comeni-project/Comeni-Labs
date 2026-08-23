@@ -112,6 +112,12 @@ decline to curate one.
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
 
+## Gates and emission
+
+| Code | Says |
+|---|---|
+| `MI0001` | this draft has no artifact to gate — keep it first |
+
 ## Validating a hand-built graph
 
 | Code | Says |

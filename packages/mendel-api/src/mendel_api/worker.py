@@ -13,6 +13,7 @@ from mendel_forge import ops
 
 from mendel_api.db import session_scope
 from mendel_api.models import SourceCheck
+from mendel_api.services import gates as gate_service
 from mendel_api.settings import settings
 
 
@@ -41,8 +42,19 @@ async def check_sources(ctx: dict) -> dict[str, int]:
     return {"checked": result.checked, "drifted": len(result.drift)}
 
 
+async def run_gate_job(ctx: dict, run_id: str) -> str:
+    """Gate a kept draft. **Not a pipeline run** — `docs/design/execution-boundary.md` §3.
+
+    This is the job this module's docstring was written for and never got: it named a stub gate
+    at up to 900s as the thing that does not belong in a request, and then shipped with
+    `check_sources` alone.
+    """
+    await gate_service.execute(run_id)
+    return run_id
+
+
 class WorkerSettings:
-    functions = [check_sources]
+    functions = [check_sources, run_gate_job]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     cron_jobs = [cron(check_sources, hour=3, minute=0)]
     """03:00 daily, which is what the queue's strip promises when it says *next nightly*.

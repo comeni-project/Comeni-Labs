@@ -519,7 +519,7 @@ git commit -m "feat(api): a row that remembers a gate, and why it is not run his
   - Seams `gates._load_run`, `gates._directory` mirroring `drafts._load` / `drafts._output_root`,
     so the rules can be tested without Postgres.
 
-- [ ] **Step 1: Write the failing test for the rule worth defending in CI**
+- [x] **Step 1: Write the failing test for the rule worth defending in CI**
 
 `packages/mendel-api/tests/test_gate_service.py`. The seams exist for the reason `drafts.py`
 records: these tests need Postgres and CI has none, so the rules most worth defending are
@@ -591,7 +591,7 @@ def _kept(tmp_path):
 `GOAL` and `ROOT` are module constants in `tests/test_pipeline_file.py`; copy those two lines
 too rather than re-deriving the paths.
 
-- [ ] **Step 2: Declare the diagnostic**
+- [x] **Step 2: Declare the diagnostic**
 
 **`MA0001`, and it is the first `MA` code in the repository.** `diagnostics.yml`'s own header
 says `MD` is "Mendel's deterministic core: the three packages that may not reach the network"
@@ -634,12 +634,12 @@ Run `make docs` and confirm `docs/reference/diagnostics.md` regenerates, then
 `uv run pytest tests/test_diagnostics_ownership.py -v` — it checks both directions and the
 prefix scan.
 
-- [ ] **Step 3: Run the tests, verify they fail**
+- [x] **Step 3: Run the tests, verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_gate_service.py -v`
 Expected: FAIL — `No module named 'mendel_api.services.gates'`.
 
-- [ ] **Step 4: Write the service**
+- [x] **Step 4: Write the service**
 
 `packages/mendel-api/src/mendel_api/services/gates.py`:
 
@@ -778,7 +778,7 @@ def read(run_id: str) -> GateView:
         )
 ```
 
-- [ ] **Step 5: Register the job with the worker**
+- [x] **Step 5: Register the job with the worker**
 
 In `worker.py`:
 
@@ -803,12 +803,12 @@ and extend `WorkerSettings.functions`:
     functions = [check_sources, run_gate_job]
 ```
 
-- [ ] **Step 6: Run the tests, verify they pass**
+- [x] **Step 6: Run the tests, verify they pass**
 
 Run: `uv run pytest packages/mendel-api/tests/test_gate_service.py -v`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/gates.py \
