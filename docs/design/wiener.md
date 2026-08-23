@@ -573,9 +573,15 @@ Therefore:
 - **A finished edge may carry its real weight**, because then `write_bytes` and `read_bytes` are
   known. Weighting the graph *after the fact* is how you see that one join moved 40 GB.
 
-Motion is meaning, not decoration — `dashboard.md` already treats it that way, and the product's
-only existing animation is the front door's one settle. A graph where everything pulses says
-nothing; one where only the working edges do is a status display.
+**Motion may be decorative, provided it is not dishonest** — and that is a correction to
+`dashboard.md`'s stricter line, made by the operator on 2026-08-23. An edge that moves because work
+is flowing through it is carrying no number, and it does not have to: it is *true*, it is
+legible at a glance, and a graph that never moves is a screenshot. What is forbidden is motion that
+*implies* a quantity nothing measured.
+
+The discipline that remains is selectivity. A graph where everything pulses says nothing; one where
+only the working edges do is a status display. The product's only other animation is the front
+door's single settle, and that restraint is what makes one moving edge readable.
 
 ### 9.3 The numbers
 
@@ -925,6 +931,17 @@ Named rather than left to be discovered mid-plan.
 - **Artifact retention.** Runs are forever; uploaded artifacts probably are not, and nothing says.
 - **Whether `wiener-core` should own the OTLP *semantic conventions*** or invent `wiener.*`
   attributes. §8 assumes the latter; the former is a research task nobody has done.
+- **The product's visual register — an operator verdict, 2026-08-23.** *"The website until now is
+  very boring and stale, even the graphs are not very visually appealing — but for an MVP it is
+  reasonable."* Recorded rather than absorbed, because the last verdict of this shape (*the forge
+  is really unintuitive and unusable*) became Plan 3D, and it only became a plan because somebody
+  wrote it down. **It is accepted for the MVP and it is not resolved.** Two readings are open and
+  they lead different places: that the restraint in `dashboard.md` is correct and the execution is
+  thin (a craft problem — hierarchy, depth, density contrast, data-ink), or that the restraint
+  itself is wrong for a product people look at for hours (a direction problem). The first is a pass
+  over existing screens; the second is a new design language and a `tokens.css` change, which every
+  screen built so far depends on. **Deciding which costs an afternoon on the canvas and should
+  happen before W2**, since W2 is where the dashboard is designed for real.
 - **The chat panel's own history.** §13 has `/ask` and no transcript store. If a conversation about a
   run is worth keeping, that is a table this document did not argue for.
 
