@@ -19,6 +19,31 @@ Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
 
 ### comeni-core
 
+- **`SCHEMA_VERSION` 4 → 5. This breaks the artifact format**, and `0.2.0` rather than `1.0.0`
+  is a judgement under `docs/guides/releasing.md`'s pre-1.0 paragraph: below 1.0.0 a `0.x.0`
+  may still break something, provided the break is said out loud. This is it being said.
+  A `pipeline.yml` written by this version is refused by an older Mendel (`MD0207`); a v4 file
+  still emits here, which was checked rather than assumed.
+- **A model's override is recorded separately from a person's.** `ParamDecision`,
+  `ProducerDecision` and `SourceDecision` each gain a `model_override`, and `_Decided` gains
+  `model_override_by` naming which model. `human_override` keeps its meaning — `decision.py`
+  calls it *"the one field in the system that is by design a person's answer"*, and a model
+  writing there would make that sentence false and a machine-assembled pipeline
+  indistinguishable from a hand-drawn one. That is audit A130 from the other direction.
+- **`DraftGraph`, `DraftNode`, `DraftEdge`** (`plan/draft.py`) — a graph somebody drew, before
+  anything has been decided about it. Four names per edge; everything else is derived.
+- **`Verdict`, `Finding`, `Level`** (`review/verdict.py`) — what a check reports. It reports at
+  three levels and never refuses; refusal stays with `keep` and the gates.
+- **Nine diagnostics, `MD0501`–`MD0509`**, and a new band `MD0500`–`MD0599` for validating a
+  hand-built graph. `MD0400`–`MD0499` was already allocated to gates and emission.
+
+**Known limit, recorded rather than fixed.** `ParamDecision.model_override` is
+`HumanParamValue`, which includes `None`, so a parameter a model deliberately set to null is
+indistinguishable from one it never touched. Detecting it via `model_fields_set` was tried and
+is worse: after a `model_dump()` round-trip every field is in that set, so it would refuse every
+`pipeline.yml` ever written. The same hole is inherited on `human_override` since A3. What is
+checked is the reverse — an author naming no act.
+
 - **`emitted_by` names the package that raises a code**, and `EmittedBy` gained `core`. Twenty-
   three entries named a package that does not raise them, all of them raised in `comeni-core` —
   the vocabulary had no way to say so. `tests/test_diagnostics_ownership.py` derives the answer
