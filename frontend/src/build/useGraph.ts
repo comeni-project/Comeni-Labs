@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { components } from "../api/schema";
 
-type DraftGraph = components["schemas"]["DraftGraph"];
+/** **`DraftGraph-Input`, not `DraftGraph`.** FastAPI splits a model that appears in both a
+ * request and a response: the input form has the defaulted fields optional, the output form has
+ * them required. What this hook holds is what it SENDS, so the input form is the honest one. */
+type DraftGraph = components["schemas"]["DraftGraph-Input"];
 type DraftEdge = components["schemas"]["DraftEdge"];
 
 export type Offset = { x: number; y: number };

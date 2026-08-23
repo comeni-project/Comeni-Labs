@@ -6,8 +6,15 @@ import type { components } from "../api/schema";
 import { useGraph } from "./useGraph";
 
 type Built = components["schemas"]["BuiltPipeline"];
-type DraftGraph = components["schemas"]["DraftGraph"];
-type Verdict = components["schemas"]["Verdict"];
+/** **`DraftGraph-Input`, not `DraftGraph`.** FastAPI splits a model that appears in both a
+ * request and a response: the input form has the defaulted fields optional, the output form has
+ * them required. What this hook holds is what it SENDS, so the input form is the honest one. */
+type DraftGraph = components["schemas"]["DraftGraph-Input"];
+/** **Namespaced, because three classes are called `Verdict`** — `comeni_core.review.verdict`,
+ * `mendel_forge.verify` and `mendel_forge.drift`. FastAPI disambiguates by module path rather
+ * than picking one, and renaming a core domain type to dodge a generator artifact would be the
+ * tail wagging the dog. */
+type Verdict = components["schemas"]["comeni_core__review__verdict__Verdict"];
 type Comparison = components["schemas"]["Comparison"];
 type AlignedStep = components["schemas"]["AlignedStep"];
 

@@ -177,7 +177,7 @@ describe("the builder is a builder", () => {
     at();
     const tabs = await screen.findByTestId("tab-problems");
     const rail = tabs.parentElement!;
-    const order = [...rail.children].map((c) => c.getAttribute("data-testid"));
+    const order = Array.from(rail.children).map((c) => c.getAttribute("data-testid"));
     expect(order.indexOf("tab-problems")).toBeLessThan(order.indexOf("tab-compare"));
   });
 
