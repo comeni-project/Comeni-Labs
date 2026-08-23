@@ -13,6 +13,8 @@ driving the API cannot run, and then there are two answers to *is this legal*. T
 index in `compatibility.py` is an optimisation *of this verb's answer*, never a second opinion.
 """
 
+from collections import defaultdict
+
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftEdge, DraftGraph
@@ -28,6 +30,8 @@ def validate(graph: DraftGraph, layers: Layers) -> Verdict:
     contracts = _contracts(graph, layers, findings)
     for edge in graph.edges:
         findings.extend(_check_edge(edge, contracts))
+    findings.extend(_check_ports(graph, contracts, layers))
+    findings.extend(_check_cycles(graph))
     return Verdict(findings=findings)
 
 
@@ -209,3 +213,112 @@ def _f(*, code: str, level: Level, edge: DraftEdge, message: str) -> Finding:
         source=f"{edge.from_node}.{edge.from_port}",
         target=f"{edge.to_node}.{edge.to_port}",
     )
+
+
+def _check_ports(
+    graph: DraftGraph, contracts: dict[str, ModuleContract], layers: Layers
+) -> list[Finding]:
+    """Every input either has a wire, or arrives from an entry channel.
+
+    **The second half is not optional.** A type declares its own `entry_channel` — the compiler
+    has no built-in idea what a FASTQ or a GTF is — and `Vocabulary.entry_channels` is that map.
+    An input whose type has one is fed from `params`, not from an upstream step. Plan 3C drew a
+    hollow *unmet* dot on `star_align.gtf` for want of this.
+    """
+    incoming: dict[tuple[str, str], int] = defaultdict(int)
+    for edge in graph.edges:
+        incoming[(edge.to_node, edge.to_port)] += 1
+
+    findings: list[Finding] = []
+    for node in graph.nodes:
+        contract = contracts.get(node.id)
+        if contract is None:
+            continue
+        for port in contract.consumes:
+            count = incoming[(node.id, port.name)]
+            if count == 0:
+                if not _has_entry_channel(port, layers):
+                    findings.append(
+                        Finding(
+                            code="MD0506",
+                            level=Level.UNMET,
+                            message=coded(
+                                "MD0506",
+                                f"{node.id}.{port.name} has no wire and its type declares no "
+                                f"entry channel",
+                            ),
+                            node=node.id,
+                            port=port.name,
+                        )
+                    )
+            elif port.cardinality == "1" and count > 1:
+                findings.append(
+                    Finding(
+                        code="MD0505",
+                        level=Level.ILLEGAL,
+                        message=coded(
+                            "MD0505",
+                            f"{node.id}.{port.name} takes one input and {count} wires reach it",
+                        ),
+                        node=node.id,
+                        port=port.name,
+                    )
+                )
+    return findings
+
+
+def _has_entry_channel(port: InputPort, layers: Layers) -> bool:
+    """Any alternative arriving from `params` satisfies the port."""
+    return any(a.type_id in layers.vocabulary.entry_channels for a in port.alternatives())
+
+
+def _check_cycles(graph: DraftGraph) -> list[Finding]:
+    """Iterative depth-first search, colour-marked.
+
+    Recursive would blow the stack on a graph a person can draw by holding a key down, and the
+    resolver's own cycle exclusion is not available here — `producers_of` excludes the node
+    itself while *searching*, and nothing excludes anything while somebody is drawing.
+    """
+    edges: dict[str, list[str]] = defaultdict(list)
+    for edge in graph.edges:
+        edges[edge.from_node].append(edge.to_node)
+
+    white, grey, black = 0, 1, 2
+    colour: dict[str, int] = {n.id: white for n in graph.nodes}
+    findings: list[Finding] = []
+    reported: set[frozenset[str]] = set()
+
+    for start in sorted(colour):  # sorted: a verdict must be deterministic
+        if colour[start] != white:
+            continue
+        stack: list[tuple[str, int]] = [(start, 0)]
+        path: list[str] = [start]
+        colour[start] = grey
+        while stack:
+            node, position = stack[-1]
+            if position < len(edges[node]):
+                stack[-1] = (node, position + 1)
+                nxt = edges[node][position]
+                if colour.get(nxt, white) == grey:
+                    loop = path[path.index(nxt):] + [nxt]
+                    # Keyed on the SET of nodes, so one cycle reached from two directions is
+                    # one finding rather than two spellings of it.
+                    if frozenset(loop) not in reported:
+                        reported.add(frozenset(loop))
+                        findings.append(
+                            Finding(
+                                code="MD0508",
+                                level=Level.ILLEGAL,
+                                message=coded("MD0508", "cycle: " + " -> ".join(loop)),
+                                node=nxt,
+                            )
+                        )
+                elif colour.get(nxt, white) == white:
+                    colour[nxt] = grey
+                    path.append(nxt)
+                    stack.append((nxt, 0))
+            else:
+                colour[node] = black
+                stack.pop()
+                path.pop()
+    return findings

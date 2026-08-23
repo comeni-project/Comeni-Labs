@@ -2454,3 +2454,34 @@ build-path question that silently went open would be repeating a mistake already
 egress guard above does better because its assertion carries the 69% figure in its own message.
 Written down as the difference between a guard that reports a fact and a guard that reports a
 consequence.
+
+---
+
+## `test_an_input_fed_by_an_entry_channel_is_not_unmet` — 2026-08-23
+
+**Reverted:** `_has_entry_channel(port, layers)` in `mendel_resolver/validate.py::_check_ports`,
+replaced with `if True:` so every unwired input reports `MD0506`.
+
+**What it printed:**
+
+```
+E       AssertionError: ['MD0506: align.reads has no wire and its type declares no entry channel',
+                         'MD0506: align.index has no wire and its type declares no entry channel',
+                         'MD0506: align.gtf has no wire and its type declares no entry channel']
+E       assert 'gtf' not in {'gtf', 'index', 'reads'}
+```
+
+**What it protects.** The half of the unmet check that is not about edges. `star/align.gtf`
+arrives from `params.gtf` and has no incoming wire; a check reading only edges marks it unmet and
+is wrong about every entry channel in the pipeline. **Plan 3C shipped exactly this defect** —
+a hollow *unmet* dot on a satisfied input — and caught it by eye rather than by test, which is
+why this guard exists before the canvas can draw one.
+
+**The message reports a consequence, not just a fact**, which is the standard the egress guard
+set two entries above: it names the three ports, and the two that are legitimately unmet
+(`index`) stay visible beside the one that is not, so the failure shows the *distinction* being
+lost rather than only that a set changed.
+
+**What it does not protect.** That the entry channel is the *right* one — `_has_entry_channel`
+asks only whether the type declares any. A port whose type has an entry channel it should not be
+using is invisible to this, and to `validate` generally.
