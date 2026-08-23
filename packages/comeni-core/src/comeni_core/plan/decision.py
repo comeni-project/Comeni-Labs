@@ -23,7 +23,7 @@ which is the one kind with no domain yet; that is Plan 2 Task 11's job.
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.plan.tiers import Tier
 from comeni_core.review import Answer, Question, ValueSource
@@ -176,6 +176,59 @@ class _Decided(BaseModel):
     resolved_by: ResolverId
     tier: Tier = Tier.AMBIGUOUS
 
+    model_override_by: ResolverId = ""
+    """Which model made the override, when one did. Empty when none did.
+
+    On `_Decided` rather than on each kind because it answers the same question whatever was
+    overridden, and because `resolved_by` — the field it sits beside — is here for the same
+    reason. `ResolverId` is reused rather than a new alias invented: its own docstring already
+    names *"a model adapter's own name"* as one of the things it holds, so the egress allowlist
+    is satisfied without widening it.
+    """
+
+    @model_validator(mode="after")
+    def _one_author(self) -> "_Decided":
+        """A person and a model cannot both have made one choice.
+
+        Written on the base so no kind can forget it. A person changing a model's answer is a
+        human override and the model's answer is history — a decision has one author, and two
+        would mean neither is checkable, which is A130 in miniature.
+
+        `_Decided` declares neither override field — each kind does — so read them off `self`
+        defensively; a subclass without one must not raise here.
+
+        **Presence is `is not None`, and that leaves a hole which is documented rather
+        than faked.** `ParamDecision`'s override type is `HumanParamValue`, which *includes*
+        `None`, so a parameter a model deliberately set to null is indistinguishable here from
+        one it never touched.
+
+        `model_fields_set` was tried and is **worse than the hole**: after a round-trip through
+        `model_dump()` every field is in it, so presence-by-fields-set would refuse every
+        `pipeline.yml` ever written. Measured, not reasoned — see the commit.
+
+        The hole is inherited: `human_override` has had it since A3. What *is* checkable is the
+        reverse — an author naming nothing — and that is checked below, because a record
+        claiming a model decided something while recording no decision is the likelier error and
+        the one that would mislead a reader.
+        """
+        model = getattr(self, "model_override", None)
+        if model is not None and not self.model_override_by:
+            raise ValueError(
+                "model_override without model_override_by: an override with no author is "
+                "indistinguishable from the resolver's own answer"
+            )
+        human = getattr(self, "human_override", None)
+        if model is not None and human is not None:
+            raise ValueError(
+                "both human_override and model_override are set; a choice has one author"
+            )
+        if self.model_override_by and model is None:
+            raise ValueError(
+                f"model_override_by is {self.model_override_by!r} but no model_override is "
+                f"recorded; an author with no act reads as a model decision that never happened"
+            )
+        return self
+
 
 class ParamDecision(_Decided):
     """Which value a parameter takes. The one kind with no declared domain yet."""
@@ -183,6 +236,11 @@ class ParamDecision(_Decided):
     kind: Literal[DecisionKind.PARAM] = DecisionKind.PARAM
     candidates: list[ParamValue] = Field(default_factory=list)
     chosen: ParamValue
+    model_override: HumanParamValue = None
+    """A model's answer, kept distinct from a person's. Same guarded type as `human_override`:
+    the name of that alias is about the path-shaped blocklist (audit A3), not about the author,
+    and a model can emit a path exactly as a person can — if anything more readily."""
+
     human_override: HumanParamValue = None
     """A reviewer's answer, guarded against path-shaped values by a blocklist because a
     parameter has no declared domain to check against. Audit A3, and still a stopgap —
@@ -211,6 +269,7 @@ class ProducerDecision(_Decided):
     candidates: list[ContractId] = Field(default_factory=list)
     chosen: ContractId
     human_override: ContractId | None = None
+    model_override: ContractId | None = None
 
 
 class SourceDecision(_Decided):
@@ -220,6 +279,7 @@ class SourceDecision(_Decided):
     candidates: list[EdgeRef] = Field(default_factory=list)
     chosen: EdgeRef
     human_override: EdgeRef | None = None
+    model_override: EdgeRef | None = None
 
 
 DecisionRecord = Annotated[

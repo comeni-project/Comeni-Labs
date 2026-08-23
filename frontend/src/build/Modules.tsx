@@ -51,7 +51,21 @@ function Card({ module: m, top }: { module: Module; top: number }) {
  * what is already there. Grouped by role because that is the question a person asks — *what
  * aligns reads* — rather than by name.
  */
-export function Modules({ inPipeline }: { inPipeline: Set<string> }) {
+/** The MIME type a dragged module travels under.
+ *
+ * A custom type rather than `text/plain`: the canvas must not accept a paragraph somebody
+ * dragged out of another window and try to add it as a tool.
+ */
+export const MODULE_DND = "application/x-mendel-contract";
+
+export function Modules({
+  inPipeline,
+  onAdd,
+}: {
+  inPipeline: Set<string>;
+  /** Add this contract to the pipeline. Omitted where the list is reference-only. */
+  onAdd?: (contractId: string) => void;
+}) {
   const [hovered, setHovered] = useState<{ module: Module; top: number } | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["modules"],
@@ -78,18 +92,27 @@ export function Modules({ inPipeline }: { inPipeline: Set<string> }) {
               key={module.contract_id}
               data-testid="module-row"
               data-in-pipeline={inPipeline.has(module.contract_id) || undefined}
-              // **Not draggable, and that is the honest state.** It was `draggable` with an
-              // `onDragStart` that set data nothing read — a control that moves under your hand
-              // and does nothing, which is worse than one that is plainly not offered.
+              // **Draggable for real now.** Plan 3C made this `draggable` with an `onDragStart`
+              // that set data nothing read, then removed both — a control that moves under your
+              // hand and does nothing is worse than one plainly not offered. Its note said
+              // "adding a module to a pipeline is not expressible in the engine today", which a
+              // `DraftGraph` makes false: a drawn graph pins whatever you put in it.
               //
-              // Dropping a module here has nowhere to go yet: a `Goal` cannot pin a module, so
-              // "add this to the pipeline" is not expressible in the engine today. That is the
-              // builder-versus-visualiser gap — see the spec.
+              // **Double-click adds too**, because drag-and-drop is the gesture people miss and
+              // a list you can only drag from is a list half the users cannot use.
+              draggable={onAdd !== undefined}
+              onDragStart={(e) => {
+                e.dataTransfer.setData(MODULE_DND, module.contract_id);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              onDoubleClick={() => onAdd?.(module.contract_id)}
+              title={onAdd ? "drag onto the canvas, or double-click to add" : undefined}
               onMouseEnter={(e) =>
                 setHovered({ module, top: e.currentTarget.offsetTop })
               }
-              className="px-4 py-1.5 flex items-baseline gap-2 cursor-default
-                         hover:bg-surface-2 data-[in-pipeline]:font-semibold"
+              className={`px-4 py-1.5 flex items-baseline gap-2 hover:bg-surface-2
+                         data-[in-pipeline]:font-semibold
+                         ${onAdd ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
             >
               <span className="font-data text-body text-ink truncate">{module.tool}</span>
               {inPipeline.has(module.contract_id) && (
@@ -104,8 +127,9 @@ export function Modules({ inPipeline }: { inPipeline: Set<string> }) {
       ))}
       {hovered && <Card module={hovered.module} top={hovered.top} />}
       <p className="px-4 py-3 text-label text-ink-3 m-0">
-        Reference only — placeholder. Adding a module to a pipeline needs a builder, and this
-        canvas shows what the engine resolved rather than something you assemble.
+        {onAdd
+          ? "Drag onto the canvas, or double-click, to add a step."
+          : "Reference only. This canvas shows what the engine resolved."}
       </p>
     </div>
   );

@@ -14,12 +14,23 @@ export function Canvas({
   view,
   onWheel,
   onPointerDown,
+  onPointerMove,
+  onClick,
+  onDragOver,
+  onDrop,
   children,
   footer,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
+  /** Tracked only while a wire is being dragged, so a still canvas costs nothing. */
+  onPointerMove?: (e: React.PointerEvent) => void;
+  /** A click that reached the canvas rather than a node — the caller decides what that means. */
+  onClick?: (e: React.MouseEvent) => void;
+  /** Dropping a module from the palette. Omitted where the canvas is read-only. */
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -31,12 +42,20 @@ export function Canvas({
       data-testid="canvas"
       onWheel={onWheel}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onClick={onClick}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       // **`flex-1 min-h-0`, and both halves matter.** The canvas sits in a flex column under
       // the provenance bar, and everything inside it is absolutely positioned — so without
       // `flex-1` it sizes to its content, which is nothing, and the graph renders into a
       // zero-height box. `min-h-0` because a flex child's default `min-height:auto` refuses to
       // shrink below its content and would push the bar off instead of scrolling.
-      className="relative flex-1 min-h-0 overflow-hidden bg-paper cursor-grab active:cursor-grabbing
+      // **`select-none`.** Dragging a node is a pointer drag over text, and without this the browser
+      // treats it as a selection gesture — every label on the canvas highlights blue as you move
+      // a box, and the highlight survives the drop.
+      className="relative flex-1 min-h-0 overflow-hidden bg-paper select-none
+                 cursor-grab active:cursor-grabbing
                  [background-image:radial-gradient(var(--line)_1px,transparent_1px)]"
       style={{
         backgroundSize: `${GRID * view.k}px ${GRID * view.k}px`,

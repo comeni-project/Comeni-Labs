@@ -19,8 +19,11 @@ from functools import lru_cache
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
+from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.plan.draft import DraftGraph
 from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
+from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
 
 from mendel_api.services import registry
@@ -68,12 +71,31 @@ class Placement(BaseModel):
     height: int
 
 
+class DomainView(BaseModel):
+    """What values a setting accepts, so the card can render the right control.
+
+    `dashboard.md` §5: *parameters with alternatives render as a `<select>`; free values as an
+    input*. Without this the browser cannot tell one from the other and every setting is a text
+    box — including `index_format`, whose two legal values are `bai` and `csi`.
+
+    `None` on a setting means the contract declares no domain, which is legal and is what most
+    contracts say. A param whose legal values genuinely cannot be enumerated — `seq_platform`,
+    deliberately — declares none, and gets a free input.
+    """
+
+    kind: str
+    values: list[str] = []
+    minimum: float | None = None
+    maximum: float | None = None
+
+
 class SettingView(BaseModel):
     """One resolved parameter, as the settings card needs it.
 
-    **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
-    and a box that looks typeable and discards what you type is worse than a value that says it
-    is a record. The design's editable field arrives with somewhere to put the answer.
+    **Editable since Plan 3E.** It was read-only in 3C, and the field was absent rather than
+    disabled on the argument that a box which looks typeable and discards what you type is worse
+    than a value that says it is a record. That was right while nothing persisted an edit;
+    `DraftParam` is now somewhere to put the answer.
     """
 
     name: str
@@ -82,6 +104,14 @@ class SettingView(BaseModel):
     via: str
     tier: int
     reason: str
+    domain: DomainView | None = None
+    """What this setting accepts. `None` means the contract declares no domain — a free input."""
+
+    because: str = ""
+    """The contract author's own note on the default. Distinct from `reason`, which is why THIS
+    pipeline got this value: `because` survives even when a rule or a person overrode it, so a
+    reader can see what the convention was that they departed from."""
+
     axis_reason: str
     """Why this parameter is being decided at all, as distinct from why it got this answer.
     Plan 1.14 split them because one field was answering both, which is how the registry came to
@@ -170,22 +200,67 @@ class BuiltPipeline(BaseModel):
     """Step ids that exited at tier 4. Invariant 6 — flagged always."""
 
 
-def _view(built: orchestrate.Built) -> BuiltPipeline:
-    placed = layout.of(built.ir)
-    by_id = {step.id: step for step in built.pipeline.steps}
+def _param(layers, contract_id: str, name: str):
+    contract = layers.registry.get(contract_id)
+    return next((p for p in contract.params if p.name == name), None)
+
+
+def _domain(layers, contract_id: str, name: str) -> DomainView | None:
+    param = _param(layers, contract_id, name)
+    if param is None or param.domain is None:
+        return None
+    return DomainView(
+        kind=str(param.domain.kind),
+        values=list(param.domain.values),
+        minimum=param.domain.minimum,
+        maximum=param.domain.maximum,
+    )
+
+
+def _because(layers, contract_id: str, name: str) -> str:
+    param = _param(layers, contract_id, name)
+    return param.because if param else ""
+
+
+def _view(ir, pipeline, layers) -> BuiltPipeline:
+    """The IR, laid out, as the canvas reads it.
+
+    **Takes the three parts rather than an `orchestrate.Built`** so a *drawn* graph can render
+    through the same view: `materialise.ir_of` produces a `PipelineIR` and `layout.of` takes one,
+    so a hand-drawn pipeline reaches the existing canvas with no component change at all. That is
+    spec §2's "the same knowledge from a different route" arriving where it is cheapest.
+
+    Layout stays in Python for the reason `CLAUDE.md` gives — the canvas is as deterministic as
+    the emitted `.nf` — so a drawn graph must not be laid out in the browser either.
+    """
+    by_id = {step.id: step for step in pipeline.steps}
+
+    # **The declared ports, not the wired ones.** The canvas spreads its chevrons over every
+    # port a contract declares; layout spread its anchors over the ports that happened to have
+    # wires, so for `featurecounts` — two declared inputs, one wired — the chevron sat at x=77
+    # and the wire ended at x=116. Thirty-nine pixels onto nothing, and only ever right when a
+    # node was fully wired. Found by the operator dragging.
+    declared: dict[str, tuple[list[str], list[str]]] = {}
+    for step in pipeline.steps:
+        contract = layers.registry.get(step.module.contract_id)
+        declared[step.id] = (
+            [port.name for port in contract.consumes],
+            [port.name for port in contract.produces],
+        )
+    placed = layout.of(ir, ports=declared)
     # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
     # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
     # arrives from `params.gtf` — so checking edges alone drew a hollow *unmet* dot on a
     # perfectly satisfied input, on the one encoding that exists to flag real problems. A
     # false alarm on it costs more than the signal is worth.
-    fed = {(edge.to_node, edge.to_port) for edge in built.ir.edges}
-    entered = {channel.type_id for channel in built.pipeline.channels}
+    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
+    entered = {channel.type_id for channel in pipeline.channels}
 
     def ports_of(node_id: str) -> list[PortView]:
         step = by_id.get(node_id)
         if step is None:
             return []
-        contract = built.layers.registry.get(step.module.contract_id)
+        contract = layers.registry.get(step.module.contract_id)
         return [
             PortView(
                 name=port.name,
@@ -215,6 +290,8 @@ def _view(built: orchestrate.Built) -> BuiltPipeline:
                     tier=int(setting.why.tier),
                     reason=setting.why.reason,
                     axis_reason=setting.why.axis_reason,
+                    domain=_domain(layers, by_id[node.id].module.contract_id, setting.name),
+                    because=_because(layers, by_id[node.id].module.contract_id, setting.name),
                 )
                 for setting in (by_id[node.id].settings if node.id in by_id else [])
             ],
@@ -273,17 +350,36 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     """Both halves of the key matter: a changed goal is a different pipeline, and a changed
     registry can resolve the same goal differently. Leaving the digest out is how a cache
     outlives the thing it was computed from."""
-    return _view(
-        orchestrate.build(
-            Goal.model_validate_json(goal_json),
-            registry_root=settings.registry_root,
-            vendor_root=settings.source_root,
-        )
+    built = orchestrate.build(
+        Goal.model_validate_json(goal_json),
+        registry_root=settings.registry_root,
+        vendor_root=settings.source_root,
     )
+    return _view(built.ir, built.pipeline, built.layers)
 
 
 def of(goal: Goal) -> BuiltPipeline:
     return _built(goal.model_dump_json(), str(digest_of_directory(settings.registry_root)))
+
+
+def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:
+    """A hand-drawn graph, laid out, in the shape the canvas already renders.
+
+    **No new view and no new canvas.** `materialise.ir_of` makes a `PipelineIR` and `layout.of`
+    takes one, so the whole of Plan 3C's canvas — nodes, ports, tier rails, the provenance bar —
+    draws a drawn graph without a component changing. The tiers it shows will be honest about
+    what a drawing is: every module choice exits at 4, because a person who picked had a choice.
+
+    Not cached. A draft changes on every save and a cache keyed on its JSON would hold one entry
+    per keystroke-batch, which is a memory leak wearing a cache's clothes.
+    """
+    stack = registry.stack()
+    ir = ir_of(graph, stack, by=by)
+    pipeline = Pipeline.of(
+        ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+        goal=goal_of(graph, stack),
+    )
+    return _view(ir, pipeline, stack)
 
 
 def modules() -> list[ModuleView]:

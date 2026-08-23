@@ -14,6 +14,7 @@
 #   MD0200-MD0299  the pipeline file: a setting, an override, or the format
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
+#   MD0500-MD0599  validating a hand-built graph
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #
@@ -1984,3 +1985,145 @@ MA0007:
     **A transport boundary that lets a third-party exception through reports somebody
     else's error message to our user.** Wrapping it costs the original message nothing:
     it is quoted verbatim after the model id.
+
+MD0501:
+  emitted_by: resolver
+  concern: validation
+  says: "an edge names a port that does not exist on that contract"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    The message names the contract and the port. Check the contract's `consumes` and
+    `produces` — the port name is the emit label, not the semantic type, so `bam` and
+    `alignment.bam` are different things.
+  explanation: |
+    A drawn wire names four things and any of them can be wrong. This is the first check
+    because every later one reads the port it could not find.
+
+MD0502:
+  emitted_by: resolver
+  concern: validation
+  says: "an edge runs the wrong way — an input feeding an output, or an output into an output"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Wires run from a `produces` port to a `consumes` port. Reverse it.
+  explanation: |
+    The resolver cannot produce this error because it only ever draws edges from a producer
+    it searched for. A hand-drawn graph has no such protection, which is the whole difference
+    between searching and checking.
+
+    Checked before the port-exists check, because `samtools/sort` has a `bam` on BOTH sides:
+    a backwards wire there names two ports that both exist and is not a typo.
+
+MD0503:
+  emitted_by: resolver
+  concern: validation
+  says: "the source type does not satisfy what the target port requires"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Either wire a different producer, or check the target's `accepts` list — an alternative
+    declares its own `type_id` and `states` and is a legitimate second answer.
+  explanation: |
+    Type identity is the cheap half. The states are the half that matters, and they are
+    MD0504: `alignment.bam` with no state and `alignment.bam[coordinate_sorted]` are the same
+    type and only one of them can feed featureCounts.
+
+    The two are separate codes because the fixes differ. "Wire a sorter in" repairs one of
+    them and is useless advice for the other.
+
+MD0504:
+  emitted_by: resolver
+  concern: validation
+  says: "the source does not carry every state the target requires"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Insert the step that adds the state. A BAM straight out of an aligner is unsorted;
+    `samtools/sort` is what produces `coordinate_sorted`.
+  explanation: |
+    This is the single most common thing a hand-drawn RNA-seq graph gets wrong, and it is
+    invisible in `meta.yml`: nf-core declares both ports as `type: file, *.bam` and the word
+    "sorted" exists only in the English description. The semantic state overlay is what makes
+    this checkable at all.
+
+MD0505:
+  emitted_by: resolver
+  concern: validation
+  says: "too many wires reach a port that accepts one"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    The message names the port's declared `cardinality`. Remove the extra wires, or wire
+    through a step that collects them.
+  explanation: |
+    Nextflow matches arity, and a channel carrying two things where one is expected does not
+    fail at lint — it fails at run, late, with a message about a null path.
+
+    This is the FIRST reader `InputPort.cardinality` has ever had. The field was declared and
+    nothing consumed it, so no contract's value for it has been checked against reality.
+
+MD0506:
+  emitted_by: resolver
+  concern: validation
+  says: "a required input has no wire and no entry channel"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Wire something into it, or check whether the type declares an `entry_channel` — a genome
+    or an annotation arrives from `params`, not from an upstream step.
+  explanation: |
+    The half of this check that is not about edges. Plan 3C drew a hollow *unmet* dot on
+    `star_align.gtf`, which arrives from `params.gtf` and is perfectly satisfied. A check that
+    reads only edges is wrong about every entry channel in the pipeline.
+
+    Reported at `unmet` rather than `illegal`: a half-drawn graph is a legal thing to be
+    holding. Refusing it is `keep`'s job.
+
+MD0507:
+  emitted_by: resolver
+  concern: validation
+  says: "the edge is legal but not what convention would choose"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Nothing is broken. The message names the state the target prefers and what it got. Keep
+    it deliberately, or wire the preferred producer.
+  explanation: |
+    `InputPort` declares three kinds of requirement — `state_required`,
+    `state_required_conventional`, and `state_preferred` / `prefer`. Only the first is a
+    refusal. Returning a boolean would collapse the other two into silence, and the difference
+    between "illegal" and "not what we would have done" is the difference between a compiler
+    and a colleague.
+
+MD0508:
+  emitted_by: resolver
+  concern: validation
+  says: "the graph contains a cycle"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    The message names the nodes on the cycle in order. Break it.
+  explanation: |
+    Routing forbids cycles by construction — `producers_of` excludes the node itself, which
+    is what stops `SAMTOOLS_SORT` recursing into its own BAM input forever. A hand-drawn graph
+    has no such protection.
+
+MD0509:
+  emitted_by: resolver
+  concern: validation
+  says: "a node names a contract that is not in the registry stack"
+  fires_on: [validate]
+  refuses: false
+  fix: |
+    Check the spelling and the version — a contract id carries `@version` and a draft saved
+    against a different registry stack may name one that is no longer there. `forge check`
+    reports what the registry actually holds.
+  explanation: |
+    Distinct from MD0501, which is about a *port* on a contract that was found. This one is
+    reported once per node rather than once per edge touching it: a draft naming a contract
+    that has been renamed would otherwise print the same failure four times and bury it.
+
+    It is `illegal` rather than `unmet` because nothing about the node can be checked — every
+    later check reads a contract this one could not load.

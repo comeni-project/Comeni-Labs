@@ -51,6 +51,7 @@ services:
       MENDEL_SOURCE_ROOT: /app/vendor
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
+      MENDEL_DRAFT_ROOT: /app/drafts
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
       - ./packages:/app/packages
@@ -85,6 +86,7 @@ services:
       MENDEL_SOURCE_ROOT: /app/vendor
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
+      MENDEL_DRAFT_ROOT: /app/drafts
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry

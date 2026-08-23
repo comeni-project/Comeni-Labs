@@ -2454,3 +2454,76 @@ build-path question that silently went open would be repeating a mistake already
 egress guard above does better because its assertion carries the 69% figure in its own message.
 Written down as the difference between a guard that reports a fact and a guard that reports a
 consequence.
+
+---
+
+## `test_an_input_fed_by_an_entry_channel_is_not_unmet` — 2026-08-23
+
+**Reverted:** `_has_entry_channel(port, layers)` in `mendel_resolver/validate.py::_check_ports`,
+replaced with `if True:` so every unwired input reports `MD0506`.
+
+**What it printed:**
+
+```
+E       AssertionError: ['MD0506: align.reads has no wire and its type declares no entry channel',
+                         'MD0506: align.index has no wire and its type declares no entry channel',
+                         'MD0506: align.gtf has no wire and its type declares no entry channel']
+E       assert 'gtf' not in {'gtf', 'index', 'reads'}
+```
+
+**What it protects.** The half of the unmet check that is not about edges. `star/align.gtf`
+arrives from `params.gtf` and has no incoming wire; a check reading only edges marks it unmet and
+is wrong about every entry channel in the pipeline. **Plan 3C shipped exactly this defect** —
+a hollow *unmet* dot on a satisfied input — and caught it by eye rather than by test, which is
+why this guard exists before the canvas can draw one.
+
+**The message reports a consequence, not just a fact**, which is the standard the egress guard
+set two entries above: it names the three ports, and the two that are legitimately unmet
+(`index`) stay visible beside the one that is not, so the failure shows the *distinction* being
+lost rather than only that a set changed.
+
+**What it does not protect.** That the entry channel is the *right* one — `_has_entry_channel`
+asks only whether the type declares any. A port whose type has an entry channel it should not be
+using is invisible to this, and to `validate` generally.
+
+---
+
+## The frontend typecheck was inert — 2026-08-23
+
+**Not a revert. A guard that never held, found by a Docker build refusing what it had passed.**
+
+`.github/workflows/ci.yml` ran `npx tsc --noEmit` in `frontend/`. `frontend/tsconfig.json` is:
+
+```json
+{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }
+```
+
+With `"files": []` and no project flag, `tsc --noEmit` type-checks **nothing** and exits 0.
+
+**Watched failing.** A one-line file was added:
+
+```ts
+export const broken: number = "this is definitely not a number";
+```
+
+```
+$ npx tsc --noEmit     # what CI ran
+exit: 0
+$ npx tsc -b           # what the Docker build runs
+src/build/__inert.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+**What it did not protect.** Everything. Three real type errors reached a Docker build during Plan
+3E while this lane was green — a model split into `DraftGraph-Input`/`-Output` by FastAPI, a
+`Verdict` namespaced because three classes share the name, and an `HTMLCollection` spread that
+the build's lib does not allow.
+
+**How it was hidden.** `npm run build` is `tsc -b && vite build`, so the *real* check existed and
+ran — in the image build, which neither `make check` nor the CI frontend lane invokes. The lane
+looked like a typecheck, was named like one, and cost eight seconds of nothing.
+
+**The generalisable part**, which is why this is in the ledger rather than only in a commit: a
+guard invoking a tool with the wrong arguments reports success rather than an error, so it is
+**invisible to the very failure it exists to catch**. `test_the_scan_reached_the_sources` in
+`test_diagnostics_ownership.py` is the pattern that would have caught it — a guard asserting that
+it looked at something before asserting what it found.

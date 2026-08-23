@@ -60,7 +60,7 @@ from comeni_core.spell.marks import (
 )
 from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 """What this Mendel writes and the highest it will read.
 
 The rule was "bumped only by a change that an older Mendel would misread — a section it would

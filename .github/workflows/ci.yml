@@ -107,7 +107,11 @@ jobs:
         run: npm ci
       - name: Types
         working-directory: frontend
-        run: npx tsc --noEmit
+        # **`tsc -b`, not `tsc --noEmit`.** `tsconfig.json` has `"files": []` and only
+        # references the two project configs, so `--noEmit` type-checks NOTHING and exits 0
+        # unconditionally — a file assigning a string to a `number` passed this lane. Watched
+        # failing on 2026-08-23 and recorded in notes/audits/guard-ledger.md.
+        run: npx tsc -b
       - name: Tests
         working-directory: frontend
         run: npx vitest run

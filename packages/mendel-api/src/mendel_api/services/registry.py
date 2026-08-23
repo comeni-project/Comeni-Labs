@@ -37,5 +37,15 @@ def _load(digest: str) -> Layers:
     return layers.load(settings.registry_root)
 
 
+def digest() -> str:
+    """The cache key, borrowed as an ETag.
+
+    The same string that decides whether `_load` reloads decides whether a client's copy is
+    stale — one definition of "the registry changed", not two. It costs 4.6ms per call, which
+    the performance audit measured and which is the real per-request floor.
+    """
+    return str(digest_of_directory(settings.registry_root))
+
+
 def stack() -> Layers:
-    return _load(str(digest_of_directory(settings.registry_root)))
+    return _load(digest())

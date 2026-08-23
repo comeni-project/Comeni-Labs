@@ -6,9 +6,36 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeClient } from "../app/queryClient";
 import { routes } from "../app/router";
 
+/** **The screen now edits a GRAPH**, so the fixture needs steps rather than only a layout.
+ *
+ * Plan 3C's canvas took a resolved pipeline and drew it; a builder takes a graph you drew and
+ * asks the server to lay it out. An empty fixture used to be enough because nothing depended on
+ * there being a graph — now an empty one legitimately renders a blank canvas, which is where a
+ * builder starts and is not what these tests are about.
+ */
 const PIPELINE = {
-  steps: [],
-  layout: { nodes: [], wires: [], width: 401, height: 462 },
+  steps: [
+    { id: "star_align", contract_id: "nf-core/star/align@1.11.0", process: "STAR_ALIGN",
+      tier: 4, reason: "", ports: [], settings: [] },
+    { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.21.0", process: "SAMTOOLS_SORT",
+      tier: 4, reason: "", ports: [], settings: [] },
+  ],
+  layout: {
+    nodes: [
+      { id: "star_align", rank: 0, order: 0, x: 0, y: 0, width: 180, height: 64, tier: 4 },
+      { id: "samtools_sort", rank: 1, order: 0, x: 0, y: 128, width: 180, height: 64, tier: 4 },
+    ],
+    wires: [
+      // `points` must be a real elbow: `Wires.d()` reads points[0] and the last one, so an
+      // empty list throws inside the render rather than drawing nothing.
+      { from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam",
+        type_id: "alignment.bam",
+        points: [{ x: 90, y: 64 }, { x: 90, y: 96 }, { x: 90, y: 128 }],
+        label_at: { x: 90, y: 96 } },
+    ],
+    width: 401,
+    height: 462,
+  },
   provenance: { "2": 4, "3": 1 },
   settled_share: 0.8,
   needs_review: [],
@@ -132,5 +159,113 @@ describe("the builder shell", () => {
     at();
     await screen.findByTestId("canvas");
     expect(screen.queryAllByTestId("node")).toHaveLength(0);
+  });
+});
+
+describe("the builder is a builder", () => {
+  it("offers problems and compare beside the review rail", async () => {
+    // Plan 3C shipped a visualiser: a goal in, the resolver searches, nothing on the canvas can
+    // be changed. These three tabs are the difference — what is wrong with what YOU drew, and
+    // what Mendel would have done instead.
+    at();
+    expect(await screen.findByTestId("tab-problems")).toBeInTheDocument();
+    expect(screen.getByTestId("tab-compare")).toBeInTheDocument();
+    expect(screen.getByTestId("tab-review")).toBeInTheDocument();
+  });
+
+  it("problems comes before compare, because an illegal graph is not worth diffing", async () => {
+    at();
+    const tabs = await screen.findByTestId("tab-problems");
+    const rail = tabs.parentElement!;
+    const order = Array.from(rail.children).map((c) => c.getAttribute("data-testid"));
+    expect(order.indexOf("tab-problems")).toBeLessThan(order.indexOf("tab-compare"));
+  });
+
+  it("does not render a diff until one is asked for", async () => {
+    // `compare` runs a full resolve. It is a button, not a reaction — and an empty table would
+    // read as "you and Mendel agree", which is a claim nothing has checked.
+    at();
+    fireEvent.click(await screen.findByTestId("tab-compare"));
+    expect(screen.getByTestId("compare-idle")).toBeInTheDocument();
+    expect(screen.getByTestId("run-compare")).toBeInTheDocument();
+  });
+});
+
+describe("interacting without the server in the way", () => {
+  it("right-click opens a menu with delete on it", async () => {
+    at();
+    const node = (await screen.findAllByTestId("node"))[0];
+    fireEvent.contextMenu(node);
+    expect(screen.getByTestId("node-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-delete")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-settings")).toBeInTheDocument();
+  });
+
+  it("clicking anywhere dismisses the menu", async () => {
+    at();
+    fireEvent.contextMenu((await screen.findAllByTestId("node"))[0]);
+    fireEvent.click(screen.getByTestId("menu-catcher"));
+    expect(screen.queryByTestId("node-menu")).toBeNull();
+  });
+
+  it("deleting from the menu removes the step", async () => {
+    at();
+    const before = (await screen.findAllByTestId("node")).length;
+    fireEvent.contextMenu((await screen.findAllByTestId("node"))[0]);
+    fireEvent.click(screen.getByTestId("menu-delete"));
+    await waitFor(() =>
+      expect(screen.getAllByTestId("node").length).toBe(before - 1),
+    );
+  });
+
+  it("Delete removes the selected step", async () => {
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => expect(screen.getAllByTestId("node").length).toBe(nodes.length - 1));
+  });
+
+  it("Delete does nothing while a field has focus", async () => {
+    // Or typing a value into the settings card would delete the step you are configuring.
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    field.focus();
+    fireEvent.keyDown(field, { key: "Delete" });
+    expect(screen.getAllByTestId("node").length).toBe(nodes.length);
+    field.remove();
+  });
+
+  it("does not let a drag select the text it passes over", async () => {
+    // A pointer drag over labels is a selection gesture to the browser: every label highlights
+    // blue as the box moves, and the highlight survives the drop.
+    at();
+    await screen.findAllByTestId("node");
+    expect(screen.getByTestId("canvas").className).toContain("select-none");
+  });
+});
+
+describe("selection", () => {
+  it("clicking empty canvas clears the selection", async () => {
+    // A selection you cannot clear means the rail keeps showing a step you have stopped caring
+    // about — and Delete stays armed on it.
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.click(screen.getByTestId("canvas"));
+    // Nothing is selected, so Delete must now do nothing.
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(screen.getAllByTestId("node").length).toBe(nodes.length);
+  });
+
+  it("clicking a node does not clear it", async () => {
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => expect(screen.getAllByTestId("node").length).toBe(nodes.length - 1));
   });
 });

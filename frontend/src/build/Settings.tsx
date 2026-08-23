@@ -24,7 +24,67 @@ const EDGE: Record<number, string> = {
   4: "border-l-[var(--undecided)]",
 };
 
-function Row({ setting }: { setting: Setting }) {
+/** The control a setting's declared domain asks for.
+ *
+ * `dashboard.md` §5: *parameters with alternatives render as a `<select>`; free values as an
+ * input*. The domain comes from the contract — `enum` lists its values, `boolean` is two, and a
+ * param that declares none gets a text box because its legal values genuinely cannot be
+ * enumerated. `seq_platform` is the deliberate example: the list of sequencing platforms is open.
+ */
+function Field({
+  setting,
+  onSet,
+}: {
+  setting: Setting;
+  onSet: (value: string | null) => void;
+}) {
+  const kind = setting.domain?.kind;
+  const shared =
+    "ml-auto font-data text-body rounded-r border px-2 py-0.5 bg-bg text-ink " +
+    (setting.tier === 4 ? "border-[var(--undecided)]" : "border-line");
+
+  if (kind === "enum" || kind === "boolean") {
+    const options = kind === "boolean" ? ["true", "false"] : setting.domain!.values;
+    return (
+      <select
+        data-testid="setting-field"
+        className={shared}
+        value={setting.value ?? ""}
+        onChange={(e) => onSet(e.target.value === "" ? null : e.target.value)}
+      >
+        {/* An undecided setting has no value, and the blank option is how you can see that
+            rather than being shown someone else's first alternative as if it were an answer. */}
+        <option value="">—</option>
+        {options.map((v) => (
+          <option key={v} value={v}>
+            {v}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      data-testid="setting-field"
+      className={shared + " w-40"}
+      type={kind === "integer" || kind === "number" ? "number" : "text"}
+      min={setting.domain?.minimum ?? undefined}
+      max={setting.domain?.maximum ?? undefined}
+      value={setting.value ?? ""}
+      placeholder="—"
+      onChange={(e) => onSet(e.target.value === "" ? null : e.target.value)}
+    />
+  );
+}
+
+function Row({
+  setting,
+  onSet,
+}: {
+  setting: Setting;
+  onSet?: (name: string, value: string | null) => void;
+}) {
   return (
     <div
       data-testid="setting"
@@ -33,20 +93,32 @@ function Row({ setting }: { setting: Setting }) {
     >
       <div className="flex items-baseline gap-3">
         <span className="font-data text-body text-ink">{setting.name}</span>
-        <span
-          className="ml-auto font-data text-body text-ink-2
-                     data-[none]:text-ink-3"
-          data-none={setting.value === null || undefined}
-        >
-          {/* **An absence, not an empty box.** A tier-4 setting has no value because nobody has
-              decided one; rendering `""` would read as *decided, to nothing*. */}
-          {setting.value ?? "—"}
-        </span>
+        {onSet ? (
+          <Field setting={setting} onSet={(v) => onSet(setting.name, v)} />
+        ) : (
+          <span
+            className="ml-auto font-data text-body text-ink-2
+                       data-[none]:text-ink-3"
+            data-none={setting.value === null || undefined}
+          >
+            {/* **An absence, not an empty box.** A tier-4 setting has no value because nobody
+                has decided one; rendering `""` would read as *decided, to nothing*. */}
+            {setting.value ?? "—"}
+          </span>
+        )}
       </div>
       {setting.axis_reason && (
         <div className="text-secondary text-ink-3 mt-1">{setting.axis_reason}</div>
       )}
       <div className="text-secondary text-ink-2 mt-1">{setting.reason}</div>
+      {/* **The convention you departed from, kept visible.** `reason` becomes *your* reason
+          the moment you type a value; `because` is the contract author's note on the default
+          and survives the override, so the thing you overrode is still readable. */}
+      {setting.because && setting.because !== setting.reason && (
+        <div data-testid="setting-because" className="text-secondary text-ink-3 mt-1 italic">
+          {setting.because}
+        </div>
+      )}
       <div className="text-label text-ink-3 mt-1 font-data">via {setting.via}</div>
     </div>
   );
@@ -59,7 +131,16 @@ function Row({ setting }: { setting: Setting }) {
  * type is worse than a value that admits it is a record. It becomes editable when there is
  * somewhere to put the answer — which is the same reason a dragged node does not stay dragged.
  */
-export function Settings({ step, onClose }: { step: Step; onClose: () => void }) {
+export function Settings({
+  step,
+  onClose,
+  onSet,
+}: {
+  step: Step;
+  onClose: () => void;
+  /** Set a parameter on this step. Omitted where the card is a record rather than a control. */
+  onSet?: (name: string, value: string | null) => void;
+}) {
   const words = useTiers();
   const groups = GROUP_ORDER.map((tier) => ({
     tier,
@@ -93,7 +174,7 @@ export function Settings({ step, onClose }: { step: Step; onClose: () => void })
           </summary>
           <div className="mt-2 flex flex-col gap-1">
             {group.rows.map((setting) => (
-              <Row key={setting.name} setting={setting} />
+              <Row key={setting.name} setting={setting} onSet={onSet} />
             ))}
           </div>
         </details>
@@ -101,7 +182,9 @@ export function Settings({ step, onClose }: { step: Step; onClose: () => void })
 
       <p className="text-label text-ink-3 mt-4 mb-0">
         {/* Said on the screen, not only in a docstring. */}
-        Read-only until a pipeline has somewhere to be saved.
+        {onSet
+          ? "A value you set exits at tier 4 and is recorded as yours — see the review rail."
+          : "Read-only: this pipeline is a record rather than a draft."}
       </p>
     </div>
   );

@@ -32,9 +32,14 @@ export function Node({
   dim = false,
   selected,
   onSelect,
+  onContextMenu,
   onOpenSettings,
   offset,
   onDrag,
+  dragging,
+  onStartWire,
+  onFinishWire,
+  verdictFor,
 }: {
   placed: Placed;
   step: Step | undefined;
@@ -42,9 +47,21 @@ export function Node({
   dim?: boolean;
   selected: boolean;
   onSelect: () => void;
+  /** Right-click. The canvas opens a menu; a read-only canvas passes nothing and the browser's
+   *  own menu is left alone. */
+  onContextMenu?: (e: React.MouseEvent) => void;
   onOpenSettings?: () => void;
+  /** Where this node is, absolutely. The client owns it; the server's layout seeded it. */
   offset: { x: number; y: number };
   onDrag: (by: { x: number; y: number }) => void;
+  /** Which output a wire is being dragged from, anywhere on the canvas. `null` most of the
+   *  time, and when it is null every port renders exactly as it did before this existed. */
+  dragging?: { node: string; port: string } | null;
+  onStartWire?: (port: string) => void;
+  onFinishWire?: (port: string) => void;
+  /** How an input port should look during someone else's drag. A lookup into the server's
+   *  compatibility index — never a decision made here. */
+  verdictFor?: (port: string) => "yes" | "conventional-no" | "no" | undefined;
 }) {
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -75,10 +92,15 @@ export function Node({
       data-selected={selected || undefined}
       data-dim={dim || undefined}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
       onClick={onSelect}
       style={{
-        left: `${Math.round(placed.x + offset.x)}px`,
-        top: `${Math.round(placed.y + offset.y)}px`,
+        // **Absolute, from the client's own position.** It was `placed.x + offset.x` — the
+        // server's coordinate plus a drag delta — which meant a node the server had not laid
+        // out yet had nowhere to be, so an added step could not appear until a round trip came
+        // back. `useGraph` seeds from the server once and owns the position after that.
+        left: `${Math.round(offset.x)}px`,
+        top: `${Math.round(offset.y)}px`,
         width: placed.width,
       }}
       className="absolute flex rounded-r border border-line-2 border-l-0 bg-surface
@@ -93,6 +115,12 @@ export function Node({
         const ports = (step?.ports ?? []).filter((port) => port.side === side);
         return ports.map((port, i) => (
           <Port
+            verdict={
+              // A port only colours during a drag, and never the one being dragged FROM.
+              dragging && port.side === "in" ? verdictFor?.(port.name) : undefined
+            }
+            onStartWire={port.side === "out" ? () => onStartWire?.(port.name) : undefined}
+            onFinishWire={port.side === "in" ? () => onFinishWire?.(port.name) : undefined}
             key={`${side}.${port.name}`}
             port={port}
             x={portX(placed.width, ports.length, i)}

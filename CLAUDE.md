@@ -35,7 +35,7 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 **Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
 done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is COMPLETE as of 2026-08-19**, all nine phases, on the
-branch `plan-3-slice-1`, which is **not merged**. `make dev` brings the whole thing up: Postgres,
+branch `plan-3-slice-1`, **merged into `main` on 2026-08-19**. `make dev` brings the whole thing up: Postgres,
 Redis, the API, the ARQ worker and nginx serving the built SPA, with Vite on the host for HMR. **Phase 7 was
 responsiveness and it did not exist until an audit created it** — every registry-touching screen
 cost ~250ms warm and one function was responsible
@@ -44,7 +44,7 @@ A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s
 suite is 41s where it was 207s — with the emitted pipeline byte-identical.
 
 **Plan 3B is COMPLETE as of 2026-08-19**, on `plan-3b-landing`, branched from `plan-3-slice-1`
-and also unmerged. `/` is a landing page rather than the redirect phase 0 left there, behind one
+and **also merged**. `/` is a landing page rather than the redirect phase 0 left there, behind one
 endpoint, `GET /api/attention`. **The page counts and links and never renders an item**, and that
 is not a style note — `docs/design/forge-review.md` §3 records an Overview page *designed and
 cut* for answering the same question as the Queue, so the moment a contract id or a question
@@ -52,7 +52,7 @@ subject appears on the front door it has become the page that was cut. A test ho
 signature element reuses `dashboard.md` §1 rather than inventing anything: certainty is drawn as
 stroke, the same language the canvas will use, so `tokens.css` did not change.
 **Plan 3D is COMPLETE as of 2026-08-19**, on `plan-3d-forge`, branched from `plan-3b-landing`
-and also unmerged. It followed the operator's verdict that the forge was *unusable*, and the
+and **also merged**. It followed the operator's verdict that the forge was *unusable*, and the
 spec was written after **walking the loop as a user** rather than reading the code — which found
 that it was **not a looks problem**. `forge draft` opens seven `type_id` holes per tool and each
 offered the whole twenty-two-type vocabulary *alphabetically*: measured against the 30 ports of
@@ -66,17 +66,40 @@ it lists anything. **Eight words the interface used without defining now have de
 ([`docs/reference/glossary.md`](docs/reference/glossary.md), `?` from anywhere).
 
 **Plan 3C is COMPLETE as of 2026-08-19**, on `plan-3c-builder`, and it built a **visualiser
-rather than a builder** — which is the handoff. `/build` shows a pipeline the resolver already
+rather than a builder**. `/build` shows a pipeline the resolver already
 produced: DAG layout computed in Python so the canvas is as deterministic as the emitted `.nf`,
 ports, tier rails, a provenance bar answering *how much was settled without judgement*, and a
-settings card. **Nothing on it can be changed.** The operator's reframing is that it must be a
-Galaxy-style builder — you assemble, it checks you, and it also shows what the resolver would do —
-and `notes/specs/2026-08-19-the-builder-is-a-builder.md` is that spec, **NOT VERIFIED**. The
-insight worth carrying: it is *the same knowledge from a different route*, so nothing new needs
-declaring. **The entire forge also needs testing and general rework**; see the 3C journal.
+settings card. **Nothing on it could be changed**, and the operator's reframing was that it must
+be a Galaxy-style builder — you assemble, it checks you, and it also shows what the resolver
+would do.
 
-**3C was the Mendel builder**, and it is what the landing page's argument depends on: if
-3C's half turns out to be a second queue, that page should be cut the way the Overview was.
+**Plan 3E did that, and it is COMPLETE as of 2026-08-23**, on `plan-3e-builder`.
+`validate(graph, layers) -> Verdict` is a pure resolver verb with nine `MD0500` diagnostics; a
+**compatibility index** lets the browser colour a wire mid-drag *without a second implementation
+of the rule*, held to the verb by a test over every port pair in the registry; drafts live in
+Postgres under an opaque id, because `routes/build.py` records that the API may not accept a
+path; and `compare` puts your graph beside the resolver's with **the resolver's own reason** for
+every difference.
+
+**A hand-drawn graph now emits real Nextflow.** Against `mendel build` on the same registry the
+process sets differ by exactly one include — `TRIMGALORE`, which the resolver adds because
+`star/align.reads` declares `state_required_conventional: [trimmed]`. That is the correct answer,
+and it is what `compare` reports as `mendel-only`.
+
+**Three things had to be built that the spec assumed existed**, each found by a guard refusing
+the file the previous fix had just written: `Pipeline.of` needs an IR *and a `Goal`*, so
+`mendel_resolver/materialise.py` derives one from the graph — entry channels are what you have,
+terminal outputs are what you want; `MD0210` wanted the vendored modules beside the artifact; and
+`MD0224` wanted settings, which now run the resolver's own `_resolve_param`, so a drawn node and
+a resolved one come out at the same tiers with the same premises.
+
+**A model's override is recorded separately from a person's** — `model_override` and
+`model_override_by` on all three decision kinds, `SCHEMA_VERSION` 4→5, `comeni-core` 0.2.0.
+`human_override` keeps its meaning, because a pipeline an agent assembled must not read as one a
+person drew by hand. That is A130 arriving from the other direction.
+
+**The entire forge still needs testing and general rework**, and the operator is rethinking its
+design (2026-08-23). Nothing in 3E touches `mendel-forge`.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.

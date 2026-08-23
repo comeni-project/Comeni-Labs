@@ -31,6 +31,16 @@ def _spine(layer: pathlib.Path):
     return build
 
 
+@pytest.fixture(scope="session")
+def stack():
+    """The shipped registry, loaded once.
+
+    `session` rather than `module` because `layers.load` is the 244ms function the performance
+    audit found (A132) and three validate test files share this.
+    """
+    return layers.load(EXAMPLES)
+
+
 @pytest.fixture
 def spine():
     return _spine(EXAMPLES)

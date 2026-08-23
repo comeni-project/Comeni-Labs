@@ -25,9 +25,14 @@ kind of object entirely. None of these are defaults chosen here; changing one me
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from comeni_core.plan.ir import PipelineIR
+
+Ports = Mapping[str, tuple[list[str], list[str]]]
+"""A node id to its **declared** input and output port names, in the order the canvas draws
+them. Supplied by a caller that has the contracts; the IR itself only knows what a wire uses."""
 
 NODE_W = 232
 """`NW` in `dashboard.html`. The node is a fixed width so a rank is a predictable pitch."""
@@ -128,13 +133,27 @@ def _ranks(ir: PipelineIR) -> dict[str, int]:
     return rank
 
 
-def _order(ir: PipelineIR, rank: dict[str, int]) -> dict[str, int]:
-    """Position within a rank, by the median of what feeds each node.
+def _order(
+    ir: PipelineIR, rank: dict[str, int], ins: dict[str, list[str]] | None = None
+) -> dict[str, int]:
+    """Position within a rank: the median of what feeds each node, **and of the ports it feeds.**
 
-    **Two passes of the median heuristic, and saying so is the point.** It is enough for a
-    pipeline — the spine is a chain with one convergence — and it is not a crossing-minimisation
-    algorithm. If a graph ever arrives where it is visibly wrong, the honest fix is a real
-    ordering pass, not more passes of this one.
+    **The upward pass is new, and it is the fix the old docstring asked for.** That docstring
+    said this was two passes of a median heuristic, was not a crossing-minimisation algorithm,
+    and that *"if a graph ever arrives where it is visibly wrong, the honest fix is a real
+    ordering pass"*. The shipped spine is that graph:
+
+    `star_align` declares `reads`, `index`, `gtf`, so its chevrons sit left to right in that
+    order. Both its producers are roots, nothing feeds them, so the downward pass had no opinion
+    and they sorted by id — `star_genomegenerate` before `trimgalore`. Genomegenerate feeds
+    `index` (middle) and trimgalore feeds `reads` (left), so the two wires crossed on every
+    render of the canonical pipeline.
+
+    So a rank is now also ordered by **where its consumers' ports are**: a node feeding a
+    left-hand port belongs on the left. Downward and upward passes alternate, which is the
+    ordinary Sugiyama arrangement — this is still not a general crossing minimiser, and the
+    honest claim is that it now handles a fan-in whose consumer declares its ports in an order
+    the producers do not happen to match.
 
     Ties break on node id so the result is total: two nodes with the same median must still land
     in the same order on every machine, which is what makes the golden comparison possible.
@@ -146,17 +165,44 @@ def _order(ir: PipelineIR, rank: dict[str, int]) -> dict[str, int]:
         ids.sort()
 
     incoming: dict[str, list[str]] = defaultdict(list)
+    outgoing: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for edge in ir.edges:
         incoming[edge.to_node].append(edge.from_node)
+        outgoing[edge.from_node].append((edge.to_node, edge.to_port))
+
+    def port_slot(consumer: str, port: str) -> float:
+        """Where this port sits along its node's edge, as a fraction. Falls back to the middle
+        for a port the declared list does not carry — `validate` reports that as MD0501."""
+        names = (ins or {}).get(consumer)
+        if not names or port not in names:
+            return 0.5
+        return (names.index(port) + 1) / (len(names) + 1)
 
     position = {nid: i for ids in by_rank.values() for i, nid in enumerate(ids)}
+    depths = sorted(by_rank)
     for _ in range(2):
-        for depth in sorted(by_rank)[1:]:
+        # Downward: a node sits under what feeds it.
+        for depth in depths[1:]:
+
             def median(nid: str) -> tuple[float, str]:
                 feeders = sorted(position[p] for p in incoming[nid])
                 return ((feeders[len(feeders) // 2] if feeders else 0.0), nid)
 
             by_rank[depth].sort(key=median)
+            for i, nid in enumerate(by_rank[depth]):
+                position[nid] = i
+
+        # Upward: a node sits over the ports it feeds. **This is the pass that was missing.**
+        for depth in reversed(depths[:-1]):
+
+            def by_port(nid: str) -> tuple[float, str]:
+                targets = sorted(
+                    position[consumer] + port_slot(consumer, port)
+                    for consumer, port in outgoing[nid]
+                )
+                return ((targets[len(targets) // 2] if targets else 0.0), nid)
+
+            by_rank[depth].sort(key=by_port)
             for i, nid in enumerate(by_rank[depth]):
                 position[nid] = i
     return position
@@ -223,11 +269,51 @@ def _x_of(ir: PipelineIR, rank: dict[str, int], order: dict[str, int]) -> dict[s
     return {nid: value - shift for nid, value in x.items()}
 
 
-def _height(ir: PipelineIR, node_id: str) -> int:
-    """Tall enough for its ports, so a rank of wide-fanned nodes cannot overlap the next."""
-    ins = sum(1 for e in ir.edges if e.to_node == node_id)
-    outs = sum(1 for e in ir.edges if e.from_node == node_id)
+def _height(counts: tuple[int, int]) -> int:
+    """Tall enough for its ports, so a rank of wide-fanned nodes cannot overlap the next.
+
+    **Counts DECLARED ports, not wired ones.** It counted edges, so a node with three declared
+    inputs and one wire was sized for one port row and the other two chevrons sat on top of the
+    node's own text.
+    """
+    ins, outs = counts
     return max(MIN_H, HEAD_H + max(ins, outs, 1) * PORT_ROW)
+
+
+def _declared(
+    ir: PipelineIR, ports: Ports | None
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Every node's input and output port names, in the order the canvas draws them.
+
+    **Given by the caller when it can be**, because the IR does not know what a contract
+    declares — only what a wire happens to use. Falling back to the wired ports is what this
+    module did unconditionally, and it is why a wire landed 39 pixels from its chevron: the
+    canvas spreads `portX(count, i)` over the DECLARED ports and layout spread it over the
+    wired ones, so the two agreed only when every declared port had a wire.
+
+    The fallback survives for callers that have no registry to hand — the golden layout test
+    among them — and it is correct whenever the graph is fully wired.
+    """
+    if ports is not None:
+        return (
+            {node: list(inputs) for node, (inputs, _) in ports.items()},
+            {node: list(outputs) for node, (_, outputs) in ports.items()},
+        )
+    ins: dict[str, list[str]] = defaultdict(list)
+    outs: dict[str, list[str]] = defaultdict(list)
+    for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
+        if edge.from_port not in outs[edge.from_node]:
+            outs[edge.from_node].append(edge.from_port)
+        if edge.to_port not in ins[edge.to_node]:
+            ins[edge.to_node].append(edge.to_port)
+    return ins, outs
+
+
+def _anchor(ports: list[str], name: str, width: int) -> int:
+    """Where a wire meets a node, in the node's own coordinates."""
+    if name not in ports:
+        return width // 2
+    return _port_x(len(ports), ports.index(name))
 
 
 def _port_x(count: int, index: int) -> int:
@@ -235,13 +321,22 @@ def _port_x(count: int, index: int) -> int:
     return round(NODE_W * (index + 1) / (count + 1))
 
 
-def of(ir: PipelineIR) -> Layout:
-    """Lay out an IR. Pure, integer coordinates, stable under repetition."""
+def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
+    """Lay out an IR. Pure, integer coordinates, stable under repetition.
+
+    `ports` maps a node id to its **declared** `(inputs, outputs)` in the order the canvas draws
+    them. Without it the wired ports are used, which is correct only for a fully wired graph —
+    see `_declared`.
+    """
+    ins, outs = _declared(ir, ports)
     rank = _ranks(ir)
-    order = _order(ir, rank)
+    order = _order(ir, rank, ins)
     across = _x_of(ir, rank, order)
 
-    heights = {node.id: _height(ir, node.id) for node in ir.nodes}
+    heights = {
+        node.id: _height((len(ins.get(node.id, [])), len(outs.get(node.id, []))))
+        for node in ir.nodes
+    }
     tall: dict[int, int] = defaultdict(int)
     for node in ir.nodes:
         tall[rank[node.id]] = max(tall[rank[node.id]], heights[node.id])
@@ -268,25 +363,21 @@ def of(ir: PipelineIR) -> Layout:
     )
     by_id = {node.id: node for node in placed}
 
-    # Which port is which, so an anchor lands where the design puts it rather than in the middle.
-    outs: dict[str, list[str]] = defaultdict(list)
-    ins: dict[str, list[str]] = defaultdict(list)
-    for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
-        if edge.from_port not in outs[edge.from_node]:
-            outs[edge.from_node].append(edge.from_port)
-        if edge.to_port not in ins[edge.to_node]:
-            ins[edge.to_node].append(edge.to_port)
-
     wires = []
     for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
         source, target = by_id[edge.from_node], by_id[edge.to_node]
+        # **Index within the DECLARED ports**, which is what the canvas spreads its chevrons
+        # over. A port the graph names but the contract does not falls back to the middle
+        # rather than raising: `validate` reports that as MD0501 and a layout is not the place
+        # to refuse it.
+        source_ports = outs.get(edge.from_node, [])
+        target_ports = ins.get(edge.to_node, [])
         start = Point(
-            source.x
-            + _port_x(len(outs[edge.from_node]), outs[edge.from_node].index(edge.from_port)),
+            source.x + _anchor(source_ports, edge.from_port, source.width),
             source.y + source.height,
         )
         end = Point(
-            target.x + _port_x(len(ins[edge.to_node]), ins[edge.to_node].index(edge.to_port)),
+            target.x + _anchor(target_ports, edge.to_port, target.width),
             target.y,
         )
         # Vertical, across at the midpoint, vertical — `elbow()` in the design, and orthogonal

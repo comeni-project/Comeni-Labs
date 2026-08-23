@@ -161,3 +161,110 @@ def test_the_layout_matches_the_golden_file(spine):
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(produced)
     assert produced == GOLDEN.read_text()
+
+
+# --- A wire must land on the port it names, not on the middle of the node -----------------
+
+
+def test_a_wire_lands_on_the_port_the_canvas_draws(spine):
+    """**The defect the operator found by dragging.**
+
+    `layout` anchored a wire using only the ports that *have wires*, in edge order. The canvas
+    draws every port the *contract declares*, in contract order. For `featurecounts` — two
+    declared inputs, one of them wired — the chevron sat at x=77 and the wire ended at x=116.
+    **39 pixels onto nothing.**
+
+    The two agree only when the wired count equals the declared count, which is almost never.
+    Both formulas are the same `portX(width, count, i)`; what differed was the `count`.
+    """
+    from mendel_compiler.layout import _port_x, of
+
+    declared = {
+        "a": ([], ["out"]),
+        "b": (["first", "second"], []),  # two declared inputs, one of them wired
+    }
+    ir = _two_nodes()
+    laid = of(ir, ports=declared)
+    node = next(n for n in laid.nodes if n.id == "b")
+    wire = laid.wires[0]
+
+    # Where the canvas puts `first`: index 0 of 2 declared.
+    drawn = node.x + _port_x(2, 0)
+    assert wire.points[-1].x == drawn, (
+        f"wire ends at {wire.points[-1].x}, canvas draws the port at {drawn}"
+    )
+
+
+def test_a_node_is_tall_enough_for_the_ports_it_declares(spine):
+    """`_height` counted wired edges too. A node with three declared inputs and one wire was
+    sized for one port row, so the other two chevrons sat on top of the node's own text."""
+    from mendel_compiler.layout import of
+
+    ir = _two_nodes()
+    wired_only = of(ir).nodes
+    declared = of(ir, ports={"a": ([], ["out"]), "b": (["first", "second", "third"], [])}).nodes
+    b_wired = next(n for n in wired_only if n.id == "b")
+    b_declared = next(n for n in declared if n.id == "b")
+    assert b_declared.height > b_wired.height
+
+
+def _two_nodes():
+    from comeni_core.plan.ir import IREdge, IRNode, PipelineIR
+
+    return PipelineIR(
+        nodes=[
+            IRNode(id="a", contract_id="x/a@1"),
+            IRNode(id="b", contract_id="x/b@1"),
+        ],
+        edges=[IREdge(from_node="a", from_port="out", to_node="b", to_port="first",
+                      type_id="t.x")],
+    )
+
+
+def test_producers_are_ordered_to_match_the_ports_they_feed(spine):
+    """**The crossing the operator saw.**
+
+    `star_align` declares `reads`, `index`, `gtf` in that order, so its chevrons sit left to
+    right in that order. `_order` placed `star_genomegenerate` left of `trimgalore` — by node id,
+    because roots have nothing feeding them — and genomegenerate feeds `index` (middle) while
+    trimgalore feeds `reads` (left). The two wires cross, every time, on the shipped spine.
+
+    `_order`'s own docstring said it: *"it is not a crossing-minimisation algorithm. If a graph
+    ever arrives where it is visibly wrong, the honest fix is a real ordering pass."*
+
+    The rule this asserts is local and checkable: **for two wires into one node, the one whose
+    source sits further left must land on the further-left port.** That is exactly what "they do
+    not cross" means for a layered graph, without needing a general planarity test.
+    """
+    from mendel_compiler.layout import of
+
+    # **With the DECLARED ports**, which is what the API passes and what the canvas draws.
+    # Without them the fallback orders a node's inputs by the edges that happen to exist, which
+    # hides this: the wired order and the declared order coincide on a fully wired node.
+    declared = {
+        "star_align": (["reads", "index", "gtf"], ["bam"]),
+        "star_genomegenerate": (["fasta", "gtf"], ["index"]),
+        "trimgalore": (["reads"], ["reads"]),
+        "samtools_sort": (["bam"], ["bam"]),
+        "subread_featurecounts": (["bam", "annotation"], ["counts"]),
+    }
+    laid = of(spine, ports={k: v for k, v in declared.items() if any(
+        n.id == k for n in spine.nodes)})
+    at = {node.id: node for node in laid.nodes}
+
+    into: dict[str, list] = {}
+    for wire in laid.wires:
+        into.setdefault(wire.to_node, []).append(wire)
+
+    crossings = []
+    for target, arriving in into.items():
+        for a in arriving:
+            for b in arriving:
+                if a is b:
+                    continue
+                if at[a.from_node].x < at[b.from_node].x and a.points[-1].x > b.points[-1].x:
+                    crossings.append(
+                        f"{a.from_node}->{target}.{a.to_port} crosses "
+                        f"{b.from_node}->{target}.{b.to_port}"
+                    )
+    assert not crossings, "\n".join(sorted(set(crossings)))

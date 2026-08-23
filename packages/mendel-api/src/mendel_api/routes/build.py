@@ -9,11 +9,20 @@ producer pins — and a URL is the wrong place for it. Invariant 15 is why the b
 not a path: no input here accepts a sample identifier, a filename or a path.
 """
 
-from fastapi import APIRouter
+from comeni_core.plan.draft import DraftGraph
+from comeni_core.review.verdict import Verdict
+from fastapi import APIRouter, HTTPException, Request, Response
+from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
+from pydantic import BaseModel, ConfigDict
 
+from mendel_api import identity
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
+from mendel_api.services import compare as compare_service
+from mendel_api.services import drafts as draft_service
+from mendel_api.services import registry
+from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -61,3 +70,151 @@ def build(goal: Goal) -> BuiltPipeline:
     the CLI prints and exits 2 on. `orchestrate.ConformanceRefused` is a `ValueError`, which the
     app already maps."""
     return service.of(goal)
+
+
+@router.post(
+    "/validate",
+    operation_id="validatePipeline",
+    summary="Is this graph legal, and what is unmet or unconventional about it",
+)
+def validate_graph(graph: DraftGraph) -> Verdict:
+    """**200 whatever it finds.**
+
+    A verdict is the answer, not an error: a person mid-gesture would rather see three problems
+    than the first one, and the forge's `verify` ladder is the precedent. Refusal lives at
+    `keep` and at the emission gates, which is the boundary the spec draws.
+
+    An unknown contract comes back as an `MD0509` finding rather than a 422 — a draft naming a
+    contract that has since been renamed is a thing to be told about on the canvas, not an
+    error that empties the screen.
+    """
+    return validation.of(graph)
+
+
+@router.get(
+    "/compatibility",
+    operation_id="compatibilityIndex",
+    summary="What can feed what, so a browser can colour a wire without a round trip",
+    response_model=Compatibility,
+    responses={304: {"description": "the registry has not changed since your copy"}},
+)
+def compatibility_index(request: Request, response: Response) -> Compatibility | Response:
+    """The client looks up; it never decides. See `mendel_resolver.compatibility`.
+
+    `ETag` is the registry digest — the same string that invalidates the server's own cache, so
+    "the registry changed" has one definition rather than two. A reload becomes a 304 instead of
+    the whole table.
+    """
+    etag = f'"{registry.digest()}"'
+    if request.headers.get("if-none-match") == etag:
+        # A bare `Response` rather than an `HTTPException`: 304 is not an error, and a 304 with
+        # a body is malformed. `response_model` on the decorator keeps the generated client's
+        # schema even though this branch returns no model.
+        return Response(status_code=304, headers={"ETag": etag})
+    response.headers["ETag"] = etag
+    return validation.index()
+
+
+class DraftIn(BaseModel):
+    """What a client sends to open or update a draft."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    graph: DraftGraph
+    name: str = ""
+
+
+class DraftOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    graph: DraftGraph
+
+
+class Kept(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    """Where the server wrote it. **Returned, never accepted** — invariant 15 is about what
+    an input may carry, and a server saying where it put something is the opposite direction."""
+
+
+@router.post(
+    "/drafts",
+    operation_id="createDraft",
+    summary="Open a draft",
+    status_code=201,
+    responses=REFUSES,
+)
+def create_draft(body: DraftIn) -> DraftOut:
+    """The id is opaque and server-generated. `routes/build.py`'s own header records why the
+    API cannot take a path, and a draft addressed by one would be that rule undone."""
+    draft_id = draft_service.create(body.graph, body.name, identity.default_author())
+    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+
+
+@router.get("/drafts/{draft_id}", operation_id="readDraft", summary="A draft as it stands")
+def read_draft(draft_id: str) -> DraftOut:
+    try:
+        row = draft_service.read(draft_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+    return DraftOut(id=row.id, name=row.name, graph=DraftGraph.model_validate(row.graph))
+
+
+@router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a draft")
+def save_draft(draft_id: str, body: DraftIn) -> DraftOut:
+    """One write per save, not per edit. The client owns the working graph and sends it whole —
+    a schema that could hold half a graph would be a second definition of what a graph is."""
+    try:
+        draft_service.update(draft_id, body.graph)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+    return DraftOut(id=draft_id, name=body.name, graph=body.graph)
+
+
+@router.post(
+    "/drafts/{draft_id}/keep",
+    operation_id="keepDraft",
+    summary="Stop being a draft: write the pipeline.yml",
+    responses=REFUSES,
+)
+def keep_draft(draft_id: str) -> Kept:
+    """**Where `validate` reports and this refuses.** An illegal finding answers 422 with its
+    code; `mendel explain <code>` expands it, the same as everywhere else."""
+    try:
+        return Kept(path=str(draft_service.keep(draft_id)))
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+
+
+@router.post(
+    "/compare",
+    operation_id="comparePipeline",
+    summary="Your graph beside the one the resolver would build",
+    responses=REFUSES,
+)
+def compare_pipeline(body: compare_service.CompareIn) -> compare_service.Comparison:
+    """**One call, not two.** Deciding what counts as the same step is a judgement — HISAT2
+    where Mendel put STAR fills one slot rather than being two unrelated steps — and a judgement
+    made in the browser is one the agent driving this API cannot reach."""
+    return compare_service.of(body.graph, body.goal)
+
+
+@router.post(
+    "/draw",
+    operation_id="drawPipeline",
+    summary="Lay out a hand-drawn graph, in the shape the canvas already renders",
+    responses=REFUSES,
+)
+def draw(graph: DraftGraph) -> BuiltPipeline:
+    """**Layout stays in Python.** `CLAUDE.md`: the DAG layout is computed server-side so the
+    canvas is as deterministic as the emitted `.nf`. A drawn graph gets the same treatment — a
+    browser laying out its own nodes would be the one part of the picture that could differ
+    between two people looking at the same pipeline.
+
+    Returns a `BuiltPipeline`, which is what `/pipeline` already returns, so Plan 3C's canvas
+    draws a hand-drawn graph without a component changing.
+    """
+    return service.drawn(graph)

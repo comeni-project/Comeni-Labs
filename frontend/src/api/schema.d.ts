@@ -357,6 +357,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Is this graph legal, and what is unmet or unconventional about it
+         * @description **200 whatever it finds.**
+         *
+         *     A verdict is the answer, not an error: a person mid-gesture would rather see three problems
+         *     than the first one, and the forge's `verify` ladder is the precedent. Refusal lives at
+         *     `keep` and at the emission gates, which is the boundary the spec draws.
+         *
+         *     An unknown contract comes back as an `MD0509` finding rather than a 422 — a draft naming a
+         *     contract that has since been renamed is a thing to be told about on the canvas, not an
+         *     error that empties the screen.
+         */
+        post: operations["validatePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/compatibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What can feed what, so a browser can colour a wire without a round trip
+         * @description The client looks up; it never decides. See `mendel_resolver.compatibility`.
+         *
+         *     `ETag` is the registry digest — the same string that invalidates the server's own cache, so
+         *     "the registry changed" has one definition rather than two. A reload becomes a 304 instead of
+         *     the whole table.
+         */
+        get: operations["compatibilityIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a draft
+         * @description The id is opaque and server-generated. `routes/build.py`'s own header records why the
+         *     API cannot take a path, and a draft addressed by one would be that rule undone.
+         */
+        post: operations["createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A draft as it stands */
+        get: operations["readDraft"];
+        /**
+         * Save a draft
+         * @description One write per save, not per edit. The client owns the working graph and sends it whole —
+         *     a schema that could hold half a graph would be a second definition of what a graph is.
+         */
+        put: operations["saveDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts/{draft_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop being a draft: write the pipeline.yml
+         * @description **Where `validate` reports and this refuses.** An illegal finding answers 422 with its
+         *     code; `mendel explain <code>` expands it, the same as everywhere else.
+         */
+        post: operations["keepDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your graph beside the one the resolver would build
+         * @description **One call, not two.** Deciding what counts as the same step is a judgement — HISAT2
+         *     where Mendel put STAR fills one slot rather than being two unrelated steps — and a judgement
+         *     made in the browser is one the agent driving this API cannot reach.
+         */
+        post: operations["comparePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/draw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lay out a hand-drawn graph, in the shape the canvas already renders
+         * @description **Layout stays in Python.** `CLAUDE.md`: the DAG layout is computed server-side so the
+         *     canvas is as deterministic as the emitted `.nf`. A drawn graph gets the same treatment — a
+         *     browser laying out its own nodes would be the one part of the picture that could differ
+         *     between two people looking at the same pipeline.
+         *
+         *     Returns a `BuiltPipeline`, which is what `/pipeline` already returns, so Plan 3C's canvas
+         *     draws a hand-drawn graph without a component changing.
+         */
+        post: operations["drawPipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -428,6 +592,28 @@ export interface components {
             /** Commit */
             commit: string;
         };
+        /** AlignedStep */
+        AlignedStep: {
+            state: components["schemas"]["Alignment"];
+            /** Yours Node */
+            yours_node?: string | null;
+            /** Yours Contract */
+            yours_contract?: string | null;
+            /** Mendel Node */
+            mendel_node?: string | null;
+            /** Mendel Contract */
+            mendel_contract?: string | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+        };
+        /**
+         * Alignment
+         * @enum {string}
+         */
+        Alignment: "same" | "differs" | "yours-only" | "mendel-only";
         /** AnswerAllRequest */
         AnswerAllRequest: {
             /** Subject */
@@ -580,6 +766,33 @@ export interface components {
              */
             note: string;
         };
+        /** CompareIn */
+        CompareIn: {
+            graph: components["schemas"]["DraftGraph"];
+            goal: components["schemas"]["Goal"];
+        };
+        /** Comparison */
+        Comparison: {
+            yours: components["schemas"]["comeni_core__review__verdict__Verdict"];
+            mendel: components["schemas"]["BuiltPipeline"];
+            /** Alignment */
+            alignment: components["schemas"]["AlignedStep"][];
+        };
+        /** Compatibility */
+        Compatibility: {
+            /** Emits */
+            emits?: {
+                [key: string]: string;
+            };
+            /** Requires */
+            requires?: {
+                [key: string]: string[];
+            };
+            /** Satisfies */
+            satisfies?: {
+                [key: string]: string[];
+            };
+        };
         /**
          * Constraints
          * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
@@ -653,6 +866,31 @@ export interface components {
             /** Fix */
             fix: string;
         };
+        /**
+         * DomainView
+         * @description What values a setting accepts, so the card can render the right control.
+         *
+         *     `dashboard.md` §5: *parameters with alternatives render as a `<select>`; free values as an
+         *     input*. Without this the browser cannot tell one from the other and every setting is a text
+         *     box — including `index_format`, whose two legal values are `bai` and `csi`.
+         *
+         *     `None` on a setting means the contract declares no domain, which is legal and is what most
+         *     contracts say. A param whose legal values genuinely cannot be enumerated — `seq_platform`,
+         *     deliberately — declares none, and gets a free input.
+         */
+        DomainView: {
+            /** Kind */
+            kind: string;
+            /**
+             * Values
+             * @default []
+             */
+            values: string[];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+        };
         /** DraftBody */
         DraftBody: {
             /** Ref */
@@ -661,6 +899,84 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /**
+         * DraftEdge
+         * @description One wire: where it starts, where it ends. Nothing derived.
+         */
+        DraftEdge: {
+            /** From Node */
+            from_node: string;
+            /** From Port */
+            from_port: string;
+            /** To Node */
+            to_node: string;
+            /** To Port */
+            to_port: string;
+        };
+        /** DraftGraph */
+        DraftGraph: {
+            /** Nodes */
+            nodes?: components["schemas"]["DraftNode"][];
+            /** Edges */
+            edges?: components["schemas"]["DraftEdge"][];
+            profile?: components["schemas"]["DataProfile"];
+        };
+        /**
+         * DraftIn
+         * @description What a client sends to open or update a draft.
+         */
+        DraftIn: {
+            graph: components["schemas"]["DraftGraph"];
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /** DraftNode */
+        DraftNode: {
+            /** Id */
+            id: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Params */
+            params?: components["schemas"]["DraftParam"][];
+        };
+        /** DraftOut */
+        DraftOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            graph: components["schemas"]["DraftGraph"];
+        };
+        /**
+         * DraftParam
+         * @description A setting somebody typed into the builder.
+         *
+         *     **Not a `ParamBinding`.** That carries a `ResolvedValue` — a tier, a source, a reason, the
+         *     premises a rule read — and a client must not be the thing that says at which tier its own
+         *     answer sits. A browser claiming `tier: 1` on a value a person typed would put a lie in
+         *     `pipeline.yml` that nothing downstream could catch, which is A130's shape exactly.
+         *
+         *     So a draft carries the answer and the reason, and `materialise` stamps the tier: **4, human
+         *     or model**, because a person who typed a value had a choice and made it (invariant 6).
+         *
+         *     `HumanParamValue` rather than `ParamValue`: it is the type guarded against path-shaped
+         *     values by a blocklist (audit A3), and a value typed into a browser is exactly the untrusted
+         *     input that guard exists for.
+         */
+        DraftParam: {
+            /** Name */
+            name: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
         };
         /** DraftResult */
         DraftResult: {
@@ -691,7 +1007,7 @@ export interface components {
             conformance: components["schemas"]["Diagnostic"][];
             /** Unchecked */
             unchecked: components["schemas"]["Unchecked"][];
-            verdict: components["schemas"]["Verdict"];
+            verdict: components["schemas"]["mendel_forge__drift__Verdict"];
             /** Says */
             says: string;
         };
@@ -762,6 +1078,22 @@ export interface components {
             how: components["schemas"]["ValueSource"];
             /** Why */
             why: string;
+        };
+        /** Finding */
+        Finding: {
+            /** Code */
+            code: string;
+            level: components["schemas"]["Level"];
+            /** Message */
+            message: string;
+            /** Node */
+            node?: string | null;
+            /** Port */
+            port?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Target */
+            target?: string | null;
         };
         /** Goal */
         Goal: {
@@ -839,6 +1171,16 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /** Kept */
+        Kept: {
+            /** Path */
+            path: string;
+        };
+        /**
+         * Level
+         * @enum {string}
+         */
+        Level: "illegal" | "unmet" | "advisory";
         /**
          * Measured
          * @description One measurement and where its value came from.
@@ -1160,9 +1502,10 @@ export interface components {
          * SettingView
          * @description One resolved parameter, as the settings card needs it.
          *
-         *     **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
-         *     and a box that looks typeable and discards what you type is worse than a value that says it
-         *     is a record. The design's editable field arrives with somewhere to put the answer.
+         *     **Editable since Plan 3E.** It was read-only in 3C, and the field was absent rather than
+         *     disabled on the argument that a box which looks typeable and discards what you type is worse
+         *     than a value that says it is a record. That was right while nothing persisted an edit;
+         *     `DraftParam` is now somewhere to put the answer.
          */
         SettingView: {
             /** Name */
@@ -1175,6 +1518,12 @@ export interface components {
             tier: number;
             /** Reason */
             reason: string;
+            domain?: components["schemas"]["DomainView"] | null;
+            /**
+             * Because
+             * @default
+             */
+            because: string;
             /** Axis Reason */
             axis_reason: string;
         };
@@ -1321,12 +1670,6 @@ export interface components {
          * @enum {string}
          */
         ValueSource: "resolver" | "goal" | "human" | "model" | "measured" | "derived";
-        /**
-         * Verdict
-         * @description The only question a maintainer really has, answered — design §7.
-         * @enum {string}
-         */
-        Verdict: "breaks" | "reroutes" | "rebuilds" | "recorded" | "agrees";
         /** Visited */
         Visited: {
             /**
@@ -1335,6 +1678,20 @@ export interface components {
              */
             seen_at: string;
         };
+        /** Verdict */
+        comeni_core__review__verdict__Verdict: {
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["Finding"][];
+        };
+        /**
+         * Verdict
+         * @description The only question a maintainer really has, answered — design §7.
+         * @enum {string}
+         */
+        mendel_forge__drift__Verdict: "breaks" | "reroutes" | "rebuilds" | "recorded" | "agrees";
     };
     responses: never;
     parameters: never;
@@ -1816,6 +2173,262 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Goal"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuiltPipeline"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    validatePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftGraph"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["comeni_core__review__verdict__Verdict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compatibilityIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Compatibility"];
+                };
+            };
+            /** @description the registry has not changed since your copy */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keepDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Kept"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    comparePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    drawPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftGraph"];
             };
         };
         responses: {
