@@ -33,8 +33,20 @@ export async function get<T>(path: string): Promise<T> {
 }
 
 export async function post<T>(path: string, payload: unknown): Promise<T> {
+  return send<T>("POST", path, payload);
+}
+
+/** `PUT`, for the one route that replaces rather than creates: saving a draft.
+ *
+ * Shares `send` with `post` so the 422-to-`Refused` contract has one implementation. A second
+ * copy is how one of them stops turning a coded refusal into a message. */
+export async function put<T>(path: string, payload: unknown): Promise<T> {
+  return send<T>("PUT", path, payload);
+}
+
+async function send<T>(method: string, path: string, payload: unknown): Promise<T> {
   const r = await fetch(ROOT + path, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });

@@ -34,3 +34,11 @@ export type Finding = S["Finding"];
 export type Compatibility = S["Compatibility"];
 export type Comparison = S["Comparison"];
 export type AlignedStep = S["AlignedStep"];
+
+export type DraftOut = S["DraftOut"];
+export type Kept = S["Kept"];
+
+/** A gate — Mendel's artifact checking itself. **Not a pipeline run**, which is Wiener's and
+ *  has no type here on purpose: `docs/design/execution-boundary.md` §3. */
+export type GateView = S["GateView"];
+export type GateIn = S["GateIn"];

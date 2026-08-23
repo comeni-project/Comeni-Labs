@@ -1012,7 +1012,7 @@ git commit -m "feat(api): start a gate and poll it, and the first enqueue in the
 - Consumes: `startGate`, `readGate`.
 - Produces: `useGate(draftId)` → `{ start(gate), run, running }`.
 
-- [ ] **Step 1: Regenerate the schema and widen the type seam**
+- [x] **Step 1: Regenerate the schema and widen the type seam**
 
 Run: `make client`
 Then: `git diff --stat frontend/src/api/`
@@ -1034,7 +1034,7 @@ export type GateView = S["GateView"];
 If either comes back as `GateView-Output`, that is the file's whole reason for existing — fix
 it here and nowhere else.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `frontend/src/build/Gate.test.tsx`:
 
@@ -1055,11 +1055,11 @@ it("says what a gate is not", () => {
 });
 ```
 
-- [ ] **Step 3: Run them, verify they fail**
+- [x] **Step 3: Run them, verify they fail**
 
 Run: `cd frontend && npx vitest run Gate` — Expected: FAIL, module not found.
 
-- [ ] **Step 4: Write the hook**
+- [x] **Step 4: Write the hook**
 
 `frontend/src/build/useGate.ts`, polling only while the run is live:
 
@@ -1108,7 +1108,7 @@ export function useGate(draftId: string | null) {
 `post<T>(path, payload)` is `client.ts`'s other export; it raises `Refused` on a 422, so
 `MA0001` reaches the panel as its own message rather than as "Request failed".
 
-- [ ] **Step 5: Refuse to gate a draft that has moved since it was kept**
+- [x] **Step 5: Refuse to gate a draft that has moved since it was kept**
 
 **A164, and it is the defect most likely to ship silently.** A gate runs on whatever `keep`
 last wrote. Edit the graph, press *Gate*, and the verdict describes the **previous** artifact —
@@ -1142,7 +1142,7 @@ it("will not gate a draft with unkept changes", () => {
 });
 ```
 
-- [ ] **Step 6: Replace the disabled Run button**
+- [x] **Step 6: Replace the disabled Run button**
 
 In `Builder.tsx`, replace the disabled `Run pipeline` button with the gate control, and keep
 its sentence where a reader will still find it:
@@ -1158,7 +1158,7 @@ its sentence where a reader will still find it:
 Add `gate` as a fourth rail tab after `compare`, showing state, elapsed time and — on failure —
 `output` in a `<pre>` with `overflow-x: auto`.
 
-- [ ] **Step 7: Run the frontend gate**
+- [x] **Step 7: Run the frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npx tsc -b && npm run build
@@ -1166,7 +1166,7 @@ cd frontend && npx vitest run && npx tsc -b && npm run build
 Expected: all pass. **`tsc -b`, not `tsc --noEmit`** — the latter checks nothing here, which is
 the guard fixed in 3E and recorded in the ledger.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/
