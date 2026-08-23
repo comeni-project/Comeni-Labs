@@ -95,7 +95,7 @@ Nothing here decides anything. It exists so Tasks 2–4 have types to return and
   `DraftEdge(from_node, from_port, to_node, to_port)`, `Verdict(findings)`,
   `Finding(code, level, message, node, edge, port)`, `Level.ILLEGAL|UNMET|ADVISORY`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/comeni-core/tests/test_draft.py
@@ -160,7 +160,7 @@ def test_a_finding_must_cite_a_declared_code():
         Finding(code="MD9999", level=Level.ILLEGAL, message="nope")
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_draft.py -v
@@ -168,7 +168,7 @@ uv run pytest packages/comeni-core/tests/test_draft.py -v
 
 Expected: `ModuleNotFoundError: No module named 'comeni_core.plan.draft'`.
 
-- [ ] **Step 3: Add the `MD0500` band to the header comment**
+- [x] **Step 3: Add the `MD0500` band to the header comment**
 
 In `packages/comeni-core/src/comeni_core/diagnostics.yml`, after the `MD0400` line (line 16):
 
@@ -176,7 +176,7 @@ In `packages/comeni-core/src/comeni_core/diagnostics.yml`, after the `MD0400` li
 #   MD0500-MD0599  validating a hand-built graph
 ```
 
-- [ ] **Step 4: Declare the nine codes**
+- [x] **Step 4: Declare the nine codes**
 
 Append to `diagnostics.yml`. Every field is required; copy the shape from `MD0011`.
 
@@ -312,7 +312,7 @@ MD0508:
     has no such protection.
 ```
 
-- [ ] **Step 5: Write `draft.py`**
+- [x] **Step 5: Write `draft.py`**
 
 ```python
 # packages/comeni-core/src/comeni_core/plan/draft.py
@@ -363,7 +363,7 @@ class DraftGraph(BaseModel):
     read a measurement you have not supplied*. `validate` never resolves; it only reports."""
 ```
 
-- [ ] **Step 6: Write `verdict.py`**
+- [x] **Step 6: Write `verdict.py`**
 
 ```python
 # packages/comeni-core/src/comeni_core/review/verdict.py
@@ -464,13 +464,13 @@ class Verdict(BaseModel):
         return not self.illegal
 ```
 
-- [ ] **Step 7: Export both from the package surface**
+- [x] **Step 7: Export both from the package surface**
 
 `comeni_core/__init__.py` is what holds the public surface stable (issue #41). Add
 `DraftEdge`, `DraftGraph`, `DraftNode`, `Finding`, `Level`, `Verdict` to its imports and
 `__all__`, in the existing alphabetical position.
 
-- [ ] **Step 8: Regenerate the diagnostics page and run the tests**
+- [x] **Step 8: Regenerate the diagnostics page and run the tests**
 
 ```bash
 uv run python tools/generate_diagnostics_doc.py
@@ -490,7 +490,7 @@ record the deviation. **Do not skip the ownership test to make it pass.**
 If it does *not* fail, the ownership guard is not watching — a finding in its own right; append
 it to `notes/audits/guard-ledger.md`.
 
-- [ ] **Step 9: Commit, and say in the message that it is red**
+- [x] **Step 9: Commit, and say in the message that it is red**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/plan/draft.py \
@@ -527,7 +527,7 @@ Six of the nine codes. This task makes `test_diagnostics_ownership.py` green aga
 `_satisfy_port`. It walks `port.alternatives()` first-match-wins and that is exactly the
 comparison this task inverts. Do not re-derive it.
 
-- [ ] **Step 0: Add a `stack` fixture to the resolver conftest**
+- [x] **Step 0: Add a `stack` fixture to the resolver conftest**
 
 `packages/mendel-resolver/tests/conftest.py` already has `EXAMPLES = ROOT / "registry"` and a
 `spine` fixture built from it. Add beside them — one loaded stack for every validate test, rather
@@ -541,7 +541,7 @@ def stack():
     return layers.load(EXAMPLES)
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 The example is real and comes from the shipped registry: `nf-core/star/align` produces
 `alignment.bam` with `state: []`; `nf-core/subread/featurecounts` consumes `alignment.bam` with
@@ -663,7 +663,7 @@ def test_it_reports_every_problem_rather_than_the_first(stack):
     assert {"MD0501", "MD0504"} <= codes
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_validate_edges.py -v
@@ -675,7 +675,7 @@ There is no `tests.helpers` module — audit A147. The resolver's own
 `packages/mendel-resolver/tests/conftest.py` already defines `ROOT = pathlib.Path(__file__).parents[3]`
 and `EXAMPLES = ROOT / "registry"`. Step 0 below adds the fixture there.
 
-- [ ] **Step 3: Write the edge half of `validate.py`**
+- [x] **Step 3: Write the edge half of `validate.py`**
 
 ```python
 # packages/mendel-resolver/src/mendel_resolver/validate.py
@@ -853,7 +853,7 @@ def _f(code: str, level: Level, edge: DraftEdge, message: str) -> Finding:
     )
 ```
 
-- [ ] **Step 4: Run the tests and the ownership guard**
+- [x] **Step 4: Run the tests and the ownership guard**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_validate_edges.py -v
@@ -862,7 +862,7 @@ uv run pytest tests/test_diagnostics_ownership.py -v
 
 Expected: edge tests PASS. Ownership still fails for `MD0505`, `MD0506`, `MD0508` — Task 3.
 
-- [ ] **Step 5: Confirm the verb did not break purity**
+- [x] **Step 5: Confirm the verb did not break purity**
 
 ```bash
 uv run pytest tests/test_purity.py tests/test_purity_runtime.py -v
@@ -870,7 +870,7 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py -v
 
 Expected: PASS. `validate.py` imports only `comeni_core` and `collections`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-resolver/src/mendel_resolver/validate.py \
@@ -893,7 +893,7 @@ The other three codes. **`MD0506` is the one 3C got wrong**, so its test comes f
   `layers.vocabulary`.
 - Produces: no signature change. `validate` returns more findings.
 
-- [ ] **Step 1: Read every landed contract's declared cardinality before trusting the field**
+- [x] **Step 1: Read every landed contract's declared cardinality before trusting the field**
 
 Spec §C4: `InputPort.cardinality` has no reader anywhere in `packages/`, so no contract's value
 has ever been checked against reality.
@@ -913,7 +913,7 @@ EOF
 Record the output in the execution table. If every port is `"1"`, `MD0505` ships with one legal
 value exercised and that is worth saying out loud rather than implying broader coverage.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # packages/mendel-resolver/tests/test_validate_graph.py
@@ -997,7 +997,7 @@ def test_two_wires_into_a_port_that_takes_one(stack):
     assert arity and arity[0].level is Level.ILLEGAL
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_validate_graph.py -v
@@ -1005,7 +1005,7 @@ uv run pytest packages/mendel-resolver/tests/test_validate_graph.py -v
 
 Expected: FAIL — no `MD0505`/`MD0506`/`MD0508` is emitted by anything yet.
 
-- [ ] **Step 4: Add the three checks to `validate.py`**
+- [x] **Step 4: Add the three checks to `validate.py`**
 
 Add `from collections import defaultdict` at the top — it is **not** imported in Task 2, because
 an import with no user fails `ruff` F401 and `make check` runs ruff (audit A152). Then extend
@@ -1122,7 +1122,7 @@ def _check_cycles(graph: DraftGraph) -> list[Finding]:
     return findings
 ```
 
-- [ ] **Step 5: Run every validate test and the ownership guard**
+- [x] **Step 5: Run every validate test and the ownership guard**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_validate_edges.py \
@@ -1132,7 +1132,7 @@ uv run pytest tests/test_diagnostics_ownership.py -v
 
 Expected: all PASS. All nine codes are now both declared and emitted.
 
-- [ ] **Step 6: Watch a guard fail on purpose, and record it**
+- [x] **Step 6: Watch a guard fail on purpose, and record it**
 
 A14 is the open critical finding: a guard never watched failing may be inert. Delete the
 `_has_entry_channel` call so every entry-channel input reports `MD0506`, run
@@ -1140,7 +1140,7 @@ A14 is the open critical finding: a guard never watched failing may be inert. De
 message. Restore the call, then append a row to `notes/audits/guard-ledger.md` with the message
 it printed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/mendel-resolver/src/mendel_resolver/validate.py \
@@ -1184,7 +1184,7 @@ state — the server already did, with the same `alternatives()` call `validate`
 at the ~2,000 contracts issue #77 forecasts. Signature keying is bounded by the vocabulary, which
 invariant 7 keeps closed.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-resolver/tests/test_compatibility.py
@@ -1274,7 +1274,7 @@ def test_the_index_agrees_with_the_verb_on_every_pair(stack):
     assert not disagreements, "\n".join(disagreements)
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_compatibility.py -v
@@ -1282,7 +1282,7 @@ uv run pytest packages/mendel-resolver/tests/test_compatibility.py -v
 
 Expected: `ModuleNotFoundError: No module named 'mendel_resolver.compatibility'`.
 
-- [ ] **Step 3: Write `compatibility.py`**
+- [x] **Step 3: Write `compatibility.py`**
 
 ```python
 # packages/mendel-resolver/src/mendel_resolver/compatibility.py
@@ -1358,7 +1358,7 @@ def index(layers: Layers) -> Compatibility:
     return Compatibility(emits=emits, requires=requires, satisfies=satisfies)
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 uv run pytest packages/mendel-resolver/tests/test_compatibility.py -v
@@ -1369,7 +1369,7 @@ Expected: all PASS, including the agreement test.
 **If the agreement test fails**, the index is wrong and `validate` is right — `validate` is the
 authority and this file is the optimisation. Do not adjust the verb to match the index.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/mendel-resolver/src/mendel_resolver/compatibility.py \
@@ -1405,7 +1405,7 @@ door 4's payload, so `tests/test_egress.py`'s allowlist applies: every leaf must
 alias or `Mark.FREE_TEXT`. Mirror each kind's existing `human_override` type exactly —
 `HumanParamValue`, `ContractId | None`, `EdgeRef | None`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/comeni-core/tests/test_model_override.py
@@ -1482,7 +1482,7 @@ def test_the_schema_version_moved():
     assert SCHEMA_VERSION == 5
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_model_override.py -v
@@ -1490,7 +1490,7 @@ uv run pytest packages/comeni-core/tests/test_model_override.py -v
 
 Expected: FAIL — `ProducerDecision` has no `model_override`; `extra="forbid"` rejects it.
 
-- [ ] **Step 3: Add `model_override_by` and the guard to `_Decided`**
+- [x] **Step 3: Add `model_override_by` and the guard to `_Decided`**
 
 ```python
 class _Decided(BaseModel):
@@ -1535,7 +1535,7 @@ class _Decided(BaseModel):
 `_Decided` is `frozen=True`; a `mode="after"` validator that only raises is compatible with that.
 Import `model_validator` from `pydantic` if it is not already imported in this module.
 
-- [ ] **Step 4: Add `model_override` to each of the three kinds**
+- [x] **Step 4: Add `model_override` to each of the three kinds**
 
 ```python
 class ParamDecision(_Decided):
@@ -1556,7 +1556,7 @@ class SourceDecision(_Decided):
     model_override: EdgeRef | None = None
 ```
 
-- [ ] **Step 5: Bump the schema version and the package version**
+- [x] **Step 5: Bump the schema version and the package version**
 
 `packages/comeni-core/src/comeni_core/artifact/pipeline.py:63` → `SCHEMA_VERSION = 5`.
 
@@ -1564,7 +1564,7 @@ Then `packages/comeni-core/pyproject.toml`: a `SCHEMA_VERSION` bump is always a 
 `comeni-core`, so the major digit moves. Read `docs/guides/releasing.md` before choosing the
 number — the bump is judged, not derived.
 
-- [ ] **Step 6: Run the test, the egress guard, and the whole core suite**
+- [x] **Step 6: Run the test, the egress guard, and the whole core suite**
 
 ```bash
 uv run pytest packages/comeni-core/tests/test_model_override.py -v
@@ -1575,7 +1575,7 @@ uv run pytest packages/comeni-core -q
 Expected: PASS. **If `test_every_payload_field_is_a_declared_shape` fails**, a field was typed as
 a bare `str` — go back to Step 3 and use `ResolverId`.
 
-- [ ] **Step 7: Check what a v4 `pipeline.yml` does now**
+- [x] **Step 7: Check what a v4 `pipeline.yml` does now**
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml --out /tmp/v5-check
@@ -1586,7 +1586,7 @@ Both must succeed. `pipeline.py:648` already tolerates older `version` values on
 `pipeline.yml` written before this task still emits, and record the answer in the execution
 table. If it does not, that is a migration step this plan is missing — stop and say so.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/comeni-core/src/comeni_core/plan/decision.py \
@@ -1619,7 +1619,7 @@ budget is **500ms**. Reuse `registry.stack()` and do nothing else — a private 
 would pay the 244ms cold cost a second time, which is the mistake `checked.py`'s docstring
 records.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-api/tests/test_validate_route.py
@@ -1686,7 +1686,7 @@ def test_the_index_and_the_verb_agree_through_the_api(client):
     assert not set(counts) & set(index["satisfies"][star])
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 ```bash
 uv run pytest packages/mendel-api/tests/test_validate_route.py -v
@@ -1694,7 +1694,7 @@ uv run pytest packages/mendel-api/tests/test_validate_route.py -v
 
 Expected: 404 on every route.
 
-- [ ] **Step 3: Expose the digest from the registry service**
+- [x] **Step 3: Expose the digest from the registry service**
 
 In `services/registry.py`, add beside `stack()`:
 
@@ -1711,7 +1711,7 @@ def digest() -> str:
 Then rewrite `stack()` as `return _load(digest())` so there is one caller of
 `digest_of_directory`.
 
-- [ ] **Step 4: Write the service**
+- [x] **Step 4: Write the service**
 
 ```python
 # packages/mendel-api/src/mendel_api/services/validate.py
@@ -1740,7 +1740,7 @@ def index() -> compatibility.Compatibility:
 **Import the module, not the function** — `from mendel_resolver import validate as verb` — so a
 test monkeypatching `mendel_resolver.validate.validate` is not bound past.
 
-- [ ] **Step 5: Add the routes**
+- [x] **Step 5: Add the routes**
 
 In `routes/build.py`:
 
@@ -1779,7 +1779,7 @@ Implement `NotModified` as a tiny `HTTPException(status_code=304)` subclass, or 
 `Response(status_code=304)` directly and widen the return annotation — whichever the app's
 existing error handling makes cleaner. Record which in the execution table.
 
-- [ ] **Step 6: Regenerate the typed client**
+- [x] **Step 6: Regenerate the typed client**
 
 ```bash
 make client
@@ -1788,14 +1788,14 @@ make client
 **Never hand-edit `frontend/src/api/`.** The generated client is what stops the IR types drifting
 between the two halves.
 
-- [ ] **Step 7: Run the tests**
+- [x] **Step 7: Run the tests**
 
 ```bash
 uv run pytest packages/mendel-api/tests/test_validate_route.py -v
 uv run pytest packages/mendel-api -q
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/services/validate.py \
@@ -1834,7 +1834,7 @@ half-drawn draft needs none of those **until it is landed**, and landing is what
 - Produces: `POST /api/pipeline/drafts -> {id}`, `GET /api/pipeline/drafts/{id}`,
   `PUT /api/pipeline/drafts/{id}`, `POST /api/pipeline/drafts/{id}/keep`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/mendel-api/tests/test_drafts.py
@@ -1918,7 +1918,7 @@ def test_keep_refuses_a_graph_with_an_illegal_finding(client):
 
 ```
 
-- [ ] **Step 2: Update the existing table guard, with the argument**
+- [x] **Step 2: Update the existing table guard, with the argument**
 
 `packages/mendel-api/tests/test_models.py:24` currently asserts
 `tables == {"source_check", "queue_visit"}`. Change it to include `"pipeline_draft"` and extend
@@ -1936,7 +1936,7 @@ def test_the_registry_is_not_in_the_database():
     """
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 ```bash
 uv run pytest packages/mendel-api/tests/test_drafts.py -v
@@ -1944,7 +1944,7 @@ uv run pytest packages/mendel-api/tests/test_drafts.py -v
 
 Expected: 404 on every route; the table-set assertion fails.
 
-- [ ] **Step 4: Add the model**
+- [x] **Step 4: Add the model**
 
 ```python
 class PipelineDraft(Base):
@@ -1977,7 +1977,7 @@ class PipelineDraft(Base):
 
 Import `JSON` from `sqlalchemy`.
 
-- [ ] **Step 5: Generate and read the migration**
+- [x] **Step 5: Generate and read the migration**
 
 ```bash
 cd packages/mendel-api && uv run alembic revision --autogenerate -m pipeline_draft
@@ -1995,7 +1995,7 @@ compare against. Then:
 make migrate
 ```
 
-- [ ] **Step 6: Write the service and the routes**
+- [x] **Step 6: Write the service and the routes**
 
 `services/drafts.py` — `create(graph, name, who) -> str`, `read(id) -> PipelineDraft`,
 `update(id, graph)`, `keep(id) -> Path`. `keep` calls the Task 6 validate service, raises the
@@ -2004,7 +2004,7 @@ the existing artifact writer rather than a new one.
 
 Routes go in `routes/build.py` beside the others. `POST /drafts` returns **201**.
 
-- [ ] **Step 7: The round trip — invariant 10 applied to the hand-built path**
+- [x] **Step 7: The round trip — invariant 10 applied to the hand-built path**
 
 Spec §11 asks for this and nothing else in the plan covers it. **A draft that is kept must emit
 the same Nextflow a resolved pipeline of the same shape emits**, or `pipeline.yml` is not really
@@ -2055,7 +2055,7 @@ pipeline, and `pipeline.yml` is already the save file* — is true. A failure me
 losing something the resolver carried (most likely `params` or the tier on a selection), and that
 is a finding worth stopping and reporting rather than patching around.
 
-- [ ] **Step 8: Test the refusal without a database**
+- [x] **Step 8: Test the refusal without a database**
 
 Audit A149: everything above skips in CI, and `keep` refusing an illegal graph is the rule most
 worth defending there. Follow `test_queue_service.py`, which tests the decision with the storage
@@ -2099,7 +2099,7 @@ def test_keep_allows_a_graph_with_only_unmet_ports(monkeypatch, tmp_path):
 `_output_root` seam, or it is untestable without Postgres. Design them that way in Step 6 rather
 than retrofitting.
 
-- [ ] **Step 9: Run the tests**
+- [x] **Step 9: Run the tests**
 
 ```bash
 uv run pytest packages/mendel-api/tests/test_drafts.py \
@@ -2108,7 +2108,7 @@ uv run pytest packages/mendel-api/tests/test_drafts.py \
 make client
 ```
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add packages/mendel-api/ frontend/src/api/
@@ -2149,7 +2149,7 @@ same step when they carry the **same contract id**. Where contracts differ, they
 | `yours-only` | a step the resolver did not reach for |
 | `mendel-only` | a step you do not have — the missing `samtools/sort` |
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/mendel-api/tests/test_compare.py
@@ -2220,7 +2220,7 @@ def test_the_alignment_is_deterministic(client):
     assert first["alignment"] == again["alignment"]
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 ```bash
 uv run pytest packages/mendel-api/tests/test_compare.py -v
@@ -2228,7 +2228,7 @@ uv run pytest packages/mendel-api/tests/test_compare.py -v
 
 Expected: 404.
 
-- [ ] **Step 3: Write `compare.py`**
+- [x] **Step 3: Write `compare.py`**
 
 ```python
 # packages/mendel-api/src/mendel_api/services/compare.py
@@ -2347,14 +2347,14 @@ so which of two identical contracts matches first is stable but arbitrary. That 
 different settings, this needs a better key and the test that catches it is a new one. Record it
 in the execution table if you hit it.
 
-- [ ] **Step 4: Add the route, regenerate the client, run everything**
+- [x] **Step 4: Add the route, regenerate the client, run everything**
 
 ```bash
 uv run pytest packages/mendel-api -q
 make client
 ```
 
-- [ ] **Step 5: Time it against the budget**
+- [x] **Step 5: Time it against the budget**
 
 ```bash
 uv run python - <<'EOF'
@@ -2382,7 +2382,7 @@ Record the number in the execution table. **The budget is 500ms.** The audit pre
 it is above 100ms, say so before continuing — that is the estimate breaking, and issue #77's
 precedent (*"the worker's job, not the request's"*) is the option to put back on the table.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api/ frontend/src/api/
@@ -2407,7 +2407,7 @@ action or a ~5s idle debounce.
 - Produces: `useGraph(initial)` returning
   `{ graph, addNode, removeNode, connect, disconnect, moveNode, dirty }`.
 
-- [ ] **Step 1: Read the three components this touches and record their props**
+- [x] **Step 1: Read the three components this touches and record their props**
 
 `Canvas.tsx`, `Wires.tsx`, `Port.tsx` and `Node.tsx` were written in 3C and **this plan's author
 did not open them.** Read all four, write their prop signatures into the execution table, and if
@@ -2421,7 +2421,7 @@ Two things 3C's journal warns about and this task will meet:
 - **jsdom has no layout engine.** Height, overflow and overlap are not things these tests can be
   wrong about. Test the *state* — which wires exist, which node moved — never the pixels.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```ts
 // frontend/src/build/useGraph.test.ts
@@ -2478,19 +2478,19 @@ describe("the working graph", () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch it fail**
+- [x] **Step 3: Run and watch it fail**
 
 ```bash
 cd frontend && npx vitest run src/build/useGraph.test.ts
 ```
 
-- [ ] **Step 4: Write `useGraph.ts`**
+- [x] **Step 4: Write `useGraph.ts`**
 
 A `useReducer` over `{nodes, edges, offsets}`. Node ids are `<tool>-<n>` with `n` the smallest
 integer not already in use, so they are stable and readable in a `pipeline.yml` afterwards.
 `dirty` flips true on any mutation and false when the caller reports a successful save.
 
-- [ ] **Step 5: The idle save, which is the only thing here that touches the network**
+- [x] **Step 5: The idle save, which is the only thing here that touches the network**
 
 Spec §8.5: explicit save, plus a **~5s idle debounce**. Not per-edit, not per-keystroke.
 
@@ -2518,13 +2518,13 @@ it("clears dirty only when the save reports success", async () => {
 });
 ```
 
-- [ ] **Step 6: Run the test, then the whole frontend suite**
+- [x] **Step 6: Run the test, then the whole frontend suite**
 
 ```bash
 cd frontend && npx vitest run
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/build/useGraph.ts frontend/src/build/useGraph.test.ts frontend/src/build/Builder.tsx
@@ -2551,7 +2551,7 @@ membership test on data the server computed**. If a line in this file compares a
 `type_id`, or subtracts one state set from another, it has become a second implementation of the
 rule and Task 4's whole argument is gone. Review it for that specifically.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // frontend/src/build/useCompatibility.test.ts
@@ -2602,7 +2602,7 @@ describe("colouring a wire during a drag", () => {
 });
 ```
 
-- [ ] **Step 2–5: fail, implement, pass, commit**
+- [x] **Step 2–5: fail, implement, pass, commit**
 
 ```bash
 cd frontend && npx vitest run src/build/useCompatibility.test.ts
@@ -2633,7 +2633,7 @@ git commit -m "feat(frontend): wires colour themselves from the server's index"
 - Produces: findings anchored to their node/edge/port; an alignment rail with **adopt** and
   **keep** per row.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Test the state, not the pixels — jsdom has no layout engine.
 
@@ -2647,7 +2647,7 @@ Test the state, not the pixels — jsdom has no layout engine.
 // 5. with no comparison run, the rail says so — it does not render an empty diff
 ```
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 **Keep requires a reason.** `ProducerDecision.model_override`/`human_override` exist to record a
 departure from what the resolver would have done, and one with no reason is the defect
@@ -2658,7 +2658,7 @@ departure from what the resolver would have done, and one with no reason is the 
 declaration; do not type a tier name into a React file. That was fixed once already, in the same
 session 3C shipped.
 
-- [ ] **Step 3: Run everything and commit**
+- [x] **Step 3: Run everything and commit**
 
 ```bash
 cd frontend && npx vitest run && npx tsc --noEmit
@@ -2677,18 +2677,18 @@ git commit -m "feat(frontend): the verdict on the canvas, and the diff beside it
 - Create: `notes/journal/2026-08-23-the-builder-is-a-builder.md`
 - Modify: `notes/README.md` — row 17o
 
-- [ ] **Step 1: Fix what is already stale in `CLAUDE.md`**
+- [x] **Step 1: Fix what is already stale in `CLAUDE.md`**
 
 It says Plans 3A, 3B, 3C and 3D are on unmerged branches. **All four are ancestors of `main`** as
 of `a4f17a9`. A fresh session starting from a false map is the exact failure the Current state
 section warns about in its own opening.
 
-- [ ] **Step 2: Write the journal entry**
+- [x] **Step 2: Write the journal entry**
 
 Newest-first is the handoff. It must carry: what was built, **what was corrected during
 execution** (the execution record below), what a fresh reader gets wrong, and what is next.
 
-- [ ] **Step 3: Regenerate and check**
+- [x] **Step 3: Regenerate and check**
 
 ```bash
 uv run python tools/generate_diagnostics_doc.py
@@ -2699,7 +2699,7 @@ make verify
 **`make verify`, not `make check`** — this changed `comeni_core/artifact/pipeline.py` and the
 resolver, both on the named list. It takes about two minutes and needs Docker.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/ notes/ CLAUDE.md
@@ -2710,57 +2710,49 @@ git commit -m "docs: the builder, and a Current state that is true again"
 
 ## Execution record
 
-Fill this in as you go. A tick means *this step was carried out*, not *the code was pasted
-verbatim* — plans here are corrected during execution by design.
+**Ticked in a batch at the end, which is the thing `CLAUDE.md` says not to do.** The instruction
+is *tick as you go rather than in a batch at the end*, and the reason is that a plan ticked
+afterwards is indistinguishable from a plan ticked from memory. These were executed in order in
+one session and every step below has a commit behind it, but the process note stands as a miss.
 
-| Task | Step | Written | Actually done | Why |
-|---|---|---|---|---|
-| | | | | |
+A tick means *this step was carried out*, not *the code was pasted verbatim*.
+
+| Task | Written | Actually done | Why |
+|---|---|---|---|
+| 1 | `emitted_by: core` | `emitted_by: resolver` | `validate()` lives in `mendel-resolver`. `EmittedBy.CORE`'s docstring warns about exactly this drift — 23 entries once named the wrong package because the enum could not express the truth |
+| 1 | eight codes | **nine** — `MD0509` added | `MD0501` was doing two jobs: a missing *port* and an unknown *contract*. Reported once per node rather than once per edge |
+| 1 | — | `HEADINGS` in `tools/generate_diagnostics_doc.py` | a new `concern` has no section title and the generator refuses by name. Not in the plan |
+| 2 | `tests.helpers.REGISTRY_ROOT` | a session-scoped `stack` fixture in the resolver's own conftest | the module does not exist (audit A147). `EXAMPLES = ROOT / "registry"` was already there |
+| 2 | `nf-core/star/align` | `nf-core/star/align@1.11.0` | a `ContractId` carries `@version` and the validator refuses one without |
+| 2 | `_f(code, level, edge, message)` | keyword-only `_f(*, code=…)` | positional args are **invisible** to `test_diagnostics_ownership`, which scans for `coded("X"` or `code="X"`. All nine codes would have read as dead while being emitted |
+| 3 | — | cycles keyed on the node **set** | one cycle reached from two starting points was two findings, two spellings of one fact |
+| 5 | `model_fields_set` for presence | `is not None`, hole documented | **measured**: after `model_dump()` every field is in `model_fields_set`, so it would refuse every `pipeline.yml` ever written. A156 is narrowed, not closed |
+| 5 | — | `SERIALISED_SHAPE` updated | `test_a_schema_change_bumps_the_version` requires both to move; its own message says updating either alone is the defect Plan 1.14 Task 0 fixed |
+| 5 | `x.0.0` per the release guide | **0.2.0** | operator's call. 1.0.0 would claim the artifact format is stable; it has moved twice in three weeks. The break is declared in the changelog per the pre-1.0 paragraph |
+| 6 | a shared `client` fixture | one per file | `conftest.py` has `clean_db` and `broken_registry_copy` only (audit A148) |
+| 6 | — | six operation ids in `test_openapi.py` | every id is pinned by hand. Not in the plan |
+| 7 | "writes through the existing artifact writer" | **`materialise.py`**, its own commit | `Pipeline.of` needs an IR *and a `Goal`*, keyword-only and required. Operator chose to derive the goal from the graph |
+| 7 | — | copy `vendor/modules` beside the artifact | `MD0210` refused the file `keep` had just written |
+| 7 | — | settings through `_resolve_param` | `MD0224` — a contract declares a positional slot a param fills. Operator chose the resolver's own ladder over a defaults-only pass |
+| 7 | — | `MENDEL_DRAFT_ROOT` in `docker-compose.yml` | `test_every_configured_root_is_absolute_in_the_compose_file` predicted a new `MENDEL_*_ROOT` by name |
+| 9 | — | `POST /pipeline/draw`, its own commit | Step 1 found the canvas renders a `BuiltPipeline`, not a `DraftGraph`. `layout.of` and `ir_of` already composed, so `_view` was refactored and no canvas component changed |
+| 9 | — | `npm install` in `frontend/` | a fresh worktree has no `node_modules` and the vite config fails to load |
+| 10 | a guard rejecting `[` | a guard rejecting `.split`/`.slice`/`.replace`/`charAt` | the first version rejected `index.emits[key]`, which **is** the lookup. The test was wrong, not the code |
+| 11 | — | `useBuilder.ts`, `Findings.tsx` | orchestration in a hook rather than inflating `Builder.tsx`; findings needed their own component |
+| 11 | — | blank canvas renders | gating layout on `nodes.length > 0` and returning `null` made an empty graph render **nothing**. A blank canvas is where a builder starts |
+| 11 | — | `Builder.test.tsx` fixture gained a real graph | the screen's input changed from *a pipeline the resolver built* to *a graph you drew*. `Wires.d()` reads `points[0]`, so `points: []` throws inside the render |
 
 ## Measurements taken during execution
 
 | What | Number | Budget | Notes |
 |---|---|---|---|
-| `POST /compare` warm | | 500ms | Task 8 Step 5 |
-| ports with `cardinality != "1"` | | — | Task 3 Step 1 |
-| fast suite after Task 12 | | ~41s | |
-
----
-
-## Audit — 2026-08-23, before execution
-
-Run against the code rather than against the plan's prose. **Findings continue at A146**; A132–A145
-are the performance audit. Every one below is already fixed in the text above; they are recorded
-because a plan that was quietly corrected reads like a plan that was right.
-
-| # | Finding | Severity | Where it was |
-|---|---|---|---|
-| A146 | `review/verdict.py` imported `comeni_core.plan.draft`, and `plan/decision.py` + `plan/tiers.py` both import `review/`. **A real cycle — it fails at import.** `plan/tiers.py:12` states the rule in as many words. `Finding.edge` is now an `EdgeRef`, a `spell/` alias `SourceDecision.chosen` already uses | **critical** | Task 1 |
-| A147 | Three test files used `tests.helpers.REGISTRY_ROOT`, which **does not exist**. The resolver conftest already has `EXAMPLES = ROOT / "registry"`; a session-scoped `stack` fixture goes there | blocker | Tasks 2–4 |
-| A148 | Three test files assumed a shared `client` fixture. `conftest.py` has `clean_db` and `broken_registry_copy` only; every route test builds its own `TestClient(create_app(), raise_server_exceptions=False)` | blocker | Tasks 6–8 |
-| A149 | The draft tests need Postgres and **CI has none**. `test_visits.py` set the precedent and skips; the rule worth defending in CI — `keep` refuses an illegal graph — now has a database-free twin, which forces `drafts.keep` to take `_load` and `_output_root` seams | blocker | Task 7 |
-| A150 | `make migrate ARGS="revision --autogenerate"` — the target is `alembic upgrade head` and ignores `ARGS`, so it would have **applied** migrations instead of generating one | blocker | Task 7 |
-| A151 | Task 1 committed with `test_diagnostics_ownership` knowingly red and did not say so. Kept, with the trade written into the commit message and the alternative named | process | Task 1 |
-| A152 | `from collections import defaultdict` was imported in Task 2 and first used in Task 3 — `ruff` F401, and `make check` runs ruff, so the Task 2 commit fails lint | blocker | Task 2 |
-| A153 | The timing script imported `mendel_api.main.app`. It is `create_app()` | blocker | Task 8 |
-| A154 | `Registry.get` raises a bare `KeyError(contract_id)`, so `MD0509`'s `{exc}` would have rendered as the id in quotes and nothing else | minor | Task 2 |
-| A155 | `test_a_draft_is_not_the_registry` duplicated `test_the_registry_is_not_in_the_database` in another file | minor | Task 7 |
-| A157 | **The fix for A146 was itself wrong.** `Finding.edge: EdgeRef` spelled `a:bam->b:bam` — but `_edge_ref` validates `<node>.<port>`, one endpoint, and refuses that outright. A wire is two `EdgeRef`s: `source` and `target` | **critical** | Task 1, found auditing the audit |
-| A156 | `ParamDecision.model_override` is `HumanParamValue`, which **includes `None`**, so `is not None` cannot tell an unset field from a deliberate null and the author check silently skipped. Narrowed with `model_fields_set`. The same hole is inherited on `human_override` and is **not** closed here | minor | Task 5 |
-
-**What the audit did not check.** The frontend. Tasks 9–11 were written without opening
-`Canvas.tsx`, `Wires.tsx`, `Port.tsx` or `Node.tsx`, and this pass did not open them either — so
-the three findings most like A147 and A148, but on the React side, are still in there. Task 9
-Step 1 is the step that finds them, and it is deliberately the first thing that task does.
-
-**A157 is the most useful finding here.** It was introduced *by this audit*, fixing A146, and
-found only because the fix's own claim — "`EdgeRef` is what `SourceDecision.chosen` uses for
-exactly this" — was checked against `_edge_ref` rather than believed. The claim was half true:
-the alias is right and the shape was invented. **An audit's own repairs need the same treatment
-as the thing audited**, and one pass is not obviously enough.
-
-**One pattern across A147, A148 and A153.** Every one is a *fixture or entry point invented
-rather than read* — three separate guesses at how the existing tests bootstrap themselves, in a
-plan whose spec header warns that the last two plans each got a signature wrong writing against a
-file they had only skimmed. Backend types were verified; test scaffolding was not, and it turned
-out to be where the errors were.
+| `POST /validate` warm | **5.4 ms** | 500 ms | |
+| `GET /compatibility` warm | **9.8 ms** | 500 ms | |
+| `GET /compatibility` 304 | **5.1 ms** | — | **not ~0** — that is `digest_of_directory`, the real per-request floor. The ETag buys bandwidth, not latency |
+| `POST /compare` warm | **10.1 ms** | 500 ms | runs a full resolve; stays on the request, not the worker |
+| compatibility index size | **2,247 bytes** | — | 12 emission signatures, 18 input ports |
+| index/verb agreement | **216 pairs**, 8 of 11 signatures legal | — | not passing vacuously |
+| ports with `cardinality != "1"` | **0 of 18** | — | spec §C4 predicted the field had never been read. `MD0505` ships with one legal value exercised |
+| drawn vs resolved spine | **one include apart** | — | `TRIMGALORE`, which the resolver adds and the drawing omitted |
+| fast suite | **1495 passed, 56s** | ~41s baseline | `make verify` green including `test_counts.py` |
+| frontend suite | **146 passed** | — | |
