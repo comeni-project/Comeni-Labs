@@ -159,7 +159,7 @@ nextflow run main.nf
 
 **The CLI flag is deprecated; the feature is not.** `-with-weblog` warns and points at
 `weblog.enabled = true`. **It is already an official plugin — `nf-weblog`, auto-fetched** — which
-is why no bespoke `nf-wiener` plugin is built (§14).
+is why no bespoke `nf-wiener` plugin is built (§15).
 
 ### 4.1 The vocabulary, as captured
 
@@ -208,12 +208,19 @@ thirteen lines of JSON.
    run on `completed` and stops listening will record a failed run as successful.
 4. **The trace is not free of laboratory strings.** `script` holds the command *including file
    names*; `workdir` is a path; `name` and `tag` carry the sample tag in any real pipeline. **So
-   "structured fields only" is not a privacy guarantee** — that framing was wrong, and §9.2 is
+   "structured fields only" is not a privacy guarantee** — that framing was wrong, and §10.2 is
    written against this instead.
 5. **`started.metadata` carries `parameters`** — which in a real run is where `--input
    samplesheet.csv` lands — plus `userName`, `homeDir`, `launchDir`, `workDir` and `configFiles`.
    **The very first event of every run is the most identifier-dense one**, and it arrives before
    any task exists.
+
+6. **The resource metrics are opt-in, and Wiener must opt in.** A first capture showed
+   `memory: None` and no CPU or I/O fields at all. With `trace.enabled = true` in the config the
+   same payload gains **fifteen more**: `%cpu`, `%mem`, `rss`, `vmem`, `peak_rss`, `peak_vmem`,
+   `rchar`, `wchar`, `read_bytes`, `write_bytes`, `syscr`, `syscw`, `vol_ctxt`, `inv_ctxt` and
+   `cpu_model`. **Everything §9 draws depends on one line Wiener writes into `site.config`**, and
+   without it the dashboard is empty for reasons nothing would explain.
 
 One thing arrived free: `completed.metadata.workflow.stats` carries `succeededCount`,
 `cachedCount`, `failedCount` and `ignoredCount`, and `errorReport` carries the readable failure
@@ -236,7 +243,7 @@ Three consequences:
   adds it deliberately, in a diff.
 - **The identifier-dense fields are named, in one place.** `script`, `workdir`, `name`, `tag`,
   `parameters`, `userName`, `homeDir`, `launchDir`, `configFiles`, `commandLine`, `errorMessage`
-  and `errorReport` are marked as **lab strings** on the type. §9.2's redaction port filters *that
+  and `errorReport` are marked as **lab strings** on the type. §10.2's redaction port filters *that
   marking*, not a guess about content.
 - **An unknown `event` kind is refused rather than ignored**, with a diagnostic naming it. A
   silently dropped event is a run whose state is quietly wrong.
@@ -349,7 +356,7 @@ is decided by *what has been seen*, not by *what arrived last*. `terminal_seen` 
 
 **Retries are history.** `TaskState.attempts` is a tuple, appended to. A task that failed twice and
 then succeeded is a task whose state says so — which is what the console needs to draw, and what
-§9.1's signature gate reads.
+§10.1's signature gate reads.
 
 ### 5.2 The decision
 
@@ -384,13 +391,13 @@ This is Wiener's version of invariant 10, and it is a test rather than an aspira
 
 **A three-day run replays in milliseconds, with no cluster.** Every relaunch the supervisor chose
 is reproducible and explainable after the fact — the operational analogue of what `pipeline.yml`
-does for a pipeline. It is also why the model is not in the decision path (§9): a model inside
+does for a pipeline. It is also why the model is not in the decision path (§10): a model inside
 `decide()` makes replay approximate, and an approximate replay cannot answer *why did it give up at
 04:12*.
 
 ### 6.1 Time enters as data, never as a clock
 
-Backoff, give-up-after and the §9.1 heartbeat all need to know what time it is, and **reading a
+Backoff, give-up-after and the §10.1 heartbeat all need to know what time it is, and **reading a
 clock inside `wiener-core` would break this section's claim in the first week** — the same run
 would replay to different decisions depending on when you replayed it.
 
@@ -478,7 +485,7 @@ then subscribes from the current id. That handoff — *page from the record, the
 stream* — is the only ordering subtlety in the console, and it is stated here so W2 does not
 discover it.
 
-`MAXLEN ~ 10000` is a starting number, not a measurement; §16 carries it as open.
+`MAXLEN ~ 10000` is a starting number, not a measurement; §17 carries it as open.
 
 ---
 
@@ -500,7 +507,7 @@ look like three spans, not one. The mapping is a pure function over `RunState`.
 **Nothing marked `Mark.LAB_STRING` becomes a span attribute.** `script`, `workdir`, `name` and
 `tag` are exactly the fields a tracing backend would happily index and retain, and §4.3's finding 4
 is why that has to be a rule rather than an oversight nobody made. The same marking that gates the
-AI (§9.2) gates the exporter, and one test covers both.
+AI (§10.2) gates the exporter, and one test covers both.
 
 **It buys four things Wiener would otherwise build**: a waterfall over a 400-task run, aggregation
 across runs, a retention policy, and alerting. **And the fleet level gets a mechanism** — §2's third
@@ -525,14 +532,88 @@ operate. Wiener speaks OTLP, so an operator running Grafana or Jaeger points it 
 
 ---
 
-## 9. The AI
+## 9. The two views, and what the numbers are
+
+The centre of the run page is one region with **two views of the same state**: the **console**,
+which is what happened in order, and the **graph**, which is where it is happening. Both are
+`project(RunState)` (§3) — neither holds state the other lacks, and switching between them is a
+render, not a fetch.
+
+### 9.1 The graph is 3C's layout, coloured
+
+**Nothing new is computed.** `mendel_compiler/layout.py` already lays a pipeline's DAG out in
+Python — deterministically, so the canvas is as reproducible as the emitted `.nf` — and 3C ships
+the pan, zoom and orthogonal routing that draws it. Wiener takes that layout and **colours it by
+run state**:
+
+| what you see | from |
+|---|---|
+| node fill | the process's aggregate: all done, some running, any failed |
+| node ring | attempts — a second ring means something retried |
+| node label | `9 / 12` from `RunState.counts` per process |
+| edge activity | a downstream task is running on what an upstream produced |
+
+**This is the same knowledge from a different route**, which is the argument 3C's own handoff
+makes about the builder: the resolver searches for edges, the builder checks edges it is handed,
+and Wiener animates edges that already exist. No new declaration, no second layout engine, and a
+graph that cannot disagree with the pipeline because it *is* the pipeline's layout.
+
+### 9.2 What an edge may honestly show
+
+**The byte counters arrive on `process_completed`, not during a task** (§4.2). So Wiener knows how
+much a task read and wrote *after it finishes*, and knows nothing about its throughput while it
+runs.
+
+Therefore:
+
+- **A live edge means "this edge is active"** — the consumer is running on what the producer
+  wrote. That is a fact the event stream supports, and animating it is honest.
+- **A live edge must not carry a rate.** A pulse whose speed or thickness implies MB/s would be
+  invented, and a number nobody can source is the thing this whole project exists to not do.
+- **A finished edge may carry its real weight**, because then `write_bytes` and `read_bytes` are
+  known. Weighting the graph *after the fact* is how you see that one join moved 40 GB.
+
+Motion is meaning, not decoration — `dashboard.md` already treats it that way, and the product's
+only existing animation is the front door's one settle. A graph where everything pulses says
+nothing; one where only the working edges do is a status display.
+
+### 9.3 The numbers
+
+`trace.enabled` (§4.3 finding 6) makes four comparisons available, and they are comparisons rather
+than readings — a bare `peak_rss` means nothing without what was asked for.
+
+| | asked | got | why it matters |
+|---|---|---|---|
+| **memory** | `memory` | `peak_rss` | the OOM story, *before* the OOM. A process at 94% of its ceiling is the next exit 137 |
+| **cpu** | `cpus` | `%cpu` | over-allocation is the commonest waste in bioinformatics: 8 cores requested, 100% of one used |
+| **time** | `duration` | `realtime` | the difference is **queue wait**. On a cluster that is the number that explains a slow run |
+| **i/o** | — | `read_bytes` · `write_bytes` | which step actually moves the data |
+
+**Per process, not per task.** A 400-task run has 400 traces and nobody reads 400 rows; the
+dashboard aggregates by process and keeps the outlier — *STAR_ALIGN: 12 tasks, peak 61 GB of 64
+requested, worst 6m41s* — because the maximum is what kills a run and the mean is what hides it.
+
+**These are also what §10.5's brief should carry**, and they cost nothing extra: the model
+diagnosing exit 137 is much better placed knowing the task peaked at 31.8 GB of a 32 GB ceiling
+than knowing only that it died.
+
+### 9.4 Why this is not a second dashboard
+
+Everything above is a **projection of `RunState`**, so it replays (§6) and it needs no store of its
+own. The one thing it does need is that `admit()` (§4.4) keeps the fifteen trace fields — which is
+a line in an allowlist and a test, rather than a subsystem.
+
+
+---
+
+## 10. The AI
 
 **`decide()` owns every action, deterministically.** Relaunch counts, backoff, give-up thresholds —
 all from declared policy, all pure, all replayable. **The model explains and proposes.** A proposal
 is a flagged suggestion a named human accepts, which is invariants 2 and 6 arriving in a new place
 with the same shape.
 
-### 9.1 What wakes it
+### 10.1 What wakes it
 
 A run that retries the same failure forty times must not cost forty model calls.
 
@@ -558,12 +639,12 @@ made** — the token cost of a run is a testable property, not an invoice surpri
 **A heartbeat** adds one cheap brief on an interval even when nothing failed, so the chat panel can
 answer *is this normal* and not only *what broke*. It is an event (§6.1), so it replays too.
 
-### 9.2 What it may see
+### 10.2 What it may see
 
 **At MVP: everything**, including `errorReport` and the lab strings §4.3 found in the trace. That is
 a deliberate choice and its consequence is written here rather than discovered: **Wiener's MVP is
 research-use.** A laboratory handling patient data should not point it at a hosted provider until
-§9.3 exists.
+§10.3 exists.
 
 **Finding 4 corrected this section's first draft.** "Structured fields only" was offered as a
 privacy guarantee and it is not one: `trace.script` holds file names, `trace.workdir` is a path,
@@ -585,7 +666,7 @@ adding a marked field without handling it fails the totality test rather than le
 it: Safe Harbor needs all eighteen identifier classes gone, and NLP de-identification leaves false
 negatives *and fails silently*.
 
-### 9.3 The seam that makes the other modes cheap
+### 10.3 The seam that makes the other modes cheap
 
 `PassThrough` is to `Redactor` what `NoFiller` is to `HoleFiller`: **declare the seam, ship the one
 implementation you need, add the others without a caller changing.** The three protection profiles
@@ -599,7 +680,7 @@ are then three implementations —
 — and Wiener becomes the first thing in the repository to implement a table that has been on paper
 since [#71](https://github.com/comeni-project/Comeni-Labs/issues/71).
 
-### 9.4 What a fix means
+### 10.4 What a fix means
 
 **Two classes, and confusing them is the failure:**
 
@@ -607,13 +688,13 @@ since [#71](https://github.com/comeni-project/Comeni-Labs/issues/71).
   launch, **never the artifact**. Wiener may apply these on a human's approval; at MVP it shows the
   exact change and a person clicks.
 - **Pipeline-level** — a wrong parameter, the wrong tool. That is `pipeline.yml`, which is Mendel's.
-  **Wiener never patches it**; it emits a proposal (§13). Same rule as invariant 5: repair patches
+  **Wiener never patches it**; it emits a proposal (§14). Same rule as invariant 5: repair patches
   the IR and re-emits, it never edits the generated text.
 
 *"I cannot fix this"* is therefore a **typed outcome** — the model classified the failure as
 pipeline-level or unknown — rather than a sentence it happened to produce.
 
-### 9.5 The brief, shaped for the budget
+### 10.5 The brief, shaped for the budget
 
 ```python
 class AiBrief(BaseModel):
@@ -630,7 +711,7 @@ console tail. **The budget is a type, not a discipline.**
 
 ---
 
-## 10. Acting: a closed verb vocabulary
+## 11. Acting: a closed verb vocabulary
 
 The console is **read-only at MVP**. The door to write mode is left open, and what comes through it
 is a fixed, typed set of run operations — **never a shell**.
@@ -649,7 +730,7 @@ is a fixed, typed set of run operations — **never a shell**.
 | `relaunch` | launch again, optionally `-resume` | a **new run row**, linked to the old |
 | `retry task N` | relaunch with `-resume`, targeting one failure | Nextflow does the resuming |
 | `pause` | stop submitting new tasks | running tasks finish |
-| `apply` | take a §9.4 run-level proposal into `site.config` | shows the diff first |
+| `apply` | take a §10.4 run-level proposal into `site.config` | shows the diff first |
 
 **There is no `retry this task in place`**, because task-level retry is Nextflow's (§2) and a second
 implementation would be worse. `retry task N` is `relaunch --resume` with the intent recorded.
@@ -661,7 +742,7 @@ vocabulary is what makes the audit finite: a reviewer checks a list of verbs, no
 
 ---
 
-## 11. Submission, and who may do it
+## 12. Submission, and who may do it
 
 **Wiener owns its own artifact store.** Submitting a run uploads the gated pipeline directory into
 Wiener's storage; Wiener owns it from then on. **No shared volume, no shared environment variable,
@@ -684,7 +765,7 @@ This closes a gap that document names in §4: today the only thing that can name
 `settings.draft_root / draft_id`, both of them `mendel-api`'s private facts. **Sharing those between
 the halves is the entanglement §8 warns about, arriving as an environment variable.**
 
-### 11.1 Wiener executes what it is handed
+### 12.1 Wiener executes what it is handed
 
 **That is arbitrary code execution by design.** Running a pipeline is running code; every design has
 this property and pretending otherwise would be the dangerous version. What follows from stating it:
@@ -695,7 +776,7 @@ this property and pretending otherwise would be the dangerous version. What foll
 - **The artifact is content-addressed on upload** (`digest`), so *what ran* is answerable later, and
   a submission that claims to be a gated pipeline can be checked against `pipeline.yml`'s own
   recorded digests.
-- **Write mode (§10) gates additionally on internal-network origin**, off by default. The verb
+- **Write mode (§11) gates additionally on internal-network origin**, off by default. The verb
   vocabulary is what makes that gate meaningful: a shell behind an IP check is still a shell.
 
 **Wiener becomes independently useful**, and that is a feature rather than a side effect — a
@@ -704,7 +785,7 @@ that only works downstream of us, and it is invariant 13's spirit applied one le
 
 ---
 
-## 12. The API surface
+## 13. The API surface
 
 ```
 POST   /api/artifacts              upload a gated pipeline directory -> {artifact_id, digest}
@@ -716,15 +797,15 @@ GET    /api/runs/{id}              RunState, projected
 GET    /api/runs/{id}/tasks        the task table, paged
 GET    /api/runs/{id}/events       the record, paged — what the console reads before subscribing
 WS     /api/runs/{id}/stream       the live tail, resuming from a stream id
-POST   /api/runs/{id}/intents      a verb (§10) -> pending approval
+POST   /api/runs/{id}/intents      a verb (§11) -> pending approval
 POST   /api/intents/{id}/approve   a named human accepts it
 
-POST   /events/{run_id}            nf-weblog's ingest. NOT under /api — §12.1
+POST   /events/{run_id}            nf-weblog's ingest. NOT under /api — §13.1
 GET    /api/runs/{id}/brief        the latest AiBrief and what the model said
 POST   /api/runs/{id}/ask          the chat panel
 ```
 
-### 12.1 The ingest endpoint is not a public route
+### 13.1 The ingest endpoint is not a public route
 
 `POST /events/{run_id}` is written to by the head process, which Wiener launched, over loopback. It
 is **bound separately from the public app** and carries a per-run secret in the URL that Wiener
@@ -738,7 +819,7 @@ later.
 
 ---
 
-## 13. The feedback loop, and why it is not a database
+## 14. The feedback loop, and why it is not a database
 
 The ask was that a failure be *"added to the database of issues so the compiler gets better"*. The
 intent is right and the mechanism cannot be a database:
@@ -777,7 +858,7 @@ the open design risk of
 
 ---
 
-## 14. What was rejected
+## 15. What was rejected
 
 - **A bespoke `nf-wiener` Nextflow plugin.** `nf-weblog` already exists, is official and is
   maintained — it downloaded itself during the §4.0 capture. Writing one saves a loopback hop and
@@ -800,21 +881,21 @@ the open design risk of
 - **Scrubbing error text.** Rejected repository-wide, for reasons that have not changed.
 - **OpenTelemetry as the system of record.** §8. Sampling and expiry are what make a tracing store
   affordable and are exactly what run state cannot tolerate.
-- **A real shell in the console.** §10. A box that reaches a process is one bug from reaching a
+- **A real shell in the console.** §11. A box that reaches a process is one bug from reaching a
   shell; a vocabulary is auditable and a sanitiser is not.
-- **Task-level retry implemented by Wiener.** §2 and §10 — Nextflow's `errorStrategy` and `-resume`
+- **Task-level retry implemented by Wiener.** §2 and §11 — Nextflow's `errorStrategy` and `-resume`
   already do it, and Mendel can already emit both.
 - **A samplesheet anywhere in Mendel.** Invariant 15, unchanged and unweakened: this document puts
   the samplesheet in Wiener, which is where it was always going to live.
-- **Mounting the ingest endpoint on the public app.** §12.1.
+- **Mounting the ingest endpoint on the public app.** §13.1.
 
 ---
 
-## 15. Costs, stated
+## 16. Costs, stated
 
-- **Wiener stands in patient data**, and its MVP AI sees everything. Until §9.3's other two
+- **Wiener stands in patient data**, and its MVP AI sees everything. Until §10.3's other two
   implementations exist, it is research-use, and saying so is part of shipping it.
-- **Authentication is in W1**, not deferred. §11.1 is why: `who` is a permission here, where in
+- **Authentication is in W1**, not deferred. §12.1 is why: `who` is a permission here, where in
   `mendel-api` it is attribution.
 - **The dev stack grows by two containers** and one more database to operate.
 - **An artifact is copied** rather than shared. A boundary that costs nothing is usually not a
@@ -828,7 +909,7 @@ the open design risk of
 
 ---
 
-## 16. What is open
+## 17. What is open
 
 Named rather than left to be discovered mid-plan.
 
@@ -844,12 +925,12 @@ Named rather than left to be discovered mid-plan.
 - **Artifact retention.** Runs are forever; uploaded artifacts probably are not, and nothing says.
 - **Whether `wiener-core` should own the OTLP *semantic conventions*** or invent `wiener.*`
   attributes. §8 assumes the latter; the former is a research task nobody has done.
-- **The chat panel's own history.** §12 has `/ask` and no transcript store. If a conversation about a
+- **The chat panel's own history.** §13 has `/ask` and no transcript store. If a conversation about a
   run is worth keeping, that is a table this document did not argue for.
 
 ---
 
-## 17. Six slices
+## 18. Six slices
 
 Each produces working software and gets its own plan, written against the code the previous one
 lands. Writing all six now would be writing five against code that does not exist, which is what
@@ -868,7 +949,7 @@ killed Plan 2 and the original Plan 3.
 after W2 because the AI brief and the dashboard are the same projection; W4 after W3 because *attempt
 to fix* needs a proposal to act on; W6 last because it needs runs to have happened.
 
-### 17.1 What you cannot do at the end of W1
+### 18.1 What you cannot do at the end of W1
 
 Stated because every 3A phase states it, and the one that did not is the one that shipped a frontend
 with zero event handlers.
