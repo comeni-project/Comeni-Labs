@@ -58,6 +58,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/modules", "get"): "listModules",
         ("/api/pipeline/validate", "post"): "validatePipeline",
         ("/api/pipeline/compare", "post"): "comparePipeline",
+        ("/api/pipeline/draw", "post"): "drawPipeline",
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",

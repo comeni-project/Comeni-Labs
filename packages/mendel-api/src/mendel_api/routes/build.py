@@ -200,3 +200,21 @@ def compare_pipeline(body: compare_service.CompareIn) -> compare_service.Compari
     where Mendel put STAR fills one slot rather than being two unrelated steps — and a judgement
     made in the browser is one the agent driving this API cannot reach."""
     return compare_service.of(body.graph, body.goal)
+
+
+@router.post(
+    "/draw",
+    operation_id="drawPipeline",
+    summary="Lay out a hand-drawn graph, in the shape the canvas already renders",
+    responses=REFUSES,
+)
+def draw(graph: DraftGraph) -> BuiltPipeline:
+    """**Layout stays in Python.** `CLAUDE.md`: the DAG layout is computed server-side so the
+    canvas is as deterministic as the emitted `.nf`. A drawn graph gets the same treatment — a
+    browser laying out its own nodes would be the one part of the picture that could differ
+    between two people looking at the same pipeline.
+
+    Returns a `BuiltPipeline`, which is what `/pipeline` already returns, so Plan 3C's canvas
+    draws a hand-drawn graph without a component changing.
+    """
+    return service.drawn(graph)

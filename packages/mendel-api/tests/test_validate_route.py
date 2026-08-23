@@ -88,3 +88,38 @@ def test_the_index_and_the_verb_agree_through_the_api(client):
     assert not set(counts) & set(index["satisfies"][star])
     sorted_bam = index["emits"][f"{SORT}#bam"]
     assert set(counts) & set(index["satisfies"][sorted_bam])
+
+
+def test_a_drawn_graph_lays_out_like_a_resolved_one(client):
+    """**No new canvas.** `/draw` returns the same `BuiltPipeline` `/pipeline` does, so Plan 3C's
+    canvas renders a hand-drawn graph without a component changing."""
+    body = {
+        "nodes": [
+            {"id": "align", "contract_id": STAR},
+            {"id": "sort", "contract_id": SORT},
+        ],
+        "edges": [
+            {"from_node": "align", "from_port": "bam", "to_node": "sort", "to_port": "bam"}
+        ],
+    }
+    view = client.post("/api/pipeline/draw", json=body).json()
+    assert [n["id"] for n in view["layout"]["nodes"]] == ["align", "sort"]
+    assert view["layout"]["nodes"][0]["y"] != view["layout"]["nodes"][1]["y"], "not laid out"
+    assert len(view["layout"]["wires"]) == 1
+
+
+def test_a_drawn_graph_is_honest_about_its_tiers(client):
+    """Every module choice a person made exits at tier 4 — they had a choice and made it.
+    Invariant 6: flagged always, even when the person was certain."""
+    body = {
+        "nodes": [
+            {"id": "align", "contract_id": STAR},
+            {"id": "sort", "contract_id": SORT},
+        ],
+        "edges": [
+            {"from_node": "align", "from_port": "bam", "to_node": "sort", "to_port": "bam"}
+        ],
+    }
+    view = client.post("/api/pipeline/draw", json=body).json()
+    assert set(view["needs_review"]) == {"align", "sort"}
+    assert view["settled_share"] < 1.0

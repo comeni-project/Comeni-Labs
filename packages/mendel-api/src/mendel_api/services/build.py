@@ -19,8 +19,11 @@ from functools import lru_cache
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
+from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.plan.draft import DraftGraph
 from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
+from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
 
 from mendel_api.services import registry
@@ -170,22 +173,32 @@ class BuiltPipeline(BaseModel):
     """Step ids that exited at tier 4. Invariant 6 — flagged always."""
 
 
-def _view(built: orchestrate.Built) -> BuiltPipeline:
-    placed = layout.of(built.ir)
-    by_id = {step.id: step for step in built.pipeline.steps}
+def _view(ir, pipeline, layers) -> BuiltPipeline:
+    """The IR, laid out, as the canvas reads it.
+
+    **Takes the three parts rather than an `orchestrate.Built`** so a *drawn* graph can render
+    through the same view: `materialise.ir_of` produces a `PipelineIR` and `layout.of` takes one,
+    so a hand-drawn pipeline reaches the existing canvas with no component change at all. That is
+    spec §2's "the same knowledge from a different route" arriving where it is cheapest.
+
+    Layout stays in Python for the reason `CLAUDE.md` gives — the canvas is as deterministic as
+    the emitted `.nf` — so a drawn graph must not be laid out in the browser either.
+    """
+    placed = layout.of(ir)
+    by_id = {step.id: step for step in pipeline.steps}
     # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
     # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
     # arrives from `params.gtf` — so checking edges alone drew a hollow *unmet* dot on a
     # perfectly satisfied input, on the one encoding that exists to flag real problems. A
     # false alarm on it costs more than the signal is worth.
-    fed = {(edge.to_node, edge.to_port) for edge in built.ir.edges}
-    entered = {channel.type_id for channel in built.pipeline.channels}
+    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
+    entered = {channel.type_id for channel in pipeline.channels}
 
     def ports_of(node_id: str) -> list[PortView]:
         step = by_id.get(node_id)
         if step is None:
             return []
-        contract = built.layers.registry.get(step.module.contract_id)
+        contract = layers.registry.get(step.module.contract_id)
         return [
             PortView(
                 name=port.name,
@@ -273,17 +286,36 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     """Both halves of the key matter: a changed goal is a different pipeline, and a changed
     registry can resolve the same goal differently. Leaving the digest out is how a cache
     outlives the thing it was computed from."""
-    return _view(
-        orchestrate.build(
-            Goal.model_validate_json(goal_json),
-            registry_root=settings.registry_root,
-            vendor_root=settings.source_root,
-        )
+    built = orchestrate.build(
+        Goal.model_validate_json(goal_json),
+        registry_root=settings.registry_root,
+        vendor_root=settings.source_root,
     )
+    return _view(built.ir, built.pipeline, built.layers)
 
 
 def of(goal: Goal) -> BuiltPipeline:
     return _built(goal.model_dump_json(), str(digest_of_directory(settings.registry_root)))
+
+
+def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:
+    """A hand-drawn graph, laid out, in the shape the canvas already renders.
+
+    **No new view and no new canvas.** `materialise.ir_of` makes a `PipelineIR` and `layout.of`
+    takes one, so the whole of Plan 3C's canvas — nodes, ports, tier rails, the provenance bar —
+    draws a drawn graph without a component changing. The tiers it shows will be honest about
+    what a drawing is: every module choice exits at 4, because a person who picked had a choice.
+
+    Not cached. A draft changes on every save and a cache keyed on its JSON would hold one entry
+    per keystroke-batch, which is a memory leak wearing a cache's clothes.
+    """
+    stack = registry.stack()
+    ir = ir_of(graph, stack, by=by)
+    pipeline = Pipeline.of(
+        ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+        goal=goal_of(graph, stack),
+    )
+    return _view(ir, pipeline, stack)
 
 
 def modules() -> list[ModuleView]:

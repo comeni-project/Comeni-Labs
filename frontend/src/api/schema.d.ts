@@ -495,6 +495,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/draw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lay out a hand-drawn graph, in the shape the canvas already renders
+         * @description **Layout stays in Python.** `CLAUDE.md`: the DAG layout is computed server-side so the
+         *     canvas is as deterministic as the emitted `.nf`. A drawn graph gets the same treatment — a
+         *     browser laying out its own nodes would be the one part of the picture that could differ
+         *     between two people looking at the same pipeline.
+         *
+         *     Returns a `BuiltPipeline`, which is what `/pipeline` already returns, so Plan 3C's canvas
+         *     draws a hand-drawn graph without a component changing.
+         */
+        post: operations["drawPipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -2456,6 +2482,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Comparison"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    drawPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftGraph-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuiltPipeline"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
