@@ -2,21 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
 import { get, post } from "../api/client";
-import type { components } from "../api/schema";
 import { useGraph } from "./useGraph";
+import type { AlignedStep, Built, Comparison, DraftGraph, Verdict } from "../api/types";
 
-type Built = components["schemas"]["BuiltPipeline"];
-/** **`DraftGraph-Input`, not `DraftGraph`.** FastAPI splits a model that appears in both a
- * request and a response: the input form has the defaulted fields optional, the output form has
- * them required. What this hook holds is what it SENDS, so the input form is the honest one. */
-type DraftGraph = components["schemas"]["DraftGraph-Input"];
-/** **Namespaced, because three classes are called `Verdict`** — `comeni_core.review.verdict`,
- * `mendel_forge.verify` and `mendel_forge.drift`. FastAPI disambiguates by module path rather
- * than picking one, and renaming a core domain type to dodge a generator artifact would be the
- * tail wagging the dog. */
-type Verdict = components["schemas"]["comeni_core__review__verdict__Verdict"];
-type Comparison = components["schemas"]["Comparison"];
-type AlignedStep = components["schemas"]["AlignedStep"];
 
 /** What the canvas draws before anything is on it. Not a loading state and not an error. */
 const EMPTY_VIEW: Built = {

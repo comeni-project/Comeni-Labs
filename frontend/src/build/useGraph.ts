@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { DraftEdge, DraftGraph } from "../api/types";
 
-import type { components } from "../api/schema";
 
-/** **`DraftGraph-Input`, not `DraftGraph`.** FastAPI splits a model that appears in both a
- * request and a response: the input form has the defaulted fields optional, the output form has
- * them required. What this hook holds is what it SENDS, so the input form is the honest one. */
-type DraftGraph = components["schemas"]["DraftGraph-Input"];
-type DraftEdge = components["schemas"]["DraftEdge"];
 
 export type Offset = { x: number; y: number };
 
@@ -123,6 +118,31 @@ export function useGraph(
     [edit],
   );
 
+  /** Set one parameter on one node.
+   *
+   * **The value only; the tier is the server's to stamp.** A browser claiming `tier: 1` on a
+   * value somebody typed would put a lie in `pipeline.yml` that nothing downstream could catch.
+   * `materialise` stamps tier 4 and records a `human_override`, because a person who typed a
+   * value had a choice and made it.
+   *
+   * `null` clears it, which hands the parameter back to the resolver's ladder rather than
+   * recording an empty answer.
+   */
+  const setParam = useCallback(
+    (id: string, name: string, value: string | null) =>
+      edit((g) => ({
+        ...g,
+        nodes: g.nodes.map((n) => {
+          if (n.id !== id) return n;
+          const rest = (n.params ?? []).filter((p) => p.name !== name);
+          return value === null
+            ? { ...n, params: rest }
+            : { ...n, params: [...rest, { name, value, why: "" }] };
+        }),
+      })),
+    [edit],
+  );
+
   /** Swap one node's contract, keeping its id and therefore its wires.
    *
    * Adopting the resolver's choice for a step means *this step, that tool* — removing and
@@ -167,6 +187,7 @@ export function useGraph(
     addNode,
     removeNode,
     replaceContract,
+    setParam,
     connect,
     disconnect,
     moveNode,

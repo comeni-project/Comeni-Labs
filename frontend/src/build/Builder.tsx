@@ -404,6 +404,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             <Settings
               step={data.steps.find((s) => s.id === carded)!}
               onClose={() => setCarded(null)}
+              onSet={(name, value) => builder.setParam(carded, name, value)}
             />
           </div>
         </div>

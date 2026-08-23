@@ -768,7 +768,7 @@ export interface components {
         };
         /** CompareIn */
         CompareIn: {
-            graph: components["schemas"]["DraftGraph-Input"];
+            graph: components["schemas"]["DraftGraph"];
             goal: components["schemas"]["Goal"];
         };
         /** Comparison */
@@ -866,6 +866,31 @@ export interface components {
             /** Fix */
             fix: string;
         };
+        /**
+         * DomainView
+         * @description What values a setting accepts, so the card can render the right control.
+         *
+         *     `dashboard.md` §5: *parameters with alternatives render as a `<select>`; free values as an
+         *     input*. Without this the browser cannot tell one from the other and every setting is a text
+         *     box — including `index_format`, whose two legal values are `bai` and `csi`.
+         *
+         *     `None` on a setting means the contract declares no domain, which is legal and is what most
+         *     contracts say. A param whose legal values genuinely cannot be enumerated — `seq_platform`,
+         *     deliberately — declares none, and gets a free input.
+         */
+        DomainView: {
+            /** Kind */
+            kind: string;
+            /**
+             * Values
+             * @default []
+             */
+            values: string[];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+        };
         /** DraftBody */
         DraftBody: {
             /** Ref */
@@ -890,17 +915,9 @@ export interface components {
             to_port: string;
         };
         /** DraftGraph */
-        "DraftGraph-Input": {
+        DraftGraph: {
             /** Nodes */
-            nodes?: components["schemas"]["DraftNode-Input"][];
-            /** Edges */
-            edges?: components["schemas"]["DraftEdge"][];
-            profile?: components["schemas"]["DataProfile"];
-        };
-        /** DraftGraph */
-        "DraftGraph-Output": {
-            /** Nodes */
-            nodes?: components["schemas"]["DraftNode-Output"][];
+            nodes?: components["schemas"]["DraftNode"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
             profile?: components["schemas"]["DataProfile"];
@@ -910,7 +927,7 @@ export interface components {
          * @description What a client sends to open or update a draft.
          */
         DraftIn: {
-            graph: components["schemas"]["DraftGraph-Input"];
+            graph: components["schemas"]["DraftGraph"];
             /**
              * Name
              * @default
@@ -918,22 +935,13 @@ export interface components {
             name: string;
         };
         /** DraftNode */
-        "DraftNode-Input": {
+        DraftNode: {
             /** Id */
             id: string;
             /** Contract Id */
             contract_id: string;
             /** Params */
-            params?: components["schemas"]["ParamBinding-Input"][];
-        };
-        /** DraftNode */
-        "DraftNode-Output": {
-            /** Id */
-            id: string;
-            /** Contract Id */
-            contract_id: string;
-            /** Params */
-            params?: components["schemas"]["ParamBinding-Output"][];
+            params?: components["schemas"]["DraftParam"][];
         };
         /** DraftOut */
         DraftOut: {
@@ -941,7 +949,34 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            graph: components["schemas"]["DraftGraph-Output"];
+            graph: components["schemas"]["DraftGraph"];
+        };
+        /**
+         * DraftParam
+         * @description A setting somebody typed into the builder.
+         *
+         *     **Not a `ParamBinding`.** That carries a `ResolvedValue` — a tier, a source, a reason, the
+         *     premises a rule read — and a client must not be the thing that says at which tier its own
+         *     answer sits. A browser claiming `tier: 1` on a value a person typed would put a lie in
+         *     `pipeline.yml` that nothing downstream could catch, which is A130's shape exactly.
+         *
+         *     So a draft carries the answer and the reason, and `materialise` stamps the tier: **4, human
+         *     or model**, because a person who typed a value had a choice and made it (invariant 6).
+         *
+         *     `HumanParamValue` rather than `ParamValue`: it is the type guarded against path-shaped
+         *     values by a blocklist (audit A3), and a value typed into a browser is exactly the untrusted
+         *     input that guard exists for.
+         */
+        DraftParam: {
+            /** Name */
+            name: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
         };
         /** DraftResult */
         DraftResult: {
@@ -1255,34 +1290,6 @@ export interface components {
          */
         Ordering: "consequence" | "recent";
         /**
-         * ParamBinding
-         * @description One resolved parameter. A list rather than a dict on purpose.
-         *
-         *     `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
-         *     a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
-         *     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
-         *     information and can be inspected field by field.
-         */
-        "ParamBinding-Input": {
-            /** Name */
-            name: string;
-            value: components["schemas"]["ResolvedValue-Input"];
-        };
-        /**
-         * ParamBinding
-         * @description One resolved parameter. A list rather than a dict on purpose.
-         *
-         *     `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
-         *     a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
-         *     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
-         *     information and can be inspected field by field.
-         */
-        "ParamBinding-Output": {
-            /** Name */
-            name: string;
-            value: components["schemas"]["ResolvedValue-Output"];
-        };
-        /**
          * ParamOverride
          * @description A parameter the user pinned. Closed, so it cannot carry a path.
          *
@@ -1376,43 +1383,6 @@ export interface components {
             side: string;
             /** Met */
             met: boolean;
-        };
-        /**
-         * PremiseOrigin
-         * @description How good a fact is as a premise, which is not the same question as who settled it.
-         *
-         *     Lives here rather than in `mendel_resolver.premises`, where it was declared, because the
-         *     artifact carries it: `Why.premise` reaches `pipeline.yml` and `comeni-core` must not
-         *     depend on `mendel-resolver`. Same move `DataProfile` and `Goal` both made, for the same
-         *     reason, and `premises.py` re-exports it so every existing import still resolves.
-         *
-         *     `ValueSource` answers *who settled this*; this answers *how good is it as evidence*. A
-         *     goal assertion and a human override are different authors and identical evidence — in
-         *     neither case did anything look at the data — so both are `ASSERTED`. Collapsing them at
-         *     the point they are built rather than at each point of use is what keeps the `sealed`
-         *     profile's check a single one (issue #2).
-         * @enum {string}
-         */
-        PremiseOrigin: "measured" | "asserted" | "goal" | "derived" | "unmeasured";
-        /**
-         * PremiseRecord
-         * @description One fact a decision rested on, and how good that fact is.
-         *
-         *     A **list of records**, not two parallel mappings. The plan drafted `premise:
-         *     dict[str, Any]` beside `premise_origin: dict[str, str]`, and `tests/test_egress.py`
-         *     refused it three ways at once — a mapping, an `Any`, and a bare `str` key — because `Why`
-         *     is reachable from door 4, publication, the door with no undo.
-         *
-         *     Being forced into a record is the better shape anyway: two parallel mappings can disagree
-         *     about their key sets and nothing would notice, and the guard's own message says why the
-         *     list is the house style — *"a typed key does not prove a declared key"*.
-         */
-        PremiseRecord: {
-            /** Id */
-            id: string;
-            /** Value */
-            value: number | boolean | string | (number | boolean | string | null)[] | null;
-            origin: components["schemas"]["PremiseOrigin"];
         };
         /**
          * Proposal
@@ -1518,54 +1488,6 @@ export interface components {
             /** States */
             states?: string[];
         };
-        /** ResolvedValue */
-        "ResolvedValue-Input": {
-            /** Value */
-            value: number | boolean | string | null;
-            tier: components["schemas"]["Tier"];
-            /** @default resolver */
-            source: components["schemas"]["ValueSource"];
-            /** Reason */
-            reason: string;
-            /** Premise */
-            premise?: components["schemas"]["PremiseRecord"][];
-            /**
-             * Axis Reason
-             * @default
-             */
-            axis_reason: string;
-            /** From Layer */
-            from_layer?: string | null;
-            /** Displaced Layer */
-            displaced_layer?: string | null;
-        };
-        /** ResolvedValue */
-        "ResolvedValue-Output": {
-            /** Value */
-            value: number | boolean | string | null;
-            tier: components["schemas"]["Tier"];
-            /** @default resolver */
-            source: components["schemas"]["ValueSource"];
-            /** Reason */
-            reason: string;
-            /** Premise */
-            premise?: components["schemas"]["PremiseRecord"][];
-            /**
-             * Axis Reason
-             * @default
-             */
-            axis_reason: string;
-            /** From Layer */
-            from_layer?: string | null;
-            /** Displaced Layer */
-            displaced_layer?: string | null;
-            readonly review_level: components["schemas"]["ReviewLevel"];
-        };
-        /**
-         * ReviewLevel
-         * @enum {string}
-         */
-        ReviewLevel: "none" | "advisory" | "required";
         /**
          * RowKind
          * @description What a row IS, which decides where following it leads.
@@ -1580,9 +1502,10 @@ export interface components {
          * SettingView
          * @description One resolved parameter, as the settings card needs it.
          *
-         *     **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
-         *     and a box that looks typeable and discards what you type is worse than a value that says it
-         *     is a record. The design's editable field arrives with somewhere to put the answer.
+         *     **Editable since Plan 3E.** It was read-only in 3C, and the field was absent rather than
+         *     disabled on the argument that a box which looks typeable and discards what you type is worse
+         *     than a value that says it is a record. That was right while nothing persisted an edit;
+         *     `DraftParam` is now somewhere to put the answer.
          */
         SettingView: {
             /** Name */
@@ -1595,6 +1518,12 @@ export interface components {
             tier: number;
             /** Reason */
             reason: string;
+            domain?: components["schemas"]["DomainView"] | null;
+            /**
+             * Because
+             * @default
+             */
+            because: string;
             /** Axis Reason */
             axis_reason: string;
         };
@@ -1671,11 +1600,6 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
         };
-        /**
-         * Tier
-         * @enum {integer}
-         */
-        Tier: 1 | 2 | 3 | 4;
         /**
          * TierCard
          * @description One tier, as an interface needs to say it.
@@ -2281,7 +2205,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DraftGraph-Input"];
+                "application/json": components["schemas"]["DraftGraph"];
             };
         };
         responses: {
@@ -2504,7 +2428,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DraftGraph-Input"];
+                "application/json": components["schemas"]["DraftGraph"];
             };
         };
         responses: {

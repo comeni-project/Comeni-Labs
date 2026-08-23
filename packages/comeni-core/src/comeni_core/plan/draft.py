@@ -12,10 +12,34 @@ Four names per edge, two per node. Everything else is derived by `mendel_resolve
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.goal.profile import DataProfile
-from comeni_core.plan.ir import ParamBinding
-from comeni_core.spell.marks import ContractId, NodeId, PortName
+from comeni_core.spell.marks import ContractId, HumanParamValue, Line, NfIdentifier, NodeId, PortName
 
-__all__ = ["DraftEdge", "DraftGraph", "DraftNode"]
+__all__ = ["DraftEdge", "DraftGraph", "DraftNode", "DraftParam"]
+
+
+class DraftParam(BaseModel):
+    """A setting somebody typed into the builder.
+
+    **Not a `ParamBinding`.** That carries a `ResolvedValue` — a tier, a source, a reason, the
+    premises a rule read — and a client must not be the thing that says at which tier its own
+    answer sits. A browser claiming `tier: 1` on a value a person typed would put a lie in
+    `pipeline.yml` that nothing downstream could catch, which is A130's shape exactly.
+
+    So a draft carries the answer and the reason, and `materialise` stamps the tier: **4, human
+    or model**, because a person who typed a value had a choice and made it (invariant 6).
+
+    `HumanParamValue` rather than `ParamValue`: it is the type guarded against path-shaped
+    values by a blocklist (audit A3), and a value typed into a browser is exactly the untrusted
+    input that guard exists for.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: NfIdentifier
+    value: HumanParamValue = None
+    why: Line = ""
+    """Why this value. Empty is legal and is said in those words rather than replaced with the
+    resolver's boilerplate — audits A77 and A111."""
 
 
 class DraftEdge(BaseModel):
@@ -34,7 +58,7 @@ class DraftNode(BaseModel):
 
     id: NodeId
     contract_id: ContractId
-    params: list[ParamBinding] = Field(default_factory=list)
+    params: list[DraftParam] = Field(default_factory=list)
 
 
 class DraftGraph(BaseModel):

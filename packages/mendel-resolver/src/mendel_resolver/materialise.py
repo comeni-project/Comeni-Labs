@@ -32,7 +32,7 @@ tempting to skip.
 
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
-from comeni_core.plan.decision import ProducerDecision
+from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Tier, ValueSource
@@ -110,7 +110,10 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         IRNode(
             id=node.id,
             contract_id=node.contract_id,
-            params=list(node.params),
+            # **Empty, and filled below.** A `DraftParam` is not a `ParamBinding`: it carries
+            # the answer and the reason, and the tier is this module's to stamp rather than the
+            # client's to claim.
+            params=[],
             selection=ResolvedValue(
                 value=node.contract_id,
                 tier=Tier.AMBIGUOUS,
@@ -133,9 +136,48 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
     # builder wins — it is on the `DraftNode` — and everything else is decided here.
     for ir_node, drawn in zip(nodes, graph.nodes, strict=True):
         contract = contracts[drawn.id]
-        already = {binding.name for binding in drawn.params}
+        typed = {p.name: p for p in drawn.params}
         for param in contract.params:
-            if param.name in already:
+            answer = typed.get(param.name)
+            if answer is not None:
+                # **The server stamps the tier, not the client.** A browser claiming tier 1 on
+                # a value somebody typed would put a lie in `pipeline.yml` that nothing
+                # downstream could catch. Tier 4 because a person who typed a value had a
+                # choice and made it, and invariant 6 says that is flagged even when they were
+                # certain.
+                ir_node.set_param(
+                    param.name,
+                    ResolvedValue(
+                        value=answer.value,
+                        tier=Tier.AMBIGUOUS,
+                        source=source,
+                        reason=answer.why or f"set in the builder, {who}, with no reason given",
+                        axis_reason=param.because or f"{param.name} is a declared setting",
+                    ),
+                )
+                override = (
+                    {"model_override": answer.value, "model_override_by": by}
+                    if drawn_by_model
+                    else {"human_override": answer.value}
+                )
+                decisions.append(
+                    ParamDecision(
+                        # **`<node>.<param>` with no prefix.** `Pipeline`'s MD0220 check looks
+                        # a param decision up by exactly this key to confirm that a value
+                        # claiming `source: human` is backed by a person actually answering it.
+                        # A prefixed key is a decision the artifact cannot find, and the value
+                        # is then a review cleared by assertion — which is what MD0220 exists
+                        # to refuse. It refused this, correctly, the first time it ran.
+                        key=f"{drawn.id}.{param.name}",
+                        subject=f"{drawn.id}.{param.name}",
+                        reason=f"set in the builder, {who}",
+                        resolved_by="builder",
+                        tier=Tier.AMBIGUOUS,
+                        chosen=answer.value,
+                        override_reason=answer.why,
+                        **override,
+                    )
+                )
                 continue
             ir_node.set_param(
                 param.name,

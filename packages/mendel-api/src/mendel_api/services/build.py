@@ -71,12 +71,31 @@ class Placement(BaseModel):
     height: int
 
 
+class DomainView(BaseModel):
+    """What values a setting accepts, so the card can render the right control.
+
+    `dashboard.md` §5: *parameters with alternatives render as a `<select>`; free values as an
+    input*. Without this the browser cannot tell one from the other and every setting is a text
+    box — including `index_format`, whose two legal values are `bai` and `csi`.
+
+    `None` on a setting means the contract declares no domain, which is legal and is what most
+    contracts say. A param whose legal values genuinely cannot be enumerated — `seq_platform`,
+    deliberately — declares none, and gets a free input.
+    """
+
+    kind: str
+    values: list[str] = []
+    minimum: float | None = None
+    maximum: float | None = None
+
+
 class SettingView(BaseModel):
     """One resolved parameter, as the settings card needs it.
 
-    **Read-only in 3C**, and the field is absent rather than disabled: nothing persists an edit,
-    and a box that looks typeable and discards what you type is worse than a value that says it
-    is a record. The design's editable field arrives with somewhere to put the answer.
+    **Editable since Plan 3E.** It was read-only in 3C, and the field was absent rather than
+    disabled on the argument that a box which looks typeable and discards what you type is worse
+    than a value that says it is a record. That was right while nothing persisted an edit;
+    `DraftParam` is now somewhere to put the answer.
     """
 
     name: str
@@ -85,6 +104,14 @@ class SettingView(BaseModel):
     via: str
     tier: int
     reason: str
+    domain: DomainView | None = None
+    """What this setting accepts. `None` means the contract declares no domain — a free input."""
+
+    because: str = ""
+    """The contract author's own note on the default. Distinct from `reason`, which is why THIS
+    pipeline got this value: `because` survives even when a rule or a person overrode it, so a
+    reader can see what the convention was that they departed from."""
+
     axis_reason: str
     """Why this parameter is being decided at all, as distinct from why it got this answer.
     Plan 1.14 split them because one field was answering both, which is how the registry came to
@@ -173,6 +200,28 @@ class BuiltPipeline(BaseModel):
     """Step ids that exited at tier 4. Invariant 6 — flagged always."""
 
 
+def _param(layers, contract_id: str, name: str):
+    contract = layers.registry.get(contract_id)
+    return next((p for p in contract.params if p.name == name), None)
+
+
+def _domain(layers, contract_id: str, name: str) -> DomainView | None:
+    param = _param(layers, contract_id, name)
+    if param is None or param.domain is None:
+        return None
+    return DomainView(
+        kind=str(param.domain.kind),
+        values=list(param.domain.values),
+        minimum=param.domain.minimum,
+        maximum=param.domain.maximum,
+    )
+
+
+def _because(layers, contract_id: str, name: str) -> str:
+    param = _param(layers, contract_id, name)
+    return param.because if param else ""
+
+
 def _view(ir, pipeline, layers) -> BuiltPipeline:
     """The IR, laid out, as the canvas reads it.
 
@@ -241,6 +290,8 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                     tier=int(setting.why.tier),
                     reason=setting.why.reason,
                     axis_reason=setting.why.axis_reason,
+                    domain=_domain(layers, by_id[node.id].module.contract_id, setting.name),
+                    because=_because(layers, by_id[node.id].module.contract_id, setting.name),
                 )
                 for setting in (by_id[node.id].settings if node.id in by_id else [])
             ],

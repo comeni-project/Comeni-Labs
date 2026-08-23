@@ -97,16 +97,24 @@ describe("what the design asked for", () => {
     expect(rows.some((r) => r.textContent?.includes("hisat2/align"))).toBe(true);
   });
 
-  it("does not pretend a module can be dragged in", async () => {
-    // **It was `draggable` with an `onDragStart` that set data nothing read** — a control that
-    // moves under your hand and does nothing. A `Goal` cannot pin a module, so *add this to the
-    // pipeline* is not expressible in the engine today; the honest state is a reference list
-    // that says so. The builder-versus-visualiser gap is a spec, not a `draggable` attribute.
+  it("a module can be dragged in, and the list no longer calls itself a placeholder", async () => {
+    // **The premise of this test changed; the rule behind it did not.**
+    //
+    // It read "does not pretend a module can be dragged in", because 3C had `draggable` with an
+    // `onDragStart` that set data nothing read — a control that moves under your hand and does
+    // nothing. Its note said *a `Goal` cannot pin a module, so "add this to the pipeline" is not
+    // expressible in the engine today*, and that was true.
+    //
+    // A `DraftGraph` makes it false: a drawn graph pins whatever you put in it. So the rule —
+    // never offer a control that does nothing — now points the other way, and what it demands is
+    // that the affordance be REAL. `Modules.test.tsx` holds the other half: with no `onAdd`, the
+    // rows are not draggable and the list still calls itself reference-only.
     at();
     fireEvent.click(await screen.findByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
-    expect(rows[0].getAttribute("draggable")).toBeNull();
-    expect(screen.getByText(/reference only — placeholder/i)).toBeTruthy();
+    expect(rows[0].getAttribute("draggable")).toBe("true");
+    expect(screen.queryByText(/reference only — placeholder/i)).toBeNull();
+    expect(screen.getByText(/double-click, to add a step/i)).toBeTruthy();
   });
 
   it("opens a card beside the panel when a module is hovered", async () => {

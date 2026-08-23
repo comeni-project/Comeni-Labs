@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { get } from "../api/client";
-import type { components } from "../api/schema";
+import type { Compatibility } from "../api/types";
 
-type Compatibility = components["schemas"]["Compatibility"];
 
 /** Whether a wire may be drawn, and whether it is the conventional thing to draw.
  *
