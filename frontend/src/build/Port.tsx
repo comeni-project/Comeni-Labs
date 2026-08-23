@@ -21,10 +21,17 @@ type PortView = components["schemas"]["PortView"];
  * a permanent legend, which is a lookup with extra steps. Two shapes for two *directions* is not
  * that: direction is not a lookup, it is the thing the shape is.
  *
- * **A port is not draggable yet, and the cursor no longer says it is.** `cursor-crosshair` and an
- * `onStartWire` that was declared and never passed promised a drag-to-connect that does not
- * exist — the design lists it as a gap and this plan did not close it. A promise nothing keeps
- * costs more than an absence.
+ * **A port is draggable now, and the cursor says so again.** Plan 3C removed `cursor-crosshair`
+ * and an `onStartWire` that was declared and never passed, on the grounds that a promise nothing
+ * keeps costs more than an absence. That was right then. This closes the gap rather than
+ * re-opening the promise: `onStartWire` and `onFinishWire` are passed, and `verdict` colours the
+ * port during someone else's drag.
+ *
+ * **The colour is a lookup, not a judgement.** `useCompatibility.accepts` intersects two lists
+ * the server computed; nothing here decides whether a BAM can feed featureCounts. Green is legal
+ * and conventional, amber is legal and not (which `MD0507` will say on drop), and a greyed port
+ * is one the server would refuse. `validate` on drop is still the authority — this is only how
+ * the wire looks while your mouse is moving.
  *
  * **Hover names it on the canvas**, rather than only in a `title`. A native tooltip waits a
  * second, renders outside the design, and cannot be read at a glance while tracing a wire.
@@ -32,9 +39,17 @@ type PortView = components["schemas"]["PortView"];
 export function Port({
   port,
   x,
+  verdict,
+  onStartWire,
+  onFinishWire,
 }: {
   port: PortView;
   x: number;
+  /** How this port looks while a wire is being dragged from somewhere else. `undefined` when
+   *  nothing is being dragged, which is most of the time. */
+  verdict?: "yes" | "conventional-no" | "no";
+  onStartWire?: () => void;
+  onFinishWire?: () => void;
 }) {
   const [over, setOver] = useState(false);
   const size = 16;
@@ -50,14 +65,36 @@ export function Port({
       aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${port.type_id}${
         port.met ? "" : " — nothing feeds this"
       }`}
-      onPointerDown={(e) => e.stopPropagation()}
+      data-verdict={verdict ?? ""}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        // An output starts a wire; an input cannot. The direction is the port's, not the
+        // gesture's, which is what makes MD0502 unreachable from the canvas rather than merely
+        // reported by it.
+        if (!inbound) onStartWire?.();
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        if (inbound) onFinishWire?.();
+      }}
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}
       onFocus={() => setOver(true)}
       onBlur={() => setOver(false)}
       style={{ left: x - size / 2, [inbound ? "top" : "bottom"]: -8 }}
-      className={`absolute w-4 h-4 p-0 border-0 bg-transparent leading-none cursor-help z-10
-                  ${port.met ? "text-ink-3" : "text-[var(--undecided)]"}
+      className={`absolute w-4 h-4 p-0 border-0 bg-transparent leading-none z-10
+                  ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
+                  ${
+                    verdict === "no"
+                      ? "opacity-25"
+                      : verdict === "conventional-no"
+                        ? "text-[var(--advisory,var(--profiled))]"
+                        : verdict === "yes"
+                          ? "text-[var(--settled)]"
+                          : port.met
+                            ? "text-ink-3"
+                            : "text-[var(--undecided)]"
+                  }
                   hover:[&>svg]:scale-125 focus-visible:[&>svg]:scale-125`}
     >
       <svg
