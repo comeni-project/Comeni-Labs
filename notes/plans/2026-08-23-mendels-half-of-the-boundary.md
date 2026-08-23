@@ -1183,16 +1183,16 @@ git commit -m "feat(frontend): gate a pipeline, and the button that is not a run
 minutes of use. `CLAUDE.md` records the gap between *the plan is done* and *the thing works*,
 and the only known way to close it is to use the thing.
 
-- [ ] **Step 1: Bring the stack up**
+- [x] **Step 1: Bring the stack up**
 
 Run: `make dev`. Confirm `docker compose ps` shows postgres, redis, api, worker, web.
 
-- [ ] **Step 2: Draw, keep and gate**
+- [x] **Step 2: Draw, keep and gate**
 
 In the browser: draw the RNA-seq spine, press *Keep*, then *Gate* at `lint`.
 Expected: the tab shows `queued`, then `running`, then `passed` within a few seconds.
 
-- [ ] **Step 3: Read the artifact by hand**
+- [x] **Step 3: Read the artifact by hand**
 
 ```bash
 cat .run/drafts/<draft-id>/pipeline.yml | grep -A3 '^gate'
@@ -1200,23 +1200,23 @@ grep -A4 'awsbatch' .run/drafts/<draft-id>/nextflow.config
 ```
 Expected: `gate: lint`, and the three executor profiles present in a file nobody hand-wrote.
 
-- [ ] **Step 4: Make it fail on purpose**
+- [x] **Step 4: Make it fail on purpose**
 
 Gate a draft that was never kept. Expected: `failed`, with `MA0001` readable in the panel —
 not a 500, and not a Nextflow error about a missing file.
 
-- [ ] **Step 5: Time it**
+- [x] **Step 5: Time it**
 
 Record wall-clock for `lint` and `preview` end to end. The stated budget for a request is
 500ms; a *gate* has no such budget, but the **route** does — `POST .../gate` must return in
 well under 500ms because it only writes a row and enqueues.
 
-- [ ] **Step 6: Write the journal entry**
+- [x] **Step 6: Write the journal entry**
 
 `notes/journal/2026-08-2X-the-gate.md`: what worked, what did not, every deviation from this
 plan, and what a fresh reader would get wrong. Add a row to `notes/README.md`.
 
-- [ ] **Step 7: Full verification and commit**
+- [x] **Step 7: Full verification and commit**
 
 Run: `make verify` and `make links`
 Expected: green.
