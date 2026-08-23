@@ -10,7 +10,7 @@ rather than a drift.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String
+from sqlalchemy import JSON, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from mendel_api.db import Base
@@ -75,3 +75,43 @@ class PipelineDraft(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     graph: Mapped[dict] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class GateRun(Base):
+    """A gate somebody asked for, and what came back.
+
+    **The fourth table.** The first one's docstring said a second would be a deliberate act,
+    and every one since has had to argue for itself. This one holds what the artifact cannot:
+    `Pipeline.gate` records the strongest gate a pipeline *passed*, and says nothing about who
+    asked, when, or what Nextflow printed on the way to failing. A person watching a 900s stub
+    run needs all three, and none of them is recoverable from disk.
+
+    **`output` is a tool's own text** — the same kind of field `GateFailure.tool_message`
+    already is on the egress surface, with a real author who is not us. It is stored and shown
+    to the person who asked for the gate. It must never be folded into an egress payload
+    without going through `tests/test_egress.py` first: `guarded` sets `tool_message` to `None`
+    for a reason, and a tool's stderr is exactly where a path would appear.
+
+    **This is not run history.** `docs/design/execution-boundary.md` §2 — a gate is Mendel's
+    artifact checking itself on data somebody else published; a *run* takes a laboratory's
+    samplesheet, belongs to Wiener, and has no row here. The day one of these carries an input
+    path, the boundary has moved without anybody deciding to move it.
+    """
+
+    __tablename__ = "gate_run"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(String(32), index=True)
+    who: Mapped[str] = mapped_column(String(200))
+    """ATTRIBUTION, not authentication, exactly as on `QueueVisit` and `PipelineDraft`."""
+    gate: Mapped[str] = mapped_column(String(16))
+    state: Mapped[str] = mapped_column(String(16), index=True)
+    """`queued` | `running` | `passed` | `failed`.
+
+    A plain column rather than a native enum: adding a state to a Postgres enum is a migration,
+    and `Gate` in `comeni_core.artifact.gates` is already the closed vocabulary that matters
+    here. The service converts on the way out, so nothing downstream sees the string.
+    """
+    output: Mapped[str] = mapped_column(Text, default="")
+    queued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

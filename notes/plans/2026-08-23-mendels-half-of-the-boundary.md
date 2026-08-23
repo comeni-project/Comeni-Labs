@@ -397,7 +397,7 @@ git commit -m "fix(compose): the draft root is one directory, and the worker has
   `state: str(16)`, `output: Text`, `queued_at`, `finished_at | None`.
   `state` is one of `queued`, `running`, `passed`, `failed`.
 
-- [ ] **Step 1: Update the table guard first, and say why**
+- [x] **Step 1: Update the table guard first, and say why**
 
 The fourth table must be a deliberate act, which is what `test_the_registry_is_not_in_the_database`
 is for. Edit it:
@@ -423,12 +423,12 @@ and extend its docstring:
     """
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 Run: `uv run pytest packages/mendel-api/tests/test_models.py -v`
 Expected: FAIL — `unexpected: {'source_check', 'queue_visit', 'pipeline_draft'}`.
 
-- [ ] **Step 3: Add the model**
+- [x] **Step 3: Add the model**
 
 Append to `models.py`:
 
@@ -469,12 +469,12 @@ class GateRun(Base):
 
 Add `Text` to the `sqlalchemy` import.
 
-- [ ] **Step 4: Run it, verify it passes**
+- [x] **Step 4: Run it, verify it passes**
 
 Run: `uv run pytest packages/mendel-api/tests/test_models.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Generate and read the migration**
+- [x] **Step 5: Generate and read the migration**
 
 ```bash
 cd packages/mendel-api && uv run alembic revision --autogenerate -m gate_run
@@ -486,12 +486,12 @@ There is no `make` target for autogeneration — `make migrate` only applies. Ru
 **Read the generated file.** `b6e3e0e31b73_pipeline_draft.py` is the shape to compare against.
 Confirm it creates the table and both indexes and touches nothing else.
 
-- [ ] **Step 6: Apply it**
+- [x] **Step 6: Apply it**
 
 Run: `make migrate`
 Expected: no error. Confirm with `docker compose exec postgres psql -U mendel -c '\d gate_run'`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/models.py \
