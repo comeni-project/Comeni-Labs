@@ -87,7 +87,7 @@ have been written against types that did not exist.
 - Produces: `emit_config(pipeline: Pipeline) -> str`, signature **unchanged**. Adds three
   profiles named exactly `local`, `k8s`, `awsbatch`.
 
-- [ ] **Step 1: Write the failing signature guard**
+- [x] **Step 1: Write the failing signature guard**
 
 This is the spec's §6 rule made executable. Add to `packages/mendel-compiler/tests/test_emit.py`:
 
@@ -115,7 +115,7 @@ def test_emit_config_cannot_depend_on_a_deployment_target():
     )
 ```
 
-- [ ] **Step 2: Run it and watch it pass for the right reason**
+- [x] **Step 2: Run it and watch it pass for the right reason**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_emit.py::test_emit_config_cannot_depend_on_a_deployment_target -v`
 Expected: **PASS** — the signature is already correct.
@@ -131,7 +131,7 @@ Re-run. Expected: FAIL with `emit_config takes ['pipeline', 'target']`. **Revert
 parameter**, re-run, expect PASS, and append the revert to
 `notes/audits/guard-ledger.md` with the message it printed.
 
-- [ ] **Step 3: Write the failing profile test**
+- [x] **Step 3: Write the failing profile test**
 
 ```python
 def test_the_config_offers_an_executor_for_every_target_the_mvp_names():
@@ -162,12 +162,12 @@ def test_a_profile_that_needs_site_facts_says_so_in_the_file():
     assert "site.config" in config
 ```
 
-- [ ] **Step 4: Run both, verify they fail**
+- [x] **Step 4: Run both, verify they fail**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_emit.py -k "executor or site_facts" -v`
 Expected: FAIL — `no \`local\` profile`.
 
-- [ ] **Step 5: Emit the three profiles**
+- [x] **Step 5: Emit the three profiles**
 
 In `emit.py`, inside `emit_config`, immediately after the `singularity` block and before the
 closing `"}"`:
@@ -206,12 +206,12 @@ closing `"}"`:
         "    }",
 ```
 
-- [ ] **Step 6: Run the two tests, verify they pass**
+- [x] **Step 6: Run the two tests, verify they pass**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_emit.py -k "executor or site_facts" -v`
 Expected: PASS.
 
-- [ ] **Step 7: Update the golden file, by reading the diff rather than blessing it**
+- [x] **Step 7: Update the golden file, by reading the diff rather than blessing it**
 
 Run: `uv run pytest packages/mendel-compiler/tests/test_emit.py -k golden -v`
 Expected: FAIL — the golden config no longer matches.
@@ -233,7 +233,7 @@ git diff tests/golden/spine/nextflow.config
 Expected diff: **three added profile blocks and nothing else.** If any existing line moved,
 stop — the change was not additive.
 
-- [ ] **Step 8: Find every other recorded digest that moved**
+- [x] **Step 8: Find every other recorded digest that moved**
 
 `cli/report.py:135` records `digest_of_bytes(emit_config(fresh).encode())`, so any committed
 `pipeline.yml` carrying an `emitted:` block now disagrees with what would be emitted.
@@ -248,12 +248,12 @@ archived v1 artifact that `tests/test_upgrade.py:572` and `tests/test_pipeline_f
 read precisely because it is old. `report.py` already handles a pipeline with no
 `emitted` record by saying so.
 
-- [ ] **Step 9: Full verification**
+- [x] **Step 9: Full verification**
 
 Run: `make verify`
 Expected: all green.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add packages/mendel-compiler/src/mendel_compiler/emit.py \

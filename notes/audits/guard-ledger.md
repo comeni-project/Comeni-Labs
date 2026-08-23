@@ -2527,3 +2527,22 @@ guard invoking a tool with the wrong arguments reports success rather than an er
 **invisible to the very failure it exists to catch**. `test_the_scan_reached_the_sources` in
 `test_diagnostics_ownership.py` is the pattern that would have caught it — a guard asserting that
 it looked at something before asserting what it found.
+
+---
+
+## Plan 18a — the execution boundary, 2026-08-23
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-23 | `test_emit.py::test_emit_config_cannot_depend_on_a_deployment_target` | added `target: str = "local"` to `emit_config` | failed | `emit_config takes ['pipeline', 'target']. The executor reaches a run through a PROFILE and -c site.config, never through emission — docs/design/execution-boundary.md §6.` |
+
+**Why this guard is on a signature rather than on output.** `docs/design/execution-boundary.md`
+§6 forbids the executor entering the artifact, and the tempting guard is one that renders a
+config and asserts what is in it. That guard passes right up until somebody adds the parameter
+*and* threads it through — by which time `Pipeline.emitted`'s digests already depend on a
+deployment choice and the fix is a schema conversation.
+
+A one-parameter signature **cannot express** a per-target emission, so this fails at the moment
+somebody reaches for the wrong design rather than after they have built it. That is the same
+shape as invariant 11's directory-by-construction argument: prevention beats detection where the
+type system will carry it.
