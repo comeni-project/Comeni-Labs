@@ -2546,3 +2546,31 @@ A one-parameter signature **cannot express** a per-target emission, so this fail
 somebody reaches for the wrong design rather than after they have built it. That is the same
 shape as invariant 11's directory-by-construction argument: prevention beats detection where the
 type system will carry it.
+
+---
+
+## The boundary, guarded at the table and at the column — 2026-08-23
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-23 | `test_models.py::test_a_gate_run_carries_no_input_and_no_credential` | added `input_path: Mapped[str \| None]` to `GateRun` | failed | `gate_run's columns moved: [... 'input_path' ...]. A gate runs Mendel's own artifact on data somebody else published and takes no samplesheet, no executor, no workDir and no credential — docs/design/execution-boundary.md §3. A column for any of those makes this run history, which is Wiener's, and moves the boundary without anybody deciding to.` |
+| 2026-08-23 | `test_models.py::test_the_registry_is_not_in_the_database` | added a `Run` model with `__tablename__ = "run"` to `mendel_api.models` | failed | `the tables moved: [... 'run' ...]. … a table of RUNS is Wiener's, and building it here because the worker is here is the exact failure docs/design/execution-boundary.md §8 names.` |
+
+**The second row is a guard that already existed and was not claimed.** `test_the_registry_is_
+not_in_the_database` was written for issue #43 — declared data is files, so a table of contracts
+would be that decision quietly reversed. Asserting the *exact* table set rather than an absence
+made it, by accident, the only structural guard on `execution-boundary.md` §8: run state needs
+somewhere to live, and a `run` table in `mendel-api` is the first move in the mistake §8 names.
+
+**Reverting it is what showed the guard was half-inert.** It failed — and printed
+`unexpected: {…}`, which tells the person who hit it nothing except that a set changed. The
+obvious repair from that message is to add `"run"` to the set. A guard whose message argues for
+the wrong fix is barely a guard, which is A14's point arriving from a new direction: this one was
+never *watched* failing, only asserted to pass. The message now names both rejections, and the
+revert was re-run to read it.
+
+**Its coverage is narrow and stated rather than implied.** Run state in Redis, in a JSON blob, or
+as extra columns on `gate_run` all pass it. The first two are out of reach of a model-level guard;
+the third is the first row above, which is why the pair was added together. The cheap mistake —
+one plausible column on a table that already remembers a Nextflow invocation — is now the guarded
+one.

@@ -1,7 +1,12 @@
 # The execution boundary: what Mendel hands to Wiener
 
 **Date:** 2026-08-23
-**Status:** Proposed. §3–§6 describe code that exists; §7 and §8 do not.
+**Status:** §1–§7 describe code that exists. **Written as a proposal on 2026-08-23 and
+executed the same day** — plan `18a` landed both halves of Mendel's side, the gate loop and the
+executor profiles, on branch `mendel-wiener-boundary`. §8 onward is unbuilt: **Wiener has zero
+lines.** Sections describing what Mendel emits carry the state *after* that plan; where a
+sentence still reads as a prediction it is a defect, because this document's own §0 is about
+prose that drifted.
 **Constrained by:** [`clinical-data-protection.md`](clinical-data-protection.md) §3 and
 invariants 10, 13 and 15.
 **Supersedes** the scattered statements in [`mendel.md`](mendel.md) §2 and
@@ -129,6 +134,20 @@ Nothing else. In particular **no run request, no input manifest and no credentia
 because its IR is the interface Wiener will consume". This is the first document to say what
 *consuming* means.
 
+**"No run request" is a statement about one direction.** Mendel never sends one. A *person*
+sends one — to Wiener, naming an artifact and a samplesheet — and that is Wiener's front door,
+not a crossing of this boundary. The two were one phrase in the first draft of this section,
+which is the §0 failure repeating: the same words meaning two things one section apart. §8's
+first slice accepts run requests; §4 says Mendel does not emit them. Both are true.
+
+**What Wiener still needs, and it is not in the artifact: where the artifact is.** `mendel-api`
+locates a gated pipeline as `settings.draft_root / draft_id` (`services/gates.py`), and both of
+those are `mendel-api`'s private facts — an environment variable and an opaque database id.
+Wiener needs an artifact *location*, and today the only thing that can name one is the half this
+document is trying to keep it out of. **That is §8's entanglement, already half-present.** It
+wants deciding before Wiener's first slice, not after: a directory convention, a copy at
+submission, or an export verb are all cheaper than a shared `draft_root` between two services.
+
 **The handoff is an artifact, not an API call.** Wiener reads what Mendel wrote; Mendel never
 learns Wiener exists and never calls it. That is what keeps invariant 13 honest — an install
 with no Wiener at all is not a degraded tier, it is the normal case, and the laboratory types
@@ -177,14 +196,20 @@ That is testable: a one-parameter signature cannot express a per-target emission
 gets the same `k8s` and `awsbatch` profiles whether or not anyone selects them, exactly as every
 pipeline already gets `docker` and `singularity` blocks it may never use.
 
-What Mendel emits today (`emit.py:388`):
+What Mendel emits (`emit_config`, `emit.py:388`):
 
 ```
-profiles { stub_data · test · docker · singularity }
+profiles { stub_data · test · docker · singularity · local · k8s · awsbatch }
 ```
 
-**No executor block at all**, so everything defaults to `local`. That is the gap, and it is one
-function.
+**The last three are this document's doing, and they are one function.** Before plan `18a` there
+was no executor block at all, so everything defaulted to `local` implicitly; the profiles now say
+so explicitly and add the two remote executors beside it. Each is a **fragment** — `k8s` sets
+`process.executor` and nothing else, because a namespace, a storage claim, a queue, a region and
+an S3 `workDir` are all site facts by §5. A profile that resolves is a much weaker claim than a
+pipeline that runs, and only the first is proven: see
+[`../../notes/journal/2026-08-23-the-gate.md`](../../notes/journal/2026-08-23-the-gate.md)
+§*How far the executor half is actually proven*.
 
 **Site-specific configuration is Nextflow's problem and Nextflow solved it.** A laboratory
 needing a queue name, a storage class or a role ARN passes `-c site.config`, which Nextflow
@@ -199,14 +224,22 @@ Nextflow has executors: `local`, `k8s`, `awsbatch`. Same `main.nf`, same modules
 containers. That makes the three-target requirement lopsided, which is worth stating because it
 changes what "in the MVP" costs:
 
-| | Mendel's side | Wiener's side |
-|---|---|---|
-| **local** | done | launch and supervise a subprocess |
-| **Kubernetes** | a profile | head pod, service account, shared PVC for `workDir`, image pull |
-| **AWS** | a profile | Batch compute environment, IAM, `workDir` on S3 |
+| | Mendel's side | Proven how far | Wiener's side |
+|---|---|---|---|
+| **local** | done | a pipeline **runs** — every gate is one | launch and supervise a subprocess |
+| **Kubernetes** | a profile, landed | the profile **resolves**; nothing has run | head pod, service account, shared PVC for `workDir`, image pull |
+| **AWS** | a profile, landed | the profile **resolves**; nothing has run | Batch compute environment, IAM, `workDir` on S3 |
 
 **One emission task covers all three. Three deployments do not.** Mendel is not the bottleneck
 for any of them.
+
+**The middle column is the honest one and it is why §6 matters.** `nextflow config -profile
+awsbatch .` printing `executor = 'awsbatch'` says the file parses and the profile selects; it
+says nothing about whether Wave containers pull inside a Batch compute environment, or how
+`workDir` orders against executor initialisation. Because the executor is inert configuration
+that never enters `pipeline.yml` or `main.nf`, a profile that turns out wrong is an `emit_config`
+edit — no schema change, no artifact migration, no `pipeline.yml` in the wild needing a rewrite.
+**The rule that was most carefully defended is the one that makes being wrong here survivable.**
 
 ---
 
