@@ -25,9 +25,14 @@ kind of object entirely. None of these are defaults chosen here; changing one me
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from comeni_core.plan.ir import PipelineIR
+
+Ports = Mapping[str, tuple[list[str], list[str]]]
+"""A node id to its **declared** input and output port names, in the order the canvas draws
+them. Supplied by a caller that has the contracts; the IR itself only knows what a wire uses."""
 
 NODE_W = 232
 """`NW` in `dashboard.html`. The node is a fixed width so a rank is a predictable pitch."""
@@ -223,11 +228,51 @@ def _x_of(ir: PipelineIR, rank: dict[str, int], order: dict[str, int]) -> dict[s
     return {nid: value - shift for nid, value in x.items()}
 
 
-def _height(ir: PipelineIR, node_id: str) -> int:
-    """Tall enough for its ports, so a rank of wide-fanned nodes cannot overlap the next."""
-    ins = sum(1 for e in ir.edges if e.to_node == node_id)
-    outs = sum(1 for e in ir.edges if e.from_node == node_id)
+def _height(counts: tuple[int, int]) -> int:
+    """Tall enough for its ports, so a rank of wide-fanned nodes cannot overlap the next.
+
+    **Counts DECLARED ports, not wired ones.** It counted edges, so a node with three declared
+    inputs and one wire was sized for one port row and the other two chevrons sat on top of the
+    node's own text.
+    """
+    ins, outs = counts
     return max(MIN_H, HEAD_H + max(ins, outs, 1) * PORT_ROW)
+
+
+def _declared(
+    ir: PipelineIR, ports: Ports | None
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Every node's input and output port names, in the order the canvas draws them.
+
+    **Given by the caller when it can be**, because the IR does not know what a contract
+    declares — only what a wire happens to use. Falling back to the wired ports is what this
+    module did unconditionally, and it is why a wire landed 39 pixels from its chevron: the
+    canvas spreads `portX(count, i)` over the DECLARED ports and layout spread it over the
+    wired ones, so the two agreed only when every declared port had a wire.
+
+    The fallback survives for callers that have no registry to hand — the golden layout test
+    among them — and it is correct whenever the graph is fully wired.
+    """
+    if ports is not None:
+        return (
+            {node: list(inputs) for node, (inputs, _) in ports.items()},
+            {node: list(outputs) for node, (_, outputs) in ports.items()},
+        )
+    ins: dict[str, list[str]] = defaultdict(list)
+    outs: dict[str, list[str]] = defaultdict(list)
+    for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
+        if edge.from_port not in outs[edge.from_node]:
+            outs[edge.from_node].append(edge.from_port)
+        if edge.to_port not in ins[edge.to_node]:
+            ins[edge.to_node].append(edge.to_port)
+    return ins, outs
+
+
+def _anchor(ports: list[str], name: str, width: int) -> int:
+    """Where a wire meets a node, in the node's own coordinates."""
+    if name not in ports:
+        return width // 2
+    return _port_x(len(ports), ports.index(name))
 
 
 def _port_x(count: int, index: int) -> int:
@@ -235,13 +280,22 @@ def _port_x(count: int, index: int) -> int:
     return round(NODE_W * (index + 1) / (count + 1))
 
 
-def of(ir: PipelineIR) -> Layout:
-    """Lay out an IR. Pure, integer coordinates, stable under repetition."""
+def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
+    """Lay out an IR. Pure, integer coordinates, stable under repetition.
+
+    `ports` maps a node id to its **declared** `(inputs, outputs)` in the order the canvas draws
+    them. Without it the wired ports are used, which is correct only for a fully wired graph —
+    see `_declared`.
+    """
+    ins, outs = _declared(ir, ports)
     rank = _ranks(ir)
     order = _order(ir, rank)
     across = _x_of(ir, rank, order)
 
-    heights = {node.id: _height(ir, node.id) for node in ir.nodes}
+    heights = {
+        node.id: _height((len(ins.get(node.id, [])), len(outs.get(node.id, []))))
+        for node in ir.nodes
+    }
     tall: dict[int, int] = defaultdict(int)
     for node in ir.nodes:
         tall[rank[node.id]] = max(tall[rank[node.id]], heights[node.id])
@@ -268,25 +322,21 @@ def of(ir: PipelineIR) -> Layout:
     )
     by_id = {node.id: node for node in placed}
 
-    # Which port is which, so an anchor lands where the design puts it rather than in the middle.
-    outs: dict[str, list[str]] = defaultdict(list)
-    ins: dict[str, list[str]] = defaultdict(list)
-    for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
-        if edge.from_port not in outs[edge.from_node]:
-            outs[edge.from_node].append(edge.from_port)
-        if edge.to_port not in ins[edge.to_node]:
-            ins[edge.to_node].append(edge.to_port)
-
     wires = []
     for edge in sorted(ir.edges, key=lambda e: (e.from_node, e.from_port, e.to_node, e.to_port)):
         source, target = by_id[edge.from_node], by_id[edge.to_node]
+        # **Index within the DECLARED ports**, which is what the canvas spreads its chevrons
+        # over. A port the graph names but the contract does not falls back to the middle
+        # rather than raising: `validate` reports that as MD0501 and a layout is not the place
+        # to refuse it.
+        source_ports = outs.get(edge.from_node, [])
+        target_ports = ins.get(edge.to_node, [])
         start = Point(
-            source.x
-            + _port_x(len(outs[edge.from_node]), outs[edge.from_node].index(edge.from_port)),
+            source.x + _anchor(source_ports, edge.from_port, source.width),
             source.y + source.height,
         )
         end = Point(
-            target.x + _port_x(len(ins[edge.to_node]), ins[edge.to_node].index(edge.to_port)),
+            target.x + _anchor(target_ports, edge.to_port, target.width),
             target.y,
         )
         # Vertical, across at the midpoint, vertical — `elbow()` in the design, and orthogonal

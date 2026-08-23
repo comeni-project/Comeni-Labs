@@ -161,3 +161,61 @@ def test_the_layout_matches_the_golden_file(spine):
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(produced)
     assert produced == GOLDEN.read_text()
+
+
+# --- A wire must land on the port it names, not on the middle of the node -----------------
+
+
+def test_a_wire_lands_on_the_port_the_canvas_draws(spine):
+    """**The defect the operator found by dragging.**
+
+    `layout` anchored a wire using only the ports that *have wires*, in edge order. The canvas
+    draws every port the *contract declares*, in contract order. For `featurecounts` — two
+    declared inputs, one of them wired — the chevron sat at x=77 and the wire ended at x=116.
+    **39 pixels onto nothing.**
+
+    The two agree only when the wired count equals the declared count, which is almost never.
+    Both formulas are the same `portX(width, count, i)`; what differed was the `count`.
+    """
+    from mendel_compiler.layout import _port_x, of
+
+    declared = {
+        "a": ([], ["out"]),
+        "b": (["first", "second"], []),  # two declared inputs, one of them wired
+    }
+    ir = _two_nodes()
+    laid = of(ir, ports=declared)
+    node = next(n for n in laid.nodes if n.id == "b")
+    wire = laid.wires[0]
+
+    # Where the canvas puts `first`: index 0 of 2 declared.
+    drawn = node.x + _port_x(2, 0)
+    assert wire.points[-1].x == drawn, (
+        f"wire ends at {wire.points[-1].x}, canvas draws the port at {drawn}"
+    )
+
+
+def test_a_node_is_tall_enough_for_the_ports_it_declares(spine):
+    """`_height` counted wired edges too. A node with three declared inputs and one wire was
+    sized for one port row, so the other two chevrons sat on top of the node's own text."""
+    from mendel_compiler.layout import of
+
+    ir = _two_nodes()
+    wired_only = of(ir).nodes
+    declared = of(ir, ports={"a": ([], ["out"]), "b": (["first", "second", "third"], [])}).nodes
+    b_wired = next(n for n in wired_only if n.id == "b")
+    b_declared = next(n for n in declared if n.id == "b")
+    assert b_declared.height > b_wired.height
+
+
+def _two_nodes():
+    from comeni_core.plan.ir import IREdge, IRNode, PipelineIR
+
+    return PipelineIR(
+        nodes=[
+            IRNode(id="a", contract_id="x/a@1"),
+            IRNode(id="b", contract_id="x/b@1"),
+        ],
+        edges=[IREdge(from_node="a", from_port="out", to_node="b", to_port="first",
+                      type_id="t.x")],
+    )

@@ -184,8 +184,21 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     Layout stays in Python for the reason `CLAUDE.md` gives — the canvas is as deterministic as
     the emitted `.nf` — so a drawn graph must not be laid out in the browser either.
     """
-    placed = layout.of(ir)
     by_id = {step.id: step for step in pipeline.steps}
+
+    # **The declared ports, not the wired ones.** The canvas spreads its chevrons over every
+    # port a contract declares; layout spread its anchors over the ports that happened to have
+    # wires, so for `featurecounts` — two declared inputs, one wired — the chevron sat at x=77
+    # and the wire ended at x=116. Thirty-nine pixels onto nothing, and only ever right when a
+    # node was fully wired. Found by the operator dragging.
+    declared: dict[str, tuple[list[str], list[str]]] = {}
+    for step in pipeline.steps:
+        contract = layers.registry.get(step.module.contract_id)
+        declared[step.id] = (
+            [port.name for port in contract.consumes],
+            [port.name for port in contract.produces],
+        )
+    placed = layout.of(ir, ports=declared)
     # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
     # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
     # arrives from `params.gtf` — so checking edges alone drew a hollow *unmet* dot on a
