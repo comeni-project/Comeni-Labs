@@ -12,7 +12,14 @@ Four names per edge, two per node. Everything else is derived by `mendel_resolve
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.goal.profile import DataProfile
-from comeni_core.spell.marks import ContractId, HumanParamValue, Line, NfIdentifier, NodeId, PortName
+from comeni_core.spell.marks import (
+    ContractId,
+    HumanParamValue,
+    Line,
+    NfIdentifier,
+    NodeId,
+    PortName,
+)
 
 __all__ = ["DraftEdge", "DraftGraph", "DraftNode", "DraftParam"]
 
