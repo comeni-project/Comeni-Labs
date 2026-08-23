@@ -1,0 +1,150 @@
+"""A drawn graph becomes a `PipelineIR` and a `Goal`. **Derived, never guessed.**
+
+This is what spec §6 rests on. *"A builder edits a pipeline, and `pipeline.yml` is already the
+save file"* is only true if a drawn graph can become one — and `Pipeline.of` requires a `Goal`,
+keyword-only and required, which a drawn graph does not have.
+
+**So the goal is derived from the graph.** What the graph reads from entry channels is what you
+have; what its terminal nodes produce is what you want. Both facts are already in the contracts
+and the vocabulary, so this is arithmetic over declared data with no model in it. The derived
+goal is *narrower* than one a person would write — it says nothing about constraints or measured
+data — and that is stated here rather than implied, because a reader of a kept draft will
+otherwise wonder why its goal is so thin.
+
+**Every choice exits at tier 4.** Nothing about a drawn graph was resolved, so nothing may claim
+a lower tier: tier 1 means *no choice existed* and a person picking `star/align` over
+`hisat2/align` had a choice and made it. Invariant 6 — tier 4 is always flagged, even when the
+person was certain. That is the honesty mechanism, and a builder is exactly where it would be
+tempting to skip.
+"""
+
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.goal.asked import Goal, GoalInput
+from comeni_core.plan.decision import ProducerDecision
+from comeni_core.plan.draft import DraftGraph
+from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
+from comeni_core.plan.tiers import Tier, ValueSource
+
+from mendel_resolver.layers import Layers
+
+__all__ = ["goal_of", "ir_of"]
+
+
+def _contracts(graph: DraftGraph, layers: Layers) -> dict[str, ModuleContract]:
+    """Every node's contract. Raises rather than reports — `validate` is what reports, and
+    materialising an invalid graph is a caller error rather than a user one."""
+    return {n.id: layers.registry.get(n.contract_id) for n in graph.nodes}
+
+
+def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
+    """What this drawing is for, read off the drawing.
+
+    `want` is what nothing downstream consumes — a terminal output. `have` is every input the
+    graph does not wire, whose type declares an `entry_channel`, because that is precisely what
+    arrives from `params` rather than from a step.
+    """
+    contracts = _contracts(graph, layers)
+    wired_out = {(e.from_node, e.from_port) for e in graph.edges}
+    wired_in = {(e.to_node, e.to_port) for e in graph.edges}
+
+    want: list[str] = []
+    have: list[GoalInput] = []
+    for node in graph.nodes:
+        contract = contracts[node.id]
+        for port in contract.produces:
+            if (node.id, port.name) not in wired_out and port.type_id not in want:
+                want.append(port.type_id)
+        for port in contract.consumes:
+            if (node.id, port.name) in wired_in:
+                continue
+            for alternative in port.alternatives():
+                if alternative.type_id in layers.vocabulary.entry_channels:
+                    if all(i.type_id != alternative.type_id for i in have):
+                        have.append(GoalInput(type_id=alternative.type_id))
+                    break
+
+    # Sorted: a `Goal` reaches `pipeline.yml`, and byte-identical output is a hard requirement.
+    return Goal(
+        have=sorted(have, key=lambda i: i.type_id),
+        want=sorted(want),
+        profile=graph.profile,
+    )
+
+
+def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
+    """The drawing as an IR, with every choice recorded as somebody's.
+
+    `by` names a model when one drew this. Empty means a person did, and the two land in
+    different fields — `model_override` versus `human_override` — because a pipeline an agent
+    assembled must not be indistinguishable from one a person drew by hand.
+    """
+    contracts = _contracts(graph, layers)
+    drawn_by_model = bool(by)
+    source = ValueSource.MODEL if drawn_by_model else ValueSource.HUMAN
+    who = "drawn by a model" if drawn_by_model else "drawn by a person"
+
+    nodes = [
+        IRNode(
+            id=node.id,
+            contract_id=node.contract_id,
+            params=list(node.params),
+            selection=ResolvedValue(
+                value=node.contract_id,
+                tier=Tier.AMBIGUOUS,
+                source=source,
+                reason=f"{who} in the builder rather than resolved from a goal",
+                axis_reason="which contract fills this step",
+            ),
+            presence=ResolvedValue(
+                value=None,
+                tier=Tier.AMBIGUOUS,
+                source=source,
+                reason=f"this step exists because it was {who}",
+                axis_reason="whether this step exists at all",
+            ),
+        )
+        for node in graph.nodes
+    ]
+
+    edges = []
+    for edge in graph.edges:
+        port = next(
+            p for p in contracts[edge.from_node].produces if p.name == edge.from_port
+        )
+        edges.append(
+            IREdge(
+                from_node=edge.from_node,
+                from_port=edge.from_port,
+                to_node=edge.to_node,
+                to_port=edge.to_port,
+                # Read off the PRODUCING port, which is the only honest source: a drawn edge
+                # states four names and knows nothing about types.
+                type_id=port.type_id,
+                states=port.state,
+            )
+        )
+
+    decisions = []
+    for node in graph.nodes:
+        override = {"model_override": node.contract_id, "model_override_by": by} if drawn_by_model \
+            else {"human_override": node.contract_id}
+        decisions.append(
+            ProducerDecision(
+                key=f"producer:{node.id}",
+                subject=node.id,
+                reason=f"{who} in the builder",
+                resolved_by="builder",
+                tier=Tier.AMBIGUOUS,
+                candidates=[node.contract_id],
+                chosen=node.contract_id,
+                **override,
+            )
+        )
+
+    return PipelineIR(
+        nodes=nodes,
+        edges=edges,
+        decisions=decisions,
+        profile=graph.profile,
+        registry_layers=[p.name for p in layers.paths],
+    )

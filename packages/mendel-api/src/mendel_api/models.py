@@ -10,7 +10,7 @@ rather than a drift.
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String
+from sqlalchemy import JSON, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from mendel_api.db import Base
@@ -44,3 +44,34 @@ class QueueVisit(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     who: Mapped[str] = mapped_column(String(200), index=True)
     seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class PipelineDraft(Base):
+    """A graph somebody is still drawing.
+
+    **The third table, and the first one's docstring said that would be a deliberate act.**
+    This is that act. Issue #43 decided *declared* data is files — contracts, rules,
+    vocabularies — because those need diff, blame, review, signature and merge, which are the
+    five things a cited registry sells. **A draft needs none of them until it is landed**, and
+    `POST /drafts/{id}/keep` is landing: it validates, refuses anything illegal, and writes the
+    `pipeline.yml` that is the actual artifact.
+
+    `id` is `secrets.token_hex(16)` rather than a serial. `routes/build.py` states why the API
+    cannot take a path — invariant 15, no input accepts a sample identifier, a filename or a
+    path — and an opaque id is the alternative that does not become one. A serial would be
+    guessable, which is the next-worst thing.
+
+    `graph` is a JSON column holding a `DraftGraph`. Stored **whole** rather than shredded into
+    node and edge tables: the client owns the working graph and sends it whole, and a schema
+    that could hold half a graph would be a second definition of what a graph is.
+
+    `who` is ATTRIBUTION, not authentication, exactly as on `QueueVisit`.
+    """
+
+    __tablename__ = "pipeline_draft"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    who: Mapped[str] = mapped_column(String(200), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    graph: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

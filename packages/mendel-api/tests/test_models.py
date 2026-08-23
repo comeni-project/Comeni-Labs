@@ -17,8 +17,14 @@ def test_a_source_check_records_when_and_what():
 
 def test_the_registry_is_not_in_the_database():
     """Issue #43 decided declared data is files. A table holding contracts, types or
-    roles would be that decision quietly reversed."""
+    roles would be that decision quietly reversed.
+
+    `pipeline_draft` is the third table and is not that reversal: a draft is not declared data.
+    The five properties #43 argued for — diff, blame, review, signature, merge — are what a
+    *cited registry* sells, and a half-drawn graph needs none of them until it is landed.
+    `POST /drafts/{id}/keep` is landing, and it writes a file.
+    """
     import mendel_api.models as m
 
     tables = {v.__tablename__ for v in vars(m).values() if hasattr(v, "__tablename__")}
-    assert tables == {"source_check", "queue_visit"}, f"unexpected: {tables}"
+    assert tables == {"source_check", "queue_visit", "pipeline_draft"}, f"unexpected: {tables}"
