@@ -280,7 +280,7 @@ git commit -m "feat(compiler): one pipeline, three executors, and no target at e
 **Why this task exists:** two defects, both found by asking what a container does — the same
 method that found phase 8's two.
 
-- [ ] **Step 1: Write the failing test for the shared draft root**
+- [x] **Step 1: Write the failing test for the shared draft root**
 
 Add to `tests/test_compose.py`:
 
@@ -301,12 +301,12 @@ def test_the_draft_root_is_a_volume_shared_by_the_api_and_the_worker(base):
         assert root in mounts, f"{name}: MENDEL_DRAFT_ROOT={root} is backed by no volume"
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 Run: `uv run pytest tests/test_compose.py -k draft_root -v`
 Expected: FAIL — `api: MENDEL_DRAFT_ROOT=/app/drafts is backed by no volume`.
 
-- [ ] **Step 3: Add the shared volume**
+- [x] **Step 3: Add the shared volume**
 
 In `docker-compose.yml`, add to the `volumes:` list of **both** `api` and `worker`:
 
@@ -319,7 +319,7 @@ In `docker-compose.yml`, add to the `volumes:` list of **both** `api` and `worke
 
 and create `.run/drafts/.gitkeep`. Check `.gitignore` already covers `/.run/`.
 
-- [ ] **Step 4: Run it, verify it passes**
+- [x] **Step 4: Run it, verify it passes**
 
 Run: `uv run pytest tests/test_compose.py -v`
 Expected: PASS. Also run
@@ -327,7 +327,7 @@ Expected: PASS. Also run
 `test_every_configured_root_is_absolute_in_the_compose_file` actually lives — it caught
 `MENDEL_DRAFT_ROOT` when 3E added it, and it is the guard most likely to have an opinion here.
 
-- [ ] **Step 5: Put Nextflow in the runtime image**
+- [x] **Step 5: Put Nextflow in the runtime image**
 
 In `Dockerfile`, in the `runtime` stage, extend the existing `apt-get` layer:
 
@@ -365,7 +365,7 @@ RUN mkdir -p /app/.nextflow && chown -R 1000:1000 /app/.nextflow
 the message will be a permission error from Nextflow. Note it in the execution record if the
 machine running this uses anything else.
 
-- [ ] **Step 6: Build and check it end to end**
+- [x] **Step 6: Build and check it end to end**
 
 ```bash
 docker compose build worker
@@ -375,7 +375,7 @@ Expected: a version banner. If it reports a Java error the JRE line is wrong; if
 permission error on `.nextflow`, the chown above did not take. **Fix either here rather than
 discovering it inside a job**, where it arrives as a failed gate with a confusing message.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml tests/test_compose.py .run/drafts/.gitkeep

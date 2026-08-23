@@ -36,8 +36,21 @@ FROM python:3.12-slim-bookworm AS runtime
 
 # `git` because accepting a drift is a commit — `mendel_forge.land` shells out to it. Without
 # it the refusal ladder cannot reach its own refusals, and MF0107 would be a traceback.
+#
+# `default-jre-headless` and `nextflow` because a GATE is a `nextflow run`, and the worker is
+# where one belongs: `run_gate` blocks for up to 3600s and this image's worker docstring
+# already named that as the thing ARQ exists for.
+#
+# **LINT and PREVIEW only, in this image.** STUB and TEST pass `-profile ...,docker` and need a
+# Docker daemon; giving this container one means mounting the host's socket, which is
+# root-equivalent access to the host. That is a real decision and it is deliberately NOT taken
+# here — `docs/design/execution-boundary.md` §8 leaves it to Wiener, the component that has to
+# solve isolation anyway. `run_gate` already degrades honestly when a tool is absent, which is
+# why nothing noticed this image had no Nextflow at all.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git \
+ && apt-get install -y --no-install-recommends git curl default-jre-headless \
+ && curl -fsSL https://get.nextflow.io -o /usr/local/bin/nextflow \
+ && chmod +x /usr/local/bin/nextflow \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -51,6 +64,32 @@ COPY packages/ ./packages/
 # one, because a copy of files cannot take a commit.
 COPY registry/ ./registry/
 COPY vendor/ ./vendor/
+
+# **Created and chowned, because the worker does not run as root.** `docker-compose.yml` sets
+# `user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"` and nothing here chowns `/app`, so a
+# root-owned NXF_HOME is permission-denied on the very first gate — Nextflow writes there
+# before it does anything else, because it downloads its plugins on first run. The failure
+# would read as a Nextflow bug rather than as a Dockerfile one.
+#
+# That first run also needs the network. Legitimate — `mendel-api` is an impure package and
+# invariant 1 constrains the other three — but an air-gapped installation must pre-seed this
+# directory, and nothing else in the stack has that property.
+#
+# `1000:1000` is hardcoded while DOCKER_UID is not. If a machine overrides it, the first gate
+# fails with a permission error on this path.
+ENV NXF_HOME=/app/.nextflow
+# **`nextflow -version` at build time, and it is not a smoke test.** `get.nextflow.io` installs
+# a *launcher script*, not Nextflow: the real jar is downloaded on first run into NXF_HOME. Left
+# to run time that download happens inside the first gate — as a non-root user, against a
+# root-owned NXF_HOME, needing the network, with the failure arriving as a confusing gate
+# result. Running it here bakes the jar into the image, so the container is self-contained and
+# an air-gapped installation works.
+#
+# The launcher also writes a temp file into its WORKING DIRECTORY while downloading, so this
+# must run before the chown and while `/app` is still root-writable. At run time the working
+# directory is the draft's own directory on a writable volume, so that need does not recur.
+RUN nextflow -version \
+ && chown -R 1000:1000 /app/.nextflow
 
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
