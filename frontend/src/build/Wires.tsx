@@ -85,12 +85,20 @@ export function Wires({
   offsets,
   width,
   height,
+  onDetach,
 }: {
   wires: Wire[];
   tierOf: (id: string) => number;
   offsets: Record<string, Offset>;
   width: number;
   height: number;
+  /** Remove this wire. Omitted where the canvas is read-only. */
+  onDetach?: (wire: {
+    from_node: string;
+    from_port: string;
+    to_node: string;
+    to_port: string;
+  }) => void;
 }) {
   return (
     <svg
@@ -107,7 +115,36 @@ export function Wires({
         );
         const tier = tierOf(wire.from_node);
         return (
-          <g key={`${wire.from_node}.${wire.from_port}-${wire.to_node}.${wire.to_port}`}>
+          <g
+            key={`${wire.from_node}.${wire.from_port}-${wire.to_node}.${wire.to_port}`}
+            className={onDetach ? "pointer-events-auto group" : undefined}
+          >
+            {/* **A fat invisible path under the visible one.** A 1.5px stroke is a 1.5px hit
+                target, which is not a thing a hand can hit. 14px is roughly a finger's worth of
+                slop and costs nothing, because it paints nothing. */}
+            {onDetach && (
+              <path
+                data-testid="wire-hit"
+                d={d(wire)}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={14}
+                className="cursor-pointer"
+                onClick={() =>
+                  onDetach({
+                    from_node: wire.from_node,
+                    from_port: wire.from_port,
+                    to_node: wire.to_node,
+                    to_port: wire.to_port,
+                  })
+                }
+              >
+                <title>
+                  {`${wire.from_node}.${wire.from_port} → ${wire.to_node}.${wire.to_port}` +
+                    " — click to detach"}
+                </title>
+              </path>
+            )}
             <path
               data-testid="wire"
               d={d(wire)}
@@ -121,6 +158,9 @@ export function Wires({
                     : "var(--line-2)"
               }
               strokeDasharray={tier === 4 ? "3 8" : tier === 3 ? "5 4" : undefined}
+              // Thickens under the cursor so the thing you are about to remove is the thing
+              // you can see you are about to remove.
+              className={onDetach ? "group-hover:[stroke-width:3] transition-[stroke-width]" : undefined}
             />
             <text
               x={wire.label_at.x}

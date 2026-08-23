@@ -11,6 +11,7 @@ import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Compare } from "./Compare";
 import { Findings } from "./Findings";
+import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
 import { graphOf, useBuilder, useExample } from "./useBuilder";
@@ -183,7 +184,14 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         collapsed={left.collapsed}
         onExpand={() => left.setCollapsed(false)}
       >
-        {data && <LeftPanel data={data} selected={selected} onSelect={setSelected} />}
+        {data && (
+          <LeftPanel
+            data={data}
+            selected={selected}
+            onSelect={setSelected}
+            onAdd={builder.addNode}
+          />
+        )}
       </Side>
       <Grip
         side="left"
@@ -200,6 +208,19 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         view={view}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
+        // **The canvas is a drop target.** `preventDefault` on dragover is what makes a drop
+        // land at all — without it the browser refuses every drop silently, which is exactly
+        // the kind of "control that does nothing" this screen has been fixing.
+        onDragOver={(e: React.DragEvent) => {
+          if (e.dataTransfer.types.includes(MODULE_DND)) e.preventDefault();
+        }}
+        onDrop={(e: React.DragEvent) => {
+          const contractId = e.dataTransfer.getData(MODULE_DND);
+          if (contractId) {
+            e.preventDefault();
+            builder.addNode(contractId);
+          }
+        }}
         footer={
           <div
             data-zoomer
@@ -246,6 +267,9 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
               offsets={offsets}
               width={data.layout.width}
               height={data.layout.height}
+              onDetach={(w) =>
+                builder.disconnect(w.from_node, w.from_port, w.to_node, w.to_port)
+              }
             />
             {data.layout.nodes.map((placed) => (
               <Node

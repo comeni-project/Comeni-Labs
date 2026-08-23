@@ -17,6 +17,7 @@ type Built = components["schemas"]["BuiltPipeline"];
  * are asked, and collapsing them again would lose whichever half went.
  */
 export function LeftPanel({
+  onAdd,
   data,
   selected,
   onSelect,
@@ -24,6 +25,8 @@ export function LeftPanel({
   data: Built;
   selected: string | null;
   onSelect: (id: string) => void;
+  /** Add a contract to the pipeline. Threaded through to `Modules`. */
+  onAdd?: (contractId: string) => void;
 }) {
   const [tab, setTab] = useState<"pipeline" | "all">("pipeline");
 
@@ -50,7 +53,10 @@ export function LeftPanel({
         {tab === "pipeline" ? (
           <Steps data={data} selected={selected} onSelect={onSelect} />
         ) : (
-          <Modules inPipeline={new Set(data.steps.map((step) => step.contract_id))} />
+          <Modules
+            inPipeline={new Set(data.steps.map((step) => step.contract_id))}
+            onAdd={onAdd}
+          />
         )}
       </div>
     </div>

@@ -14,12 +14,17 @@ export function Canvas({
   view,
   onWheel,
   onPointerDown,
+  onDragOver,
+  onDrop,
   children,
   footer,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
+  /** Dropping a module from the palette. Omitted where the canvas is read-only. */
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -31,6 +36,8 @@ export function Canvas({
       data-testid="canvas"
       onWheel={onWheel}
       onPointerDown={onPointerDown}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       // **`flex-1 min-h-0`, and both halves matter.** The canvas sits in a flex column under
       // the provenance bar, and everything inside it is absolutely positioned — so without
       // `flex-1` it sizes to its content, which is nothing, and the graph renders into a
