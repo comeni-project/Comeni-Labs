@@ -188,6 +188,10 @@ closing `"}"`:
         "    local {",
         "        process.executor = 'local'",
         "    }",
+        # **`k8s` is also the name of a Nextflow config SCOPE** — `k8s { namespace, ... }` —
+        # and a profile called `k8s` that sets `k8s.*` inside itself reads like a recursion
+        # and is not one. Kept anyway: `-profile k8s` is what somebody will type, and the
+        # alternative is teaching a second word for one thing. The comment is the mitigation.
         "    k8s {",
         "        process.executor = 'k8s'",
         "        // Needs site facts this file cannot know: a namespace, a service account,",
@@ -343,8 +347,23 @@ RUN apt-get update \
  && curl -fsSL https://get.nextflow.io -o /usr/local/bin/nextflow \
  && chmod +x /usr/local/bin/nextflow \
  && rm -rf /var/lib/apt/lists/*
+
+# **Created and chowned, because the worker does not run as root.** `docker-compose.yml` sets
+# `user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"` and nothing in this file chowns `/app`, so
+# a root-owned `NXF_HOME` is permission-denied on the first gate — and Nextflow writes there
+# before it does anything else, because it downloads its plugins on first run. The failure
+# would read as a Nextflow bug.
+#
+# That first run also needs the network. Legitimate — `mendel-api` is an impure package and
+# invariant 1 constrains the other three — but an air-gapped installation must pre-seed this
+# directory, and nothing else in the stack has that property.
 ENV NXF_HOME=/app/.nextflow
+RUN mkdir -p /app/.nextflow && chown -R 1000:1000 /app/.nextflow
 ```
+
+**`1000:1000` is hardcoded and `DOCKER_UID` is not.** If `.env` overrides it, this breaks and
+the message will be a permission error from Nextflow. Note it in the execution record if the
+machine running this uses anything else.
 
 - [ ] **Step 6: Build and check it end to end**
 
@@ -352,8 +371,9 @@ ENV NXF_HOME=/app/.nextflow
 docker compose build worker
 docker compose run --rm worker nextflow -version
 ```
-Expected: a version banner. If it reports a Java error, the JRE line is wrong — fix it here
-rather than discovering it inside a job.
+Expected: a version banner. If it reports a Java error the JRE line is wrong; if it reports a
+permission error on `.nextflow`, the chown above did not take. **Fix either here rather than
+discovering it inside a job**, where it arrives as a failed gate with a confusing message.
 
 - [ ] **Step 7: Commit**
 
@@ -518,46 +538,101 @@ from comeni_core.artifact.gates import Gate
 from mendel_api.services import gates
 
 
-def test_a_gate_refuses_a_draft_that_was_never_kept(tmp_path, monkeypatch):
+def test_a_gate_refuses_a_draft_that_was_never_kept(tmp_path):
     """A draft is a row; a gate runs on an artifact. `keep` is the boundary between them
     (`docs/design/execution-boundary.md` §4), so gating something never kept has no directory
     to run in — and Nextflow's error would blame the pipeline for a missing file rather than
-    saying the pipeline was never written."""
-    monkeypatch.setattr(gates, "_directory", lambda draft_id: tmp_path / draft_id)
-    with pytest.raises(ValueError, match="MD0230"):
-        gates.of(tmp_path / "nothing", Gate.LINT)
+    saying the pipeline was never written.
+
+    **No monkeypatch.** `of` takes the directory as an argument and never calls `_directory`,
+    so patching that seam here would change nothing and the test would pass for a reason
+    unrelated to what it claims to check.
+    """
+    with pytest.raises(ValueError, match="MA0001"):
+        gates.of(tmp_path / "never-kept", Gate.LINT)
 
 
 def test_a_gate_reports_a_missing_nextflow_as_a_failed_gate_not_a_crash(tmp_path, monkeypatch):
     """`run_gate` already degrades honestly — `nextflow not found on PATH`. The service must
-    carry that through as a FAILED gate with that text, because an exception here would reach
-    the person as a 500 with no message, which is the failure mode forge phase 2 shipped."""
-    (tmp_path / "pipeline.yml").write_text("schema_version: 5\n")
-    monkeypatch.setattr(gates, "_run", lambda gate, d: _Result(gate=gate, passed=False,
-                                                               stderr="nextflow not found on PATH"))
-    ...
+    carry that through as a FAILED result with that text, because an exception here would
+    reach the person as a 500 with no message: the failure mode forge phase 2 shipped and
+    spent an evening on."""
+    from mendel_compiler.gates import GateResult
+
+    directory = _kept(tmp_path)   # see below
+    monkeypatch.setattr(
+        gates,
+        "_run",
+        lambda gate, d: GateResult(gate=gate, passed=False, stderr="nextflow not found on PATH"),
+    )
+    result = gates.of(directory, Gate.LINT)
+    assert result.passed is False
+    assert "nextflow not found on PATH" in result.output
+
+
+def _kept(tmp_path):
+    """A real kept directory, because `of` loads and re-emits the artifact.
+
+    Built by the same route the product uses rather than by hand-writing a `pipeline.yml`:
+    a fixture that is not a real artifact tests a code path nothing takes. `tests/
+    test_pipeline_file.py::_build` is the shape to copy — and **omit `--gate`**, because CI
+    has no Nextflow (`CLAUDE.md`, Gotchas).
+    """
+    from mendel_compiler.cli import main
+
+    out = tmp_path / "kept"
+    # **No `--gate`.** CI installs neither Nextflow nor Docker, so any test passing one is
+    # green locally and red in CI — `CLAUDE.md`, Gotchas. This is `tests/test_pipeline_file.py
+    # ::_build` verbatim; it is the established way to get a real artifact into a tmp_path.
+    assert main(["build", "--goal", str(GOAL), "--out", str(out), "--root", str(ROOT)]) == 0
+    return out
 ```
 
-Write the full bodies while implementing; the assertion above is the shape.
+`GOAL` and `ROOT` are module constants in `tests/test_pipeline_file.py`; copy those two lines
+too rather than re-deriving the paths.
 
 - [ ] **Step 2: Declare the diagnostic**
 
-Add to `packages/comeni-core/src/comeni_core/diagnostics.yml`, in the `MD02xx` artifact band:
+**`MA0001`, and it is the first `MA` code in the repository.** `diagnostics.yml`'s own header
+says `MD` is "Mendel's deterministic core: the three packages that may not reach the network"
+and that `MF`, `MA` and `MI` belong to the forge, the API and the AI adapters. This refusal is
+raised in `mendel_api.services.gates`, so an `MD` code here would fail
+`test_every_code_is_owned_by_the_package_that_emits_it`.
 
-```yaml
-  MD0230:
-    summary: this draft has no artifact to gate
-    emitted_by: api
-    concern: artifact
-    long: |
-      A gate runs Nextflow in a directory. A draft is a row in a database until `keep`
-      validates it and writes `pipeline.yml`, `modules/` and the emitted files beside them,
-      so a draft that was never kept has nothing to run.
-    fix: |
-      Press *Keep* first, then gate. `POST /api/drafts/{id}/keep` is the same operation.
+First add the band to the header comment, after the `MF0100-MF0199` line:
+
+```
+#   MA0001-MA0099  the API: gating a drawn pipeline
 ```
 
-Run `make docs` and confirm `docs/reference/diagnostics.md` regenerates.
+Then the entry. **`concern: gates`** — the twelve legal values are the keys of `HEADINGS` in
+`tools/generate_diagnostics_doc.py`, and that generator *refuses* an unknown concern
+(line 106). There is no `artifact` concern; `gates` renders as "Gates and emission".
+
+```yaml
+MA0001:
+  emitted_by: api
+  concern: gates
+  says: "this draft has no artifact to gate — keep it first"
+  fires_on: [gate]
+  refuses: true
+  fix: |
+    Press *Keep* first, then gate. `POST /api/pipeline/drafts/{draft_id}/keep` is the same
+    operation.
+  explanation: |
+    A gate runs Nextflow in a directory. A draft is a row in a database until `keep`
+    validates it and writes `pipeline.yml` and the modules beside it, so a draft that was
+    never kept has nothing to run. Reporting Nextflow's own "no such file" here would be a
+    true message about the wrong thing.
+```
+
+The field names are `MD0100`'s exactly: `emitted_by`, `concern`, `says`, `fires_on`,
+`refuses`, `fix`, `explanation`. **`fires_on` is `list[str]`** in `DiagnosticSpec` — checked,
+not assumed — so `[gate]` needs no permission from anything.
+
+Run `make docs` and confirm `docs/reference/diagnostics.md` regenerates, then
+`uv run pytest tests/test_diagnostics_ownership.py -v` — it checks both directions and the
+prefix scan.
 
 - [ ] **Step 3: Run the tests, verify they fail**
 
@@ -648,9 +723,8 @@ def of(directory: Path, gate: Gate) -> GateResult:
     """
     target = directory / pipeline_file.FILENAME
     if not target.exists():
-        raise ValueError(
-            coded("MD0230", f"there is no pipeline to gate. Keep the draft first.")
-        )
+        # No f-string: ruff refuses one with no placeholder (F541), and `make check` runs it.
+        raise ValueError(coded("MA0001", "there is no pipeline to gate. Keep the draft first."))
     pipeline = pipeline_file.load(target)
     (directory / "main.nf").write_text(emit(pipeline))
     (directory / "nextflow.config").write_text(emit_config(pipeline))
@@ -670,14 +744,19 @@ async def execute(run_id: str) -> None:
         draft_id, gate = row.draft_id, Gate(row.gate)
 
     try:
-        result = await asyncio.to_thread(of, _directory(draft_id), gate)
+        directory = _directory(draft_id)
+        result = await asyncio.to_thread(of, directory, gate)
         state, output = ("passed" if result.passed else "failed"), result.output
-        if result.passed:
-            directory = _directory(draft_id)
-            pipeline = pipeline_file.load(directory / pipeline_file.FILENAME)
-            # A4: never leave an artifact stamped with a gate it did not pass.
-            pipeline_file.stamp(directory, pipeline, gate=result.gate)
-    except ValueError as refusal:  # a coded refusal, e.g. MD0230
+        # **Stamped on the failing path too, and that is not symmetry for its own sake.**
+        # `of` regenerated `main.nf` and `nextflow.config` from the artifact, so leaving the
+        # `emitted:` record untouched makes the directory diverge from its own `pipeline.yml`
+        # — and the next `mendel emit` refuses with `MD0214`, blaming the person for a change
+        # this gate made. `_publish_verb` stamps on both paths for exactly this reason, with
+        # `gate=None` on failure: A4, never leave an artifact stamped with a gate it did not
+        # pass.
+        pipeline = pipeline_file.load(directory / pipeline_file.FILENAME)
+        pipeline_file.stamp(directory, pipeline, gate=result.gate if result.passed else None)
+    except ValueError as refusal:  # a coded refusal, e.g. MA0001
         state, output = "failed", str(refusal)
 
     with session_scope() as session:
@@ -752,9 +831,15 @@ git commit -m "feat(api): gate a kept draft on the worker, where a 900s job belo
 **Interfaces:**
 - Consumes: `gates.request`, `gates.read` (Task 4).
 - Produces:
-  - `POST /api/drafts/{draft_id}/gate` → `GateView`, `operation_id="startGate"`, body
-    `GateIn{gate: Gate}`.
-  - `GET /api/gates/{run_id}` → `GateView`, `operation_id="readGate"`.
+  - `POST /api/pipeline/drafts/{draft_id}/gate` → `GateView`, `operation_id="startGate"`,
+    body `GateIn{gate: Gate}`.
+  - `GET /api/pipeline/gates/{run_id}` → `GateView`, `operation_id="readGate"`.
+
+  **`/api/pipeline/…`, not `/api/…`.** `routes/build.py:28` is
+  `APIRouter(prefix="/pipeline", tags=["pipeline"])`, so every draft route already lives under
+  it — verified by generating the document, not by reading the decorators. The router supplies
+  the tag too, so **do not pass `tags=`**: a second value would invent an undeclared tag, and
+  `test_every_operation_carries_a_tag` is satisfied by the router's.
   - `jobs.enqueue(name: str, *args) -> None`, an awaitable seam over ARQ.
 
 **Nothing in this repository enqueues anything today** — the worker has run one cron job since
@@ -764,18 +849,41 @@ phase 8. This task builds that path.
 
 ```python
 def test_starting_a_gate_returns_a_queued_run_and_enqueues_exactly_once(client, monkeypatch):
+    """The route writes a row and hands the work away. It must not run a gate itself: a stub
+    gate is up to 900s cold, and `worker.py`'s docstring already says where that belongs.
+
+    `jobs.enqueue` is patched rather than Redis, for the reason `services/drafts.py` records
+    about its own seams — CI has neither Redis nor Postgres, and a rule only a developer
+    machine can check is a rule nobody checks.
+    """
     sent = []
-    monkeypatch.setattr(jobs, "enqueue", lambda name, *a: sent.append((name, a)))
-    ...
-    assert sent == [("run_gate_job", (body["id"],))]
-    assert body["state"] == "queued"
+
+    async def _capture(name, *args):
+        sent.append((name, args))
+
+    monkeypatch.setattr(jobs, "enqueue", _capture)
+    monkeypatch.setattr(gate_service, "request", lambda draft_id, gate, who: "run-1")
+    monkeypatch.setattr(
+        gate_service,
+        "read",
+        lambda run_id: gate_service.GateView(
+            id=run_id, gate=Gate.LINT, state="queued", output="",
+            queued_at=datetime(2026, 8, 23, tzinfo=UTC), finished_at=None,
+        ),
+    )
+
+    response = client.post("/api/pipeline/drafts/abc/gate", json={"gate": "lint"})
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "queued"
+    assert sent == [("run_gate_job", ("run-1",))], "the job was not queued exactly once"
 
 
 def test_no_gate_route_accepts_a_path(client):
     """Invariant 15, and `tests/test_mount.py` already holds the general rule. This is the
     specific one: a gate names a DRAFT by opaque id, never a directory."""
     schema = client.get("/openapi.json").json()
-    body = schema["paths"]["/api/drafts/{draft_id}/gate"]["post"]["requestBody"]
+    schema["paths"]["/api/pipeline/drafts/{draft_id}/gate"]["post"]["requestBody"]
     props = schema["components"]["schemas"]["GateIn"]["properties"]
     assert set(props) == {"gate"}, f"GateIn carries more than a gate: {set(props)}"
 ```
@@ -799,18 +907,25 @@ The pool is created lazily and kept: ARQ's `create_pool` opens a connection, and
 per request is a connection per click.
 """
 
+import asyncio
+
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 
 from mendel_api.settings import settings
 
 _pool: ArqRedis | None = None
+_lock = asyncio.Lock()
 
 
 async def enqueue(name: str, *args: object) -> None:
+    """**Locked**, because two concurrent first requests would each see `None` and open a
+    pool, and the loser is then never closed. Cheap: the lock is contended once per process."""
     global _pool
     if _pool is None:
-        _pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        async with _lock:
+            if _pool is None:
+                _pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     await _pool.enqueue_job(name, *args)
 ```
 
@@ -832,7 +947,6 @@ class GateIn(BaseModel):
     "/drafts/{draft_id}/gate",
     operation_id="startGate",
     summary="Gate a kept draft",
-    tags=["build"],
     responses=REFUSES,
 )
 async def start_gate(draft_id: str, body: GateIn) -> gate_service.GateView:
@@ -842,14 +956,18 @@ async def start_gate(draft_id: str, body: GateIn) -> gate_service.GateView:
     **This is not *Run pipeline*.** A gate proves the artifact on public data; running a
     laboratory's data is Wiener's, and Mendel has no route for it by design.
     """
-    run_id = gate_service.request(draft_id, body.gate, who=identity.default_author())
+    # **`run_in_threadpool`, because this route had to become `async` to await the enqueue.**
+    # Every other route here is a plain `def`, which FastAPI already runs in a threadpool; an
+    # `async def` doing a synchronous Postgres session blocks the event loop for every other
+    # request. Awaiting the two blocking calls explicitly is the smallest correct fix.
+    run_id = await run_in_threadpool(
+        gate_service.request, draft_id, body.gate, who=identity.default_author()
+    )
     await jobs.enqueue("run_gate_job", run_id)
-    return gate_service.read(run_id)
+    return await run_in_threadpool(gate_service.read, run_id)
 
 
-@router.get(
-    "/gates/{run_id}", operation_id="readGate", summary="How a gate is going", tags=["build"]
-)
+@router.get("/gates/{run_id}", operation_id="readGate", summary="How a gate is going")
 def read_gate(run_id: str) -> gate_service.GateView:
     try:
         return gate_service.read(run_id)
@@ -860,8 +978,17 @@ def read_gate(run_id: str) -> gate_service.GateView:
 - [ ] **Step 5: Run the tests, verify they pass**
 
 Run: `uv run pytest packages/mendel-api/tests/ -v`
-Expected: PASS, including `test_openapi.py` — it pins operation ids by hand, so add
-`startGate` and `readGate` to its list.
+Expected: PASS. `test_openapi.py::test_every_operation_is_named_by_hand` holds an **exact
+dict keyed by `(path, method)`**, so add both entries with the real paths:
+
+```python
+        ("/api/pipeline/drafts/{draft_id}/gate", "post"): "startGate",
+        ("/api/pipeline/gates/{run_id}", "get"): "readGate",
+```
+
+New imports in `routes/build.py`: `from comeni_core.artifact.gates import Gate`,
+`from fastapi.concurrency import run_in_threadpool`, `from mendel_api import jobs`,
+`from mendel_api.services import gates as gate_service`.
 
 - [ ] **Step 6: Commit**
 
@@ -885,11 +1012,27 @@ git commit -m "feat(api): start a gate and poll it, and the first enqueue in the
 - Consumes: `startGate`, `readGate`.
 - Produces: `useGate(draftId)` → `{ start(gate), run, running }`.
 
-- [ ] **Step 1: Regenerate the client**
+- [ ] **Step 1: Regenerate the schema and widen the type seam**
 
 Run: `make client`
 Then: `git diff --stat frontend/src/api/`
-Expected: `GateIn`, `GateView`, `startGate`, `readGate`. **Never hand-edit this directory.**
+Expected: `schema.d.ts` only.
+
+**`make client` regenerates types, not a client.** The Makefile runs `openapi-typescript … -o
+src/api/schema.d.ts` and nothing else; `frontend/src/api/client.ts` is a *hand-written* wrapper
+exporting `get<T>(path: string)` and `post<T>(path, payload)`. So "never hand-edit
+`frontend/src/api/`" means **`schema.d.ts`**, and the rest of that directory is ordinary code.
+
+Add the two names to `frontend/src/api/types.ts`, which exists precisely because the generated
+names are unstable (`DraftGraph` was `DraftGraph-Input` for one commit):
+
+```ts
+export type GateIn = S["GateIn"];
+export type GateView = S["GateView"];
+```
+
+If either comes back as `GateView-Output`, that is the file's whole reason for existing — fix
+it here and nowhere else.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -921,23 +1064,85 @@ Run: `cd frontend && npx vitest run Gate` — Expected: FAIL, module not found.
 `frontend/src/build/useGate.ts`, polling only while the run is live:
 
 ```ts
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { get, post } from "../api/client";
+import type { GateView } from "../api/types";
+
+const LIVE = ["queued", "running"];
+
 export function useGate(draftId: string | null) {
   const [runId, setRunId] = useState<string | null>(null);
+
   const run = useQuery({
     queryKey: ["gate", runId],
-    queryFn: () => get("/gates/{run_id}", { params: { path: { run_id: runId! } } }),
+    // **A plain template string**: `client.ts` is a hand-written wrapper taking a path, not
+    // openapi-fetch — there is no `{ params: { path } }` here. And the path carries the
+    // router's `/pipeline` prefix, which `ROOT = "/api"` in that file completes.
+    queryFn: () => get<GateView>(`/pipeline/gates/${runId}`),
     enabled: runId !== null,
     // **Two seconds, and only while it is live.** A gate is 60s to 3600s of server-owned
-    // state, so polling is right here in a way it was wrong for the graph. `false` the
-    // moment it lands: a terminal run polled forever is the spam the operator asked about.
-    refetchInterval: (q) =>
-      q.state.data && ["passed", "failed"].includes(q.state.data.state) ? false : 2000,
+    // state, so polling is right here in a way it was wrong for the graph — the client
+    // cannot know the answer and must ask. `false` the moment it lands: a terminal run
+    // polled forever is exactly the spam this project asked not to ship.
+    refetchInterval: (q) => (q.state.data && LIVE.includes(q.state.data.state) ? 2000 : false),
   });
-  ...
+
+  const start = useMutation({
+    mutationFn: (gate: string) =>
+      post<GateView>(`/pipeline/drafts/${draftId}/gate`, { gate }),
+    onSuccess: (started) => setRunId(started.id),
+  });
+
+  return {
+    run: run.data ?? null,
+    start: (gate: string) => start.mutate(gate),
+    // `queued` and `running` both count: the button must not offer a second gate while one
+    // is in flight, and `start.isPending` alone goes false the moment the POST returns.
+    running: start.isPending || (run.data ? LIVE.includes(run.data.state) : false),
+  };
 }
 ```
 
-- [ ] **Step 5: Replace the disabled Run button**
+`post<T>(path, payload)` is `client.ts`'s other export; it raises `Refused` on a 422, so
+`MA0001` reaches the panel as its own message rather than as "Request failed".
+
+- [ ] **Step 5: Refuse to gate a draft that has moved since it was kept**
+
+**A164, and it is the defect most likely to ship silently.** A gate runs on whatever `keep`
+last wrote. Edit the graph, press *Gate*, and the verdict describes the **previous** artifact —
+with a green tick beside a canvas that no longer matches it. That is A47's class exactly: a
+stale file keeping its certification.
+
+**Decision, taken because it cannot produce a false green:** *Gate* is **disabled while the
+draft is dirty*, with the reason on the control. The rejected alternative is having *Gate*
+keep first — it reads as more helpful and it silently changes what *Keep* means, including
+`keep`'s refusal of an illegal graph, which would then surface as a failed gate.
+
+`useGraph` already tracks `dirty` for the idle save, so this is a prop rather than new state.
+
+```tsx
+<Gate
+  draftId={draftId}
+  // `dirty` is the same flag the 5s idle save reads. A gate certifies what is ON DISK, and
+  // an unsaved edit is not on disk — so this is not a UI nicety, it is the difference
+  // between a verdict about your pipeline and a verdict about a previous one.
+  blocked={graph.dirty ? "Keep your changes first — a gate certifies what was kept." : null}
+/>
+```
+
+Write the test with it:
+
+```tsx
+it("will not gate a draft with unkept changes", () => {
+  render(<Gate draftId="abc" blocked="Keep your changes first." />);
+  expect(screen.getByTestId("gate-button")).toBeDisabled();
+  expect(screen.getByText(/keep your changes first/i)).toBeTruthy();
+});
+```
+
+- [ ] **Step 6: Replace the disabled Run button**
 
 In `Builder.tsx`, replace the disabled `Run pipeline` button with the gate control, and keep
 its sentence where a reader will still find it:
@@ -953,7 +1158,7 @@ its sentence where a reader will still find it:
 Add `gate` as a fourth rail tab after `compare`, showing state, elapsed time and — on failure —
 `output` in a `<pre>` with `overflow-x: auto`.
 
-- [ ] **Step 6: Run the frontend gate**
+- [ ] **Step 7: Run the frontend gate**
 
 ```bash
 cd frontend && npx vitest run && npx tsc -b && npm run build
@@ -961,7 +1166,7 @@ cd frontend && npx vitest run && npx tsc -b && npm run build
 Expected: all pass. **`tsc -b`, not `tsc --noEmit`** — the latter checks nothing here, which is
 the guard fixed in 3E and recorded in the ledger.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add frontend/src/
@@ -997,7 +1202,7 @@ Expected: `gate: lint`, and the three executor profiles present in a file nobody
 
 - [ ] **Step 4: Make it fail on purpose**
 
-Gate a draft that was never kept. Expected: `failed`, with `MD0230` readable in the panel —
+Gate a draft that was never kept. Expected: `failed`, with `MA0001` readable in the panel —
 not a 500, and not a Nextflow error about a missing file.
 
 - [ ] **Step 5: Time it**
@@ -1015,6 +1220,61 @@ plan, and what a fresh reader would get wrong. Add a row to `notes/README.md`.
 
 Run: `make verify` and `make links`
 Expected: green.
+
+---
+
+## Pre-execution audit — 2026-08-23, A158–A170
+
+Run against the tree before a line was written, the way 3E's was. **Thirteen findings, three
+critical**, and all thirteen are corrected above rather than listed as warnings — so the plan a
+reader executes is the corrected one and this table is the record of what it used to say.
+
+**Every critical came from the same root: the plan was written against what the code
+*resembles* rather than what it *is*.** Route paths, a diagnostic prefix and a `concern` value
+were each plausible, wrong, and checkable in one command.
+
+| # | Severity | Finding |
+|---|---|---|
+| A158 | **critical** | `MD0230` is the wrong prefix. `diagnostics.yml`'s header reserves `MD` for "Mendel's deterministic core: the three packages that may not reach the network" and gives the API `MA`. An `MD` code raised in `mendel_api` fails `test_every_code_is_owned_by_the_package_that_emits_it`. It is now `MA0001` — **the first `MA` code**, so the band table gains a line |
+| A159 | **critical** | `concern: artifact` does not exist. `tools/generate_diagnostics_doc.py:106` refuses any concern outside `HEADINGS`, whose twelve keys do not include it. Now `gates` — "Gates and emission". **This is the same error 3E hit during execution** and the plan reintroduced it |
+| A160 | **critical** | Every route path in the plan was wrong. `routes/build.py:28` is `APIRouter(prefix="/pipeline")`, so drafts are at `/api/pipeline/drafts/{draft_id}`, not `/api/drafts/{draft_id}`. Found by generating the OpenAPI document rather than reading decorators. Affected the routes, the tests, the client calls and the diagnostic's own `fix:` prose |
+| A161 | major | The frontend calls used openapi-fetch syntax. `frontend/src/api/client.ts` is a **hand-written** wrapper exporting `get<T>(path: string)`; there is no `{ params: { path } }`. Also corrects the plan's implication that `make client` generates a client — it generates `schema.d.ts` and nothing else |
+| A162 | major | A failing gate never re-stamped. `gates.of` regenerates `main.nf` and `nextflow.config` every time, so skipping the stamp on failure leaves the directory diverging from its own `pipeline.yml` — and the next `mendel emit` refuses with `MD0214`, blaming the person for a change the gate made. `_publish_verb` stamps on both paths and its comment says why |
+| A163 | major | Nextflow cannot write `NXF_HOME`. The worker runs as `user: 1000:1000`, the Dockerfile has no `USER` and no `chown`, and Nextflow downloads plugins into `NXF_HOME` on first run. The first gate would fail with what reads as a Nextflow bug |
+| A164 | major | Gating gates whatever was last kept, silently. Edit the graph, press *Gate*, and a green tick appears beside a canvas the verdict does not describe — A47's class. **Decided**: *Gate* is disabled while the draft is dirty, because that cannot produce a false green. Having *Gate* keep first was rejected: it changes what *Keep* means, including its refusal of an illegal graph |
+| A165 | minor | `async def start_gate` ran a synchronous Postgres session on the event loop. Every other route is a plain `def`, which FastAPI already threadpools; this one had to become `async` to await the enqueue. Now `run_in_threadpool` around both blocking calls |
+| A166 | minor | `coded("MD0230", f"…")` had no placeholder. Verified against ruff: F541, and `make check` runs it |
+| A167 | minor | `tags=["build"]` invented a second undeclared tag. The router already supplies `tags=["pipeline"]`, which satisfies `test_every_operation_carries_a_tag`. **Pre-existing and left alone: `pipeline` is not in `main.py`'s `TAGS`**, so it renders with no description — a one-line fix that is not this plan's job |
+| A168 | minor | `test_every_operation_is_named_by_hand` holds an exact dict keyed by `(path, method)`, not a list. Both entries are now written out, with A160's paths |
+| A169 | minor | `k8s` is also a Nextflow config *scope*, so a profile named `k8s` setting `k8s.*` reads like a recursion. **Kept**, because `-profile k8s` is what somebody will type; the emitted comment is the mitigation |
+| A170 | minor | The generated names go through `frontend/src/api/types.ts`, which exists because FastAPI splits and namespaces model names unpredictably. `GateIn` and `GateView` are declared there, not imported from `schema` at six call sites |
+
+### What the audit did not find, and the reason it might be wrong
+
+**Nothing was checked by running it**, because none of it is built. The three criticals were all
+*static* facts — a header comment, a dict of headings, a router prefix — and static facts are
+what an audit before execution can reach. 3E's execution then found nine more, every one of them
+behavioural.
+
+**A162's fix is untested by anything in this plan.** No step reverts the stamp and watches
+`MD0214` fire, so it is an argument rather than a guard. If Task 7's walk has spare minutes,
+gate a draft, break it on purpose and re-emit.
+
+### Second pass — A171–A174
+
+**A157's lesson is that an audit's own repairs need auditing**: 3E's audit produced a fix that
+was itself wrong. So the corrected plan was re-read, and the re-read found four more — three of
+them *in the corrections*.
+
+| # | Severity | Finding |
+|---|---|---|
+| A171 | major | The plan contained `...` elisions — an undefined `_Result` in a test, and a `useGate` hook that stopped before showing the start call. The skill that produced this plan calls that a plan failure, and A160 is why it matters here specifically: **the elided line was a path**, and every path in the first draft was wrong. Both are written out |
+| A172 | major | `monkeypatch.setattr(gates, "_directory", …)` in the first gate test was **inert** — `of` takes the directory as an argument and never calls that seam. The test would have passed for a reason unrelated to what it patched, which is 3E's crossing-wires test failing upward |
+| A173 | minor | The corrections hedged: *"if `fires_on: [gate]` is refused, the allowed values are a closed vocabulary"*. It is `list[str]` on `DiagnosticSpec`. **A hedge in a plan is a fact somebody declined to check**, and this plan's three criticals were all facts that took one command |
+| A174 | minor | `jobs._pool` had no lock, so two concurrent first requests each open a pool and the loser leaks. Now double-checked under `asyncio.Lock` |
+
+Three of these four were introduced by the first pass's own repairs. That ratio is the argument
+for the second pass, and it is the same ratio 3E saw.
 
 ---
 
