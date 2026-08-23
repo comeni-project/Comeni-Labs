@@ -28,17 +28,30 @@ export function useGate(draftId: string | null) {
     refetchInterval: (q) => (q.state.data && LIVE.includes(q.state.data.state) ? 2000 : false),
   });
 
+  /** Which gate was asked for. **Not derivable from `run`**: between the click and the first
+   *  poll there is no run to read a name off, and that gap is most of a second. */
+  const [asked, setAsked] = useState<string | null>(null);
+
   const start = useMutation({
-    mutationFn: (gate: string) => post<GateView>(`/pipeline/drafts/${draftId}/gate`, { gate }),
+    mutationFn: (gate: string) => {
+      setAsked(gate);
+      return post<GateView>(`/pipeline/drafts/${draftId}/gate`, { gate });
+    },
     onSuccess: (started) => setRunId(started.id),
+    onError: () => setAsked(null),
   });
+
+  const running = start.isPending || (run.data ? LIVE.includes(run.data.state) : false);
 
   return {
     run: run.data ?? null,
+    /** The gate currently in flight, or `null`. The control labels *that* button rather than
+     *  assuming the first one — pressing Preview used to put "Gating…" on Lint. */
+    active: running ? (run.data?.gate ?? asked) : null,
     start: (gate: string) => start.mutate(gate),
     error: start.error ? String(start.error.message) : null,
     // `queued` and `running` both count: the button must not offer a second gate while one is
     // in flight, and `start.isPending` alone goes false the moment the POST returns.
-    running: start.isPending || (run.data ? LIVE.includes(run.data.state) : false),
+    running,
   };
 }

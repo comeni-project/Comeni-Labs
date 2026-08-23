@@ -41,10 +41,23 @@ export function Gate({ draftId, blocked }: { draftId: string | null; blocked?: s
           className="px-3 py-1 rounded-r text-body font-semibold bg-pea text-[var(--on-pea)]
                      border-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {gate.running && g.id === "lint" ? "Gating…" : g.label}
+          {gate.active === g.id ? "Gating…" : g.label}
         </button>
       ))}
-      {gate.run && (
+      {gate.running && (
+        // **A gate is slow enough to need saying so.** `lint` is ~2s and `preview` ~10s, and a
+        // button that only dims for ten seconds reads as a page that broke. Indeterminate on
+        // purpose: Nextflow reports no progress a caller can poll, so a percentage would be
+        // invented. `--measured` is the tier colour for *the machinery worked, check it*.
+        <span
+          data-testid="gate-progress"
+          aria-live="polite"
+          className="font-data text-secondary text-[var(--measured)] animate-pulse"
+        >
+          running {gate.active}…
+        </span>
+      )}
+      {gate.run && !gate.running && (
         <span
           data-testid="gate-state"
           className="font-data text-secondary"

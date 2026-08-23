@@ -74,3 +74,24 @@ describe("the gate panel", () => {
     await waitFor(() => expect(screen.queryByTestId("gate-output")).toBeNull());
   });
 });
+
+describe("saying that it is working", () => {
+  it("labels the gate you actually pressed", async () => {
+    // Pressing Preview used to put "Gating…" on the Lint button and leave Preview alone,
+    // because the label was hardcoded to the first gate. The operator caught it by reading.
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
+    show(<Gate draftId="abc" blocked={null} />);
+    screen.getByTestId("gate-preview").click();
+    await waitFor(() => expect(screen.getByTestId("gate-preview")).toHaveTextContent("Gating…"));
+    expect(screen.getByTestId("gate-button")).toHaveTextContent("Lint");
+  });
+
+  it("says it is running rather than only dimming a button", async () => {
+    // `preview` is ~10s against the real stack. A control that only dims for ten seconds reads
+    // as a page that broke.
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
+    show(<Gate draftId="abc" blocked={null} />);
+    screen.getByTestId("gate-button").click();
+    await waitFor(() => expect(screen.getByTestId("gate-progress")).toBeTruthy());
+  });
+});
