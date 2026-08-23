@@ -112,6 +112,20 @@ decline to curate one.
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
 | `MD0315` | a measurement's `assertion_only` and its reason disagree |
 
+## Validating a hand-built graph
+
+| Code | Says |
+|---|---|
+| `MD0501` | an edge names a port that does not exist on that contract |
+| `MD0502` | an edge runs the wrong way — an input feeding an output, or an output into an output |
+| `MD0503` | the source type does not satisfy what the target port requires |
+| `MD0504` | the source does not carry every state the target requires |
+| `MD0505` | too many wires reach a port that accepts one |
+| `MD0506` | a required input has no wire and no entry channel |
+| `MD0507` | the edge is legal but not what convention would choose |
+| `MD0508` | the graph contains a cycle |
+| `MD0509` | a node names a contract that is not in the registry stack |
+
 ## The forge — a scaffold, its holes, and filling them
 
 | Code | Says |

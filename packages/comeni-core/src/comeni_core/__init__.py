@@ -40,9 +40,11 @@ from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError,
 from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.decision import Ambiguity, DecisionRecord, Resolution
+from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
 from comeni_core.plan.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.review import Answer, Candidate, Excerpt, Question
+from comeni_core.review.verdict import Finding, Level, Verdict
 from comeni_core.spell.marks import Mark, ParamValue
 
 __version__ = "0.1.0"
@@ -60,9 +62,13 @@ __all__ = [
     "DeclaredKind",
     "Displacement",
     "DOORS",
+    "DraftEdge",
+    "DraftGraph",
+    "DraftNode",
     "EgressPayload",
     "ErrorCategory",
     "Excerpt",
+    "Finding",
     "GateFailure",
     "Goal",
     "GoalInput",
@@ -70,6 +76,7 @@ __all__ = [
     "IREdge",
     "IRNode",
     "Layer",
+    "Level",
     "Mark",
     "Measured",
     "Measurement",
@@ -98,5 +105,6 @@ __all__ = [
     "UnknownStateError",
     "UnknownTypeError",
     "ValueSource",
+    "Verdict",
     "Vocabulary",
 ]
