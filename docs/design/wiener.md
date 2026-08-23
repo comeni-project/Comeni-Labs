@@ -456,13 +456,29 @@ Three stores, and confusing their jobs is how this design fails.
 ### 7.1 The tables
 
 ```
-run           id · artifact_id · submitted_by · submitted_at · phase · policy_id
+run           id · lab_id · artifact_id · submitted_by · submitted_at · phase · policy_id
               executor · exit_code · ended_at · nextflow_run_id · nextflow_run_name
-run_event     run_id · seq · kind · at_ms · payload(jsonb, admitted) · received_at
-run_task      run_id · task_id · process · status · attempts(jsonb) · latest_exit · last_change_ms
-run_intent    id · run_id · kind · because · created_at · approved_by · approved_at · performed_at
-run_artifact  id · uploaded_by · uploaded_at · digest · pipeline_digest · size_bytes
+run_event     lab_id · run_id · seq · kind · at_ms · payload(jsonb, admitted) · received_at
+run_task      lab_id · run_id · task_id · process · status · attempts(jsonb) · latest_exit · last_change_ms
+run_intent    id · lab_id · run_id · kind · because · created_at · approved_by · approved_at · performed_at
+run_artifact  id · lab_id · uploaded_by · uploaded_at · digest · pipeline_digest · size_bytes
+run_message   id · lab_id · run_id · at_ms · author · trigger · body        <- W3
 ```
+
+**`lab_id` is on every table from day one** (decided 2026-08-23). It is cheap now and a
+migration touching every table later, and the alternative — one install per laboratory — was
+rejected because the hosted offering would then need one deployment per customer. **The cost is
+named rather than assumed: a filter you can forget is a leak**, and it is the class of bug that
+stays invisible until it is a disclosure. So the guard is not "remember the filter" — every
+query goes through a session scoped to one `lab_id`, and a test asserts no query builder in
+`wiener-api` constructs a `select()` on these tables without it.
+
+**`run_message` is the fifth table and it has an argument** (decided 2026-08-23). A conversation
+about a failure is part of that run's history: the person who diagnosed an OOM at 3am should not
+have to remember what they asked. The briefs alone would not do — those are derived from
+`RunState` and replay, but an ad-hoc question and its answer are neither. **It lands in W3, with
+the chat panel**; until then the four-table guard stays at four, so adding it early fails a test
+rather than arriving unnoticed.
 
 **`run_event` is the source of truth and everything else is a projection.** `run_task` and
 `run.phase` exist because a dashboard cannot fold three days of events on every page load; they are
@@ -958,37 +974,42 @@ the open design risk of
 
 ## 17. What is open
 
-Named rather than left to be discovered mid-plan.
+**Seven questions were put to the operator on 2026-08-23 and answered.** They are kept here with
+their answers rather than deleted, because an open question that closes silently reads afterwards
+as one nobody asked.
 
-- **`MAXLEN ~ 10000`** (§7.2) is a starting number, not a measurement. What a 3-day, 5000-task run
-  actually produces is unknown until one is run.
-- **`LOST` detection.** §5 declares the phase; nothing yet says how long a silent head process may go
-  before Wiener declares it lost, or whether that is a heartbeat from the launcher rather than an
-  absence of events.
-- **Multi-tenancy.** One laboratory, many users is assumed throughout; nothing here separates
-  laboratories, and retro-fitting that is expensive.
-- **Which executor a run may choose.** `POST /api/runs` takes one; nothing says who may pick
-  `awsbatch`, or where its credentials come from. W5's question, but it touches the API in W1.
-- **Artifact retention.** Runs are forever; uploaded artifacts probably are not, and nothing says.
-- **Whether `wiener-core` should own the OTLP *semantic conventions*** or invent `wiener.*`
-  attributes. §8 assumes the latter; the former is a research task nobody has done.
+| | decided |
+|---|---|
+| **Multi-tenancy** | **A `lab_id` column from day one** — §7.1. Cheap now, a migration touching every table later. The cost is named: a filter you can forget is a leak |
+| **`LOST` detection** | **Absence of events, generous window.** Purely a function of the stream, so it replays and needs no new signal. **Blunt on purpose**: a six-hour STAR align emits nothing while running and looks identical to a dead head process, so the window must exceed the slowest single task |
+| **Artifact retention** | **Kept while any run references it** — and runs are forever, so artifacts are too. Disk grows; a spine is a few MB and the day that stops being true, deduplicating by digest is already possible because artifacts are content-addressed |
+| **Executor choice** | **`Literal["local"]` until W5.** An enum accepting `awsbatch` before anything has run there is a lie the API tells its own generated client, which would offer it in a dropdown |
+| **`MAXLEN ~ 10000`** | **Ship the guess and measure it at Checkpoint 3.** Losing the tail is survivable — Postgres is the record and the browser re-pages — so the number becomes a measurement rather than staying a guess |
+| **The chat's history** | **A fifth table, `run_message`, argued for in §7.1.** It lands in W3; until then the four-table guard stays at four, so adding it early fails a test |
+
+**Still genuinely open, and it is one:**
+
+- **The OTLP semantic conventions.** The operator's answer was **research them before inventing
+  `wiener.*` attributes** — OpenTelemetry has conventions for batch and job workloads, and mapping
+  onto them is what makes off-the-shelf dashboards and alerting work rather than needing a bespoke
+  query for everything. **Nobody has done that research**, and conventions that half-fit are worse
+  than clean custom names, so the task is *find out which parts genuinely fit*. It belongs before
+  phase 3 writes its first span, and it is cheap then and expensive after.
+
 - **The product's visual register — an operator verdict, 2026-08-23.** *"The website until now is
   very boring and stale, even the graphs are not very visually appealing — but for an MVP it is
   reasonable."* Recorded rather than absorbed, because the last verdict of this shape (*the forge
   is really unintuitive and unusable*) became Plan 3D, and it only became a plan because somebody
-  wrote it down. **It is accepted for the MVP and it is not resolved.** Two readings are open and
-  they lead different places: that the restraint in `dashboard.md` is correct and the execution is
-  thin (a craft problem — hierarchy, depth, density contrast, data-ink), or that the restraint
-  itself is wrong for a product people look at for hours (a direction problem). The first is a pass
-  over existing screens; the second is a new design language and a `tokens.css` change, which every
-  screen built so far depends on. **Half-answered on 2026-08-23**: four directions went up as
-  artboards and **Depth was chosen** (§9.5) — a bet on the first diagnosis. What stays open is
-  whether it *works*, which only a week of looking at a real screen settles, and that the four
-  tokens are **not yet in `frontend/src/tokens.css`**, so nothing outside the mockups has changed.
-  Adopting them is four lines plus a `dashboard.md` §2 edit. If Depth turns out not to fix
-  *boring*, the answer was the second diagnosis and the experiment cost four tokens.
-- **The chat panel's own history.** §13 has `/ask` and no transcript store. If a conversation about a
-  run is worth keeping, that is a table this document did not argue for.
+  wrote it down. **Half-answered**: four directions went up as artboards and **Depth was chosen**
+  (§9.5) — a bet that the restraint is right and the execution was thin. What stays open is whether
+  it *works*, which only a week of looking at a real screen settles, and that the four tokens are
+  **not yet in `frontend/src/tokens.css`**, so nothing outside the mockups has changed. Adopting
+  them is four lines plus a `dashboard.md` §2 edit.
+
+**And one that is not a question but a gap**, named so it is not discovered: §12.1 makes
+authentication a W1 requirement, and the phases 0–2 plan does not satisfy it. `submitted_by` is
+attribution. Phases 0–2 are for one operator on a laptop; the first deployment anybody else can
+reach needs the check first.
 
 ---
 

@@ -950,7 +950,8 @@ def test_the_tables_are_the_four_that_argued_for_themselves():
     assert tables == {"run", "run_event", "run_task", "run_artifact"}, (
         f"the tables moved: {sorted(tables)}. run_event is the record and run_task and run "
         "are projections of it with a rebuild path — a table that is neither needs an "
-        "argument in docs/design/wiener.md §7.1 before it exists."
+        "argument in docs/design/wiener.md §7.1 before it exists. NOTE: `run_message` is "
+        "already argued for in §7.1 and lands in W3 — widen this set in W3's plan, not here."
     )
 
 
@@ -994,8 +995,13 @@ class Run(Base):
     __tablename__ = "run"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
+    """**On every table from day one** — `docs/design/wiener.md` §7.1, decided 2026-08-23.
+    Cheap now; a migration touching every table later. The named cost is that a filter you can
+    forget is a leak, which is why Step 7a adds a guard rather than a convention."""
     artifact_id: Mapped[str] = mapped_column(String(32), index=True)
     submitted_by: Mapped[str] = mapped_column(String(200))
+    """ATTRIBUTION, not authentication — and §12.1 says that is a gap in W1, not a design."""
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     phase: Mapped[str] = mapped_column(String(16), index=True)
     executor: Mapped[str] = mapped_column(String(16), default="local")
@@ -1012,6 +1018,7 @@ class RunEventRow(Base):
     __tablename__ = "run_event"
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
     seq: Mapped[int] = mapped_column(Integer, primary_key=True)
     kind: Mapped[str] = mapped_column(String(24))
     at_ms: Mapped[int] = mapped_column(BigInteger)
@@ -1024,6 +1031,7 @@ class RunTask(Base):
     __tablename__ = "run_task"
 
     run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     process: Mapped[str] = mapped_column(String(200), index=True)
     status: Mapped[str] = mapped_column(String(16), index=True)
@@ -1038,6 +1046,7 @@ class RunArtifact(Base):
     __tablename__ = "run_artifact"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
     uploaded_by: Mapped[str] = mapped_column(String(200))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     digest: Mapped[str] = mapped_column(String(71))
@@ -1046,7 +1055,58 @@ class RunArtifact(Base):
     note: Mapped[str] = mapped_column(Text, default="")
 ```
 
-- [ ] **Step 7: Watch both guards fail on purpose**
+- [ ] **Step 6a: Write the tenancy guard**
+
+```python
+# packages/wiener-api/tests/test_tenancy.py
+"""Every table carries `lab_id`, and no query on one omits it.
+
+`docs/design/wiener.md` §7.1 names the cost of a tenant column plainly: **a filter you can
+forget is a leak**, and it is the class of bug that stays invisible until it is a disclosure.
+So the guard is not "remember the filter".
+"""
+
+import ast
+from pathlib import Path
+
+SRC = Path(__file__).parents[1] / "src/wiener_api"
+SCOPED = {"Run", "RunEventRow", "RunTask", "RunArtifact"}
+
+
+def test_every_table_carries_lab_id():
+    import wiener_api.models as m
+
+    for name in SCOPED:
+        cols = {c.name for c in getattr(m, name).__table__.columns}
+        assert "lab_id" in cols, f"{name} has no lab_id: {sorted(cols)}"
+
+
+def test_no_select_on_a_scoped_table_omits_lab_id():
+    offences: list[str] = []
+    for path in SRC.rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "select"):
+                continue
+            if not any(getattr(a, "id", "") in SCOPED for a in node.args):
+                continue
+            src = ast.get_source_segment(path.read_text(), node) or ""
+            # the select() itself, or the .where() it is wrapped in, must name lab_id
+            line = path.read_text().splitlines()[node.lineno - 1: node.lineno + 3]
+            if "lab_id" not in "".join(line):
+                offences.append(f"{path.name}:{node.lineno}")
+    assert not offences, (
+        "a select() on a tenant-scoped table did not filter on lab_id:\n  "
+        + "\n  ".join(offences)
+        + "\nEvery query is scoped to one laboratory — docs/design/wiener.md §7.1."
+    )
+```
+
+Run it, watch `test_no_select_on_a_scoped_table_omits_lab_id` **pass vacuously** (no queries
+exist yet), and note that in the ledger row — a guard that has never had anything to guard is
+exactly A14's concern. It earns its row when Task 6 gives it a real query to check.
+
+- [ ] **Step 7: Watch all three guards fail on purpose**
 
 Add a fifth model with `__tablename__ = "run_note"`; run the tests; confirm the message names
 the boundary. Remove it. Add `input_path: Mapped[str | None]` to `Run`; run again; confirm the
