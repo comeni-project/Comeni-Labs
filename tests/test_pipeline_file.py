@@ -831,9 +831,10 @@ SERIALISED_SHAPE = {
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
     "ParamDecision": ["key", "subject", "reason", "confidence", "resolved_by", "tier",
-                      "kind", "candidates", "chosen", "human_override", "override_reason"],
+                      "model_override_by", "kind", "candidates", "chosen", "model_override",
+                      "human_override", "override_reason"],
 }
-"""The artifact's serialised field order, as of `SCHEMA_VERSION = 3`.
+"""The artifact's serialised field order, as of `SCHEMA_VERSION = 5`.
 
 **This is a fingerprint, not a specification.** It exists to fail when somebody adds a field
 without bumping the version — which is exactly what happened in Plan 1.13 and is why Task 0
