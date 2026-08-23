@@ -48,6 +48,7 @@ export function Wires({
   ports,
   width,
   height,
+  pending,
   onDetach,
 }: {
   wires: Wire[];
@@ -58,6 +59,9 @@ export function Wires({
   ports: PortIndex;
   width: number;
   height: number;
+  /** The wire being dragged right now, if one is. Drawn to the cursor rather than to a port,
+   *  because there is no port yet — that is the whole point of showing it. */
+  pending?: { from: Point; to: Point } | null;
   /** Remove this wire. Omitted where the canvas is read-only. */
   onDetach?: (wire: {
     from_node: string;
@@ -73,6 +77,22 @@ export function Wires({
       height={height}
       aria-hidden
     >
+      {/* **The line you are dragging.** Without it a wire drag is an invisible gesture: you
+          press on a port, move, and nothing on the screen says anything is happening until you
+          land. Dashed and in the undecided colour, because it is not a wire until it is
+          dropped and validated — the same reading a tier-4 wire gets. */}
+      {pending && (
+        <path
+          data-testid="pending-wire"
+          d={path(elbow(pending.from, pending.to))}
+          fill="none"
+          stroke="var(--undecided)"
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+          pointerEvents="none"
+        />
+      )}
+
       {wires.map((wire) => {
         const pair = ends(wire, at, ports);
         if (pair === null) return null;

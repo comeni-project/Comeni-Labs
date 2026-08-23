@@ -11,6 +11,7 @@ import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Compare } from "./Compare";
 import { Findings } from "./Findings";
+import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
@@ -143,6 +144,8 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   const isLoading = data === null;
   const error = builder.drawnError;
   const [panel, setPanel] = useState<"review" | "problems" | "compare">("review");
+  /** Where the cursor is while a wire is being dragged, in canvas coordinates. */
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   /** Where a right-click opened a menu, and on what. */
   const [menu, setMenu] = useState<{ node: string; x: number; y: number } | null>(null);
 
@@ -162,6 +165,22 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
     }
     return index;
   }, [data]);
+
+  /** **A wire drag ends wherever the pointer is let go**, not only on a port.
+   *
+   * Releasing over empty canvas has to cancel, or the next click on any input silently
+   * completes a wire you abandoned a minute ago — a gesture with no end is worse than one that
+   * fails.
+   */
+  useEffect(() => {
+    if (!dragging) return;
+    const done = () => {
+      setDragging(null);
+      setCursor(null);
+    };
+    window.addEventListener("pointerup", done);
+    return () => window.removeEventListener("pointerup", done);
+  }, [dragging, setDragging]);
 
   /** **Delete removes the selected step.** Not while a field has focus, or typing a value into
    *  the settings card would delete the step you are configuring. */
@@ -251,6 +270,26 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         // **The canvas is a drop target.** `preventDefault` on dragover is what makes a drop
         // land at all — without it the browser refuses every drop silently, which is exactly
         // the kind of "control that does nothing" this screen has been fixing.
+        // The cursor, in canvas coordinates: the stage is `translate(view.x, view.y)` then
+        // `scale(view.k)`, so undoing it is subtract-then-divide. Only tracked mid-drag, so a
+        // still canvas costs nothing.
+        onPointerMove={(e: React.PointerEvent) => {
+          if (!dragging) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          setCursor({
+            x: (e.clientX - r.left - view.x) / view.k,
+            y: (e.clientY - r.top - view.y) / view.k,
+          });
+        }}
+        // **Clicking empty canvas deselects.** A selection you cannot clear means the rail keeps
+        // showing a step you have stopped caring about, and Delete stays armed on it.
+        onClick={(e: React.MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-testid="node"]')) return;
+          if (target.closest("[data-zoomer]")) return;
+          setSelected(null);
+          setCarded(null);
+        }}
         onDragOver={(e: React.DragEvent) => {
           if (e.dataTransfer.types.includes(MODULE_DND)) e.preventDefault();
         }}
@@ -321,6 +360,28 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
               ports={portIndex}
               width={data.layout.width}
               height={data.layout.height}
+              pending={
+                dragging && cursor && portIndex[dragging.node]
+                  ? {
+                      from: {
+                        x:
+                          (offsets[dragging.node]?.x ?? 0) +
+                          portX(
+                            portIndex[dragging.node].width,
+                            portIndex[dragging.node].outs.length,
+                            Math.max(0, portIndex[dragging.node].outs.indexOf(dragging.port)),
+                          ),
+                        y:
+                          (offsets[dragging.node]?.y ?? 0) +
+                          heightFor(
+                            portIndex[dragging.node].ins.length,
+                            portIndex[dragging.node].outs.length,
+                          ),
+                      },
+                      to: cursor,
+                    }
+                  : null
+              }
               onDetach={(w) =>
                 builder.disconnect(w.from_node, w.from_port, w.to_node, w.to_port)
               }

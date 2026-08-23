@@ -64,3 +64,35 @@ describe("detaching a wire", () => {
     expect(screen.getByTestId("wire")).toBeInTheDocument();
   });
 });
+
+describe("the wire you are dragging", () => {
+  it("is drawn to the cursor, because there is no port yet", () => {
+    // Without it a wire drag is an invisible gesture: you press on a port, move, and nothing
+    // on the screen says anything is happening until you land.
+    render(
+      <Wires {...props} pending={{ from: { x: 90, y: 64 }, to: { x: 300, y: 240 } }} />,
+    );
+    const ghost = screen.getByTestId("pending-wire");
+    expect(ghost.getAttribute("d")).toContain("M90,64");
+    expect(ghost.getAttribute("d")).toContain("300");
+  });
+
+  it("reads as undecided, because it is not a wire until it is dropped and checked", () => {
+    render(
+      <Wires {...props} pending={{ from: { x: 0, y: 0 }, to: { x: 10, y: 10 } }} />,
+    );
+    expect(screen.getByTestId("pending-wire")).toHaveAttribute("stroke-dasharray", "4 4");
+  });
+
+  it("is absent when nothing is being dragged", () => {
+    render(<Wires {...props} />);
+    expect(screen.queryByTestId("pending-wire")).toBeNull();
+  });
+
+  it("never eats a pointer event", () => {
+    // It follows the cursor, so anything it swallowed would be swallowed exactly where you are
+    // about to drop.
+    render(<Wires {...props} pending={{ from: { x: 0, y: 0 }, to: { x: 10, y: 10 } }} />);
+    expect(screen.getByTestId("pending-wire")).toHaveAttribute("pointer-events", "none");
+  });
+});

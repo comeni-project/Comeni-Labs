@@ -247,3 +247,25 @@ describe("interacting without the server in the way", () => {
     expect(screen.getByTestId("canvas").className).toContain("select-none");
   });
 });
+
+describe("selection", () => {
+  it("clicking empty canvas clears the selection", async () => {
+    // A selection you cannot clear means the rail keeps showing a step you have stopped caring
+    // about — and Delete stays armed on it.
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.click(screen.getByTestId("canvas"));
+    // Nothing is selected, so Delete must now do nothing.
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(screen.getAllByTestId("node").length).toBe(nodes.length);
+  });
+
+  it("clicking a node does not clear it", async () => {
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => expect(screen.getAllByTestId("node").length).toBe(nodes.length - 1));
+  });
+});

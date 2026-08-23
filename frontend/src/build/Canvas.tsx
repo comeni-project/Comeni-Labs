@@ -14,6 +14,8 @@ export function Canvas({
   view,
   onWheel,
   onPointerDown,
+  onPointerMove,
+  onClick,
   onDragOver,
   onDrop,
   children,
@@ -22,6 +24,10 @@ export function Canvas({
   view: View;
   onWheel: (e: React.WheelEvent) => void;
   onPointerDown: (e: React.PointerEvent) => void;
+  /** Tracked only while a wire is being dragged, so a still canvas costs nothing. */
+  onPointerMove?: (e: React.PointerEvent) => void;
+  /** A click that reached the canvas rather than a node — the caller decides what that means. */
+  onClick?: (e: React.MouseEvent) => void;
   /** Dropping a module from the palette. Omitted where the canvas is read-only. */
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
@@ -36,6 +42,8 @@ export function Canvas({
       data-testid="canvas"
       onWheel={onWheel}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onClick={onClick}
       onDragOver={onDragOver}
       onDrop={onDrop}
       // **`flex-1 min-h-0`, and both halves matter.** The canvas sits in a flex column under
