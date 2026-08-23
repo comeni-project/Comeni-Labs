@@ -409,6 +409,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a draft
+         * @description The id is opaque and server-generated. `routes/build.py`'s own header records why the
+         *     API cannot take a path, and a draft addressed by one would be that rule undone.
+         */
+        post: operations["createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A draft as it stands */
+        get: operations["readDraft"];
+        /**
+         * Save a draft
+         * @description One write per save, not per edit. The client owns the working graph and sends it whole —
+         *     a schema that could hold half a graph would be a second definition of what a graph is.
+         */
+        put: operations["saveDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/drafts/{draft_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop being a draft: write the pipeline.yml
+         * @description **Where `validate` reports and this refuses.** An illegal finding answers 422 with its
+         *     code; `mendel explain <code>` expands it, the same as everywhere else.
+         */
+        post: operations["keepDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -744,21 +808,58 @@ export interface components {
             to_port: string;
         };
         /** DraftGraph */
-        DraftGraph: {
+        "DraftGraph-Input": {
             /** Nodes */
-            nodes?: components["schemas"]["DraftNode"][];
+            nodes?: components["schemas"]["DraftNode-Input"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
             profile?: components["schemas"]["DataProfile"];
         };
+        /** DraftGraph */
+        "DraftGraph-Output": {
+            /** Nodes */
+            nodes?: components["schemas"]["DraftNode-Output"][];
+            /** Edges */
+            edges?: components["schemas"]["DraftEdge"][];
+            profile?: components["schemas"]["DataProfile"];
+        };
+        /**
+         * DraftIn
+         * @description What a client sends to open or update a draft.
+         */
+        DraftIn: {
+            graph: components["schemas"]["DraftGraph-Input"];
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
         /** DraftNode */
-        DraftNode: {
+        "DraftNode-Input": {
             /** Id */
             id: string;
             /** Contract Id */
             contract_id: string;
             /** Params */
-            params?: components["schemas"]["ParamBinding"][];
+            params?: components["schemas"]["ParamBinding-Input"][];
+        };
+        /** DraftNode */
+        "DraftNode-Output": {
+            /** Id */
+            id: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Params */
+            params?: components["schemas"]["ParamBinding-Output"][];
+        };
+        /** DraftOut */
+        DraftOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            graph: components["schemas"]["DraftGraph-Output"];
         };
         /** DraftResult */
         DraftResult: {
@@ -953,6 +1054,11 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /** Kept */
+        Kept: {
+            /** Path */
+            path: string;
+        };
         /**
          * Level
          * @enum {string}
@@ -1075,10 +1181,24 @@ export interface components {
          *     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
          *     information and can be inspected field by field.
          */
-        ParamBinding: {
+        "ParamBinding-Input": {
             /** Name */
             name: string;
-            value: components["schemas"]["ResolvedValue"];
+            value: components["schemas"]["ResolvedValue-Input"];
+        };
+        /**
+         * ParamBinding
+         * @description One resolved parameter. A list rather than a dict on purpose.
+         *
+         *     `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
+         *     a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
+         *     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
+         *     information and can be inspected field by field.
+         */
+        "ParamBinding-Output": {
+            /** Name */
+            name: string;
+            value: components["schemas"]["ResolvedValue-Output"];
         };
         /**
          * ParamOverride
@@ -1317,7 +1437,7 @@ export interface components {
             states?: string[];
         };
         /** ResolvedValue */
-        ResolvedValue: {
+        "ResolvedValue-Input": {
             /** Value */
             value: number | boolean | string | null;
             tier: components["schemas"]["Tier"];
@@ -1337,6 +1457,33 @@ export interface components {
             /** Displaced Layer */
             displaced_layer?: string | null;
         };
+        /** ResolvedValue */
+        "ResolvedValue-Output": {
+            /** Value */
+            value: number | boolean | string | null;
+            tier: components["schemas"]["Tier"];
+            /** @default resolver */
+            source: components["schemas"]["ValueSource"];
+            /** Reason */
+            reason: string;
+            /** Premise */
+            premise?: components["schemas"]["PremiseRecord"][];
+            /**
+             * Axis Reason
+             * @default
+             */
+            axis_reason: string;
+            /** From Layer */
+            from_layer?: string | null;
+            /** Displaced Layer */
+            displaced_layer?: string | null;
+            readonly review_level: components["schemas"]["ReviewLevel"];
+        };
+        /**
+         * ReviewLevel
+         * @enum {string}
+         */
+        ReviewLevel: "none" | "advisory" | "required";
         /**
          * RowKind
          * @description What a row IS, which decides where following it leads.
@@ -2052,7 +2199,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DraftGraph"];
+                "application/json": components["schemas"]["DraftGraph-Input"];
             };
         };
         responses: {
@@ -2100,6 +2247,136 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keepDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Kept"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
             };
         };
     };
