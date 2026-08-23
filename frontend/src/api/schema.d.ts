@@ -357,6 +357,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Is this graph legal, and what is unmet or unconventional about it
+         * @description **200 whatever it finds.**
+         *
+         *     A verdict is the answer, not an error: a person mid-gesture would rather see three problems
+         *     than the first one, and the forge's `verify` ladder is the precedent. Refusal lives at
+         *     `keep` and at the emission gates, which is the boundary the spec draws.
+         *
+         *     An unknown contract comes back as an `MD0509` finding rather than a 422 — a draft naming a
+         *     contract that has since been renamed is a thing to be told about on the canvas, not an
+         *     error that empties the screen.
+         */
+        post: operations["validatePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/compatibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What can feed what, so a browser can colour a wire without a round trip
+         * @description The client looks up; it never decides. See `mendel_resolver.compatibility`.
+         *
+         *     `ETag` is the registry digest — the same string that invalidates the server's own cache, so
+         *     "the registry changed" has one definition rather than two. A reload becomes a 304 instead of
+         *     the whole table.
+         */
+        get: operations["compatibilityIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -580,6 +632,21 @@ export interface components {
              */
             note: string;
         };
+        /** Compatibility */
+        Compatibility: {
+            /** Emits */
+            emits?: {
+                [key: string]: string;
+            };
+            /** Requires */
+            requires?: {
+                [key: string]: string[];
+            };
+            /** Satisfies */
+            satisfies?: {
+                [key: string]: string[];
+            };
+        };
         /**
          * Constraints
          * @description Everything a goal may pin. `extra="forbid"` is the whole point of the type.
@@ -662,6 +729,37 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * DraftEdge
+         * @description One wire: where it starts, where it ends. Nothing derived.
+         */
+        DraftEdge: {
+            /** From Node */
+            from_node: string;
+            /** From Port */
+            from_port: string;
+            /** To Node */
+            to_node: string;
+            /** To Port */
+            to_port: string;
+        };
+        /** DraftGraph */
+        DraftGraph: {
+            /** Nodes */
+            nodes?: components["schemas"]["DraftNode"][];
+            /** Edges */
+            edges?: components["schemas"]["DraftEdge"][];
+            profile?: components["schemas"]["DataProfile"];
+        };
+        /** DraftNode */
+        DraftNode: {
+            /** Id */
+            id: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Params */
+            params?: components["schemas"]["ParamBinding"][];
+        };
         /** DraftResult */
         DraftResult: {
             /** Name */
@@ -691,7 +789,7 @@ export interface components {
             conformance: components["schemas"]["Diagnostic"][];
             /** Unchecked */
             unchecked: components["schemas"]["Unchecked"][];
-            verdict: components["schemas"]["Verdict"];
+            verdict: components["schemas"]["mendel_forge__drift__Verdict"];
             /** Says */
             says: string;
         };
@@ -762,6 +860,22 @@ export interface components {
             how: components["schemas"]["ValueSource"];
             /** Why */
             why: string;
+        };
+        /** Finding */
+        Finding: {
+            /** Code */
+            code: string;
+            level: components["schemas"]["Level"];
+            /** Message */
+            message: string;
+            /** Node */
+            node?: string | null;
+            /** Port */
+            port?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Target */
+            target?: string | null;
         };
         /** Goal */
         Goal: {
@@ -839,6 +953,11 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /**
+         * Level
+         * @enum {string}
+         */
+        Level: "illegal" | "unmet" | "advisory";
         /**
          * Measured
          * @description One measurement and where its value came from.
@@ -948,6 +1067,20 @@ export interface components {
          */
         Ordering: "consequence" | "recent";
         /**
+         * ParamBinding
+         * @description One resolved parameter. A list rather than a dict on purpose.
+         *
+         *     `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
+         *     a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
+         *     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
+         *     information and can be inspected field by field.
+         */
+        ParamBinding: {
+            /** Name */
+            name: string;
+            value: components["schemas"]["ResolvedValue"];
+        };
+        /**
          * ParamOverride
          * @description A parameter the user pinned. Closed, so it cannot carry a path.
          *
@@ -1041,6 +1174,43 @@ export interface components {
             side: string;
             /** Met */
             met: boolean;
+        };
+        /**
+         * PremiseOrigin
+         * @description How good a fact is as a premise, which is not the same question as who settled it.
+         *
+         *     Lives here rather than in `mendel_resolver.premises`, where it was declared, because the
+         *     artifact carries it: `Why.premise` reaches `pipeline.yml` and `comeni-core` must not
+         *     depend on `mendel-resolver`. Same move `DataProfile` and `Goal` both made, for the same
+         *     reason, and `premises.py` re-exports it so every existing import still resolves.
+         *
+         *     `ValueSource` answers *who settled this*; this answers *how good is it as evidence*. A
+         *     goal assertion and a human override are different authors and identical evidence — in
+         *     neither case did anything look at the data — so both are `ASSERTED`. Collapsing them at
+         *     the point they are built rather than at each point of use is what keeps the `sealed`
+         *     profile's check a single one (issue #2).
+         * @enum {string}
+         */
+        PremiseOrigin: "measured" | "asserted" | "goal" | "derived" | "unmeasured";
+        /**
+         * PremiseRecord
+         * @description One fact a decision rested on, and how good that fact is.
+         *
+         *     A **list of records**, not two parallel mappings. The plan drafted `premise:
+         *     dict[str, Any]` beside `premise_origin: dict[str, str]`, and `tests/test_egress.py`
+         *     refused it three ways at once — a mapping, an `Any`, and a bare `str` key — because `Why`
+         *     is reachable from door 4, publication, the door with no undo.
+         *
+         *     Being forced into a record is the better shape anyway: two parallel mappings can disagree
+         *     about their key sets and nothing would notice, and the guard's own message says why the
+         *     list is the house style — *"a typed key does not prove a declared key"*.
+         */
+        PremiseRecord: {
+            /** Id */
+            id: string;
+            /** Value */
+            value: number | boolean | string | (number | boolean | string | null)[] | null;
+            origin: components["schemas"]["PremiseOrigin"];
         };
         /**
          * Proposal
@@ -1145,6 +1315,27 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /** ResolvedValue */
+        ResolvedValue: {
+            /** Value */
+            value: number | boolean | string | null;
+            tier: components["schemas"]["Tier"];
+            /** @default resolver */
+            source: components["schemas"]["ValueSource"];
+            /** Reason */
+            reason: string;
+            /** Premise */
+            premise?: components["schemas"]["PremiseRecord"][];
+            /**
+             * Axis Reason
+             * @default
+             */
+            axis_reason: string;
+            /** From Layer */
+            from_layer?: string | null;
+            /** Displaced Layer */
+            displaced_layer?: string | null;
         };
         /**
          * RowKind
@@ -1252,6 +1443,11 @@ export interface components {
             checked_at: string | null;
         };
         /**
+         * Tier
+         * @enum {integer}
+         */
+        Tier: 1 | 2 | 3 | 4;
+        /**
          * TierCard
          * @description One tier, as an interface needs to say it.
          */
@@ -1321,12 +1517,6 @@ export interface components {
          * @enum {string}
          */
         ValueSource: "resolver" | "goal" | "human" | "model" | "measured" | "derived";
-        /**
-         * Verdict
-         * @description The only question a maintainer really has, answered — design §7.
-         * @enum {string}
-         */
-        Verdict: "breaks" | "reroutes" | "rebuilds" | "recorded" | "agrees";
         /** Visited */
         Visited: {
             /**
@@ -1335,6 +1525,20 @@ export interface components {
              */
             seen_at: string;
         };
+        /** Verdict */
+        comeni_core__review__verdict__Verdict: {
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["Finding"][];
+        };
+        /**
+         * Verdict
+         * @description The only question a maintainer really has, answered — design §7.
+         * @enum {string}
+         */
+        mendel_forge__drift__Verdict: "breaks" | "reroutes" | "rebuilds" | "recorded" | "agrees";
     };
     responses: never;
     parameters: never;
@@ -1836,6 +2040,66 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Refusal"];
                 };
+            };
+        };
+    };
+    validatePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftGraph"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["comeni_core__review__verdict__Verdict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compatibilityIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Compatibility"];
+                };
+            };
+            /** @description the registry has not changed since your copy */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

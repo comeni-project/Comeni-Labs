@@ -9,11 +9,16 @@ producer pins — and a URL is the wrong place for it. Invariant 15 is why the b
 not a path: no input here accepts a sample identifier, a filename or a path.
 """
 
-from fastapi import APIRouter
+from comeni_core.plan.draft import DraftGraph
+from comeni_core.review.verdict import Verdict
+from fastapi import APIRouter, Request, Response
+from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
 
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
+from mendel_api.services import registry
+from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -61,3 +66,46 @@ def build(goal: Goal) -> BuiltPipeline:
     the CLI prints and exits 2 on. `orchestrate.ConformanceRefused` is a `ValueError`, which the
     app already maps."""
     return service.of(goal)
+
+
+@router.post(
+    "/validate",
+    operation_id="validatePipeline",
+    summary="Is this graph legal, and what is unmet or unconventional about it",
+)
+def validate_graph(graph: DraftGraph) -> Verdict:
+    """**200 whatever it finds.**
+
+    A verdict is the answer, not an error: a person mid-gesture would rather see three problems
+    than the first one, and the forge's `verify` ladder is the precedent. Refusal lives at
+    `keep` and at the emission gates, which is the boundary the spec draws.
+
+    An unknown contract comes back as an `MD0509` finding rather than a 422 — a draft naming a
+    contract that has since been renamed is a thing to be told about on the canvas, not an
+    error that empties the screen.
+    """
+    return validation.of(graph)
+
+
+@router.get(
+    "/compatibility",
+    operation_id="compatibilityIndex",
+    summary="What can feed what, so a browser can colour a wire without a round trip",
+    response_model=Compatibility,
+    responses={304: {"description": "the registry has not changed since your copy"}},
+)
+def compatibility_index(request: Request, response: Response) -> Compatibility | Response:
+    """The client looks up; it never decides. See `mendel_resolver.compatibility`.
+
+    `ETag` is the registry digest — the same string that invalidates the server's own cache, so
+    "the registry changed" has one definition rather than two. A reload becomes a 304 instead of
+    the whole table.
+    """
+    etag = f'"{registry.digest()}"'
+    if request.headers.get("if-none-match") == etag:
+        # A bare `Response` rather than an `HTTPException`: 304 is not an error, and a 304 with
+        # a body is malformed. `response_model` on the decorator keeps the generated client's
+        # schema even though this branch returns no model.
+        return Response(status_code=304, headers={"ETag": etag})
+    response.headers["ETag"] = etag
+    return validation.index()
