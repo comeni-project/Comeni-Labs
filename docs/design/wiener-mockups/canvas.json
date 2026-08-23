@@ -1,0 +1,140 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "MVP screens \u2014 Depth"
+    },
+    {
+      "id": "page-2",
+      "name": "Directions (C chosen)"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "DirectionA.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "page": "page-2",
+      "title": "A \u2014 Instrument"
+    },
+    {
+      "file": "DirectionB.dc.html",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "page": "page-2",
+      "title": "B \u2014 Editorial"
+    },
+    {
+      "file": "DirectionC.dc.html",
+      "x": 2800,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "page": "page-2",
+      "title": "C \u2014 Depth \u2713 chosen"
+    },
+    {
+      "file": "DirectionD.dc.html",
+      "x": 4200,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "page": "page-2",
+      "title": "D \u2014 Signal"
+    },
+    {
+      "file": "Board.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1",
+      "title": "Runs \u2014 the board"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1",
+      "title": "A run, going well"
+    },
+    {
+      "file": "Failure.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1",
+      "title": "A run, failing \u2014 console"
+    },
+    {
+      "file": "Graph.dc.html",
+      "x": 4680,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1",
+      "title": "The same run \u2014 graph"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-how",
+      "x": 0,
+      "y": -260,
+      "w": 700,
+      "page": "page-2",
+      "text": "Four directions, put up 2026-08-23. C \u2014 Depth was chosen.\nKept so the rejected three are on the record rather than in a chat log."
+    },
+    {
+      "id": "note-a",
+      "x": 0,
+      "y": 830,
+      "w": 1280,
+      "page": "page-2",
+      "text": "A \u2014 INSTRUMENT.  For: you stare at this for hours, often in a dim room; dark makes the three status colours do the work and fits 40% more on screen. It reads as a scientific instrument, which is what it is.\nAgainst: it diverges hard from the light 'paper' the rest of the product uses, so Wiener would look like a different product from the Builder and Forge. Dark also flatters bad data density \u2014 it hides mistakes that light exposes."
+    },
+    {
+      "id": "note-b",
+      "x": 1400,
+      "y": 830,
+      "w": 1280,
+      "page": "page-2",
+      "text": "B \u2014 EDITORIAL.  For: the product's whole claim is that everything traces to a citation, and this makes the screen read like the scientific document it is. The serif is already in tokens.css and barely used. A headline that states the finding in words is genuinely faster to read than a counter.\nAgainst: whitespace costs density, and an ops screen watching 228 tasks wants density. Also risks feeling slow \u2014 this is a live thing and editorial layouts read as static."
+    },
+    {
+      "id": "note-c",
+      "x": 2800,
+      "y": 830,
+      "w": 1280,
+      "page": "page-2",
+      "text": "C \u2014 DEPTH.  For: changes NO token. Everything that is flat becomes layered \u2014 elevated cards, inset wells for the bars, a tinted working surface, a real shadow ramp. This is the 'boring is a craft problem, not a direction problem' hypothesis made visible, and it is the only option that costs nothing to adopt across the Builder and Forge too.\nAgainst: it is the least distinctive of the four. It makes the current design better rather than different, and if your instinct is that the restraint itself is wrong, this will not satisfy it."
+    },
+    {
+      "id": "note-d",
+      "x": 4200,
+      "y": 830,
+      "w": 1280,
+      "page": "page-2",
+      "text": "D \u2014 SIGNAL.  For: you know the state from across the room. Colour blocking rather than colour accents, numerals as the main typography, the graph promoted to hero, and the one thing needing you is a red block you cannot miss.\nAgainst: it spends the whole colour budget on status, so there is none left for anything else, and it edges toward consumer-dashboard rather than scientific instrument \u2014 the register the clinical positioning may not want."
+    },
+    {
+      "id": "note-mvp",
+      "x": 0,
+      "y": -230,
+      "w": 760,
+      "page": "page-1",
+      "text": "Depth, built properly: every colour comes from tokens.shared.css and NOT ONE hex literal appears in any artboard \u2014 checked, not asserted.\n\nThe first pass of C invented ten colours. This one adds no hue at all: depth is four new tokens (--e1 --e2 --e3 --well), every one derived from --shadow, which tokens.css already has. That is the argument for this direction \u2014 depth is not a colour problem, so it costs no palette and can be adopted across Builder and Forge for free.\n\nSurfaces now sit at three levels: paper behind, cards raised, wells cut in for every track."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

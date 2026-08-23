@@ -50,6 +50,7 @@ a samplesheet, so it stands in the data. Every decision below is downstream of t
 | 11 | OpenTelemetry? | **Yes, full stack from slice W1** — and never as the system of record |
 | 12 | Which backend? | **ClickHouse-based** (SigNoz family, Apache-2.0), reached over OTLP so it stays swappable |
 | 13 | What does Wiener accept from Nextflow? | **A declared subset.** An *ingress* allowlist, mirroring the egress one — §4.4 |
+| 14 | What does it look like? | **Depth** — the existing palette, layered. Four new tokens, **no new hue** — §9.5 |
 
 ---
 
@@ -609,6 +610,46 @@ Everything above is a **projection of `RunState`**, so it replays (§6) and it n
 own. The one thing it does need is that `admit()` (§4.4) keeps the fifteen trace fields — which is
 a line in an allowlist and a test, rather than a subsystem.
 
+### 9.5 The visual register: Depth
+
+**Chosen 2026-08-23, from four directions put up as artboards** — Instrument (dark, dense),
+Editorial (the serif leads), Depth (the existing palette, layered) and Signal (colour blocking, big
+numerals). The three rejected ones are kept in [`wiener-mockups/`](wiener-mockups/) with the
+argument for each, because a rejected option whose reasoning lives only in a chat log gets
+re-proposed six months later.
+
+**Depth adds no hue.** The first draft of it invented ten colours — gradient midpoints and tints —
+which is precisely the drift `tokens.css` exists to stop. The version that shipped introduces
+**four tokens, every one derived from `--shadow`, which already exists**:
+
+```css
+--e1    0 1px 1px var(--shadow)                                   /* a chip, a control */
+--e2    0 1px 2px var(--shadow), 0 6px 16px -10px var(--shadow)   /* a card */
+--e3    0 1px 2px var(--shadow), 0 14px 34px -18px var(--shadow)  /* the working panel */
+--well  inset 0 1px 2px var(--shadow)                             /* a track, a groove */
+```
+
+**That is the argument for the direction, not a detail of it.** The verdict was that the product
+looks *boring and stale*, and the two diagnoses were that the restraint is right and the execution
+is thin, or that the restraint itself is wrong. Depth is the first hypothesis made testable — and
+because it costs no palette, adopting it across the Builder and the Forge is four lines in
+`tokens.css` rather than a redesign. If it does not fix *boring*, the answer was the second
+diagnosis and the finding is cheap.
+
+Surfaces sit at three levels: `--paper` behind, `--surface` cards raised on `--e2`, every bar track
+cut in with `--well`. Nothing else changed — the same six type roles, the same nine-step spacing
+scale, and the same rule that certainty is drawn as stroke.
+
+**One source of colour, and it is checkable.**
+[`wiener-mockups/tokens.shared.css`](wiener-mockups/tokens.shared.css) is the only place a hex
+literal appears; `build.py` generates every artboard from it, and **no hex literal appears in any
+artboard outside that block** — verified by grep rather than asserted. That mirrors what
+`frontend/src/tokens.css` gives the product, and it is why a colour change is one edit.
+
+**What is not done:** the four tokens are not in `frontend/src/tokens.css`. That file's header
+states `dashboard.md` §2 is authoritative and it mirrors it, so adopting them is a two-file change
+touching every screen — deliberately deferred, and §17 carries it.
+
 
 ---
 
@@ -940,8 +981,12 @@ Named rather than left to be discovered mid-plan.
   thin (a craft problem — hierarchy, depth, density contrast, data-ink), or that the restraint
   itself is wrong for a product people look at for hours (a direction problem). The first is a pass
   over existing screens; the second is a new design language and a `tokens.css` change, which every
-  screen built so far depends on. **Deciding which costs an afternoon on the canvas and should
-  happen before W2**, since W2 is where the dashboard is designed for real.
+  screen built so far depends on. **Half-answered on 2026-08-23**: four directions went up as
+  artboards and **Depth was chosen** (§9.5) — a bet on the first diagnosis. What stays open is
+  whether it *works*, which only a week of looking at a real screen settles, and that the four
+  tokens are **not yet in `frontend/src/tokens.css`**, so nothing outside the mockups has changed.
+  Adopting them is four lines plus a `dashboard.md` §2 edit. If Depth turns out not to fix
+  *boring*, the answer was the second diagnosis and the experiment cost four tokens.
 - **The chat panel's own history.** §13 has `/ask` and no transcript store. If a conversation about a
   run is worth keeping, that is a table this document did not argue for.
 
