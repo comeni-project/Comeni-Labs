@@ -63,6 +63,8 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",
         ("/api/pipeline/drafts/{draft_id}/keep", "post"): "keepDraft",
+        ("/api/pipeline/drafts/{draft_id}/gate", "post"): "startGate",
+        ("/api/pipeline/gates/{run_id}", "get"): "readGate",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",
         ("/api/health", "get"): "liveness",

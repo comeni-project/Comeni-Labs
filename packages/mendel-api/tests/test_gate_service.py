@@ -9,10 +9,9 @@ import pathlib
 
 import pytest
 from comeni_core.artifact.gates import Gate
+from mendel_api.services import gates
 from mendel_compiler.cli import main
 from mendel_compiler.gates import GateResult
-
-from mendel_api.services import gates
 
 ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 GOAL = ROOT / "examples" / "rnaseq-goal.yml"

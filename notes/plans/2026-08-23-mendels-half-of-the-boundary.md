@@ -845,7 +845,7 @@ git commit -m "feat(api): gate a kept draft on the worker, where a 900s job belo
 **Nothing in this repository enqueues anything today** — the worker has run one cron job since
 phase 8. This task builds that path.
 
-- [ ] **Step 1: Write the failing route tests**
+- [x] **Step 1: Write the failing route tests**
 
 ```python
 def test_starting_a_gate_returns_a_queued_run_and_enqueues_exactly_once(client, monkeypatch):
@@ -888,12 +888,12 @@ def test_no_gate_route_accepts_a_path(client):
     assert set(props) == {"gate"}, f"GateIn carries more than a gate: {set(props)}"
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 Run: `uv run pytest packages/mendel-api/tests/test_gate_routes.py -v`
 Expected: FAIL — 404 on the route.
 
-- [ ] **Step 3: Write the enqueue seam**
+- [x] **Step 3: Write the enqueue seam**
 
 `packages/mendel-api/src/mendel_api/jobs.py`:
 
@@ -929,7 +929,7 @@ async def enqueue(name: str, *args: object) -> None:
     await _pool.enqueue_job(name, *args)
 ```
 
-- [ ] **Step 4: Write the routes**
+- [x] **Step 4: Write the routes**
 
 In `routes/build.py`:
 
@@ -975,7 +975,7 @@ def read_gate(run_id: str) -> gate_service.GateView:
         raise HTTPException(status_code=404, detail=f"no such gate run: {run_id}") from None
 ```
 
-- [ ] **Step 5: Run the tests, verify they pass**
+- [x] **Step 5: Run the tests, verify they pass**
 
 Run: `uv run pytest packages/mendel-api/tests/ -v`
 Expected: PASS. `test_openapi.py::test_every_operation_is_named_by_hand` holds an **exact
@@ -990,7 +990,7 @@ New imports in `routes/build.py`: `from comeni_core.artifact.gates import Gate`,
 `from fastapi.concurrency import run_in_threadpool`, `from mendel_api import jobs`,
 `from mendel_api.services import gates as gate_service`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/mendel-api/src/mendel_api/jobs.py \

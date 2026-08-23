@@ -9,18 +9,21 @@ producer pins — and a URL is the wrong place for it. Invariant 15 is why the b
 not a path: no input here accepts a sample identifier, a filename or a path.
 """
 
+from comeni_core.artifact.gates import Gate
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.review.verdict import Verdict
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
 from pydantic import BaseModel, ConfigDict
 
-from mendel_api import identity
+from mendel_api import identity, jobs
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
+from mendel_api.services import gates as gate_service
 from mendel_api.services import registry
 from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
@@ -218,3 +221,50 @@ def draw(graph: DraftGraph) -> BuiltPipeline:
     draws a hand-drawn graph without a component changing.
     """
     return service.drawn(graph)
+
+
+class GateIn(BaseModel):
+    """**A gate, and nothing else.**
+
+    `docs/design/execution-boundary.md` §3: the test for whether something is a *run* rather
+    than a *gate* is whether it takes a samplesheet, and this cannot. No path, no output
+    directory, no input — `extra="forbid"` is what keeps it that way as the type grows.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    gate: Gate
+
+
+@router.post(
+    "/drafts/{draft_id}/gate",
+    operation_id="startGate",
+    summary="Gate a kept draft",
+    responses=REFUSES,
+)
+async def start_gate(draft_id: str, body: GateIn) -> gate_service.GateView:
+    """Queue a gate and return immediately with a `queued` run.
+
+    A stub gate is up to 900s cold and nothing that long may sit in a request — `worker.py`'s
+    docstring has said so since phase 8.
+
+    **This is not *Run pipeline*.** A gate proves the artifact on public test data; running a
+    laboratory's data is Wiener's, and Mendel has no route for it by design.
+    """
+    # **`run_in_threadpool`, because this route had to become `async` to await the enqueue.**
+    # Every other route here is a plain `def`, which FastAPI already runs in a threadpool; an
+    # `async def` doing a synchronous Postgres session blocks the event loop for every other
+    # request in flight.
+    run_id = await run_in_threadpool(
+        gate_service.request, draft_id, body.gate, identity.default_author()
+    )
+    await jobs.enqueue("run_gate_job", run_id)
+    return await run_in_threadpool(gate_service.read, run_id)
+
+
+@router.get("/gates/{run_id}", operation_id="readGate", summary="How a gate is going")
+def read_gate(run_id: str) -> gate_service.GateView:
+    """Poll one gate. The browser stops asking once `state` leaves `queued`/`running`."""
+    try:
+        return gate_service.read(run_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"no such gate run: {run_id}") from None
