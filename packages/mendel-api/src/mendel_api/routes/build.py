@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 from mendel_api import identity
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
+from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import registry
 from mendel_api.services import validate as validation
@@ -186,3 +187,16 @@ def keep_draft(draft_id: str) -> Kept:
         return Kept(path=str(draft_service.keep(draft_id)))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+
+
+@router.post(
+    "/compare",
+    operation_id="comparePipeline",
+    summary="Your graph beside the one the resolver would build",
+    responses=REFUSES,
+)
+def compare_pipeline(body: compare_service.CompareIn) -> compare_service.Comparison:
+    """**One call, not two.** Deciding what counts as the same step is a judgement — HISAT2
+    where Mendel put STAR fills one slot rather than being two unrelated steps — and a judgement
+    made in the browser is one the agent driving this API cannot reach."""
+    return compare_service.of(body.graph, body.goal)

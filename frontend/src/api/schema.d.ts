@@ -473,6 +473,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your graph beside the one the resolver would build
+         * @description **One call, not two.** Deciding what counts as the same step is a judgement — HISAT2
+         *     where Mendel put STAR fills one slot rather than being two unrelated steps — and a judgement
+         *     made in the browser is one the agent driving this API cannot reach.
+         */
+        post: operations["comparePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -544,6 +566,28 @@ export interface components {
             /** Commit */
             commit: string;
         };
+        /** AlignedStep */
+        AlignedStep: {
+            state: components["schemas"]["Alignment"];
+            /** Yours Node */
+            yours_node?: string | null;
+            /** Yours Contract */
+            yours_contract?: string | null;
+            /** Mendel Node */
+            mendel_node?: string | null;
+            /** Mendel Contract */
+            mendel_contract?: string | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+        };
+        /**
+         * Alignment
+         * @enum {string}
+         */
+        Alignment: "same" | "differs" | "yours-only" | "mendel-only";
         /** AnswerAllRequest */
         AnswerAllRequest: {
             /** Subject */
@@ -695,6 +739,18 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** CompareIn */
+        CompareIn: {
+            graph: components["schemas"]["DraftGraph-Input"];
+            goal: components["schemas"]["Goal"];
+        };
+        /** Comparison */
+        Comparison: {
+            yours: components["schemas"]["comeni_core__review__verdict__Verdict"];
+            mendel: components["schemas"]["BuiltPipeline"];
+            /** Alignment */
+            alignment: components["schemas"]["AlignedStep"][];
         };
         /** Compatibility */
         Compatibility: {
@@ -2367,6 +2423,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Kept"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    comparePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */

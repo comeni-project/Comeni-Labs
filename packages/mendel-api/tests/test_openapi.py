@@ -57,6 +57,7 @@ def test_every_operation_is_named_by_hand():
         # neither of which can be dragged onto a canvas.
         ("/api/pipeline/modules", "get"): "listModules",
         ("/api/pipeline/validate", "post"): "validatePipeline",
+        ("/api/pipeline/compare", "post"): "comparePipeline",
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",
