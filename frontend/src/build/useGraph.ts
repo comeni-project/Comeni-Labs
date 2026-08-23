@@ -57,30 +57,48 @@ export function useGraph(
   const [offsets, setOffsets] = useState<Offsets>({});
   const [dirty, setDirty] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Every id in use, kept in step synchronously so a batch of adds cannot collide. */
+  const taken = useRef<Set<string>>(new Set(initial.nodes.map((n) => n.id)));
 
   const edit = useCallback((next: (g: DraftGraph) => DraftGraph) => {
     setGraph((current) => next(current));
     setDirty(true);
   }, []);
 
+  /** Add a step, and **return the id it was given** so the caller can position it.
+   *
+   * The id is minted from the current graph rather than inside the reducer, because a caller
+   * that cannot name what it just added cannot place it — and a node that cannot be placed has
+   * to wait for the server to say where it goes, which is what the flicker was.
+   */
   const addNode = useCallback(
-    (contractId: string) =>
-      edit((g) => {
-        const id = nextId(new Set(g.nodes.map((n) => n.id)), contractId);
-        return { ...g, nodes: [...g.nodes, { id, contract_id: contractId, params: [] }] };
-      }),
+    (contractId: string): string => {
+      // **Minted from a ref, not from `graph`.** React batches state updates, so two calls in
+      // one handler both read the same `graph` and both mint `star_align_1` — which the tests
+      // caught the moment `addNode` started returning its id. The ref is updated synchronously,
+      // so the second call sees the first.
+      const id = nextId(taken.current, contractId);
+      taken.current.add(id);
+      edit((g) => ({
+        ...g,
+        nodes: [...g.nodes, { id, contract_id: contractId, params: [] }],
+      }));
+      return id;
+    },
     [edit],
   );
 
   const removeNode = useCallback(
-    (id: string) =>
+    (id: string) => (
+      taken.current.delete(id),
       edit((g) => ({
         ...g,
         nodes: g.nodes.filter((n) => n.id !== id),
         // A wire to a node that is gone is not a wire; leaving it would make `validate`
         // report MD0509 for something the person already deleted.
         edges: g.edges.filter((e) => e.from_node !== id && e.to_node !== id),
-      })),
+      }))
+    ),
     [edit],
   );
 
@@ -158,12 +176,42 @@ export function useGraph(
     [edit],
   );
 
-  /** Position only. **Does not mark the graph dirty** — where a box sits is not a change to
-   * the pipeline, and saving on every drag frame is exactly what this hook exists to avoid. */
+  /** Put a node somewhere. **Does not mark the graph dirty** — where a box sits is not a change
+   * to the pipeline, and a `pipeline.yml` recording where somebody dropped a box on a screen
+   * would be an artifact that changes when nothing about the pipeline has.
+   *
+   * **Absolute, not an offset.** It was an offset from the server's coordinate, which meant a
+   * node the server had never laid out had nothing to be offset from — so a node you added
+   * could not be positioned until a round trip came back, and the canvas flickered while it
+   * did. Positions the client owns outright have no such dependency.
+   */
   const moveNode = useCallback(
     (id: string, to: Offset) => setOffsets((current) => ({ ...current, [id]: to })),
     [],
   );
+
+  /** Seed positions for nodes the client has never placed.
+   *
+   * The server's layout is the canonical arrangement and this is where it lands — **once, per
+   * node.** After that the client's position wins, so re-laying-out on the server cannot move a
+   * box under somebody's hand. `tidy` is how you ask for the canonical arrangement back.
+   */
+  const seed = useCallback((from: Record<string, Offset>) => {
+    setOffsets((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const [id, at] of Object.entries(from)) {
+        if (next[id] === undefined) {
+          next[id] = at;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, []);
+
+  /** Throw away the client's positions and take the server's again. */
+  const tidy = useCallback(() => setOffsets({}), []);
 
   useEffect(() => {
     if (!dirty || !save) return;
@@ -191,5 +239,7 @@ export function useGraph(
     connect,
     disconnect,
     moveNode,
+    seed,
+    tidy,
   };
 }

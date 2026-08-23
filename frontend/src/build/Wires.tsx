@@ -2,94 +2,60 @@ import type { components } from "../api/schema";
 
 type Wire = components["schemas"]["PlacedWire"];
 
-const CORNER = 7;
-/** `CR` in `dashboard.html`. Rounded so the graph reads as drawn rather than as a schematic. */
+import { elbow, heightFor, path, portX, type Point, type Positions } from "./geometry";
 
-/** An orthogonal path with rounded corners, from the points the backend computed.
+/** Which ports a node declares, in the order the canvas draws them. */
+export type PortIndex = Record<string, { ins: string[]; outs: string[]; width: number }>;
+
+/** Where a wire starts and ends, **computed from where the boxes are right now.**
  *
- * **The corners are rounded here and the route is decided there.** `layout.py` returns corner
- * points, not an SVG `d` — how tightly a corner turns is presentation, and computing a path
- * string in the compiler would put rendering in a pure package.
+ * It used to render the points the server sent. That is correct for a pipeline nobody is
+ * touching and wrong the instant somebody drags: the wire stayed where the server had put it
+ * until a round trip came back, so the graph came apart under the hand and snapped together
+ * afterwards. Positions are the client's, so the geometry that depends on them is too.
  */
-/** Where a wire runs once its ends have been dragged.
- *
- * **This is not layout, and the distinction matters.** `layout.py` decides where every node
- * belongs and this does not touch that: a drag is a temporary translation a person applies while
- * looking, and the two endpoints move with their nodes. The elbow is then the design's own rule
- * applied to the moved ends — vertical, across at the midpoint, vertical — because translating
- * the original corner points instead would leave a wire bent around a place its node no longer is.
- *
- * The alternative was leaving wires where the backend put them, which is what shipped first: a
- * dragged node detached from every line reaching it, so the graph broke the moment you touched
- * it. A graph you cannot rearrange is fine; one that lies when you do is not.
- */
-function moved(wire: Wire, from: Offset, to: Offset): Wire {
-  if (!from.x && !from.y && !to.x && !to.y) return wire;
-  const points = wire.points;
-  const start = { x: points[0].x + from.x, y: points[0].y + from.y };
-  const end = {
-    x: points[points.length - 1].x + to.x,
-    y: points[points.length - 1].y + to.y,
-  };
-  const mid = Math.round((start.y + end.y) / 2);
-  return {
-    ...wire,
-    points:
-      start.x === end.x
-        ? [start, end]
-        : [start, { x: start.x, y: mid }, { x: end.x, y: mid }, end],
-    label_at: { x: Math.round((start.x + end.x) / 2), y: mid - 6 },
-  };
+function ends(
+  wire: { from_node: string; from_port: string; to_node: string; to_port: string },
+  at: Positions,
+  ports: PortIndex,
+): [Point, Point] | null {
+  const from = at[wire.from_node];
+  const to = at[wire.to_node];
+  const source = ports[wire.from_node];
+  const target = ports[wire.to_node];
+  if (!from || !to || !source || !target) return null;
+
+  // A port the graph names but the contract does not anchors mid-edge rather than vanishing —
+  // `validate` reports that as MD0501, and a picture is not the place to refuse a graph.
+  const outAt = source.outs.indexOf(wire.from_port);
+  const inAt = target.ins.indexOf(wire.to_port);
+  return [
+    {
+      x: from.x + (outAt < 0 ? source.width / 2 : portX(source.width, source.outs.length, outAt)),
+      y: from.y + heightFor(source.ins.length, source.outs.length),
+    },
+    {
+      x: to.x + (inAt < 0 ? target.width / 2 : portX(target.width, target.ins.length, inAt)),
+      y: to.y,
+    },
+  ];
 }
-
-function d(wire: Wire): string {
-  const p = wire.points;
-  if (p.length < 3) return `M${p[0].x},${p[0].y} L${p[p.length - 1].x},${p[p.length - 1].y}`;
-
-  let out = `M${p[0].x},${p[0].y}`;
-  for (let i = 1; i < p.length - 1; i++) {
-    const before = p[i - 1];
-    const here = p[i];
-    const after = p[i + 1];
-    const r = Math.min(
-      CORNER,
-      Math.abs(here.x - before.x || here.y - before.y) / 2,
-      Math.abs(after.x - here.x || after.y - here.y) / 2,
-    );
-    const inX = Math.sign(here.x - before.x);
-    const inY = Math.sign(here.y - before.y);
-    const outX = Math.sign(after.x - here.x);
-    const outY = Math.sign(after.y - here.y);
-    out += ` L${here.x - inX * r},${here.y - inY * r}`;
-    out += ` Q${here.x},${here.y} ${here.x + outX * r},${here.y + outY * r}`;
-  }
-  const last = p[p.length - 1];
-  return `${out} L${last.x},${last.y}`;
-}
-
-/** Every wire, plus the type each carries.
- *
- * **Orthogonal, not bezier** — `dashboard.md` §4, and the reason is crossings: two curves meeting
- * at a shallow angle are genuinely indistinguishable and you cannot tell which is which at the
- * intersection. Two right angles you can.
- *
- * The stroke says the tier of the step the wire *leaves*, so uncertainty propagates down the
- * graph rather than stopping at the node that introduced it.
- */
-type Offset = { x: number; y: number };
-const STILL: Offset = { x: 0, y: 0 };
 
 export function Wires({
   wires,
   tierOf,
-  offsets,
+  at,
+  ports,
   width,
   height,
   onDetach,
 }: {
   wires: Wire[];
   tierOf: (id: string) => number;
-  offsets: Record<string, Offset>;
+  /** Where every node is, right now. The client owns these. */
+  at: Positions;
+  /** What each node declares, so a wire lands on the chevron the canvas drew. */
+  ports: PortIndex;
   width: number;
   height: number;
   /** Remove this wire. Omitted where the canvas is read-only. */
@@ -107,12 +73,14 @@ export function Wires({
       height={height}
       aria-hidden
     >
-      {wires.map((original) => {
-        const wire = moved(
-          original,
-          offsets[original.from_node] ?? STILL,
-          offsets[original.to_node] ?? STILL,
-        );
+      {wires.map((wire) => {
+        const pair = ends(wire, at, ports);
+        if (pair === null) return null;
+        const points = elbow(pair[0], pair[1]);
+        const label = {
+          x: Math.round((pair[0].x + pair[1].x) / 2),
+          y: Math.round((pair[0].y + pair[1].y) / 2) - 6,
+        };
         const tier = tierOf(wire.from_node);
         return (
           <g
@@ -125,7 +93,7 @@ export function Wires({
             {onDetach && (
               <path
                 data-testid="wire-hit"
-                d={d(wire)}
+                d={path(points)}
                 fill="none"
                 stroke="transparent"
                 strokeWidth={14}
@@ -147,7 +115,7 @@ export function Wires({
             )}
             <path
               data-testid="wire"
-              d={d(wire)}
+              d={path(points)}
               fill="none"
               strokeWidth={1.5}
               stroke={
@@ -163,8 +131,8 @@ export function Wires({
               className={onDetach ? "group-hover:[stroke-width:3] transition-[stroke-width]" : undefined}
             />
             <text
-              x={wire.label_at.x}
-              y={wire.label_at.y}
+              x={label.x}
+              y={label.y}
               textAnchor="middle"
               className="font-data"
               fontSize="10"

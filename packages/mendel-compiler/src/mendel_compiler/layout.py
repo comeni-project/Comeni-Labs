@@ -133,13 +133,27 @@ def _ranks(ir: PipelineIR) -> dict[str, int]:
     return rank
 
 
-def _order(ir: PipelineIR, rank: dict[str, int]) -> dict[str, int]:
-    """Position within a rank, by the median of what feeds each node.
+def _order(
+    ir: PipelineIR, rank: dict[str, int], ins: dict[str, list[str]] | None = None
+) -> dict[str, int]:
+    """Position within a rank: the median of what feeds each node, **and of the ports it feeds.**
 
-    **Two passes of the median heuristic, and saying so is the point.** It is enough for a
-    pipeline — the spine is a chain with one convergence — and it is not a crossing-minimisation
-    algorithm. If a graph ever arrives where it is visibly wrong, the honest fix is a real
-    ordering pass, not more passes of this one.
+    **The upward pass is new, and it is the fix the old docstring asked for.** That docstring
+    said this was two passes of a median heuristic, was not a crossing-minimisation algorithm,
+    and that *"if a graph ever arrives where it is visibly wrong, the honest fix is a real
+    ordering pass"*. The shipped spine is that graph:
+
+    `star_align` declares `reads`, `index`, `gtf`, so its chevrons sit left to right in that
+    order. Both its producers are roots, nothing feeds them, so the downward pass had no opinion
+    and they sorted by id — `star_genomegenerate` before `trimgalore`. Genomegenerate feeds
+    `index` (middle) and trimgalore feeds `reads` (left), so the two wires crossed on every
+    render of the canonical pipeline.
+
+    So a rank is now also ordered by **where its consumers' ports are**: a node feeding a
+    left-hand port belongs on the left. Downward and upward passes alternate, which is the
+    ordinary Sugiyama arrangement — this is still not a general crossing minimiser, and the
+    honest claim is that it now handles a fan-in whose consumer declares its ports in an order
+    the producers do not happen to match.
 
     Ties break on node id so the result is total: two nodes with the same median must still land
     in the same order on every machine, which is what makes the golden comparison possible.
@@ -151,17 +165,44 @@ def _order(ir: PipelineIR, rank: dict[str, int]) -> dict[str, int]:
         ids.sort()
 
     incoming: dict[str, list[str]] = defaultdict(list)
+    outgoing: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for edge in ir.edges:
         incoming[edge.to_node].append(edge.from_node)
+        outgoing[edge.from_node].append((edge.to_node, edge.to_port))
+
+    def port_slot(consumer: str, port: str) -> float:
+        """Where this port sits along its node's edge, as a fraction. Falls back to the middle
+        for a port the declared list does not carry — `validate` reports that as MD0501."""
+        names = (ins or {}).get(consumer)
+        if not names or port not in names:
+            return 0.5
+        return (names.index(port) + 1) / (len(names) + 1)
 
     position = {nid: i for ids in by_rank.values() for i, nid in enumerate(ids)}
+    depths = sorted(by_rank)
     for _ in range(2):
-        for depth in sorted(by_rank)[1:]:
+        # Downward: a node sits under what feeds it.
+        for depth in depths[1:]:
+
             def median(nid: str) -> tuple[float, str]:
                 feeders = sorted(position[p] for p in incoming[nid])
                 return ((feeders[len(feeders) // 2] if feeders else 0.0), nid)
 
             by_rank[depth].sort(key=median)
+            for i, nid in enumerate(by_rank[depth]):
+                position[nid] = i
+
+        # Upward: a node sits over the ports it feeds. **This is the pass that was missing.**
+        for depth in reversed(depths[:-1]):
+
+            def by_port(nid: str) -> tuple[float, str]:
+                targets = sorted(
+                    position[consumer] + port_slot(consumer, port)
+                    for consumer, port in outgoing[nid]
+                )
+                return ((targets[len(targets) // 2] if targets else 0.0), nid)
+
+            by_rank[depth].sort(key=by_port)
             for i, nid in enumerate(by_rank[depth]):
                 position[nid] = i
     return position
@@ -289,7 +330,7 @@ def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
     """
     ins, outs = _declared(ir, ports)
     rank = _ranks(ir)
-    order = _order(ir, rank)
+    order = _order(ir, rank, ins)
     across = _x_of(ir, rank, order)
 
     heights = {

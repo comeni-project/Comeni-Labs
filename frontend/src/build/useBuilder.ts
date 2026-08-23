@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { freeSpot } from "./geometry";
 
 import { get, post } from "../api/client";
 import { useGraph } from "./useGraph";
@@ -50,25 +52,41 @@ export function graphOf(built: Built): DraftGraph {
  */
 export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promise<unknown>) {
   const graphState = useGraph(initial, { save });
-  const { graph } = graphState;
-  const key = JSON.stringify(graph);
+  const { graph, seed } = graphState;
 
+  // **Debounced, so a burst of edits is one round trip.** Typing in a settings field fires an
+  // edit per keystroke; without this each one is a `draw` and a `validate`.
+  const key = useSettled(JSON.stringify(graph), 180);
+  const settled = useSettledValue(graph, key);
   const empty = graph.nodes.length === 0;
 
   const drawn = useQuery({
     queryKey: ["draw", key],
-    queryFn: () => post<Built>("/pipeline/draw", graph),
+    queryFn: () => post<Built>("/pipeline/draw", settled),
     // An empty graph needs no server round trip — but it is not an error and not a loading
-    // state either. **A blank canvas is where a builder starts.** Returning null here rendered
-    // nothing at all, which is the difference between "no pipeline yet" and "something broke".
+    // state either. **A blank canvas is where a builder starts.**
     enabled: !empty,
+    // **The canvas never blanks.** A new query key makes `data` undefined until it resolves, so
+    // every edit unmounted the whole graph and remounted it — which is what the flicker was.
+    // Keeping the last good view means an edit changes the picture rather than replacing it.
+    placeholderData: (previous) => previous,
   });
 
   const verdict = useQuery({
     queryKey: ["validate", key],
-    queryFn: () => post<Verdict>("/pipeline/validate", graph),
-    enabled: graph.nodes.length > 0,
+    queryFn: () => post<Verdict>("/pipeline/validate", settled),
+    enabled: !empty,
+    placeholderData: (previous) => previous,
   });
+
+  // The server's arrangement seeds any node the client has not placed — once each. After that
+  // the client's position wins, so a re-layout cannot move a box under somebody's hand.
+  useEffect(() => {
+    if (!drawn.data) return;
+    const from: Record<string, { x: number; y: number }> = {};
+    for (const node of drawn.data.layout.nodes) from[node.id] = { x: node.x, y: node.y };
+    seed(from);
+  }, [drawn.data, seed]);
 
   const [alignment, setAlignment] = useState<AlignedStep[] | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -92,6 +110,17 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
    * Local: adopting rewrites the graph in the browser and the next `draw`/`validate` follows
    * from it. Nothing is sent — a round trip per click would make the diff feel like a form.
    */
+  /** Add a node and give it a position immediately, so it appears under the cursor rather
+   *  than after a round trip. */
+  const addAt = useCallback(
+    (contractId: string, near?: { x: number; y: number }) => {
+      const id = graphState.addNode(contractId);
+      if (id) graphState.moveNode(id, freeSpot(graphState.offsets, near));
+      return id;
+    },
+    [graphState],
+  );
+
   const adopt = useCallback(
     (row: AlignedStep) => {
       if (row.state === "yours-only" && row.yours_node) {
@@ -114,6 +143,10 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
   return {
     ...graphState,
     drawn: empty ? EMPTY_VIEW : (drawn.data ?? null),
+    addAt,
+    /** True while the server is catching up. **Not a loading state** — the canvas keeps showing
+     *  the last good view; this is only for a quiet indicator. */
+    settling: drawn.isFetching || verdict.isFetching,
     drawnError: drawn.error,
     findings: verdict.data?.findings ?? [],
     alignment,
@@ -130,4 +163,37 @@ export function useExample() {
     queryKey: ["pipeline", "example"],
     queryFn: () => get<Built>("/pipeline/example"),
   });
+}
+
+
+/** A value that only changes once it has stopped changing for `ms`.
+ *
+ * Used for the query key rather than the payload, so React Query sees one key per burst of
+ * edits instead of one per keystroke.
+ */
+function useSettled(value: string, ms: number): string {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+
+/** The graph as it was when `key` last settled.
+ *
+ * The query key is debounced and the payload must match it, or a request goes out carrying a
+ * graph newer than the key it is cached under — and the answer is then filed against the wrong
+ * question.
+ */
+function useSettledValue(graph: DraftGraph, key: string): DraftGraph {
+  const held = useRef(graph);
+  if (JSON.stringify(held.current) !== key) {
+    try {
+      held.current = JSON.parse(key) as DraftGraph;
+    } catch {
+      /* the first render, before anything has settled */
+    }
+  }
+  return held.current;
 }

@@ -20,7 +20,11 @@ const wire = {
 const props = {
   wires: [wire],
   tierOf: () => 2,
-  offsets: {},
+  at: { align: { x: 0, y: 0 }, sort: { x: 0, y: 128 } },
+  ports: {
+    align: { ins: [], outs: ["bam"], width: 232 },
+    sort: { ins: ["bam"], outs: ["bam"], width: 232 },
+  },
   width: 400,
   height: 400,
 };

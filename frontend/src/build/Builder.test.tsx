@@ -190,3 +190,60 @@ describe("the builder is a builder", () => {
     expect(screen.getByTestId("run-compare")).toBeInTheDocument();
   });
 });
+
+describe("interacting without the server in the way", () => {
+  it("right-click opens a menu with delete on it", async () => {
+    at();
+    const node = (await screen.findAllByTestId("node"))[0];
+    fireEvent.contextMenu(node);
+    expect(screen.getByTestId("node-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-delete")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-settings")).toBeInTheDocument();
+  });
+
+  it("clicking anywhere dismisses the menu", async () => {
+    at();
+    fireEvent.contextMenu((await screen.findAllByTestId("node"))[0]);
+    fireEvent.click(screen.getByTestId("menu-catcher"));
+    expect(screen.queryByTestId("node-menu")).toBeNull();
+  });
+
+  it("deleting from the menu removes the step", async () => {
+    at();
+    const before = (await screen.findAllByTestId("node")).length;
+    fireEvent.contextMenu((await screen.findAllByTestId("node"))[0]);
+    fireEvent.click(screen.getByTestId("menu-delete"));
+    await waitFor(() =>
+      expect(screen.getAllByTestId("node").length).toBe(before - 1),
+    );
+  });
+
+  it("Delete removes the selected step", async () => {
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => expect(screen.getAllByTestId("node").length).toBe(nodes.length - 1));
+  });
+
+  it("Delete does nothing while a field has focus", async () => {
+    // Or typing a value into the settings card would delete the step you are configuring.
+    at();
+    const nodes = await screen.findAllByTestId("node");
+    fireEvent.click(nodes[0]);
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    field.focus();
+    fireEvent.keyDown(field, { key: "Delete" });
+    expect(screen.getAllByTestId("node").length).toBe(nodes.length);
+    field.remove();
+  });
+
+  it("does not let a drag select the text it passes over", async () => {
+    // A pointer drag over labels is a selection gesture to the browser: every label highlights
+    // blue as the box moves, and the highlight survives the drop.
+    at();
+    await screen.findAllByTestId("node");
+    expect(screen.getByTestId("canvas").className).toContain("select-none");
+  });
+});

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
@@ -143,6 +143,46 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   const isLoading = data === null;
   const error = builder.drawnError;
   const [panel, setPanel] = useState<"review" | "problems" | "compare">("review");
+  /** Where a right-click opened a menu, and on what. */
+  const [menu, setMenu] = useState<{ node: string; x: number; y: number } | null>(null);
+
+  /** What each node declares, so the wires land on the chevrons the canvas drew.
+   *
+   * From `steps[].ports`, which is the contract's own list — the same source `Port.tsx` renders
+   * from. Deriving it anywhere else is how the wire and the chevron came to disagree by 39px.
+   */
+  const portIndex = useMemo(() => {
+    const index: Record<string, { ins: string[]; outs: string[]; width: number }> = {};
+    for (const step of data?.steps ?? []) {
+      index[step.id] = {
+        ins: step.ports.filter((p) => p.side === "in").map((p) => p.name),
+        outs: step.ports.filter((p) => p.side === "out").map((p) => p.name),
+        width: data?.layout.nodes.find((n) => n.id === step.id)?.width ?? 232,
+      };
+    }
+    return index;
+  }, [data]);
+
+  /** **Delete removes the selected step.** Not while a field has focus, or typing a value into
+   *  the settings card would delete the step you are configuring. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "SELECT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+      if (typing || !selected) return;
+      e.preventDefault();
+      builder.removeNode(selected);
+      setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, builder, setSelected]);
   const [kept, setKept] = useState<{ row: any; reason: string }[]>([]);
   void kept;
 
@@ -262,16 +302,45 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
           <>
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}
             <Wires
-              wires={data.layout.wires}
+              // The client's edges, not the server's — same reason as the nodes.
+              wires={builder.graph.edges.map((e) => ({
+                ...e,
+                type_id:
+                  data.layout.wires.find(
+                    (w) =>
+                      w.from_node === e.from_node &&
+                      w.from_port === e.from_port &&
+                      w.to_node === e.to_node &&
+                      w.to_port === e.to_port,
+                  )?.type_id ?? "",
+                points: [],
+                label_at: { x: 0, y: 0 },
+              }))}
               tierOf={(id) => data.layout.nodes.find((n) => n.id === id)?.tier ?? 2}
-              offsets={offsets}
+              at={offsets}
+              ports={portIndex}
               width={data.layout.width}
               height={data.layout.height}
               onDetach={(w) =>
                 builder.disconnect(w.from_node, w.from_port, w.to_node, w.to_port)
               }
             />
-            {data.layout.nodes.map((placed) => (
+            {/* **The client's nodes, decorated with the server's answers.** It iterated
+                `data.layout.nodes` — the server's list — so adding or deleting a step did not
+                change the picture until a round trip came back. The graph is what you are
+                editing; the server tells you about it. */}
+            {builder.graph.nodes.map((own) => {
+              const placed = data.layout.nodes.find((n) => n.id === own.id) ?? {
+                id: own.id,
+                rank: 0,
+                order: 0,
+                x: 0,
+                y: 0,
+                width: 232,
+                height: 56,
+                tier: 4,
+              };
+              return (
               <Node
                 key={placed.id}
                 placed={placed}
@@ -280,6 +349,11 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                 dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
+                onContextMenu={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  setSelected(placed.id);
+                  setMenu({ node: placed.id, x: e.clientX, y: e.clientY });
+                }}
                 onOpenSettings={() => setCarded(placed.id)}
                 offset={offsets[placed.id] ?? { x: 0, y: 0 }}
                 onDrag={(by) => builder.moveNode(placed.id, by)}
@@ -303,7 +377,8 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                   );
                 }}
               />
-            ))}
+              );
+            })}
           </>
         )}
         </Canvas>
@@ -388,6 +463,52 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
       {/* **A modal, opened from the node's own button** — `dashboard.md` §5. The rail's Step tab
           shows the same card for the selected step; this is the path from the canvas, which is
           where a person is when they wonder what a step is set to. */}
+      {menu && (
+        <>
+          {/* A full-screen catcher, so any click anywhere dismisses — including a right-click
+              somewhere else, which would otherwise open a second menu behind the first. */}
+          <div
+            data-testid="menu-catcher"
+            className="fixed inset-0 z-40"
+            onClick={() => setMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenu(null);
+            }}
+          />
+          <div
+            data-testid="node-menu"
+            style={{ left: menu.x, top: menu.y }}
+            className="fixed z-50 min-w-[160px] rounded-r border border-line bg-surface py-1
+                       shadow-[0_4px_16px_var(--shadow)]"
+          >
+            <button
+              data-testid="menu-settings"
+              onClick={() => {
+                setCarded(menu.node);
+                setMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-body bg-transparent border-0
+                         cursor-pointer hover:bg-[var(--hover)]"
+            >
+              Settings…
+            </button>
+            <button
+              data-testid="menu-delete"
+              onClick={() => {
+                builder.removeNode(menu.node);
+                if (selected === menu.node) setSelected(null);
+                setMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-body bg-transparent border-0
+                         cursor-pointer hover:bg-[var(--hover)] text-[var(--undecided)]"
+            >
+              Delete step
+            </button>
+          </div>
+        </>
+      )}
+
       {carded && data && (
         <div
           className="fixed inset-0 z-40 flex items-start justify-center pt-[10vh] px-6
