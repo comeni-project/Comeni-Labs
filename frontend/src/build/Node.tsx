@@ -35,6 +35,10 @@ export function Node({
   onOpenSettings,
   offset,
   onDrag,
+  dragging,
+  onStartWire,
+  onFinishWire,
+  verdictFor,
 }: {
   placed: Placed;
   step: Step | undefined;
@@ -45,6 +49,14 @@ export function Node({
   onOpenSettings?: () => void;
   offset: { x: number; y: number };
   onDrag: (by: { x: number; y: number }) => void;
+  /** Which output a wire is being dragged from, anywhere on the canvas. `null` most of the
+   *  time, and when it is null every port renders exactly as it did before this existed. */
+  dragging?: { node: string; port: string } | null;
+  onStartWire?: (port: string) => void;
+  onFinishWire?: (port: string) => void;
+  /** How an input port should look during someone else's drag. A lookup into the server's
+   *  compatibility index — never a decision made here. */
+  verdictFor?: (port: string) => "yes" | "conventional-no" | "no" | undefined;
 }) {
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -93,6 +105,12 @@ export function Node({
         const ports = (step?.ports ?? []).filter((port) => port.side === side);
         return ports.map((port, i) => (
           <Port
+            verdict={
+              // A port only colours during a drag, and never the one being dragged FROM.
+              dragging && port.side === "in" ? verdictFor?.(port.name) : undefined
+            }
+            onStartWire={port.side === "out" ? () => onStartWire?.(port.name) : undefined}
+            onFinishWire={port.side === "in" ? () => onFinishWire?.(port.name) : undefined}
             key={`${side}.${port.name}`}
             port={port}
             x={portX(placed.width, ports.length, i)}

@@ -1,7 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
-import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
@@ -11,8 +9,12 @@ import { LeftPanel } from "./LeftPanel";
 import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
+import { Compare } from "./Compare";
+import { Findings } from "./Findings";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
+import { graphOf, useBuilder, useExample } from "./useBuilder";
+import { accepts, useCompatibility } from "./useCompatibility";
 import { useView } from "./useView";
 
 type Built = components["schemas"]["BuiltPipeline"];
@@ -96,15 +98,52 @@ export function Builder() {
   const [selected, setSelected] = useState<string | null>(null);
   const [isolated, setIsolated] = useState<string | null>(null);
   const [carded, setCarded] = useState<string | null>(null);
-  // **Node offsets live here, not in each node.** They were local state, which meant a dragged
-  // node left its wires behind — the graph broke the moment you touched it. The wires read them
-  // too, so both ends of a line move with the box they belong to.
-  const [offsets, setOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  /** Which output port a wire is being dragged from. `null` most of the time. */
+  const [dragging, setDragging] = useState<{ node: string; port: string } | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["pipeline", "example"],
-    queryFn: () => get<Built>("/pipeline/example"),
-  });
+  const example = useExample();
+  return example.data ? (
+    <Editing built={example.data} view={view} onWheel={onWheel} onPointerDown={onPointerDown}
+      reset={reset} nudge={nudge} fit={fit} box={box} left={left} right={right}
+      selected={selected} setSelected={setSelected} isolated={isolated} setIsolated={setIsolated}
+      carded={carded} setCarded={setCarded} dragging={dragging} setDragging={setDragging} />
+  ) : (
+    <div className="grid place-items-center h-full">
+      {example.isLoading && <Loading what="the pipeline" />}
+      {example.error && <Failed error={example.error} />}
+    </div>
+  );
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** The screen, once there is something to edit.
+ *
+ * Split from `Builder` because `useBuilder` needs a starting graph and hooks cannot wait for a
+ * query. The alternative — a hook that tolerates `undefined` — would put "is there a pipeline
+ * yet" into every line below.
+ */
+const GOAL = {
+  have: [
+    { type_id: "fastq.reads", states: [] },
+    { type_id: "annotation.gtf", states: [] },
+    { type_id: "genome.fasta", states: [] },
+  ],
+  want: ["counts.matrix"],
+};
+
+function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, left, right,
+  selected, setSelected, isolated, setIsolated, carded, setCarded, dragging, setDragging }: any) {
+  // **Node offsets live in `useGraph`, not in each node.** They were local state, which meant a
+  // dragged node left its wires behind — the graph broke the moment you touched it.
+  const builder = useBuilder(graphOf(built));
+  const index = useCompatibility();
+  const data: Built | null = builder.drawn;
+  const offsets = builder.offsets;
+  const isLoading = data === null;
+  const error = builder.drawnError;
+  const [panel, setPanel] = useState<"review" | "problems" | "compare">("review");
+  const [kept, setKept] = useState<{ row: any; reason: string }[]>([]);
+  void kept;
 
   const blocking = data?.needs_review.length ?? 0;
 
@@ -219,7 +258,26 @@ export function Builder() {
                 onSelect={() => setSelected(placed.id)}
                 onOpenSettings={() => setCarded(placed.id)}
                 offset={offsets[placed.id] ?? { x: 0, y: 0 }}
-                onDrag={(by) => setOffsets((all) => ({ ...all, [placed.id]: by }))}
+                onDrag={(by) => builder.moveNode(placed.id, by)}
+                dragging={dragging}
+                onStartWire={(port: string) => setDragging({ node: placed.id, port })}
+                onFinishWire={(port: string) => {
+                  if (dragging) builder.connect(dragging.node, dragging.port, placed.id, port);
+                  setDragging(null);
+                }}
+                verdictFor={(port: string) => {
+                  // **A lookup, not a decision.** The server computed what satisfies what;
+                  // `validate` on drop is still the authority.
+                  if (!dragging || !index.data) return undefined;
+                  const src = data?.steps.find((s) => s.id === dragging.node);
+                  const tgt = data?.steps.find((s) => s.id === placed.id);
+                  if (!src || !tgt) return undefined;
+                  return accepts(
+                    index.data,
+                    `${src.contract_id}#${dragging.port}`,
+                    `${tgt.contract_id}#${port}`,
+                  );
+                }}
               />
             ))}
           </>
@@ -241,7 +299,58 @@ export function Builder() {
         onExpand={() => right.setCollapsed(false)}
         badge={blocking}
       >
-        {data && (
+        {/* **Three tabs, and the order is the order you need them in.** What is wrong with
+            what you drew comes before what Mendel would have done differently, because a graph
+            that cannot be emitted is not yet worth diffing. */}
+        <div className="flex gap-1 border-b border-line px-2 pt-2">
+          {(["review", "problems", "compare"] as const).map((t) => (
+            <button
+              key={t}
+              data-testid={`tab-${t}`}
+              data-active={panel === t}
+              onClick={() => setPanel(t)}
+              className={`px-2 py-1 text-label uppercase tracking-[.1em] font-semibold rounded-t
+                          ${panel === t ? "text-ink border-b-2 border-pea" : "text-ink-3"}`}
+            >
+              {t}
+              {t === "problems" && builder.findings.length > 0 && (
+                <span className="ml-1 font-data text-[var(--undecided)]">
+                  {builder.findings.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {panel === "problems" && (
+          <Findings findings={builder.findings} onSelect={setSelected} />
+        )}
+        {panel === "compare" && (
+          <>
+            <div className="p-3 pb-0">
+              <button
+                data-testid="run-compare"
+                disabled={builder.comparing}
+                onClick={() => void builder.compare(GOAL)}
+                className="px-3 py-1 rounded-r border-0 bg-pea text-[var(--on-pea)] text-body
+                           font-semibold disabled:opacity-40"
+              >
+                {builder.comparing ? "Resolving…" : "Compare with Mendel"}
+              </button>
+            </div>
+            <Compare
+              alignment={builder.alignment}
+              onAdopt={builder.adopt}
+              onKeep={(row, reason) => {
+                // **Keeping yours is an override and needs a reason** — the defect A77 was.
+                // Recording it against the artifact waits on the keep/override endpoint;
+                // until then the reason is held with the row rather than silently dropped.
+                setKept((all) => [...all, { row, reason }]);
+              }}
+            />
+          </>
+        )}
+        {panel === "review" && data && (
           <Rail
             data={data}
             selected={selected}

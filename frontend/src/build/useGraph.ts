@@ -120,6 +120,21 @@ export function useGraph(
     [edit],
   );
 
+  /** Swap one node's contract, keeping its id and therefore its wires.
+   *
+   * Adopting the resolver's choice for a step means *this step, that tool* — removing and
+   * re-adding would drop every wire the step had, which is the opposite of what was asked.
+   * Whether the new contract's ports still fit is `validate`'s answer, not this function's.
+   */
+  const replaceContract = useCallback(
+    (id: string, contractId: string) =>
+      edit((g) => ({
+        ...g,
+        nodes: g.nodes.map((n) => (n.id === id ? { ...n, contract_id: contractId } : n)),
+      })),
+    [edit],
+  );
+
   /** Position only. **Does not mark the graph dirty** — where a box sits is not a change to
    * the pipeline, and saving on every drag frame is exactly what this hook exists to avoid. */
   const moveNode = useCallback(
@@ -142,5 +157,15 @@ export function useGraph(
     };
   }, [graph, dirty, save, idleMs]);
 
-  return { graph, offsets, dirty, addNode, removeNode, connect, disconnect, moveNode };
+  return {
+    graph,
+    offsets,
+    dirty,
+    addNode,
+    removeNode,
+    replaceContract,
+    connect,
+    disconnect,
+    moveNode,
+  };
 }

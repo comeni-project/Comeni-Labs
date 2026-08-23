@@ -50,7 +50,7 @@ export function accepts(index: Compatibility, sourceKey: string, targetKey: stri
 export function useCompatibility() {
   return useQuery({
     queryKey: ["compatibility"],
-    queryFn: () => get("/api/pipeline/compatibility"),
+    queryFn: () => get("/pipeline/compatibility"),
     staleTime: 5 * 60 * 1000,
   });
 }
