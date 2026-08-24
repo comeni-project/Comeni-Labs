@@ -1816,7 +1816,7 @@ Ends with a run you watch as it happens.
 - Produces: `publish(run_id, event) -> str` (the stream id), `key(run_id) -> str`, and
   `GET /api/runs/{id}/events?after=<seq>` returning `{events, cursor, stream_id}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_stream.py
@@ -1837,12 +1837,12 @@ def test_the_events_page_hands_over_a_stream_id_to_resume_from(client, a_finishe
     assert body["cursor"] >= 0 and body["stream_id"]
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_stream.py -x`
 Expected: FAIL — no `stream` module.
 
-- [ ] **Step 3: Write `stream.py`**
+- [x] **Step 3: Write `stream.py`**
 
 ```python
 """The live tail. Redis is the fan-out; Postgres is the record.
@@ -1886,7 +1886,7 @@ def publish(run_id: str, event: RunEvent, redis: Redis | None = None,
 Call `publish` from `record()` in `projection.py`, after the session flush and never before —
 a stream entry for an event Postgres has not accepted is a tail that disagrees with the record.
 
-- [ ] **Step 4: Run the tests and commit**
+- [x] **Step 4: Run the tests and commit**
 
 Run: `uv run pytest packages/wiener-api/tests/test_stream.py -v && make check`
 
@@ -1906,7 +1906,7 @@ git commit -m "feat(wiener-api): the capped live tail, and the page-then-tail ha
 **Interfaces:**
 - Produces: `WS /api/runs/{id}/stream?from=<stream_id>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_ws.py
@@ -1926,11 +1926,11 @@ def test_a_socket_for_an_unknown_run_closes_rather_than_hanging(client):
             ws.receive_json()
 ```
 
-- [ ] **Step 2: Run and watch it fail**, then implement with `XREAD BLOCK` in a loop, closing
+- [x] **Step 2: Run and watch it fail**, then implement with `XREAD BLOCK` in a loop, closing
   the socket when `state.phase` is terminal **and** the stream is drained — not on the first
   terminal event, because §4.3 finding 3 says another may follow it.
 
-- [ ] **Step 3: Run the tests and commit**
+- [x] **Step 3: Run the tests and commit**
 
 ```bash
 git add packages/wiener-api
@@ -2134,6 +2134,11 @@ pasted verbatim* — plans here are corrected during execution by design.
 | CP2 | **`TaskTrace` gained the fifteen `trace.enabled` fields**, plus a second committed capture and two tests | §9.4 calls this *"a line in an allowlist and a test, rather than a subsystem"*, which reads like phase-3 display work. It is not: **`run_event` is the record and it cannot be back-filled**, so every run stored before this had no resource history *ever*, and phase 3's dashboard would open on months of runs it could say nothing about. Confirmed against a raw capture rather than assumed — the weblog body carries all fifteen and `admit()` was dropping every one. The committed `failing-run.jsonl` was taken *without* `trace.enabled`, which is exactly why every test passed while the fields went in the bin |
 | CP2 | The checkpoint ran on the **host**, not through `make dev` | **Nothing serves the ingest app in compose.** Task 8 step 4 says the compose file runs the two apps "on 8001 and 8099 respectively" and the service has one `command`, so a container stack answers the public API and drops every event. It is left as a finding rather than fixed here, because the fix is a topology decision — the head process posts to `127.0.0.1:8099`, which is only true if the ingest app shares a container with whatever spawns Nextflow, and §13.1's loopback claim depends on that. Phases 0–2 target one operator on a laptop, which is what was run |
 | CP2 | **`samplesheet` became `params`, validated against the artifact's declared nulls** (operator's decision, 2026-08-24) | A real run needs `input`, `fasta` and `gtf`, and the spec's single `samplesheet` could carry one of the three. The artifact already declares which values it cannot supply — `= null` — so the submission fills exactly those and both an unknown key and a missing one are refused before anything launches, where Nextflow would otherwise fail deep inside a run with `Missing fromPath parameter`. `-params-file` rather than a spliced `--input`, because the emitted spine reads `params.input instanceof List` and a list does not survive a command line. Proven end to end: the spine ran green with real URLs and **no profile hack** |
+| 9 | A failed publish is caught as `RedisError` and logged; the plan had no error path | A dead Redis must not lose an event — the record is not lossy — but a bare `try/except/pass` makes a dead tail look like a console that simply stopped updating. Caught narrowly, logged with the run and the seq |
+| 9 | `stream.last_id()` and an `EventPage` type, and the stream id is read **after** the page | The plan returned a bare list and asserted `body["cursor"]` and `body["stream_id"]` in a test, so the shape existed only in the assertion. Reading the id after the page is what stops an event landing in the gap from being missed — the reverse order drops it |
+| 9 | `fakeredis` is a dev dependency and the fake tail is **autouse** | `record()` publishes and the events page reads the tail, so without it the suite reaches `localhost:6379`: green on this machine, and green in CI for the wrong reason, since a failed publish is deliberately only logged |
+| 10 | `stream.read()` blocks **briefly** and the socket loops | The plan says `XREAD BLOCK` in a loop; blocking forever means the socket never wakes to notice the run has finished, and a six-hour STAR align emits nothing while it runs |
+| 10 | The drain rule was watched failing | Closing on the first terminal event — the obvious implementation — drops **2 of 13** events on the committed capture, because §4.3 finding 3 is that `error` arrives after `completed`. The socket reads to empty, then checks the projection's phase |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---

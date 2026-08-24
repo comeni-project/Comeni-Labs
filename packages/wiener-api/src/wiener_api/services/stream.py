@@ -47,3 +47,15 @@ def last_id(run_id: str, redis: Redis | None = None) -> str:
     """
     entries = (redis or client()).xrevrange(key(run_id), count=1)
     return entries[0][0] if entries else "0-0"
+
+
+def read(run_id: str, after: str, block_ms: int = 1_000, count: int = 100,
+         redis: Redis | None = None) -> list[tuple[str, dict]]:
+    """Block briefly for entries after `after`. Empty list when nothing arrived in time.
+
+    Blocking rather than polling, and **briefly** rather than forever: the socket has to wake
+    up on a quiet stream to notice that the run has finished. A six-hour STAR align emits
+    nothing while it runs, which is the same fact §17's `LOST` window is blunt about.
+    """
+    streams = (redis or client()).xread({key(run_id): after}, count=count, block=block_ms)
+    return streams[0][1] if streams else []

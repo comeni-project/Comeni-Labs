@@ -4,11 +4,12 @@ Every body here is `extra="forbid"`, which is what makes an unexpected field a 4
 a field silently ignored — and the field somebody would try is a path.
 """
 
+import asyncio
 import secrets
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
 
 from wiener_api import db, jobs, repository
@@ -151,3 +152,47 @@ def events(run_id: str, after: int = -1, limit: int = 200) -> EventPage:
         cursor=page[-1].seq if page else after,
         stream_id=stream.last_id(run_id),
     )
+
+
+TERMINAL = {"succeeded", "failed", "cancelled", "lost"}
+
+
+@router.websocket("/runs/{run_id}/stream")
+async def tail(socket: WebSocket, run_id: str) -> None:
+    """The live tail, resumed from where a page of the record ended.
+
+    **Closes when the run is terminal AND the stream is drained**, never on the first terminal
+    event: §4.3 finding 3 is that `error` arrived *after* `completed`, so a socket that hangs
+    up on the first one shows a failed run as successful and then goes quiet.
+
+    The `from` query parameter is the `stream_id` the events page handed over (§7.2). Absent,
+    it starts at the tail's current end rather than replaying — a subscriber with no page
+    behind it asked to watch, not to catch up.
+    """
+    resume = socket.query_params.get("from") or "$"
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            await socket.close(code=4404)
+            return
+
+    await socket.accept()
+    try:
+        while True:
+            entries = await asyncio.to_thread(
+                stream.read, run_id, resume, block_ms=1_000, count=100
+            )
+            for entry_id, fields in entries:
+                resume = entry_id
+                await socket.send_text(fields["json"])
+
+            if not entries:
+                # Drained. Only now does a terminal phase mean the run is over — the phase is
+                # read from the projection rather than from the last event, because the fold
+                # is what decides terminality and it takes both events into account.
+                with db.session_scope() as session:
+                    row = repository.run(session, settings.lab_id, run_id)
+                    if row is not None and row.phase in TERMINAL:
+                        await socket.close(code=1000)
+                        return
+    except WebSocketDisconnect:
+        return
