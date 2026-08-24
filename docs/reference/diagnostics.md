@@ -186,3 +186,10 @@ decline to curate one.
 | `MA0004` | the model's answer did not match the shape it was asked for |
 | `MA0005` | the model picked a value it was not offered |
 | `MA0006` | the model's answer was longer than the field allows |
+
+## Wiener — what may enter
+
+| Code | Says |
+|---|---|
+| `MW0001` | `nf-weblog` sent an event kind Wiener does not declare — refused, never ignored |
+| `MW0002` | an event kind only Wiener may author arrived from the network — refused |

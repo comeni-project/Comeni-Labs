@@ -177,7 +177,10 @@ def test_a_wire_lands_on_the_port_the_canvas_draws(spine):
     The two agree only when the wired count equals the declared count, which is almost never.
     Both formulas are the same `portX(width, count, i)`; what differed was the `count`.
     """
-    from mendel_compiler.layout import _port_x, of
+    # `_port_x` moved to dag-core on 2026-08-24 with the rest of the arithmetic; `of`
+    # stays here because it is the adapter. The assertions below are unchanged.
+    from dag_core.layout import _port_x
+    from mendel_compiler.layout import of
 
     declared = {
         "a": ([], ["out"]),

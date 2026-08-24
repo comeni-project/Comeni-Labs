@@ -1,0 +1,141 @@
+{
+  "uid": "wiener-where-time-goes",
+  "title": "Wiener \u00b7 Where the time goes",
+  "description": "Per process, not per task \u2014 a 400-task run has 400 traces and nobody reads 400 rows. **The maximum is what kills a run and the mean is what hides it.**",
+  "tags": [
+    "wiener",
+    "runs"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Slowest processes \u2014 p50, p95 and worst",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process, count() AS tasks,\n       round(quantile(0.5)(Duration)/1e9, 1) AS \"p50 s\",\n       round(quantile(0.95)(Duration)/1e9, 1) AS \"p95 s\",\n       round(max(Duration)/1e9, 1) AS \"worst s\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process ORDER BY \"worst s\" DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No tasks in this window."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worst s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#CC4B2C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50 s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2C6E49"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "Queue wait \u2014 the number that explains a slow run on a cluster",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       round(max(toFloat64OrZero(SpanAttributes['wiener.task.queue_wait_ms']))) AS \"worst wait ms\",\n       round(avg(toFloat64OrZero(SpanAttributes['wiener.task.queue_wait_ms']))) AS \"mean wait ms\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process ORDER BY \"worst wait ms\" DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No queue wait recorded. It reads zero on the local executor \u2014 there is no queue."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worst wait ms"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B77B2B"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

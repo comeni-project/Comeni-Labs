@@ -1,0 +1,178 @@
+{
+  "uid": "wiener-where-capacity-goes",
+  "title": "Wiener \u00b7 Where the capacity goes",
+  "description": "Asked against used, worst case kept. A bare peak_rss means nothing without what was requested \u2014 over-allocation is the commonest waste in bioinformatics.",
+  "tags": [
+    "wiener",
+    "runs"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Memory \u2014 asked against peak",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       formatReadableSize(max(toUInt64OrZero(SpanAttributes['wiener.task.memory_asked_bytes']))) AS asked,\n       formatReadableSize(max(toUInt64OrZero(SpanAttributes['wiener.task.memory_peak_bytes']))) AS peak,\n       round(100 * max(toUInt64OrZero(SpanAttributes['wiener.task.memory_peak_bytes']))\n                 / max(toUInt64OrZero(SpanAttributes['wiener.task.memory_asked_bytes'])), 1) AS \"% of ceiling\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process\nHAVING max(toUInt64OrZero(SpanAttributes['wiener.task.memory_asked_bytes'])) > 0\nORDER BY \"% of ceiling\" DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run reported memory. A pipeline built before resource labels asks for nothing, and a run launched without trace.enabled reports nothing."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "% of ceiling"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#CC4B2C"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "CPU \u2014 cores asked against cores used",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       max(toUInt64OrZero(SpanAttributes['wiener.task.cpus_asked'])) AS \"cores asked\",\n       round(max(toFloat64OrZero(SpanAttributes['wiener.task.cpu_used_pct'])) / 100, 1) AS \"cores used\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process ORDER BY \"cores asked\" DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run reported CPU. Launch with trace.enabled \u2014 Wiener's site.config does."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cores used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2C6E49"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cores asked"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#7C8783"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "Which step moves the data",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       formatReadableSize(sum(toUInt64OrZero(SpanAttributes['wiener.task.read_bytes']))) AS read,\n       formatReadableSize(sum(toUInt64OrZero(SpanAttributes['wiener.task.write_bytes']))) AS written\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process ORDER BY sum(toUInt64OrZero(SpanAttributes['wiener.task.read_bytes'])) DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run reported I/O."
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

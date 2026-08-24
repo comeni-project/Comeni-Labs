@@ -1,0 +1,15 @@
+# Provisioned, so nobody clicks it into existence and then cannot say what they clicked.
+apiVersion: 1
+datasources:
+  - name: ClickHouse
+    uid: wiener-clickhouse
+    type: grafana-clickhouse-datasource
+    isDefault: true
+    jsonData:
+      host: clickhouse
+      port: 9000
+      protocol: native
+      username: otel
+      defaultDatabase: otel
+    secureJsonData:
+      password: otel

@@ -253,6 +253,7 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
         ]
     return [
         "    test {",
+        SMOKE_LIMITS,
         "        // A smoke test on a small public dataset. It proves this pipeline runs",
         "        // end to end and produces output; it does not prove the analysis is",
         "        // correct, and it is not a substitute for the laboratory validating it.",
@@ -372,17 +373,100 @@ def _directive_scope(step: Step) -> list[str]:
     return lines
 
 
+SMOKE_LIMITS = (
+    "        // A smoke profile runs tiny data, so it caps what the labels ask for. nf-core's\n"
+    "        // own test config does exactly this. **A cap is not a request**: the process still\n"
+    "        // asks for what its label says, and `resourceLimits` is Nextflow clamping it to\n"
+    "        // what is here — which is why a real run gets its ceiling from `-c site.config`\n"
+    "        // and never from the artifact.\n"
+    "        process.resourceLimits = [ cpus: 4, memory: 12.GB, time: 1.h ]"
+)
+"""Without this the labels below stop every smoke run dead: `process_high` asks for 72 GB and
+`STAR_GENOMEGENERATE` carries that label, so `mendel build --gate test` failed with
+`Process requirement exceeds available memory -- req: 72 GB; avail: 31.3 GB`.
+
+**Found by `make verify` rather than by thinking**, which is the reason `CLAUDE.md` names
+`emit.py` as one of the six files where `make check` is not enough.
+"""
+
+
+RESOURCE_LABELS: list[tuple[str, list[str]]] = [
+    ("process_single", ["cpus   = { 1                   }",
+                        "memory = { 6.GB  * task.attempt }",
+                        "time   = { 4.h   * task.attempt }"]),
+    ("process_low", ["cpus   = { 2     * task.attempt }",
+                     "memory = { 12.GB * task.attempt }",
+                     "time   = { 4.h   * task.attempt }"]),
+    ("process_medium", ["cpus   = { 6     * task.attempt }",
+                        "memory = { 36.GB * task.attempt }",
+                        "time   = { 8.h   * task.attempt }"]),
+    ("process_high", ["cpus   = { 12    * task.attempt }",
+                      "memory = { 72.GB * task.attempt }",
+                      "time   = { 16.h  * task.attempt }"]),
+    ("process_long", ["time   = { 20.h  * task.attempt }"]),
+    ("process_low_memory", ["memory = { 1.GB   * task.attempt }"]),
+    ("process_high_memory", ["memory = { 200.GB * task.attempt }"]),
+]
+"""What a labelled process asks for. **nf-core's `conf/base.config`, quoted rather than
+invented** — every vendored module carries a `label 'process_*'` and this is the mapping the
+ecosystem reads it against.
+
+**A tier-2 convention**: a documented default, nobody's judgement, and it says so in the emitted
+comment. Nextflow matches these against the label in the module's own `main.nf`, so this is the
+one part of the config that needs to know nothing about which steps are in the pipeline.
+
+**Why it is not optional.** Without it Nextflow reports `memory: null` for every task, which
+makes the asked-versus-used comparison — the thing that catches an OOM before it happens, and
+the thing over-allocation is measured with — a number against a blank. A pipeline that requests
+nothing cannot be over-provisioned or under-provisioned. Found on 2026-08-24 by querying a real
+run's spans and seeing one half of every pair empty.
+
+**`task.attempt` is the multiplier and it is the point**: a retry asks for more than the try
+that failed, which is what makes `errorStrategy` worth having.
+"""
+
+
+RETRY_ON_RESOURCE = [
+    "    // Retry once on the exit codes that mean *not enough of something* — 137 is the OOM",
+    "    // kill, 130-145 are the signals, 104 is a Slurm/LSF resource refusal. Anything else",
+    "    // is a real failure and retrying it just costs time. nf-core's conf/base.config.",
+    "    //",
+    "    // **This is what makes `* task.attempt` above mean anything.** Without a retry the",
+    "    // multiplier can never fire and the label's second attempt is decoration: a task",
+    "    // killed for memory asks for the same amount again, forever.",
+    "    errorStrategy = { task.exitStatus in ((130..145) + 104) ? 'retry' : 'finish' }",
+    "    maxRetries    = 1",
+]
+"""A convention, and half of a pair: the labels say what a retry asks for and this is what
+causes one. Emitting the first without the second is what shipped on 2026-08-24 for an hour —
+found by a board panel that was empty because nothing in any run had ever reached attempt 2."""
+
+
+def _label_scope() -> list[str]:
+    lines = [
+        "    // Resource requests by label, from nf-core's conf/base.config. A CONVENTION:",
+        "    // every nf-core module declares `label 'process_*'` and this is what the",
+        "    // ecosystem reads it against. Nextflow matches these against the module's own",
+        "    // label, so nothing here depends on which steps this pipeline has.",
+        "    //",
+        "    // A site caps these with `process.resourceLimits` in its own config — how big",
+        "    // the machine is, is not a fact about the pipeline.",
+    ]
+    lines += RETRY_ON_RESOURCE
+    for label, directives in RESOURCE_LABELS:
+        lines.append(f"    withLabel: {label} {{")
+        lines += [f"        {directive}" for directive in directives]
+        lines.append("    }")
+    return lines
+
+
 def _process_scope(pipeline: Pipeline) -> list[str]:
     """`ext.*` and directives per process, for modules that declare flags or carry settings."""
     blocks: list[str] = []
     for step in pipeline.steps:
         blocks += _ext_scope(step)
         blocks += _directive_scope(step)
-    if not blocks:
-        return []
-    # Sorted and deduplicated: a contract used twice must not emit its block twice, and
-    # byte-identical output is a hard requirement.
-    return ["process {", *sorted(set(blocks)), "}", ""]
+    return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
 
 
 def emit_config(pipeline: Pipeline) -> str:
@@ -401,7 +485,7 @@ def emit_config(pipeline: Pipeline) -> str:
     lines += [f"    {name} = null" for name in params]
     lines += ["}", ""]
     lines += _process_scope(pipeline)
-    lines += ["profiles {", "    stub_data {"]
+    lines += ["profiles {", "    stub_data {", SMOKE_LIMITS]
     for name in params:
         pattern = (
             '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'

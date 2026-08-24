@@ -1,6 +1,6 @@
 # Alembic writes these from its own templates. Linting generated files means either
 # hand-editing every migration to satisfy a style it did not choose, or a noqa storm.
-exclude = ["packages/mendel-api/migrations"]
+exclude = ["packages/mendel-api/migrations", "packages/wiener-api/migrations"]
 
 line-length = 100
 target-version = "py312"

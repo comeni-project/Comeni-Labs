@@ -1,0 +1,178 @@
+{
+  "uid": "wiener-wrong-now",
+  "title": "Wiener \u00b7 Is anything wrong now",
+  "description": "Runs in flight, what failed, and what stopped talking. The one board you look at without being asked to.",
+  "tags": [
+    "wiener",
+    "runs"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Runs in flight",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT toStartOfMinute(TimeUnix) AS time, sum(Value) AS \"in flight\"\nFROM otel.otel_metrics_sum\nWHERE MetricName = 'cicd.pipeline.run.active' AND $__timeFilter(TimeUnix)\nGROUP BY time ORDER BY time",
+          "format": 0,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run is executing."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "in flight"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B77B2B"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "Failures",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT toStartOfHour(TimeUnix) AS time,\n       Attributes['error.type'] AS \"why\", sum(Value) AS runs\nFROM otel.otel_metrics_sum\nWHERE MetricName = 'cicd.pipeline.run.errors' AND $__timeFilter(TimeUnix)\nGROUP BY time, why ORDER BY time",
+          "format": 0,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run has failed in this window."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "task_failed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#CC4B2C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no_events"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#7C8783"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "How every run ended",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanAttributes['cicd.pipeline.name'] AS pipeline,\n       SpanAttributes['cicd.pipeline.result'] AS result,\n       count() AS runs,\n       round(avg(Duration)/1e9) AS avg_seconds\nFROM otel.otel_traces\nWHERE ParentSpanId = '' AND $__timeFilter(Timestamp)\nGROUP BY pipeline, result ORDER BY runs DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No run has finished in this window."
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

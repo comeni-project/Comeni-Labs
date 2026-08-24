@@ -40,3 +40,18 @@ services:
 
   web:
     restart: unless-stopped
+
+  wiener-postgres:
+    restart: unless-stopped
+    ports: !reset []   # reachable on the compose network only
+
+  wiener-api:
+    restart: unless-stopped
+    # No `ports` reset: it publishes none in the base either. nginx is the way in.
+    command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"
+
+  wiener-ingest:
+    restart: unless-stopped
+
+  wiener-worker:
+    restart: unless-stopped

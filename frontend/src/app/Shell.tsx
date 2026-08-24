@@ -68,6 +68,7 @@ export function Shell() {
         <div className="flex gap-[2px] ml-2">
           <Tab to="/build">Builder</Tab>
           <Tab to="/forge/queue">Forge</Tab>
+          <Tab to="/runs">Runs</Tab>
         </div>
 
         <span className="w-px h-5 bg-line" />

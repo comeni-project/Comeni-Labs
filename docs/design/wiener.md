@@ -538,6 +538,21 @@ discover it.
 span**, because §5.1 keeps attempts as history and a retry that succeeded after two failures should
 look like three spans, not one. The mapping is a pure function over `RunState`.
 
+**The attribute names are OpenTelemetry's CI/CD conventions, not Wiener's** — researched
+2026-08-24, [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md),
+which closes §17's last open question. A run is `cicd.pipeline.run.id` on a `SERVER` span, an
+attempt is a `cicd.pipeline.task.run.*` child of kind `INTERNAL`, the exit code is
+`process.exit.code`, and the five `cicd.pipeline.run.*` metrics are reused verbatim — including
+`cicd.pipeline.run.active`, which is the fleet gauge §2 had no mechanism for.
+
+**There is no batch-job convention and there has not been one since 2021**, so the six facts
+that genuinely have no standard name stay `wiener.*`: the attempt index, and the four
+asked-versus-got pairs plus queue wait. That list is short *because* the research happened —
+the first draft of this section implied a namespace and the answer is six attributes.
+
+The table below is the shape; the mapping tables, including how `RunPhase.LOST` becomes
+`timeout` and why `CACHED` becomes `skip`, are in the note.
+
 | span | from |
 |---|---|
 | name | `process` |
@@ -551,6 +566,24 @@ look like three spans, not one. The mapping is a pure function over `RunState`.
 `tag` are exactly the fields a tracing backend would happily index and retain, and §4.3's finding 4
 is why that has to be a rule rather than an oversight nobody made. The same marking that gates the
 AI (§10.2) gates the exporter, and one test covers both.
+
+### 8.1 The five boards
+
+Across-runs views, and **they live in the backend rather than in the SPA** — which is what keeps
+§9.4 true: the run page is two views of one `RunState` and gains no third. These only mean
+anything once there is more than one run to compare, and the store that can compare them is
+already in the compose stack.
+
+| board | answers | built from |
+|---|---|---|
+| **Is anything wrong now** | active runs by state, failures today, runs gone `lost` | `cicd.pipeline.run.active`, `cicd.pipeline.run.errors` |
+| **Where the time goes** | per-process duration and queue wait — p50, p95, max | task spans |
+| **Where the capacity goes** | asked versus used per process, worst case kept | the six `wiener.*` attributes |
+| **What breaks** | exit codes per process over time, retries, repeat signatures | `process.exit.code`, `wiener.task.attempt` |
+| **This run** | the run page — built in phase 2, and the reason there are four boards here and not five |
+
+**Keep the maximum, never the mean**: the maximum is what kills a run and the mean is what
+hides it (§9.3).
 
 **It buys four things Wiener would otherwise build**: a waterfall over a 400-task run, aggregation
 across runs, a retention policy, and alerting. **And the fleet level gets a mechanism** — §2's third
@@ -569,9 +602,18 @@ pre-empts the same failure for free.
 model one because telemetry is fire-and-forget — so **self-hosted, and off by default**, matching
 `CLAUDE.md`'s existing stance. And the dev stack grows by two containers.
 
-**The backend is named but not depended on.** SigNoz (Apache-2.0, ClickHouse-backed,
-OpenTelemetry-native) is the default because one store for traces, logs and metrics is one thing to
-operate. Wiener speaks OTLP, so an operator running Grafana or Jaeger points it there.
+**The backend is named but not depended on**, and on 2026-08-24 that sentence earned itself.
+SigNoz (Apache-2.0, ClickHouse-backed, OpenTelemetry-native) is still the default, because one
+store for traces, logs and metrics is one thing to operate — but **it is not in
+`docker-compose.yml` and will not be**: SigNoz deprecated its bundled Compose files in v0.130.0
+and installs through Foundry, a CLI that renders and runs its own stack rather than composing
+into somebody else's.
+
+So the backend is **something Wiener points at** — `WIENER_OTLP_ENDPOINT`, unset by default —
+rather than something this repository brings up. `ops/telemetry/README.md` is how to run one;
+production is Kubernetes, where the question does not arise at all. An operator running Jaeger
+or Grafana over ClickHouse points Wiener there and nothing in `spans()` or the five metrics
+knows the difference.
 
 ---
 
@@ -600,6 +642,57 @@ run state**:
 makes about the builder: the resolver searches for edges, the builder checks edges it is handed,
 and Wiener animates edges that already exist. No new declaration, no second layout engine, and a
 graph that cannot disagree with the pipeline because it *is* the pipeline's layout.
+
+### 9.1.1 Where the layout comes from — decided 2026-08-24
+
+**`layout.py` lives in `mendel-compiler`, and §3.3 forbids Wiener importing it.** That is not an
+obstacle to route around; it is the arrow doing its job, and it was unguarded until the day this
+was written — `test_the_two_halves_share_only_comeni_core` now refuses both directions, and both
+were watched failing.
+
+Three ways out were considered and the third is the decision.
+
+- **The artifact carries its layout.** Emit coordinates into `pipeline.yml` or a sidecar at
+  build time. Rejected: layout is a *rendering* concern with pixel units in it, and
+  `pipeline.yml` is the record of decisions. A file that pins contracts by digest should not
+  also pin where a box was drawn.
+- **The browser fetches the layout from Mendel.** Legal — the browser already talks to both —
+  but it makes the run graph unavailable to anything that is not a browser, and it makes
+  Wiener's graph depend on a Mendel deployment being reachable, which contradicts §12.1's
+  *"a laboratory can run Wiener against a pipeline Mendel never built"*.
+- **Extract the layout into a package that is neither half.** ✅ **The operator's call:
+  *"no point in building stuff if we can't reuse it."*** A DAG layout takes nodes and edges and
+  returns positions; nothing about it is Mendel's. It becomes a third shared package beside
+  `comeni-core` — working name **`dag-core`** — imported by `mendel-compiler` for the builder
+  and by `wiener-core` for the run graph, with **one implementation and one set of golden
+  tests**, so the two canvases cannot drift apart the way two layout engines would.
+
+**The arrow guard already accommodates this and needed no change**, which is corroboration
+rather than coincidence: it forbids `mendel_*` and `wiener_*` importing each other and says
+nothing about a package that is neither, exactly as `comeni-core` relies on. A shared package is
+the shape the rule was written to allow.
+
+**It is pure**, and should join invariant 1 when it lands: laying out a graph has no more need
+of a socket than folding events does.
+
+**What phase 3 must decide before it starts**: whether the extraction is a *lift* — the same
+functions, moved, with `mendel-compiler` re-exporting so 3C's callers do not change — or a
+redesign of the layout API.
+
+**Read against the code on 2026-08-24, a pure lift does not reach.** `layout.of(ir: PipelineIR,
+ports)` takes a `PipelineIR`; it imports nothing but `comeni_core.plan.ir` and stdlib, and it
+has exactly one caller (`mendel_api.services.build`), so the move itself is trivial. What is not
+trivial is that **Wiener has no `PipelineIR`** — it has the artifact, and `pipeline.yml` is a
+`Pipeline`: steps and channels, which are a DAG, but not that type. Deriving an IR from a
+`Pipeline` would mean reaching for `mendel_resolver.materialise`, which §3.3 forbids.
+
+So the extraction is a **lift plus one seam**: `dag-core` lays out a neutral graph — nodes,
+edges, port counts — and each half supplies its own adapter, `PipelineIR →` on Mendel's side and
+`Pipeline →` on Wiener's. The layout arithmetic, which is all of it, moves unchanged.
+
+**The safety net is unchanged and is why this is still a lift**: the builder's canvas must come
+out pixel-identical, which is a golden test that already exists, and the emitted `.nf` must be
+byte-identical, which `make verify` already checks.
 
 ### 9.2 What an edge may honestly show
 
@@ -633,10 +726,23 @@ than readings — a bare `peak_rss` means nothing without what was asked for.
 
 | | asked | got | why it matters |
 |---|---|---|---|
-| **memory** | `memory` | `peak_rss` | the OOM story, *before* the OOM. A process at 94% of its ceiling is the next exit 137 |
+| **memory** | `memory` | `peak_rss` | the OOM story, *before* the OOM. A process at 94% of its ceiling is the next exit 137. **`memory` is empty today** — see below |
 | **cpu** | `cpus` | `%cpu` | over-allocation is the commonest waste in bioinformatics: 8 cores requested, 100% of one used |
 | **time** | `duration` | `realtime` | the difference is **queue wait**. On a cluster that is the number that explains a slow run |
 | **i/o** | — | `read_bytes` · `write_bytes` | which step actually moves the data |
+
+**The `asked` half was empty until 2026-08-24, and closing it was a Mendel change.** The
+emitted `nextflow.config` carried `ext.args` and no resource directive at all, so Nextflow
+reported `memory: null` and the comparison had one side — a pipeline that requests nothing
+cannot be over-provisioned or under-provisioned. It now emits nf-core's `conf/base.config`
+label mappings, which is a **convention** rather than a judgement: every vendored module already
+declares `label 'process_*'` and this is what the ecosystem reads it against.
+
+**A cap is not a request**, and the split matters: the artifact says what a process *asks for*,
+and what a machine *has* is a site fact — `process.resourceLimits`, written into `site.config`
+by Wiener's launcher from the host's real cpu count and memory. The emitted `test` and
+`stub_data` profiles carry a modest cap of their own, because a smoke run has no site config and
+`process_high` asking for 72 GB stopped `mendel build --gate test` dead.
 
 **Per process, not per task.** A 400-task run has 400 traces and nobody reads 400 rows; the
 dashboard aggregates by process and keeps the outlier — *STAR_ALIGN: 12 tasks, peak 61 GB of 64
@@ -840,6 +946,22 @@ vocabulary is what makes the audit finite: a reviewer checks a list of verbs, no
 Wiener's storage; Wiener owns it from then on. **No shared volume, no shared environment variable,
 no shared id.**
 
+**A submission fills the artifact's declared holes, and the artifact is the schema** (decided
+2026-08-24). This document said `samplesheet`, and a real run needs three values: the emitted
+config carries `params { fasta = null; gtf = null; input = null }`, and Mendel emits all three
+the same way because a `Goal` says *`have: genome.fasta`* — a type, not a file. So the rule is:
+**Mendel emits every value it can justify and a placeholder for every value only the laboratory
+can supply; Wiener fills the placeholders.** `declared_holes()` reads the nulls out of the
+artifact, so an unknown key and a missing one are both refused at submit — for any pipeline,
+including one Mendel never built. The values reach Nextflow through `-params-file`, which
+carries a list where a spliced `--input` could not, and no table holds them (§7.1): they ride
+to the launcher as a job argument, which is the right lifetime for run data.
+
+It costs one thing, said plainly: a value filled at submit has no `why:`, because it is data
+rather than a decision. If a reference genome ever becomes a resolvable decision — a curated
+`GRCh38` with a citation — Mendel emits a value instead of `null`, the hole disappears, and the
+map stops carrying that key with **no change to this API**.
+
 ```
 Mendel side                    Wiener side
 -----------                    -----------
@@ -869,12 +991,37 @@ this property and pretending otherwise would be the dangerous version. What foll
 
 - **Wiener's trust boundary is *who may submit*.** Authentication is a requirement of W1, not a
   later hardening pass — which is a genuine difference from `mendel-api`, where `who` is attribution
-  and says so on three tables.
+  and says so on three tables. **Met on 2026-08-24 by one shared bearer token**
+  (`WIENER_API_TOKEN`), deliberately the smallest check that is real: no user table, no session,
+  no reset flow. Unset means open and the API logs that at startup, because an unconfigured
+  install is the one most likely to exist. Per-person identity is
+  [#83](https://github.com/comeni-project/Comeni-Labs/issues/83).
 - **The artifact is content-addressed on upload** (`digest`), so *what ran* is answerable later, and
   a submission that claims to be a gated pipeline can be checked against `pipeline.yml`'s own
   recorded digests.
 - **Write mode (§11) gates additionally on internal-network origin**, off by default. The verb
   vocabulary is what makes that gate meaningful: a shell behind an IP check is still a shell.
+- **The worker holds the host's Docker socket, and the token is what stands in front of it**
+  (decided 2026-08-24). Nextflow starts a container per task and Wiener's worker is itself a
+  container, so it needs a runtime; the socket gives it one and gives it root-equivalent access
+  to the host, because a container can mount `/`. **Whoever can submit a run can therefore reach
+  the machine.**
+
+  That is every CI runner's posture — Jenkins agents, GitLab runners — and the rule is the same:
+  *the runner is as trusted as what it runs*, which here is the laboratory's own gated pipelines
+  from a registry it curates. It is written down rather than left to be found, and the worker
+  says it out loud at startup when the socket is mounted **and** no token is set, because either
+  alone is a choice and the pair is the incident.
+
+  **It disappears in W5.** With `-profile k8s` or `awsbatch`, Nextflow submits jobs to a
+  scheduler and starts no local containers, so this is a `local`-executor concession rather than
+  an architectural one.
+
+  **Apptainer was considered and rejected for the MVP.** It is rootless and daemonless and would
+  avoid all of the above — and it needs unprivileged user namespaces, `/dev/fuse` and a seccomp
+  exception, which works on one developer's host and not on an Ubuntu 24.04 one. Trading a
+  labelled risk for *"it does not work on my machine"* is the wrong trade for a tool whose point
+  is that it works anywhere.
 
 **Wiener becomes independently useful**, and that is a feature rather than a side effect — a
 laboratory can run a pipeline Mendel never built, which is a far stronger position than a component
@@ -888,7 +1035,7 @@ that only works downstream of us, and it is invariant 13's spirit applied one le
 POST   /api/artifacts              upload a gated pipeline directory -> {artifact_id, digest}
 GET    /api/artifacts/{id}         what it is: pipeline digest, gate verdict, process count
 
-POST   /api/runs                   {artifact_id, samplesheet, executor, policy_id} -> {run_id}
+POST   /api/runs                   {artifact_id, params, executor, policy_id} -> {run_id}
 GET    /api/runs                   the board: phase, counts, elapsed — one row per run
 GET    /api/runs/{id}              RunState, projected
 GET    /api/runs/{id}/tasks        the task table, paged
@@ -904,10 +1051,29 @@ POST   /api/runs/{id}/ask          the chat panel
 
 ### 13.1 The ingest endpoint is not a public route
 
-`POST /events/{run_id}` is written to by the head process, which Wiener launched, over loopback. It
-is **bound separately from the public app** and carries a per-run secret in the URL that Wiener
-generated at launch — so an ingest route is not something an unauthenticated client can post to just
-because it exists.
+`POST /events/{run_id}/{secret}` is written to by the head process, which Wiener launched. It is
+**bound separately from the public app** and carries a per-run secret in the URL that Wiener
+generated at launch — so an ingest route is not something an unauthenticated client can post to
+just because it exists.
+
+**It is its own service with no published port — amended 2026-08-24, and the first wording said
+"over loopback".** That was one implementation of *the internet cannot reach this*; an
+unpublished port on the compose network is another, and the substance — off the public app,
+a per-run secret — is unchanged. Two facts forced the move, both checked rather than assumed:
+
+- **The head process moves.** `kuberun` is deprecated and the production Kubernetes pattern is
+  a pod that runs Nextflow, so in W5 the head is not a child of Wiener's worker and `127.0.0.1`
+  reaches nothing. Topology that only holds while the head is a child is topology that gets
+  rewritten under pressure.
+- **`nf-weblog` neither retries nor flushes on exit** (`nextflow-io/nextflow#1010`), so any
+  moment ingest is unavailable loses events *permanently*. It must have the fewest reasons to
+  restart of anything in the stack — the opposite of the container that runs pipeline code and
+  is redeployed whenever that changes. It also means the events most likely to be lost are the
+  last ones, which is exactly why §5.1 makes terminality a set and §17 has a `LOST` window.
+
+**The token on the public app is not on this one.** Nextflow cannot be given a bearer header,
+so the per-run secret is the whole credential here — and putting a shared token in front of
+ingest would mean handing it to every head process or losing every event.
 
 That separation is written down because the alternative is the exact shape of the defect Plan 3A
 phase 6 found: *the forge's mounted transport takes filesystem paths from an unauthenticated
@@ -938,6 +1104,11 @@ run fails  ->  signature  ->  recurs across runs  ->  a proposal into the FORGE 
                                                               │
                                                  the next `mendel build` resolves better
 ```
+
+**A signature can carry its decision.** `pipeline.yml` is in the artifact Wiener owns and
+`Pipeline` is a `comeni-core` type, so a failure can name the tier, the rule and the contract
+that produced the step — which turns a proposal from *"STAR_ALIGN fails sometimes"* into *"the
+rule setting its memory is wrong above 3 Gb"*.
 
 `STAR_ALIGN` exiting 137 across nine runs on genomes over 3 Gb is exactly the observed-data premise
 a tier-3 rule encodes — and Mendel is named for deriving laws from observed data. **Wiener never
@@ -1021,14 +1192,21 @@ as one nobody asked.
 | **`MAXLEN ~ 10000`** | **Ship the guess and measure it at Checkpoint 3.** Losing the tail is survivable — Postgres is the record and the browser re-pages — so the number becomes a measurement rather than staying a guess |
 | **The chat's history** | **A fifth table, `run_message`, argued for in §7.1.** It lands in W3; until then the four-table guard stays at four, so adding it early fails a test |
 
+| **The run graph's layout** | **A third shared package, `dag-core`** — §9.1.1, decided 2026-08-24. `layout.py` is `mendel-compiler`'s and §3.3 forbids Wiener importing it; extracting it is the only answer that keeps one implementation. The arrow guard needed no change to allow it, which is what a rule written for the right reason looks like |
+
 **Still genuinely open, and it is one:**
 
-- **The OTLP semantic conventions.** The operator's answer was **research them before inventing
-  `wiener.*` attributes** — OpenTelemetry has conventions for batch and job workloads, and mapping
-  onto them is what makes off-the-shelf dashboards and alerting work rather than needing a bespoke
-  query for everything. **Nobody has done that research**, and conventions that half-fit are worse
-  than clean custom names, so the task is *find out which parts genuinely fit*. It belongs before
-  phase 3 writes its first span, and it is cheap then and expensive after.
+- ~~**The OTLP semantic conventions.**~~ **Closed 2026-08-24** —
+  [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md).
+  The premise was half wrong in a useful way: **there is no batch or job convention**, and
+  `opentelemetry-specification#1347` has been open since January 2021 with no maintainer
+  conclusion, so waiting for one is waiting for nothing. What does exist is the **CI/CD** group
+  — Release Candidate, and a pipeline that runs named tasks which succeed or fail on workers is
+  the same shape as a Nextflow run. Adopted: `cicd.pipeline.*` for the run, `cicd.pipeline.task.run.*`
+  for each attempt, `process.exit.code` for the exit, and the five CI/CD metrics verbatim. Six
+  facts have no standard name and stay `wiener.*`. One convention is deliberately refused:
+  `process.command_line` exists and `trace.script` is a lab string, so the field stays empty —
+  adopting a convention is not adopting every field in it.
 
 - **The product's visual register — an operator verdict, 2026-08-23.** *"The website until now is
   very boring and stale, even the graphs are not very visually appealing — but for an MVP it is

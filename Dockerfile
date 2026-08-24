@@ -22,14 +22,28 @@ COPY packages/mendel-compiler/pyproject.toml packages/mendel-compiler/README.md 
 COPY packages/mendel-forge/pyproject.toml packages/mendel-forge/README.md packages/mendel-forge/LICENSE ./packages/mendel-forge/
 COPY packages/mendel-ai/pyproject.toml packages/mendel-ai/README.md packages/mendel-ai/LICENSE ./packages/mendel-ai/
 COPY packages/mendel-api/pyproject.toml ./packages/mendel-api/
+# The four that arrived with Wiener on 2026-08-24. `dag-core` is not optional for
+# `mendel-api`: `mendel-compiler` depends on it, so a missing line here fails the
+# build with `Distribution not found`, which is how this was found.
+COPY packages/dag-core/pyproject.toml ./packages/dag-core/
+COPY packages/wiener-core/pyproject.toml ./packages/wiener-core/
+COPY packages/wiener-api/pyproject.toml ./packages/wiener-api/
 
 # **`--package mendel-api`, not the root project.** The root depends on `mendel-ai`, and the
 # served API cannot reach the model path — invariant 3's three runtime AI points are all
 # unbuilt. Syncing the subset skips litellm and its stack, measured at 152MB.
-RUN uv sync --frozen --no-install-project --no-dev --package mendel-api
+# **`--all-packages`, not `--package mendel-api`.** One image serves both halves —
+# mendel-api, its worker, wiener-api, wiener-ingest and wiener-worker — because the
+# operator's constraint is that the whole stack comes up with one compose command,
+# and a second Dockerfile is a second place to keep a dependency pin honest.
+#
+# It was `--package mendel-api` and every Wiener container died on
+# `ModuleNotFoundError: No module named 'wiener_api'` — the compose file said
+# `build: .` and got an image that did not contain what it was asked to run.
+RUN uv sync --frozen --no-install-project --no-dev --all-packages
 
 COPY packages/ ./packages/
-RUN uv sync --frozen --no-dev --package mendel-api
+RUN uv sync --frozen --no-dev --all-packages
 
 
 FROM python:3.12-slim-bookworm AS runtime
@@ -49,6 +63,7 @@ FROM python:3.12-slim-bookworm AS runtime
 # why nothing noticed this image had no Nextflow at all.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git curl default-jre-headless \
+      docker.io \
  && curl -fsSL https://get.nextflow.io -o /usr/local/bin/nextflow \
  && chmod +x /usr/local/bin/nextflow \
  && rm -rf /var/lib/apt/lists/*

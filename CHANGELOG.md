@@ -17,7 +17,30 @@ Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
 
 ## [Unreleased]
 
+### wiener-core
+
+- **The package exists, and it is pure.** `wiener-core` joins invariant 1 — the static scan and
+  the runtime audit hook cover it exactly as they cover the three Mendel packages. A fold over
+  events has no legitimate need to open a socket, and it pays for itself where nobody planned:
+  the OpenTelemetry SDK is a network client, so the guard is what keeps the span *mapping* pure
+  and the *export* on the other side of the line. `docs/design/wiener.md` §3.1.
+- **`admit()` — the ingress allowlist.** Mendel declares what may leave; Wiener declares what
+  may enter. A weblog body becomes closed types and every undeclared field is dropped, so a
+  Nextflow upgrade adding a field is inert until somebody adds it in a diff. Held to
+  `tests/fixtures/weblog/failing-run.jsonl`, thirteen events from a real run.
+- **`EventKind.HEARTBEAT`, and `FROM_NEXTFLOW` is smaller than it.** Time enters the fold as an
+  event because `wiener-core` may not read a clock; `heartbeat()` is the only constructor and
+  `admit()` refuses one from the network.
+- **`LabString`** marks the fields a laboratory's own words reach — `name`, `script`, `workdir`,
+  `tag`. Structured fields, which is why "structured fields only" was never a privacy guarantee.
+
 ### comeni-core
+
+- **`EmittedBy.WIENER`**, so a code can name the package that raises it. The first member
+  naming a package outside Mendel.
+- **Two diagnostics, `MW0001`–`MW0002`**, and a new band `MW0001`–`MW0099` for Wiener's
+  ingest. `W` was reserved for Wiener when the bands were laid out; this is the first code to
+  use it.
 
 - **`SCHEMA_VERSION` 4 → 5. This breaks the artifact format**, and `0.2.0` rather than `1.0.0`
   is a judgement under `docs/guides/releasing.md`'s pre-1.0 paragraph: below 1.0.0 a `0.x.0`

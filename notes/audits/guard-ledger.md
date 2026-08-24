@@ -2574,3 +2574,184 @@ as extra columns on `gate_run` all pass it. The first two are out of reach of a 
 the third is the first row above, which is why the pair was added together. The cheap mistake —
 one plausible column on a table that already remembers a Nextflow invocation — is now the guarded
 one.
+
+---
+
+## Invariant 1 grows by a package — 2026-08-24
+
+**The first time `CLOSED_PACKAGES` has gained a whole package** rather than an import, so both
+halves were reverted: the guard that notices an unclassified package, and the guard that
+notices what a classified one imports.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_every_package_is_classified` | created `packages/wiener-core/` before classifying it | failed | `every package must be classified pure, banlist or explicitly impure — a package this file has never heard of is a package it is not guarding:` / `  on disk, unclassified: ['wiener-core']` / `  classified, not on disk: []` |
+| 2026-08-24 | `test_purity.py::test_pure_packages_import_nothing_impure` | added `import socket` to `wiener_core/__init__.py` | failed | `Pure packages must not import I/O or model libraries:` / `  packages/wiener-core/src/wiener_core/__init__.py imports socket` / `  packages/wiener-core/src/wiener_core/__init__.py imports socket, which is not on this package's allowlist` |
+
+**The second message says it twice, and that is the union of two rules rather than a repeat.**
+The first line is the global banlist — `socket` is refused to every pure package — and the
+second is this package's own allowlist. An import that is not banned outright but is absent from
+the allowlist prints only the second, which is what the next entry to this list will look like.
+
+**What is not guarded yet, and is the reason this package is on the list at all.** `datetime` is
+allowed for the class and must never be `datetime.now`: §6.1 of `docs/design/wiener.md` says the
+same events must replay to the same decisions, and the allowlist cannot express *this name but
+not that attribute of it*. `test_wiener_core_never_reads_a_clock` is Task 4's, and until it lands
+and is reverted here, this section is the weaker half of the claim.
+
+**The plan's Step 5 command selected nothing.** It read `pytest -k unclassified`, and the test is
+`test_every_package_is_classified` — "unclassified" appears only in the failure message. A step
+that runs no test and reports no failure is the vacuous pass this ledger exists to catch, found
+this time in a plan rather than in a guard.
+
+---
+
+## The clock, kept out of the fold — 2026-08-24
+
+`tests/test_no_clock.py`, Task 4. `docs/design/wiener.md` §6.1's claim is that the same events
+replay to the same decisions, and it dies the first week a clock is read inside `wiener-core`.
+The purity allowlist cannot hold it: `datetime` is on that package's list because `admit()`
+parses an ISO-8601 `utcTime`, and an allowlist works on module names rather than on attributes
+of them. So this is a separate scan, and it was reverted three ways.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_no_clock.py::test_wiener_core_never_reads_a_clock` | `from datetime import datetime` + `datetime.now()` in `policy.py` | failed | `wiener-core read a clock:` / `  policy.py:83 reads now` / `Time enters as data — a field on the event, or an explicit now_ms parameter…` |
+| 2026-08-24 | same | `import datetime` + `datetime.datetime.now()` | failed | `  policy.py:83 reads now` |
+| 2026-08-24 | same | `from time import monotonic` + `monotonic()` | failed | `  policy.py:82 imports time.monotonic` |
+
+**The second and third rows are why the guard was widened before it was ever committed.** The
+plan's version matched an `ast.Attribute` whose `.value` is a bare `ast.Name`, and that sees
+exactly one of the three spellings. Run against the other two it reports nothing:
+
+```
+CAUGHT  from datetime import datetime; datetime.now()
+MISSED  import datetime; datetime.datetime.now()
+MISSED  from time import monotonic; monotonic()
+```
+
+`datetime.datetime.now()` is the *ordinary* spelling after a plain `import datetime`, and the
+value there is another `Attribute` rather than a `Name`. A bare `monotonic()` has no attribute
+access at all, so no attribute rule can ever see it — the import is the only observable moment,
+which is why importing one of those names is itself the offence.
+
+**This is A1's shape in a new place.** That audit defeated the purity scan with `pathlib.os`, a
+chain the check could not see; this is the same blind spot, found before it shipped rather than
+after, because the revert was tried three ways instead of once.
+
+**What it still does not cover**, stated rather than implied: a clock reached through a name
+this file does not know — `os.times`, a C extension, a callable passed in as an argument. The
+last one is not a defect but the design: `now_ms` is a parameter, and a caller passing a live
+clock is `wiener-api` doing its job.
+
+---
+
+## Wiener's four tables, and the query that may not be written elsewhere — 2026-08-24
+
+Task 5. Four reverts, and the third is the one worth reading: **the guard the plan shipped
+would have passed it.**
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_wiener_models.py::test_the_tables_are_the_four_that_argued_for_themselves` | added a fifth model, `run_note` | failed | `the tables moved: ['run', 'run_artifact', 'run_event', 'run_note', 'run_task']. run_event is the record and run_task and run are projections of it with a rebuild path — a table that is neither needs an argument in docs/design/wiener.md §7.1 before it exists.` |
+| 2026-08-24 | `test_wiener_models.py::test_no_table_stores_a_samplesheet_s_contents` | added `input_path` to `run` | failed | `a table grew a column for a sample: ['run.input_path']. The samplesheet PATH reaches Wiener in the admitted started payload because Nextflow put it there; nothing copies it into a column of its own and nothing indexes it.` |
+| 2026-08-24 | `test_tenancy.py::test_no_query_is_built_outside_the_repository` | `session.get(Run, run_id)` in `routes/_probe.py` | failed | `a query on a tenant-scoped table was built outside repository.py:` / `  routes/_probe.py:7 — get()` |
+| 2026-08-24 | `test_tenancy.py::test_every_repository_function_takes_a_lab_id` | dropped `lab_id` from `repository.run` | failed | `run(session: Session, run_id: str) -> Run \| None — a repository function takes the session and the laboratory it is scoped to, in that order, so an unscoped query cannot be spelled.` |
+
+**The second message was rewritten before it was accepted.** It printed the whole column set
+and an `assert not ({...} & {...})` — true, unreadable, and silent about which column offended.
+It now names `run.input_path`. That is the third message in two days improved for the same
+reason, and the pattern is worth stating: **an assertion written to be correct and an assertion
+written to be read are different assertions**, and only the revert tells them apart.
+
+**Row three is A177's whole argument, demonstrated.** The plan's tenancy guard scanned for
+`select(...)` calls with a `Name` argument and a `lab_id` within three lines. `session.get(Run,
+run_id)` is a query on a tenant-scoped table, it is the obvious way to write `GET
+/api/runs/{id}`, and that guard **cannot see it** — no `select`, no `Name` argument, nothing to
+match. The rule is now about *where a query may live*, and the same revert fails loudly.
+
+**What it does not cover**, stated rather than implied: raw `text()` SQL, a query built by
+string concatenation, and anything reaching the database through a connection this scan cannot
+see. Postgres row-level security is the control that survives all three, and it is not built —
+§7.1's mechanism is a repository module and a scan, which is prevention by convention plus
+detection, not prevention by construction. Invariant 11's directory-by-construction note
+records the same trade going the other way.
+
+---
+
+## The two halves, and the clock that wakes a run — 2026-08-24
+
+Two gaps found by reading the spec against the code after Checkpoint 3, and closed before
+phase 3 could build on either.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_the_two_halves_share_only_comeni_core` | `import mendel_compiler.layout` in `wiener_api/repository.py` | failed | `the two halves of the product may share only comeni_core:` / `  packages/wiener-api/src/wiener_api/repository.py imports mendel_compiler` |
+| 2026-08-24 | same | `from wiener_core.state import RunState` in `mendel_api/questions.py` | failed | `  packages/mendel-api/src/mendel_api/questions.py imports wiener_core` |
+
+**`docs/design/wiener.md` §3.3 declared this rule and nothing built it.** Both reverts were run
+*before* the guard existed and both passed — green, twice — which is the difference between a
+rule written down and a rule held.
+
+**The claim it corrects was half wrong when first reported.** `wiener-core` importing
+`mendel_compiler` *does* already fail, because that package's allowlist is closed and
+`mendel_compiler` is not on it. What was unguarded is everything impure: `wiener-api` in one
+direction and every `mendel-*` package in the other. Saying "the arrow is unguarded" was
+therefore too broad, and the difference matters — a closed allowlist protects the pure half by
+construction, and only the impure half needed a rule.
+
+**Why it was urgent rather than tidy.** Phase 3 draws the run graph, `layout.py` lives in
+`mendel-compiler`, and the obvious way to get it is an import — from `wiener-api`, which is
+exactly where nothing was watching.
+
+**It is an AST scan rather than a substring one**, unlike its neighbour
+`test_no_pure_package_imports_an_impure_one`, which greps for `"mendel_forge" in text`. For an
+arrow between two halves that over-matching is not acceptable in either direction: a sentence
+naming the other half would fail the build, and a guard nobody trusts gets deleted.
+
+---
+
+## A fifth pure package, and the arithmetic that moved — 2026-08-24
+
+`dag-core`, phase 3 Task 1. The layout is shared by the builder's canvas and Wiener's run graph,
+so it is a package that is neither half (`docs/design/wiener.md` §9.1.1).
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_every_package_is_classified` | created `packages/dag-core/` before classifying it | failed | `every package must be classified pure, banlist or explicitly impure …` / `  on disk, unclassified: ['dag-core']` |
+
+**Its allowlist is the shortest on the list and does not include `comeni_core`.** The arithmetic
+moved unchanged; the one thing that changed is that it no longer reads a `PipelineIR`. A package
+that lays out a graph has no business knowing what a pipeline is, and the allowlist is where
+that is enforced rather than hoped for.
+
+**`__future__` was on the entry before it was written**, because the plan's own audit (A187)
+found `_outside_allowlist` has no exemption for it. That is the cheaper order — a finding in a
+plan costs a paragraph, and the same finding at execution costs a failing gate and a guess.
+
+**The move was proven rather than asserted**: `packages/mendel-compiler/tests/test_layout.py`
+was 13 passing before and 13 passing after, `make verify` is green, and the frontend's 113
+canvas tests are untouched. One line changed in that test file — `_port_x` is imported from
+`dag_core.layout` now — and no assertion did.
+
+---
+
+## The exporter, refused where it does not belong — 2026-08-24
+
+Phase 3 Task 6, and **§3.1 predicted this exact moment**: *"the OpenTelemetry SDK is a network
+client, so the purity guard makes it structurally impossible to put the exporter on the wrong
+side of the line. Nobody has to remember this."*
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_pure_packages_import_nothing_impure` | `from opentelemetry.sdk.trace import TracerProvider` in `wiener_core/spans.py` | failed | `Pure packages must not import I/O or model libraries:` / `  packages/wiener-core/src/wiener_core/spans.py imports opentelemetry.sdk.trace, which is not on this package's allowlist` |
+
+**A prediction that comes true is worth recording as loudly as one that does not.** The entry in
+`CLOSED_PACKAGES` was argued for on 2026-08-24 partly on this basis, and the argument was
+speculative at the time: a fold over events has no need of a socket, and the OTel payoff was
+named as a bonus nobody had tested. It has now been tested.
+
+**What it cost, which is the honest half**: `spans()` describes spans and cannot send them, so
+there is a translation in `wiener-api` — including turning a readable `<run>.<task>.<attempt>`
+id into the eight bytes the wire wants. That translation is a real cost of the split, and it is
+smaller than the thing it prevents.

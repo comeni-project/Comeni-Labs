@@ -1,0 +1,163 @@
+{
+  "uid": "wiener-what-breaks",
+  "title": "Wiener \u00b7 What breaks",
+  "description": "Exit codes per process over time, and what needed a second try. A signature that keeps coming back is what \u00a714's loop turns into a registry proposal.",
+  "tags": [
+    "wiener",
+    "runs"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Failures by process and exit code",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       SpanAttributes['process.exit.code'] AS \"exit\",\n       count() AS failures,\n       max(toUInt8OrZero(SpanAttributes['wiener.task.attempt'])) AS \"worst attempt\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp) AND SpanAttributes['cicd.pipeline.task.run.result'] IN ('failure', 'error')\nGROUP BY process, \"exit\" ORDER BY failures DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No task has failed in this window."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failures"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#CC4B2C"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "What needed a second try",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT SpanName AS process,\n       max(toUInt8OrZero(SpanAttributes['wiener.task.attempt'])) AS \"attempts\",\n       count() AS spans\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp)\nGROUP BY process\nHAVING max(toUInt8OrZero(SpanAttributes['wiener.task.attempt'])) > 1\nORDER BY \"attempts\" DESC",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "Nothing has needed a second try."
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "attempts"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B77B2B"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "Every failure, newest first",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "wiener-clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "wiener-clickhouse"
+          },
+          "rawSql": "SELECT Timestamp AS time, SpanName AS process,\n       SpanAttributes['process.exit.code'] AS \"exit\",\n       SpanAttributes['error.type'] AS \"why\",\n       SpanAttributes['cicd.pipeline.task.run.id'] AS \"task.attempt\"\nFROM otel.otel_traces WHERE ParentSpanId != '' AND $__timeFilter(Timestamp) AND SpanAttributes['cicd.pipeline.task.run.result'] IN ('failure', 'error')\nORDER BY time DESC LIMIT 100",
+          "format": 1,
+          "queryType": "table"
+        }
+      ],
+      "options": {},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "No task has failed in this window."
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

@@ -96,15 +96,29 @@ forge:          ## draft one nf-core module into a scratch workspace and show it
 # working rather than failing. `|| true` because that refusal exits 1 and this target is a
 # demonstration, not a gate.
 
-client:  ## regenerate the TypeScript client from the API's own schema
+client:  ## regenerate both TypeScript clients from the APIs' own schemas
 	uv run python -c "import json; from mendel_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.json
 	cd frontend && npx openapi-typescript openapi.json -o src/api/schema.d.ts
+	uv run python -c "import json; from wiener_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.wiener.json
+	cd frontend && npx openapi-typescript openapi.wiener.json -o src/wiener/api/schema.d.ts
 
 migrate:  ## apply database migrations
 	cd packages/mendel-api && uv run alembic upgrade head
 
+telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafana on :3001
+	docker compose --profile telemetry up -d clickhouse otel-collector grafana
+	@echo "OTLP on localhost:4317 · boards on http://localhost:3001"
+	@echo "point Wiener at it:  export WIENER_OTLP_ENDPOINT=http://localhost:4317"
+
+wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
+	cd packages/wiener-api && uv run alembic upgrade head
+
 dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
+	@# **Made here, owned by whoever ran make.** A named volume is created root-owned and the
+	@# containers run as the host user, so the first artifact upload dies on `PermissionError:
+	@# /var/wiener/artifacts`. Same trap CLAUDE.md records for ./workspace, and the same fix.
+	@mkdir -p .run/wiener/artifacts .run/wiener/work
 	$(DC) up -d --build
 	@mkdir -p $(RUN_DIR)
 	@if [ -f $(PIDFILE) ] && kill -0 `cat $(PIDFILE)` 2>/dev/null; then \
@@ -118,6 +132,7 @@ dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@echo "  Home (built):   http://localhost/"
 	@echo "  Queue:          http://localhost:5173/forge/queue"
 	@echo "  API:            http://localhost:8000/docs"
+	@echo "  Runs:           http://localhost:5173/runs"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 
 # A CLONE of the registry, because a submodule's `.git` is a pointer at a host path that

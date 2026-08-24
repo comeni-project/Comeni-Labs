@@ -100,8 +100,48 @@ a resolved one come out at the same tiers with the same premises.
 `human_override` keeps its meaning, because a pipeline an agent assembled must not read as one a
 person drew by hand. That is A130 arriving from the other direction.
 
+**Wiener W1 is COMPLETE as of 2026-08-24**, on `wiener-w1`, **merged into `main` the same day**. Wiener went from zero
+lines to *a pipeline runs, you watch it, and its waterfall is queryable* in a day: two plans,
+26 tasks, nine checkpoints. `wiener-core` is pure and joined invariant 1 — the first time that
+list has grown — and it paid off where §3.1 predicted, refusing the OpenTelemetry SDK when the
+exporter was written. **`dag-core` is a fifth pure package**: the DAG layout lifted out of
+`mendel-compiler` so the builder's canvas and the run graph are one implementation, depending on
+nothing at all, not even `comeni-core`.
+
+**Five defects were found by running it and none by a test written to pass**, and the pattern is
+the useful part: `admit()` dropped the fifteen resource fields the record can never recover; the
+record did not survive being read back, because it is written by field name and was validated by
+alias; the fold was a no-op because `prior` was read after the row was inserted, so every ingest
+replayed the whole run; a run arrived as two traces because the SDK invents a trace id for a
+parentless span; and `* task.attempt` was decoration until an `errorStrategy` made a retry
+possible. [`notes/journal/2026-08-24-wiener-w1.md`](notes/journal/2026-08-24-wiener-w1.md) is
+the handoff.
+
+**Mendel gained two things from Wiener needing them.** The emitted pipeline now says what it
+asks for — nf-core's `conf/base.config` label mappings, a convention quoted rather than a
+judgement invented — and a cap is kept separate from a request: `process.resourceLimits` is a
+*site* fact written by Wiener's launcher, never a number in the artifact. Both were found by a
+board with one half of every comparison empty.
+
+**The whole stack comes up with one `docker compose up`**, which was the operator's constraint
+rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
+ClickHouse and Grafana. Two consequences are worth knowing before touching it. **The worker holds
+the host Docker socket** — that is how a container spawns Nextflow which spawns containers, and it
+is root-equivalent, so `WIENER_API_TOKEN` in `.env` is the boundary in front of it and the worker
+warns at startup if the socket is mounted without one (`docs/design/wiener.md` §12.1 records the
+trade, and W5's `-profile k8s` removes it). And **the run directory is bind-mounted at the same
+absolute path inside and outside** the container, because a path handed to the daemon is resolved
+on the host — a named volume silently breaks that and a root-owned one breaks it loudly.
+
+**The Mendel→Wiener courier does not exist** — A179. `mendel-api` serves no kept artifact and the
+builder has no button that uploads one, so every run so far was submitted from a terminal. Both
+halves work; the hand-off between them is the hole.
+
+**Nobody has looked at these screens.** Checkpoints 3 and 5 drove the HTTP and WebSocket halves
+and verified them; the browser half is unrun, which is exactly the gap 3E's lesson names.
+
 **The entire forge still needs testing and general rework**, and the operator is rethinking its
-design (2026-08-23). Nothing in 3E touches `mendel-forge`.
+design (2026-08-23). Nothing in 3E or Wiener touches `mendel-forge`.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
@@ -309,21 +349,30 @@ Rosalind from Franklin.
 
 Violating any of these breaks the product claim, not just a test.
 
-1. **`comeni-core`, `mendel-resolver` and `mendel-compiler` do not reach the network.** Two
-   partial guards, and the claim is their union — say *do not*, never *cannot*. A static AST
-   scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
+1. **`comeni-core`, `mendel-resolver`, `mendel-compiler` and `wiener-core` do not reach the
+   network.** Two partial guards, and the claim is their union — say *do not*, never *cannot*. A
+   static AST scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
    `exec`/`eval`/`compile`, and a module reached as an attribute of an allowed one; a runtime
-   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and
-   fails if any socket or process event comes from a frame in those packages. Neither is
-   complete: the scan cannot see a two-link attribute chain or a `getattr`, and the hook only
-   covers code a build reaches. **Audit A1 defeated the scan alone** — a file importing only
-   `pathlib` and `typing` reached `os.system` via `pathlib.os` and delivered a serialised
-   `Goal` over TCP while the guard reported green. **Audit A17 then defeated both**, with a
-   libc socket obtained through `ctypes`: FFI raises `ctypes.dlopen`/`dlsym` rather than any
-   `socket.*` event, so it was outside the union rather than a gap in either half. `ctypes` is
-   now banned statically and watched at runtime — a pure package has no legitimate FFI need,
-   which is what makes that entry costless in a way `subprocess` never could be. If a change
-   to those packages seems to need such an import, the design is wrong.
+   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and fails
+   if any socket or process event comes from a frame in those packages. Neither is complete: the
+   scan cannot see a two-link attribute chain or a `getattr`, and the hook only covers code a
+   build reaches. **Audit A1 defeated the scan alone** — a file importing only `pathlib` and
+   `typing` reached `os.system` via `pathlib.os` and delivered a serialised `Goal` over TCP while
+   the guard reported green. **Audit A17 then defeated both**, with a libc socket obtained
+   through `ctypes`: FFI raises `ctypes.dlopen`/`dlsym` rather than any `socket.*` event, so it
+   was outside the union rather than a gap in either half. `ctypes` is now banned statically and
+   watched at runtime — a pure package has no legitimate FFI need, which is what makes that entry
+   costless in a way `subprocess` never could be. If a change to those packages seems to need
+   such an import, the design is wrong.
+   **`wiener-core` joined on 2026-08-24** (`docs/design/wiener.md` §3.1), and it is the first
+   time this list has grown. A fold over events has no legitimate need to open a socket, which
+   is the same argument that made `ctypes` costless — and it is load-bearing in a place nobody
+   planned: **the OpenTelemetry SDK is a network client**, so this guard is what keeps the span
+   *mapping* pure and the *export* on the other side of the line, without anybody having to
+   remember. What it does **not** yet cover is a clock: `datetime` is on that package's
+   allowlist for the class and must never be `datetime.now`, because §6.1's claim — same events
+   in, same decisions out — dies the first week one is read inside the fold. The allowlist
+   cannot express *this name but not that attribute*, so a separate scan holds it.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** The forge drafts
    contracts, rules and vocabulary states — a person approves them into `contracts/`,
    `rules/`, `vocabularies/`. Nothing writes there automatically.
@@ -537,6 +586,9 @@ packages/
   mendel-api/        FastAPI surface; mounts the forge, projects questions  impure
     routes/            questions, health — validate, dispatch, serialise
     questions.py       OpenQuestion: one schema, two consumers
+  wiener-core/       run state: admit, fold, decide, spans, stats           PURE
+  wiener-api/        launch, ingest, project, stream, export                impure
+  dag-core/          where to draw a graph. Both canvases, one arithmetic   PURE
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source

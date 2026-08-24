@@ -122,5 +122,184 @@ services:
     restart: unless-stopped
     ports: ["${WEB_HOST_PORT:-80}:80"]
 
+  wiener-postgres:
+    # **Wiener's own database, not a schema in Mendel's.** `execution-boundary.md` §8 names the
+    # failure mode as run state entangling with the deterministic half, and a shared server is
+    # where that starts: one connection string, one migration chain, one `Base.metadata`, and
+    # the first join across the line is easy to write and hard to notice.
+    image: postgres:17-alpine
+    container_name: ${WIENER_DB_CONTAINER_NAME:-wiener-db}
+    environment:
+      POSTGRES_USER: wiener
+      POSTGRES_PASSWORD: wiener
+      POSTGRES_DB: wiener
+    ports: ["${WIENER_DB_HOST_PORT:-5433}:5432"]
+    volumes: ["wiener-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiener"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  wiener-ingest:
+    # **Where the head process posts.** Its own service, and its port is never published —
+    # reachable on the compose network and from nowhere else.
+    #
+    # Not in the worker beside Nextflow, which was the other candidate. Two facts decided it,
+    # both checked on 2026-08-24 rather than assumed:
+    #
+    # - **The head process moves.** `kuberun` is deprecated and the production Kubernetes
+    #   pattern is a pod that runs Nextflow, so in W5 the head is not a child of this worker
+    #   and `127.0.0.1` reaches nothing. Topology that only works while the head is a child is
+    #   topology that gets rewritten under pressure.
+    # - **`nf-weblog` does not retry and does not flush on exit** (nextflow-io/nextflow#1010),
+    #   so any moment this is unavailable loses events *permanently*. It must therefore have
+    #   the fewest reasons to restart of anything here — which is the exact opposite of the
+    #   container that runs pipeline code and is redeployed whenever that changes.
+    #
+    # §13.1's guarantee is unchanged in substance and its wording had to move: *not on the
+    # public app*, and *a per-run secret*. Loopback was one implementation of "the internet
+    # cannot reach this"; an unpublished port is another.
+    build: .
+    container_name: ${WIENER_INGEST_CONTAINER_NAME:-wiener-ingest}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+    volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
+    command: uvicorn wiener_api.main:create_ingest_app --factory --host 0.0.0.0 --port 8099
+
+  wiener-worker:
+    # Where a run is actually launched. It spawns Nextflow, so it is the container that needs
+    # Nextflow and Java on its PATH — and the one that gets redeployed most often.
+    build: .
+    container_name: ${WIENER_WORKER_CONTAINER_NAME:-wiener-worker}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
+      WIENER_INGEST_BASE_URL: http://wiener-ingest:8099
+      WIENER_CONTAINER_PROFILE: docker
+    volumes:
+      # **The Docker socket, and what that means, said plainly.**
+      #
+      # Nextflow launches a container per task, and this container is where Nextflow runs — so
+      # it needs a container runtime. Mounting the host's socket gives whatever runs here the
+      # ability to start containers on the host, which is root-equivalent: a container can
+      # mount `/`. **Whoever can submit a run can therefore reach the host**, and the thing
+      # standing in front of that is `WIENER_API_TOKEN`.
+      #
+      # That is the posture every CI runner takes — Jenkins agents, GitLab runners — and the
+      # rule is the same: *the runner is as trusted as what it runs*. Here that is the
+      # laboratory's own gated pipelines from a registry it curates. `docs/design/wiener.md`
+      # §12.1 records it as a cost rather than leaving it to be discovered.
+      #
+      # **It goes away in W5.** With `-profile k8s` or `awsbatch` Nextflow submits jobs to a
+      # scheduler and starts no local containers, so this line is a `local`-executor concession
+      # and not an architectural one.
+      #
+      # The alternative considered and rejected for the MVP: Apptainer in this image, which is
+      # rootless and needs unprivileged user namespaces, `/dev/fuse` and a seccomp exception —
+      # it works here and not on an Ubuntu 24.04 host, which is the opposite of "works
+      # anywhere".
+      - /var/run/docker.sock:/var/run/docker.sock
+      # **Mounted at the SAME absolute path inside and out**, which is not tidiness. Nextflow
+      # asks the host's daemon to bind-mount a task's work directory, and the daemon resolves
+      # that path against the HOST filesystem — so a container path of `/var/wiener/work` would
+      # mount a directory the host does not have, and every task would see an empty workdir.
+      - ${PWD}/.run/wiener:${PWD}/.run/wiener
+    # The socket is owned by root:docker; this container runs as the host user, which needs to
+    # be in that group to open it.
+    group_add: ["${DOCKER_GID_SOCK:-957}"]
+    command: arq wiener_api.worker.WorkerSettings
+
+  wiener-api:
+    build: .
+    container_name: ${WIENER_API_CONTAINER_NAME:-wiener-api}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
+      # **Unset by default, and the API says so at startup.** Right for a laptop and wrong for
+      # anything reachable — §12.1. `WIENER_API_TOKEN=$(openssl rand -hex 24)` in a `.env`.
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+    volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
+    # **No published port.** nginx is the way in — one origin, split by path, the same split
+    # `vite.config.ts` already makes in development.
+    command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001
+
+  # ---- telemetry: opt-in, `make telemetry` or `--profile telemetry` -------------------
+  #
+  # **Not in the default stack**, because `make dev` should not grow a ClickHouse for people
+  # who are working on the forge. **Not a separate file either**, because two compose files
+  # drift — which is the argument `docker-compose.prod.yml`'s own header makes about overlays.
+  #
+  # **ClickHouse and Grafana rather than SigNoz** (2026-08-24). SigNoz is what §8 named and it
+  # deprecated bundled Compose in v0.130.0, installing through a CLI that renders its own
+  # stack; vendoring that manifest means running an unmaintained copy of somebody else's
+  # deployment. These are first-party images, the store is the same ClickHouse either way, and
+  # the boards are JSON in `ops/boards/` rather than something clicked into a vendor's UI.
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3-alpine
+    container_name: ${CLICKHOUSE_CONTAINER_NAME:-wiener-clickhouse}
+    profiles: [telemetry]
+    environment:
+      CLICKHOUSE_DB: otel
+      CLICKHOUSE_USER: otel
+      CLICKHOUSE_PASSWORD: otel
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes: ["wiener-clickhouse:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.121.0
+    container_name: ${OTEL_CONTAINER_NAME:-wiener-otel}
+    profiles: [telemetry]
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes: ["./ops/otel/collector.yaml:/etc/otel/collector.yaml:ro"]
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    ports: ["${OTLP_HOST_PORT:-4317}:4317"]
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: ${GRAFANA_CONTAINER_NAME:-wiener-grafana}
+    profiles: [telemetry]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      # **The whole provisioning tree, not one directory of it.** Grafana reads
+      # `provisioning/datasources/` and `provisioning/dashboards/` as separate providers, and
+      # mounting `ops/grafana` onto the datasources directory alone meant the dashboard
+      # provider was never seen: "starting to provision dashboards / finished" with nothing
+      # between, and an empty search.
+      - ./ops/grafana:/etc/grafana/provisioning:ro
+      - ./ops/boards:/etc/grafana/boards:ro
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    ports: ["${GRAFANA_HOST_PORT:-3001}:3000"]
+
 volumes:
   mendel-pg:
+  wiener-pg:
+  wiener-clickhouse:

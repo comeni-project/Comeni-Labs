@@ -81,7 +81,7 @@ replaying from a committed fixture in milliseconds.
 - Consumes: nothing.
 - Produces: an importable `wiener_core` package, classified pure.
 
-- [ ] **Step 1: Create the package manifest**
+- [x] **Step 1: Create the package manifest**
 
 ```toml
 # packages/wiener-core/pyproject.toml
@@ -103,7 +103,7 @@ packages = ["src/wiener_core"]
 comeni-core = { workspace = true }
 ```
 
-- [ ] **Step 2: Create the package docstring**
+- [x] **Step 2: Create the package docstring**
 
 ```python
 # packages/wiener-core/src/wiener_core/__init__.py
@@ -119,23 +119,23 @@ same event sequence in -> same run state, same decisions.
 """
 ```
 
-- [ ] **Step 3: Register it in the workspace**
+- [x] **Step 3: Register it in the workspace**
 
 In the root `pyproject.toml`, add `"wiener-core"` to `dependencies` (line 21) and
 `wiener-core = { workspace = true }` to `[tool.uv.sources]`.
 
-- [ ] **Step 4: Run `uv sync` and confirm the import**
+- [x] **Step 4: Run `uv sync` and confirm the import**
 
 Run: `uv sync && uv run python -c "import wiener_core; print(wiener_core.__doc__.splitlines()[0])"`
 Expected: `Run state, and what to do about it. **Pure** — invariant 1 covers this package.`
 
-- [ ] **Step 5: Watch the totality guard fail**
+- [x] **Step 5: Watch the totality guard fail**
 
 Run: `uv run pytest tests/test_purity.py -k unclassified -x`
 Expected: FAIL naming `wiener-core` under `on disk, unclassified`. **This is the point** — the
 guard notices a package it has never heard of. Copy the message into the ledger in Step 8.
 
-- [ ] **Step 6: Classify it pure**
+- [x] **Step 6: Classify it pure**
 
 In `tests/test_purity.py`, add to `CLOSED_PACKAGES`:
 
@@ -149,18 +149,18 @@ In `tests/test_purity.py`, add to `CLOSED_PACKAGES`:
 `datetime` is on the list for **types only** — `datetime` the class, never `datetime.now`.
 Task 4 adds the guard that holds that distinction.
 
-- [ ] **Step 7: Watch the purity guard fail on a real violation**
+- [x] **Step 7: Watch the purity guard fail on a real violation**
 
 Temporarily add `import socket` to `wiener_core/__init__.py`, run
 `uv run pytest tests/test_purity.py -x`, confirm it fails naming `socket` and `wiener-core`,
 then remove the import and confirm green.
 
-- [ ] **Step 8: Record both reverts in the ledger**
+- [x] **Step 8: Record both reverts in the ledger**
 
 Append two rows to `notes/audits/guard-ledger.md` — the unclassified-package failure from Step 5
 and the `import socket` failure from Step 7 — each with the message it printed.
 
-- [ ] **Step 9: Edit invariant 1**
+- [x] **Step 9: Edit invariant 1**
 
 In `CLAUDE.md`, invariant 1's first sentence becomes:
 
@@ -174,7 +174,7 @@ and add, after the `ctypes` sentence:
 > in a place nobody planned: the OpenTelemetry SDK is a network client, so this guard is what keeps
 > the span *mapping* pure and the *export* out of this package.
 
-- [ ] **Step 10: Run the gate and commit**
+- [x] **Step 10: Run the gate and commit**
 
 Run: `make check`
 Expected: PASS.
@@ -208,7 +208,7 @@ by Nextflow, so *which events an external party may author* is a fact in the all
 than in a reviewer's memory. That is §4.4's own argument applied to the one kind it did not
 anticipate.
 
-- [ ] **Step 1: Write the failing test, against the committed capture**
+- [x] **Step 1: Write the failing test, against the committed capture**
 
 ```python
 # packages/wiener-core/tests/test_admit.py
@@ -272,12 +272,12 @@ def test_the_timer_can_make_one_and_the_fold_will_see_it():
     assert beat.kind is EventKind.HEARTBEAT and beat.trace is None and beat.at_ms
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_admit.py -x`
 Expected: FAIL — `ModuleNotFoundError: No module named 'wiener_core.events'`.
 
-- [ ] **Step 3: Declare the diagnostic**
+- [x] **Step 3: Declare the diagnostic**
 
 In `packages/comeni-core/src/comeni_core/diagnostics.yml`, add the band comment
 `#   MW0001-MW0099  wiener: ingesting a run's events` beside the existing band list, and:
@@ -306,7 +306,7 @@ MW0002:
     through its own function in `wiener_core.events` rather than by posting it.
 ```
 
-- [ ] **Step 4: Write `events.py`**
+- [x] **Step 4: Write `events.py`**
 
 ```python
 """What Nextflow sends, and the subset Wiener agrees to keep.
@@ -471,17 +471,17 @@ def heartbeat(run_id: str, at_ms: int, seq: int) -> RunEvent:
     return RunEvent(kind=EventKind.HEARTBEAT, run_id=run_id, at_ms=at_ms, seq=seq)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_admit.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 6: Regenerate the diagnostics page**
+- [x] **Step 6: Regenerate the diagnostics page**
 
 Run: `make docs && uv run mendel explain MW0001 && uv run mendel explain MW0002`
 Expected: the page regenerates and `explain` prints the summary, detail and fix for both.
 
-- [ ] **Step 7: Run the gate and commit**
+- [x] **Step 7: Run the gate and commit**
 
 Run: `make check`
 
@@ -504,7 +504,7 @@ git commit -m "feat(wiener-core): admit(), the ingress allowlist, against a real
   `fold(state: RunState, event: RunEvent) -> RunState`,
   `replay(events: Iterable[RunEvent]) -> RunState`.
 
-- [ ] **Step 1: Write the failing tests — the three properties spec §6.3 names**
+- [x] **Step 1: Write the failing tests — the three properties spec §6.3 names**
 
 ```python
 # packages/wiener-core/tests/test_fold.py
@@ -578,12 +578,12 @@ def test_an_empty_run_is_queued():
     assert EMPTY.phase is RunPhase.QUEUED and EMPTY.counts.succeeded == 0
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_fold.py -x`
 Expected: FAIL — `No module named 'wiener_core.state'`.
 
-- [ ] **Step 3: Write `state.py`**
+- [x] **Step 3: Write `state.py`**
 
 ```python
 """What a run *is*: a fold over the events it produced.
@@ -743,12 +743,12 @@ def replay(events: Iterable[RunEvent]) -> RunState:
     return state
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_fold.py -v`
 Expected: 5 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/wiener-core
@@ -769,7 +769,7 @@ git commit -m "feat(wiener-core): fold(), idempotent, with terminality as a set"
 - Produces: `IntentKind`, `Reason`, `Intent`, `Policy`,
   `decide(state: RunState, policy: Policy, now_ms: int) -> list[Intent]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/wiener-core/tests/test_decide.py
@@ -834,14 +834,14 @@ def test_wiener_core_never_reads_a_clock():
     )
 ```
 
-- [ ] **Step 2: Run both and watch them fail**
+- [x] **Step 2: Run both and watch them fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_decide.py tests/test_no_clock.py -x`
 Expected: `test_decide.py` fails on the missing module; `test_no_clock.py` **passes vacuously**
 because `policy.py` does not exist yet. That vacuous pass is the danger — Step 5 breaks it on
 purpose.
 
-- [ ] **Step 3: Write `policy.py`**
+- [x] **Step 3: Write `policy.py`**
 
 ```python
 """What to do about a run — decided, never performed.
@@ -904,12 +904,12 @@ def decide(state: RunState, policy: Policy, now_ms: int) -> list[Intent]:
     return intents
 ```
 
-- [ ] **Step 4: Run the decide tests**
+- [x] **Step 4: Run the decide tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_decide.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 5: Watch the clock guard fail**
+- [x] **Step 5: Watch the clock guard fail**
 
 Temporarily add to `policy.py`:
 
@@ -922,7 +922,7 @@ Run: `uv run pytest tests/test_no_clock.py -x`
 Expected: FAIL naming `policy.py:<line> datetime.now`. Remove it, confirm green, and record
 the revert and its message in `notes/audits/guard-ledger.md`.
 
-- [ ] **Step 6: Run the gate and commit**
+- [x] **Step 6: Run the gate and commit**
 
 Run: `make check`
 
@@ -937,7 +937,7 @@ git commit -m "feat(wiener-core): decide(), and the guard that keeps the clock o
 
 **Stop. Do not start Task 5 until the operator has seen this.**
 
-- [ ] **Run the whole core against the real capture and print the result**
+- [x] **Run the whole core against the real capture and print the result**
 
 ```bash
 uv run python -c "
@@ -955,8 +955,8 @@ print('intents ', decide(s, Policy(), now_ms=0))
 "
 ```
 
-- [ ] **Run `make check`** — expected PASS.
-- [ ] **Report to the operator**: the printed state, the three guards now in the ledger
+- [x] **Run `make check`** — expected PASS.
+- [x] **Report to the operator**: the printed state, the three guards now in the ledger
   (unclassified package, `import socket`, `datetime.now`), and the fact that **nothing yet runs
   Nextflow, stores anything or is reachable over HTTP.**
 
@@ -986,7 +986,7 @@ Ends with a real Nextflow pipeline launched by Wiener, its events in Postgres.
 - Produces: `Base`, `session_scope()`, `settings`, `create_app()`, and the models
   `Run`, `RunEventRow`, `RunTask`, `RunArtifact`.
 
-- [ ] **Step 1: Create the manifest**
+- [x] **Step 1: Create the manifest**
 
 ```toml
 # packages/wiener-api/pyproject.toml
@@ -1017,7 +1017,7 @@ wiener-core = { workspace = true }
 Add `"wiener-api"` to the root `dependencies` and `[tool.uv.sources]`, and to
 `IMPURE_PACKAGES` in `tests/test_purity.py`.
 
-- [ ] **Step 2: Write the settings**
+- [x] **Step 2: Write the settings**
 
 ```python
 # packages/wiener-api/src/wiener_api/settings.py
@@ -1053,13 +1053,13 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-- [ ] **Step 3: Write `db.py`**
+- [x] **Step 3: Write `db.py`**
 
 Copy the shape of `packages/mendel-api/src/mendel_api/db.py` exactly — `engine`,
 `SessionLocal`, `Base`, `session_scope()` — reading `settings.database_url` from
 `wiener_api.settings`.
 
-- [ ] **Step 4: Write the failing table guard**
+- [x] **Step 4: Write the failing table guard**
 
 ```python
 # packages/wiener-api/tests/test_models.py
@@ -1090,12 +1090,12 @@ def test_no_table_stores_a_samplesheet_s_contents():
     assert not {"samplesheet", "sample_name", "input_path", "sample_id"} & names, names
 ```
 
-- [ ] **Step 5: Run it and watch it fail**
+- [x] **Step 5: Run it and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_models.py -x`
 Expected: FAIL — `No module named 'wiener_api.models'`.
 
-- [ ] **Step 6: Write `models.py`**
+- [x] **Step 6: Write `models.py`**
 
 ```python
 """What Wiener persists. Four tables, and `run_event` is the only one that is not a projection.
@@ -1180,7 +1180,7 @@ class RunArtifact(Base):
     note: Mapped[str] = mapped_column(Text, default="")
 ```
 
-- [ ] **Step 6a: Write the tenancy guard**
+- [x] **Step 6a: Write the tenancy guard**
 
 **Rewritten by [A177](../audits/2026-08-24-wiener-spec-review.md).** The original scanned for
 `select(...)` calls and required `lab_id` within three lines of one. Three of the likeliest ways
@@ -1287,7 +1287,7 @@ the version it replaces it is **not vacuous at Task 5**: `repository.py` exists 
 queries in it, so the scan has something to walk past and the third test has signatures to
 check. Watching it fail is Step 7.
 
-- [ ] **Step 7: Watch all four guards fail on purpose**
+- [x] **Step 7: Watch all four guards fail on purpose**
 
 Add a fifth model with `__tablename__ = "run_note"`; run the tests; confirm the message names
 the boundary. Remove it. Add `input_path: Mapped[str | None]` to `Run`; run again; confirm the
@@ -1297,7 +1297,7 @@ and the line — the original guard passed this one — and drop the `lab_id` pa
 `repository.run` and confirm the third names the signature. Remove both. Record **all four**
 reverts and their messages in the ledger.
 
-- [ ] **Step 8: Create the migration**
+- [x] **Step 8: Create the migration**
 
 ```bash
 cd packages/wiener-api && uv run alembic init -t generic alembic
@@ -1305,14 +1305,14 @@ cd packages/wiener-api && uv run alembic init -t generic alembic
 uv run alembic revision --autogenerate -m "wiener: run, run_event, run_task, run_artifact"
 ```
 
-- [ ] **Step 9: Add the compose services**
+- [x] **Step 9: Add the compose services**
 
 In `docker-compose.yml` add `wiener-postgres` (postgres:17-alpine, own volume `wiener-pg`,
 port 5433) and a `wiener-api` service building the same image with
 `command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001`.
 Add `make wiener-migrate` to the Makefile.
 
-- [ ] **Step 10: Run the gate and commit**
+- [x] **Step 10: Run the gate and commit**
 
 Run: `make check`
 
@@ -1335,7 +1335,7 @@ git commit -m "feat(wiener-api): four tables, and the two guards that hold the b
 - Produces: `create_ingest_app() -> FastAPI` and
   `record(session, run_id: str, payload: dict) -> RunState`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_ingest.py
@@ -1382,12 +1382,12 @@ def test_projection_matches_replay(ingest_client, a_run, session):
     assert folded.counts.succeeded == 2 and folded.counts.failed == 1
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_ingest.py -x`
 Expected: FAIL — no `create_ingest_app`.
 
-- [ ] **Step 3: Write `projection.py`**
+- [x] **Step 3: Write `projection.py`**
 
 ```python
 """The record, and the cache over it.
@@ -1445,7 +1445,7 @@ def record(session: Session, run_id: str, payload: dict) -> RunState:
     return state
 ```
 
-- [ ] **Step 4: Write `routes/ingest.py`**
+- [x] **Step 4: Write `routes/ingest.py`**
 
 ```python
 """Where the head process posts. **Not on the public app** — `docs/design/wiener.md` §13.1.
@@ -1481,19 +1481,19 @@ def create_ingest_app() -> FastAPI:
     return app
 ```
 
-- [ ] **Step 5: Write the conftest fixtures**
+- [x] **Step 5: Write the conftest fixtures**
 
 `packages/wiener-api/tests/conftest.py` provides `session` (a SQLite-backed
 `Base.metadata.create_all` session), `a_run` (a `Run` row with a known `ingest_secret`), and
 `ingest_client` (`TestClient(create_ingest_app())`). Use SQLite so **CI needs no Postgres** —
 the same reason `mendel-api`'s services carry `_run` and `_directory` seams.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `uv run pytest packages/wiener-api/tests/test_ingest.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/wiener-api
@@ -1513,7 +1513,7 @@ git commit -m "feat(wiener-api): ingest on its own app, with a per-run secret"
 - Produces: `site_config(run) -> str`, `launch(run_id: str) -> None`,
   `WorkerSettings` with `launch_job`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_launcher.py
@@ -1545,12 +1545,12 @@ def test_a_launch_writes_no_client_supplied_path(a_run):
     assert str(work_dir(a_run.id)).endswith(a_run.id)
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_launcher.py -x`
 Expected: FAIL — no `launcher` module.
 
-- [ ] **Step 3: Write `launcher.py`**
+- [x] **Step 3: Write `launcher.py`**
 
 ```python
 """Launching the head process, and the config that makes it report.
@@ -1606,7 +1606,7 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 ```
 
-- [ ] **Step 4: Write `launch()` and the ARQ job**
+- [x] **Step 4: Write `launch()` and the ARQ job**
 
 Append to `launcher.py`:
 
@@ -1655,12 +1655,12 @@ class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `uv run pytest packages/wiener-api/tests/test_launcher.py -v`
 Expected: 3 passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/wiener-api
@@ -1680,7 +1680,7 @@ git commit -m "feat(wiener-api): the launcher, and the site.config that makes a 
 - Produces: `POST /api/artifacts`, `POST /api/runs`, `GET /api/runs`, `GET /api/runs/{id}`,
   `GET /api/runs/{id}/events`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/wiener-api/tests/test_runs.py
@@ -1709,12 +1709,12 @@ def test_the_board_lists_runs_newest_first(client, three_runs):
     assert [r["id"] for r in rows] == list(reversed(three_runs))
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_runs.py -x`
 Expected: FAIL — 404 on every route.
 
-- [ ] **Step 3: Implement `artifacts.py` and `routes/runs.py`**
+- [x] **Step 3: Implement `artifacts.py` and `routes/runs.py`**
 
 `artifacts.py` unzips into `settings.artifact_root / <id>` and digests the result:
 
@@ -1757,12 +1757,12 @@ class SubmitRequest(BaseModel):
 
 and mints `id` and `ingest_secret` with `secrets.token_hex(16)` before enqueuing `launch_job`.
 
-- [ ] **Step 4: Mount both apps**
+- [x] **Step 4: Mount both apps**
 
 `main.py` gains `create_app()` (public, `/api/*`) and re-exports `create_ingest_app()`; the
 compose file runs them on 8001 and 8099 respectively.
 
-- [ ] **Step 5: Run the tests, the gate, and commit**
+- [x] **Step 5: Run the tests, the gate, and commit**
 
 Run: `uv run pytest packages/wiener-api -v && make check`
 
@@ -1778,8 +1778,8 @@ git commit -m "feat(wiener-api): artifacts, submit, and the board"
 **Stop. This is the checkpoint that matters most, because everything before it is testable
 without Nextflow and this is not.**
 
-- [ ] **Bring the stack up**: `make dev` plus the new `wiener-postgres` and `wiener-api`.
-- [ ] **Submit a real run by hand**, against the repo's own emitted spine:
+- [x] **Bring the stack up**: `make dev` plus the new `wiener-postgres` and `wiener-api`.
+- [x] **Submit a real run by hand**, against the repo's own emitted spine:
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml --out /tmp/spine
@@ -1790,9 +1790,9 @@ R=$(curl -s localhost:8001/api/runs -H 'content-type: application/json' \
 sleep 60 && curl -s localhost:8001/api/runs/$R | jq '{phase, counts}'
 ```
 
-- [ ] **Confirm the events are in Postgres**, not just in memory:
+- [x] **Confirm the events are in Postgres**, not just in memory:
   `SELECT kind, count(*) FROM run_event GROUP BY kind;`
-- [ ] **Report to the operator**: the phase, the counts, how long the first event took to
+- [x] **Report to the operator**: the phase, the counts, how long the first event took to
   arrive, and **whether `trace.enabled` actually delivered `peak_rss`** — that is finding 6
   being confirmed against a real pipeline rather than the four-second toy that found it.
 
@@ -1816,7 +1816,7 @@ Ends with a run you watch as it happens.
 - Produces: `publish(run_id, event) -> str` (the stream id), `key(run_id) -> str`, and
   `GET /api/runs/{id}/events?after=<seq>` returning `{events, cursor, stream_id}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_stream.py
@@ -1837,12 +1837,12 @@ def test_the_events_page_hands_over_a_stream_id_to_resume_from(client, a_finishe
     assert body["cursor"] >= 0 and body["stream_id"]
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_stream.py -x`
 Expected: FAIL — no `stream` module.
 
-- [ ] **Step 3: Write `stream.py`**
+- [x] **Step 3: Write `stream.py`**
 
 ```python
 """The live tail. Redis is the fan-out; Postgres is the record.
@@ -1886,7 +1886,7 @@ def publish(run_id: str, event: RunEvent, redis: Redis | None = None,
 Call `publish` from `record()` in `projection.py`, after the session flush and never before —
 a stream entry for an event Postgres has not accepted is a tail that disagrees with the record.
 
-- [ ] **Step 4: Run the tests and commit**
+- [x] **Step 4: Run the tests and commit**
 
 Run: `uv run pytest packages/wiener-api/tests/test_stream.py -v && make check`
 
@@ -1906,7 +1906,7 @@ git commit -m "feat(wiener-api): the capped live tail, and the page-then-tail ha
 **Interfaces:**
 - Produces: `WS /api/runs/{id}/stream?from=<stream_id>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_ws.py
@@ -1926,11 +1926,11 @@ def test_a_socket_for_an_unknown_run_closes_rather_than_hanging(client):
             ws.receive_json()
 ```
 
-- [ ] **Step 2: Run and watch it fail**, then implement with `XREAD BLOCK` in a loop, closing
+- [x] **Step 2: Run and watch it fail**, then implement with `XREAD BLOCK` in a loop, closing
   the socket when `state.phase` is terminal **and** the stream is drained — not on the first
   terminal event, because §4.3 finding 3 says another may follow it.
 
-- [ ] **Step 3: Run the tests and commit**
+- [x] **Step 3: Run the tests and commit**
 
 ```bash
 git add packages/wiener-api
@@ -1950,7 +1950,7 @@ git commit -m "feat(wiener-api): the console socket, resuming from a stream id"
 - Consumes: `GET /api/runs`.
 - Produces: the `/runs` route and a `Runs` tab in the shell.
 
-- [ ] **Step 1: Extend `make client`**
+- [x] **Step 1: Extend `make client`**
 
 ```make
 client:  ## regenerate both TypeScript clients from the APIs' own schemas
@@ -1963,7 +1963,7 @@ client:  ## regenerate both TypeScript clients from the APIs' own schemas
 Run `make client` and confirm `frontend/src/wiener/api/schema.d.ts` appears. **Never hand-edit
 it** — that generated file is what stops the two halves' types drifting.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```tsx
 // frontend/src/runs/Board.test.tsx
@@ -1991,22 +1991,22 @@ test("the board never renders a samplesheet", async () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch it fail**
+- [x] **Step 3: Run and watch it fail**
 
 Run: `cd frontend && npx vitest run src/runs/Board.test.tsx`
 Expected: FAIL — cannot resolve `./Board`.
 
-- [ ] **Step 4: Build `Board.tsx`** against
+- [x] **Step 4: Build `Board.tsx`** against
   `docs/design/wiener-mockups/Board.dc.html` — **do not invent the screen**; it is designed.
   Use `tokens.css` classes and the four new elevation tokens if Task 13 has landed them,
   otherwise plain `--shadow`.
 
-- [ ] **Step 5: Add the route and the tab**
+- [x] **Step 5: Add the route and the tab**
 
 `router.tsx` gains `{ path: "runs", element: <Board /> }`; `Shell.tsx` gains a `Runs` tab —
 a real `NavLink`, never `aria-disabled`, per the note in that file.
 
-- [ ] **Step 6: Run the frontend tests, `tsc`, and commit**
+- [x] **Step 6: Run the frontend tests, `tsc`, and commit**
 
 Run: `cd frontend && npx vitest run && npx tsc -b`
 
@@ -2026,7 +2026,7 @@ git commit -m "feat(frontend): the runs board, from the API's own schema"
 **Interfaces:**
 - Consumes: `GET /api/runs/{id}`, `GET /api/runs/{id}/events`, `WS /api/runs/{id}/stream`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 // frontend/src/runs/Run.test.tsx
@@ -2054,16 +2054,16 @@ test("the console says it is read-only rather than pretending it is not", async 
 });
 ```
 
-- [ ] **Step 2: Run and watch it fail**, then build `useRunStream` — fetch the page, render it,
+- [x] **Step 2: Run and watch it fail**, then build `useRunStream` — fetch the page, render it,
   open the socket at the returned `stream_id`, append. On socket close, re-page rather than
   reopening blind.
 
-- [ ] **Step 3: Build `Console.tsx`** against `docs/design/wiener-mockups/Main.dc.html` and
+- [x] **Step 3: Build `Console.tsx`** against `docs/design/wiener-mockups/Main.dc.html` and
   `Failure.dc.html`. **The Graph toggle renders as a disabled segment labelled `Graph`** — it is
   phase 3, and a control that goes nowhere silently is what `Shell.tsx` records as the mistake
   3A shipped six of.
 
-- [ ] **Step 4: Run everything and commit**
+- [x] **Step 4: Run everything and commit**
 
 Run: `cd frontend && npx vitest run && npx tsc -b`
 
@@ -2076,15 +2076,15 @@ git commit -m "feat(frontend): the run page — page the record, then tail the s
 
 ## ✋ CHECKPOINT 3 — you watch a run
 
-- [ ] **`make verify`** — the full suite including the counts matrix and the guards, ~2 min.
+- [x] **`make verify`** — the full suite including the counts matrix and the guards, ~2 min.
   Phases 0–2 touch none of the six files that make `make check` insufficient, so this is a
   belt-and-braces run rather than a required one; do it anyway, once, here.
-- [ ] **`make residue`** — report the new number. Six guards were added; the ledger should have
+- [x] **`make residue`** — report the new number. Six guards were added; the ledger should have
   six new rows.
-- [ ] **Submit a run from the browser and watch it finish.** Then **close the tab for two
+- [~] **Submit a run from the browser and watch it finish.** — *the HTTP and WebSocket half was driven and the reopen loses nothing; the rendering half needs the operator's browser, which this session could not reach* Then **close the tab for two
   minutes and reopen it** — the page-then-tail handoff is the thing most likely to be subtly
   wrong, and it only shows when the stream has moved on without you.
-- [ ] **Report to the operator**: how long from submit to the first console line, whether the
+- [x] **Report to the operator**: how long from submit to the first console line, whether the
   reopen lost anything, and what twenty minutes of actually using it turned up. That last one
   matters most — 3E's lesson was that twenty minutes of use found nine things that 76 green
   steps did not.
@@ -2102,7 +2102,52 @@ pasted verbatim* — plans here are corrected during execution by design.
 
 | Task | Deviation from the plan | Why |
 |---|---|---|
-| | | |
+| 1 | Step 5's command was `pytest -k unclassified`; ran `-k classified` | **The plan's command selects zero tests and reports nothing.** The guard is `test_every_package_is_classified`; "unclassified" appears only in its failure message. A step that runs no test and prints no failure is the vacuous pass this plan writes six guards against, and it was in the plan itself |
+| 1 | `tests/test_package.py` became `tests/test_wiener_core_package.py` | Basename collision: `packages/mendel-ai/tests/test_package.py` exists and the test directories carry no `__init__.py`, so pytest refuses to collect two modules with one name. Caught by `make check`, not by the package's own tests |
+| 1 | A second test was written into that file and deleted the same hour | It asserted the `pyproject.toml` name appears in `CLOSED_PACKAGES`. **It cannot fail**: renaming the package makes `uv` refuse the workspace before pytest starts, and renaming the directory is what `test_every_package_is_classified` already catches. Trying to watch it fail is what showed it was inert — A14's method finding one of its own |
+| 1 | `CLAUDE.md`'s architecture tree gained a `wiener-core/` line, which the plan does not list | The tree names every package and would have been stale the moment this one existed |
+| 2 | The diagnostic entries were rewritten: `summary`/`detail` became `says`/`explanation`, plus `emitted_by`, `fires_on` and `refuses` | **The plan's entry cannot load.** `DiagnosticSpec` is `extra="forbid"` and requires seven fields; `summary` and `detail` are not among them — they *"stay at the check site, because they interpolate the actual mismatch"*. 18a's audit found the same class of error in the same file |
+| 2 | `concern: contract` became `concern: ingest`, and `tools/generate_diagnostics_doc.py` gained a heading for it | The generator exits with *"declares concerns with no heading in this file"* — a closed vocabulary the plan did not know was closed. Same finding 18a recorded, arriving again |
+| 2 | `EmittedBy` gained `WIENER`, and `tests/test_diagnostics_ownership.py`'s `PACKAGE_OF` gained `"wiener": "wiener-core"` | `emitted_by` is required and its enum had six members, none of them Wiener's. The ownership guard derives the package from that value rather than trusting it, so both halves had to learn the same name |
+| 2 | `raise coded(...)` became `raise ValueError(coded(...))` | **`coded()` returns a string, not an exception** — deliberately: *"a factory returning an exception would have to take the type as an argument"*, and several emissions are prints rather than raises. The plan's form raises `TypeError: exceptions must derive from BaseException` |
+| 2 | `make docs` does not regenerate the page | It runs the generator with `--check`; regenerating is `uv run python tools/generate_diagnostics_doc.py`. `CLAUDE.md` says *"`make docs` regenerates it"*, which is the sentence that drifted |
+| 3 | Step 4 expects 5 passed; it is 7 | A176 added two tests to this file when the plan was corrected, and the step's count was not updated with them |
+| 3 | The two A176 assertions gained failure messages | Reverting the fix to watch them fail printed `assert False` and a `RunState(...) == RunState(...)` diff — neither says what broke. The ledger already records a guard whose message argued for the wrong fix; these now print the attempt numbers, `{1: [1, 1, 1], …}`, and name the repair |
+| 4 | `test_no_clock.py` was widened before it was committed, and reverted three ways rather than one | **The plan's guard catches one spelling of three.** It matches an `ast.Attribute` whose `.value` is a bare `ast.Name`, so it sees `datetime.now()` after a `from` import and misses `datetime.datetime.now()` — the ordinary spelling after `import datetime`, where the value is another `Attribute` — and `from time import monotonic; monotonic()`, which has no attribute access to see at all. Measured, not argued: `CAUGHT / MISSED / MISSED`. It now walks the attribute chain to its root and treats importing a bare clock name as the offence |
+| 4 | `test_the_scan_reached_the_sources` added to that file | A67's lesson: a scan that reaches nothing reports nothing and passes. `test_purity.py` and `test_diagnostics_ownership.py` both carry this guard-of-the-guard and a new scan without one is the same silence |
+| 5 | Step 9 (compose) was done before Step 8 (migration) | `alembic revision --autogenerate` needs a live database to compare against, and the container that holds it is what Step 9 creates |
+| 5 | `alembic/` became `migrations/`, and `ruff.toml` excludes it | `mendel-api` calls the same directory `migrations`, and two APIs in one repository spelling it two ways is a papercut for no return. The exclude is the existing one's argument verbatim: alembic writes these from its own templates, and linting them means hand-editing every migration or a noqa storm |
+| 5 | `tests/test_models.py` became `tests/test_wiener_models.py` | The same basename collision Task 1 hit — `mendel-api/tests/test_models.py` exists. Twice in five tasks; the plan names test files without checking whether the name is taken |
+| 5 | `tests/test_compose.py` was edited, which the plan does not mention, and two of its tests now **derive** what they used to spell out | **The guard fired and was right.** `test_the_stack_is_five_services` says in its own docstring that adding a service means editing it and noticing the overlay — and the plan's Step 9 said "add the compose services" and said nothing about `docker-compose.prod.yml`, so `wiener-postgres` would have been published on the host in production. Two neighbouring tests had the same weakness in a form nothing would have caught: one asserted `count("ports: !reset") == 3` and the other named `("postgres", "redis", "api")` literally, so **neither checked a service added after they were written**. Both now derive from the base, and the derived version was watched failing on a removed overlay entry: `each of ['api', 'postgres', 'redis', 'wiener-api', 'wiener-postgres'] must reset its ports; the overlay does it 4 times` |
+| 5 | The samplesheet-column guard's message was rewritten | It printed the whole column set and an unreadable `assert not ({...} & {...})`, naming neither the offending column nor the reason. It now says `a table grew a column for a sample: ['run.input_path']` |
+| 6 | `projection.py`'s `select()` calls moved into `repository.py`, and `state_of`/`record` gained a `lab_id` | **Task 5's guard refused the plan's Task 6 code**, which is the guard working rather than an obstacle: two `select()`s on `run_event` and a `session.get(Run, …)` were exactly the queries A177 says may not live outside the repository |
+| 6 | `test_the_ingest_app_is_not_the_public_app` was rewritten, and a `_paths()` helper added | `{r.path for r in app.routes}` **raises** on the ingest app — FastAPI 0.141 leaves an `_IncludedRouter` with no `.path` and no `.routes`. Written defensively with a `getattr` it would have found nothing and passed while proving nothing, which is precisely the check Plan 3A phase 6's audit caught iterating `app.routes` and finding zero. It now walks `original_router`, is guarded by `test_the_route_scan_sees_something`, **and** asserts behaviourally: the public app is POSTed a real run id and secret and must answer 404 |
+| 6 | `test_projection_matches_replay` was strengthened to compare the cache | As written it called `state_of` — which *is* the replay — and asserted two counts, so **it would have passed with the projection tables empty**. Its name promises §7.1's claim that the cache agrees with the fold, and it now compares `run.phase` and every `run_task` row against the folded state. Watched failing by not refreshing `run.phase`: `assert 'queued' == 'failed'` |
+| 6 | `conftest.py` uses `StaticPool` | A bare `sqlite://` gives every connection its own empty database, so `create_all` lands in one and the session opens another. It surfaces as `no such table: run`, several layers from the cause |
+| 7 | `launch()` reaches rows through `repository` and `db.session_scope()` rather than `session.get()` and a bound symbol | The tenancy guard again, plus `CLAUDE.md`'s own gotcha — *"import modules, not symbols, where tests monkeypatch"*. `ingest.py` was changed the same way, and the conftest fixture that had been patching two modules to work around it now patches one |
+| 7 | A fourth test: `test_launch_copies_the_artifact_and_starts_nextflow_there` | The plan's three cover the strings `launch()` assembles and not what it does with them, so **`launch()` would have been executed for the first time at Checkpoint 2, against real Nextflow.** It runs through the `_spawn` seam that exists for exactly this |
+| 8 | **The samplesheet reached nothing.** `command()` gained `--input`, `launch()` and `launch_job` gained the parameter, and a test covers the path | `POST /api/runs` accepts a `samplesheet` and §7.1 forbids a column for it, so between the request and the launch — which happens later, in a worker, from the database — there was **nowhere for it to live**, and Task 7's `command()` has no `--input`. It now rides as a job argument, which is transient by nature and the right lifetime. Checkpoint 2's own script submits `"-"`, so nothing in this phase would have noticed |
+| 8 | `store()` refuses an archive member that escapes the artifact directory | `extractall` on a hostile zip writes wherever the member names, and §12.1 says the upload is authenticated by nothing in W1. The plan's version called `extractall` directly |
+| 8 | `python-multipart` added to the manifest | `UploadFile` needs it, and FastAPI raises `RuntimeError` at request time rather than at import — so the failure surfaces as a 500 on the first upload rather than as an install error |
+| 8 | Three tests beyond the plan's four | The digest agreeing across two differently-built archives of the same tree (the whole reason it walks sorted pairs), the zip-escape refusal, and the samplesheet path above |
+| CP2 | `settings.container_profile`, and `command()` passes `-profile {executor},{container}` | **A run needs two profiles and the launcher passed one.** The emitted config separates the executor from the container runtime and its own `k8s` profile says so in a comment — `-profile k8s,docker -c site.config`. With one profile every process runs uncontained and every tool must be on the host's PATH. Found by running it: the first real submission failed, the second reached `local,docker` and worked |
+| CP2 | **`TaskTrace` gained the fifteen `trace.enabled` fields**, plus a second committed capture and two tests | §9.4 calls this *"a line in an allowlist and a test, rather than a subsystem"*, which reads like phase-3 display work. It is not: **`run_event` is the record and it cannot be back-filled**, so every run stored before this had no resource history *ever*, and phase 3's dashboard would open on months of runs it could say nothing about. Confirmed against a raw capture rather than assumed — the weblog body carries all fifteen and `admit()` was dropping every one. The committed `failing-run.jsonl` was taken *without* `trace.enabled`, which is exactly why every test passed while the fields went in the bin |
+| CP2 | The checkpoint ran on the **host**, not through `make dev` | **Nothing serves the ingest app in compose.** Task 8 step 4 says the compose file runs the two apps "on 8001 and 8099 respectively" and the service has one `command`, so a container stack answers the public API and drops every event. It is left as a finding rather than fixed here, because the fix is a topology decision — the head process posts to `127.0.0.1:8099`, which is only true if the ingest app shares a container with whatever spawns Nextflow, and §13.1's loopback claim depends on that. Phases 0–2 target one operator on a laptop, which is what was run |
+| CP2 | **`samplesheet` became `params`, validated against the artifact's declared nulls** (operator's decision, 2026-08-24) | A real run needs `input`, `fasta` and `gtf`, and the spec's single `samplesheet` could carry one of the three. The artifact already declares which values it cannot supply — `= null` — so the submission fills exactly those and both an unknown key and a missing one are refused before anything launches, where Nextflow would otherwise fail deep inside a run with `Missing fromPath parameter`. `-params-file` rather than a spliced `--input`, because the emitted spine reads `params.input instanceof List` and a list does not survive a command line. Proven end to end: the spine ran green with real URLs and **no profile hack** |
+| 9 | A failed publish is caught as `RedisError` and logged; the plan had no error path | A dead Redis must not lose an event — the record is not lossy — but a bare `try/except/pass` makes a dead tail look like a console that simply stopped updating. Caught narrowly, logged with the run and the seq |
+| 9 | `stream.last_id()` and an `EventPage` type, and the stream id is read **after** the page | The plan returned a bare list and asserted `body["cursor"]` and `body["stream_id"]` in a test, so the shape existed only in the assertion. Reading the id after the page is what stops an event landing in the gap from being missed — the reverse order drops it |
+| 9 | `fakeredis` is a dev dependency and the fake tail is **autouse** | `record()` publishes and the events page reads the tail, so without it the suite reaches `localhost:6379`: green on this machine, and green in CI for the wrong reason, since a failed publish is deliberately only logged |
+| 10 | `stream.read()` blocks **briefly** and the socket loops | The plan says `XREAD BLOCK` in a loop; blocking forever means the socket never wakes to notice the run has finished, and a six-hour STAR align emits nothing while it runs |
+| 10 | The drain rule was watched failing | Closing on the first terminal event — the obvious implementation — drops **2 of 13** events on the committed capture, because §4.3 finding 3 is that `error` arrives after `completed`. The socket reads to empty, then checks the projection's phase |
+| 11 | The vite proxy gained `/api/runs` and `/api/artifacts` **before** `/api` | Two APIs share one origin and vite matches in insertion order, so `/api` would have swallowed both and every board request would have reached Mendel. `ws: true` on the runs entry, or Task 12's socket cannot connect in dev |
+| 11 | The board shows neither **"12 samples"** nor task progress, which the mockup does | Both are absences with reasons rather than omissions. Nothing can say how many samples a run has — §7.1 forbids the table and the params ride as a job argument, so the mockup was drawn before that rule had teeth. Progress per run would mean folding every run's events on every page load, which is the reason `run_task` exists at all; it belongs on the run page |
+| 11 | `src/wiener/api/client.ts` is its own wrapper rather than a reuse of `src/api/client.ts` | **The refusal shapes differ.** Mendel answers 422 with a coded `Refusal` string; Wiener's submit answers with the artifact's declared parameters and which are unknown or missing. One wrapper trying to be both turns the useful half into *"refused, with no reason given"* |
+| 12 | `<Run />` reads `useParams()` rather than taking an `id` prop, and the tests go through the router | The repo's own convention — `Board.test.tsx` and every forge test render the real route table, which is what catches a route that was never registered |
+| 12 | **The hook does not reopen on a clean close.** Watched failing | A finished run's socket closes with 1000 *because* the server drained it, so re-paging on that opens another socket, which closes for the same reason — forever. Only an abnormal close (1006 and friends) is a dropped connection worth re-paging for. The revert produced two sockets where there should be one |
+| 12 | The cursor is a `ref`, not read out of state | `onclose` fires from a closure made when the socket opened, so reading `events` there gives whatever the array was at that moment — and re-paging from a stale cursor re-fetches everything that arrived while it was connected |
+| 12 | The console draws **only task events** | `started`, `completed` and `error` are the run's own lifecycle and the header already says it; `error` carries nothing to show at all (§4.3 finding 1). Three lines among four hundred is noise |
+| CP3 | The browser half was **not** driven by a browser | The Chrome extension is not connected to this session, so the page-then-tail handoff was exercised through the same HTTP and WebSocket contract the page uses — including a real disconnect mid-run and a re-page 40 seconds later — and the proxy split was checked on `:3000`, which is where the browser goes. **Rendering is unverified** and is the operator's twenty minutes |
+| 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
 
@@ -2111,6 +2156,20 @@ pasted verbatim* — plans here are corrected during execution by design.
 - **No OpenTelemetry, no stats, no graph view.** Phase 3, and deliberately unplanned: it is
   written against `RunState` and the projections these tasks create, and writing it now is
   writing against types that do not exist.
+
+  **Three things phase 3 must settle before its first task**, all of them decided or named on
+  2026-08-24 rather than left to be discovered:
+
+  1. **The layout is extracted into `dag-core`** — `docs/design/wiener.md` §9.1.1. `layout.py`
+     is `mendel-compiler`'s, §3.3 forbids Wiener importing it, and the operator's call is one
+     implementation shared by both canvases rather than two that drift. Prefer a **lift** over
+     a redesign: a move that changes no behaviour is provable by identical emitted bytes.
+  2. **The OTel semantic conventions are researched first** — §17's one remaining open
+     question. Conventions that half-fit are worse than clean custom names, and the research is
+     cheap before the first span and expensive after.
+  3. **The stats dashboard is buildable and was not** until Checkpoint 2 found `admit()`
+     dropping the fifteen `trace.enabled` fields. They are in the record now; runs stored
+     before 2026-08-24 have no resource history and never will.
 - **No AI.** W3.
 - **No verbs.** W4 — and the console says `read-only until W4` on screen rather than implying
   otherwise.

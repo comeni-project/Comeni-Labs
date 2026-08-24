@@ -41,10 +41,90 @@ def prod_text() -> str:
     return (ROOT / "docker-compose.prod.yml").read_text()
 
 
-def test_the_stack_is_five_services(base):
+def _default_stack(base) -> dict:
+    """What `make dev` brings up — everything without a profile.
+
+    A profiled service is defined here and started only when asked for, which is how the
+    telemetry three can live in this file without a ClickHouse landing on somebody who is
+    working on the forge."""
+    return {name: svc for name, svc in base["services"].items() if not svc.get("profiles")}
+
+
+def _publish_a_host_port(base) -> set[str]:
+    """Which services the base exposes on the host. Derived, because a written-out list is a
+    list that stops matching the stack the day somebody adds a service to it."""
+    return {name for name, service in _default_stack(base).items() if service.get("ports")}
+
+
+def test_the_stack_is_nine_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
-    that a sixth service needs a healthcheck and a place in the overlay."""
-    assert sorted(base["services"]) == ["api", "postgres", "redis", "web", "worker"]
+    that a new service needs a healthcheck and a place in the overlay.
+
+    **It worked.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is
+    what stopped them arriving with a host-published port that the prod overlay had never
+    heard of — the plan's Task 5 said "add the compose services" and said nothing about the
+    overlay, which is precisely the gap a literal list catches."""
+    assert sorted(_default_stack(base)) == [
+        "api", "postgres", "redis", "web",
+        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "worker",
+    ]
+
+
+def test_the_ingest_app_is_never_published(base, prod):
+    """**§13.1's guarantee, as a test rather than a sentence.** The head process must reach it
+    and the internet must not, so it is its own service on the compose network with no port on
+    the host — in the base file and in the overlay.
+
+    It moved out of "loopback" on 2026-08-24 because the head process moves: `kuberun` is
+    deprecated and the production Kubernetes pattern runs Nextflow in its own pod, so a
+    topology that only works while the head is a child of the worker is one that gets rewritten
+    under pressure in W5.
+    """
+    assert not base["services"]["wiener-ingest"].get("ports"), (
+        "the ingest app is published on the host; §13.1 says the internet may not reach it"
+    )
+    assert not prod["services"].get("wiener-ingest", {}).get("ports")
+
+
+def test_the_public_api_is_reached_through_nginx_and_not_a_second_port(base):
+    """One origin, split by path — the same split `vite.config.ts` makes in development. Two
+    published ports is prod and dev disagreeing about where Wiener lives."""
+    assert not base["services"]["wiener-api"].get("ports")
+    assert base["services"]["web"].get("ports"), "nginx is the way in"
+
+
+def test_nginx_routes_both_halves_of_the_api():
+    """The config is what makes the previous test true, so it is read rather than assumed."""
+    conf = (ROOT / "nginx" / "default.conf").read_text()
+    assert "location /api/runs" in conf and "wiener-api:8001" in conf
+    assert "location /api/artifacts" in conf
+    assert "location /api/" in conf and "api:8000" in conf
+    assert "$connection_upgrade" in conf, (
+        "the WebSocket needs Upgrade forwarded, or the console never connects and nothing on "
+        "screen says why"
+    )
+
+
+def test_the_telemetry_backend_is_opt_in(base):
+    """**`make dev` must not grow a ClickHouse** for somebody working on the forge, and the
+    backend must not be a second compose file either — two files drift, which is the argument
+    `docker-compose.prod.yml`'s own header makes about overlays.
+
+    A profile is the third option: defined here, started when asked for. `make telemetry`."""
+    profiled = {name for name, svc in base["services"].items() if svc.get("profiles")}
+    assert profiled == {"clickhouse", "otel-collector", "grafana"}
+    assert all(base["services"][name]["profiles"] == ["telemetry"] for name in profiled)
+
+
+def test_nothing_in_the_default_stack_depends_on_a_profiled_service(base):
+    """A dependency on something that does not start is a stack that does not come up. Wiener
+    reaches the collector by URL — `WIENER_OTLP_ENDPOINT` — and by nothing else."""
+    profiled = {name for name, svc in base["services"].items() if svc.get("profiles")}
+    for name, svc in _default_stack(base).items():
+        assert not (set(svc.get("depends_on") or {}) & profiled), (
+            f"{name} depends on {profiled & set(svc.get('depends_on') or {})}, which "
+            "`make dev` does not start"
+        )
 
 
 def test_the_overlay_names_only_services_the_base_has(base, prod):
@@ -132,17 +212,29 @@ def test_prod_closes_the_ports_with_reset_rather_than_an_empty_list(base, prod_t
     declared = "\n".join(
         line for line in prod_text.splitlines() if not line.lstrip().startswith("#")
     )
-    assert declared.count("ports: !reset") == 3, "postgres, redis and api each reset theirs"
+    closes = _publish_a_host_port(base) - {"web"}
+    assert declared.count("ports: !reset") == len(closes), (
+        f"each of {sorted(closes)} must reset its ports; the overlay does it "
+        f"{declared.count('ports: !reset')} times. **The number is derived from the base, not "
+        "written here** — it read `== 3` until wiener-postgres and wiener-api arrived and made "
+        "it 5, which is a count in a test going stale exactly the way CLAUDE.md says counts do."
+    )
     assert "ports: []" not in declared, (
         "`ports: []` is a no-op under compose's merge — it reads as closed and is not"
     )
 
 
-def test_prod_publishes_the_web_port_and_nothing_else(prod):
-    """`web` is the only way in, and it keeps the base's port rather than restating it."""
+def test_prod_publishes_the_web_port_and_nothing_else(base, prod):
+    """`web` is the only way in, and it keeps the base's port rather than restating it.
+
+    **The list is derived from the base.** It was written out — `("postgres", "redis", "api")`
+    — which meant a service added to the base was not checked here at all: the test would have
+    passed with `wiener-postgres` published on the host in production."""
     assert "ports" not in prod["services"]["web"]
-    for service in ("postgres", "redis", "api"):
-        assert prod["services"][service].get("ports") == [], service
+    for service in sorted(_publish_a_host_port(base) - {"web"}):
+        assert prod["services"][service].get("ports") == [], (
+            f"{service} publishes a host port in the base and the overlay does not close it"
+        )
 
 
 def test_prod_restarts_everything(prod):
