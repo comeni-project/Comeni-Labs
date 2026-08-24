@@ -42,9 +42,9 @@ def test_a_socket_resumes_from_the_id_it_is_given(client, a_run_with_events, tai
 
 
 def test_a_socket_for_an_unknown_run_closes_rather_than_hanging(client):
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect("/api/runs/nope/stream") as socket:
-            socket.receive_text()
+    with (pytest.raises(WebSocketDisconnect),
+          client.websocket_connect("/api/runs/nope/stream") as socket):
+        socket.receive_text()
 
 
 def test_a_finished_run_drains_and_then_closes(client, a_run_with_events):
@@ -54,10 +54,10 @@ def test_a_finished_run_drains_and_then_closes(client, a_run_with_events):
     So it reads to the end, hands over both terminal events, and only then closes.
     """
     received = []
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect(f"/api/runs/{a_run_with_events}/stream?from=0-0") as s:
-            while True:
-                received.append(_json.loads(s.receive_text()))
+    with (pytest.raises(WebSocketDisconnect),
+          client.websocket_connect(f"/api/runs/{a_run_with_events}/stream?from=0-0") as socket):
+        while True:
+            received.append(_json.loads(socket.receive_text()))
 
     kinds = [event["kind"] for event in received]
     assert len(received) == len(_bodies()), f"drained {len(received)} of {len(_bodies())}"
