@@ -8,6 +8,13 @@ The artboards behind the W2 design, published as a design canvas. The decisions 
 the record of how the *visual direction* was picked on 2026-08-23, and a record gets left alone.
 This one is the record of what W2 builds.
 
+**Published as a canvas**: <https://claude.ai/code/artifact/b36d76fb-0025-4a6a-9f10-400bcc10de10>
+— nine artboards on two pages, each with the argument for it on a note beside it. The artboards
+are live HTML, so **the hover states work in the browser** rather than being painted.
+
+The URL is written down because a link that lives only in a chat log is a link that is lost. If it
+ever breaks, `build.py` regenerates every artboard and the canvas can be re-seeded from them.
+
 ```bash
 python3 build.py            # rebuild every artboard from the tokens
 ```

@@ -50,8 +50,9 @@ Neither was findable by a test written to pass, and both are the W1 pattern repe
 ## W2, designed in the right order for the first time
 
 **Nine artboards were drawn and corrected before the spec was written**, which is a new order here
-and it worked. [`docs/design/w2-mockups/`](../../docs/design/w2-mockups/) — published as a canvas,
-each board with the argument for it on a note beside it.
+and it worked. [`docs/design/w2-mockups/`](../../docs/design/w2-mockups/) — published as a canvas at
+<https://claude.ai/code/artifact/b36d76fb-0025-4a6a-9f10-400bcc10de10>, each board with the
+argument for it on a note beside it. The artboards are live HTML, so the hover states work.
 
 Eleven decisions were put to the operator and answered. Two of them the operator got right against
 my recommendation, and both corrections are the useful part:
