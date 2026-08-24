@@ -22,7 +22,10 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`notes/journal/`](notes/journal/).**
+> **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
+> [`2026-08-24-wiener-w2.md`](notes/journal/2026-08-24-wiener-w2.md). **Three entries share that
+> date and a filename sort does not order them**; that one says so at the top and lists the
+> other two in the order they were written.
 > It is append-only and dated, so it cannot silently go stale the way this section can — and it
 > carries what is next, what was decided, and what a fresh reader gets wrong. This section holds
 > only what stays true between plans; the journal is the handoff.
