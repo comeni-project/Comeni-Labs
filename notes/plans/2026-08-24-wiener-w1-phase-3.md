@@ -43,6 +43,88 @@ invent a `wiener.*` name that the note does not list.**
   `explanation`, and `extra="forbid"`).
 - **Commit messages** end with the two trailer lines `CLAUDE.md` specifies.
 
+## The pre-execution audit — A184–A190, 2026-08-24
+
+Run against the code before a line was written, the way 18a's was. **Seven findings, one
+critical, and the critical one is the same mistake Checkpoint 2 caught one layer down.**
+
+| | What | Where | Fixed |
+|---|---|---|---|
+| A184 | **`RunState` carries none of the fifteen resource fields, so `spans()` cannot emit them** | `state.py`; plan Tasks 3, 4, 11 | Task 2a, added |
+| A185 | `GET /api/pipeline/layout` does not exist | plan Task 1 | yes, below |
+| A186 | The safety net exists already and is better than the one invented | plan Task 1 | yes, below |
+| A187 | The `dag-core` allowlist omits `__future__` | plan Task 1 | yes, below |
+| A188 | `Ports` is a type alias and the plan does not say which side it lands on | plan Task 1 | yes, below |
+| A189 | 3C's canvas is reusable — confirmed, with the file names | plan Task 9 | yes, below |
+| A190 | **`cicd.pipeline.name` is Required and the artifact has no name** | plan Task 3 | **open — needs a decision** |
+
+### A184 — the fold drops what `admit()` was fixed to keep
+
+```
+Attempt  : n, status, exit, at_ms
+TaskState: task_id, process, status, attempts, latest_exit, first_seen_ms, last_change_ms
+```
+
+**None of the fifteen `trace.enabled` fields survives the fold**, and neither do a task's
+`start_ms` and `complete_ms`. Three tasks in this plan are built on the assumption that they do:
+
+- §8 says *each attempt is its own span* with *start / end from `start_ms` / `complete_ms`* —
+  `TaskState` has `first_seen_ms` and `last_change_ms`, which are **per task, not per attempt**,
+  so a retried task's three spans would share one pair of timestamps.
+- Task 4's six `wiener.*` attributes read `cpus`, `%cpu`, `memory`, `peak_rss`, `duration`,
+  `realtime`, `read_bytes`, `write_bytes` — none of which `RunState` has.
+- Task 11 aggregates "from `run_task`", whose `attempts` column is a JSON dump of `Attempt`.
+  Same four fields. **The §9.3 panel cannot be built from the projection as it stands.**
+
+**This is Checkpoint 2's finding one layer up.** `admit()` was dropping the fields and the
+record lost them forever; now the record keeps them and *the fold* drops them, so everything
+downstream of `RunState` is blind again. The difference is that this one is recoverable —
+`run_event` has the payloads — but every projection built before the fix is wrong.
+
+**Task 2a is added below**, before any span is written.
+
+### A185 · A186 — the route and the net
+
+`GET /api/pipeline/layout` does not exist. The build router carries `prefix="/pipeline"` and the
+layout surface is `POST /api/pipeline/draw` (`drawPipeline`), which returns a `BuiltPipeline`.
+**This is exactly the class of error 18a's audit found in every route path it checked**, one
+plan later.
+
+And the safety net was invented when a better one exists:
+**`packages/mendel-compiler/tests/test_layout.py`, 270 lines**, including
+`test_the_same_ir_lays_out_identically`, `test_nothing_overlaps`,
+`test_every_coordinate_is_an_integer` and `test_a_producer_sits_above_its_consumer`. A move that
+keeps those green has kept the canvas. The `/tmp` JSON diff is deleted from the plan.
+
+### A187 · A188 — the allowlist and the alias
+
+`layout.py` imports `__future__`, `collections`, `dataclasses` and `comeni_core`, and
+`_outside_allowlist` has **no exemption for `__future__`** — the entry as written fails at Step
+2. `Ports = Mapping[str, tuple[list[str], list[str]]]` is a type alias in `layout.py`; it
+describes a *pipeline's* ports and belongs with the adapter, not with the arithmetic.
+
+### A189 — the canvas is reusable, and here is where it lives
+
+`frontend/src/build/`: `Canvas.tsx`, `useGraph.ts`, `geometry.ts`, `Graph.test.tsx`. Task 9's
+assumption holds; the file names are recorded so the executor does not go looking.
+
+### A190 — the one that needs a decision
+
+**`cicd.pipeline.name` is Required on the resource, on the run span and on three of the five
+metrics, and `Pipeline` has no name field.** Its fields are `version`, `goal`, `registry`, `ai`,
+`steps`, `channels`, `decisions`, `emitted`, `gate`.
+
+Every board groups by this. The candidates:
+
+1. **The artifact digest.** Honest and stable, and **every rebuild is a new series** — so *"is
+   the spine getting slower"* cannot be asked across a change.
+2. **Derived from the goal** — `counts.matrix` from `goal.want`. Stable across rebuilds, low
+   cardinality, and two different pipelines producing the same thing collide.
+3. **A name the submitter supplies**, defaulting to (2). Answers both, and adds a field to a
+   submit body the operator has already had to correct once.
+
+**Not chosen here.** It changes what every board can ask, and the plan should not pick it.
+
 ## File structure
 
 | File | Responsibility |
@@ -77,18 +159,15 @@ invent a `wiener.*` name that the note does not list.**
 **Read first:** §9.1.1. The lift does not reach on its own — `layout.of` takes a `PipelineIR`
 and Wiener has a `Pipeline`, so the extraction is **the arithmetic moved plus one seam**.
 
-- [ ] **Step 1: Record the canvas as it is now, before touching it**
+- [ ] **Step 1: Read the net that already exists — A186**
 
-```bash
-uv run python -c "
-import json
-from mendel_api.services.build import layout_of_example   # or the route's own entry
-print(json.dumps(layout_of_example(), sort_keys=True))" > /tmp/layout-before.json
-```
+`packages/mendel-compiler/tests/test_layout.py` is 270 lines and holds the canvas by its
+properties rather than by a blob: `test_the_same_ir_lays_out_identically`,
+`test_nothing_overlaps`, `test_every_coordinate_is_an_integer`,
+`test_a_producer_sits_above_its_consumer`, `test_a_straight_drop_is_two_points`. **A move that
+keeps those green has kept the canvas**, and it does not need a `/tmp` file to say so.
 
-If no such helper exists, call the same path `GET /api/pipeline/layout` uses and save the body.
-**This file is the whole safety net for this task** — the canvas must come out identical, and
-"identical" has to mean a diff rather than an opinion.
+Run it now and note the count, so "unchanged" has a number: `uv run pytest packages/mendel-compiler/tests/test_layout.py -q`
 
 - [ ] **Step 2: Create the package, pure and classified**
 
@@ -96,8 +175,15 @@ Manifest like `wiener-core`'s; `dependencies = ["comeni-core>=0.1.0"]`. Add to r
 `dependencies` and `[tool.uv.sources]`, and to `CLOSED_PACKAGES` in `tests/test_purity.py`:
 
 ```python
-    "dag-core": {"collections", "collections.abc", "dataclasses", "typing", "comeni_core", "dag_core"},
+    "dag-core": {
+        "__future__", "collections", "collections.abc", "dataclasses", "typing",
+        "comeni_core", "dag_core",
+    },
 ```
+
+**`__future__` is on that list because `layout.py` imports it and `_outside_allowlist` has no
+exemption for it** — A187. It was missing from this plan's first draft and Step 2 would have
+failed.
 
 Watch `test_every_package_is_classified` fail first, then classify. Ledger row.
 
@@ -132,7 +218,9 @@ class Graph:
 `_ranks`, `_order`, `_x_of`, `_height`, `_declared` and the constants (`NODE_W`, `COL_PITCH`,
 `HEAD_H`, `PORT_ROW`, `MIN_H`, `RANK_GAP`, `CORNER`) move to `dag_core/layout.py` **unchanged
 except for reading `Graph` instead of `PipelineIR`**. `Point`, `Placed`, `Wire` and `Layout`
-move with them.
+move with them. **`Ports` does not** — A188: it is
+`Mapping[str, tuple[list[str], list[str]]]`, it describes a *pipeline's* ports, and it belongs
+with the adapter that knows what a pipeline is.
 
 Resist improving anything while moving it. A move that changes no behaviour is provable; a move
 that also tidies is not.
@@ -150,8 +238,9 @@ def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
 
 - [ ] **Step 6: Prove the canvas did not move**
 
-Re-run Step 1's command into `/tmp/layout-after.json` and `diff` them. **Expected: no output.**
-Then `cd frontend && npx vitest run` — 3C's canvas tests are the second net.
+`uv run pytest packages/mendel-compiler/tests/test_layout.py -q` — the same count as Step 1,
+all passing. Then `cd frontend && npx vitest run` for 3C's own canvas tests
+(`src/build/Graph.test.tsx`, `geometry.test.ts`).
 
 - [ ] **Step 7: `make verify`**, because `mendel_compiler` was touched. Expected PASS, and the
   emitted digests unchanged.
@@ -206,12 +295,60 @@ duration and no rate** — §9.2.
 
 - [ ] **Step 4: `make check` and commit**
 
+### Task 2a: The fold keeps what the record keeps — A184
+
+**Files:**
+- Modify: `packages/wiener-core/src/wiener_core/state.py`,
+  `packages/wiener-core/tests/test_fold.py`,
+  `packages/wiener-api/src/wiener_api/services/projection.py` (the `attempts` dump)
+
+**Interfaces:** `Attempt` gains the per-attempt facts.
+
+**Why this exists:** the audit above. Everything from Task 3 onward reads `RunState`, and
+`RunState` currently has none of the fifteen fields Checkpoint 2 rescued into the record.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+def test_an_attempt_carries_what_the_trace_reported():
+    """A184. `admit()` keeps the fifteen fields and the fold was dropping them, so everything
+    downstream of RunState — spans, the §9.3 panel, run_task's attempts column — was blind to
+    them. The record could be replayed to recover; a projection could not."""
+    state = replay(_resourced_events())
+    attempt = next(iter(state.tasks.values())).attempts[0]
+    assert attempt.peak_rss_bytes and attempt.pct_cpu
+    assert attempt.start_ms and attempt.complete_ms, (
+        "a per-attempt span needs its own start and end — first_seen_ms and last_change_ms are "
+        "per TASK, so a retried task's three spans would share one pair of timestamps"
+    )
+
+
+def test_a_trace_less_run_leaves_them_absent_rather_than_zero():
+    """`failing-run.jsonl` was captured without `trace.enabled`. A zero would read as "this
+    task used no memory", which is a lie about a real number."""
+    attempt = next(iter(replay(_events()).tasks.values())).attempts[0]
+    assert attempt.peak_rss_bytes is None
+```
+
+- [ ] **Step 2: Run and watch both fail.**
+- [ ] **Step 3: Add the fields to `Attempt`** — `start_ms`, `complete_ms`, `duration_ms`,
+  `realtime_ms`, and the resource fields from `TaskTrace`, all `| None`. Copy them in `fold`
+  where the `Attempt` is built. **The keying stays `by_n`** (A176), so a redelivered body still
+  replaces rather than appends.
+- [ ] **Step 4: Check the convergence property still holds** — `test_a_redelivered_event_does_not_invent_an_attempt` is
+  what caught the `last_activity_ms` rewind, and it is the guard that will catch this one too if
+  the copy is done wrong.
+- [ ] **Step 5: `projection.append`'s `attempts` dump carries them**, so `run_task` is a
+  projection of the whole attempt rather than a quarter of it. Task 11 depends on this.
+- [ ] **Step 6: `make check` and commit.**
+
 ## ✋ CHECKPOINT 1 — the canvas did not move, and Wiener can draw
 
 - [ ] `diff /tmp/layout-before.json /tmp/layout-after.json` — **empty**, pasted into the report.
 - [ ] `make verify` green.
 - [ ] **Report**: that the builder's canvas is unchanged, that `wiener-core` now lays out an
-  artifact with no Mendel import, and that nothing is on screen yet.
+  artifact with no Mendel import, that an attempt now carries its own resources and timestamps
+  (A184), and that nothing is on screen yet.
 
 ---
 
@@ -402,7 +539,8 @@ def test_spans_are_a_golden_file():
   the same state), a node shows `done / total`, a retried node draws a second ring, and a failed
   node uses `--undecided`.
 - [ ] **Step 2: Build it**, reusing 3C's pan/zoom and orthogonal routing rather than a second
-  implementation. If that code is not reusable as it stands, **stop and say so** — a second
+  implementation — `frontend/src/build/`: `Canvas.tsx`, `useGraph.ts`, `geometry.ts` (A189,
+  confirmed to exist rather than assumed). If that code is not reusable as it stands, **stop and say so** — a second
   canvas is exactly what `dag-core` exists to prevent.
 - [ ] **Step 3: Enable the `Graph` segment** in `Run.tsx`, which has been drawn disabled since
   phase 2, and delete the `aria-disabled`.
