@@ -711,3 +711,36 @@ pathlib.Path("Menus.dc.html").write_text(page(
        + FOOT % ("right-click a row &middot; Shift+F10 opens the same menu from the keyboard")
        + '    </section>\n' + PROCESS_MENU + TASK_MENU + '  </div>\n')))
 print("menus built")
+
+
+# ---------------------------------------------------------------- 9. menus on the graph
+NODE_MENU = menu("STAR_ALIGN &middot; node", (
+    item("Show its tasks", "&#9166;")
+    + item("Open in console", "C")
+    + item("Show it in the table", "T")
+    + rule()
+    + item("Copy process name")
+    + item("Copy the container image")
+    + rule()
+    + item("Retry the failed tasks", off=True, tag="W4")), 340, 250)
+
+CANVAS_MENU = menu("the graph", (
+    item("Fit to the window", "F")
+    + item("Zoom to 100%", "0")
+    + rule()
+    + item("Copy the graph as SVG")
+    + item("Save the graph as PNG")
+    + rule()
+    + item("Show the pipeline it came from")), 830, 330, w=250)
+
+pathlib.Path("GraphMenu.dc.html").write_text(page(
+    nav("Runs", [("Board", False), ("This run", True)])
+    + runhead("running", "var(--measured)", "7m12s", 3, 5)
+    + ('  <div style="flex:1 1 auto; padding:16px 24px 22px; min-height:0; display:flex; '
+       'position:relative;">\n'
+       '    <section class="panel" style="flex:1 1 auto; min-width:0;">\n'
+       + tabs("Graph") + GRAPH
+       + FOOT % "a node, and the canvas &mdash; two menus, and the second is where a figure "
+                "leaves the tool"
+       + '    </section>\n' + NODE_MENU + CANVAS_MENU + '  </div>\n')))
+print("graph menus built")

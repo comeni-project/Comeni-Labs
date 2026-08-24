@@ -147,6 +147,70 @@ the builder are dead CSS, which is most of why it feels inert. `--hover` becomes
 tinting whatever surface it lands on and inverting for free in dark mode — the same argument the
 Depth tokens make from `--shadow`.
 
+## D11 — the context menu is a surface-wide vocabulary, not one page's trick
+
+**A menu on one page and nowhere else is worse than none**, because it teaches a gesture that
+then fails. Every Wiener surface that shows a row, a node or an edge answers a right-click.
+
+Two rules govern all of them:
+
+- **Nothing is reachable only by right-click.** Every item duplicates a visible control or is a
+  clipboard action, so the discoverability cost the research warns about does not apply.
+- **The browser's own menu survives where it matters.** A text selection, and the failure
+  banner's `errorReport` block, keep the native menu. **Overriding right-click everywhere steals
+  *Copy* from people**, which is a worse bug than having no menu.
+
+W4's verbs appear **listed and dimmed with a `W4` tag** on every surface that will grow them,
+rather than arriving later as new items in a menu whose shape people have learnt.
+
+### The board — `/runs`, a run row
+
+| | |
+|---|---|
+| open · open in a new tab | the row already navigates; this is the shortcut |
+| copy run id · copy a link to this run | the link is what somebody pastes into a message |
+| copy this row as TSV | |
+| *cancel this run* · *relaunch it* | dimmed, `W4` |
+
+### The run page — a process row and a task row
+
+Drawn on artboard 8. Recorded in [D10](#d10--nothing-appears-on-hover-the-shortcuts-are-on-right-click).
+
+### The console — an event line
+
+| | |
+|---|---|
+| copy this line | |
+| copy the task's work directory | the single most-wanted string when something failed |
+| filter to this process · show it in the overview | the console's own zoom, from inside the console |
+| copy everything shown | *shown*, not everything — what is filtered is what is copied, or the number is a lie |
+
+### The graph — a node, an edge, and the canvas
+
+Drawn on artboard 9.
+
+| a node | an edge | the canvas |
+|---|---|---|
+| show its tasks · open in console · show it in the table | copy the type it carries | fit to the window · zoom to 100% |
+| copy process name · copy the container image | copy the bytes moved — **only once the consumer finished** (§9.2) | **copy the graph as SVG** · save as PNG |
+| *retry the failed tasks* — dimmed, `W4` | | show the pipeline it came from |
+
+**`copy the graph as SVG` is the item worth arguing for.** It is where a figure leaves the tool and
+lands in a methods section, and it is honest to offer because `dag-core`'s layout is
+deterministic — the same run draws the same figure twice, which is the whole reason the layout
+lives in Python rather than in the browser.
+
+### The Tasks tab — a column header
+
+Sort ascending · sort descending · copy the column. Nothing else: hiding columns is a preference
+store, and the answer to a table that is too wide is fewer columns for everyone, not a setting.
+
+### Out of scope, said rather than skipped
+
+**The builder's canvas** — right-clicking a node or a wire to delete, disconnect or pin a producer
+— is Mendel's, not Wiener's. It is the obvious next use of the same vocabulary and it belongs to
+whoever next opens `frontend/src/build/`, so the shape here is written to be borrowed.
+
 ## What is still open
 
 - The sectioned design, presented and not yet approved.

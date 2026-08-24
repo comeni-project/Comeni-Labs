@@ -81,6 +81,15 @@
    "h": 900,
    "page": "page-1",
    "title": "8 \u00b7 Right-click \u2014 the shortcuts"
+  },
+  {
+   "file": "GraphMenu.dc.html",
+   "x": 4680,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "9 \u00b7 Right-click on the graph"
   }
  ],
  "annotations": [
@@ -203,6 +212,14 @@
    "w": 900,
    "page": "page-1",
    "text": "THE TWO MENUS, AND WHY THEY ARE SAFE.\n\nA process row: show its tasks, open in console, show in graph, copy the name, copy the row as TSV \u2014 a scientific tool should let you get a number out. A task row: open in console here, copy the work directory, the hash, the command line.\n\nW4's verbs are LISTED AND DIMMED with a W4 tag rather than absent: a control that does not exist yet is a promise you can read, and a menu that grows two new items later is worse than one that always had the shape.\n\nKeyboard parity is free: Shift+F10 fires a contextmenu event, so handling the event covers the key. Every row is already tabbable."
+  },
+  {
+   "id": "menus2",
+   "x": 4680,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "EVERY WIENER SURFACE GETS ONE \u2014 a menu on one page and nowhere else is worse than none, because it teaches a gesture that then fails.\n\nThe canvas menu is the one carrying something genuinely new: COPY THE GRAPH AS SVG. That is where a figure leaves the tool and lands in a methods section, and a graph laid out by dag-core is deterministic \u2014 the same run draws the same figure twice.\n\nWhat the menus do NOT take: a text selection and the errorReport block keep the browser's own menu. Overriding right-click everywhere steals Copy from people, which is a worse bug than having no menu at all."
   }
  ],
  "launch": {
