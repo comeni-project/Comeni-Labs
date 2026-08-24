@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
-from wiener_core.events import EventKind, admit, heartbeat
+from wiener_core.events import EventKind, RunEvent, admit, heartbeat
 
 FIXTURE = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
 
@@ -115,3 +115,31 @@ def test_the_two_captures_differ_in_exactly_the_way_finding_6_says():
         "the trace-less capture now carries peak_rss — finding 6 said the fields are opt-in, "
         "and that is no longer true of this Nextflow"
     )
+
+
+def test_the_record_survives_being_read_back():
+    """**`run_event` is the source of truth and everything else is a projection** — §7.1 — so
+    an event that does not survive the round trip makes that sentence false.
+
+    It did not. `payload` is written with `model_dump()`, which uses FIELD names, and
+    `TaskTrace` validated only by ALIAS — so every aliased field came back `None` and
+    `extra="ignore"` swallowed the evidence. `cpus`, `read_bytes` and `write_bytes` have no
+    alias and survived, which is exactly why it was invisible: a span carried three of the nine
+    resource attributes and looked merely sparse.
+
+    Found by printing the spans at a checkpoint and asking why one number was missing.
+    """
+    body = next(b for b in _bodies() if b["event"] == "process_completed")
+    once = admit(body, run_id="r1", seq=1)
+    twice = RunEvent.model_validate(once.model_dump(mode="json"))
+    assert twice == once, "the record does not survive being read back"
+
+
+def test_a_resourced_event_survives_it_too():
+    bodies = [json.loads(line) for line in RESOURCED.read_text().splitlines() if line.strip()]
+    done = next(b for b in bodies if b["event"] == "process_completed")
+    once = admit(done, run_id="r1", seq=1)
+    twice = RunEvent.model_validate(once.model_dump(mode="json"))
+    assert twice.trace.pct_cpu == once.trace.pct_cpu
+    assert twice.trace.peak_rss_bytes == once.trace.peak_rss_bytes
+    assert twice.trace.start_ms == once.trace.start_ms

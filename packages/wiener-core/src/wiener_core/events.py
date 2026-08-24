@@ -71,9 +71,21 @@ class ErrorAction(StrEnum):
 
 
 class TaskTrace(BaseModel):
-    """One task as Nextflow reported it. Anything not declared here is dropped."""
+    """One task as Nextflow reported it. Anything not declared here is dropped.
 
-    model_config = ConfigDict(frozen=True, extra="ignore")
+    **`populate_by_name` is load-bearing, not tidiness.** Nextflow sends `%cpu`, `start` and
+    `peak_rss`; `model_dump()` writes `pct_cpu`, `start_ms` and `peak_rss_bytes`; and
+    `run_event.payload` holds the dump. Without this, reading the record back validated by alias
+    only, so **every aliased field came back `None`** and `extra="ignore"` swallowed the
+    evidence — §7.1's *"run_event is the source of truth and everything else is a projection"*
+    was false for nine fields of fifteen.
+
+    It hid well: `cpus`, `read_bytes` and `write_bytes` have no alias, so a span carried three
+    of the nine and looked merely sparse. Found by printing the spans at a checkpoint and asking
+    why one number was missing.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="ignore", populate_by_name=True)
 
     task_id: int
     process: str
@@ -130,7 +142,7 @@ class TaskTrace(BaseModel):
 class RunManifest(BaseModel):
     """The `metadata` on `started` and `completed`, reduced to what Wiener uses."""
 
-    model_config = ConfigDict(frozen=True, extra="ignore")
+    model_config = ConfigDict(frozen=True, extra="ignore", populate_by_name=True)
 
     success: bool | None = None
     exit_status: int | None = None
