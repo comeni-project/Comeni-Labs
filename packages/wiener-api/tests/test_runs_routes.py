@@ -130,3 +130,64 @@ def test_the_board_lists_runs_newest_first(client, a_bundle):
                                           "params": {"input": "x", "fasta": "y"}}).json()["run_id"]
            for _ in range(3)]
     assert [row["id"] for row in client.get("/api/runs").json()] == list(reversed(ids))
+
+
+def _spine_bundle() -> bytes:
+    """The real emitted spine, zipped — the graph route needs an artifact it can read."""
+    import io
+    import zipfile
+    from pathlib import Path
+
+    spine = Path(__file__).parents[3] / "tests/fixtures/pipeline/rnaseq-spine.yml"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("pipeline.yml", spine.read_text())
+        archive.writestr("main.nf", "workflow {}\n")
+        archive.writestr("nextflow.config", "params {\n    input = null\n}\n")
+    return buffer.getvalue()
+
+
+def test_the_graph_is_the_pipelines_own_layout(client, session):
+    """§9.1: nothing new is computed. Five steps in, five placed nodes out, and a producer
+    above its consumer — the same arithmetic the builder's canvas draws."""
+    artifact = client.post("/api/artifacts",
+                           files={"bundle": ("p.zip", _spine_bundle())}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "x"}}).json()["run_id"]
+
+    graph = client.get(f"/api/runs/{run_id}/graph").json()
+    assert len(graph["nodes"]) == 5 and graph["wires"]
+    by_id = {node["id"]: node for node in graph["nodes"]}
+    assert by_id["trimgalore"]["y"] < by_id["star_align"]["y"] < by_id["samtools_sort"]["y"]
+    assert graph["width"] > 0 and graph["height"] > 0
+
+
+def test_a_graph_for_a_run_that_has_done_nothing_still_draws_every_step(client):
+    """A run that failed early still has a whole pipeline, and the steps that never started are
+    what tell you where it stopped."""
+    artifact = client.post("/api/artifacts",
+                           files={"bundle": ("p.zip", _spine_bundle())}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "x"}}).json()["run_id"]
+
+    graph = client.get(f"/api/runs/{run_id}/graph").json()
+    assert all(node["total"] == 0 for node in graph["nodes"])
+    assert not any(wire["active"] for wire in graph["wires"]), "nothing is running"
+
+
+def test_the_graph_carries_no_lab_string(client):
+    """§8's rule is about span attributes and the reason behind it is not: `script`, `workdir`
+    and `tag` are the fields a laboratory's own words reach, and a graph is a screenshot people
+    paste into tickets."""
+    artifact = client.post("/api/artifacts",
+                           files={"bundle": ("p.zip", _spine_bundle())}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "/data/PT-4471/sheet.csv"}}
+                         ).json()["run_id"]
+
+    body = client.get(f"/api/runs/{run_id}/graph").text
+    assert "PT-4471" not in body and ".csv" not in body
+
+
+def test_an_unknown_run_has_no_graph(client):
+    assert client.get("/api/runs/nope/graph").status_code == 404

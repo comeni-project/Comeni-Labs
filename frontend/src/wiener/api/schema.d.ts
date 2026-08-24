@@ -76,6 +76,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pipeline's own graph, coloured by what the run did
+         * @description **Nothing new is computed** — §9.1. The layout is `dag-core`'s, the same one the builder
+         *     draws, and the colouring is the fold's. A graph that cannot disagree with either.
+         */
+        get: operations["readRunGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -111,6 +132,28 @@ export interface components {
             /** Bundle */
             bundle: string;
         };
+        /** DrawnWire */
+        DrawnWire: {
+            /** From Node */
+            from_node: string;
+            /** From Port */
+            from_port: string;
+            /** To Node */
+            to_node: string;
+            /** To Port */
+            to_port: string;
+            /** Points */
+            points: {
+                [key: string]: number;
+            }[];
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /** Bytes Moved */
+            bytes_moved?: number | null;
+        };
         /**
          * EventPage
          * @description A page of the record, **and where to subscribe from when you have read it**.
@@ -134,10 +177,88 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * PlacedNode
+         * @description A node, where the layout put it, and what the run did to it.
+         */
+        PlacedNode: {
+            /** Id */
+            id: string;
+            /** Process */
+            process: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Tier */
+            tier: number;
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: string[];
+            /**
+             * Outputs
+             * @default []
+             */
+            outputs: string[];
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Attempts
+             * @default 1
+             */
+            attempts: number;
+        };
         /** RunAccepted */
         RunAccepted: {
             /** Run Id */
             run_id: string;
+        };
+        /** RunGraphOut */
+        RunGraphOut: {
+            /**
+             * Nodes
+             * @default []
+             */
+            nodes: components["schemas"]["PlacedNode"][];
+            /**
+             * Wires
+             * @default []
+             */
+            wires: components["schemas"]["DrawnWire"][];
+            /**
+             * Width
+             * @default 0
+             */
+            width: number;
+            /**
+             * Height
+             * @default 0
+             */
+            height: number;
         };
         /** RunRow */
         RunRow: {
@@ -335,6 +456,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readRunGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunGraphOut"];
                 };
             };
             /** @description Validation Error */

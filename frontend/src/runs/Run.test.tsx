@@ -115,10 +115,13 @@ it("says it is read-only rather than pretending it is not", async () => {
   expect(await screen.findByText(/read-only until W4/i)).toBeInTheDocument();
 });
 
-it("draws the Graph segment as disabled rather than omitting it", async () => {
-  // A control that goes nowhere SILENTLY is what Shell.tsx records as the mistake 3A shipped
-  // six of. Phase 3 builds the graph; until then it says so.
+it("offers both views, and the console is the one you land on", async () => {
+  // The Graph segment was drawn DISABLED from phase 2 until phase 3 built it — a control that
+  // goes nowhere silently is what Shell.tsx records as the mistake 3A shipped six of. It is a
+  // real control now, and this test changed from asserting the promise to asserting the thing.
   at();
-  const graph = await screen.findByTitle(/graph view is phase 3/i);
-  expect(graph).toHaveAttribute("aria-disabled", "true");
+  expect(await screen.findByRole("button", { name: "Console" }))
+    .toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Graph" }))
+    .toHaveAttribute("aria-pressed", "false");
 });

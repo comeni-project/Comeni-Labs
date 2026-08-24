@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
+import { useUrlState } from "../app/useUrlState";
+
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
+import { Graph } from "./Graph";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
@@ -41,8 +44,24 @@ function Count({ label, value, colour }: { label: string; value: number; colour?
  * The header's counts come from the projection; the console's rows come from the stream. Both
  * are the same events — one folded, one in order — which is why they cannot disagree.
  */
+function Segment({ name, active, onPick }: {
+  name: string; active: boolean; onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={active}
+      className={`text-body ${active ? "font-semibold text-ink" : "text-ink-3 hover:text-ink"}`}
+    >
+      {name}
+    </button>
+  );
+}
+
 export function Run() {
   const { id } = useParams();
+  const [view, setView] = useUrlState("view", "console");
   useTitle(id ? `Run ${id.slice(0, 8)}` : "Run");
 
   const state = useQuery({
@@ -93,19 +112,18 @@ export function Run() {
 
       <section className="bg-surface border border-line rounded-[var(--r)] overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">
-          <span className="text-body font-semibold text-ink">Console</span>
-          <span
-            aria-disabled="true"
-            title="The graph view is phase 3"
-            className="text-body text-ink-3 cursor-not-allowed"
-          >
-            Graph
-          </span>
+          {/* **Two views of one `RunState`, so switching is a render and never a fetch** —
+              §9. The view lives in the URL because a link to a failing graph is the thing
+              somebody pastes into a message. */}
+          <Segment name="Console" active={view !== "graph"} onPick={() => setView("console")} />
+          <Segment name="Graph" active={view === "graph"} onPick={() => setView("graph")} />
           <span className="ml-auto text-label text-ink-3">
             {stream.following ? "following" : "not following"} · read-only until W4
           </span>
         </div>
-        {stream.error ? (
+        {view === "graph" ? (
+          <Graph runId={run.run_id} />
+        ) : stream.error ? (
           <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
         ) : (
           <Console events={stream.events} following={stream.following} />

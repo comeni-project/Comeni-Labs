@@ -522,12 +522,12 @@ def test_spans_are_a_golden_file():
 
 **Files:** modify `routes/runs.py`, `repository.py`, `tests/test_runs_routes.py`
 
-- [ ] **Step 1: Write the failing test** — `GET /api/runs/{id}/graph` returns placed nodes,
+- [x] **Step 1: Write the failing test** — `GET /api/runs/{id}/graph` returns placed nodes,
   wires and the per-node run state; 404 for an unknown run; and **the response contains no lab
   string**, for the same reason a span may not.
-- [ ] **Step 2: Implement**, reading the artifact's `pipeline.yml` from Wiener's own store.
-- [ ] **Step 3: `make client`** — both schemas regenerate.
-- [ ] **Step 4: `make check` and commit.**
+- [x] **Step 2: Implement**, reading the artifact's `pipeline.yml` from Wiener's own store.
+- [x] **Step 3: `make client`** — both schemas regenerate.
+- [x] **Step 4: `make check` and commit.**
 
 ### Task 9: The second view
 
@@ -535,30 +535,30 @@ def test_spans_are_a_golden_file():
 
 **Read first:** `docs/design/wiener-mockups/Graph.dc.html`. **Do not invent the screen.**
 
-- [ ] **Step 1: Write the failing tests** — the toggle switches without a fetch (both views are
+- [x] **Step 1: Write the failing tests** — the toggle switches without a fetch (both views are
   the same state), a node shows `done / total`, a retried node draws a second ring, and a failed
   node uses `--undecided`.
-- [ ] **Step 2: Build it**, reusing 3C's pan/zoom and orthogonal routing rather than a second
+- [x] **Step 2: Build it**, reusing 3C's pan/zoom and orthogonal routing rather than a second
   implementation — `frontend/src/build/`: `Canvas.tsx`, `useGraph.ts`, `geometry.ts` (A189,
   confirmed to exist rather than assumed). If that code is not reusable as it stands, **stop and say so** — a second
   canvas is exactly what `dag-core` exists to prevent.
-- [ ] **Step 3: Enable the `Graph` segment** in `Run.tsx`, which has been drawn disabled since
+- [x] **Step 3: Enable the `Graph` segment** in `Run.tsx`, which has been drawn disabled since
   phase 2, and delete the `aria-disabled`.
-- [ ] **Step 4: `npx vitest run && npx tsc -b`, `make check`, commit.**
+- [x] **Step 4: `npx vitest run && npx tsc -b`, `make check`, commit.**
 
 ### Task 10: An edge that is honest
 
 **Files:** modify `Graph.tsx`, `Graph.test.tsx`
 
-- [ ] **Step 1: A live edge means active** — the consumer is running on what the producer wrote.
+- [x] **Step 1: A live edge means active** — the consumer is running on what the producer wrote.
   Animate it.
-- [ ] **Step 2: A test that no rate is drawn.** §9.2: a pulse whose speed implies MB/s is a
+- [x] **Step 2: A test that no rate is drawn.** §9.2: a pulse whose speed implies MB/s is a
   number nobody measured. The test asserts the animation's duration is a constant and not a
   function of any datum — **this is the guard for the rule that a graph may move but may not
   lie**.
-- [ ] **Step 3: A finished edge may carry its real weight**, from `read_bytes`/`write_bytes`,
+- [x] **Step 3: A finished edge may carry its real weight**, from `read_bytes`/`write_bytes`,
   because then it is known.
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ## ✋ CHECKPOINT 5 — you watch a run as a graph
 
@@ -622,6 +622,10 @@ designed. Build what is drawn.
 | 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
 | 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
 | 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 9 | 3C's `Canvas`, `useView` and `geometry` are reused; **`Node` is not** | `Node` is an editor node — selection, dragging, wire-drag, settings, verdicts — and a run node shows different facts. Reusing it would mean passing a dozen no-op props and a `Step`. The *layout* is shared, which is what `dag-core` exists for; the renderer differs because the two views say different things about the same shape |
+| 9 | **Entry channels are not drawn**, and the mockup draws them | `Graph.dc.html` shows `fastq.reads` and `genome.fasta` as chips feeding the first nodes. A run graph is *coloured by what happened*, and a channel never runs — it has no tasks, no state and nothing to colour. The builder shows inputs because you are assembling; this shows what executed. Recorded rather than silently dropped |
+| 9 | The view lives in the URL — `?view=graph` | A link to a failing graph is the thing somebody pastes into a message. It also makes "switching is a render, not a fetch" testable |
+| 10 | The rate guard was watched failing | Making the pulse faster for more bytes — the tempting version — gives `expected '2s' to be '0.9s'`. §9.2 says a pulse whose speed implies MB/s is a number nobody measured, and that is now a test rather than a paragraph |
 | 7 | The boards were authored as JSON and **each query verified against real data** rather than built in a UI and exported | The plan says build them in Grafana first, and this session cannot click. So every panel's SQL was run against ClickHouse before it went in a board, and then all eleven were re-run through the provisioned boards: **10 of 11 returned rows, and the eleventh was empty for a reason** |
 | 7 | The Grafana mount was wrong and nothing was provisioned | `ops/grafana` was mounted onto `provisioning/datasources`, so the dashboard provider was never read — the log says *"starting to provision dashboards / finished"* with nothing between, and the search returns nothing. The whole `provisioning` tree is mounted now |
 | 7 | **`errorStrategy` was missing, so `* task.attempt` was decoration** | Found by the one empty panel: nothing in any run had ever reached attempt 2, because the emitted config has no retry. A task killed for memory would ask for the same amount again, forever. nf-core pairs the two and so does this now — same citation, and it is what makes the OOM-retry story real |

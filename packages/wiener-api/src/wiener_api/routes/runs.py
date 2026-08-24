@@ -154,6 +154,105 @@ def events(run_id: str, after: int = -1, limit: int = 200) -> EventPage:
     )
 
 
+class PlacedNode(BaseModel):
+    """A node, where the layout put it, and what the run did to it."""
+
+    id: str
+    process: str
+    x: int
+    y: int
+    width: int
+    height: int
+    tier: int
+    inputs: list[str] = []
+    outputs: list[str] = []
+    done: int = 0
+    failed: int = 0
+    running: int = 0
+    total: int = 0
+    attempts: int = 1
+
+
+class DrawnWire(BaseModel):
+    from_node: str
+    from_port: str
+    to_node: str
+    to_port: str
+    points: list[dict[str, int]]
+    active: bool = False
+    """**"This edge is active" and nothing more** — §9.2. The consumer is running on what the
+    producer wrote, which the event stream supports. A rate would be invented."""
+    bytes_moved: int | None = None
+    """Only once the consumer finished, because `read_bytes` arrives on `process_completed`."""
+
+
+class RunGraphOut(BaseModel):
+    nodes: list[PlacedNode] = []
+    wires: list[DrawnWire] = []
+    width: int = 0
+    height: int = 0
+
+
+@router.get("/runs/{run_id}/graph", operation_id="readRunGraph",
+            summary="The pipeline's own graph, coloured by what the run did")
+def graph(run_id: str) -> RunGraphOut:
+    """**Nothing new is computed** — §9.1. The layout is `dag-core`'s, the same one the builder
+    draws, and the colouring is the fold's. A graph that cannot disagree with either.
+    """
+    import dag_core
+    from wiener_core.graph import coloured, graph_of
+
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        pipeline = _pipeline_of(session, run_id)
+        if pipeline is None:
+            raise HTTPException(status_code=404, detail="this run's artifact cannot be read")
+        state = state_of(session, settings.lab_id, run_id)
+
+    laid = dag_core.of(graph_of(pipeline))
+    run = coloured(pipeline, laid, state)
+    by_id = {node.id: node for node in run.nodes}
+    ports = {node.id: node for node in graph_of(pipeline).nodes}
+
+    finished = {
+        node.id for node in run.nodes if node.total and node.done + node.failed == node.total
+    }
+    return RunGraphOut(
+        nodes=[
+            PlacedNode(
+                id=placed.id, process=by_id[placed.id].process,
+                x=placed.x, y=placed.y, width=placed.width, height=placed.height,
+                tier=placed.tier,
+                inputs=list(ports[placed.id].inputs), outputs=list(ports[placed.id].outputs),
+                done=by_id[placed.id].done, failed=by_id[placed.id].failed,
+                running=by_id[placed.id].running, total=by_id[placed.id].total,
+                attempts=by_id[placed.id].attempts,
+            )
+            for placed in laid.nodes
+        ],
+        wires=[
+            DrawnWire(
+                from_node=wire.from_node, from_port=wire.from_port,
+                to_node=wire.to_node, to_port=wire.to_port,
+                points=[{"x": point.x, "y": point.y} for point in wire.points],
+                # Active means the consumer is running on what the producer wrote — a fact the
+                # stream supports. It stops being active when the consumer stops, not when the
+                # data stops flowing, because nothing reports the latter.
+                active=(by_id[wire.to_node].running > 0 and wire.from_node in finished),
+            )
+            for wire in laid.wires
+        ],
+        width=laid.width, height=laid.height,
+    )
+
+
+def _pipeline_of(session, run_id: str):
+    from wiener_api.services.projection import _artifact_pipeline
+
+    return _artifact_pipeline(session, settings.lab_id, run_id)
+
+
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}
 
 
