@@ -2778,3 +2778,31 @@ had a test written for it.
 **`or 0` rather than `if … else 0` on purpose.** The plausible way this defect arrives is not
 somebody deciding zero is right; it is somebody making a type checker happy about `int | None`
 in one keystroke. That is the edit the guard has to catch.
+
+---
+
+## An undefined `var()` is silence, not an error — 2026-08-24
+
+W2 Task 4 step 7. **This guard is the only kind of thing that could have caught the defect it
+was written for.** `--hover` was referenced five times in `frontend/src/build/` and defined
+nowhere from Plan 3C until today: `hover:bg-[var(--hover)]` compiles, ships, and renders as
+nothing at all. Five hover states were dead CSS for a fortnight, which is most of why the
+builder felt inert, and no test, typecheck or review found it — because there is nothing to
+find. An undefined custom property is not an error; the declaration is simply dropped.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `tokens.test.ts::defines every custom property the app references` | deleted the `--hover:` line from `frontend/src/tokens.css` | failed | `AssertionError: expected [ Array(1) ] to deeply equal []` / `+ "--hover (…/build/Builder.tsx, …/build/Compare.tsx, …/build/Findings.tsx, …/main.css)"` |
+
+**It names the files, not just the token**, which is the difference between a guard that
+reports a fact and one that hands over the fix.
+
+**Writing it found two more the plan did not know about.** `--profiled` and `--settled` were
+referenced in `Findings.tsx` and `Port.tsx` as names for tier 3 and tiers 1–2, and neither has
+ever existed in the palette — the real names are `--measured` and `--pea`. One of them hid
+inside a fallback chain, `var(--advisory, var(--profiled))`, where **both** names were
+undefined, which is why the guard's regex matches `var(\s*--name` rather than the closing
+paren: a fallback to another missing token is the most invisible form of this bug.
+
+**Paired with a vacuity check**, per A67: `finds something, so it cannot pass by reaching
+nothing`. A file walk that breaks would otherwise turn the guard green rather than red.

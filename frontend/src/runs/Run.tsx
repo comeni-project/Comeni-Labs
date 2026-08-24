@@ -126,7 +126,7 @@ export function Run() {
 
       {more === "1" && <Stats runId={run.run_id} />}
 
-      <section className="bg-surface border border-line rounded-[var(--r)] overflow-hidden">
+      <section className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">
           {/* **Two views of one `RunState`, so switching is a render and never a fetch** —
               §9. The view lives in the URL because a link to a failing graph is the thing

@@ -327,7 +327,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
           <div
             data-zoomer
             className="absolute right-4 bottom-4 flex items-center gap-1 rounded-r
-                       border border-line bg-surface px-1 py-1 shadow-[0_1px_2px_var(--shadow)]"
+                       border border-line bg-surface px-1 py-1 shadow-e1"
           >
             <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
               −
@@ -574,7 +574,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             data-testid="node-menu"
             style={{ left: menu.x, top: menu.y }}
             className="fixed z-50 min-w-[160px] rounded-r border border-line bg-surface py-1
-                       shadow-[0_4px_16px_var(--shadow)]"
+                       shadow-e3"
           >
             <button
               data-testid="menu-settings"
@@ -614,7 +614,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[560px] max-h-[70vh] overflow-auto rounded-r border
-                       border-line bg-surface shadow-[0_4px_16px_var(--shadow)]"
+                       border-line bg-surface shadow-e3"
           >
             <Settings
               step={data.steps.find((s) => s.id === carded)!}

@@ -92,7 +92,7 @@ export function Board() {
         </p>
       </header>
 
-      <section className="bg-surface border border-line rounded-[var(--r)] overflow-hidden">
+      <section className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden">
         {runs.data.length === 0 ? (
           <Empty title="No runs yet." next="Wiener runs a pipeline the Builder has gated." />
         ) : (

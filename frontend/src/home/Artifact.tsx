@@ -78,7 +78,7 @@ export function Artifact() {
     <figure
       data-testid="artifact"
       className="m-0 rounded-r border border-line bg-surface overflow-hidden
-                 shadow-[0_1px_2px_var(--shadow)]"
+                 shadow-e1"
     >
       <figcaption
         className="flex items-baseline justify-between gap-4 px-4 py-2

@@ -18,7 +18,7 @@ export function Glossary({ onClose }: { onClose: () => void }) {
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[620px] max-h-[70vh] overflow-auto rounded-r border border-line
-                   bg-surface shadow-[0_4px_16px_var(--shadow)]"
+                   bg-surface shadow-e3"
       >
         <div className="flex items-baseline gap-4 px-5 py-3 border-b border-line bg-surface-2">
           <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">

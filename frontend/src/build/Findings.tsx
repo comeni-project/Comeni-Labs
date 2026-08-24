@@ -19,12 +19,12 @@ const WORDS: Record<Level, { label: string; what: string; colour: string }> = {
   unmet: {
     label: "Unmet",
     what: "nothing feeds this yet — legal to hold, not to run",
-    colour: "var(--profiled)",
+    colour: "var(--measured)",
   },
   advisory: {
     label: "Advisory",
     what: "legal, and not what convention would choose",
-    colour: "var(--profiled)",
+    colour: "var(--measured)",
   },
 };
 

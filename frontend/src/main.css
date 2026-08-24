@@ -57,6 +57,27 @@
   --color-undecided: var(--undecided);
   --color-undecided-soft: var(--undecided-soft);
   --color-fault: var(--fault);
+  --color-hover: var(--hover);
+  --color-hover-strong: var(--hover-strong);
+
+  /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
+     the same reason the colours are mirrored: one definition, and a seventh elevation cannot
+     be invented by eye. */
+  --shadow-e1: var(--e1);
+  --shadow-e2: var(--e2);
+  --shadow-e3: var(--e3);
+  --shadow-well: var(--well);
+}
+
+/* It removes the TRANSITION, never the feedback: the colour still changes, it just arrives
+   at once, and the lift is dropped. A reduced-motion reader loses the animation, not the
+   information — which is why this is not `transition: none` on everything. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 body {
