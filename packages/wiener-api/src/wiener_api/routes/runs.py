@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
+from wiener_api.services import stream
 from wiener_api.services.artifacts import declared_holes, store
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
@@ -50,6 +51,21 @@ class ArtifactStored(BaseModel):
 
 class RunAccepted(BaseModel):
     run_id: str
+
+
+class EventPage(BaseModel):
+    """A page of the record, **and where to subscribe from when you have read it**.
+
+    The handoff is the only ordering subtlety in the console (§7.2), so it is a field rather
+    than a convention: page from Postgres, then tail from `stream_id`. A browser that has been
+    closed for a day does not scroll back through Redis.
+    """
+
+    events: list[dict]
+    cursor: int
+    """The highest `seq` on this page. `-1` when the run has no events yet."""
+    stream_id: str
+    """The Redis id to resume after. `"0-0"` when the tail is empty or has been trimmed."""
 
 
 class RunRow(BaseModel):
@@ -120,10 +136,18 @@ def read(run_id: str) -> dict:
 
 @router.get("/runs/{run_id}/events", operation_id="readRunEvents",
             summary="The record, in order")
-def events(run_id: str, after: int = -1, limit: int = 200) -> list[dict]:
+def events(run_id: str, after: int = -1, limit: int = 200) -> EventPage:
     """What the console reads before it subscribes — §7.2's page-then-tail handoff."""
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
         rows = repository.events(session, settings.lab_id, run_id)
-        return [row.payload for row in rows if row.seq > after][:limit]
+        page = [row for row in rows if row.seq > after][:limit]
+
+    # Read AFTER the page, so an event that lands between the two is tailed rather than
+    # missed. The reverse order drops anything that arrives in the gap.
+    return EventPage(
+        events=[row.payload for row in page],
+        cursor=page[-1].seq if page else after,
+        stream_id=stream.last_id(run_id),
+    )

@@ -23,6 +23,23 @@ from wiener_api.models import Run
 from wiener_api.settings import settings
 
 
+@pytest.fixture(autouse=True)
+def tail(monkeypatch):
+    """Every test gets a real-behaving, in-process Redis.
+
+    **Autouse, because the alternative is a test that quietly needs a container.** `record()`
+    publishes and the events page reads the tail's last id, so without this the suite reaches
+    `localhost:6379` — passing on a developer's machine, and in CI passing for the wrong
+    reason, since a failed publish is deliberately only logged.
+    """
+    from fakeredis import FakeRedis
+    from wiener_api.services import stream
+
+    fake = FakeRedis(decode_responses=True)
+    monkeypatch.setattr(stream, "_client", fake)
+    return fake
+
+
 @pytest.fixture
 def session(monkeypatch):
     # `StaticPool` and one connection: a bare `sqlite://` gives every connection its own empty

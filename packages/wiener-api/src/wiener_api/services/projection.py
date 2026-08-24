@@ -10,14 +10,19 @@ and `test_no_query_is_built_outside_the_repository` refused them, which is the g
 job it was widened to do rather than an inconvenience routed around.
 """
 
+import logging
 from datetime import UTC, datetime
 
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 from wiener_core.events import RunEvent, admit
 from wiener_core.state import EMPTY, RunState, fold, replay
 
 from wiener_api import repository
 from wiener_api.models import RunEventRow, RunTask
+from wiener_api.services import stream
+
+log = logging.getLogger(__name__)
 
 
 def state_of(session: Session, lab_id: str, run_id: str) -> RunState:
@@ -55,4 +60,14 @@ def record(session: Session, lab_id: str, run_id: str, payload: dict) -> RunStat
         existing.last_change_ms = task.last_change_ms
 
     session.flush()
+    # **After the flush and never before.** A stream entry for an event Postgres has not
+    # accepted is a tail that disagrees with the record, and the record is what a reload
+    # rebuilds from — so a browser would see something that no longer exists.
+    try:
+        stream.publish(run_id, event)
+    except RedisError as exc:
+        # **The tail is lossy by design; the record is not.** Losing Redis must not lose an
+        # event, so this cannot raise — but a dead tail that nobody notices is a console that
+        # silently stops updating, so it does not pass quietly either.
+        log.warning("run %s: event %s recorded but not published: %s", run_id, event.seq, exc)
     return state
