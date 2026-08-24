@@ -253,6 +253,37 @@ def _pipeline_of(session, run_id: str):
     return _artifact_pipeline(session, settings.lab_id, run_id)
 
 
+class ProcessStatsOut(BaseModel):
+    """§9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
+    run was launched without `trace.enabled` and nothing was reported."""
+
+    process: str
+    tasks: int
+    memory_asked_bytes: int | None = None
+    memory_peak_bytes: int | None = None
+    cpus_asked: int | None = None
+    cpu_used_pct: float | None = None
+    realtime_ms: int | None = None
+    queue_wait_ms: int | None = None
+    read_bytes: int | None = None
+    write_bytes: int | None = None
+
+
+@router.get("/runs/{run_id}/stats", operation_id="readRunStats",
+            summary="What each process asked for and what it used")
+def run_stats(run_id: str) -> list[ProcessStatsOut]:
+    """Per process, worst case kept. The maximum is what kills a run and the mean is what hides
+    it — §9.3, and the sort is by what took longest because that is what a reader came for."""
+    from wiener_core.stats import stats
+
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        state = state_of(session, settings.lab_id, run_id)
+
+    return [ProcessStatsOut(**row.model_dump()) for row in stats(state)]
+
+
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}
 
 

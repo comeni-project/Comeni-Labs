@@ -8,6 +8,7 @@ import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
 import { Graph } from "./Graph";
+import { Stats } from "./Stats";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
@@ -62,6 +63,7 @@ function Segment({ name, active, onPick }: {
 export function Run() {
   const { id } = useParams();
   const [view, setView] = useUrlState("view", "console");
+  const [more, setMore] = useUrlState("more", "0");
   useTitle(id ? `Run ${id.slice(0, 8)}` : "Run");
 
   const state = useQuery({
@@ -102,13 +104,27 @@ export function Run() {
 
       <section
         data-testid="counts"
-        className="flex gap-8 px-4 py-3 bg-surface border border-line rounded-[var(--r)]"
+        className="flex items-center gap-8 px-4 py-3 bg-surface border border-line
+                   rounded-[var(--r)]"
       >
         <Count label="running" value={run.counts.running} colour="var(--measured)" />
         <Count label="done" value={run.counts.succeeded} colour="var(--pea)" />
         <Count label="cached" value={run.counts.cached} />
         <Count label="failed" value={run.counts.failed} colour="var(--undecided)" />
+        {/* `wiener-mockups/Main.dc.html` puts a More control here and the numbers behind it.
+            **Collapsed by default**: the counts answer "how is it going" and the comparisons
+            answer "was it sized right", which is a different question asked less often. */}
+        <button
+          type="button"
+          onClick={() => setMore(more === "1" ? "0" : "1")}
+          aria-expanded={more === "1"}
+          className="ml-auto text-label text-ink-3 hover:text-ink"
+        >
+          {more === "1" ? "Less" : "More"}
+        </button>
       </section>
+
+      {more === "1" && <Stats runId={run.run_id} />}
 
       <section className="bg-surface border border-line rounded-[var(--r)] overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">

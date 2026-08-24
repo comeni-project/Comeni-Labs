@@ -576,13 +576,13 @@ def test_spans_are_a_golden_file():
 **Files:** create `frontend/src/runs/Stats.tsx`, `Stats.test.tsx`; modify `Run.tsx`,
 `routes/runs.py`
 
-- [ ] **Step 1: Write the failing test** — per process, not per task: *STAR_ALIGN: 12 tasks,
+- [x] **Step 1: Write the failing test** — per process, not per task: *STAR_ALIGN: 12 tasks,
   peak 61 GB of 64 requested, worst 6m41s*. **The outlier is kept and the mean is not shown.**
-- [ ] **Step 2: A test for the absent case** — a run captured without `trace.enabled` must say
+- [x] **Step 2: A test for the absent case** — a run captured without `trace.enabled` must say
   *"resource metrics were not recorded for this run"* rather than rendering zeros. §4.3 finding
   6 is that the fields are opt-in, and a zero here is a lie about a real number.
-- [ ] **Step 3: Implement**, aggregating in the API from `run_task`.
-- [ ] **Step 4: `make check`, frontend tests, commit.**
+- [x] **Step 3: Implement**, aggregating in the API from `run_task`.
+- [x] **Step 4: `make check`, frontend tests, commit.**
 
 ### Task 12: The `More` panel
 
@@ -591,24 +591,24 @@ def test_spans_are_a_golden_file():
 **Read first:** `wiener-mockups/Main.dc.html` — the header has a `More` control and the panel is
 designed. Build what is drawn.
 
-- [ ] **Step 1: Implement the expandable panel.**
-- [ ] **Step 2: Commit.**
+- [x] **Step 1: Implement the expandable panel.**
+- [x] **Step 2: Commit.**
 
 ### Task 13: The journal, the plan's own record, and `CLAUDE.md`
 
-- [ ] **Step 1: `notes/journal/2026-08-__-wiener-phase-3.md`** — what happened, what is next,
+- [x] **Step 1: `notes/journal/2026-08-__-wiener-phase-3.md`** — what happened, what is next,
   what a fresh reader gets wrong.
-- [ ] **Step 2: Fill the execution record** below with every deviation.
-- [ ] **Step 3: Update `CLAUDE.md`'s Current state** — W1 complete, and what W2 is for.
-- [ ] **Step 4: `make verify`, `make residue`**, and commit.
+- [x] **Step 2: Fill the execution record** below with every deviation.
+- [x] **Step 3: Update `CLAUDE.md`'s Current state** — W1 complete, and what W2 is for.
+- [x] **Step 4: `make verify`, `make residue`**, and commit.
 
 ## ✋ CHECKPOINT 6 — W1 is done
 
-- [ ] **`make verify`** green, and **`make residue`** — report the number and how many guards
+- [x] **`make verify`** green, and **`make residue`** — report the number and how many guards
   phase 3 added.
-- [ ] **Walk the whole thing as a user**: build a pipeline in the Builder, gate it, submit it to
+- [x] **Walk the whole thing as a user**: build a pipeline in the Builder, gate it, submit it to
   Wiener, watch the graph, read the stats, open a board.
-- [ ] **Report**: whether §18's W1 sentence is true — *a real pipeline runs on real data, you
+- [x] **Report**: whether §18's W1 sentence is true — *a real pipeline runs on real data, you
   watch it finish, and its waterfall is already queryable* — and what is still wrong.
 
 ---
@@ -622,6 +622,10 @@ designed. Build what is drawn.
 | 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
 | 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
 | 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 11 | `stats()` is a pure projection in `wiener-core`, not an aggregation in the API | §3 lists `project()` among the pure verbs, and these numbers are a projection of `RunState` like any other. It also means the maximum-not-mean rule is testable without a database |
+| 11 | **`spine-run.events.jsonl` was recaptured** | The committed fixture came from a run made *before* resource labels existed, so `memory_asked_bytes` was `None` and the test asserting both halves failed — correctly. Replaced with a run of the current emitter, which is what the fixture is supposed to represent |
+| 12 | `More` and the view both live in the URL | A link to a run's numbers is the thing somebody pastes into a message, same argument as `?view=graph` |
+| 13 | `tsc -b` caught two errors `tsc --noEmit` and the test run did not | `NodeListOf` is not iterable under this config. `useUrlState`'s own comment says the same thing happened to it, which is why `npm run build` is the frontend gate rather than the type check |
 | 9 | 3C's `Canvas`, `useView` and `geometry` are reused; **`Node` is not** | `Node` is an editor node — selection, dragging, wire-drag, settings, verdicts — and a run node shows different facts. Reusing it would mean passing a dozen no-op props and a `Step`. The *layout* is shared, which is what `dag-core` exists for; the renderer differs because the two views say different things about the same shape |
 | 9 | **Entry channels are not drawn**, and the mockup draws them | `Graph.dc.html` shows `fastq.reads` and `genome.fasta` as chips feeding the first nodes. A run graph is *coloured by what happened*, and a channel never runs — it has no tasks, no state and nothing to colour. The builder shows inputs because you are assembling; this shows what executed. Recorded rather than silently dropped |
 | 9 | The view lives in the URL — `?view=graph` | A link to a failing graph is the thing somebody pastes into a message. It also makes "switching is a render, not a fetch" testable |

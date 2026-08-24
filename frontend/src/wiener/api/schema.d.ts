@@ -97,6 +97,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each process asked for and what it used
+         * @description Per process, worst case kept. The maximum is what kills a run and the mean is what hides
+         *     it — §9.3, and the sort is by what took longest because that is what a reader came for.
+         */
+        get: operations["readRunStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -231,6 +252,33 @@ export interface components {
              * @default 1
              */
             attempts: number;
+        };
+        /**
+         * ProcessStatsOut
+         * @description §9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
+         *     run was launched without `trace.enabled` and nothing was reported.
+         */
+        ProcessStatsOut: {
+            /** Process */
+            process: string;
+            /** Tasks */
+            tasks: number;
+            /** Memory Asked Bytes */
+            memory_asked_bytes?: number | null;
+            /** Memory Peak Bytes */
+            memory_peak_bytes?: number | null;
+            /** Cpus Asked */
+            cpus_asked?: number | null;
+            /** Cpu Used Pct */
+            cpu_used_pct?: number | null;
+            /** Realtime Ms */
+            realtime_ms?: number | null;
+            /** Queue Wait Ms */
+            queue_wait_ms?: number | null;
+            /** Read Bytes */
+            read_bytes?: number | null;
+            /** Write Bytes */
+            write_bytes?: number | null;
         };
         /** RunAccepted */
         RunAccepted: {
@@ -487,6 +535,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunGraphOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readRunStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessStatsOut"][];
                 };
             };
             /** @description Validation Error */

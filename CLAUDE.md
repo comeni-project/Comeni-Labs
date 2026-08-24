@@ -100,8 +100,34 @@ a resolved one come out at the same tiers with the same premises.
 `human_override` keeps its meaning, because a pipeline an agent assembled must not read as one a
 person drew by hand. That is A130 arriving from the other direction.
 
+**Wiener W1 is COMPLETE as of 2026-08-24**, on `wiener-w1`, **unmerged**. Wiener went from zero
+lines to *a pipeline runs, you watch it, and its waterfall is queryable* in a day: two plans,
+26 tasks, nine checkpoints. `wiener-core` is pure and joined invariant 1 — the first time that
+list has grown — and it paid off where §3.1 predicted, refusing the OpenTelemetry SDK when the
+exporter was written. **`dag-core` is a fifth pure package**: the DAG layout lifted out of
+`mendel-compiler` so the builder's canvas and the run graph are one implementation, depending on
+nothing at all, not even `comeni-core`.
+
+**Five defects were found by running it and none by a test written to pass**, and the pattern is
+the useful part: `admit()` dropped the fifteen resource fields the record can never recover; the
+record did not survive being read back, because it is written by field name and was validated by
+alias; the fold was a no-op because `prior` was read after the row was inserted, so every ingest
+replayed the whole run; a run arrived as two traces because the SDK invents a trace id for a
+parentless span; and `* task.attempt` was decoration until an `errorStrategy` made a retry
+possible. [`notes/journal/2026-08-24-wiener-w1.md`](notes/journal/2026-08-24-wiener-w1.md) is
+the handoff.
+
+**Mendel gained two things from Wiener needing them.** The emitted pipeline now says what it
+asks for — nf-core's `conf/base.config` label mappings, a convention quoted rather than a
+judgement invented — and a cap is kept separate from a request: `process.resourceLimits` is a
+*site* fact written by Wiener's launcher, never a number in the artifact. Both were found by a
+board with one half of every comparison empty.
+
+**Nobody has looked at these screens.** Checkpoints 3 and 5 drove the HTTP and WebSocket halves
+and verified them; the browser half is unrun, which is exactly the gap 3E's lesson names.
+
 **The entire forge still needs testing and general rework**, and the operator is rethinking its
-design (2026-08-23). Nothing in 3E touches `mendel-forge`.
+design (2026-08-23). Nothing in 3E or Wiener touches `mendel-forge`.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
@@ -546,7 +572,9 @@ packages/
   mendel-api/        FastAPI surface; mounts the forge, projects questions  impure
     routes/            questions, health — validate, dispatch, serialise
     questions.py       OpenQuestion: one schema, two consumers
-  wiener-core/       run state: admit, fold, decide — Wiener's half        PURE
+  wiener-core/       run state: admit, fold, decide, spans, stats           PURE
+  wiener-api/        launch, ingest, project, stream, export                impure
+  dag-core/          where to draw a graph. Both canvases, one arithmetic   PURE
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
