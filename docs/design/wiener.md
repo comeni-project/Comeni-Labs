@@ -106,8 +106,9 @@ the wrong side of the line. The span *mapping* is pure and replayable; the *expo
 has to remember this.
 
 It costs one deliberate edit to `CLAUDE.md`'s invariant 1 and one entry in
-`tests/test_purity.py`'s `PURE_PACKAGES`, watched failing and recorded in the guard ledger like
-every other guard.
+`tests/test_purity.py`'s `CLOSED_PACKAGES`, watched failing and recorded in the guard ledger
+like every other guard. (This said `PURE_PACKAGES` until 2026-08-24; there is no such
+constant, and the plan had it right — A181.)
 
 ### 3.2 `ai-core` is `mendel-ai` renamed
 
@@ -164,7 +165,7 @@ is why no bespoke `nf-wiener` plugin is built (§15).
 
 ### 4.1 The vocabulary, as captured
 
-Six event kinds, and only six:
+Six event kinds from Nextflow, and only six — plus a seventh that Wiener writes itself:
 
 | `event` | carries | when |
 |---|---|---|
@@ -174,6 +175,7 @@ Six event kinds, and only six:
 | `process_completed` | `trace` | it finished — **successfully or not** |
 | `completed` | `metadata` | the run ended |
 | `error` | **nothing** | the run failed |
+| `heartbeat` | nothing | **not Nextflow's.** `wiener-api`'s timer, on an interval — §6.1. `admit()` refuses it from the network (A175) |
 
 Every event carries `runId`, `runName`, `event` and `utcTime`.
 
@@ -269,14 +271,25 @@ class EventKind(StrEnum):
     PROCESS_COMPLETED = "process_completed"
     COMPLETED = "completed"
     ERROR = "error"
+    HEARTBEAT = "heartbeat"      # Wiener's own timer, never Nextflow's — A175
+
+
+FROM_NEXTFLOW = frozenset(EventKind) - {EventKind.HEARTBEAT}
+"""What an external party may author. Smaller than `EventKind` on purpose: `admit()` refuses a
+heartbeat from the network, and `heartbeat()` is the only way one is constructed."""
 
 
 class TaskTrace(BaseModel):
-    """One task, as Nextflow reported it. Fields not listed here are dropped by admit()."""
+    """One task, as Nextflow reported it. Fields not listed here are dropped by admit().
+
+    `LAB_STRING` below is **`wiener_core`'s own marker, not `comeni_core.spell.Mark`** — A182.
+    Widening that enum drags in the egress accounting invariant 14 keeps, for a marking that
+    never crosses a Mendel door.
+    """
 
     task_id: int
     process: ProcessName
-    name: Annotated[str, Mark.LAB_STRING]      # carries the sample tag
+    name: Annotated[str, LAB_STRING]      # carries the sample tag
     status: TaskStatus                          # SUBMITTED RUNNING COMPLETED FAILED ABORTED CACHED
     exit: int | None
     attempt: int
@@ -289,9 +302,9 @@ class TaskTrace(BaseModel):
     cpus: int | None
     memory_bytes: int | None
     hash: str | None
-    script: Annotated[str, Mark.LAB_STRING] | None
-    workdir: Annotated[str, Mark.LAB_STRING] | None
-    tag: Annotated[str, Mark.LAB_STRING] | None
+    script: Annotated[str, LAB_STRING] | None
+    workdir: Annotated[str, LAB_STRING] | None
+    tag: Annotated[str, LAB_STRING] | None
 
 
 class RunEvent(BaseModel):
@@ -347,8 +360,14 @@ def fold(state: RunState, event: RunEvent) -> RunState: ...
 def replay(events: Iterable[RunEvent]) -> RunState:  # fold, from EMPTY
 ```
 
-**Idempotent by construction, not by defence.** `event.seq <= state.last_seq` returns `state`
-unchanged, which makes finding 2 a one-line property rather than a special case for `completed`.
+**Idempotent in two ways, and A176 is about not confusing them.** `event.seq <= state.last_seq`
+returns `state` unchanged — which covers **replay**, the same recorded event folded twice, and
+nothing else: `seq` is assigned as bodies arrive (§6.2), so a *redelivery over the network* carries
+a fresh one. What covers finding 2 is **convergence**: every field the fold writes is a function of
+what has been seen rather than of how often. `terminal_seen` is a set, `counts` derives from
+`tasks`, and an attempt is **keyed by `trace.attempt` rather than appended** — one try is described
+by three events, so appending per event gave a task that never retried three attempts and a retry
+ring in §9.1.
 
 **Terminal is a set, not a flag.** Finding 3 — `error` after `completed` — means the run's outcome
 is decided by *what has been seen*, not by *what arrived last*. `terminal_seen` accumulates, and
@@ -432,7 +451,9 @@ express what actually happens**, rather than what the designer imagined.
 
 Three properties every corpus entry is held to:
 
-- `replay(events) == replay(events + events)` — idempotence, finding 2.
+- `replay(events) == replay(events + events)` — replay idempotence.
+- **A duplicate carrying a *fresh* `seq` changes nothing** — which is what finding 2 actually
+  looked like on the wire, and what the property above cannot see (A176).
 - `replay(events).phase` is terminal iff a terminal event is present, regardless of order —
   finding 3.
 - `decide(replay(events), policy, now)` is equal across two runs of the test — no clock, no set
@@ -465,13 +486,18 @@ run_artifact  id · lab_id · uploaded_by · uploaded_at · digest · pipeline_d
 run_message   id · lab_id · run_id · at_ms · author · trigger · body        <- W3
 ```
 
-**`lab_id` is on every table from day one** (decided 2026-08-23). It is cheap now and a
+**`lab_id` is on every table from day one** (decided 2026-08-23), and until §12.1's
+authentication exists it is **server-chosen — one deployment, one laboratory, named in
+settings** (A178). A tenant column a request can set is not a boundary, and phases 0–2 have no
+authenticated principal to derive one from. It is cheap now and a
 migration touching every table later, and the alternative — one install per laboratory — was
 rejected because the hosted offering would then need one deployment per customer. **The cost is
 named rather than assumed: a filter you can forget is a leak**, and it is the class of bug that
-stays invisible until it is a disclosure. So the guard is not "remember the filter" — every
-query goes through a session scoped to one `lab_id`, and a test asserts no query builder in
-`wiener-api` constructs a `select()` on these tables without it.
+stays invisible until it is a disclosure. So the guard is not "remember the filter" — **every query on
+these tables lives in `wiener_api/repository.py` and takes a `lab_id`**, and the test is that no
+query is built anywhere else. That is a rule about *where*, which an AST scan checks reliably;
+the first draft asked for a `lab_id` near a `select()`, which `session.get(Run, id)`,
+`sa.select(Run)` and `select(Run.id)` all walk past — A177.
 
 **`run_message` is the fifth table and it has an argument** (decided 2026-08-23). A conversation
 about a failure is part of that run's history: the person who diagnosed an OOM at 3am should not
@@ -521,7 +547,7 @@ look like three spans, not one. The mapping is a pure function over `RunState`.
 | `wiener.exit` · `wiener.error_action` · `wiener.cached` | the trace |
 | `wiener.process` · `wiener.executor` | the trace and the run |
 
-**Nothing marked `Mark.LAB_STRING` becomes a span attribute.** `script`, `workdir`, `name` and
+**Nothing marked `LAB_STRING` becomes a span attribute.** `script`, `workdir`, `name` and
 `tag` are exactly the fields a tracing backend would happily index and retain, and §4.3's finding 4
 is why that has to be a rule rather than an oversight nobody made. The same marking that gates the
 AI (§10.2) gates the exporter, and one test covers both.
@@ -690,8 +716,11 @@ run completed                   ->  one closing brief
 3-day run · 400 tasks · 41 failures  ->  3 model calls.
 ```
 
-A **signature** is `(process, exit, error_class)`, where `error_class` is derived from fields the
-capture proves are present — `status`, `exit`, `error_action` — and **never from message text**. A
+A **signature** is `(process, exit, error_action)` — all three present in the capture, and
+**never message text**. (It was `(process, exit, error_class)` with `error_class` *derived from*
+`status`, `exit` and `error_action`, which carried `exit` twice and, since `status` is `FAILED`
+for anything that produces a signature at all, amounted to `error_action` under another name —
+A183.) A
 signature computed from prose would drift with Nextflow's wording, which is the same reason §4
 refuses log parsing.
 
@@ -721,7 +750,7 @@ class Redactor(Protocol):
     def brief(self, state: RunState) -> AiBrief: ...
 ```
 
-`PassThrough` ships and passes everything. Because `Mark.LAB_STRING` is on the *type* (§5), an
+`PassThrough` ships and passes everything. Because `LAB_STRING` is on the *type* (§5), an
 implementation that drops marked fields is a few lines and cannot miss one that was added later —
 adding a marked field without handling it fails the totality test rather than leaking quietly.
 
@@ -766,7 +795,7 @@ class AiBrief(BaseModel):
     signature: FailureSignature | None
     task: TaskBrief | None               # process, exit, attempts, resources, timings
     neighbours: tuple[TaskBrief, ...]    # what fed it, what else ran — bounded
-    report: Annotated[str, Mark.LAB_STRING] | None   # errorReport, when the Redactor allows
+    report: Annotated[str, LAB_STRING] | None   # errorReport, when the Redactor allows
 ```
 
 Bounded by construction: `neighbours` has a declared maximum, and there is no field that can hold a
@@ -823,6 +852,11 @@ build -> gate                  POST /api/runs
 **The browser does the copy, so `mendel-api` still never learns Wiener exists** — which keeps
 `execution-boundary.md` §9's rejection of a Mendel→Wiener API intact rather than quietly bending it.
 The user sees one button.
+
+**The Mendel half of that copy does not exist yet — A179.** `mendel-api` has no route serving a
+kept artifact: `keep` writes files under `MENDEL_DRAFT_ROOT` and nothing reads them back out over
+HTTP. Until one is added, submission is an operator with a `zip` and a `curl`, which is what W1
+phases 0–2 do. Whoever builds the button builds that route first.
 
 This closes a gap that document names in §4: today the only thing that can name a gated artifact is
 `settings.draft_root / draft_id`, both of them `mendel-api`'s private facts. **Sharing those between

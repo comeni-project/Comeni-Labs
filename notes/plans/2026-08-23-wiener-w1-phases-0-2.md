@@ -195,8 +195,18 @@ git commit -m "feat(wiener-core): the package exists, and invariant 1 covers it"
 
 **Interfaces:**
 - Consumes: `comeni_core.diagnostics.coded`.
-- Produces: `EventKind`, `TaskStatus`, `ErrorAction`, `TaskTrace`, `RunManifest`, `RunEvent`,
-  and `admit(payload: dict, run_id: str, seq: int) -> RunEvent`.
+- Produces: `EventKind`, `FROM_NEXTFLOW`, `TaskStatus`, `ErrorAction`, `TaskTrace`,
+  `RunManifest`, `RunEvent`, `admit(payload: dict, run_id: str, seq: int) -> RunEvent`, and
+  `heartbeat(run_id: str, at_ms: int, seq: int) -> RunEvent`.
+
+**Corrected by [A175](../audits/2026-08-24-wiener-spec-review.md).** The spec's §6.1 says the
+fold sees `HEARTBEAT(at_ms=…)` *"exactly as it sees a task completing"*, §10.1 needs it, and
+§17's `LOST` decision has no other clock-free trigger — but `EventKind` had six members, so
+nothing could construct one and `RunPhase.LOST` was a phase with no producer. It is a seventh
+kind here, **and `admit()` refuses it**: a heartbeat is authored by Wiener's own timer and never
+by Nextflow, so *which events an external party may author* is a fact in the allowlist rather
+than in a reviewer's memory. That is §4.4's own argument applied to the one kind it did not
+anticipate.
 
 - [ ] **Step 1: Write the failing test, against the committed capture**
 
@@ -207,7 +217,7 @@ from pathlib import Path
 
 import pytest
 
-from wiener_core.events import EventKind, admit
+from wiener_core.events import EventKind, admit, heartbeat
 
 FIXTURE = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
 
@@ -245,6 +255,21 @@ def test_an_unknown_event_kind_is_refused_not_ignored():
     with pytest.raises(ValueError, match="MW0001"):
         admit({"event": "process_teleported", "runId": "x", "utcTime": "2026-08-23T20:00:00Z"},
               run_id="r1", seq=0)
+
+
+def test_a_heartbeat_may_not_arrive_from_the_network():
+    """A175. The heartbeat is Wiener's own timer speaking — §6.1 — and `EventKind` declaring
+    it must not make it postable. The ingest endpoint is loopback behind a per-run secret
+    (§13.1), so this is not the last line of defence; it is the line that does not depend on
+    remembering, which is the whole argument for an allowlist."""
+    with pytest.raises(ValueError, match="MW0002"):
+        admit({"event": "heartbeat", "runId": "x", "utcTime": "2026-08-23T20:00:00Z"},
+              run_id="r1", seq=0)
+
+
+def test_the_timer_can_make_one_and_the_fold_will_see_it():
+    beat = heartbeat(run_id="r1", at_ms=1_787_517_650_000, seq=7)
+    assert beat.kind is EventKind.HEARTBEAT and beat.trace is None and beat.at_ms
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -268,6 +293,17 @@ MW0001:
   fix: >
     If Nextflow has added a lifecycle event, declare it in `EventKind` and give `fold` a
     branch for it — in a diff, deliberately.
+
+MW0002:
+  summary: an event kind only Wiener may author
+  concern: contract
+  detail: >
+    A body arriving at the ingest endpoint named a kind that Wiener's own timer writes —
+    `heartbeat` — rather than one `nf-weblog` emits. `FROM_NEXTFLOW` is the set an external
+    party may author, and it is deliberately smaller than `EventKind`.
+  fix: >
+    Nothing should post this. If a new Wiener-authored kind is being added, construct it
+    through its own function in `wiener_core.events` rather than by posting it.
 ```
 
 - [ ] **Step 4: Write `events.py`**
@@ -287,13 +323,27 @@ why that marking exists on the type rather than in a reviewer's head.
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Final, final
 
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
 
-LAB_STRING = "lab-string"
-"""Marks a field a laboratory's own words reach. §9.2's redactor filters on this."""
+@final
+class LabString:
+    """Marks a field a laboratory's own words reach. §10.2's redactor filters on this, and §8
+    forbids one becoming a span attribute.
+
+    A sentinel **type** rather than the bare `"lab-string"` the first draft used — A182. The
+    marking is load-bearing: §10.2's claim is that a marked field added later *cannot* be
+    missed, because the totality test fails rather than the data leaking. A string is spellable
+    by accident and collides with any other `Annotated[str, "lab-string"]`; an instance of a
+    private class is neither. It is deliberately **not** `comeni_core.spell.Mark` — widening
+    that enum pulls in the egress accounting invariant 14 keeps, for a marking that never
+    crosses a Mendel door.
+    """
+
+
+LAB_STRING: Final = LabString()
 
 
 class EventKind(StrEnum):
@@ -303,6 +353,14 @@ class EventKind(StrEnum):
     PROCESS_COMPLETED = "process_completed"
     COMPLETED = "completed"
     ERROR = "error"
+    HEARTBEAT = "heartbeat"
+    """**Wiener's own, not Nextflow's** — §6.1. `wiener-core` may not read a clock, so the
+    passage of time reaches the fold as an event that `wiener-api`'s timer appends. It is what
+    `LOST` is detected by and what §10.1's cheap standing brief is woken by."""
+
+
+FROM_NEXTFLOW = frozenset(EventKind) - {EventKind.HEARTBEAT}
+"""What an external party may author. Smaller than `EventKind` on purpose — A175."""
 
 
 class TaskStatus(StrEnum):
@@ -384,6 +442,8 @@ def admit(payload: dict[str, Any], run_id: str, seq: int) -> RunEvent:
         kind = EventKind(raw)
     except ValueError:
         raise coded("MW0001", f"unknown event kind {raw!r}") from None
+    if kind not in FROM_NEXTFLOW:
+        raise coded("MW0002", f"{kind} is authored by Wiener, not posted to it")
 
     trace = TaskTrace.model_validate(payload["trace"]) if payload.get("trace") else None
 
@@ -403,17 +463,23 @@ def admit(payload: dict[str, Any], run_id: str, seq: int) -> RunEvent:
 
     return RunEvent(kind=kind, run_id=run_id, at_ms=_at_ms(payload), seq=seq,
                     trace=trace, manifest=manifest)
+
+
+def heartbeat(run_id: str, at_ms: int, seq: int) -> RunEvent:
+    """The timer speaking. The **only** way a `HEARTBEAT` is constructed — `admit()` refuses
+    one from the network, so this function is the whole of that kind's provenance."""
+    return RunEvent(kind=EventKind.HEARTBEAT, run_id=run_id, at_ms=at_ms, seq=seq)
 ```
 
 - [ ] **Step 5: Run the tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_admit.py -v`
-Expected: 4 passed.
+Expected: 6 passed.
 
 - [ ] **Step 6: Regenerate the diagnostics page**
 
-Run: `make docs && uv run mendel explain MW0001`
-Expected: the page regenerates and `explain` prints the summary, detail and fix.
+Run: `make docs && uv run mendel explain MW0001 && uv run mendel explain MW0002`
+Expected: the page regenerates and `explain` prints the summary, detail and fix for both.
 
 - [ ] **Step 7: Run the gate and commit**
 
@@ -445,7 +511,7 @@ git commit -m "feat(wiener-core): admit(), the ingress allowlist, against a real
 import json
 from pathlib import Path
 
-from wiener_core.events import admit
+from wiener_core.events import admit, heartbeat
 from wiener_core.state import EMPTY, RunPhase, replay
 
 FIXTURE = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
@@ -479,9 +545,33 @@ def test_terminality_does_not_depend_on_arrival_order():
 
 
 def test_a_retry_is_history_rather_than_an_overwrite():
+    """A176. `>= 1` was the original assertion and it passed for the wrong reason: a task
+    that ran ONCE is described by three events — submitted, started, completed — and an
+    append-per-event fold gave it three attempts. One attempt per `trace.attempt`, whatever
+    the event count."""
     state = replay(_events())
-    failed = [t for t in state.tasks.values() if t.status.name == "FAILED"]
-    assert failed and all(len(t.attempts) >= 1 for t in failed)
+    assert all(len(t.attempts) == len({a.n for a in t.attempts}) for t in state.tasks.values())
+    assert all(len(t.attempts) == 1 for t in state.tasks.values()), (
+        "no task in the capture was retried, so every one must carry exactly one attempt"
+    )
+
+
+def test_a_redelivered_event_does_not_invent_an_attempt():
+    """A176. §4.3 finding 2 is that Nextflow sent an identical event twice — over HTTP, so
+    the copy is assigned a FRESH seq at ingest (§6.2) and `seq <= last_seq` never sees it.
+    Duplicating the list is what the idempotence test does; this is what the network does."""
+    events = _events()
+    done = next(e for e in events if e.trace and e.trace.status.name == "COMPLETED")
+    again = done.model_copy(update={"seq": len(events)})
+    assert replay(events) == replay([*events, again]).model_copy(
+        update={"last_seq": replay(events).last_seq}
+    )
+
+
+def test_a_heartbeat_does_not_start_a_run_that_has_not_started():
+    """A175's consequence: the fold now sees a kind carrying no trace and no manifest, and
+    the phase must come from what the run has done rather than from time passing."""
+    assert replay([heartbeat(run_id="r1", at_ms=1, seq=0)]).phase is RunPhase.QUEUED
 
 
 def test_an_empty_run_is_queued():
@@ -498,8 +588,21 @@ Expected: FAIL — `No module named 'wiener_core.state'`.
 ```python
 """What a run *is*: a fold over the events it produced.
 
-**Idempotent by construction, not by defence** — `event.seq <= state.last_seq` returns the
-state unchanged, which makes §4.3 finding 2 a one-line property rather than a special case.
+**Idempotent in two different ways, and A176 is about not confusing them.**
+
+- `event.seq <= state.last_seq` returns the state unchanged. That covers **replay** — the same
+  recorded event folded twice — and nothing else, because `seq` is assigned as bodies arrive
+  (§6.2), so a redelivery over the network carries a *fresh* one.
+- **Convergence covers redelivery.** Every field the fold writes is a function of what has been
+  seen rather than of how often: `terminal_seen` is a set, `counts` is derived from `tasks`,
+  and an attempt is keyed by `trace.attempt`. Folding a body twice lands in the same state.
+
+The spec attributed §4.3 finding 2 to the first mechanism; it is the second that handles it.
+
+**An attempt is keyed, never appended.** A task that ran once is described by three events —
+submitted, started, completed — so appending per event gave it three attempts and drew a retry
+ring (§9.1) on a task that never retried. `attempts` holds one entry per `trace.attempt`, in
+order, and a later event for the same `n` replaces the earlier one.
 
 **Terminality is a set, not a flag** — finding 3. `error` can arrive after `completed`, so the
 outcome is decided by what has been *seen*, never by what arrived last.
@@ -580,12 +683,15 @@ def _counts(tasks: Mapping[int, TaskState]) -> Counts:
     )
 
 
-def _phase(seen: frozenset[EventKind], succeeded: bool | None) -> RunPhase:
+def _phase(seen: frozenset[EventKind], succeeded: bool | None, started: bool) -> RunPhase:
     if EventKind.ERROR in seen:
         return RunPhase.FAILED
     if EventKind.COMPLETED in seen:
         return RunPhase.SUCCEEDED if succeeded is not False else RunPhase.FAILED
-    return RunPhase.RUNNING
+    return RunPhase.RUNNING if started else RunPhase.QUEUED
+    # `started` rather than "any event has arrived" — A175 put a HEARTBEAT in the stream, and
+    # time passing is not a run beginning. `LAUNCHING` is set by the launcher (Task 7), which
+    # is the only thing that knows a subprocess exists.
 
 
 def fold(state: RunState, event: RunEvent) -> RunState:
@@ -596,7 +702,11 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     if (tr := event.trace) is not None:
         prior = tasks.get(tr.task_id)
         attempt = Attempt(n=tr.attempt, status=tr.status, exit=tr.exit, at_ms=event.at_ms)
-        attempts = (*prior.attempts, attempt) if prior else (attempt,)
+        # Keyed by attempt number, not appended — A176. Three events describe one try, and a
+        # redelivered body is a fourth; all four are the same attempt reaching a later status.
+        by_n = {a.n: a for a in (prior.attempts if prior else ())}
+        by_n[attempt.n] = attempt
+        attempts = tuple(by_n[n] for n in sorted(by_n))
         tasks[tr.task_id] = TaskState(
             task_id=tr.task_id, process=tr.process, status=tr.status,
             attempts=attempts, latest_exit=tr.exit,
@@ -609,6 +719,10 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     if event.manifest is not None and event.manifest.success is not None:
         succeeded = event.manifest.success
 
+    started_at = state.started_at_ms or (
+        event.at_ms if event.kind is EventKind.STARTED else None)
+    started = started_at is not None
+
     return state.model_copy(update={
         "run_id": event.run_id or state.run_id,
         "tasks": tasks,
@@ -616,10 +730,9 @@ def fold(state: RunState, event: RunEvent) -> RunState:
         "last_seq": event.seq,
         "terminal_seen": seen,
         "run_succeeded": succeeded,
-        "started_at_ms": state.started_at_ms or (
-            event.at_ms if event.kind is EventKind.STARTED else None),
+        "started_at_ms": started_at,
         "ended_at_ms": event.at_ms if seen and not state.ended_at_ms else state.ended_at_ms,
-        "phase": _phase(seen, succeeded),
+        "phase": _phase(seen, succeeded, started),
     })
 
 
@@ -859,9 +972,14 @@ Ends with a real Nextflow pipeline launched by Wiener, its events in Postgres.
 ### Task 5: The `wiener-api` package, and its four tables
 
 **Files:**
-- Create: `packages/wiener-api/pyproject.toml`, `src/wiener_api/{__init__,settings,db,models,main}.py`,
-  `packages/wiener-api/tests/test_models.py`, `packages/wiener-api/alembic/` (init + first revision)
+- Create: `packages/wiener-api/pyproject.toml`,
+  `src/wiener_api/{__init__,settings,db,models,repository,main}.py`,
+  `packages/wiener-api/tests/{test_models,test_tenancy}.py`,
+  `packages/wiener-api/alembic/` (init + first revision)
 - Modify: root `pyproject.toml`, `tests/test_purity.py` (`IMPURE_PACKAGES`)
+
+`repository.py` is A177's: every query on a tenant-scoped table lives there and takes a
+`lab_id`, so the guard is a rule about *where* rather than a grep for a filter.
 
 **Interfaces:**
 - Consumes: `wiener_core` types.
@@ -921,6 +1039,13 @@ class Settings(BaseSettings):
     work_root: Path = Path("./var/wiener/work")
     ingest_base_url: str = "http://127.0.0.1:8099"
     """Where the head process posts its events. Loopback — spec §4."""
+    lab_id: str = "local"
+    """**Server-chosen, never client-supplied — A178.** §7.1 puts `lab_id` on every table from
+    day one and §12.1 makes authentication a W1 requirement that phases 0–2 do not satisfy. A
+    tenant column a request can set is not a boundary, so until there is an authenticated
+    principal to derive it from, one deployment is one laboratory and this is where it is
+    named. The route handlers never read a `lab_id` out of a body or a query string; the day
+    authentication lands, this default is replaced by the principal and nothing else moves."""
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
 
@@ -1057,60 +1182,120 @@ class RunArtifact(Base):
 
 - [ ] **Step 6a: Write the tenancy guard**
 
+**Rewritten by [A177](../audits/2026-08-24-wiener-spec-review.md).** The original scanned for
+`select(...)` calls and required `lab_id` within three lines of one. Three of the likeliest ways
+to write a real query walked past it — `session.get(Run, run_id)`, which is how `GET
+/api/runs/{id}` gets written; `sa.select(Run)`, because the check read `node.func.id` on an
+`ast.Attribute`; and `select(Run.id)`, because the membership test read `.id` on one — and any
+mention of `lab_id` in the four-line window, a comment included, satisfied it.
+
+The deeper problem was that it checked a **weaker sentence than §7.1 states**. The spec says
+*every query goes through a session scoped to one `lab_id`*; the scan said *a filter is written
+near a select*. So the guard now enforces a rule about **where a query may live**, which an AST
+scan checks reliably, rather than about the shape of an expression, which it does not.
+
 ```python
-# packages/wiener-api/tests/test_tenancy.py
-"""Every table carries `lab_id`, and no query on one omits it.
+# packages/wiener-api/src/wiener_api/repository.py
+"""Every query on a tenant-scoped table, and there are no others.
 
 `docs/design/wiener.md` §7.1 names the cost of a tenant column plainly: **a filter you can
 forget is a leak**, and it is the class of bug that stays invisible until it is a disclosure.
-So the guard is not "remember the filter".
+So the guard is not "remember the filter" — it is that a query lives here or it does not exist,
+and every function here takes `lab_id` as its first parameter. `test_tenancy.py` holds both
+halves. A177.
 """
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
+
+
+def run(session: Session, lab_id: str, run_id: str) -> Run | None:
+    return session.scalar(select(Run).where(Run.lab_id == lab_id, Run.id == run_id))
+
+
+def runs(session: Session, lab_id: str, limit: int = 50) -> list[Run]:
+    return list(session.scalars(
+        select(Run).where(Run.lab_id == lab_id).order_by(Run.submitted_at.desc()).limit(limit)
+    ))
+```
+
+```python
+# packages/wiener-api/tests/test_tenancy.py
+"""Every table carries `lab_id`; every query lives in `repository.py`; every query function
+takes one. Three assertions, and the middle one is the one that cannot be forgotten past."""
+
 import ast
+import inspect
 from pathlib import Path
 
 SRC = Path(__file__).parents[1] / "src/wiener_api"
+REPOSITORY = SRC / "repository.py"
 SCOPED = {"Run", "RunEventRow", "RunTask", "RunArtifact"}
+QUERY_CALLS = {"select", "query", "get", "delete", "update"}
 
 
 def test_every_table_carries_lab_id():
     import wiener_api.models as m
 
-    for name in SCOPED:
+    for name in sorted(SCOPED):
         cols = {c.name for c in getattr(m, name).__table__.columns}
         assert "lab_id" in cols, f"{name} has no lab_id: {sorted(cols)}"
 
 
-def test_no_select_on_a_scoped_table_omits_lab_id():
+def test_no_query_is_built_outside_the_repository():
+    """The rule is *where*, not *what*. `sa.select(Run)`, `select(Run.id)` and
+    `session.get(Run, id)` are all queries and all spelled differently; what they have in
+    common is the file they are allowed to be in."""
     offences: list[str] = []
-    for path in SRC.rglob("*.py"):
+    for path in sorted(SRC.rglob("*.py")):
+        if path == REPOSITORY:
+            continue
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "select"):
+            if not isinstance(node, ast.Call):
                 continue
-            if not any(getattr(a, "id", "") in SCOPED for a in node.args):
+            name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+            if name not in QUERY_CALLS:
                 continue
-            src = ast.get_source_segment(path.read_text(), node) or ""
-            # the select() itself, or the .where() it is wrapped in, must name lab_id
-            line = path.read_text().splitlines()[node.lineno - 1: node.lineno + 3]
-            if "lab_id" not in "".join(line):
-                offences.append(f"{path.name}:{node.lineno}")
+            mentions = ast.dump(node)
+            if any(f"'{model}'" in mentions for model in SCOPED):
+                offences.append(f"{path.relative_to(SRC)}:{node.lineno} — {name}()")
     assert not offences, (
-        "a select() on a tenant-scoped table did not filter on lab_id:\n  "
+        "a query on a tenant-scoped table was built outside repository.py:\n  "
         + "\n  ".join(offences)
-        + "\nEvery query is scoped to one laboratory — docs/design/wiener.md §7.1."
+        + "\nEvery query is scoped to one laboratory — docs/design/wiener.md §7.1, A177."
     )
+
+
+def test_every_repository_function_takes_a_lab_id():
+    import wiener_api.repository as repo
+
+    for name, fn in vars(repo).items():
+        if name.startswith("_") or not callable(fn) or fn.__module__ != repo.__name__:
+            continue
+        params = list(inspect.signature(fn).parameters)
+        assert params[:2] == ["session", "lab_id"], (
+            f"{name}{inspect.signature(fn)} — a repository function takes the session and the "
+            "laboratory it is scoped to, in that order, so an unscoped query cannot be spelled."
+        )
 ```
 
-Run it, watch `test_no_select_on_a_scoped_table_omits_lab_id` **pass vacuously** (no queries
-exist yet), and note that in the ledger row — a guard that has never had anything to guard is
-exactly A14's concern. It earns its row when Task 6 gives it a real query to check.
+Run it. **`test_no_query_is_built_outside_the_repository` is the one that matters**, and unlike
+the version it replaces it is **not vacuous at Task 5**: `repository.py` exists with two real
+queries in it, so the scan has something to walk past and the third test has signatures to
+check. Watching it fail is Step 7.
 
-- [ ] **Step 7: Watch all three guards fail on purpose**
+- [ ] **Step 7: Watch all four guards fail on purpose**
 
 Add a fifth model with `__tablename__ = "run_note"`; run the tests; confirm the message names
 the boundary. Remove it. Add `input_path: Mapped[str | None]` to `Run`; run again; confirm the
-second guard fires. Remove it. Record **both** reverts and their messages in the ledger.
+second guard fires. Remove it. **Then the two A177 replaced:** put `session.get(Run, "x")` in
+`routes/ingest.py` and confirm `test_no_query_is_built_outside_the_repository` names the file
+and the line — the original guard passed this one — and drop the `lab_id` parameter from
+`repository.run` and confirm the third names the signature. Remove both. Record **all four**
+reverts and their messages in the ledger.
 
 - [ ] **Step 8: Create the migration**
 
@@ -1934,3 +2119,12 @@ pasted verbatim* — plans here are corrected during execution by design.
   satisfy that**, and the gap is deliberate and named: phases 0–2 are for a single operator on
   a laptop, and the first deployment anyone else can reach needs the check first. Raise it at
   Checkpoint 3.
+- **No button — the courier is a `zip` and a `curl`, and that is [A179](../audits/2026-08-24-wiener-spec-review.md).**
+  §12 makes the browser the courier so that `mendel-api` never learns Wiener exists, and that
+  is the mechanism holding `execution-boundary.md` §9's rejection of a Mendel→Wiener API. It
+  cannot run yet: **`mendel-api` has no route that serves a kept artifact** — no
+  `FileResponse`, no `StreamingResponse`, nothing that reads back what `keep` wrote under
+  `MENDEL_DRAFT_ROOT`. Task 8 therefore uploads a bundle the operator makes by hand, which is
+  honest for one person on a laptop and is *not* the one button §18 promises. **Whoever builds
+  that button builds a download route on the Mendel side first**; it is a phase 3 task and it
+  is written here so it is not discovered by the person who assumed it existed.
