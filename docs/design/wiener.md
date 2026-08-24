@@ -567,6 +567,24 @@ The table below is the shape; the mapping tables, including how `RunPhase.LOST` 
 is why that has to be a rule rather than an oversight nobody made. The same marking that gates the
 AI (§10.2) gates the exporter, and one test covers both.
 
+### 8.1 The five boards
+
+Across-runs views, and **they live in the backend rather than in the SPA** — which is what keeps
+§9.4 true: the run page is two views of one `RunState` and gains no third. These only mean
+anything once there is more than one run to compare, and the store that can compare them is
+already in the compose stack.
+
+| board | answers | built from |
+|---|---|---|
+| **Is anything wrong now** | active runs by state, failures today, runs gone `lost` | `cicd.pipeline.run.active`, `cicd.pipeline.run.errors` |
+| **Where the time goes** | per-process duration and queue wait — p50, p95, max | task spans |
+| **Where the capacity goes** | asked versus used per process, worst case kept | the six `wiener.*` attributes |
+| **What breaks** | exit codes per process over time, retries, repeat signatures | `process.exit.code`, `wiener.task.attempt` |
+| **This run** | the run page — built in phase 2, and the reason there are four boards here and not five |
+
+**Keep the maximum, never the mean**: the maximum is what kills a run and the mean is what
+hides it (§9.3).
+
 **It buys four things Wiener would otherwise build**: a waterfall over a 400-task run, aggregation
 across runs, a retention policy, and alerting. **And the fleet level gets a mechanism** — §2's third
 level is OpenTelemetry *metrics*, which it had no answer for before.
@@ -650,9 +668,22 @@ of a socket than folding events does.
 
 **What phase 3 must decide before it starts**: whether the extraction is a *lift* — the same
 functions, moved, with `mendel-compiler` re-exporting so 3C's callers do not change — or a
-redesign of the layout API. The lift is strongly preferred, for the reason Plan 3C's own
-orchestration seam gives: a move that changes no behaviour can be proven by the emitted bytes
-being identical, and a redesign cannot.
+redesign of the layout API.
+
+**Read against the code on 2026-08-24, a pure lift does not reach.** `layout.of(ir: PipelineIR,
+ports)` takes a `PipelineIR`; it imports nothing but `comeni_core.plan.ir` and stdlib, and it
+has exactly one caller (`mendel_api.services.build`), so the move itself is trivial. What is not
+trivial is that **Wiener has no `PipelineIR`** — it has the artifact, and `pipeline.yml` is a
+`Pipeline`: steps and channels, which are a DAG, but not that type. Deriving an IR from a
+`Pipeline` would mean reaching for `mendel_resolver.materialise`, which §3.3 forbids.
+
+So the extraction is a **lift plus one seam**: `dag-core` lays out a neutral graph — nodes,
+edges, port counts — and each half supplies its own adapter, `PipelineIR →` on Mendel's side and
+`Pipeline →` on Wiener's. The layout arithmetic, which is all of it, moves unchanged.
+
+**The safety net is unchanged and is why this is still a lift**: the builder's canvas must come
+out pixel-identical, which is a golden test that already exists, and the emitted `.nf` must be
+byte-identical, which `make verify` already checks.
 
 ### 9.2 What an edge may honestly show
 
