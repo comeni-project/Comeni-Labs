@@ -8,7 +8,11 @@ import { bytes } from "./units";
  * Nothing here weakens that, because nothing here writes anything back.
  */
 export type Failed = {
-  process: string;
+  /** `null` when **no task failed** — a run can stop before any task starts, on a bad
+   *  parameter or a file the channel could not read. The phase is still `failed` and the
+   *  record still carries Nextflow's report, so the banner says what it has rather than
+   *  nothing at all. */
+  process: string | null;
   tag?: string | null;
   exit: number | null;
   attempts: number;
@@ -39,15 +43,15 @@ export function Failure({ failed }: { failed: Failed }) {
           this run failed
         </p>
         <p className="font-data text-body text-ink">
-          {failed.process}
+          {failed.process ?? "no task failed — the run stopped before one started"}
           {failed.tag && <span className="text-ink-2"> · {failed.tag}</span>}
-          {failed.exit !== null && (
+          {failed.process && failed.exit !== null && (
             <span className="text-ink-2">
               {" "}· exit {failed.exit}
               {failed.exit === 137 && <span className="text-ink-3"> (killed — out of memory)</span>}
             </span>
           )}
-          <span className="text-ink-2"> · attempt {failed.attempts}</span>
+          {failed.process && <span className="text-ink-2"> · attempt {failed.attempts}</span>}
         </p>
 
         {/* **Only when both halves are known.** Half a comparison is worse than none: a bare

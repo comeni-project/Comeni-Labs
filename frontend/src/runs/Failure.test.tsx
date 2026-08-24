@@ -39,3 +39,13 @@ it("says what it can when the record carries no report", () => {
   expect(screen.getByTestId("failure")).toHaveTextContent("STAR_ALIGN");
   expect(screen.queryByTestId("failure-report")).toBeNull();
 });
+
+it("says the run failed even when no task did", () => {
+  // A run can stop before any task starts — a bad parameter, a file the channel could not
+  // read. The phase is `failed`, there is no failed task, and the record still carries
+  // Nextflow's report. A banner that rendered NOTHING here would leave a failed run with no
+  // account of itself, which is the one thing this banner exists to prevent.
+  render(<Failure failed={{ ...FAILED, process: null, exit: null }} />);
+  expect(screen.getByTestId("failure")).toHaveTextContent(/no task failed/i);
+  expect(screen.getByTestId("failure-report")).toHaveTextContent("oom-kill event");
+});

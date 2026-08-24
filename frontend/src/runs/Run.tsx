@@ -102,6 +102,7 @@ export function Run() {
   const now = Date.now();
 
   const worst = failedTask.data?.tasks?.[0];
+  const report = stream.events.find((event) => event.manifest?.report)?.manifest?.report ?? null;
   const failed: FailureDetail | null = worst
     ? {
         process: worst.process,
@@ -111,9 +112,13 @@ export function Run() {
         peak_rss_bytes: worst.peak_rss_bytes ?? null,
         asked_bytes: (overview.data?.rows ?? []).find((row) => row.process === worst.process)
           ?.memory_asked_bytes ?? null,
-        report: stream.events.find((event) => event.manifest?.report)?.manifest?.report ?? null,
+        report,
       }
-    : null;
+    // No task failed, but the run did. Say so with what the record has.
+    : report
+      ? { process: null, tag: null, exit: null, attempts: 1,
+          peak_rss_bytes: null, asked_bytes: null, report }
+      : null;
 
   const declared = overview.data?.steps_declared ?? 0;
   const finished = overview.data?.steps_finished ?? 0;
