@@ -141,6 +141,55 @@ services:
       timeout: 2s
       retries: 30
 
+  wiener-ingest:
+    # **Where the head process posts.** Its own service, and its port is never published —
+    # reachable on the compose network and from nowhere else.
+    #
+    # Not in the worker beside Nextflow, which was the other candidate. Two facts decided it,
+    # both checked on 2026-08-24 rather than assumed:
+    #
+    # - **The head process moves.** `kuberun` is deprecated and the production Kubernetes
+    #   pattern is a pod that runs Nextflow, so in W5 the head is not a child of this worker
+    #   and `127.0.0.1` reaches nothing. Topology that only works while the head is a child is
+    #   topology that gets rewritten under pressure.
+    # - **`nf-weblog` does not retry and does not flush on exit** (nextflow-io/nextflow#1010),
+    #   so any moment this is unavailable loses events *permanently*. It must therefore have
+    #   the fewest reasons to restart of anything here — which is the exact opposite of the
+    #   container that runs pipeline code and is redeployed whenever that changes.
+    #
+    # §13.1's guarantee is unchanged in substance and its wording had to move: *not on the
+    # public app*, and *a per-run secret*. Loopback was one implementation of "the internet
+    # cannot reach this"; an unpublished port is another.
+    build: .
+    container_name: ${WIENER_INGEST_CONTAINER_NAME:-wiener-ingest}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
+    volumes: ["./.run/wiener:/var/wiener"]
+    command: uvicorn wiener_api.main:create_ingest_app --factory --host 0.0.0.0 --port 8099
+
+  wiener-worker:
+    # Where a run is actually launched. It spawns Nextflow, so it is the container that needs
+    # Nextflow and Java on its PATH — and the one that gets redeployed most often.
+    build: .
+    container_name: ${WIENER_WORKER_CONTAINER_NAME:-wiener-worker}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
+      WIENER_WORK_ROOT: /var/wiener/work
+      WIENER_INGEST_BASE_URL: http://wiener-ingest:8099
+    volumes: ["./.run/wiener:/var/wiener"]
+    command: arq wiener_api.worker.WorkerSettings
+
   wiener-api:
     build: .
     container_name: ${WIENER_API_CONTAINER_NAME:-wiener-api}
@@ -153,8 +202,12 @@ services:
       WIENER_REDIS_URL: redis://redis:6379/1
       WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
       WIENER_WORK_ROOT: /var/wiener/work
-    volumes: ["wiener-var:/var/wiener"]
-    ports: ["${WIENER_API_HOST_PORT:-8001}:8001"]
+      # **Unset by default, and the API says so at startup.** Right for a laptop and wrong for
+      # anything reachable — §12.1. `WIENER_API_TOKEN=$(openssl rand -hex 24)` in a `.env`.
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+    volumes: ["./.run/wiener:/var/wiener"]
+    # **No published port.** nginx is the way in — one origin, split by path, the same split
+    # `vite.config.ts` already makes in development.
     command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001
 
   # ---- telemetry: opt-in, `make telemetry` or `--profile telemetry` -------------------
@@ -218,5 +271,4 @@ services:
 volumes:
   mendel-pg:
   wiener-pg:
-  wiener-var:
   wiener-clickhouse:

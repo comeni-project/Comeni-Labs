@@ -32,8 +32,39 @@ type ParamRefusal = {
   missing: string[];
 };
 
+const TOKEN_KEY = "wiener.token";
+
+/** The bearer token, held in the browser rather than baked into the bundle.
+ *
+ * **A build-time env var would put the credential in a JavaScript file** served to anyone who
+ * asks for the page, which is a worse place for it than a request header. This is deliberately
+ * the smallest thing that works for one deployment and one token — §12.1's check is real, and
+ * OAuth is issue #83.
+ */
+export function token(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;   // a private window, or storage the browser refuses
+  }
+}
+
+export function setToken(value: string | null): void {
+  try {
+    if (value) localStorage.setItem(TOKEN_KEY, value);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* nothing to do: the request will 401 and the page will ask again */
+  }
+}
+
+function headers(extra: Record<string, string> = {}): Record<string, string> {
+  const held = token();
+  return held ? { ...extra, Authorization: `Bearer ${held}` } : extra;
+}
+
 export async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path);
+  const r = await fetch(path, { headers: headers() });
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;
 }
@@ -41,7 +72,7 @@ export async function get<T>(path: string): Promise<T> {
 export async function post<T>(path: string, payload: unknown): Promise<T> {
   const r = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: headers({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   if (r.status === 422) {

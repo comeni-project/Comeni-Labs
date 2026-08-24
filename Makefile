@@ -115,6 +115,10 @@ wiener-migrate:  ## apply Wiener's migrations — its own chain, its own databas
 
 dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
+	@# **Made here, owned by whoever ran make.** A named volume is created root-owned and the
+	@# containers run as the host user, so the first artifact upload dies on `PermissionError:
+	@# /var/wiener/artifacts`. Same trap CLAUDE.md records for ./workspace, and the same fix.
+	@mkdir -p .run/wiener/artifacts .run/wiener/work
 	$(DC) up -d --build
 	@mkdir -p $(RUN_DIR)
 	@if [ -f $(PIDFILE) ] && kill -0 `cat $(PIDFILE)` 2>/dev/null; then \
@@ -128,6 +132,7 @@ dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@echo "  Home (built):   http://localhost/"
 	@echo "  Queue:          http://localhost:5173/forge/queue"
 	@echo "  API:            http://localhost:8000/docs"
+	@echo "  Runs:           http://localhost:5173/runs"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 
 # A CLONE of the registry, because a submodule's `.git` is a pointer at a host path that

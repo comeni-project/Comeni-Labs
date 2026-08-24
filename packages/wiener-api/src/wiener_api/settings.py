@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     work_root: Path = Path("./var/wiener/work")
     ingest_base_url: str = "http://127.0.0.1:8099"
     """Where the head process posts its events. Loopback — spec §4."""
+    api_token: str = ""
+    """The one credential the public API accepts, as a bearer token.
+
+    **§12.1's trust boundary is *who may submit*, because Wiener executes what it is handed** —
+    running a pipeline is running code, and every design has that property. So this is a real
+    check rather than a promise, and it is deliberately the smallest one that is real: one
+    token, no user table, no session, no reset flow.
+
+    **Empty means open**, which is right for a laptop and wrong for anything else — so the API
+    says so at startup rather than leaving somebody to find out. OAuth is issue #83.
+
+    **The ingest app never reads this.** Nextflow cannot be given a bearer header, and the
+    per-run secret in its URL is its credential — §13.1.
+    """
     lab_id: str = "local"
     """**Server-chosen, never client-supplied — A178.** §7.1 puts `lab_id` on every table from
     day one and §12.1 makes authentication a W1 requirement that phases 0–2 do not satisfy. A

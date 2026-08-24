@@ -991,7 +991,11 @@ this property and pretending otherwise would be the dangerous version. What foll
 
 - **Wiener's trust boundary is *who may submit*.** Authentication is a requirement of W1, not a
   later hardening pass — which is a genuine difference from `mendel-api`, where `who` is attribution
-  and says so on three tables.
+  and says so on three tables. **Met on 2026-08-24 by one shared bearer token**
+  (`WIENER_API_TOKEN`), deliberately the smallest check that is real: no user table, no session,
+  no reset flow. Unset means open and the API logs that at startup, because an unconfigured
+  install is the one most likely to exist. Per-person identity is
+  [#83](https://github.com/comeni-project/Comeni-Labs/issues/83).
 - **The artifact is content-addressed on upload** (`digest`), so *what ran* is answerable later, and
   a submission that claims to be a gated pipeline can be checked against `pipeline.yml`'s own
   recorded digests.
@@ -1026,10 +1030,29 @@ POST   /api/runs/{id}/ask          the chat panel
 
 ### 13.1 The ingest endpoint is not a public route
 
-`POST /events/{run_id}` is written to by the head process, which Wiener launched, over loopback. It
-is **bound separately from the public app** and carries a per-run secret in the URL that Wiener
-generated at launch — so an ingest route is not something an unauthenticated client can post to just
-because it exists.
+`POST /events/{run_id}/{secret}` is written to by the head process, which Wiener launched. It is
+**bound separately from the public app** and carries a per-run secret in the URL that Wiener
+generated at launch — so an ingest route is not something an unauthenticated client can post to
+just because it exists.
+
+**It is its own service with no published port — amended 2026-08-24, and the first wording said
+"over loopback".** That was one implementation of *the internet cannot reach this*; an
+unpublished port on the compose network is another, and the substance — off the public app,
+a per-run secret — is unchanged. Two facts forced the move, both checked rather than assumed:
+
+- **The head process moves.** `kuberun` is deprecated and the production Kubernetes pattern is
+  a pod that runs Nextflow, so in W5 the head is not a child of Wiener's worker and `127.0.0.1`
+  reaches nothing. Topology that only holds while the head is a child is topology that gets
+  rewritten under pressure.
+- **`nf-weblog` neither retries nor flushes on exit** (`nextflow-io/nextflow#1010`), so any
+  moment ingest is unavailable loses events *permanently*. It must have the fewest reasons to
+  restart of anything in the stack — the opposite of the container that runs pipeline code and
+  is redeployed whenever that changes. It also means the events most likely to be lost are the
+  last ones, which is exactly why §5.1 makes terminality a set and §17 has a `LOST` window.
+
+**The token on the public app is not on this one.** Nextflow cannot be given a bearer header,
+so the per-run secret is the whole credential here — and putting a shared token in front of
+ingest would mean handing it to every head process or losing every event.
 
 That separation is written down because the alternative is the exact shape of the defect Plan 3A
 phase 6 found: *the forge's mounted transport takes filesystem paths from an unauthenticated

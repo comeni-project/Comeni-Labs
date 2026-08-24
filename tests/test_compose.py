@@ -56,7 +56,7 @@ def _publish_a_host_port(base) -> set[str]:
     return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
-def test_the_stack_is_seven_services(base):
+def test_the_stack_is_nine_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
     that a new service needs a healthcheck and a place in the overlay.
 
@@ -65,8 +65,44 @@ def test_the_stack_is_seven_services(base):
     heard of — the plan's Task 5 said "add the compose services" and said nothing about the
     overlay, which is precisely the gap a literal list catches."""
     assert sorted(_default_stack(base)) == [
-        "api", "postgres", "redis", "web", "wiener-api", "wiener-postgres", "worker",
+        "api", "postgres", "redis", "web",
+        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "worker",
     ]
+
+
+def test_the_ingest_app_is_never_published(base, prod):
+    """**§13.1's guarantee, as a test rather than a sentence.** The head process must reach it
+    and the internet must not, so it is its own service on the compose network with no port on
+    the host — in the base file and in the overlay.
+
+    It moved out of "loopback" on 2026-08-24 because the head process moves: `kuberun` is
+    deprecated and the production Kubernetes pattern runs Nextflow in its own pod, so a
+    topology that only works while the head is a child of the worker is one that gets rewritten
+    under pressure in W5.
+    """
+    assert not base["services"]["wiener-ingest"].get("ports"), (
+        "the ingest app is published on the host; §13.1 says the internet may not reach it"
+    )
+    assert not prod["services"].get("wiener-ingest", {}).get("ports")
+
+
+def test_the_public_api_is_reached_through_nginx_and_not_a_second_port(base):
+    """One origin, split by path — the same split `vite.config.ts` makes in development. Two
+    published ports is prod and dev disagreeing about where Wiener lives."""
+    assert not base["services"]["wiener-api"].get("ports")
+    assert base["services"]["web"].get("ports"), "nginx is the way in"
+
+
+def test_nginx_routes_both_halves_of_the_api():
+    """The config is what makes the previous test true, so it is read rather than assumed."""
+    conf = (ROOT / "nginx" / "default.conf").read_text()
+    assert "location /api/runs" in conf and "wiener-api:8001" in conf
+    assert "location /api/artifacts" in conf
+    assert "location /api/" in conf and "api:8000" in conf
+    assert "$connection_upgrade" in conf, (
+        "the WebSocket needs Upgrade forwarded, or the console never connects and nothing on "
+        "screen says why"
+    )
 
 
 def test_the_telemetry_backend_is_opt_in(base):
