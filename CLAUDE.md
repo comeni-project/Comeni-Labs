@@ -309,21 +309,30 @@ Rosalind from Franklin.
 
 Violating any of these breaks the product claim, not just a test.
 
-1. **`comeni-core`, `mendel-resolver` and `mendel-compiler` do not reach the network.** Two
-   partial guards, and the claim is their union — say *do not*, never *cannot*. A static AST
-   scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
+1. **`comeni-core`, `mendel-resolver`, `mendel-compiler` and `wiener-core` do not reach the
+   network.** Two partial guards, and the claim is their union — say *do not*, never *cannot*. A
+   static AST scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
    `exec`/`eval`/`compile`, and a module reached as an attribute of an allowed one; a runtime
-   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and
-   fails if any socket or process event comes from a frame in those packages. Neither is
-   complete: the scan cannot see a two-link attribute chain or a `getattr`, and the hook only
-   covers code a build reaches. **Audit A1 defeated the scan alone** — a file importing only
-   `pathlib` and `typing` reached `os.system` via `pathlib.os` and delivered a serialised
-   `Goal` over TCP while the guard reported green. **Audit A17 then defeated both**, with a
-   libc socket obtained through `ctypes`: FFI raises `ctypes.dlopen`/`dlsym` rather than any
-   `socket.*` event, so it was outside the union rather than a gap in either half. `ctypes` is
-   now banned statically and watched at runtime — a pure package has no legitimate FFI need,
-   which is what makes that entry costless in a way `subprocess` never could be. If a change
-   to those packages seems to need such an import, the design is wrong.
+   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and fails
+   if any socket or process event comes from a frame in those packages. Neither is complete: the
+   scan cannot see a two-link attribute chain or a `getattr`, and the hook only covers code a
+   build reaches. **Audit A1 defeated the scan alone** — a file importing only `pathlib` and
+   `typing` reached `os.system` via `pathlib.os` and delivered a serialised `Goal` over TCP while
+   the guard reported green. **Audit A17 then defeated both**, with a libc socket obtained
+   through `ctypes`: FFI raises `ctypes.dlopen`/`dlsym` rather than any `socket.*` event, so it
+   was outside the union rather than a gap in either half. `ctypes` is now banned statically and
+   watched at runtime — a pure package has no legitimate FFI need, which is what makes that entry
+   costless in a way `subprocess` never could be. If a change to those packages seems to need
+   such an import, the design is wrong.
+   **`wiener-core` joined on 2026-08-24** (`docs/design/wiener.md` §3.1), and it is the first
+   time this list has grown. A fold over events has no legitimate need to open a socket, which
+   is the same argument that made `ctypes` costless — and it is load-bearing in a place nobody
+   planned: **the OpenTelemetry SDK is a network client**, so this guard is what keeps the span
+   *mapping* pure and the *export* on the other side of the line, without anybody having to
+   remember. What it does **not** yet cover is a clock: `datetime` is on that package's
+   allowlist for the class and must never be `datetime.now`, because §6.1's claim — same events
+   in, same decisions out — dies the first week one is read inside the fold. The allowlist
+   cannot express *this name but not that attribute*, so a separate scan holds it.
 2. **AI authors artifacts offline; humans approve; runtime is pure lookup.** The forge drafts
    contracts, rules and vocabulary states — a person approves them into `contracts/`,
    `rules/`, `vocabularies/`. Nothing writes there automatically.
@@ -537,6 +546,7 @@ packages/
   mendel-api/        FastAPI surface; mounts the forge, projects questions  impure
     routes/            questions, health — validate, dispatch, serialise
     questions.py       OpenQuestion: one schema, two consumers
+  wiener-core/       run state: admit, fold, decide — Wiener's half        PURE
 registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source

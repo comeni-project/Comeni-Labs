@@ -81,7 +81,7 @@ replaying from a committed fixture in milliseconds.
 - Consumes: nothing.
 - Produces: an importable `wiener_core` package, classified pure.
 
-- [ ] **Step 1: Create the package manifest**
+- [x] **Step 1: Create the package manifest**
 
 ```toml
 # packages/wiener-core/pyproject.toml
@@ -103,7 +103,7 @@ packages = ["src/wiener_core"]
 comeni-core = { workspace = true }
 ```
 
-- [ ] **Step 2: Create the package docstring**
+- [x] **Step 2: Create the package docstring**
 
 ```python
 # packages/wiener-core/src/wiener_core/__init__.py
@@ -119,23 +119,23 @@ same event sequence in -> same run state, same decisions.
 """
 ```
 
-- [ ] **Step 3: Register it in the workspace**
+- [x] **Step 3: Register it in the workspace**
 
 In the root `pyproject.toml`, add `"wiener-core"` to `dependencies` (line 21) and
 `wiener-core = { workspace = true }` to `[tool.uv.sources]`.
 
-- [ ] **Step 4: Run `uv sync` and confirm the import**
+- [x] **Step 4: Run `uv sync` and confirm the import**
 
 Run: `uv sync && uv run python -c "import wiener_core; print(wiener_core.__doc__.splitlines()[0])"`
 Expected: `Run state, and what to do about it. **Pure** — invariant 1 covers this package.`
 
-- [ ] **Step 5: Watch the totality guard fail**
+- [x] **Step 5: Watch the totality guard fail**
 
 Run: `uv run pytest tests/test_purity.py -k unclassified -x`
 Expected: FAIL naming `wiener-core` under `on disk, unclassified`. **This is the point** — the
 guard notices a package it has never heard of. Copy the message into the ledger in Step 8.
 
-- [ ] **Step 6: Classify it pure**
+- [x] **Step 6: Classify it pure**
 
 In `tests/test_purity.py`, add to `CLOSED_PACKAGES`:
 
@@ -149,18 +149,18 @@ In `tests/test_purity.py`, add to `CLOSED_PACKAGES`:
 `datetime` is on the list for **types only** — `datetime` the class, never `datetime.now`.
 Task 4 adds the guard that holds that distinction.
 
-- [ ] **Step 7: Watch the purity guard fail on a real violation**
+- [x] **Step 7: Watch the purity guard fail on a real violation**
 
 Temporarily add `import socket` to `wiener_core/__init__.py`, run
 `uv run pytest tests/test_purity.py -x`, confirm it fails naming `socket` and `wiener-core`,
 then remove the import and confirm green.
 
-- [ ] **Step 8: Record both reverts in the ledger**
+- [x] **Step 8: Record both reverts in the ledger**
 
 Append two rows to `notes/audits/guard-ledger.md` — the unclassified-package failure from Step 5
 and the `import socket` failure from Step 7 — each with the message it printed.
 
-- [ ] **Step 9: Edit invariant 1**
+- [x] **Step 9: Edit invariant 1**
 
 In `CLAUDE.md`, invariant 1's first sentence becomes:
 
@@ -174,7 +174,7 @@ and add, after the `ctypes` sentence:
 > in a place nobody planned: the OpenTelemetry SDK is a network client, so this guard is what keeps
 > the span *mapping* pure and the *export* out of this package.
 
-- [ ] **Step 10: Run the gate and commit**
+- [x] **Step 10: Run the gate and commit**
 
 Run: `make check`
 Expected: PASS.
@@ -2102,7 +2102,10 @@ pasted verbatim* — plans here are corrected during execution by design.
 
 | Task | Deviation from the plan | Why |
 |---|---|---|
-| | | |
+| 1 | Step 5's command was `pytest -k unclassified`; ran `-k classified` | **The plan's command selects zero tests and reports nothing.** The guard is `test_every_package_is_classified`; "unclassified" appears only in its failure message. A step that runs no test and prints no failure is the vacuous pass this plan writes six guards against, and it was in the plan itself |
+| 1 | `tests/test_package.py` became `tests/test_wiener_core_package.py` | Basename collision: `packages/mendel-ai/tests/test_package.py` exists and the test directories carry no `__init__.py`, so pytest refuses to collect two modules with one name. Caught by `make check`, not by the package's own tests |
+| 1 | A second test was written into that file and deleted the same hour | It asserted the `pyproject.toml` name appears in `CLOSED_PACKAGES`. **It cannot fail**: renaming the package makes `uv` refuse the workspace before pytest starts, and renaming the directory is what `test_every_package_is_classified` already catches. Trying to watch it fail is what showed it was inert — A14's method finding one of its own |
+| 1 | `CLAUDE.md`'s architecture tree gained a `wiener-core/` line, which the plan does not list | The tree names every package and would have been stale the moment this one existed |
 
 ---
 

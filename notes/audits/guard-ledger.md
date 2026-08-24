@@ -2574,3 +2574,32 @@ as extra columns on `gate_run` all pass it. The first two are out of reach of a 
 the third is the first row above, which is why the pair was added together. The cheap mistake —
 one plausible column on a table that already remembers a Nextflow invocation — is now the guarded
 one.
+
+---
+
+## Invariant 1 grows by a package — 2026-08-24
+
+**The first time `CLOSED_PACKAGES` has gained a whole package** rather than an import, so both
+halves were reverted: the guard that notices an unclassified package, and the guard that
+notices what a classified one imports.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_every_package_is_classified` | created `packages/wiener-core/` before classifying it | failed | `every package must be classified pure, banlist or explicitly impure — a package this file has never heard of is a package it is not guarding:` / `  on disk, unclassified: ['wiener-core']` / `  classified, not on disk: []` |
+| 2026-08-24 | `test_purity.py::test_pure_packages_import_nothing_impure` | added `import socket` to `wiener_core/__init__.py` | failed | `Pure packages must not import I/O or model libraries:` / `  packages/wiener-core/src/wiener_core/__init__.py imports socket` / `  packages/wiener-core/src/wiener_core/__init__.py imports socket, which is not on this package's allowlist` |
+
+**The second message says it twice, and that is the union of two rules rather than a repeat.**
+The first line is the global banlist — `socket` is refused to every pure package — and the
+second is this package's own allowlist. An import that is not banned outright but is absent from
+the allowlist prints only the second, which is what the next entry to this list will look like.
+
+**What is not guarded yet, and is the reason this package is on the list at all.** `datetime` is
+allowed for the class and must never be `datetime.now`: §6.1 of `docs/design/wiener.md` says the
+same events must replay to the same decisions, and the allowlist cannot express *this name but
+not that attribute of it*. `test_wiener_core_never_reads_a_clock` is Task 4's, and until it lands
+and is reverted here, this section is the weaker half of the claim.
+
+**The plan's Step 5 command selected nothing.** It read `pytest -k unclassified`, and the test is
+`test_every_package_is_classified` — "unclassified" appears only in the failure message. A step
+that runs no test and reports no failure is the vacuous pass this ledger exists to catch, found
+this time in a plan rather than in a guard.

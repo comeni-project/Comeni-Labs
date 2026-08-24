@@ -71,6 +71,10 @@ CLOSED_PACKAGES = {
         "collections", "collections.abc", "enum", "math", "operator", "pathlib", "re",
         "typing", "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
+    "wiener-core": {
+        "collections", "collections.abc", "datetime", "enum", "typing",
+        "pydantic", "comeni_core", "wiener_core",
+    },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note
 # exists because the guard is supposed to make an addition something somebody argues for.
@@ -115,6 +119,30 @@ CLOSED_PACKAGES = {
 # Rejected because it is only correct for integers and `genome_length / 2` is not one — a
 # wrong number reaching STAR's `--genomeSAindexNbases` is the class of defect A118 is about,
 # and getting it subtly wrong to avoid a stdlib import is the wrong trade.
+
+# `wiener-core` was added 2026-08-24 as a whole package (`docs/design/wiener.md` §3.1), and
+# this is the fourth such note — the first for an entry rather than an import.
+#
+# **The list grew by one package and by no new capability.** Every name on its line already
+# appears above: `collections`, `collections.abc`, `enum` and `typing` are vocabulary and
+# containers, and `pydantic` and `comeni_core` are what every pure package here is built from.
+# A fold over events has no legitimate need to open a socket, which is what makes the entry
+# costless in the way `ctypes` was and `subprocess` never could be.
+#
+# **`datetime` is on the list for the class and never for `datetime.now`**, and that
+# distinction is the one thing about this entry worth arguing over: §6.1 says the same run must
+# replay to the same decisions, so a clock read inside the fold breaks Wiener's version of
+# invariant 10 in the first week. The allowlist cannot express *this name but not that
+# attribute of it* — `comeni-core` has carried `datetime` on the same terms since the guard was
+# written — so Task 4 adds `test_wiener_core_never_reads_a_clock`, which scans for
+# `datetime.now`, `datetime.utcnow` and `time.time` and is watched failing. **Until that task
+# lands, this line is the weaker half of a claim** and is written down as such.
+#
+# The alternative considered and rejected: leave `datetime` off and pass every timestamp as an
+# `int`. Rejected because the payload already carries epoch milliseconds (§4.2) and `admit()`
+# has to parse `utcTime`, an ISO-8601 string, to get `at_ms` — so the parse happens either way,
+# and doing it without `datetime` means hand-rolling ISO-8601, which is the same trade the
+# `math` note above rejected for `log2`.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
