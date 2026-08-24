@@ -4,8 +4,13 @@
 # Regenerate with: uv run python tools/generate_diagnostics_doc.py
 #
 # `MD` is Mendel's deterministic core: the three packages that may not reach the network.
-# `MF`, `MA` and `MI` belong to the forge, the API and the AI adapters; `N` and `W` are
+# `MF`, `MA` and `MI` belong to the forge, the AI adapters and the API; `N` and `W` are
 # reserved for Nightingale and Wiener, so a future Nightingale API is `NA` and cannot collide.
+#
+# **That sentence used to read "the forge, the API and the AI adapters"**, which put `MA` on the
+# API — and `MA0001`-`MA0007` have been the AI adapters' since forge phase 2. Nothing caught it
+# because no API code existed to collide, so the prose was wrong for as long as it was untested.
+# A33's lesson in a new place: the entries are the evidence and the sentence is what drifts.
 #
 # Bands of one hundred group by concern inside a prefix:
 #
@@ -17,6 +22,7 @@
 #   MD0500-MD0599  validating a hand-built graph
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
+#   MI0001-MI0099  the API: gating a drawn pipeline
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -2127,3 +2133,29 @@ MD0509:
 
     It is `illegal` rather than `unmet` because nothing about the node can be checked — every
     later check reads a contract this one could not load.
+
+MI0001:
+  emitted_by: api
+  concern: gates
+  says: "this draft has no artifact to gate — keep it first"
+  fires_on: [gate]
+  refuses: true
+  fix: |
+    Press *Keep* first, then gate. `POST /api/pipeline/drafts/{draft_id}/keep` is the same
+    operation.
+  explanation: |
+    A gate runs Nextflow in a directory. A draft is a row in a database until `keep`
+    validates it and writes `pipeline.yml` and the modules beside it, so a draft that was
+    never kept has nothing to run.
+
+    Reporting Nextflow's own "no such file" here would be a true message about the wrong
+    thing — it would describe the pipeline as broken when the pipeline was never written.
+
+    **The first `MI` code.** `MD` is reserved for Mendel's deterministic core — the three
+    packages that may not reach the network — and this refusal is raised by the API, so it
+    cannot take that prefix.
+
+    It was written as `MA0001` first, on the strength of a header sentence that assigned `MA`
+    to the API. `MA0001`-`MA0007` already belonged to the AI adapters, and the strict loader
+    refused the duplicate rather than letting the second win. The sentence was the thing that
+    was wrong; it is corrected at the top of this file.

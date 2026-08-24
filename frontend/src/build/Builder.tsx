@@ -10,7 +10,9 @@ import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Compare } from "./Compare";
+import { Gate, GatePanel } from "./Gate";
 import { Findings } from "./Findings";
+import { useKeep } from "./useKeep";
 import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
@@ -143,7 +145,10 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   const offsets = builder.offsets;
   const isLoading = data === null;
   const error = builder.drawnError;
-  const [panel, setPanel] = useState<"review" | "problems" | "compare">("review");
+  const [panel, setPanel] = useState<"review" | "problems" | "compare" | "gate">("review");
+  // **The draft lifecycle, finally connected.** 3E built create/save/keep on the server and
+  // wired none of it; a gate needs an artifact on disk, which is what surfaced that.
+  const keeper = useKeep(builder.graph);
   /** Where the cursor is while a wire is being dragged, in canvas coordinates. */
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   /** Where a right-click opened a menu, and on what. */
@@ -213,18 +218,28 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
           RNA-seq spine
         </span>
-        {/* **One Run button, in the nav.** `dashboard.md` §6 records that there were two — one
-            here and one in the review strip — and both were disabled by the same condition, so
-            the second said nothing the first had not. The blocking count beside it is the part
-            that was load-bearing. */}
-        <button
-          disabled
-          title="Running a pipeline is Wiener's job, and Wiener is not built."
-          className="ml-auto px-3 py-1 rounded-r text-body font-semibold bg-pea
-                     text-[var(--on-pea)] border-0 opacity-40 cursor-not-allowed"
-        >
-          Run pipeline
-        </button>
+        {/* **Keep, then Gate — and neither of them is Run.**
+            `docs/design/execution-boundary.md` §3: a gate proves this artifact on public test
+            data and takes no samplesheet, while running a laboratory's data is Wiener's job.
+            The two must not share a label, because a control called *Run* that sometimes
+            gates is how invariant 15 stops being structural and becomes a promise.
+
+            This replaces a disabled *Run pipeline* button whose `title` said "Running a
+            pipeline is Wiener's job, and Wiener is not built." Still true — the sentence
+            moved into `Gate.tsx` where a reader will still meet it. */}
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            data-testid="keep"
+            disabled={keeper.keeping}
+            onClick={() => keeper.keep()}
+            title="Write the pipeline.yml. A gate certifies what was kept."
+            className="px-3 py-1 rounded-r text-body font-semibold border border-line
+                       bg-transparent text-ink disabled:opacity-40"
+          >
+            {keeper.keeping ? "Keeping…" : "Keep"}
+          </button>
+          <Gate draftId={keeper.draftId} blocked={keeper.blocked} />
+        </div>
         {blocking > 0 && (
           <span data-testid="blocking" className="text-secondary text-[var(--undecided)]">
             <b className="font-data">{blocking}</b> to decide
@@ -463,7 +478,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             what you drew comes before what Mendel would have done differently, because a graph
             that cannot be emitted is not yet worth diffing. */}
         <div className="flex gap-1 border-b border-line px-2 pt-2">
-          {(["review", "problems", "compare"] as const).map((t) => (
+          {(["review", "problems", "compare", "gate"] as const).map((t) => (
             <button
               key={t}
               data-testid={`tab-${t}`}
@@ -484,6 +499,9 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
 
         {panel === "problems" && (
           <Findings findings={builder.findings} onSelect={setSelected} />
+        )}
+        {panel === "gate" && (
+          <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />
         )}
         {panel === "compare" && (
           <>

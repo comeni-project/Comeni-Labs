@@ -23,7 +23,7 @@ component that would has never had an owner.
 | Measurable vs asserted | Falls out of routability. No flag to maintain |
 | Provenance | Per value. A bare scalar **is** an assertion |
 | Clinical | `sealed` blocks a tier-3 decision driven by an asserted measurement |
-| Execution at scale | The laboratory's own executor. Wiener observes later; it never orchestrates |
+| Execution at scale | The laboratory's own executor, driven by Nextflow. Wiener manages *runs* on top and never re-implements *task* scheduling — [execution-boundary.md](execution-boundary.md) |
 
 ---
 
@@ -192,8 +192,11 @@ Nothing needs building. Nextflow already dispatches to SLURM, LSF and Kubernetes
 laboratory points the emitted pipeline at its own executor. **Mendel emits; it does not
 orchestrate.**
 
-Wiener later adds observation and dispatch to specific clusters on top of that — monitoring and
-feedback, not scheduling. It is a decoupled concern and stays deferred.
+Wiener adds **run management** on top of that — accepting a run, launching and supervising the
+head process, recording what happened, and relaunching with `-resume` when it fails. It never
+re-implements what this paragraph just credited Nextflow with, which is *task* scheduling.
+[`execution-boundary.md`](execution-boundary.md) §2 separates the two levels; this sentence
+used to conflate them.
 
 ---
 

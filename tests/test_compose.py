@@ -148,3 +148,21 @@ def test_prod_publishes_the_web_port_and_nothing_else(prod):
 def test_prod_restarts_everything(prod):
     for name, service in prod["services"].items():
         assert service.get("restart") == "unless-stopped", name
+
+
+def test_the_draft_root_is_a_volume_shared_by_the_api_and_the_worker(base):
+    """`keep` writes an artifact and the worker gates it. Two containers, one directory.
+
+    `MENDEL_DRAFT_ROOT` was set on both services with **nothing backing it**, so the API wrote
+    into its own ephemeral layer: the file vanished on restart and the worker could not see it
+    at all. A gate job would then have run `nextflow` in a directory that does not exist and
+    reported a Nextflow error — the worst kind of failure, a true message about the wrong
+    thing.
+
+    Found by asking what a container does, which is the method that found phase 8's two.
+    """
+    services = base["services"]
+    for name in ("api", "worker"):
+        root = services[name]["environment"]["MENDEL_DRAFT_ROOT"]
+        mounts = [v.split(":")[1] for v in services[name]["volumes"] if ":" in v]
+        assert root in mounts, f"{name}: MENDEL_DRAFT_ROOT={root} is backed by no volume"

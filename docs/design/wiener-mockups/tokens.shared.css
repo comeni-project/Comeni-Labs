@@ -1,0 +1,38 @@
+/* THE ONE PLACE COLOUR IS DEFINED for these artboards.
+   Everything above the line is copied verbatim from frontend/src/tokens.css, which
+   mirrors docs/design/dashboard.md §2. Do not edit those values here — edit them there.
+
+   Below the line are the FOUR tokens the Depth direction needs. They add no hue:
+   every one is built from --shadow, which already exists. That is the whole argument
+   for this direction — depth is not a colour problem, so it costs no palette. */
+:root {
+  --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
+  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
+  --line: #DCE2DF; --line-2: #C4CDC8;
+  --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
+  --measured: #B77B2B; --measured-soft: #F6EBD8;
+  --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
+  --shadow: rgba(18, 21, 26, .14);
+  --r: 3px;
+  --font-display: Georgia, "Iowan Old Style", "Times New Roman", ui-serif, serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
+
+  /* ---- proposed additions: the elevation ramp. No new hue. ---- */
+  --e1: 0 1px 1px var(--shadow);                              /* a chip, a control */
+  --e2: 0 1px 2px var(--shadow), 0 6px 16px -10px var(--shadow);   /* a card */
+  --e3: 0 1px 2px var(--shadow), 0 14px 34px -18px var(--shadow);  /* the working panel */
+  --well: inset 0 1px 2px var(--shadow);                      /* a track, a groove */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
+    --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
+    --line: #2A3134; --line-2: #3A4347;
+    --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
+    --measured: #D9A458; --measured-soft: #2C2416;
+    --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
+    --shadow: rgba(0, 0, 0, .5);
+  }
+}

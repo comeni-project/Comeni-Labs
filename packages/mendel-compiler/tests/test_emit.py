@@ -349,3 +349,54 @@ def test_a_templated_fragment_still_emits_a_closure():
         why=Why(tier=Tier.AMBIGUOUS, source=ValueSource.HUMAN, reason="a round-four probe"),
     )
     assert 'ext.args = { "' in "\n".join(_ext_scope(_step_carrying(templated)))
+
+
+def test_emit_config_cannot_depend_on_a_deployment_target():
+    """`docs/design/execution-boundary.md` §6.
+
+    A pipeline emitted for AWS that differs from the same pipeline emitted for a laptop breaks
+    invariant 10 (same goal → byte-identical `.nf`) and invariant 13 (self-hosted is not a
+    degraded tier) at once, and makes `Pipeline.emitted`'s recorded digests depend on a
+    deployment choice — so `mendel emit` could not reproduce the file it is handed.
+
+    **A one-parameter signature cannot express a per-target emission.** That is why this guard
+    is on the signature rather than on the output: it fails at the moment somebody reaches for
+    the wrong design, not after they have wired it through and a digest has moved.
+    """
+    import inspect
+
+    from mendel_compiler.emit import emit_config
+
+    params = list(inspect.signature(emit_config).parameters)
+    assert params == ["pipeline"], (
+        f"emit_config takes {params}. The executor reaches a run through a PROFILE and "
+        "`-c site.config`, never through emission — docs/design/execution-boundary.md §6."
+    )
+
+
+def test_the_config_offers_an_executor_for_every_target_the_mvp_names():
+    """§7: local, Kubernetes and AWS, and Nextflow abstracts the difference between them.
+
+    Every pipeline gets all three whether or not anyone selects one — exactly as every pipeline
+    already gets `docker` and `singularity` blocks it may never use. That is what makes them a
+    function of nothing, which is the property the test above defends.
+    """
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(_pipeline())
+    for name in ("local", "k8s", "awsbatch"):
+        assert f"    {name} {{" in config, f"no `{name}` profile"
+    assert "process.executor = 'awsbatch'" in config
+
+
+def test_a_profile_that_needs_site_facts_says_so_in_the_file():
+    """A `k8s` profile with no storage claim and an `awsbatch` profile with no queue cannot run
+    on their own, and a reader must not have to discover that from a Nextflow stack trace.
+
+    §5: the executor, the queue and `workDir` are site facts supplied at run time. The profile
+    declares the intent and `-c site.config` completes it — the same division `params.input`
+    already makes for data.
+    """
+    from mendel_compiler.emit import emit_config
+
+    assert "site.config" in emit_config(_pipeline())

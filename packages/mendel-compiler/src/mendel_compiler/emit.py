@@ -422,6 +422,39 @@ def emit_config(pipeline: Pipeline) -> str:
         "        singularity.enabled = true",
         "        singularity.autoMounts = true",
         "    }",
+        # **Executors, and they are a function of nothing.**
+        #
+        # `docs/design/execution-boundary.md` §6: the executor must not enter `pipeline.yml`
+        # or `main.nf`, because a pipeline that differed per deployment target would break
+        # invariant 10 and invariant 13 at once — and would make `Pipeline.emitted`'s digests
+        # depend on a deployment choice, so `mendel emit` could not reproduce the file it is
+        # handed. Every pipeline therefore carries all three whether or not anyone selects
+        # one, the same posture `docker` and `singularity` already take.
+        # `emit_config` takes one parameter and a test holds it there.
+        #
+        # Nextflow does the actual work: same workflow, same modules, same containers, and
+        # the backend is configuration. What Mendel cannot know is the *site* — a queue name,
+        # a storage class, a role ARN, where `workDir` lives — so each profile names what it
+        # still needs and Nextflow layers `-c site.config` over the top. §5.
+        "    local {",
+        "        process.executor = 'local'",
+        "    }",
+        # `k8s` is also the name of a Nextflow config SCOPE — `k8s { namespace, ... }` — so a
+        # profile called `k8s` that sets `k8s.*` inside itself reads like a recursion and is
+        # not one. Kept anyway: `-profile k8s` is what somebody will type, and the alternative
+        # is teaching a second word for one thing. This comment is the mitigation. A169.
+        "    k8s {",
+        "        process.executor = 'k8s'",
+        "        // Needs site facts this file cannot know: a namespace, a service account,",
+        "        // and the storage claim that backs workDir. Supply them with",
+        "        //     nextflow run . -profile k8s,docker -c site.config",
+        "    }",
+        "    awsbatch {",
+        "        process.executor = 'awsbatch'",
+        "        // Needs site facts this file cannot know: process.queue, aws.region, and a",
+        "        // workDir on S3 — Batch has no shared filesystem. Supply them with",
+        "        //     nextflow run . -profile awsbatch,docker -c site.config -w s3://<bucket>/work",
+        "    }",
         "}",
         "",
     ]

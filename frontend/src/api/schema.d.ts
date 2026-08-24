@@ -521,6 +521,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gate a kept draft
+         * @description Queue a gate and return immediately with a `queued` run.
+         *
+         *     A stub gate is up to 900s cold and nothing that long may sit in a request — `worker.py`'s
+         *     docstring has said so since phase 8.
+         *
+         *     **This is not *Run pipeline*.** A gate proves the artifact on public test data; running a
+         *     laboratory's data is Wiener's, and Mendel has no route for it by design.
+         */
+        post: operations["startGate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/gates/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How a gate is going
+         * @description Poll one gate. The browser stops asking once `state` leaves `queued`/`running`.
+         */
+        get: operations["readGate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -1094,6 +1140,54 @@ export interface components {
             source?: string | null;
             /** Target */
             target?: string | null;
+        };
+        /**
+         * Gate
+         * @description Cheapest first. Each is strictly more evidence than the one above it.
+         *
+         *     The ladder matters to a reader of a published bundle rather than only to a build:
+         *     `lint` proves the file parses, and only `test` runs the tools on real data. nf-core
+         *     stubs never read their inputs, so a contract pointing a channel at the wrong upstream
+         *     output passes conformance, `lint`, `preview` and `stub` alike — audit A4. A bundle
+         *     that records `stub` is not a bundle that was checked less carefully; it is a bundle
+         *     whose wiring nothing has checked at all.
+         * @enum {string}
+         */
+        Gate: "lint" | "preview" | "stub" | "test";
+        /**
+         * GateIn
+         * @description **A gate, and nothing else.**
+         *
+         *     `docs/design/execution-boundary.md` §3: the test for whether something is a *run* rather
+         *     than a *gate* is whether it takes a samplesheet, and this cannot. No path, no output
+         *     directory, no input — `extra="forbid"` is what keeps it that way as the type grows.
+         */
+        GateIn: {
+            gate: components["schemas"]["Gate"];
+        };
+        /**
+         * GateView
+         * @description What the browser polls.
+         *
+         *     No path and no host detail — the same restraint the drafts routes take, for the same
+         *     reason. `output` is a tool's own text and is shown to the person who asked; see
+         *     `models.GateRun` for why it must not travel any further than that.
+         */
+        GateView: {
+            /** Id */
+            id: string;
+            gate: components["schemas"]["Gate"];
+            /** State */
+            state: string;
+            /** Output */
+            output: string;
+            /**
+             * Queued At
+             * Format: date-time
+             */
+            queued_at: string;
+            /** Finished At */
+            finished_at: string | null;
         };
         /** Goal */
         Goal: {
@@ -2448,6 +2542,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    startGate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GateView"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readGate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GateView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -73,7 +73,9 @@ settings card. **Nothing on it could be changed**, and the operator's reframing 
 be a Galaxy-style builder — you assemble, it checks you, and it also shows what the resolver
 would do.
 
-**Plan 3E did that, and it is COMPLETE as of 2026-08-23**, on `plan-3e-builder`.
+**Plan 3E did that, and it is COMPLETE as of 2026-08-23**, on `plan-3e-builder`,
+**merged into `main` on 2026-08-23** — the last of 3A–3E, so every plan branch is now in
+`main` and none is carried.
 `validate(graph, layers) -> Verdict` is a pure resolver verb with nine `MD0500` diagnostics; a
 **compatibility index** lets the browser colour a wire mid-drag *without a second implementation
 of the rule*, held to the verb by a test over every port pair in the registry; drafts live in

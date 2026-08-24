@@ -22,3 +22,13 @@ measurement rather than revert-and-watch, and its most useful result is a **nega
 the codebase is not full of inefficiency, it has one slow function that everything calls.
 A132–A145, of which A141, A144 and A145 are negative or supporting results and are
 recorded on purpose.
+
+**[`2026-08-24-wiener-spec-review.md`](2026-08-24-wiener-spec-review.md) asks a fourth question**
+— does a *specification* agree with itself and with the code it claims to build on — against
+`docs/design/wiener.md` before Task 1 of its plan. It ran because that document's own journal
+entry says *"the spec was reviewed" — it was not*, and it found nine things (A175–A183), three of
+them critical: a heartbeat the fold is told it will see and `EventKind` cannot express, an
+idempotence claim attributed to the wrong mechanism with a phantom retry waiting behind it, and
+a tenancy guard that checks a weaker sentence than the spec states. It has the same limitation the
+design audit had — revert-and-watch cannot be run against something with no code — and A180 is the
+one finding that could have been caught by a command nobody ran.

@@ -63,6 +63,11 @@ services:
       # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
+      # **Shared, because two containers meet here.** `keep` (api) writes the artifact and
+      # the gate job (worker) runs Nextflow in it. This was set as an env var on both
+      # services with nothing backing it until 2026-08-23, so the file lived in one
+      # container's ephemeral layer and the other could not see it.
+      - ./.run/drafts:/app/drafts
     # **`sh -c`, never `sh -lc`.** A LOGIN shell re-reads `/etc/profile`, which resets `PATH`
     # and drops `/app/.venv/bin` — so `alembic: not found` and the container exits. Measured:
     # `sh -lc` gives `/usr/local/sbin:...` with no venv; `sh -c` keeps it. Cladewright uses
@@ -94,6 +99,11 @@ services:
       # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
+      # **Shared, because two containers meet here.** `keep` (api) writes the artifact and
+      # the gate job (worker) runs Nextflow in it. This was set as an env var on both
+      # services with nothing backing it until 2026-08-23, so the file lived in one
+      # container's ephemeral layer and the other could not see it.
+      - ./.run/drafts:/app/drafts
     command: arq mendel_api.worker.WorkerSettings
 
   # **In the base, not only in prod**, so dev serves the same path prod does — nginx in front,
