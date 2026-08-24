@@ -769,7 +769,7 @@ git commit -m "feat(wiener-core): fold(), idempotent, with terminality as a set"
 - Produces: `IntentKind`, `Reason`, `Intent`, `Policy`,
   `decide(state: RunState, policy: Policy, now_ms: int) -> list[Intent]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/wiener-core/tests/test_decide.py
@@ -834,14 +834,14 @@ def test_wiener_core_never_reads_a_clock():
     )
 ```
 
-- [ ] **Step 2: Run both and watch them fail**
+- [x] **Step 2: Run both and watch them fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_decide.py tests/test_no_clock.py -x`
 Expected: `test_decide.py` fails on the missing module; `test_no_clock.py` **passes vacuously**
 because `policy.py` does not exist yet. That vacuous pass is the danger — Step 5 breaks it on
 purpose.
 
-- [ ] **Step 3: Write `policy.py`**
+- [x] **Step 3: Write `policy.py`**
 
 ```python
 """What to do about a run — decided, never performed.
@@ -904,12 +904,12 @@ def decide(state: RunState, policy: Policy, now_ms: int) -> list[Intent]:
     return intents
 ```
 
-- [ ] **Step 4: Run the decide tests**
+- [x] **Step 4: Run the decide tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_decide.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 5: Watch the clock guard fail**
+- [x] **Step 5: Watch the clock guard fail**
 
 Temporarily add to `policy.py`:
 
@@ -922,7 +922,7 @@ Run: `uv run pytest tests/test_no_clock.py -x`
 Expected: FAIL naming `policy.py:<line> datetime.now`. Remove it, confirm green, and record
 the revert and its message in `notes/audits/guard-ledger.md`.
 
-- [ ] **Step 6: Run the gate and commit**
+- [x] **Step 6: Run the gate and commit**
 
 Run: `make check`
 
@@ -2113,6 +2113,8 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 2 | `make docs` does not regenerate the page | It runs the generator with `--check`; regenerating is `uv run python tools/generate_diagnostics_doc.py`. `CLAUDE.md` says *"`make docs` regenerates it"*, which is the sentence that drifted |
 | 3 | Step 4 expects 5 passed; it is 7 | A176 added two tests to this file when the plan was corrected, and the step's count was not updated with them |
 | 3 | The two A176 assertions gained failure messages | Reverting the fix to watch them fail printed `assert False` and a `RunState(...) == RunState(...)` diff — neither says what broke. The ledger already records a guard whose message argued for the wrong fix; these now print the attempt numbers, `{1: [1, 1, 1], …}`, and name the repair |
+| 4 | `test_no_clock.py` was widened before it was committed, and reverted three ways rather than one | **The plan's guard catches one spelling of three.** It matches an `ast.Attribute` whose `.value` is a bare `ast.Name`, so it sees `datetime.now()` after a `from` import and misses `datetime.datetime.now()` — the ordinary spelling after `import datetime`, where the value is another `Attribute` — and `from time import monotonic; monotonic()`, which has no attribute access to see at all. Measured, not argued: `CAUGHT / MISSED / MISSED`. It now walks the attribute chain to its root and treats importing a bare clock name as the offence |
+| 4 | `test_the_scan_reached_the_sources` added to that file | A67's lesson: a scan that reaches nothing reports nothing and passes. `test_purity.py` and `test_diagnostics_ownership.py` both carry this guard-of-the-guard and a new scan without one is the same silence |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---

@@ -2603,3 +2603,43 @@ and is reverted here, this section is the weaker half of the claim.
 `test_every_package_is_classified` — "unclassified" appears only in the failure message. A step
 that runs no test and reports no failure is the vacuous pass this ledger exists to catch, found
 this time in a plan rather than in a guard.
+
+---
+
+## The clock, kept out of the fold — 2026-08-24
+
+`tests/test_no_clock.py`, Task 4. `docs/design/wiener.md` §6.1's claim is that the same events
+replay to the same decisions, and it dies the first week a clock is read inside `wiener-core`.
+The purity allowlist cannot hold it: `datetime` is on that package's list because `admit()`
+parses an ISO-8601 `utcTime`, and an allowlist works on module names rather than on attributes
+of them. So this is a separate scan, and it was reverted three ways.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_no_clock.py::test_wiener_core_never_reads_a_clock` | `from datetime import datetime` + `datetime.now()` in `policy.py` | failed | `wiener-core read a clock:` / `  policy.py:83 reads now` / `Time enters as data — a field on the event, or an explicit now_ms parameter…` |
+| 2026-08-24 | same | `import datetime` + `datetime.datetime.now()` | failed | `  policy.py:83 reads now` |
+| 2026-08-24 | same | `from time import monotonic` + `monotonic()` | failed | `  policy.py:82 imports time.monotonic` |
+
+**The second and third rows are why the guard was widened before it was ever committed.** The
+plan's version matched an `ast.Attribute` whose `.value` is a bare `ast.Name`, and that sees
+exactly one of the three spellings. Run against the other two it reports nothing:
+
+```
+CAUGHT  from datetime import datetime; datetime.now()
+MISSED  import datetime; datetime.datetime.now()
+MISSED  from time import monotonic; monotonic()
+```
+
+`datetime.datetime.now()` is the *ordinary* spelling after a plain `import datetime`, and the
+value there is another `Attribute` rather than a `Name`. A bare `monotonic()` has no attribute
+access at all, so no attribute rule can ever see it — the import is the only observable moment,
+which is why importing one of those names is itself the offence.
+
+**This is A1's shape in a new place.** That audit defeated the purity scan with `pathlib.os`, a
+chain the check could not see; this is the same blind spot, found before it shipped rather than
+after, because the revert was tried three ways instead of once.
+
+**What it still does not cover**, stated rather than implied: a clock reached through a name
+this file does not know — `os.times`, a C extension, a callable passed in as an argument. The
+last one is not a defect but the design: `now_ms` is a parameter, and a caller passing a live
+clock is `wiener-api` doing its job.
