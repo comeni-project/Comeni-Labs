@@ -187,6 +187,50 @@ is W6, and this research is what tells us the input is worth keeping now.
 
 ---
 
+### 4.1 The comparison is with the wrong product, and the operator said so
+
+Everything above measures a **run**, which is what a run manager measures, and this document
+spent a section benchmarking against one. **That is one part of Comeni Labs and not its
+objective.** The claim the product is held to is *same goal in → same pipeline out, and nothing
+was guessed silently* — Mendel decides and records why; Wiener is Lab Y, one half of a whole
+that also has a Lab Z. A telemetry design scoped to *what Tower shows* would make Wiener a
+worse Tower, which is a competition worth losing.
+
+**The statistic nobody else can compute is outcome by provenance**, and the reason is
+structural: no other platform records *why* a value is what it is, so no other platform can ask
+whether the reasons were any good.
+
+`pipeline.yml` is in the artifact Wiener owns, `Pipeline` is a `comeni-core` type, and
+`comeni-core` is the one package both halves share (§3.3). So Wiener can read a run's decisions
+**without touching Mendel at all** — which is what that shared package is for, and why it keeps
+the platform name rather than the product's.
+
+What that buys, in attributes on the task span, all of them declared data and low cardinality:
+
+| attribute | from | the question it answers |
+|---|---|---|
+| `comeni.decision.tier` | `Why.tier`, `DecisionRecord.tier` | **do tier-3 decisions fail more often than tier-2 ones?** If a rule-matched choice breaks more than a documented default, the rule tables are wrong — and that is a claim about the engine, measured |
+| `comeni.decision.source` | `Why.source` / `resolved_by` | resolver, rule, human, model — A130's question from the other direction: does a value a *model* chose behave like one a person chose? |
+| `comeni.contract.id` | the step's pinned contract | which contract's steps fail, across every laboratory that runs it. That is the registry's own error rate |
+| `comeni.registry.layer` | `Why.from_layer` | does an overlay's displacement make things better or worse than the base it replaced? |
+| `comeni.override` | `human_override` / `model_override` | did overriding help? The one honest test of a flagged tier-4 answer |
+
+**None of those is a run statistic.** They are statistics about *decisions*, keyed by the thing
+that made them, and each one closes a loop the product already claims to care about and
+currently cannot check.
+
+**It is also the input §14 needs.** A failure signature recurring across runs becomes a forge
+proposal; a failure signature recurring *on one contract, at one tier, from one layer* is a
+proposal that says which rule to change. Same mechanism, and the difference between "STAR_ALIGN
+fails sometimes" and "the rule that sets its memory is wrong above 3 Gb".
+
+**This does not have to ship in phase 3, and saying so is the honest part.** Unlike the fifteen
+trace fields — which are gone forever if `admit()` drops them — telemetry is **regenerable**:
+spans are a pure function of `RunState` and the artifact, both of which are kept, and §3 says a
+backdated span is legal. So decision labels can be added later and back-filled by replaying the
+record. Phase 3 should carry them because they are nearly free once the artifact is open, not
+because there is a cliff.
+
 ## 5. What to build, in order
 
 **Phase 3 emits, and does not aggregate.** Every number below is derivable in the backend from
