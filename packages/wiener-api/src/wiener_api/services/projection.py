@@ -80,12 +80,22 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
     """Persist one admitted event, fold it, refresh the projections, publish the tail."""
     seq = event.seq
 
+    # **`prior` is read BEFORE the row is written.** It used to be read after, so `state_of`
+    # replayed the event that had just been inserted: `fold(prior, event)` was a no-op every
+    # time (`seq <= last_seq`), `prior` and `state` were always equal, and every ingest replayed
+    # the whole run. The state came out right, which is why nothing noticed — the replay was
+    # doing the fold's job at O(events) per event, and §7.1 says the projection exists precisely
+    # so nothing has to fold three days of events.
+    #
+    # Found by a gauge that went up and never came down: nothing can see a transition when
+    # before and after are the same value.
+    prior = state_of(session, lab_id, run_id) if seq else EMPTY
+
     repository.add(session, lab_id, RunEventRow(
         run_id=run_id, seq=seq, kind=event.kind, at_ms=event.at_ms,
         payload=event.model_dump(mode="json"), received_at=datetime.now(UTC),
     ))
 
-    prior = state_of(session, lab_id, run_id) if seq else EMPTY
     state = fold(prior, event)
 
     if (row := repository.run(session, lab_id, run_id)) is not None:
@@ -107,7 +117,15 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
     # **After the flush and never before.** A stream entry for an event Postgres has not
     # accepted is a tail that disagrees with the record, and the record is what a reload
     # rebuilds from — so a browser would see something that no longer exists.
+    if state.phase is RunPhase.RUNNING and prior.phase is not RunPhase.RUNNING:
+        # **A run becomes active once, when Nextflow says it started.** Not at submit: a queued
+        # run that never launches would leave the gauge permanently one too high, and a gauge
+        # that only goes up is worse than no gauge.
+        telemetry.in_flight(+1, _artifact_pipeline(session, lab_id, run_id))
+
     if state.phase in _TERMINAL:
+        if prior.phase is RunPhase.RUNNING:
+            telemetry.in_flight(-1, _artifact_pipeline(session, lab_id, run_id))
         # **After the flush, like the stream publish, and for the same reason**: telemetry for
         # an event Postgres has not accepted disagrees with the record. Failing to export must
         # not fail the ingest — §8 is that the backend is a lens and the record is not.

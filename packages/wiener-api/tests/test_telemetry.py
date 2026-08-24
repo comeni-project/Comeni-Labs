@@ -127,3 +127,29 @@ def test_a_run_is_one_trace_through_the_real_sdk(finished, pipeline, monkeypatch
         assert child.parent.span_id == root.context.span_id, (
             "a task span's parent must be the run span that exists, not an id nothing emitted"
         )
+
+
+def test_the_active_gauge_goes_up_once_and_back_down(session, a_run, tail, monkeypatch):
+    """`cicd.pipeline.run.active` is §2's fleet level — the thing that had no mechanism before.
+
+    **It was defined and called by nobody.** `in_flight()` existed, was tested by nothing, and
+    board 1 would have rendered an empty panel for a metric the code appeared to emit. Found by
+    querying ClickHouse and seeing `otel_metrics_sum` hold zero rows.
+
+    Up on the transition into RUNNING, never at submit: a queued run that never launches would
+    leave the gauge permanently one too high, and a gauge that only climbs is worse than none.
+    """
+    import json as _json
+    from pathlib import Path
+
+    from wiener_api.services import projection, telemetry
+
+    moves: list[int] = []
+    monkeypatch.setattr(telemetry, "in_flight", lambda delta, pipeline=None: moves.append(delta))
+
+    fixture = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
+    for line in fixture.read_text().splitlines():
+        if line.strip():
+            projection.record(session, a_run.lab_id, a_run.id, _json.loads(line))
+
+    assert moves == [+1, -1], f"the gauge moved {moves}, so it does not return to zero"

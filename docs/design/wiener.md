@@ -726,10 +726,23 @@ than readings — a bare `peak_rss` means nothing without what was asked for.
 
 | | asked | got | why it matters |
 |---|---|---|---|
-| **memory** | `memory` | `peak_rss` | the OOM story, *before* the OOM. A process at 94% of its ceiling is the next exit 137 |
+| **memory** | `memory` | `peak_rss` | the OOM story, *before* the OOM. A process at 94% of its ceiling is the next exit 137. **`memory` is empty today** — see below |
 | **cpu** | `cpus` | `%cpu` | over-allocation is the commonest waste in bioinformatics: 8 cores requested, 100% of one used |
 | **time** | `duration` | `realtime` | the difference is **queue wait**. On a cluster that is the number that explains a slow run |
 | **i/o** | — | `read_bytes` · `write_bytes` | which step actually moves the data |
+
+**The `asked` half of the memory row does not exist yet, and it is Mendel's** (found 2026-08-24
+by querying a real run's spans). The emitted `nextflow.config` carries `ext.args` and nothing
+else — no `memory` or `cpus` directive on any process — so Nextflow reports `memory: null` and
+the comparison has one side. `cpus` reads 1 because that is Nextflow's default rather than
+anything the pipeline asked for.
+
+That is not a telemetry gap to paper over: **a pipeline that requests nothing cannot be
+over-provisioned or under-provisioned**, and the panel should say so rather than draw a bar
+against zero. It becomes a real comparison when Mendel emits resource directives, which is a
+resolver-and-emitter question — a `memory` for a step is a decision with a tier and a `why:`
+like any other, and it is exactly the kind of decision §14's loop would later improve from
+observed runs.
 
 **Per process, not per task.** A 400-task run has 400 traces and nobody reads 400 rows; the
 dashboard aggregates by process and keeps the outlier — *STAR_ALIGN: 12 tasks, peak 61 GB of 64
