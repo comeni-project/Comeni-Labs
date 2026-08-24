@@ -329,6 +329,59 @@ def run_overview(run_id: str) -> OverviewOut:
     )
 
 
+class TaskOut(BaseModel):
+    """One task row. `tag` is the laboratory's own word for it — A200 — and it is the only
+    field here that a laboratory wrote."""
+
+    task_id: int
+    process: str
+    status: str
+    attempts: int = 1
+    latest_exit: int | None = None
+    last_change_ms: int = 0
+
+    peak_rss_bytes: int | None = None
+    realtime_ms: int | None = None
+    pct_cpu: float | None = None
+    tag: str | None = None
+
+
+class TasksOut(BaseModel):
+    tasks: list[TaskOut] = []
+    total: int = 0
+    """How many the same filters match, not how many are on this page. A table that says
+    *404 more* has to know."""
+
+
+@router.get("/runs/{run_id}/tasks", operation_id="readTasks",
+            summary="A run's tasks, filtered, sorted and paged")
+def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
+              retried_only: bool = False, sort: str = "task_id",
+              after: int = 0, limit: int = 100) -> TasksOut:
+    """**A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
+    falls back to `task_id` rather than reaching the database."""
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        filters = {"process": process, "status": status, "retried_only": retried_only}
+        rows = repository.tasks_page(session, settings.lab_id, run_id,
+                                     sort=sort, after=after, limit=limit, **filters)
+        total = repository.tasks_total(session, settings.lab_id, run_id, **filters)
+        tasks = [
+            TaskOut(
+                task_id=row.task_id, process=row.process, status=row.status,
+                attempts=len(row.attempts or []) or 1, latest_exit=row.latest_exit,
+                last_change_ms=row.last_change_ms,
+                peak_rss_bytes=row.peak_rss_bytes, realtime_ms=row.realtime_ms,
+                pct_cpu=row.pct_cpu,
+                tag=(row.labels or [{}])[-1].get("tag"),
+            )
+            for row in rows
+        ]
+
+    return TasksOut(tasks=tasks, total=total)
+
+
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}
 
 

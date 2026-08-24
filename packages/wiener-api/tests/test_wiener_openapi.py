@@ -23,5 +23,6 @@ def test_every_operation_is_named_by_hand():
         ("/api/runs/{run_id}/events", "get"): "readRunEvents",
         ("/api/runs/{run_id}/graph", "get"): "readRunGraph",
         ("/api/runs/{run_id}/overview", "get"): "readOverview",
+        ("/api/runs/{run_id}/tasks", "get"): "readTasks",
         ("/api/health", "get"): "health",
     }

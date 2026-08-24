@@ -119,6 +119,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A run's tasks, filtered, sorted and paged
+         * @description **A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
+         *     falls back to `task_id` rather than reaching the database.
+         */
+        get: operations["readTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -410,6 +431,52 @@ export interface components {
              */
             executor: "local";
         };
+        /**
+         * TaskOut
+         * @description One task row. `tag` is the laboratory's own word for it — A200 — and it is the only
+         *     field here that a laboratory wrote.
+         */
+        TaskOut: {
+            /** Task Id */
+            task_id: number;
+            /** Process */
+            process: string;
+            /** Status */
+            status: string;
+            /**
+             * Attempts
+             * @default 1
+             */
+            attempts: number;
+            /** Latest Exit */
+            latest_exit?: number | null;
+            /**
+             * Last Change Ms
+             * @default 0
+             */
+            last_change_ms: number;
+            /** Peak Rss Bytes */
+            peak_rss_bytes?: number | null;
+            /** Realtime Ms */
+            realtime_ms?: number | null;
+            /** Pct Cpu */
+            pct_cpu?: number | null;
+            /** Tag */
+            tag?: string | null;
+        };
+        /** TasksOut */
+        TasksOut: {
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: components["schemas"]["TaskOut"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -634,6 +701,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OverviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readTasks: {
+        parameters: {
+            query?: {
+                process?: string | null;
+                status?: string | null;
+                retried_only?: boolean;
+                sort?: string;
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TasksOut"];
                 };
             };
             /** @description Validation Error */

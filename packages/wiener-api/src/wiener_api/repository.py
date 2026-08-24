@@ -11,7 +11,7 @@ and every function here takes `lab_id` as its first parameter after the session.
 files would mean two answers to *where does the database get touched*.
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from wiener_api.models import Run, RunArtifact, RunEventRow, RunTask
@@ -70,6 +70,58 @@ def task(session: Session, lab_id: str, run_id: str, task_id: int) -> RunTask | 
             RunTask.lab_id == lab_id, RunTask.run_id == run_id, RunTask.task_id == task_id
         )
     )
+
+
+SORTS = {
+    "-peak_rss_bytes": RunTask.peak_rss_bytes.desc().nullslast(),
+    "peak_rss_bytes": RunTask.peak_rss_bytes.asc().nullsfirst(),
+    "-realtime_ms": RunTask.realtime_ms.desc().nullslast(),
+    "realtime_ms": RunTask.realtime_ms.asc().nullsfirst(),
+    "task_id": RunTask.task_id.asc(),
+}
+"""A closed vocabulary, and a client-supplied column name is refused rather than interpolated.
+
+**Nulls sort last on a descending sort**: absence is not a small number. A task that reported
+no memory is not the task that used the least, and putting it at the bottom of *biggest first*
+is the only reading that is not a claim.
+"""
+
+
+def _tasks_query(lab_id: str, run_id: str, process, status, retried_only):
+    query = select(RunTask).where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+    if process:
+        query = query.where(RunTask.process == process)
+    if status:
+        query = query.where(RunTask.status == status)
+    if retried_only:
+        query = query.where(func.json_array_length(RunTask.attempts) > 1)
+    return query
+
+
+def tasks_page(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
+               retried_only=False, sort="task_id", after=0, limit=100) -> list[RunTask]:
+    """One page of a run's tasks — filtered, sorted and paged in SQL.
+
+    **A191.** `attempts` is a JSON blob, so ordering by peak memory across a 5,000-task run
+    would mean loading 5,000 documents. The projection writes the three numbers into columns
+    as it goes, so this is an `ORDER BY` over an index.
+
+    `RunTask.task_id` is appended to every sort, because a page boundary needs a total order:
+    two tasks with the same peak would otherwise be free to swap between page 1 and page 2.
+    """
+    query = (_tasks_query(lab_id, run_id, process, status, retried_only)
+             .order_by(SORTS.get(sort, SORTS["task_id"]), RunTask.task_id)
+             .offset(after).limit(min(limit, 500)))
+    return list(session.scalars(query))
+
+
+def tasks_total(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
+                retried_only=False) -> int:
+    """How many the same filters match. A table that says *404 more* has to know."""
+    query = _tasks_query(lab_id, run_id, process, status, retried_only)
+    return session.scalar(
+        select(func.count()).select_from(query.subquery())
+    ) or 0
 
 
 def add(session: Session, lab_id: str, row) -> None:
