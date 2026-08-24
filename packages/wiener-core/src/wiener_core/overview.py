@@ -124,8 +124,13 @@ def overview(state: RunState, declared: Sequence[str]) -> Overview:
     names = list(declared) + [p for p in by_process if p not in named]
 
     rows = tuple(_row(name, name in named, by_process.get(name, [])) for name in names)
+    # **Every task done, not merely no task running** — found at Checkpoint 1 against a real
+    # failed run. `reached and running == 0 and tasks > 0` counts a process whose tasks all
+    # FAILED, so `0d3a4e3d` reported 2 of 5 finished with zero successes and §5's one honest
+    # bar advanced on failure. `done` is COMPLETED or CACHED, so `done == tasks` is the whole
+    # rule: nothing running, nothing failed, and at least one task actually ran.
     finished = sum(
         1 for row in rows
-        if row.declared and row.reached and row.running == 0 and row.tasks > 0
+        if row.declared and row.tasks > 0 and row.done == row.tasks
     )
     return Overview(rows=rows, steps_declared=len(declared), steps_finished=finished)

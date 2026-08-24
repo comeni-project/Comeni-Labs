@@ -117,3 +117,35 @@ def test_a_retried_task_is_counted_once_and_its_attempts_are_remembered():
     row = overview(RunState(tasks={1: task}), ["STAR_ALIGN"]).rows[0]
     assert row.tasks == 1 and row.attempts_max == 2
     assert row.memory_peak_bytes == 12, "the worst is taken across attempts, not the last"
+
+
+def test_a_step_that_failed_is_not_a_step_that_finished():
+    """**Found at Checkpoint 1, against a real failed run.** The plan's rule was `reached and
+    nothing running and tasks > 0`, which counts a *failed* process as finished — so run
+    `0d3a4e3d` reported `steps_finished: 2` of 5 with zero successes, and §5's one honest bar
+    advanced on failure.
+
+    A bar that moves when nothing succeeded is the worst direction for this number to be wrong
+    in: it claims progress where there was none.
+    """
+    failed = TaskState(task_id=1, process="TRIMGALORE", status=TaskStatus.FAILED,
+                       first_seen_ms=0, last_change_ms=1,
+                       attempts=(Attempt(n=1, status=TaskStatus.FAILED, exit=1, at_ms=1),))
+    done = TaskState(task_id=2, process="MULTIQC", status=TaskStatus.COMPLETED,
+                     first_seen_ms=0, last_change_ms=1,
+                     attempts=(Attempt(n=1, status=TaskStatus.COMPLETED, exit=0, at_ms=1),))
+    got = overview(RunState(tasks={1: failed, 2: done}), ["TRIMGALORE", "MULTIQC"])
+    assert got.steps_finished == 1, "the failed step is not finished; the completed one is"
+
+
+def test_a_step_is_not_finished_while_one_of_its_tasks_still_fails():
+    """Per process, not per task. Nine of ten samples through and one failed is not a step
+    that finished — and `running == 0` is true of it, which is how the first rule missed it."""
+    tasks = {
+        n: TaskState(task_id=n, process="STAR_ALIGN",
+                     status=TaskStatus.COMPLETED if n < 9 else TaskStatus.FAILED,
+                     first_seen_ms=0, last_change_ms=1,
+                     attempts=(Attempt(n=1, status=TaskStatus.COMPLETED, at_ms=1),))
+        for n in range(10)
+    }
+    assert overview(RunState(tasks=tasks), ["STAR_ALIGN"]).steps_finished == 0
