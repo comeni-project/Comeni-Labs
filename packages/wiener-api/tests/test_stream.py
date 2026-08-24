@@ -142,3 +142,55 @@ def test_a_beat_is_recorded_but_does_not_look_like_life(session, a_run, tail):
     state = state_of(session, a_run.lab_id, a_run.id)
     assert state.last_seq == 0, "the beat is in the record"
     assert state.last_activity_ms is None, "and Nextflow has still said nothing"
+
+
+def test_a_run_nextflow_has_gone_quiet_on_is_called_lost(session, a_run, tail, monkeypatch):
+    """**The end of the chain A175 left half-built.** The heartbeat was authored, `decide()`
+    could see the silence, and nothing joined the two — so `RunPhase.LOST` stayed a phase
+    nothing could reach, which is the consumer-with-no-producer shape this project has shipped
+    twice before (`AiProvenance.available`, `OpenQuestion.suggested`).
+    """
+    import asyncio
+    import json as _json
+    from pathlib import Path
+
+    from wiener_api import repository
+    from wiener_api.services import projection
+    from wiener_api.settings import settings
+    from wiener_api.worker import heartbeat_job
+
+    # A run Nextflow started and then said nothing more about.
+    fixture = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
+    started = _json.loads(fixture.read_text().splitlines()[0])
+    projection.record(session, a_run.lab_id, a_run.id, started)
+    session.commit()
+    assert repository.run(session, a_run.lab_id, a_run.id).phase == "running"
+
+    monkeypatch.setattr(settings, "lost_after_ms", 1)   # the window, made small
+    asyncio.run(heartbeat_job({}))
+    assert repository.run(session, a_run.lab_id, a_run.id).phase == "lost"
+
+
+def test_a_lost_run_that_speaks_again_is_not_lost(session, a_run, tail, monkeypatch):
+    """`lost` is a guess about a window, so it must not be sticky: `append` writes the phase
+    from the fold, and an event arriving after the verdict overturns it."""
+    import asyncio
+    import json as _json
+    from pathlib import Path
+
+    from wiener_api import repository
+    from wiener_api.services import projection
+    from wiener_api.settings import settings
+    from wiener_api.worker import heartbeat_job
+
+    fixture = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
+    bodies = [_json.loads(line) for line in fixture.read_text().splitlines() if line.strip()]
+    projection.record(session, a_run.lab_id, a_run.id, bodies[0])
+    session.commit()
+
+    monkeypatch.setattr(settings, "lost_after_ms", 1)
+    asyncio.run(heartbeat_job({}))
+    assert repository.run(session, a_run.lab_id, a_run.id).phase == "lost"
+
+    projection.record(session, a_run.lab_id, a_run.id, bodies[1])   # it was only quiet
+    assert repository.run(session, a_run.lab_id, a_run.id).phase == "running"

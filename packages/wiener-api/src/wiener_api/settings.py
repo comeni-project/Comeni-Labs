@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     `-u $(id -u):$(id -g)` that keeps work directories from being root-owned. Site facts say
     *which*, never *what* — `docs/design/execution-boundary.md` §6.
     """
+    lost_after_ms: int = 30 * 60 * 1000
+    """How long Nextflow may say nothing before a run is called lost — §17, and **blunt on
+    purpose**: it must exceed the slowest single task, because a six-hour STAR align emits
+    nothing while it runs and looks identical to a dead head process."""
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
 

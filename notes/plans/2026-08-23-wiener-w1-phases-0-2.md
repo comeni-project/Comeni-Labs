@@ -2156,6 +2156,20 @@ pasted verbatim* — plans here are corrected during execution by design.
 - **No OpenTelemetry, no stats, no graph view.** Phase 3, and deliberately unplanned: it is
   written against `RunState` and the projections these tasks create, and writing it now is
   writing against types that do not exist.
+
+  **Three things phase 3 must settle before its first task**, all of them decided or named on
+  2026-08-24 rather than left to be discovered:
+
+  1. **The layout is extracted into `dag-core`** — `docs/design/wiener.md` §9.1.1. `layout.py`
+     is `mendel-compiler`'s, §3.3 forbids Wiener importing it, and the operator's call is one
+     implementation shared by both canvases rather than two that drift. Prefer a **lift** over
+     a redesign: a move that changes no behaviour is provable by identical emitted bytes.
+  2. **The OTel semantic conventions are researched first** — §17's one remaining open
+     question. Conventions that half-fit are worse than clean custom names, and the research is
+     cheap before the first span and expensive after.
+  3. **The stats dashboard is buildable and was not** until Checkpoint 2 found `admit()`
+     dropping the fifteen `trace.enabled` fields. They are in the record now; runs stored
+     before 2026-08-24 have no resource history and never will.
 - **No AI.** W3.
 - **No verbs.** W4 — and the console says `read-only until W4` on screen rather than implying
   otherwise.

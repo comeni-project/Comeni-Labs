@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 
 from arq import cron
 from arq.connections import RedisSettings
+from wiener_core.policy import IntentKind, Policy, Reason, decide
+from wiener_core.state import RunPhase
 
 from wiener_api import db, repository
 from wiener_api.services.launcher import launch
@@ -35,11 +37,31 @@ async def heartbeat_job(ctx: dict) -> int:
     merely still watching.
     """
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    policy = Policy(lost_after_ms=settings.lost_after_ms)
+
     with db.session_scope() as session:
         runs = repository.unfinished(session, settings.lab_id)
         for run in runs:
-            beat(session, settings.lab_id, run.id, now_ms)
+            state = beat(session, settings.lab_id, run.id, now_ms)
+            if _given_up_on(state, policy, now_ms):
+                # **An observation, not a verb.** `lost` is a fact about a run in the same way
+                # `failed` is; cancelling and relaunching are verbs and they wait for W4 and an
+                # approval. Nothing here touches the world — the head process, wherever it is,
+                # is not signalled.
+                #
+                # And it is not sticky: `append` writes `run.phase` from the fold, so an event
+                # arriving after this puts the run back where the record says it is. A run that
+                # was merely quiet un-loses itself, which is the right behaviour for a window
+                # that §17 admits is a guess.
+                run.phase = RunPhase.LOST
     return len(runs)
+
+
+def _given_up_on(state, policy: Policy, now_ms: int) -> bool:
+    return any(
+        intent.kind is IntentKind.GIVE_UP and intent.because is Reason.NO_EVENTS
+        for intent in decide(state, policy, now_ms)
+    )
 
 
 class WorkerSettings:

@@ -601,6 +601,44 @@ makes about the builder: the resolver searches for edges, the builder checks edg
 and Wiener animates edges that already exist. No new declaration, no second layout engine, and a
 graph that cannot disagree with the pipeline because it *is* the pipeline's layout.
 
+### 9.1.1 Where the layout comes from — decided 2026-08-24
+
+**`layout.py` lives in `mendel-compiler`, and §3.3 forbids Wiener importing it.** That is not an
+obstacle to route around; it is the arrow doing its job, and it was unguarded until the day this
+was written — `test_the_two_halves_share_only_comeni_core` now refuses both directions, and both
+were watched failing.
+
+Three ways out were considered and the third is the decision.
+
+- **The artifact carries its layout.** Emit coordinates into `pipeline.yml` or a sidecar at
+  build time. Rejected: layout is a *rendering* concern with pixel units in it, and
+  `pipeline.yml` is the record of decisions. A file that pins contracts by digest should not
+  also pin where a box was drawn.
+- **The browser fetches the layout from Mendel.** Legal — the browser already talks to both —
+  but it makes the run graph unavailable to anything that is not a browser, and it makes
+  Wiener's graph depend on a Mendel deployment being reachable, which contradicts §12.1's
+  *"a laboratory can run Wiener against a pipeline Mendel never built"*.
+- **Extract the layout into a package that is neither half.** ✅ **The operator's call:
+  *"no point in building stuff if we can't reuse it."*** A DAG layout takes nodes and edges and
+  returns positions; nothing about it is Mendel's. It becomes a third shared package beside
+  `comeni-core` — working name **`dag-core`** — imported by `mendel-compiler` for the builder
+  and by `wiener-core` for the run graph, with **one implementation and one set of golden
+  tests**, so the two canvases cannot drift apart the way two layout engines would.
+
+**The arrow guard already accommodates this and needed no change**, which is corroboration
+rather than coincidence: it forbids `mendel_*` and `wiener_*` importing each other and says
+nothing about a package that is neither, exactly as `comeni-core` relies on. A shared package is
+the shape the rule was written to allow.
+
+**It is pure**, and should join invariant 1 when it lands: laying out a graph has no more need
+of a socket than folding events does.
+
+**What phase 3 must decide before it starts**: whether the extraction is a *lift* — the same
+functions, moved, with `mendel-compiler` re-exporting so 3C's callers do not change — or a
+redesign of the layout API. The lift is strongly preferred, for the reason Plan 3C's own
+orchestration seam gives: a move that changes no behaviour can be proven by the emitted bytes
+being identical, and a redesign cannot.
+
 ### 9.2 What an edge may honestly show
 
 **The byte counters arrive on `process_completed`, not during a task** (§4.2). So Wiener knows how
@@ -1036,6 +1074,8 @@ as one nobody asked.
 | **Executor choice** | **`Literal["local"]` until W5.** An enum accepting `awsbatch` before anything has run there is a lie the API tells its own generated client, which would offer it in a dropdown |
 | **`MAXLEN ~ 10000`** | **Ship the guess and measure it at Checkpoint 3.** Losing the tail is survivable — Postgres is the record and the browser re-pages — so the number becomes a measurement rather than staying a guess |
 | **The chat's history** | **A fifth table, `run_message`, argued for in §7.1.** It lands in W3; until then the four-table guard stays at four, so adding it early fails a test |
+
+| **The run graph's layout** | **A third shared package, `dag-core`** — §9.1.1, decided 2026-08-24. `layout.py` is `mendel-compiler`'s and §3.3 forbids Wiener importing it; extracting it is the only answer that keeps one implementation. The arrow guard needed no change to allow it, which is what a rule written for the right reason looks like |
 
 **Still genuinely open, and it is one:**
 
