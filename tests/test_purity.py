@@ -76,7 +76,7 @@ CLOSED_PACKAGES = {
     },
     "wiener-core": {
         "collections", "collections.abc", "datetime", "enum", "typing",
-        "pydantic", "comeni_core", "wiener_core",
+        "pydantic", "comeni_core", "dag_core", "wiener_core",
     },
 }
 # `re` was added 2026-08-14 for `rules._computed_over` (MD0300, audit A118), and this note

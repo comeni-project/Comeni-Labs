@@ -39,11 +39,44 @@ class RunPhase(StrEnum):
 
 
 class Attempt(BaseModel):
+    """One try at a task, and everything the trace said about it.
+
+    **It carries the resources because nothing downstream can get them otherwise** — A184.
+    `admit()` keeps the fifteen `trace.enabled` fields and the fold was dropping them, so spans,
+    §9.3's panel and `run_task`'s attempts column were all blind to what the record held. That
+    is Checkpoint 2's finding one layer up: the record could be replayed to recover, a
+    projection could not.
+
+    **Per attempt, not per task**, which is the other half. §8 gives each attempt its own span
+    with its own start and end, and `TaskState.first_seen_ms` / `last_change_ms` are per *task* —
+    a retried task's three spans would otherwise share one pair of timestamps. A retry that
+    asked for more memory is the whole reason retries are history (§5.1).
+    """
+
     model_config = ConfigDict(frozen=True)
     n: int
     status: TaskStatus
     exit: int | None = None
     at_ms: int
+
+    start_ms: int | None = None
+    complete_ms: int | None = None
+    duration_ms: int | None = None
+    realtime_ms: int | None = None
+    """`duration - realtime` is queue wait, which on a cluster is the number that explains a
+    slow run — and nothing standard has a name for it."""
+
+    cpus: int | None = None
+    pct_cpu: float | None = None
+    memory_bytes: int | None = None
+    peak_rss_bytes: int | None = None
+    rchar: int | None = None
+    wchar: int | None = None
+    read_bytes: int | None = None
+    write_bytes: int | None = None
+    """**Absent rather than zero** when the run was launched without `trace.enabled` (§4.3
+    finding 6). A zero would read as "this task used no memory", which is a lie about a real
+    number."""
 
 
 class TaskState(BaseModel):
@@ -112,6 +145,28 @@ def _phase(seen: frozenset[EventKind], succeeded: bool | None, started: bool) ->
     # is the only thing that knows a subprocess exists.
 
 
+_TERMINAL_STATUS = {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.ABORTED,
+                    TaskStatus.CACHED}
+
+
+def _merge(prior: Attempt | None, latest: Attempt) -> Attempt:
+    """One attempt, from however many events described it.
+
+    A field a later event reported wins; a field it left empty keeps whatever was already known.
+    A status never rewinds out of a terminal one — a redelivered `process_started` does not make
+    a finished task run again.
+    """
+    if prior is None:
+        return latest
+    kept = {name: value for name, value in prior.model_dump().items() if value is not None}
+    fresh = {name: value for name, value in latest.model_dump().items() if value is not None}
+    merged = {**kept, **fresh}
+    if prior.status in _TERMINAL_STATUS and latest.status not in _TERMINAL_STATUS:
+        merged["status"] = prior.status
+        merged["exit"] = prior.exit
+    return Attempt.model_validate(merged)
+
+
 def fold(state: RunState, event: RunEvent) -> RunState:
     if event.seq <= state.last_seq:
         return state
@@ -119,11 +174,25 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     tasks = dict(state.tasks)
     if (tr := event.trace) is not None:
         prior = tasks.get(tr.task_id)
-        attempt = Attempt(n=tr.attempt, status=tr.status, exit=tr.exit, at_ms=event.at_ms)
+        attempt = Attempt(
+            n=tr.attempt, status=tr.status, exit=tr.exit, at_ms=event.at_ms,
+            start_ms=tr.start_ms, complete_ms=tr.complete_ms,
+            duration_ms=tr.duration_ms, realtime_ms=tr.realtime_ms,
+            cpus=tr.cpus, pct_cpu=tr.pct_cpu,
+            memory_bytes=tr.memory_bytes, peak_rss_bytes=tr.peak_rss_bytes,
+            rchar=tr.rchar, wchar=tr.wchar,
+            read_bytes=tr.read_bytes, write_bytes=tr.write_bytes,
+        )
         # Keyed by attempt number, not appended — A176. Three events describe one try, and a
         # redelivered body is a fourth; all four are the same attempt reaching a later status.
+        #
+        # **Merged, not replaced.** Only `process_completed` carries the resources, so replacing
+        # an attempt with a redelivered `process_started` erases them — and the loss is
+        # invisible, because an absent field is also what a run without `trace.enabled` looks
+        # like. Merging makes the fold converge whatever order bodies arrive in, which is the
+        # same property A176 asked of everything else the fold writes.
         by_n = {a.n: a for a in (prior.attempts if prior else ())}
-        by_n[attempt.n] = attempt
+        by_n[attempt.n] = _merge(by_n.get(attempt.n), attempt)
         attempts = tuple(by_n[n] for n in sorted(by_n))
         tasks[tr.task_id] = TaskState(
             task_id=tr.task_id, process=tr.process, status=tr.status,

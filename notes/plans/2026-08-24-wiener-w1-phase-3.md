@@ -159,7 +159,7 @@ Every board groups by this. The candidates:
 **Read first:** §9.1.1. The lift does not reach on its own — `layout.of` takes a `PipelineIR`
 and Wiener has a `Pipeline`, so the extraction is **the arithmetic moved plus one seam**.
 
-- [ ] **Step 1: Read the net that already exists — A186**
+- [x] **Step 1: Read the net that already exists — A186**
 
 `packages/mendel-compiler/tests/test_layout.py` is 270 lines and holds the canvas by its
 properties rather than by a blob: `test_the_same_ir_lays_out_identically`,
@@ -169,7 +169,7 @@ keeps those green has kept the canvas**, and it does not need a `/tmp` file to s
 
 Run it now and note the count, so "unchanged" has a number: `uv run pytest packages/mendel-compiler/tests/test_layout.py -q`
 
-- [ ] **Step 2: Create the package, pure and classified**
+- [x] **Step 2: Create the package, pure and classified**
 
 Manifest like `wiener-core`'s; `dependencies = ["comeni-core>=0.1.0"]`. Add to root
 `dependencies` and `[tool.uv.sources]`, and to `CLOSED_PACKAGES` in `tests/test_purity.py`:
@@ -187,7 +187,7 @@ failed.
 
 Watch `test_every_package_is_classified` fail first, then classify. Ledger row.
 
-- [ ] **Step 3: The neutral graph**
+- [x] **Step 3: The neutral graph**
 
 ```python
 # dag_core/graph.py
@@ -213,7 +213,7 @@ class Graph:
 
 **Nothing here knows what a pipeline is**, which is the point: two adapters, one arithmetic.
 
-- [ ] **Step 4: Move the arithmetic**
+- [x] **Step 4: Move the arithmetic**
 
 `_ranks`, `_order`, `_x_of`, `_height`, `_declared` and the constants (`NODE_W`, `COL_PITCH`,
 `HEAD_H`, `PORT_ROW`, `MIN_H`, `RANK_GAP`, `CORNER`) move to `dag_core/layout.py` **unchanged
@@ -225,7 +225,7 @@ with the adapter that knows what a pipeline is.
 Resist improving anything while moving it. A move that changes no behaviour is provable; a move
 that also tidies is not.
 
-- [ ] **Step 5: The `PipelineIR` adapter stays in `mendel-compiler`**
+- [x] **Step 5: The `PipelineIR` adapter stays in `mendel-compiler`**
 
 `mendel_compiler/layout.py` becomes the adapter plus a re-export, so
 `from mendel_compiler import layout; layout.of(ir, ports)` still works for
@@ -236,16 +236,16 @@ def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
     return dag_core.layout.of(_graph_of(ir, ports))
 ```
 
-- [ ] **Step 6: Prove the canvas did not move**
+- [x] **Step 6: Prove the canvas did not move**
 
 `uv run pytest packages/mendel-compiler/tests/test_layout.py -q` — the same count as Step 1,
 all passing. Then `cd frontend && npx vitest run` for 3C's own canvas tests
 (`src/build/Graph.test.tsx`, `geometry.test.ts`).
 
-- [ ] **Step 7: `make verify`**, because `mendel_compiler` was touched. Expected PASS, and the
+- [x] **Step 7: `make verify`**, because `mendel_compiler` was touched. Expected PASS, and the
   emitted digests unchanged.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/dag-core packages/mendel-compiler pyproject.toml tests/test_purity.py CLAUDE.md notes/audits/guard-ledger.md
@@ -264,7 +264,7 @@ git commit -m "feat(dag-core): one layout, two callers"
 - Consumes: `comeni_core.artifact.pipeline.Pipeline`, `dag_core`.
 - Produces: `graph_of(pipeline) -> Graph`, `coloured(layout, state) -> RunGraph`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_the_artifact_lays_out_without_an_ir():
@@ -284,16 +284,16 @@ def test_the_colouring_says_what_the_run_did_and_nothing_else():
     assert star.done == 1 and star.total == 1 and star.attempts == 1
 ```
 
-- [ ] **Step 2: Run and watch it fail** — `No module named 'wiener_core.graph'`.
+- [x] **Step 2: Run and watch it fail** — `No module named 'wiener_core.graph'`.
 
-- [ ] **Step 3: Write the adapter and the colouring**
+- [x] **Step 3: Write the adapter and the colouring**
 
 `graph_of` reads `pipeline.steps` and `pipeline.channels`. `coloured` joins `RunState.tasks` by
 process name onto the placed nodes and adds, per node: `done / total`, `failed`, `running`,
 `attempts` (max over that process's tasks), and the phase colour token. **It computes no
 duration and no rate** — §9.2.
 
-- [ ] **Step 4: `make check` and commit**
+- [x] **Step 4: `make check` and commit**
 
 ### Task 2a: The fold keeps what the record keeps — A184
 
@@ -307,7 +307,7 @@ duration and no rate** — §9.2.
 **Why this exists:** the audit above. Everything from Task 3 onward reads `RunState`, and
 `RunState` currently has none of the fifteen fields Checkpoint 2 rescued into the record.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_an_attempt_carries_what_the_trace_reported():
@@ -330,17 +330,17 @@ def test_a_trace_less_run_leaves_them_absent_rather_than_zero():
     assert attempt.peak_rss_bytes is None
 ```
 
-- [ ] **Step 2: Run and watch both fail.**
-- [ ] **Step 3: Add the fields to `Attempt`** — `start_ms`, `complete_ms`, `duration_ms`,
+- [x] **Step 2: Run and watch both fail.**
+- [x] **Step 3: Add the fields to `Attempt`** — `start_ms`, `complete_ms`, `duration_ms`,
   `realtime_ms`, and the resource fields from `TaskTrace`, all `| None`. Copy them in `fold`
   where the `Attempt` is built. **The keying stays `by_n`** (A176), so a redelivered body still
   replaces rather than appends.
-- [ ] **Step 4: Check the convergence property still holds** — `test_a_redelivered_event_does_not_invent_an_attempt` is
+- [x] **Step 4: Check the convergence property still holds** — `test_a_redelivered_event_does_not_invent_an_attempt` is
   what caught the `last_activity_ms` rewind, and it is the guard that will catch this one too if
   the copy is done wrong.
-- [ ] **Step 5: `projection.append`'s `attempts` dump carries them**, so `run_task` is a
+- [x] **Step 5: `projection.append`'s `attempts` dump carries them**, so `run_task` is a
   projection of the whole attempt rather than a quarter of it. Task 11 depends on this.
-- [ ] **Step 6: `make check` and commit.**
+- [x] **Step 6: `make check` and commit.**
 
 ## ✋ CHECKPOINT 1 — the canvas did not move, and Wiener can draw
 
@@ -617,7 +617,12 @@ designed. Build what is drawn.
 
 | Task | Deviation from the plan | Why |
 |---|---|---|
-| | | |
+| 1 | `_declared` and the `ports` parameter stayed in `mendel-compiler` rather than moving; `dag_core.of(graph)` takes no ports at all | A188 said `Ports` belongs with the adapter, and following that through means the *question* does too: a node carries its own ports and whoever built the graph decided whether they are the declared ones or the wired ones. `dag-core`'s allowlist has no `comeni_core`, which is the check that the split is real |
+| 1 | `Placed.tier` and `Wire.type_id` keep their names in the shared package | Renaming them to something neutral would change the JSON the canvas already reads, and "the canvas did not move" is this task's whole safety net. Both mean something on each side — Mendel puts the resolution tier there, Wiener puts the tier the step's decision was settled at |
+| 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
+| 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
+| 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 2a | `projection.append`'s attempts dump needed no change | It is `a.model_dump(mode="json")`, so the new fields ride along. Checked rather than assumed |
 
 ---
 

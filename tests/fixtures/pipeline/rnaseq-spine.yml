@@ -1,0 +1,552 @@
+# This pipeline, in full. Read it; edit it; then rebuild the Nextflow from it:
+#
+#     mendel emit pipeline.yml --out .
+#
+# Every value carries a `why:` — the tier it exited at, who settled it, which registry layer
+# it came from, and the citation behind it. That is the point of the file: one place that
+# answers "what settings does this pipeline use, and why".
+#
+# `goal:` is INERT to `mendel emit`. It is the input to *resolution*, and the facts emission
+# needs are already materialised into `channels[].meta`, so editing `profile:` or `want:`
+# changes nothing until `mendel upgrade` re-resolves against a registry.
+#
+# `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
+# this file — that digest is what notices if you edit here and forget to re-emit.
+
+version: 5
+goal:
+  have:
+  - type_id: fastq.reads
+    states: []
+  - type_id: annotation.gtf
+    states: []
+  - type_id: genome.fasta
+    states: []
+  want:
+  - counts.matrix
+  constraints:
+    required_states:
+    - type_id: counts.matrix
+      states:
+      - gene_level
+    params: []
+  profile:
+    measurements:
+    - measurement: n_samples
+      value: 12
+      source: goal
+      by: null
+    - measurement: paired
+      value: true
+      source: goal
+      by: null
+    - measurement: read_length
+      value: 150
+      source: goal
+      by: null
+    - measurement: strandedness
+      value: reverse
+      source: goal
+      by: null
+registry:
+  layers:
+  - name: comeni-registry-examples
+    digest: sha256:32b33d948e9cc097722c5dd90f5ef8cfd00b9c645231c307290ac4517844e935
+  displaced: []
+  unverified: []
+ai:
+  available: []
+  used: []
+steps:
+- id: trimgalore
+  module:
+    contract_id: nf-core/trimgalore@0.6.10
+    digest: sha256:2cc97e3a44288d1ca2bac58c84ee60df1c51b96ef137ff791d36693c1e90f56c
+    container: community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363
+  process: TRIMGALORE
+  include: modules/nf-core/trimgalore/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills trimming
+    premise: []
+    for_value: nf-core/trimgalore@0.6.10
+    axis_reason: ''
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: nf-core/star/align@1.11.0 requires 'fastq.reads' here
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: reads
+    source: null
+    channel: fastq.reads
+    states: []
+  call:
+  - ports:
+    - reads
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  settings: []
+- id: star_genomegenerate
+  module:
+    contract_id: nf-core/star/genomegenerate@1.11.0
+    digest: sha256:91859c3fcb6c78bfbdbb52f27705e5852db085701a2e8e59953aa4c53674d73b
+    container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+  process: STAR_GENOMEGENERATE
+  include: modules/nf-core/star/genomegenerate/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills index_building
+    premise: []
+    for_value: nf-core/star/genomegenerate@1.11.0
+    axis_reason: ''
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: nf-core/star/align@1.11.0 requires 'genome.index.star' here
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: fasta
+    source: null
+    channel: genome.fasta
+    states: []
+  - port: gtf
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - fasta
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  - ports:
+    - gtf
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  settings: []
+- id: star_align
+  module:
+    contract_id: nf-core/star/align@1.11.0
+    digest: sha256:f44ab167b490f7ea07de0437f3c01f704407d78f2f5f2885ad9e1b8ea7738d6b
+    container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
+  process: STAR_ALIGN
+  include: modules/nf-core/star/align/main
+  why:
+    tier: 3
+    source: resolver
+    reason: 'rule implementation:alignment where read_length is 150, asserted, not measured: STAR''s
+      seed-and-extend search is built for long reads and is nf-core/rnaseq''s default aligner; the
+      index cost it pays back over reads this length; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635'
+    premise:
+    - id: read_length
+      value: 150
+      origin: asserted
+    for_value: nf-core/star/align@1.11.0
+    axis_reason: read length determines which aligner is appropriate; Dobin et al. 2013, doi:10.1093/bioinformatics/bts635
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: advisory
+  presence:
+    tier: 1
+    source: resolver
+    reason: nf-core/samtools/sort@1.21.0 requires 'alignment.bam' here
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: --readFilesCommand zcat
+    why:
+      tier: 1
+      source: resolver
+      reason: 'The reads reaching STAR in this registry are gzipped, and STAR reads plain text unless
+        told otherwise. Stated as a premise about the *reads* rather than as a fact about TrimGalore,
+        which is how it was written before: one goal edit — declaring the reads already trimmed —
+        removes TrimGalore from the pipeline while this flag survives, and the old reason then named
+        a module that was not there. Audit A82. **Where this is false it is actively wrong and nothing
+        here will catch it**: a laboratory supplying uncompressed trimmed reads needs this removed.
+        Expressing that as a condition is issue #39''s `when`-expressiveness problem, not this field''s.'
+      premise: []
+      for_value: --readFilesCommand zcat
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: reads
+    source: trimgalore.reads
+    channel: null
+    states:
+    - trimmed
+  - port: index
+    source: star_genomegenerate.index
+    channel: null
+    states: []
+  - port: gtf
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - reads
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  - ports:
+    - index
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  - ports:
+    - gtf
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  - ports: []
+    literal: null
+    empty_width: null
+    from_setting: star_ignore_sjdbgtf
+    join: null
+    why: null
+  settings:
+  - name: seq_platform
+    value: null
+    via: ext
+    key: args
+    template: --outSAMattrRGline 'ID:${meta.id}' 'SM:${meta.id}' 'PL:{value}'
+    why:
+      tier: 4
+      source: resolver
+      reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement
+        — please review
+      premise: []
+      for_value: null
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: required
+  - name: star_ignore_sjdbgtf
+    value: false
+    via: positional
+    key: null
+    template: null
+    why:
+      tier: 2
+      source: resolver
+      reason: 'Align *with* the annotation. The GTF is routed into this module, and ignoring it would
+        discard the splice-junction information a spliced aligner exists to use. A laboratory aligning
+        against a genome whose annotation it does not trust wants this true. Audit A91: it was a hardcoded
+        `false` in the call, outside the tier ladder and answerable by nobody, because no route reached
+        a bare `val`.'
+      premise: []
+      for_value: false
+      axis_reason: ''
+      from_layer: comeni-registry-examples
+      displaced_layer: null
+      review_level: none
+- id: samtools_sort
+  module:
+    contract_id: nf-core/samtools/sort@1.21.0
+    digest: sha256:c6f737dc091ffe6deee034c492634c6938b4871d44d5db4345b8d9e9038870ba
+    container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
+  process: SAMTOOLS_SORT
+  include: modules/nf-core/samtools/sort/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills bam_sorting
+    premise: []
+    for_value: nf-core/samtools/sort@1.21.0
+    axis_reason: ''
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: nf-core/subread/featurecounts@2.0.6 requires 'alignment.bam' here
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: bam
+    source: star_align.bam
+    channel: null
+    states: []
+  call:
+  - ports:
+    - bam
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  - ports: []
+    literal: null
+    empty_width: 3
+    from_setting: null
+    join: null
+    why:
+      tier: 1
+      source: resolver
+      reason: the reference is only needed to write CRAM; this emits BAM
+      premise: []
+      for_value: null
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  - ports: []
+    literal: null
+    empty_width: null
+    from_setting: index_format
+    join: null
+    why: null
+  settings:
+  - name: index_format
+    value: bai
+    via: positional
+    key: null
+    template: null
+    why:
+      tier: 2
+      source: resolver
+      reason: BAI, not CSI. Every downstream tool in this spine reads BAI and it is nf-core's own
+        default; CSI is required only for chromosomes above 512 Mbp, which no reference this registry
+        supports has. A laboratory working on such a genome must change this, which is why it is a
+        decision somebody can answer rather than a string in the call. Audit A91.
+      premise: []
+      for_value: bai
+      axis_reason: ''
+      from_layer: comeni-registry-examples
+      displaced_layer: null
+      review_level: none
+- id: subread_featurecounts
+  module:
+    contract_id: nf-core/subread/featurecounts@2.0.6
+    digest: sha256:23395c4fcd4b859d1bb172fc6a78edf5f0fb9fcd753d7a56004462cbf371c67d
+    container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
+  process: SUBREAD_FEATURECOUNTS
+  include: modules/nf-core/subread/featurecounts/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills quantification
+    premise: []
+    for_value: nf-core/subread/featurecounts@2.0.6
+    axis_reason: ''
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: the goal asks for counts.matrix
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: bam
+    source: samtools_sort.bam
+    channel: null
+    states:
+    - coordinate_sorted
+  - port: annotation
+    source: null
+    channel: annotation.gtf
+    states: []
+  call:
+  - ports:
+    - bam
+    - annotation
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: broadcast
+    why: null
+  settings:
+  - name: min_mqs
+    value: 0
+    via: ext
+    key: args
+    template: -Q {value}
+    why:
+      tier: 2
+      source: resolver
+      reason: featureCounts' own documented default, so declaring it changes no number — it makes
+        the mapping-quality threshold part of the record instead of part of the tool. featureCounts
+        discards reads below it, so a laboratory comparing two runs needs it written down, and a laboratory
+        that raises it is making a real change to which reads are counted.
+      premise: []
+      for_value: 0
+      axis_reason: ''
+      from_layer: comeni-registry-examples
+      displaced_layer: null
+      review_level: none
+channels:
+- type_id: annotation.gtf
+  params:
+  - gtf
+  expression: 'Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName],
+    gtf ] }'
+  meta: []
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genes.gtf
+- type_id: fastq.reads
+  params:
+  - input
+  expression: '( params.input instanceof List ? Channel.of([ [id: ''test''], params.input.collect
+    { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map
+    { id, reads -> [ [id: id], reads ] } )'
+  meta:
+  - key: single_end
+    value: false
+    why:
+      tier: 1
+      source: goal
+      reason: asserted in the goal; no profiling run established it; Conesa et al. 2016, doi:10.1186/s13059-016-0881-8
+        — Whether the library was sequenced paired-end
+      premise: []
+      for_value: false
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  - key: strandedness
+    value: reverse
+    why:
+      tier: 1
+      source: goal
+      reason: asserted in the goal; no profiling run established it; Signal et al. 2022, doi:10.1186/s12859-022-04572-7
+        — Library strandedness determined by the prep protocol
+      premise: []
+      for_value: reverse
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_1.fastq.gz
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/testdata/GSE110004/SRR6357070_2.fastq.gz
+- type_id: genome.fasta
+  params:
+  - fasta
+  expression: 'Channel.fromPath(params.fasta, checkIfExists: true).map { f -> [ [id: f.baseName],
+    f ] }'
+  meta: []
+  test_data:
+  - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genome.fasta
+decisions:
+- key: star_align.seq_platform
+  subject: seq_platform
+  reason: no rule covered 'seq_platform'; selected the first of 1 candidates without judgement — please
+    review
+  confidence: 0.0
+  resolved_by: flag-only
+  tier: 4
+  model_override_by: ''
+  kind: param
+  candidates:
+  - null
+  chosen: null
+  model_override: null
+  human_override: null
+  override_reason: ''
+emitted:
+  schema_version: 5
+  files:
+  - name: main.nf
+    digest: sha256:76355bbf9f10d6e6cfc0eb9f1c60b60f24a5197339e7372699d42016909cee7e
+  - name: nextflow.config
+    digest: sha256:e32f314f6bee7075330cc498d93a73cabe7ddd111efb167f7576c678dfcc9464
+  from_digest: sha256:85de0775f80380421ab37ec7df3148157c7db8d9ebf0895289bbd50d8b67c627
+gate: null

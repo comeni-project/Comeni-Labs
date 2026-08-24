@@ -3,7 +3,7 @@ name = "wiener-core"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "Run state, folded from events. Pure."
-dependencies = ["comeni-core>=0.1.0", "pydantic>=2.7"]
+dependencies = ["comeni-core>=0.1.0", "dag-core>=0.1.0", "pydantic>=2.7"]
 
 [build-system]
 requires = ["hatchling"]
@@ -14,3 +14,4 @@ packages = ["src/wiener_core"]
 
 [tool.uv.sources]
 comeni-core = { workspace = true }
+dag-core = { workspace = true }

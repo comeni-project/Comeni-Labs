@@ -83,3 +83,53 @@ def test_a_heartbeat_does_not_start_a_run_that_has_not_started():
 
 def test_an_empty_run_is_queued():
     assert EMPTY.phase is RunPhase.QUEUED and EMPTY.counts.succeeded == 0
+
+
+RESOURCED = Path(__file__).parents[3] / "tests/fixtures/weblog/resourced-run.jsonl"
+
+
+def _resourced():
+    bodies = [json.loads(line) for line in RESOURCED.read_text().splitlines() if line.strip()]
+    return [admit(b, run_id="r1", seq=i) for i, b in enumerate(bodies)]
+
+
+def test_an_attempt_carries_what_the_trace_reported():
+    """A184. `admit()` keeps the fifteen fields and the fold was dropping them, so everything
+    downstream of `RunState` — spans, §9.3's panel, `run_task`'s attempts column — was blind to
+    them. The record could be replayed to recover; a projection could not.
+
+    This is Checkpoint 2's finding one layer up, and it was found by auditing the phase 3 plan
+    against the code rather than by building on it.
+    """
+    attempt = next(iter(replay(_resourced()).tasks.values())).attempts[0]
+    assert attempt.pct_cpu is not None and attempt.rchar, "the resource fields were dropped"
+    assert attempt.start_ms and attempt.complete_ms, (
+        "a per-attempt span needs its own start and end — first_seen_ms and last_change_ms are "
+        "per TASK, so a retried task's three spans would share one pair of timestamps"
+    )
+
+
+def test_a_trace_less_run_leaves_them_absent_rather_than_zero():
+    """`failing-run.jsonl` was captured without `trace.enabled`. A zero would read as "this task
+    used no memory", which is a lie about a real number — §4.3 finding 6."""
+    attempt = next(iter(replay(_events()).tasks.values())).attempts[0]
+    assert attempt.peak_rss_bytes is None and attempt.pct_cpu is None
+    assert attempt.start_ms, "the timings are not opt-in; only the resource fields are"
+
+
+def test_an_earlier_event_redelivered_does_not_erase_what_a_later_one_reported():
+    """The rewind A176 caught on `last_activity_ms`, in the place it can do real damage.
+
+    Three events describe one attempt and only the last carries the resources, so an attempt
+    that is REPLACED by a redelivered `process_started` loses them — and the loss is invisible,
+    because the field simply reads absent, which is also what a run without `trace.enabled`
+    looks like. Merge, so the fold converges whatever order bodies arrive in.
+    """
+    events = _resourced()
+    started = next(e for e in events if e.kind.value == "process_started")
+    late = started.model_copy(update={"seq": len(events)})
+
+    after = replay([*events, late])
+    attempt = next(iter(after.tasks.values())).attempts[0]
+    assert attempt.pct_cpu is not None, "a redelivered start erased the completion's resources"
+    assert attempt.status.name in ("COMPLETED", "FAILED"), "and rewound the status"
