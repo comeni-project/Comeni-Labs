@@ -11,7 +11,14 @@ export default defineConfig({
     // The API is a separate process; the browser talks to one origin.
     // One prefix, so the SPA keeps every other path — including its own `/forge/*` routes,
     // which this proxy used to swallow.
-    proxy: { "/api": "http://localhost:8000" },
+    // **Two APIs, one origin, split by path.** Wiener is its own service on 8001 and its
+    // routes live under `/api` too (spec §13), so the specific entries come FIRST — vite
+    // matches in insertion order and `/api` would otherwise swallow both.
+    proxy: {
+      "/api/runs": { target: "http://localhost:8001", ws: true },
+      "/api/artifacts": "http://localhost:8001",
+      "/api": "http://localhost:8000",
+    },
   },
   test: {
     // happy-dom rather than jsdom: jsdom pulls @asamuzakjp/css-color, which require()s

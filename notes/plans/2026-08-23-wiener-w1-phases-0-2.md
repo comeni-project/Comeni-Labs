@@ -1950,7 +1950,7 @@ git commit -m "feat(wiener-api): the console socket, resuming from a stream id"
 - Consumes: `GET /api/runs`.
 - Produces: the `/runs` route and a `Runs` tab in the shell.
 
-- [ ] **Step 1: Extend `make client`**
+- [x] **Step 1: Extend `make client`**
 
 ```make
 client:  ## regenerate both TypeScript clients from the APIs' own schemas
@@ -1963,7 +1963,7 @@ client:  ## regenerate both TypeScript clients from the APIs' own schemas
 Run `make client` and confirm `frontend/src/wiener/api/schema.d.ts` appears. **Never hand-edit
 it** — that generated file is what stops the two halves' types drifting.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```tsx
 // frontend/src/runs/Board.test.tsx
@@ -1991,22 +1991,22 @@ test("the board never renders a samplesheet", async () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch it fail**
+- [x] **Step 3: Run and watch it fail**
 
 Run: `cd frontend && npx vitest run src/runs/Board.test.tsx`
 Expected: FAIL — cannot resolve `./Board`.
 
-- [ ] **Step 4: Build `Board.tsx`** against
+- [x] **Step 4: Build `Board.tsx`** against
   `docs/design/wiener-mockups/Board.dc.html` — **do not invent the screen**; it is designed.
   Use `tokens.css` classes and the four new elevation tokens if Task 13 has landed them,
   otherwise plain `--shadow`.
 
-- [ ] **Step 5: Add the route and the tab**
+- [x] **Step 5: Add the route and the tab**
 
 `router.tsx` gains `{ path: "runs", element: <Board /> }`; `Shell.tsx` gains a `Runs` tab —
 a real `NavLink`, never `aria-disabled`, per the note in that file.
 
-- [ ] **Step 6: Run the frontend tests, `tsc`, and commit**
+- [x] **Step 6: Run the frontend tests, `tsc`, and commit**
 
 Run: `cd frontend && npx vitest run && npx tsc -b`
 
@@ -2139,6 +2139,9 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 9 | `fakeredis` is a dev dependency and the fake tail is **autouse** | `record()` publishes and the events page reads the tail, so without it the suite reaches `localhost:6379`: green on this machine, and green in CI for the wrong reason, since a failed publish is deliberately only logged |
 | 10 | `stream.read()` blocks **briefly** and the socket loops | The plan says `XREAD BLOCK` in a loop; blocking forever means the socket never wakes to notice the run has finished, and a six-hour STAR align emits nothing while it runs |
 | 10 | The drain rule was watched failing | Closing on the first terminal event — the obvious implementation — drops **2 of 13** events on the committed capture, because §4.3 finding 3 is that `error` arrives after `completed`. The socket reads to empty, then checks the projection's phase |
+| 11 | The vite proxy gained `/api/runs` and `/api/artifacts` **before** `/api` | Two APIs share one origin and vite matches in insertion order, so `/api` would have swallowed both and every board request would have reached Mendel. `ws: true` on the runs entry, or Task 12's socket cannot connect in dev |
+| 11 | The board shows neither **"12 samples"** nor task progress, which the mockup does | Both are absences with reasons rather than omissions. Nothing can say how many samples a run has — §7.1 forbids the table and the params ride as a job argument, so the mockup was drawn before that rule had teeth. Progress per run would mean folding every run's events on every page load, which is the reason `run_task` exists at all; it belongs on the run page |
+| 11 | `src/wiener/api/client.ts` is its own wrapper rather than a reuse of `src/api/client.ts` | **The refusal shapes differ.** Mendel answers 422 with a coded `Refusal` string; Wiener's submit answers with the artifact's declared parameters and which are unknown or missing. One wrapper trying to be both turns the useful half into *"refused, with no reason given"* |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---

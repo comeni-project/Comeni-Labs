@@ -96,9 +96,11 @@ forge:          ## draft one nf-core module into a scratch workspace and show it
 # working rather than failing. `|| true` because that refusal exits 1 and this target is a
 # demonstration, not a gate.
 
-client:  ## regenerate the TypeScript client from the API's own schema
+client:  ## regenerate both TypeScript clients from the APIs' own schemas
 	uv run python -c "import json; from mendel_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.json
 	cd frontend && npx openapi-typescript openapi.json -o src/api/schema.d.ts
+	uv run python -c "import json; from wiener_api.main import create_app; print(json.dumps(create_app().openapi()))" > frontend/openapi.wiener.json
+	cd frontend && npx openapi-typescript openapi.wiener.json -o src/wiener/api/schema.d.ts
 
 migrate:  ## apply database migrations
 	cd packages/mendel-api && uv run alembic upgrade head
