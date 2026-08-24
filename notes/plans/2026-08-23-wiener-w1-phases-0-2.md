@@ -937,7 +937,7 @@ git commit -m "feat(wiener-core): decide(), and the guard that keeps the clock o
 
 **Stop. Do not start Task 5 until the operator has seen this.**
 
-- [ ] **Run the whole core against the real capture and print the result**
+- [x] **Run the whole core against the real capture and print the result**
 
 ```bash
 uv run python -c "
@@ -955,8 +955,8 @@ print('intents ', decide(s, Policy(), now_ms=0))
 "
 ```
 
-- [ ] **Run `make check`** — expected PASS.
-- [ ] **Report to the operator**: the printed state, the three guards now in the ledger
+- [x] **Run `make check`** — expected PASS.
+- [x] **Report to the operator**: the printed state, the three guards now in the ledger
   (unclassified package, `import socket`, `datetime.now`), and the fact that **nothing yet runs
   Nextflow, stores anything or is reachable over HTTP.**
 
