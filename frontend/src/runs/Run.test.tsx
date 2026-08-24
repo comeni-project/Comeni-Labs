@@ -12,6 +12,17 @@ const STATE = {
   started_at_ms: 1787517649000, ended_at_ms: null,
 };
 
+const OVERVIEW = {
+  rows: [{
+    process: "TRIMGALORE", declared: true, reached: true,
+    tasks: 1, done: 1, running: 0, failed: 0, cached: 0, attempts_max: 1,
+    memory_asked_bytes: 1073741824, memory_peak_bytes: 8785920,
+    cpus_asked: 6, cpu_used_pct: 202.4,
+    realtime_ms: 343, queue_wait_ms: 617, read_bytes: 0, write_bytes: 0,
+  }],
+  steps_declared: 1, steps_finished: 1,
+};
+
 const PAGE = {
   events: [
     { seq: 0, kind: "started", at_ms: 1787517649000 },
@@ -44,14 +55,20 @@ class FakeSocket {
   }
 }
 
-function at(state: unknown = STATE, page: unknown = PAGE) {
+/** `view` is a parameter now, because the console is no longer what the page opens on — W2
+ *  Task 6. A test about the socket has to say so rather than relying on the landing view. */
+function at(state: unknown = STATE, page: unknown = PAGE, view = "console") {
   sockets.length = 0;
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
-    const body = url.includes("/events") ? page : state;
+    const body = url.includes("/events") ? page
+      : url.includes("/overview") ? OVERVIEW
+      : state;
     return Promise.resolve({ ok: true, json: async () => body });
   }));
-  const router = createMemoryRouter(routes, { initialEntries: ["/runs/4c1e9a07b2f1de40"] });
+  const router = createMemoryRouter(routes, {
+    initialEntries: [`/runs/4c1e9a07b2f1de40?view=${view}`],
+  });
   return render(
     <QueryClientProvider client={makeClient()}>
       <RouterProvider router={router} />
@@ -115,13 +132,23 @@ it("says it is read-only rather than pretending it is not", async () => {
   expect(await screen.findByText(/read-only until W4/i)).toBeInTheDocument();
 });
 
-it("offers both views, and the console is the one you land on", async () => {
-  // The Graph segment was drawn DISABLED from phase 2 until phase 3 built it — a control that
-  // goes nowhere silently is what Shell.tsx records as the mistake 3A shipped six of. It is a
-  // real control now, and this test changed from asserting the promise to asserting the thing.
-  at();
-  expect(await screen.findByRole("button", { name: "Console" }))
+it("opens on the overview, not the console", async () => {
+  // **W2's ending condition, as a test.** §18: you can read a 400-task run without reading
+  // text — which is a statement that the console cannot be what the page opens on. It keeps
+  // its shape and becomes a tab. This test asserted the opposite until 2026-08-24.
+  at(STATE, PAGE, "overview");
+  expect(await screen.findByRole("button", { name: "Overview" }))
     .toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Console" }))
+    .toHaveAttribute("aria-pressed", "false");
   expect(screen.getByRole("button", { name: "Graph" }))
     .toHaveAttribute("aria-pressed", "false");
+});
+
+it("draws the Tasks tab disabled rather than hiding it", async () => {
+  // The same call this page already made about `Graph` between phases 2 and 3: a control that
+  // goes nowhere SILENTLY is the mistake `Shell.tsx` records 3A shipping six of. Drawn and
+  // disabled says the run has a tasks view and it is not built; hidden says nothing.
+  at(STATE, PAGE, "overview");
+  expect(await screen.findByRole("button", { name: "Tasks" })).toBeDisabled();
 });

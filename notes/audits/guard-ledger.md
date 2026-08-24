@@ -2806,3 +2806,24 @@ paren: a fallback to another missing token is the most invisible form of this bu
 
 **Paired with a vacuity check**, per A67: `finds something, so it cannot pass by reaching
 nothing`. A file walk that breaks would otherwise turn the guard green rather than red.
+
+---
+
+## A zero-length bar and a zero are the same picture — 2026-08-24
+
+W2 Task 6 step 5. The overview is the run page's front door, and §4's second rule is that
+**absence is `—`, never `0%`**: a run launched without `trace.enabled` reports nothing at all,
+and a zero reads as *this process used no memory*.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `Overview.test.tsx::renders an absent measurement as a dash and never as zero` | `bytes()` returns `"0 B"` instead of `ABSENT` for `null`, in `runs/units.ts` | failed | `expect(element).toHaveTextContent()` / `Expected element to have text content: —` / `Received: 0 B of 34.4 GB` |
+
+**The same edit is caught twice, in two packages, and that is the point.** `wiener-core`'s
+`test_absence_is_none_and_never_zero` holds the projection and this holds the drawing — the
+number can be lied about at either end, and a `?? 0` in a component is exactly as invisible as
+an `or 0` in the fold. One guard per end is not redundancy; it is two different authors.
+
+**The bar is guarded by construction rather than by a test.** `Bar` renders no fill element at
+all when the value is `null`, so there is nothing to give a width — a zero-length bar and a
+zero-valued bar are the same picture, and only one of them is true.
