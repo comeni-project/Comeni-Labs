@@ -538,6 +538,21 @@ discover it.
 span**, because §5.1 keeps attempts as history and a retry that succeeded after two failures should
 look like three spans, not one. The mapping is a pure function over `RunState`.
 
+**The attribute names are OpenTelemetry's CI/CD conventions, not Wiener's** — researched
+2026-08-24, [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md),
+which closes §17's last open question. A run is `cicd.pipeline.run.id` on a `SERVER` span, an
+attempt is a `cicd.pipeline.task.run.*` child of kind `INTERNAL`, the exit code is
+`process.exit.code`, and the five `cicd.pipeline.run.*` metrics are reused verbatim — including
+`cicd.pipeline.run.active`, which is the fleet gauge §2 had no mechanism for.
+
+**There is no batch-job convention and there has not been one since 2021**, so the six facts
+that genuinely have no standard name stay `wiener.*`: the attempt index, and the four
+asked-versus-got pairs plus queue wait. That list is short *because* the research happened —
+the first draft of this section implied a namespace and the answer is six attributes.
+
+The table below is the shape; the mapping tables, including how `RunPhase.LOST` becomes
+`timeout` and why `CACHED` becomes `skip`, are in the note.
+
 | span | from |
 |---|---|
 | name | `process` |
@@ -1079,12 +1094,17 @@ as one nobody asked.
 
 **Still genuinely open, and it is one:**
 
-- **The OTLP semantic conventions.** The operator's answer was **research them before inventing
-  `wiener.*` attributes** — OpenTelemetry has conventions for batch and job workloads, and mapping
-  onto them is what makes off-the-shelf dashboards and alerting work rather than needing a bespoke
-  query for everything. **Nobody has done that research**, and conventions that half-fit are worse
-  than clean custom names, so the task is *find out which parts genuinely fit*. It belongs before
-  phase 3 writes its first span, and it is cheap then and expensive after.
+- ~~**The OTLP semantic conventions.**~~ **Closed 2026-08-24** —
+  [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md).
+  The premise was half wrong in a useful way: **there is no batch or job convention**, and
+  `opentelemetry-specification#1347` has been open since January 2021 with no maintainer
+  conclusion, so waiting for one is waiting for nothing. What does exist is the **CI/CD** group
+  — Release Candidate, and a pipeline that runs named tasks which succeed or fail on workers is
+  the same shape as a Nextflow run. Adopted: `cicd.pipeline.*` for the run, `cicd.pipeline.task.run.*`
+  for each attempt, `process.exit.code` for the exit, and the five CI/CD metrics verbatim. Six
+  facts have no standard name and stay `wiener.*`. One convention is deliberately refused:
+  `process.command_line` exists and `trace.script` is a lab string, so the field stays empty —
+  adopting a convention is not adopting every field in it.
 
 - **The product's visual register — an operator verdict, 2026-08-23.** *"The website until now is
   very boring and stale, even the graphs are not very visually appealing — but for an MVP it is

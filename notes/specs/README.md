@@ -91,5 +91,15 @@ Three kinds live here:
   differentiator and nothing currently produces tier-3 rules; the spec records the design so the
   deferral does not also lose it, and names four hard prerequisites and the central risk.
 
+- **One that is research rather than a spec** — [`2026-08-24-telemetry-for-a-run.md`](2026-08-24-telemetry-for-a-run.md),
+  written to close the last open question in `docs/design/wiener.md` §17 before Wiener's phase 3
+  emits a span. It answers *which OpenTelemetry conventions genuinely fit a pipeline run*, and
+  the headline is that the premise behind the question was half wrong: **there is no batch-job
+  convention** and the issue asking for one has been open since January 2021, while the **CI/CD**
+  conventions fit almost exactly. It carries the enum mappings — including the two arguable ones,
+  `LOST` → `timeout` and `CACHED` → `skip` — the six facts that keep custom names because nothing
+  standard has one, and the finding that a span may be backdated, which is what makes a pure
+  `spans(RunState)` and a three-day replay possible at all.
+
 **Read the relevant spec before starting the part that implements it.** The plan argues from the
 spec, and a plan read alone loses the reasons.
