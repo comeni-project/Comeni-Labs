@@ -71,6 +71,10 @@ class Overview(BaseModel):
     """From the artifact. **The only honest denominator** — §5: Nextflow discovers tasks as
     channels emit, so a task-level percentage is a number nobody can source."""
     steps_finished: int = 0
+    """Declared steps whose every task is done. **Not monotonic, and it cannot be** — Nextflow
+    discovers tasks as channels emit, so a step with three tasks done is finished until a
+    fourth is submitted. The interface must not draw this as a bar that only fills; the
+    alternative, remembering that a step was once finished, is monotonic and false."""
 
 
 _DONE = {TaskStatus.COMPLETED, TaskStatus.CACHED}

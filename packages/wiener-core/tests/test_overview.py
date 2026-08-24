@@ -149,3 +149,26 @@ def test_a_step_is_not_finished_while_one_of_its_tasks_still_fails():
         for n in range(10)
     }
     assert overview(RunState(tasks=tasks), ["STAR_ALIGN"]).steps_finished == 0
+
+
+def test_steps_finished_can_go_backwards_and_that_is_the_honest_answer():
+    """**Checkpoint 1 asks whether `steps_finished` is monotonic. It is not, and cannot be.**
+
+    Nextflow discovers tasks as channels emit (§5), so a process with three tasks all done is
+    finished until a fourth is submitted. The count then drops, and the bar moves left.
+
+    The alternative — remembering that a step was once finished — is monotonic and *false*: it
+    would show a step as complete while it is running, which is the same lie as counting a
+    failure. This is pinned rather than fixed so that nobody 'fixes' it later, and so the
+    interface knows not to animate this number as a bar that only fills.
+    """
+    def _task(n: int, status: TaskStatus) -> TaskState:
+        return TaskState(task_id=n, process="STAR_ALIGN", status=status,
+                         first_seen_ms=0, last_change_ms=1,
+                         attempts=(Attempt(n=1, status=status, at_ms=1),))
+
+    three_done = {n: _task(n, TaskStatus.COMPLETED) for n in range(3)}
+    assert overview(RunState(tasks=three_done), ["STAR_ALIGN"]).steps_finished == 1
+
+    a_fourth_arrives = {**three_done, 3: _task(3, TaskStatus.RUNNING)}
+    assert overview(RunState(tasks=a_fourth_arrives), ["STAR_ALIGN"]).steps_finished == 0
