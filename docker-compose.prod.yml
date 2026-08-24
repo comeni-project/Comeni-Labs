@@ -40,3 +40,12 @@ services:
 
   web:
     restart: unless-stopped
+
+  wiener-postgres:
+    restart: unless-stopped
+    ports: !reset []   # reachable on the compose network only
+
+  wiener-api:
+    restart: unless-stopped
+    ports: !reset []
+    command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"

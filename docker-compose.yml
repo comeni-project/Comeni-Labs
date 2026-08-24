@@ -122,5 +122,42 @@ services:
     restart: unless-stopped
     ports: ["${WEB_HOST_PORT:-80}:80"]
 
+  wiener-postgres:
+    # **Wiener's own database, not a schema in Mendel's.** `execution-boundary.md` §8 names the
+    # failure mode as run state entangling with the deterministic half, and a shared server is
+    # where that starts: one connection string, one migration chain, one `Base.metadata`, and
+    # the first join across the line is easy to write and hard to notice.
+    image: postgres:17-alpine
+    container_name: ${WIENER_DB_CONTAINER_NAME:-wiener-db}
+    environment:
+      POSTGRES_USER: wiener
+      POSTGRES_PASSWORD: wiener
+      POSTGRES_DB: wiener
+    ports: ["${WIENER_DB_HOST_PORT:-5433}:5432"]
+    volumes: ["wiener-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiener"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  wiener-api:
+    build: .
+    container_name: ${WIENER_API_CONTAINER_NAME:-wiener-api}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
+      WIENER_WORK_ROOT: /var/wiener/work
+    volumes: ["wiener-var:/var/wiener"]
+    ports: ["${WIENER_API_HOST_PORT:-8001}:8001"]
+    command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001
+
 volumes:
   mendel-pg:
+  wiener-pg:
+  wiener-var:

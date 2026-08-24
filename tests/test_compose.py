@@ -41,10 +41,23 @@ def prod_text() -> str:
     return (ROOT / "docker-compose.prod.yml").read_text()
 
 
-def test_the_stack_is_five_services(base):
+def _publish_a_host_port(base) -> set[str]:
+    """Which services the base exposes on the host. Derived, because a written-out list is a
+    list that stops matching the stack the day somebody adds a service to it."""
+    return {name for name, service in base["services"].items() if service.get("ports")}
+
+
+def test_the_stack_is_seven_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
-    that a sixth service needs a healthcheck and a place in the overlay."""
-    assert sorted(base["services"]) == ["api", "postgres", "redis", "web", "worker"]
+    that a new service needs a healthcheck and a place in the overlay.
+
+    **It worked.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is
+    what stopped them arriving with a host-published port that the prod overlay had never
+    heard of — the plan's Task 5 said "add the compose services" and said nothing about the
+    overlay, which is precisely the gap a literal list catches."""
+    assert sorted(base["services"]) == [
+        "api", "postgres", "redis", "web", "wiener-api", "wiener-postgres", "worker",
+    ]
 
 
 def test_the_overlay_names_only_services_the_base_has(base, prod):
@@ -132,17 +145,29 @@ def test_prod_closes_the_ports_with_reset_rather_than_an_empty_list(base, prod_t
     declared = "\n".join(
         line for line in prod_text.splitlines() if not line.lstrip().startswith("#")
     )
-    assert declared.count("ports: !reset") == 3, "postgres, redis and api each reset theirs"
+    closes = _publish_a_host_port(base) - {"web"}
+    assert declared.count("ports: !reset") == len(closes), (
+        f"each of {sorted(closes)} must reset its ports; the overlay does it "
+        f"{declared.count('ports: !reset')} times. **The number is derived from the base, not "
+        "written here** — it read `== 3` until wiener-postgres and wiener-api arrived and made "
+        "it 5, which is a count in a test going stale exactly the way CLAUDE.md says counts do."
+    )
     assert "ports: []" not in declared, (
         "`ports: []` is a no-op under compose's merge — it reads as closed and is not"
     )
 
 
-def test_prod_publishes_the_web_port_and_nothing_else(prod):
-    """`web` is the only way in, and it keeps the base's port rather than restating it."""
+def test_prod_publishes_the_web_port_and_nothing_else(base, prod):
+    """`web` is the only way in, and it keeps the base's port rather than restating it.
+
+    **The list is derived from the base.** It was written out — `("postgres", "redis", "api")`
+    — which meant a service added to the base was not checked here at all: the test would have
+    passed with `wiener-postgres` published on the host in production."""
     assert "ports" not in prod["services"]["web"]
-    for service in ("postgres", "redis", "api"):
-        assert prod["services"][service].get("ports") == [], service
+    for service in sorted(_publish_a_host_port(base) - {"web"}):
+        assert prod["services"][service].get("ports") == [], (
+            f"{service} publishes a host port in the base and the overlay does not close it"
+        )
 
 
 def test_prod_restarts_everything(prod):

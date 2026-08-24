@@ -986,7 +986,7 @@ Ends with a real Nextflow pipeline launched by Wiener, its events in Postgres.
 - Produces: `Base`, `session_scope()`, `settings`, `create_app()`, and the models
   `Run`, `RunEventRow`, `RunTask`, `RunArtifact`.
 
-- [ ] **Step 1: Create the manifest**
+- [x] **Step 1: Create the manifest**
 
 ```toml
 # packages/wiener-api/pyproject.toml
@@ -1017,7 +1017,7 @@ wiener-core = { workspace = true }
 Add `"wiener-api"` to the root `dependencies` and `[tool.uv.sources]`, and to
 `IMPURE_PACKAGES` in `tests/test_purity.py`.
 
-- [ ] **Step 2: Write the settings**
+- [x] **Step 2: Write the settings**
 
 ```python
 # packages/wiener-api/src/wiener_api/settings.py
@@ -1053,13 +1053,13 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-- [ ] **Step 3: Write `db.py`**
+- [x] **Step 3: Write `db.py`**
 
 Copy the shape of `packages/mendel-api/src/mendel_api/db.py` exactly — `engine`,
 `SessionLocal`, `Base`, `session_scope()` — reading `settings.database_url` from
 `wiener_api.settings`.
 
-- [ ] **Step 4: Write the failing table guard**
+- [x] **Step 4: Write the failing table guard**
 
 ```python
 # packages/wiener-api/tests/test_models.py
@@ -1090,12 +1090,12 @@ def test_no_table_stores_a_samplesheet_s_contents():
     assert not {"samplesheet", "sample_name", "input_path", "sample_id"} & names, names
 ```
 
-- [ ] **Step 5: Run it and watch it fail**
+- [x] **Step 5: Run it and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_models.py -x`
 Expected: FAIL — `No module named 'wiener_api.models'`.
 
-- [ ] **Step 6: Write `models.py`**
+- [x] **Step 6: Write `models.py`**
 
 ```python
 """What Wiener persists. Four tables, and `run_event` is the only one that is not a projection.
@@ -1180,7 +1180,7 @@ class RunArtifact(Base):
     note: Mapped[str] = mapped_column(Text, default="")
 ```
 
-- [ ] **Step 6a: Write the tenancy guard**
+- [x] **Step 6a: Write the tenancy guard**
 
 **Rewritten by [A177](../audits/2026-08-24-wiener-spec-review.md).** The original scanned for
 `select(...)` calls and required `lab_id` within three lines of one. Three of the likeliest ways
@@ -1287,7 +1287,7 @@ the version it replaces it is **not vacuous at Task 5**: `repository.py` exists 
 queries in it, so the scan has something to walk past and the third test has signatures to
 check. Watching it fail is Step 7.
 
-- [ ] **Step 7: Watch all four guards fail on purpose**
+- [x] **Step 7: Watch all four guards fail on purpose**
 
 Add a fifth model with `__tablename__ = "run_note"`; run the tests; confirm the message names
 the boundary. Remove it. Add `input_path: Mapped[str | None]` to `Run`; run again; confirm the
@@ -1297,7 +1297,7 @@ and the line — the original guard passed this one — and drop the `lab_id` pa
 `repository.run` and confirm the third names the signature. Remove both. Record **all four**
 reverts and their messages in the ledger.
 
-- [ ] **Step 8: Create the migration**
+- [x] **Step 8: Create the migration**
 
 ```bash
 cd packages/wiener-api && uv run alembic init -t generic alembic
@@ -1305,14 +1305,14 @@ cd packages/wiener-api && uv run alembic init -t generic alembic
 uv run alembic revision --autogenerate -m "wiener: run, run_event, run_task, run_artifact"
 ```
 
-- [ ] **Step 9: Add the compose services**
+- [x] **Step 9: Add the compose services**
 
 In `docker-compose.yml` add `wiener-postgres` (postgres:17-alpine, own volume `wiener-pg`,
 port 5433) and a `wiener-api` service building the same image with
 `command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001`.
 Add `make wiener-migrate` to the Makefile.
 
-- [ ] **Step 10: Run the gate and commit**
+- [x] **Step 10: Run the gate and commit**
 
 Run: `make check`
 
@@ -2115,6 +2115,11 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 3 | The two A176 assertions gained failure messages | Reverting the fix to watch them fail printed `assert False` and a `RunState(...) == RunState(...)` diff — neither says what broke. The ledger already records a guard whose message argued for the wrong fix; these now print the attempt numbers, `{1: [1, 1, 1], …}`, and name the repair |
 | 4 | `test_no_clock.py` was widened before it was committed, and reverted three ways rather than one | **The plan's guard catches one spelling of three.** It matches an `ast.Attribute` whose `.value` is a bare `ast.Name`, so it sees `datetime.now()` after a `from` import and misses `datetime.datetime.now()` — the ordinary spelling after `import datetime`, where the value is another `Attribute` — and `from time import monotonic; monotonic()`, which has no attribute access to see at all. Measured, not argued: `CAUGHT / MISSED / MISSED`. It now walks the attribute chain to its root and treats importing a bare clock name as the offence |
 | 4 | `test_the_scan_reached_the_sources` added to that file | A67's lesson: a scan that reaches nothing reports nothing and passes. `test_purity.py` and `test_diagnostics_ownership.py` both carry this guard-of-the-guard and a new scan without one is the same silence |
+| 5 | Step 9 (compose) was done before Step 8 (migration) | `alembic revision --autogenerate` needs a live database to compare against, and the container that holds it is what Step 9 creates |
+| 5 | `alembic/` became `migrations/`, and `ruff.toml` excludes it | `mendel-api` calls the same directory `migrations`, and two APIs in one repository spelling it two ways is a papercut for no return. The exclude is the existing one's argument verbatim: alembic writes these from its own templates, and linting them means hand-editing every migration or a noqa storm |
+| 5 | `tests/test_models.py` became `tests/test_wiener_models.py` | The same basename collision Task 1 hit — `mendel-api/tests/test_models.py` exists. Twice in five tasks; the plan names test files without checking whether the name is taken |
+| 5 | `tests/test_compose.py` was edited, which the plan does not mention, and two of its tests now **derive** what they used to spell out | **The guard fired and was right.** `test_the_stack_is_five_services` says in its own docstring that adding a service means editing it and noticing the overlay — and the plan's Step 9 said "add the compose services" and said nothing about `docker-compose.prod.yml`, so `wiener-postgres` would have been published on the host in production. Two neighbouring tests had the same weakness in a form nothing would have caught: one asserted `count("ports: !reset") == 3` and the other named `("postgres", "redis", "api")` literally, so **neither checked a service added after they were written**. Both now derive from the base, and the derived version was watched failing on a removed overlay entry: `each of ['api', 'postgres', 'redis', 'wiener-api', 'wiener-postgres'] must reset its ports; the overlay does it 4 times` |
+| 5 | The samplesheet-column guard's message was rewritten | It printed the whole column set and an unreadable `assert not ({...} & {...})`, naming neither the offending column nor the reason. It now says `a table grew a column for a sample: ['run.input_path']` |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---

@@ -2643,3 +2643,36 @@ after, because the revert was tried three ways instead of once.
 this file does not know — `os.times`, a C extension, a callable passed in as an argument. The
 last one is not a defect but the design: `now_ms` is a parameter, and a caller passing a live
 clock is `wiener-api` doing its job.
+
+---
+
+## Wiener's four tables, and the query that may not be written elsewhere — 2026-08-24
+
+Task 5. Four reverts, and the third is the one worth reading: **the guard the plan shipped
+would have passed it.**
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_wiener_models.py::test_the_tables_are_the_four_that_argued_for_themselves` | added a fifth model, `run_note` | failed | `the tables moved: ['run', 'run_artifact', 'run_event', 'run_note', 'run_task']. run_event is the record and run_task and run are projections of it with a rebuild path — a table that is neither needs an argument in docs/design/wiener.md §7.1 before it exists.` |
+| 2026-08-24 | `test_wiener_models.py::test_no_table_stores_a_samplesheet_s_contents` | added `input_path` to `run` | failed | `a table grew a column for a sample: ['run.input_path']. The samplesheet PATH reaches Wiener in the admitted started payload because Nextflow put it there; nothing copies it into a column of its own and nothing indexes it.` |
+| 2026-08-24 | `test_tenancy.py::test_no_query_is_built_outside_the_repository` | `session.get(Run, run_id)` in `routes/_probe.py` | failed | `a query on a tenant-scoped table was built outside repository.py:` / `  routes/_probe.py:7 — get()` |
+| 2026-08-24 | `test_tenancy.py::test_every_repository_function_takes_a_lab_id` | dropped `lab_id` from `repository.run` | failed | `run(session: Session, run_id: str) -> Run \| None — a repository function takes the session and the laboratory it is scoped to, in that order, so an unscoped query cannot be spelled.` |
+
+**The second message was rewritten before it was accepted.** It printed the whole column set
+and an `assert not ({...} & {...})` — true, unreadable, and silent about which column offended.
+It now names `run.input_path`. That is the third message in two days improved for the same
+reason, and the pattern is worth stating: **an assertion written to be correct and an assertion
+written to be read are different assertions**, and only the revert tells them apart.
+
+**Row three is A177's whole argument, demonstrated.** The plan's tenancy guard scanned for
+`select(...)` calls with a `Name` argument and a `lab_id` within three lines. `session.get(Run,
+run_id)` is a query on a tenant-scoped table, it is the obvious way to write `GET
+/api/runs/{id}`, and that guard **cannot see it** — no `select`, no `Name` argument, nothing to
+match. The rule is now about *where a query may live*, and the same revert fails loudly.
+
+**What it does not cover**, stated rather than implied: raw `text()` SQL, a query built by
+string concatenation, and anything reaching the database through a connection this scan cannot
+see. Postgres row-level security is the control that survives all three, and it is not built —
+§7.1's mechanism is a repository module and a scan, which is prevention by convention plus
+detection, not prevention by construction. Invariant 11's directory-by-construction note
+records the same trade going the other way.

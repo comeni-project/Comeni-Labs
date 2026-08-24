@@ -103,6 +103,9 @@ client:  ## regenerate the TypeScript client from the API's own schema
 migrate:  ## apply database migrations
 	cd packages/mendel-api && uv run alembic upgrade head
 
+wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
+	cd packages/wiener-api && uv run alembic upgrade head
+
 dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
 	$(DC) up -d --build
