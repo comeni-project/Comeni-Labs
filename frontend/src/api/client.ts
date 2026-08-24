@@ -32,6 +32,19 @@ export async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
+/** A route that answers with a file rather than JSON — today, only the pipeline bundle.
+ *
+ * **Separate from `get` rather than a flag on it.** `get` parses JSON and turns a 422 into a
+ * `Refused`; this returns bytes and has nothing to parse. One function trying to be both would
+ * decide which it was by looking at a header, and get it wrong on the day a route answered
+ * `application/zip` with an error body.
+ */
+export async function blob(path: string): Promise<Blob> {
+  const r = await fetch(ROOT + path);
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return await r.blob();
+}
+
 export async function post<T>(path: string, payload: unknown): Promise<T> {
   return send<T>("POST", path, payload);
 }

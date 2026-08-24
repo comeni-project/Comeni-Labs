@@ -975,10 +975,28 @@ build -> gate                  POST /api/runs
 `execution-boundary.md` §9's rejection of a Mendel→Wiener API intact rather than quietly bending it.
 The user sees one button.
 
-**The Mendel half of that copy does not exist yet — A179.** `mendel-api` has no route serving a
-kept artifact: `keep` writes files under `MENDEL_DRAFT_ROOT` and nothing reads them back out over
-HTTP. Until one is added, submission is an operator with a `zip` and a `curl`, which is what W1
-phases 0–2 do. Whoever builds the button builds that route first.
+**A179 closed on 2026-08-24.** `GET /api/pipeline/drafts/{id}/bundle` serves the kept artifact as
+a zip and the builder's *run* tab is the button. Three things about it are worth carrying:
+
+- **The Nextflow is re-emitted, not copied.** A gate writes `main.nf` and `nextflow.config` into
+  the draft directory as a side effect of running, so copying them would make the bundle's
+  contents depend on whether somebody had gated — and an un-gated draft would ship a directory
+  with no workflow in it. Emitting from `pipeline.yml` is what `mendel emit` already does: no
+  registry, no network, byte-identical for the same artifact.
+- **Four entries, by allowlist.** A draft directory accumulates `work/`, `.nextflow.log` and
+  whatever a stub gate materialised. The archive carries what this section's diagram names and
+  nothing else — the same argument `declared_entries()` makes about a registry layer, and for the
+  same reason: a directory grows things nobody chose.
+- **Two clicks, not one.** *Send to Wiener* then *Start run*, because **uploading is what
+  discovers the parameters**: the artifact declares its own holes and Wiener reads them out on
+  upload, so the form cannot exist before the upload has happened. A single button would have to
+  guess the fields or provoke a 422 to learn them, which is why `ArtifactStored` now carries
+  `declared`.
+
+**Mendel still refuses nothing about running.** The route serves an un-gated artifact as readily
+as a gated one, because whether an un-gated pipeline may run is a policy about running and running
+is Wiener's — `execution-boundary.md` §3. What refuses is the *builder's* control, where a person
+can read the reason.
 
 This closes a gap that document names in §4: today the only thing that can name a gated artifact is
 `settings.draft_root / draft_id`, both of them `mendel-api`'s private facts. **Sharing those between

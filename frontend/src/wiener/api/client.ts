@@ -9,6 +9,15 @@
  * those to 8001.
  */
 
+/** A 401 from Wiener: the token is missing or wrong.
+ *
+ * **A distinct class rather than a status number in a message string**, because two screens
+ * have to react to it — the board and the builder's submit panel — and both must offer the
+ * same thing: a field to paste the token into. Matching on `"→ 401"` in a message is how one
+ * of them stops recognising it.
+ */
+export class Unauthorized extends Error {}
+
 export class Refused extends Error {
   // Plain fields and an explicit assignment: `readonly` parameter properties are
   // constructor-side syntax, and this project builds with `erasableSyntaxOnly`.
@@ -65,6 +74,23 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
 
 export async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: headers() });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return (await r.json()) as T;
+}
+
+/** A file, as `multipart/form-data`. The artifact upload is the only one.
+ *
+ * **No `Content-Type` header.** The browser sets it, and the boundary it appends is what makes
+ * the body parseable — a hand-written `multipart/form-data` header omits the boundary and the
+ * server answers 422 for a body it cannot split.
+ */
+export async function upload<T>(path: string, field: string, file: Blob,
+                                filename: string): Promise<T> {
+  const form = new FormData();
+  form.append(field, file, filename);
+  const r = await fetch(path, { method: "POST", headers: headers(), body: form });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;
 }
@@ -75,6 +101,7 @@ export async function post<T>(path: string, payload: unknown): Promise<T> {
     headers: headers({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
+  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
   if (r.status === 422) {
     const detail = ((await r.json().catch(() => null)) as { detail?: ParamRefusal } | null)
       ?.detail;

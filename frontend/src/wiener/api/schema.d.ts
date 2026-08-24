@@ -147,6 +147,11 @@ export interface components {
             digest: string;
             /** Size Bytes */
             size_bytes: number;
+            /**
+             * Declared
+             * @default []
+             */
+            declared: string[];
         };
         /** Body_uploadArtifact */
         Body_uploadArtifact: {

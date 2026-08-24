@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { useTitle } from "../app/useTitle";
 import { Empty, Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
+import { isUnauthorized, TokenPrompt } from "../wiener/Token";
 import type { components } from "../wiener/api/schema";
 import { colourOf, isPhase } from "./phases";
 
@@ -70,6 +71,16 @@ export function Board() {
   });
 
   if (runs.isPending) return <Loading what="runs" />;
+  // **A 401 is not a failure to report, it is a thing to fix** — and the board is where
+  // somebody first meets it, because it is the first Wiener page anybody opens. `Failed` would
+  // print `/api/runs → 401`, which is true and useless.
+  if (isUnauthorized(runs.error)) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <TokenPrompt onSaved={() => void runs.refetch()} />
+      </div>
+    );
+  }
   if (runs.isError) return <Failed error={runs.error} />;
 
   return (

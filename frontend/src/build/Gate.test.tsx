@@ -95,3 +95,23 @@ describe("saying that it is working", () => {
     await waitFor(() => expect(screen.getByTestId("gate-progress")).toBeTruthy());
   });
 });
+
+describe("one gate, two places to see it", () => {
+  it("shows the toolbar's gate in the panel", async () => {
+    // **The panel used to show nothing.** `Gate` and `GatePanel` each call `useGate`, and
+    // `GatePanel` renders a `Gate` inside itself — so with the run id in `useState` they were
+    // two independent gates. Press the toolbar button and the tab stayed empty: no progress,
+    // no state, no output, and nothing broken to find. The state now lives in the query cache,
+    // which every observer of the key shares.
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
+    show(
+      <>
+        <Gate draftId="abc" blocked={null} />
+        <GatePanel draftId="abc" blocked={null} />
+      </>,
+    );
+    // The toolbar's button is the first of the three now on screen.
+    screen.getAllByTestId("gate-button")[0].click();
+    await waitFor(() => expect(screen.getAllByTestId("gate-progress").length).toBe(2));
+  });
+});

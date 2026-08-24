@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { Unauthorized } from "../wiener/api/client";
 import { makeClient } from "./queryClient";
 
 describe("the query client", () => {
@@ -19,5 +20,17 @@ describe("the query client", () => {
     // A screen left open must catch up on its own.
     const stale = makeClient().getDefaultOptions().queries?.staleTime;
     expect(stale).toBeLessThanOrEqual(5 * 60_000);
+  });
+});
+
+describe("what it will not retry", () => {
+  it("does not retry a refused credential", () => {
+    // Three retries with backoff means seconds of spinner before the page can offer the field
+    // that fixes it — and three requests with a token that is known to be wrong.
+    const retry = makeClient().getDefaultOptions().queries?.retry as (
+      count: number, error: Error,
+    ) => boolean;
+    expect(retry(0, new Unauthorized("no"))).toBe(false);
+    expect(retry(0, new Error("a real failure"))).toBe(true);
   });
 });
