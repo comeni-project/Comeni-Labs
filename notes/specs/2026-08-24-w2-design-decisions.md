@@ -49,9 +49,61 @@ sits under the step rather than in a `title`**, so *why can't I* is on screen in
 Today those four controls live in three places and nothing says they are one sequence — which is
 the complaint that produced Plan 3D.
 
+## D4 — tasks appear in two places, from one component
+
+**Expand a process row in place, and a Tasks tab across the whole run.** They answer different
+questions — *what did this process do* against *what across the run retried* — and each is cheap
+alone. The cost is two renderings of a task row, paid by **one `TaskRow` component with two
+callers**, the same shape as `dag-core` serving two canvases.
+
+## D5 — the scale target is ~5,000 tasks
+
+A 200-sample cohort through a full pipeline: ~5,000 tasks, ~15,000 events. The overview stays
+O(processes); the Tasks tab and the console are virtualised; the API does not change.
+
+**A defect was found while deciding this**: `useRunStream` pages **once** with `limit=200` and then
+tails, so reloading mid-run on anything larger silently shows the first 200 events and nothing
+between them and now. Page until drained.
+
+## D6 — progress is process-level, because that is what is declared
+
+**Nextflow does not know how many tasks a process will have** — tasks appear as channels emit, so
+a task-level denominator is *discovered* and a percentage over it is a number nobody can source.
+That is the same fault §9.2 refuses when it forbids a rate on a live edge.
+
+So: the run bar is **steps finished of steps declared**, sourced from the artifact, honest before
+the run starts and monotonic. Per-process counts are **absolute** — `12 done`, `9 more seen` —
+and claim no total while the process is live.
+
+## D7 — a failed run opens on a banner, then the overview
+
+Which process, which task, exit code, attempt, the resource line where it is known, and
+**Nextflow's own `errorReport`** — which `RunManifest.report` already admits and nothing renders.
+The failed process is expanded beneath it.
+
+This **shows** the failure and does not explain it, so §18.1's *"nothing explains it until W3"*
+stays true. `report` is a `LabString`: it reaches the browser and must never become a span
+attribute (§8).
+
+## D8 — one per-process projection, and `stats()` is it
+
+`wiener_core.stats.stats()` grows a `Pipeline` argument — as `graph()` already takes one — so it
+can name processes the artifact declares and the run has not reached, and it carries counts and
+attempts beside the four comparisons. One endpoint answers the page.
+
+Rejected: composing in the browser from `/runs`, `/stats` and `/graph`, because
+`routes/build.py` already settled that argument — *a judgement made in the browser is one the
+agent driving this API cannot reach*. Also rejected: a second `overview()` beside `stats()`, two
+projections that must never disagree and no test that can hold it.
+
+## D9 — the Depth tokens land, across every screen
+
+§9.5's four tokens (`--e1`, `--e2`, `--e3`, `--well`), all derived from `--shadow`, no new hue.
+Applied to builder, forge and runs — judging *boring and stale* on one screen tells you nothing,
+which was the whole argument for making the hypothesis testable.
+
 ## What is still open
 
-- The approaches (2–3, with trade-offs) and the sectioned design.
-- Whether the task table is a fourth view or details-on-demand under a process row.
-- The scale target: 400 tasks, or an order more.
-- Whether §9.5's four Depth tokens land in `frontend/src/tokens.css` as part of this.
+- The sectioned design, presented and not yet approved.
+- Which virtualisation to use, and whether it is a new dependency.
+- Whether `GET /api/runs/{id}/stats` is renamed or kept beside a new `/overview`.
