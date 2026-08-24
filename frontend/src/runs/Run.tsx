@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 
 import { useUrlState } from "../app/useUrlState";
 
@@ -8,7 +8,7 @@ import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
 import { Graph } from "./Graph";
-import { OverviewPanel } from "./Overview";
+import { OverviewPanel, type OverviewData } from "./Overview";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
@@ -54,6 +54,8 @@ function Segment({ name, active, onPick, disabled = false }: {
 
 export function Run() {
   const { id } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get("from");
   const [view, setView] = useUrlState("view", "overview");
   useTitle(id ? `Run ${id.slice(0, 8)}` : "Run");
 
@@ -63,6 +65,13 @@ export function Run() {
     refetchInterval: 5_000,
   });
   const stream = useRunStream(id);
+  // The same query key `OverviewPanel` uses, so react-query serves both from one request —
+  // the header needs the denominator and the table needs the rows, and they are one fact.
+  const overview = useQuery({
+    queryKey: ["overview", id],
+    queryFn: () => get<OverviewData>(`/api/runs/${id}/overview`),
+    refetchInterval: 4_000,
+  });
 
   if (state.isPending) return <Loading what="the run" />;
   if (state.isError) return <Failed error={state.error} />;
@@ -71,12 +80,25 @@ export function Run() {
   const phase = isPhase(run.phase) ? run.phase : "queued";
   const now = Date.now();
 
+  const declared = overview.data?.steps_declared ?? 0;
+  const finished = overview.data?.steps_finished ?? 0;
+
   return (
-    <div className="p-6 max-w-4xl mx-auto flex flex-col gap-4">
+    <div className="p-6 flex flex-col gap-4">
       <header className="flex flex-col gap-2">
-        <Link to="/runs" className="text-label text-ink-3 no-underline hover:text-ink">
-          ← Board
-        </Link>
+        <span className="flex items-center gap-4">
+          <Link to="/runs" className="text-label text-ink-3 no-underline hover:text-ink">
+            ← Board
+          </Link>
+          {/* Only when you came from one. A link back to a pipeline you never opened is a
+              guess about where you were. */}
+          {from && (
+            <Link to={`/build?draft=${from}`}
+                  className="text-label text-ink-3 no-underline hover:text-ink">
+              ↩ pipeline
+            </Link>
+          )}
+        </span>
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="font-data text-title text-ink">run {run.run_id.slice(0, 8)}</h1>
           <span className="flex items-center gap-2 text-body">
@@ -91,6 +113,33 @@ export function Run() {
         <p className={eyebrow}>
           {elapsed(run.started_at_ms, run.ended_at_ms, now)} elapsed
         </p>
+
+        {/* **Steps finished of steps DECLARED** — §5, and the only denominator anybody can
+            source. Nextflow discovers tasks as channels emit, so a task-level percentage is a
+            number that grows under you; the artifact declares its steps before the run starts.
+
+            **Drawn from the current numbers on every render, and never from a remembered
+            maximum.** This count is not monotonic and cannot be: a step with three tasks done
+            is finished until a fourth is submitted, and Checkpoint 1 asked exactly this. A bar
+            that only ever fills would be monotonic and false.
+
+            Absent when `steps_declared` is 0 — A192: the artifact could not be read, and a bar
+            over a denominator of zero is an invented number. */}
+        {declared > 0 && (
+          <span data-testid="run-progress" className="flex flex-col gap-1.5 mt-1">
+            <span className="text-secondary text-ink-2 tabular-nums">
+              {finished} of {declared} steps finished
+            </span>
+            <span className="block h-1.5 rounded-full overflow-hidden max-w-md"
+                  style={{ background: "var(--line)", boxShadow: "var(--well)" }}>
+              <span
+                className="block h-full"
+                style={{ width: `${(finished / declared) * 100}%`,
+                         background: "var(--pea)", transition: `width var(--t)` }}
+              />
+            </span>
+          </span>
+        )}
       </header>
 
       <section className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden">

@@ -57,12 +57,13 @@ class FakeSocket {
 
 /** `view` is a parameter now, because the console is no longer what the page opens on — W2
  *  Task 6. A test about the socket has to say so rather than relying on the landing view. */
-function at(state: unknown = STATE, page: unknown = PAGE, view = "console") {
+function at(state: unknown = STATE, page: unknown = PAGE, view = "console",
+            overview: unknown = OVERVIEW) {
   sockets.length = 0;
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
     const body = url.includes("/events") ? page
-      : url.includes("/overview") ? OVERVIEW
+      : url.includes("/overview") ? overview
       : state;
     return Promise.resolve({ ok: true, json: async () => body });
   }));
@@ -151,4 +152,25 @@ it("draws the Tasks tab disabled rather than hiding it", async () => {
   // disabled says the run has a tasks view and it is not built; hidden says nothing.
   at(STATE, PAGE, "overview");
   expect(await screen.findByRole("button", { name: "Tasks" })).toBeDisabled();
+});
+
+
+it("draws progress over steps the artifact declared, never over tasks seen", async () => {
+  // §5. Nextflow discovers tasks as channels emit, so a task denominator GROWS and a
+  // percentage over it goes backwards. The artifact's step count is known at t=0.
+  at(STATE, PAGE, "overview", {
+    steps_declared: 5, steps_finished: 3,
+    rows: [{ ...OVERVIEW.rows[0], tasks: 28, done: 8, running: 20 }],
+  });
+  const bar = await screen.findByTestId("run-progress");
+  expect(bar).toHaveTextContent("3 of 5 steps finished");
+  expect(bar).not.toHaveTextContent("28");
+});
+
+it("says nothing about steps when the artifact could not be read", async () => {
+  // A192's other half, drawn. `steps_declared: 0` means the directory is gone, and a bar
+  // over a denominator of zero would be an invented number where there is no fact.
+  at(STATE, PAGE, "overview", { steps_declared: 0, steps_finished: 0, rows: OVERVIEW.rows });
+  await screen.findByTestId("row-TRIMGALORE");
+  expect(screen.queryByTestId("run-progress")).toBeNull();
 });
