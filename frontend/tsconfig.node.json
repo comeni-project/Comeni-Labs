@@ -24,5 +24,5 @@
   // belongs to the project that has node types — putting `@types/node` on the
   // browser project to satisfy one test is how `fs` becomes importable in a
   // component by accident.
-  "include": ["vite.config.ts", "src/tokens.test.ts"]
+  "include": ["vite.config.ts", "src/tokens.test.ts", "src/runs/TaskRow.callers.test.ts"]
 }
