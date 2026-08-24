@@ -2076,15 +2076,15 @@ git commit -m "feat(frontend): the run page — page the record, then tail the s
 
 ## ✋ CHECKPOINT 3 — you watch a run
 
-- [ ] **`make verify`** — the full suite including the counts matrix and the guards, ~2 min.
+- [x] **`make verify`** — the full suite including the counts matrix and the guards, ~2 min.
   Phases 0–2 touch none of the six files that make `make check` insufficient, so this is a
   belt-and-braces run rather than a required one; do it anyway, once, here.
-- [ ] **`make residue`** — report the new number. Six guards were added; the ledger should have
+- [x] **`make residue`** — report the new number. Six guards were added; the ledger should have
   six new rows.
-- [ ] **Submit a run from the browser and watch it finish.** Then **close the tab for two
+- [~] **Submit a run from the browser and watch it finish.** — *the HTTP and WebSocket half was driven and the reopen loses nothing; the rendering half needs the operator's browser, which this session could not reach* Then **close the tab for two
   minutes and reopen it** — the page-then-tail handoff is the thing most likely to be subtly
   wrong, and it only shows when the stream has moved on without you.
-- [ ] **Report to the operator**: how long from submit to the first console line, whether the
+- [x] **Report to the operator**: how long from submit to the first console line, whether the
   reopen lost anything, and what twenty minutes of actually using it turned up. That last one
   matters most — 3E's lesson was that twenty minutes of use found nine things that 76 green
   steps did not.
@@ -2146,6 +2146,7 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 12 | **The hook does not reopen on a clean close.** Watched failing | A finished run's socket closes with 1000 *because* the server drained it, so re-paging on that opens another socket, which closes for the same reason — forever. Only an abnormal close (1006 and friends) is a dropped connection worth re-paging for. The revert produced two sockets where there should be one |
 | 12 | The cursor is a `ref`, not read out of state | `onclose` fires from a closure made when the socket opened, so reading `events` there gives whatever the array was at that moment — and re-paging from a stale cursor re-fetches everything that arrived while it was connected |
 | 12 | The console draws **only task events** | `started`, `completed` and `error` are the run's own lifecycle and the header already says it; `error` carries nothing to show at all (§4.3 finding 1). Three lines among four hundred is noise |
+| CP3 | The browser half was **not** driven by a browser | The Chrome extension is not connected to this session, so the page-then-tail handoff was exercised through the same HTTP and WebSocket contract the page uses — including a real disconnect mid-run and a re-page 40 seconds later — and the proxy split was checked on `:3000`, which is where the browser goes. **Rendering is unverified** and is the operator's twenty minutes |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
