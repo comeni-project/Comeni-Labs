@@ -52,13 +52,8 @@ HEAD = '''<!doctype html>
     .row { cursor:pointer; transition:background-color var(--t); }
     .row:hover { background:var(--hover); }
     .row:hover .caret { color:var(--ink); transform:translateX(2px); }
-    .row:hover .reveal { opacity:1; }
     .caret { transition:color var(--t), transform var(--t); }
-    /* A SECONDARY action, and only secondary. The caret is visible at rest because the
-       research is blunt about hover-only affordances being undiscoverable — expanding is
-       always available; 'open in console' is the extra you find by reaching for it. */
-    .reveal { opacity:0; transition:opacity var(--t); }
-    .trow { transition:background-color var(--t); }
+        .trow { transition:background-color var(--t); }
     .trow:hover { background:var(--hover); }
     .btn, .btn-q, .btn-off, .tab, .chip {
       transition:background-color var(--t), color var(--t), box-shadow var(--t-lift),
@@ -69,6 +64,9 @@ HEAD = '''<!doctype html>
     .btn-off { cursor:not-allowed; }
     .tab:hover { background:var(--hover); color:var(--ink); }
     .tab.on:hover { background:var(--surface); }
+    .mi { transition:background-color var(--t), color var(--t); }
+    .mi:hover { background:var(--hover); color:var(--ink); }
+    .mi[style*="not-allowed"]:hover { background:transparent; color:var(--ink-3); }
     .step { transition:background-color var(--t); border-radius:var(--r); }
     .step:hover { background:var(--hover); }
     /* Keyboard parity. The product has focus-visible in three places and no shared ring;
@@ -252,18 +250,11 @@ def orow(name, tasks, seen, prog, prog_col, mem, mem_t, cpu, cpu_t, tim, tim_t, 
              'style="color:%s; flex:0 0 auto; transform:rotate(%ddeg);">'
              '<polyline points="9 6 15 12 9 18"></polyline></svg>'
              % ('var(--ink)' if open_ else 'var(--ink-3)', 90 if open_ else 0))
-    # Revealed on hover, and secondary by design: expanding is the primary and its caret is
-    # always visible, so a hover-only extra costs no discoverability.
-    reveal = ('<span class="reveal" style="%sposition:absolute; right:16px; '
-              'top:11px; ' % ('opacity:1; ' if demo else '') +
-              'display:flex; gap:6px; z-index:1;">'
-              '<span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); '
-              'border-radius:var(--r); background:var(--surface); font-size:11px; '
-              'color:var(--ink-2); box-shadow:var(--e1);">console</span>'
-              '<span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); '
-              'border-radius:var(--r); background:var(--surface); font-size:11px; '
-              'color:var(--ink-2); box-shadow:var(--e1);">tasks</span></span>'
-              if tasks is not None else '')
+    # **No chips appear on hover.** They offered `console` and `tasks`, which are two of the
+    # four tabs sitting directly above the table — an affordance that covers a column to reach
+    # something already one click away, and it covered *read / written*. Operator, 2026-08-24.
+    # What a row hover does is tint and move the caret; the shortcut lives on right-click (D10).
+    reveal = ''
     return ('  <div class="row" tabindex="0" style="display:grid; grid-template-columns:%s; '
             'gap:18px; align-items:center; padding:13px 18px 13px 24px; '
             'border-bottom:1px solid var(--line); position:relative;%s">\n'
@@ -651,3 +642,72 @@ pathlib.Path("Walk.dc.html").write_text(page(
       'min-height:0;">\n' + CANVAS + RAIL + '  </div>\n'))
 
 print("built:", ", ".join(sorted(p.name for p in pathlib.Path(".").glob("*.dc.html"))))
+
+
+# ---------------------------------------------------------------- 8. right-click
+def item(label, keys='', off=False, tag=''):
+    return ('        <div class="mi" style="display:flex; align-items:center; gap:14px; '
+            'padding:6px 12px; font-size:12.5px; color:%s;%s">'
+            '<span>%s</span>%s<span class="mono" style="margin-left:auto; font-size:11px; '
+            'color:var(--ink-3);">%s</span></div>\n'
+            % ('var(--ink-3)' if off else 'var(--ink-2)',
+               ' cursor:not-allowed;' if off else '', label,
+               ('<span class="lbl" style="padding:1px 5px; border:1px solid var(--line-2); '
+                'border-radius:var(--r); color:var(--ink-3);">%s</span>' % tag) if tag else '',
+               keys))
+
+
+def rule():
+    return ('        <div style="height:1px; margin:5px 0; background:var(--line);"></div>\n')
+
+
+def menu(title, rows, x, y, w=268):
+    return ('      <div style="position:absolute; left:%dpx; top:%dpx; width:%dpx; '
+            'background:var(--surface); border:1px solid var(--line-2); '
+            'border-radius:var(--r); box-shadow:var(--e3); padding:5px 0; z-index:5;">\n'
+            '        <div class="lbl" style="padding:4px 12px 6px;">%s</div>\n%s      </div>\n'
+            % (x, y, w, title, rows))
+
+
+PROCESS_MENU = menu("STAR_ALIGN", (
+    item("Show its tasks", "&#9166;")
+    + item("Open in console", "C")
+    + item("Show in graph", "G")
+    + rule()
+    + item("Copy process name")
+    + item("Copy this row as TSV", "&#8984;C")
+    + rule()
+    + item("Retry the failed tasks", off=True, tag="W4")
+    + item("Cancel this process", off=True, tag="W4")), 300, 210)
+
+TASK_MENU = menu("STAR_ALIGN &middot; sample_07", (
+    item("Open in console here", "&#9166;")
+    + rule()
+    + item("Copy work directory")
+    + item("Copy task hash")
+    + item("Copy the command line")
+    + rule()
+    + item("Retry this task", off=True, tag="W4")), 760, 300)
+
+pathlib.Path("Menus.dc.html").write_text(page(
+    nav("Runs", [("Board", False), ("This run", True)])
+    + runhead("running", "var(--measured)", "7m12s", 3, 5)
+    + ('  <div style="flex:1 1 auto; padding:16px 24px 22px; min-height:0; display:flex; '
+       'position:relative;">\n'
+       '    <section class="panel" style="flex:1 1 auto; min-width:0;">\n'
+       + tabs("Overview")
+       + ohead()
+       + orow("STAR_GENOMEGENERATE", 1, 0, 100, "var(--pea)",
+              48, "31.0 / 64 GB", 78, "78%", 60, "4m01s", 39, "1.2G / 31G")
+       + orow("STAR_ALIGN", 12, 0, 100, "var(--pea)",
+              96, "61.2 / 64 GB", 81, "81%", 100, "6m41s", 91, "31G / 44G",
+              retried=1, demo=True)
+       + orow("SAMTOOLS_SORT", 12, 0, 100, "var(--pea)",
+              14, "8.9 / 64 GB", 40, "40%", 5, "22s", 100, "44G / 38G")
+       + orow("SUBREAD_FEATURECOUNTS", 3, 9, 25, "var(--measured)",
+              8, "5.1 / 64 GB", 22, "22%", 15, "1m02s", None, None)
+       + orow("MULTIQC", None, 0, 0, "var(--pea)", None, None, None, None, None, None, None,
+              None, note="not started", dim=True)
+       + FOOT % ("right-click a row &middot; Shift+F10 opens the same menu from the keyboard")
+       + '    </section>\n' + PROCESS_MENU + TASK_MENU + '  </div>\n')))
+print("menus built")

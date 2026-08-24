@@ -79,13 +79,8 @@
     .row { cursor:pointer; transition:background-color var(--t); }
     .row:hover { background:var(--hover); }
     .row:hover .caret { color:var(--ink); transform:translateX(2px); }
-    .row:hover .reveal { opacity:1; }
     .caret { transition:color var(--t), transform var(--t); }
-    /* A SECONDARY action, and only secondary. The caret is visible at rest because the
-       research is blunt about hover-only affordances being undiscoverable — expanding is
-       always available; 'open in console' is the extra you find by reaching for it. */
-    .reveal { opacity:0; transition:opacity var(--t); }
-    .trow { transition:background-color var(--t); }
+        .trow { transition:background-color var(--t); }
     .trow:hover { background:var(--hover); }
     .btn, .btn-q, .btn-off, .tab, .chip {
       transition:background-color var(--t), color var(--t), box-shadow var(--t-lift),
@@ -96,6 +91,9 @@
     .btn-off { cursor:not-allowed; }
     .tab:hover { background:var(--hover); color:var(--ink); }
     .tab.on:hover { background:var(--surface); }
+    .mi { transition:background-color var(--t), color var(--t); }
+    .mi:hover { background:var(--hover); color:var(--ink); }
+    .mi[style*="not-allowed"]:hover { background:transparent; color:var(--ink-3); }
     .step { transition:background-color var(--t); border-radius:var(--r); }
     .step:hover { background:var(--hover); }
     /* Keyboard parity. The product has focus-visible in three places and no shared ring;

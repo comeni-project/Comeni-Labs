@@ -79,13 +79,8 @@
     .row { cursor:pointer; transition:background-color var(--t); }
     .row:hover { background:var(--hover); }
     .row:hover .caret { color:var(--ink); transform:translateX(2px); }
-    .row:hover .reveal { opacity:1; }
     .caret { transition:color var(--t), transform var(--t); }
-    /* A SECONDARY action, and only secondary. The caret is visible at rest because the
-       research is blunt about hover-only affordances being undiscoverable — expanding is
-       always available; 'open in console' is the extra you find by reaching for it. */
-    .reveal { opacity:0; transition:opacity var(--t); }
-    .trow { transition:background-color var(--t); }
+        .trow { transition:background-color var(--t); }
     .trow:hover { background:var(--hover); }
     .btn, .btn-q, .btn-off, .tab, .chip {
       transition:background-color var(--t), color var(--t), box-shadow var(--t-lift),
@@ -96,6 +91,9 @@
     .btn-off { cursor:not-allowed; }
     .tab:hover { background:var(--hover); color:var(--ink); }
     .tab.on:hover { background:var(--surface); }
+    .mi { transition:background-color var(--t), color var(--t); }
+    .mi:hover { background:var(--hover); color:var(--ink); }
+    .mi[style*="not-allowed"]:hover { background:transparent; color:var(--ink-3); }
     .step { transition:background-color var(--t); border-radius:var(--r); }
     .step:hover { background:var(--hover); }
     /* Keyboard parity. The product has focus-visible in three places and no shared ring;
@@ -185,7 +183,7 @@
     </div>
   <div style="display:grid; grid-template-columns:minmax(230px,1.3fr) 116px 132px minmax(150px,1fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(150px,1fr); gap:18px; padding:9px 18px 9px 24px; border-bottom:1px solid var(--line-2); background:var(--surface);"><span class="th">Process</span><span class="th">Tasks</span><span class="th">Progress</span><span class="th">Memory peak / asked</span><span class="th">CPU used / asked</span><span class="th">Worst realtime</span><span class="th">Read / written</span></div>
   <div class="row" tabindex="0" style="display:grid; grid-template-columns:minmax(230px,1.3fr) 116px 132px minmax(150px,1fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(150px,1fr); gap:18px; align-items:center; padding:13px 18px 13px 24px; border-bottom:1px solid var(--line); position:relative;">
-    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span><span class="reveal" style="position:absolute; right:16px; top:11px; display:flex; gap:6px; z-index:1;"><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">console</span><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">tasks</span></span>
+    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span>
     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;"><span class="mono" style="font-size:13px; color:var(--ink);">STAR_GENOMEGENERATE</span></div>
     <div style="display:flex; flex-direction:column; gap:2px;"><span class="mono" style="font-size:13px;">1 done</span></div>
     <span class="well" style="height:7px; width:100%;"><i style="width:100%; background:var(--pea);"></i></span>
@@ -195,7 +193,7 @@
     <div style="display:flex; flex-direction:column; gap:4px;"><span class="well" style="height:7px; width:100%;"><i style="width:39%; background:var(--ink-2);"></i></span><span class="mono" style="font-size:11.5px; color:var(--ink-2);">1.2G / 31G</span></div>
   </div>
   <div class="row" tabindex="0" style="display:grid; grid-template-columns:minmax(230px,1.3fr) 116px 132px minmax(150px,1fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(150px,1fr); gap:18px; align-items:center; padding:13px 18px 13px 24px; border-bottom:1px solid var(--line); position:relative; background:var(--surface-2);">
-    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink); flex:0 0 auto; transform:rotate(90deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span><span class="reveal" style="position:absolute; right:16px; top:11px; display:flex; gap:6px; z-index:1;"><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">console</span><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">tasks</span></span>
+    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink); flex:0 0 auto; transform:rotate(90deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span>
     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;"><span class="mono" style="font-size:13px; color:var(--ink);">STAR_ALIGN <span style="color:var(--measured); font-size:11.5px;">&#8635;1</span></span></div>
     <div style="display:flex; flex-direction:column; gap:2px;"><span class="mono" style="font-size:13px;">12 done</span></div>
     <span class="well" style="height:7px; width:100%;"><i style="width:100%; background:var(--pea);"></i></span>
@@ -212,7 +210,7 @@
     <div class="trow" style="display:grid; grid-template-columns:120px 60px 70px 110px 90px 100px 1fr; gap:16px; padding:6px 18px 6px 46px; font-family:var(--font-data); font-size:11.5px; color:var(--ink-2);"><span style="color:var(--ink);">sample_05</span><span>1</span><span>0</span><span>52.4 GB</span><span>76%</span><span>5m44s</span><span style="color:var(--ink-3);"></span></div>
     <div style="padding:7px 18px 9px 46px; font-size:11.5px; color:var(--ink-3);">7 more &middot; sorted by memory</div>
   <div class="row" tabindex="0" style="display:grid; grid-template-columns:minmax(230px,1.3fr) 116px 132px minmax(150px,1fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(150px,1fr); gap:18px; align-items:center; padding:13px 18px 13px 24px; border-bottom:1px solid var(--line); position:relative;">
-    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span><span class="reveal" style="position:absolute; right:16px; top:11px; display:flex; gap:6px; z-index:1;"><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">console</span><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">tasks</span></span>
+    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span>
     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;"><span class="mono" style="font-size:13px; color:var(--ink);">SAMTOOLS_SORT</span></div>
     <div style="display:flex; flex-direction:column; gap:2px;"><span class="mono" style="font-size:13px;">12 done</span></div>
     <span class="well" style="height:7px; width:100%;"><i style="width:100%; background:var(--pea);"></i></span>
@@ -222,7 +220,7 @@
     <div style="display:flex; flex-direction:column; gap:4px;"><span class="well" style="height:7px; width:100%;"><i style="width:100%; background:var(--ink-2);"></i></span><span class="mono" style="font-size:11.5px; color:var(--ink-2);">44G / 38G</span></div>
   </div>
   <div class="row" tabindex="0" style="display:grid; grid-template-columns:minmax(230px,1.3fr) 116px 132px minmax(150px,1fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(150px,1fr); gap:18px; align-items:center; padding:13px 18px 13px 24px; border-bottom:1px solid var(--line); position:relative;">
-    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span><span class="reveal" style="position:absolute; right:16px; top:11px; display:flex; gap:6px; z-index:1;"><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">console</span><span class="chip" style="padding:3px 8px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--surface); font-size:11px; color:var(--ink-2); box-shadow:var(--e1);">tasks</span></span>
+    <span style="position:absolute; left:7px;"><svg class="caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--ink-3); flex:0 0 auto; transform:rotate(0deg);"><polyline points="9 6 15 12 9 18"></polyline></svg></span>
     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;"><span class="mono" style="font-size:13px; color:var(--ink);">SUBREAD_FEATURECOUNTS</span></div>
     <div style="display:flex; flex-direction:column; gap:2px;"><span class="mono" style="font-size:13px;">3 done</span><span class="lbl">9 more seen</span></div>
     <span class="well" style="height:7px; width:100%;"><i style="width:25%; background:var(--measured);"></i></span>

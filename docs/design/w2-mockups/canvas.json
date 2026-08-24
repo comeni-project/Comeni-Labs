@@ -72,6 +72,15 @@
    "h": 900,
    "page": "page-2",
    "title": "7 \u00b7 The builder \u2014 draw, keep, gate, run"
+  },
+  {
+   "file": "Menus.dc.html",
+   "x": 3120,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "8 \u00b7 Right-click \u2014 the shortcuts"
   }
  ],
  "annotations": [
@@ -169,7 +178,7 @@
    "y": 950,
    "w": 900,
    "page": "page-1",
-   "text": "THE SECONDARY ACTION IS THE ONLY THING HOVER HIDES.\n\nA row reveals `console` and `tasks` chips on hover \u2014 console opens filtered to that process, which is where D5's zoom-and-filter rung actually gets its control.\n\nHover-only affordances are undiscoverable, so the PRIMARY action never hides: the caret is visible at rest and the whole row expands. Only the extra is earned by reaching for it. Row three on board 1 is painted in its hovered state so a PNG export shows it too."
+   "text": "D10 \u00b7 NOTHING APPEARS ON HOVER. THE SHORTCUTS ARE ON RIGHT-CLICK.\n\nThe first pass revealed `console` and `tasks` chips on a row hover. The operator killed them on two counts and both are right: they COVERED the read/written column, and they pointed at two of the four tabs sitting directly above the table \u2014 an affordance that obscures data to reach something already one click away.\n\nSo a row hover does exactly two things: it tints, and the caret darkens and nudges. The shortcuts moved to a context menu, where a shortcut belongs \u2014 nothing is only reachable there, so there is no discoverability cost."
   },
   {
    "id": "keys",
@@ -186,6 +195,14 @@
    "w": 620,
    "page": "page-2",
    "text": "The rail is hoverable too: a step tints, its control lifts. The blocked control carries cursor:not-allowed and keeps its reason underneath \u2014 a disabled button that explains itself is the one pattern the builder already got right, and this only moves it out of a tooltip."
+  },
+  {
+   "id": "menus",
+   "x": 3120,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "THE TWO MENUS, AND WHY THEY ARE SAFE.\n\nA process row: show its tasks, open in console, show in graph, copy the name, copy the row as TSV \u2014 a scientific tool should let you get a number out. A task row: open in console here, copy the work directory, the hash, the command line.\n\nW4's verbs are LISTED AND DIMMED with a W4 tag rather than absent: a control that does not exist yet is a promise you can read, and a menu that grows two new items later is worse than one that always had the shape.\n\nKeyboard parity is free: Shift+F10 fires a contextmenu event, so handling the event covers the key. Every row is already tabbable."
   }
  ],
  "launch": {

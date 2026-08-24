@@ -102,6 +102,51 @@ projections that must never disagree and no test that can hold it.
 Applied to builder, forge and runs — judging *boring and stale* on one screen tells you nothing,
 which was the whole argument for making the hypothesis testable.
 
+## D10 — nothing appears on hover; the shortcuts are on right-click
+
+A hover on an overview row does exactly two things: **it tints, and the caret darkens and
+nudges**. One timing governs everything — `--t`, 140ms on `cubic-bezier(.4,0,.2,1)`, which is
+what Tailwind's `transition-colors` already resolves to in the seven places the product uses it,
+so naming it is what lets the rest agree rather than each picking its own.
+
+**A first pass revealed `console` and `tasks` chips on row hover and the operator killed them**,
+on two counts that are both right: they **covered the read/written column**, and they pointed at
+two of the four tabs sitting directly above the table — an affordance that obscures data to reach
+something already one click away.
+
+So the shortcuts moved to a **context menu**, which is where a shortcut belongs. Nothing is
+reachable *only* there, so there is no discoverability cost — the research is blunt that
+hover-only affordances go unfound, and a right-click that duplicates a visible control is the
+opposite of that.
+
+| right-click a **process row** | right-click a **task row** |
+|---|---|
+| show its tasks · open in console · show in graph | open in console here |
+| copy process name · **copy this row as TSV** | copy work directory · task hash · command line |
+| *retry the failed tasks* · *cancel this process* — dimmed, tagged W4 | *retry this task* — dimmed, tagged W4 |
+
+Three things this settles:
+
+- **W4's verbs are listed and dimmed rather than absent.** A control that does not exist yet is a
+  promise a reader can see, and a menu that grows two new items later is worse than one that
+  always had the shape.
+- **Copying a row as TSV is not a nicety.** A scientific tool should let you get a number out.
+- **Keyboard parity is free.** `Shift+F10` fires a `contextmenu` event, so handling the event
+  covers the key; every row is already tabbable, and one `--ring` token gives it a focus state
+  the product currently has in three places and no shared form.
+
+Motion is bounded by the same rule as everything else: **nothing that encodes a quantity moves.**
+No bar animates on hover — motion implying a number nothing measured is the fault §9.2 refuses
+when it forbids a rate on a live edge. `prefers-reduced-motion` removes the *transition* and never
+the feedback: the colour still changes, it just arrives at once.
+
+**A defect the pass found**: `hover:bg-[var(--hover)]` appears five times in
+`frontend/src/build/` — `Compare.tsx` twice, `Findings.tsx`, `Builder.tsx` twice — and `--hover`
+is **defined nowhere**: not `tokens.css`, not `main.css`, not `dashboard.md`. Five hover states in
+the builder are dead CSS, which is most of why it feels inert. `--hover` becomes `--ink` at 5%,
+tinting whatever surface it lands on and inverting for free in dark mode — the same argument the
+Depth tokens make from `--shadow`.
+
 ## What is still open
 
 - The sectioned design, presented and not yet approved.
