@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     """How long Nextflow may say nothing before a run is called lost — §17, and **blunt on
     purpose**: it must exceed the slowest single task, because a six-hour STAR align emits
     nothing while it runs and looks identical to a dead head process."""
+    otlp_endpoint: str = ""
+    """Where spans and metrics go. **Empty means no exporter is constructed at all** — not one
+    that quietly drops, which would be a lens that lies about being off.
+
+    Off by default is `CLAUDE.md`'s standing rule for telemetry and §8's for this one: spans
+    reaching a hosted vendor are an undeclared egress path, and worse than the model one because
+    telemetry is fire-and-forget. `ops/telemetry/README.md` is how to point it somewhere."""
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
 

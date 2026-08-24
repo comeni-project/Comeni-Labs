@@ -602,9 +602,18 @@ pre-empts the same failure for free.
 model one because telemetry is fire-and-forget — so **self-hosted, and off by default**, matching
 `CLAUDE.md`'s existing stance. And the dev stack grows by two containers.
 
-**The backend is named but not depended on.** SigNoz (Apache-2.0, ClickHouse-backed,
-OpenTelemetry-native) is the default because one store for traces, logs and metrics is one thing to
-operate. Wiener speaks OTLP, so an operator running Grafana or Jaeger points it there.
+**The backend is named but not depended on**, and on 2026-08-24 that sentence earned itself.
+SigNoz (Apache-2.0, ClickHouse-backed, OpenTelemetry-native) is still the default, because one
+store for traces, logs and metrics is one thing to operate — but **it is not in
+`docker-compose.yml` and will not be**: SigNoz deprecated its bundled Compose files in v0.130.0
+and installs through Foundry, a CLI that renders and runs its own stack rather than composing
+into somebody else's.
+
+So the backend is **something Wiener points at** — `WIENER_OTLP_ENDPOINT`, unset by default —
+rather than something this repository brings up. `ops/telemetry/README.md` is how to run one;
+production is Kubernetes, where the question does not arise at all. An operator running Jaeger
+or Grafana over ClickHouse points Wiener there and nothing in `spans()` or the five metrics
+knows the difference.
 
 ---
 

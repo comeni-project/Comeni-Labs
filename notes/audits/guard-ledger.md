@@ -2733,3 +2733,25 @@ plan costs a paragraph, and the same finding at execution costs a failing gate a
 was 13 passing before and 13 passing after, `make verify` is green, and the frontend's 113
 canvas tests are untouched. One line changed in that test file — `_port_x` is imported from
 `dag_core.layout` now — and no assertion did.
+
+---
+
+## The exporter, refused where it does not belong — 2026-08-24
+
+Phase 3 Task 6, and **§3.1 predicted this exact moment**: *"the OpenTelemetry SDK is a network
+client, so the purity guard makes it structurally impossible to put the exporter on the wrong
+side of the line. Nobody has to remember this."*
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_pure_packages_import_nothing_impure` | `from opentelemetry.sdk.trace import TracerProvider` in `wiener_core/spans.py` | failed | `Pure packages must not import I/O or model libraries:` / `  packages/wiener-core/src/wiener_core/spans.py imports opentelemetry.sdk.trace, which is not on this package's allowlist` |
+
+**A prediction that comes true is worth recording as loudly as one that does not.** The entry in
+`CLOSED_PACKAGES` was argued for on 2026-08-24 partly on this basis, and the argument was
+speculative at the time: a fold over events has no need of a socket, and the OTel payoff was
+named as a bonus nobody had tested. It has now been tested.
+
+**What it cost, which is the honest half**: `spans()` describes spans and cannot send them, so
+there is a translation in `wiener-api` — including turning a readable `<run>.<task>.<attempt>`
+id into the eight bytes the wire wants. That translation is a real cost of the split, and it is
+smaller than the thing it prevents.

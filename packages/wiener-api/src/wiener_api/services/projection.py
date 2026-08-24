@@ -16,13 +16,38 @@ from datetime import UTC, datetime
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 from wiener_core.events import RunEvent, admit, heartbeat
-from wiener_core.state import EMPTY, RunState, fold, replay
+from wiener_core.state import EMPTY, RunPhase, RunState, fold, replay
 
 from wiener_api import repository
 from wiener_api.models import RunEventRow, RunTask
-from wiener_api.services import stream
+from wiener_api.services import stream, telemetry
 
 log = logging.getLogger(__name__)
+
+_TERMINAL = {RunPhase.SUCCEEDED, RunPhase.FAILED, RunPhase.CANCELLED, RunPhase.LOST}
+
+
+def _artifact_pipeline(session, lab_id: str, run_id: str):
+    """The run's own `pipeline.yml`, for `cicd.pipeline.name` and nothing else yet.
+
+    Read from the artifact Wiener owns — §12 — so this reaches no Mendel package. Returns
+    `None` when it cannot be read, and the name falls back to `unknown` rather than the export
+    failing: a run whose artifact is unreadable is still a run worth having a trace for.
+    """
+    from comeni_core import yaml_strict
+    from comeni_core.artifact.pipeline import Pipeline
+
+    from wiener_api import repository
+    from wiener_api.settings import settings
+
+    row = repository.run(session, lab_id, run_id)
+    if row is None:
+        return None
+    path = settings.artifact_root / row.artifact_id / "pipeline.yml"
+    try:
+        return Pipeline.model_validate(yaml_strict.load(path))
+    except Exception:  # noqa: BLE001 — an unreadable artifact is not a reason to lose a trace
+        return None
 
 
 def state_of(session: Session, lab_id: str, run_id: str) -> RunState:
@@ -82,6 +107,15 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
     # **After the flush and never before.** A stream entry for an event Postgres has not
     # accepted is a tail that disagrees with the record, and the record is what a reload
     # rebuilds from — so a browser would see something that no longer exists.
+    if state.phase in _TERMINAL:
+        # **After the flush, like the stream publish, and for the same reason**: telemetry for
+        # an event Postgres has not accepted disagrees with the record. Failing to export must
+        # not fail the ingest — §8 is that the backend is a lens and the record is not.
+        try:
+            telemetry.export(state, _artifact_pipeline(session, lab_id, run_id))
+        except Exception as exc:  # noqa: BLE001 — a lens that breaks must not lose an event
+            log.warning("run %s: recorded but not exported: %s", run_id, exc)
+
     try:
         stream.publish(run_id, event)
     except RedisError as exc:

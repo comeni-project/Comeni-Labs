@@ -447,13 +447,13 @@ def test_spans_are_a_golden_file():
 **Files:** modify `docker-compose.yml`, `docker-compose.prod.yml`, `tests/test_compose.py`,
 `Makefile`
 
-- [ ] **Step 1: Add `otel-collector` and `clickhouse`** (or the SigNoz bundle §8 names) with
+- [x] **Step 1: Add `otel-collector` and `clickhouse`** (or the SigNoz bundle §8 names) with
   healthchecks. **`test_the_stack_is_seven_services` will fail** — that is the guard working,
   and the same one that caught the Wiener services in phase 1. Update it, and check the prod
   overlay closes any port the base publishes: `test_prod_publishes_the_web_port_and_nothing_else`
   derives its list, so it needs nothing, but read it and confirm.
-- [ ] **Step 2: `docker compose config -q`** and bring the two up.
-- [ ] **Step 3: `make check` and commit.**
+- [x] **Step 2: `docker compose config -q`** and bring the two up.
+- [x] **Step 3: `make check` and commit.**
 
 ### Task 6: The exporter, and the five metrics
 
@@ -465,22 +465,22 @@ def test_spans_are_a_golden_file():
 **Interfaces:**
 - Produces: `export(state, pipeline)`, `record_metrics(state)`, `settings.otlp_endpoint`.
 
-- [ ] **Step 1: Write the failing tests** — the SDK is stood in for; nothing in a test opens a
+- [x] **Step 1: Write the failing tests** — the SDK is stood in for; nothing in a test opens a
   socket. Assert that a terminal run exports one run span plus one per attempt, that a
   non-terminal run exports nothing (a span that has not ended cannot be sent), and that
   `settings.otlp_endpoint` empty means **no exporter is constructed at all** — off by default.
-- [ ] **Step 2: The five CI/CD metrics**, verbatim from the note §1.3:
+- [x] **Step 2: The five CI/CD metrics**, verbatim from the note §1.3:
   `cicd.pipeline.run.duration`, `cicd.pipeline.run.active`, `cicd.pipeline.run.errors`, and
   `cicd.system.errors`. `cicd.worker.count` waits for W5 — **write down that it is deliberately
   absent** rather than leaving a reader to wonder.
-- [ ] **Step 3: Wire it into the run's end**, in `projection.append`, after the flush and beside
+- [x] **Step 3: Wire it into the run's end**, in `projection.append`, after the flush and beside
   the stream publish — same reasoning: a span for an event Postgres has not accepted is telemetry
   that disagrees with the record.
-- [ ] **Step 4: A purity check you must run by hand**:
+- [x] **Step 4: A purity check you must run by hand**:
   `uv run pytest tests/test_purity.py -q` after adding `opentelemetry-sdk` to `wiener-api`.
   **Then deliberately import it in `wiener_core/spans.py` and watch the guard refuse it** —
   §3.1 predicted this exact payoff and it should be witnessed, not assumed. Ledger row.
-- [ ] **Step 5: `make check` and commit.**
+- [x] **Step 5: `make check` and commit.**
 
 ## ✋ CHECKPOINT 3 — a real run's waterfall
 
@@ -622,6 +622,9 @@ designed. Build what is drawn.
 | 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
 | 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
 | 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 5 | **No containers were added.** The telemetry backend is pointed at, not composed | **SigNoz deprecated its bundled Compose files in v0.130.0** and installs through Foundry — a CLI that renders and runs its own stack rather than composing into somebody else's. Vendoring the deprecated manifest would mean running an unmaintained copy of another project's stack to preserve one-file tidiness. §8 already said the backend is *named but not depended on*, and the operator's steer was that production is Kubernetes anyway, so this is that sentence being used rather than bent. `ops/telemetry/README.md` is how to run one; `WIENER_OTLP_ENDPOINT` is the whole integration |
+| 5 | An intermediate version added `clickhouse`, `otel-collector` and `grafana` and was backed out | It worked as far as ClickHouse auth and then stopped being the point: three containers of somebody else's stack, hand-wired, to avoid an admin login. The operator's instruction — *make stuff sure* — is what killed it |
+| 6 | `_id_of` lives in `wiener-api`, not in the pure core | The purity guard refused `hashlib` in `wiener-core` earlier, and refused the SDK here. So the pure half names a span `<run>.<task>.<attempt>` — legible in a golden file — and this side turns that into the eight bytes the wire wants. **A cost of the split, recorded rather than hidden** |
 | CP2 | **The record did not survive being read back**, and the checkpoint is what found it | `run_event.payload` is written with `model_dump()`, which uses FIELD names, and `TaskTrace` validated by ALIAS only — so reading the record back turned every aliased field into `None`, and `extra="ignore"` swallowed the evidence. §7.1's *"run_event is the source of truth and everything else is a projection"* was false for nine fields of fifteen. **It hid because `cpus`, `read_bytes` and `write_bytes` have no alias**: a span carried three of the nine and looked merely sparse rather than broken. Found by printing the spans and asking why one number was missing — which is what a checkpoint is for. `populate_by_name=True`, and a test that round-trips a real event |
 | 3 | **A190 was decided rather than deferred a third time**: `cicd.pipeline.name` is derived from `goal.want` — `counts.matrix` for the spine | It blocks the mapping and the operator said keep going. Derived beats the digest because every board groups by this and a digest starts a new series on every rebuild, which makes *"is the spine getting slower"* unanswerable across exactly the change you want to measure. The cost is that two pipelines producing the same thing collide, and the fix for that — a submitter-supplied name **defaulting to this** — is an added field rather than a changed one, so nothing here has to move |
 | 3 | `_span_id` is a readable composite, not a hash | The purity guard refused `hashlib` in `wiener-core` and was right to: OpenTelemetry ids are eight bytes on the wire, and meeting a wire format is the exporter's job. The pure half says *which* span |
