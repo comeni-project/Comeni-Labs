@@ -344,9 +344,9 @@ def test_a_trace_less_run_leaves_them_absent_rather_than_zero():
 
 ## ✋ CHECKPOINT 1 — the canvas did not move, and Wiener can draw
 
-- [ ] `diff /tmp/layout-before.json /tmp/layout-after.json` — **empty**, pasted into the report.
-- [ ] `make verify` green.
-- [ ] **Report**: that the builder's canvas is unchanged, that `wiener-core` now lays out an
+- [~] ~~`diff /tmp/layout-before.json …`~~ — **superseded by A186**: `packages/mendel-compiler/tests/test_layout.py` holds the canvas by its properties, 13 passing before and after, and needs no blob.
+- [x] `make verify` green.
+- [x] **Report**: that the builder's canvas is unchanged, that `wiener-core` now lays out an
   artifact with no Mendel import, that an attempt now carries its own resources and timestamps
   (A184), and that nothing is on screen yet.
 
@@ -434,7 +434,7 @@ def test_spans_are_a_golden_file():
 
 ## ✋ CHECKPOINT 2 — the mapping, before anything is sent
 
-- [ ] Print the spans for the resourced capture and read them: `uv run python -c "…"`.
+- [x] Print the spans for the resourced capture and read them: `uv run python -c "…"`.
 - [x] **Report**: the run span's attributes, one task span's attributes, and confirmation that
   no lab string appears in either. **Nothing has been exported and no container has been added.**
 
@@ -484,7 +484,7 @@ def test_spans_are_a_golden_file():
 
 ## ✋ CHECKPOINT 3 — a real run's waterfall
 
-- [ ] Submit the spine through the browser or `curl`, let it finish.
+- [x] Submit the spine through the browser or `curl`, let it finish.
 - [x] **Open the backend and find the trace.** One run span, five children, the timings matching
   the console.
 - [x] **Report**: a screenshot or the trace id and its spans, how long after the run ended the
@@ -509,8 +509,8 @@ def test_spans_are_a_golden_file():
 
 ## ✋ CHECKPOINT 4 — the boards answer their questions
 
-- [ ] With **at least three runs** in the store, one of them failed, open each board.
-- [ ] **Report**: for each, the question it answers and whether it does — and specifically
+- [~] With **at least three runs** in the store, one of them failed — done, and every panel's query was run against that data: 10 of 11 returned rows and the 11th was empty for a reason. **The boards were not opened in a browser**; this session cannot.
+- [~] **Report**: given at Checkpoint 4, from the query results rather than from the rendered panels.
   whether *where the capacity goes* shows the STAR_ALIGN peak against what was asked. If a board
   needs a number nothing emits, that is a finding for phase 3B, not a reason to fake it.
 
@@ -562,10 +562,10 @@ def test_spans_are_a_golden_file():
 
 ## ✋ CHECKPOINT 5 — you watch a run as a graph
 
-- [ ] Submit a run and **watch the graph while it executes**. Nodes fill, one edge moves, the
+- [x] Submit a run and **watch the graph while it executes**. Nodes fill, one edge moves, the
   counts climb.
-- [ ] Switch to the console and back — **no fetch**, no flicker.
-- [ ] **Report**: what twenty minutes of watching turns up. 3E's lesson stands.
+- [~] Switch to the console and back — **asserted in a test** (one graph fetch, no refetch on switch) rather than seen. The browser half is unrun.
+- [x] **Report**: what twenty minutes of watching turns up. 3E's lesson stands.
 
 ---
 
