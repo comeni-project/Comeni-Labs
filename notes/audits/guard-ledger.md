@@ -2827,3 +2827,32 @@ an `or 0` in the fold. One guard per end is not redundancy; it is two different 
 **The bar is guarded by construction rather than by a test.** `Bar` renders no fill element at
 all when the value is `null`, so there is nothing to give a width — a zero-length bar and a
 zero-valued bar are the same picture, and only one of them is true.
+
+---
+
+## The tail that got slower the longer you watched — 2026-08-24
+
+W2 Task 10. A199: `setEvents((seen) => [...seen, event])` copies the whole array **per
+message**, so a 5,000-task run's console degrades quadratically as it grows. The fix buffers
+arrivals and writes state once per animation frame.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `useRunStream.test.tsx::coalesces a burst into one state write rather than one per event` | restored the per-message `setEvents` in `ws.onmessage`, dropping the frame buffer | failed | `AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times` |
+
+**The first version of this test proved nothing and passed anyway**, which is the part worth
+recording. It asserted that the events array had not changed synchronously after fifty
+messages — true with the fix and true without it, because React batches renders on its own.
+A guard that passes on the code it was written to reject is worse than no guard: it is a green
+tick over an open hole.
+
+What discriminates is the **frame count**: one scheduled `requestAnimationFrame` for fifty
+messages is only true of the buffered version, and zero is what the unbuffered one gives. The
+lesson is the A67 one from a new angle — a guard has to be watched failing *against the
+specific defect*, not merely watched failing.
+
+**A second defect was found by the drain test in the same task**, and it was mine rather than
+inherited: the paging loop's `setEvents` updater closed over the loop's mutable `page`
+variable, and React runs a functional update *later* — so page one's updater read whichever
+page had arrived by then. 437 events came back as 237, page two vanished, page three merged
+twice. `const arrived = page.events` inside the loop body is the whole fix.

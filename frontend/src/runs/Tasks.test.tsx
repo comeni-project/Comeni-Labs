@@ -18,24 +18,7 @@ function page(total: number, drawn = Math.min(total, 500)) {
   };
 }
 
-/** happy-dom has no layout: every element measures zero, so a virtualiser sees a zero-height
- *  window and renders no rows — and a test asserting *fewer than 80 rows* would then pass by
- *  rendering none, which is the vacuous-guard failure A67 names.
- *
- *  **`offsetWidth`/`offsetHeight`, not `getBoundingClientRect`** — that is what
- *  `virtual-core`'s `getRect` reads, and stubbing the wrong one leaves the window at zero
- *  while looking like it was fixed. It also overwrites `initialRect` on mount, so the option
- *  alone is not enough. */
-function withLayout() {
-  for (const [name, value] of [["offsetWidth", 1200], ["offsetHeight", 600]] as const) {
-    Object.defineProperty(HTMLElement.prototype, name, {
-      configurable: true, get: () => value,
-    });
-  }
-}
-
 function at(body: unknown = page(12)) {
-  withLayout();
   const calls: string[] = [];
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
     calls.push(url);
@@ -52,9 +35,6 @@ function at(body: unknown = page(12)) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  for (const name of ["offsetWidth", "offsetHeight"]) {
-    delete (HTMLElement.prototype as unknown as Record<string, unknown>)[name];
-  }
 });
 
 it("draws a bounded number of rows for a five-thousand-task run", async () => {

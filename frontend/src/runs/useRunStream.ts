@@ -23,6 +23,15 @@ export type RunEvent = {
 
 type Page = { events: RunEvent[]; cursor: number; stream_id: string };
 
+/** What one request asks for, and therefore what a FULL page looks like.
+ *
+ * The endpoint's own default is 200 and the loop below compares against this number, so it is
+ * sent explicitly rather than relied on: a server that changed its default would otherwise
+ * turn "a full page" into a wrong guess and stop the drain early — silently, which is the
+ * failure mode this whole change is about.
+ */
+const PAGE = 200;
+
 export type Stream = {
   events: RunEvent[];
   following: boolean;
@@ -40,20 +49,39 @@ export function useRunStream(runId: string | undefined): Stream {
    * array was when the socket opened — and re-paging from a stale cursor re-fetches everything
    * that arrived while it was connected. */
   const cursor = useRef(-1);
+  /** Events that have arrived since the last flush, and the frame that will flush them. */
+  const arriving = useRef<RunEvent[]>([]);
+  const frame = useRef<number | null>(null);
 
   useEffect(() => {
     if (!runId) return;
     let live = true;
 
     async function pageThenTail(after: number) {
-      const page = await get<Page>(`/api/runs/${runId}/events?after=${after}`);
-      if (!live) return;
+      // **Drain the record before subscribing.** It used to page ONCE and subscribe, so a
+      // reload mid-run showed the first 200 events and then a silent hole — and nothing
+      // noticed, because the largest real run is five tasks and every run fitted in one page.
+      //
+      // A short page is the end of the record. Subscribing earlier would tail live events
+      // while pages 2 and 3 were still arriving, which is the same hole from the other side.
+      let page: Page;
+      let from = after;
+      do {
+        page = await get<Page>(`/api/runs/${runId}/events?after=${from}&limit=${PAGE}`);
+        if (!live) return;
 
-      setEvents((seen) => {
-        const known = new Set(seen.map((e) => e.seq));
-        return [...seen, ...page.events.filter((e) => !known.has(e.seq))];
-      });
-      for (const event of page.events) cursor.current = Math.max(cursor.current, event.seq);
+        // **`arrived` is a const, and `page` is not.** React runs a functional update LATER,
+        // so an updater closing over the loop's mutable `page` reads whichever page has
+        // arrived by then — which silently merged page 3 twice and dropped page 2 entirely.
+        // Found by the drain test expecting 437 and getting 237.
+        const arrived = page.events;
+        setEvents((seen) => {
+          const known = new Set(seen.map((e) => e.seq));
+          return [...seen, ...arrived.filter((e) => !known.has(e.seq))];
+        });
+        for (const event of arrived) cursor.current = Math.max(cursor.current, event.seq);
+        from = page.cursor;
+      } while (page.events.length === PAGE);
 
       const url = new URL(`/api/runs/${runId}/stream`, window.location.href);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -65,7 +93,25 @@ export function useRunStream(runId: string | undefined): Stream {
       ws.onmessage = (message) => {
         const event = JSON.parse(message.data as string) as RunEvent;
         cursor.current = Math.max(cursor.current, event.seq);
-        setEvents((seen) => (seen.some((e) => e.seq === event.seq) ? seen : [...seen, event]));
+        // **One state write per frame, not one per message** — A199. `setEvents((seen) =>
+        // [...seen, event])` copies the whole array per event, so a 5,000-task run's tail
+        // degrades quadratically: the console gets slower the longer you watch it, which is
+        // the opposite of what this slice promises. Buffering turns a burst of n messages
+        // into one copy.
+        arriving.current.push(event);
+        if (frame.current === null) {
+          frame.current = requestAnimationFrame(() => {
+            frame.current = null;
+            const batch = arriving.current;
+            arriving.current = [];
+            if (!live || batch.length === 0) return;
+            setEvents((seen) => {
+              const known = new Set(seen.map((e) => e.seq));
+              const fresh = batch.filter((e) => !known.has(e.seq));
+              return fresh.length ? [...seen, ...fresh] : seen;
+            });
+          });
+        }
       };
       ws.onerror = () => live && setError("the live tail dropped");
       ws.onclose = (closed) => {
@@ -86,6 +132,9 @@ export function useRunStream(runId: string | undefined): Stream {
 
     return () => {
       live = false;
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
+      arriving.current = [];
       socket.current?.close();
     };
   }, [runId]);
