@@ -33,6 +33,7 @@ PACKAGE_OF = {
     "forge": "mendel-forge",
     "ai": "mendel-ai",
     "api": "mendel-api",
+    "wiener": "wiener-core",
 }
 
 EMISSION = re.compile(r"""(?:coded\(\s*|code=)["']([A-Z]{2}\d{4})["']""")

@@ -23,6 +23,7 @@
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
+#   MW0001-MW0099  wiener: ingesting a run's events
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -2159,3 +2160,54 @@ MI0001:
     to the API. `MA0001`-`MA0007` already belonged to the AI adapters, and the strict loader
     refused the duplicate rather than letting the second win. The sentence was the thing that
     was wrong; it is corrected at the top of this file.
+
+MW0001:
+  emitted_by: wiener
+  concern: ingest
+  says: "`nf-weblog` sent an event kind Wiener does not declare — refused, never ignored"
+  fires_on: [ingest]
+  refuses: true
+  fix: |
+    If Nextflow has added a lifecycle event, declare it in `wiener_core.events.EventKind` and
+    give `fold` a branch for it — in a diff, deliberately. If it did not, something other than
+    a Nextflow head process is posting to the ingest endpoint, and that is the finding.
+  explanation: |
+    **Mendel declares what may leave; Wiener declares what may enter.** `admit()` is the exact
+    mirror of the egress guard — an allowlist rather than a blocklist, because a blocklist can
+    only forbid what somebody named, which is how `object`, `Path` and `Any` each arrived one
+    audit apart on the other side.
+
+    **A silently dropped event is a run whose state is quietly wrong.** Wiener's whole claim is
+    that a run replays from its events to the same state and the same decisions, so an event
+    that arrived and was ignored makes that claim false in a way nothing on screen would show —
+    the run simply looks like it did less than it did. Refusing is loud, and loud is
+    recoverable.
+
+    Six kinds come from Nextflow: `started`, `process_submitted`, `process_started`,
+    `process_completed`, `completed` and `error`. `docs/design/wiener.md` §4.1 lists them
+    against a real capture.
+
+MW0002:
+  emitted_by: wiener
+  concern: ingest
+  says: "an event kind only Wiener may author arrived from the network — refused"
+  fires_on: [ingest]
+  refuses: true
+  fix: |
+    Nothing should post this. A `heartbeat` is constructed by `wiener_core.events.heartbeat()`
+    on `wiener-api`'s timer; if a new Wiener-authored kind is being added, give it a
+    constructor there and leave it out of `FROM_NEXTFLOW`.
+  explanation: |
+    `EventKind` holds every kind the fold can see; `FROM_NEXTFLOW` holds the smaller set an
+    external party may author, and it is deliberately smaller by one.
+
+    **Time enters the fold as an event.** `wiener-core` may not read a clock — the same run
+    would otherwise replay to different decisions depending on when you replayed it — so the
+    passage of time arrives as a `heartbeat` that `wiener-api` appends on a timer, and the fold
+    sees it exactly as it sees a task completing (`docs/design/wiener.md` §6.1). That makes
+    liveness something a caller could otherwise *assert*: a forged heartbeat says a run is
+    alive when nothing has happened, which is the one fact `LOST` detection reads.
+
+    The ingest endpoint is bound on loopback behind a per-run secret (§13.1), so this is not
+    the last line of defence. It is the line that does not depend on anybody remembering, which
+    is the argument for an allowlist in the first place.

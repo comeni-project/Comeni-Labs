@@ -77,6 +77,7 @@ HEADINGS: dict[str, str] = {
     "landing": "The forge — landing a draft into a registry",
     "model-access": "Reaching a model",
     "model-output": "What a model answered",
+    "ingest": "Wiener — what may enter",
 }
 """Section titles per `concern`, in the order they are rendered.
 

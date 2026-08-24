@@ -208,7 +208,7 @@ by Nextflow, so *which events an external party may author* is a fact in the all
 than in a reviewer's memory. That is §4.4's own argument applied to the one kind it did not
 anticipate.
 
-- [ ] **Step 1: Write the failing test, against the committed capture**
+- [x] **Step 1: Write the failing test, against the committed capture**
 
 ```python
 # packages/wiener-core/tests/test_admit.py
@@ -272,12 +272,12 @@ def test_the_timer_can_make_one_and_the_fold_will_see_it():
     assert beat.kind is EventKind.HEARTBEAT and beat.trace is None and beat.at_ms
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_admit.py -x`
 Expected: FAIL — `ModuleNotFoundError: No module named 'wiener_core.events'`.
 
-- [ ] **Step 3: Declare the diagnostic**
+- [x] **Step 3: Declare the diagnostic**
 
 In `packages/comeni-core/src/comeni_core/diagnostics.yml`, add the band comment
 `#   MW0001-MW0099  wiener: ingesting a run's events` beside the existing band list, and:
@@ -306,7 +306,7 @@ MW0002:
     through its own function in `wiener_core.events` rather than by posting it.
 ```
 
-- [ ] **Step 4: Write `events.py`**
+- [x] **Step 4: Write `events.py`**
 
 ```python
 """What Nextflow sends, and the subset Wiener agrees to keep.
@@ -471,17 +471,17 @@ def heartbeat(run_id: str, at_ms: int, seq: int) -> RunEvent:
     return RunEvent(kind=EventKind.HEARTBEAT, run_id=run_id, at_ms=at_ms, seq=seq)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_admit.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 6: Regenerate the diagnostics page**
+- [x] **Step 6: Regenerate the diagnostics page**
 
 Run: `make docs && uv run mendel explain MW0001 && uv run mendel explain MW0002`
 Expected: the page regenerates and `explain` prints the summary, detail and fix for both.
 
-- [ ] **Step 7: Run the gate and commit**
+- [x] **Step 7: Run the gate and commit**
 
 Run: `make check`
 
@@ -2106,6 +2106,12 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 1 | `tests/test_package.py` became `tests/test_wiener_core_package.py` | Basename collision: `packages/mendel-ai/tests/test_package.py` exists and the test directories carry no `__init__.py`, so pytest refuses to collect two modules with one name. Caught by `make check`, not by the package's own tests |
 | 1 | A second test was written into that file and deleted the same hour | It asserted the `pyproject.toml` name appears in `CLOSED_PACKAGES`. **It cannot fail**: renaming the package makes `uv` refuse the workspace before pytest starts, and renaming the directory is what `test_every_package_is_classified` already catches. Trying to watch it fail is what showed it was inert — A14's method finding one of its own |
 | 1 | `CLAUDE.md`'s architecture tree gained a `wiener-core/` line, which the plan does not list | The tree names every package and would have been stale the moment this one existed |
+| 2 | The diagnostic entries were rewritten: `summary`/`detail` became `says`/`explanation`, plus `emitted_by`, `fires_on` and `refuses` | **The plan's entry cannot load.** `DiagnosticSpec` is `extra="forbid"` and requires seven fields; `summary` and `detail` are not among them — they *"stay at the check site, because they interpolate the actual mismatch"*. 18a's audit found the same class of error in the same file |
+| 2 | `concern: contract` became `concern: ingest`, and `tools/generate_diagnostics_doc.py` gained a heading for it | The generator exits with *"declares concerns with no heading in this file"* — a closed vocabulary the plan did not know was closed. Same finding 18a recorded, arriving again |
+| 2 | `EmittedBy` gained `WIENER`, and `tests/test_diagnostics_ownership.py`'s `PACKAGE_OF` gained `"wiener": "wiener-core"` | `emitted_by` is required and its enum had six members, none of them Wiener's. The ownership guard derives the package from that value rather than trusting it, so both halves had to learn the same name |
+| 2 | `raise coded(...)` became `raise ValueError(coded(...))` | **`coded()` returns a string, not an exception** — deliberately: *"a factory returning an exception would have to take the type as an argument"*, and several emissions are prints rather than raises. The plan's form raises `TypeError: exceptions must derive from BaseException` |
+| 2 | `make docs` does not regenerate the page | It runs the generator with `--check`; regenerating is `uv run python tools/generate_diagnostics_doc.py`. `CLAUDE.md` says *"`make docs` regenerates it"*, which is the sentence that drifted |
+| 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
 

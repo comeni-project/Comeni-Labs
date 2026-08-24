@@ -64,6 +64,15 @@ class EmittedBy(StrEnum):
     and **output** (an answer that will not fit the shape it was asked for). Neither is about a
     pipeline, which is why they are their own concern rather than an extension of routing."""
     API = "api"
+    WIENER = "wiener"
+    """`wiener-core` — run management: what may enter, and what a run is doing.
+
+    The first member naming a package outside Mendel, and it is here rather than in a registry
+    of Wiener's own for the same reason `comeni-core` keeps the platform name: one file
+    declares every code this repository can emit, so *"which codes exist"* has one answer and
+    `mendel explain` can answer for all of them. `MW` is the prefix; `W` was reserved for
+    Wiener when the bands were laid out, before anything could emit one.
+    """
 
 
 class DiagnosticSpec(BaseModel):
