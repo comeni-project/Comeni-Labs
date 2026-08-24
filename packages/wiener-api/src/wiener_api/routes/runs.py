@@ -263,12 +263,28 @@ def _pipeline_of(session, run_id: str):
     return _artifact_pipeline(session, settings.lab_id, run_id)
 
 
-class ProcessStatsOut(BaseModel):
-    """§9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
-    run was launched without `trace.enabled` and nothing was reported."""
+class ProcessRowOut(BaseModel):
+    """One process's row. **Absent is not zero** — a `null` here means the run was launched
+    without `trace.enabled` and nothing was reported, or the run has not reached this process
+    at all. The interface renders both as a dash and neither as a number.
+
+    Mirrored from `wiener_core.ProcessRow` rather than reused, the way `/graph`'s models are:
+    the wire format is `wiener-api`'s to keep stable, and the pure package's types answer to
+    the fold. Declared field by field rather than as a `dict`, because the generated client is
+    what stops the two halves drifting and a `dict` reaches TypeScript as nothing at all.
+    """
 
     process: str
-    tasks: int
+    declared: bool = False
+    reached: bool = False
+
+    tasks: int = 0
+    done: int = 0
+    running: int = 0
+    failed: int = 0
+    cached: int = 0
+    attempts_max: int = 1
+
     memory_asked_bytes: int | None = None
     memory_peak_bytes: int | None = None
     cpus_asked: int | None = None
@@ -279,23 +295,38 @@ class ProcessStatsOut(BaseModel):
     write_bytes: int | None = None
 
 
-@router.get("/runs/{run_id}/stats", operation_id="readRunStats",
-            summary="What each process asked for and what it used")
-def run_stats(run_id: str) -> list[ProcessStatsOut]:
-    """Per process, worst case kept. The maximum is what kills a run and the mean is what hides
-    it — §9.3, and the sort is by what took longest because that is what a reader came for."""
+class OverviewOut(BaseModel):
+    rows: list[ProcessRowOut] = []
+    steps_declared: int = 0
+    """**The only honest denominator** — §5. Nextflow discovers tasks as channels emit, so a
+    task-level percentage is a number nobody can source; the artifact declares its steps
+    before the run starts. `0` means the artifact could not be read, and the bar draws
+    nothing rather than dividing by it."""
+    steps_finished: int = 0
+
+
+@router.get("/runs/{run_id}/overview", operation_id="readOverview",
+            summary="One row per process the artifact declares")
+def run_overview(run_id: str) -> OverviewOut:
+    """**It does not 404 on an unreadable artifact** — A192, and deliberately unlike `/graph`.
+    The counts come from the fold and are true whatever happened to the directory; what is lost
+    is the declared list, so every row says `declared: false` and the bar has no denominator.
+    """
     from wiener_core.overview import overview
 
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
+        pipeline = _pipeline_of(session, run_id)
         state = state_of(session, settings.lab_id, run_id)
 
-    # `overview()` orders by what the artifact declares and this route has no artifact, so the
-    # old sort is kept here rather than in the projection. **This whole route is replaced by
-    # `/overview` in Task 2** — it is held working for one commit, not designed.
-    rows = sorted(overview(state, []).rows, key=lambda row: row.realtime_ms or 0, reverse=True)
-    return [ProcessStatsOut(**row.model_dump()) for row in rows]
+    declared = [step.process for step in pipeline.steps] if pipeline is not None else []
+    got = overview(state, declared)
+    return OverviewOut(
+        rows=[ProcessRowOut(**row.model_dump()) for row in got.rows],
+        steps_declared=got.steps_declared,
+        steps_finished=got.steps_finished,
+    )
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

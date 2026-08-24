@@ -97,7 +97,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/runs/{run_id}/stats": {
+    "/api/runs/{run_id}/overview": {
         parameters: {
             query?: never;
             header?: never;
@@ -105,11 +105,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What each process asked for and what it used
-         * @description Per process, worst case kept. The maximum is what kills a run and the mean is what hides
-         *     it — §9.3, and the sort is by what took longest because that is what a reader came for.
+         * One row per process the artifact declares
+         * @description **It does not 404 on an unreadable artifact** — A192, and deliberately unlike `/graph`.
+         *     The counts come from the fold and are true whatever happened to the directory; what is lost
+         *     is the declared list, so every row says `declared: false` and the bar has no denominator.
          */
-        get: operations["readRunStats"];
+        get: operations["readOverview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -203,6 +204,24 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** OverviewOut */
+        OverviewOut: {
+            /**
+             * Rows
+             * @default []
+             */
+            rows: components["schemas"]["ProcessRowOut"][];
+            /**
+             * Steps Declared
+             * @default 0
+             */
+            steps_declared: number;
+            /**
+             * Steps Finished
+             * @default 0
+             */
+            steps_finished: number;
+        };
         /**
          * PlacedNode
          * @description A node, where the layout put it, and what the run did to it.
@@ -259,15 +278,59 @@ export interface components {
             attempts: number;
         };
         /**
-         * ProcessStatsOut
-         * @description §9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
-         *     run was launched without `trace.enabled` and nothing was reported.
+         * ProcessRowOut
+         * @description One process's row. **Absent is not zero** — a `null` here means the run was launched
+         *     without `trace.enabled` and nothing was reported, or the run has not reached this process
+         *     at all. The interface renders both as a dash and neither as a number.
+         *
+         *     Mirrored from `wiener_core.ProcessRow` rather than reused, the way `/graph`'s models are:
+         *     the wire format is `wiener-api`'s to keep stable, and the pure package's types answer to
+         *     the fold. Declared field by field rather than as a `dict`, because the generated client is
+         *     what stops the two halves drifting and a `dict` reaches TypeScript as nothing at all.
          */
-        ProcessStatsOut: {
+        ProcessRowOut: {
             /** Process */
             process: string;
-            /** Tasks */
+            /**
+             * Declared
+             * @default false
+             */
+            declared: boolean;
+            /**
+             * Reached
+             * @default false
+             */
+            reached: boolean;
+            /**
+             * Tasks
+             * @default 0
+             */
             tasks: number;
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Cached
+             * @default 0
+             */
+            cached: number;
+            /**
+             * Attempts Max
+             * @default 1
+             */
+            attempts_max: number;
             /** Memory Asked Bytes */
             memory_asked_bytes?: number | null;
             /** Memory Peak Bytes */
@@ -553,7 +616,7 @@ export interface operations {
             };
         };
     };
-    readRunStats: {
+    readOverview: {
         parameters: {
             query?: never;
             header?: never;
@@ -570,7 +633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProcessStatsOut"][];
+                    "application/json": components["schemas"]["OverviewOut"];
                 };
             };
             /** @description Validation Error */
