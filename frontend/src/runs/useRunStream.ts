@@ -19,6 +19,10 @@ export type RunEvent = {
   kind: string;
   at_ms: number;
   trace?: { process: string; status: string; name?: string; realtime_ms?: number | null } | null;
+  /** Nextflow's own account of why it stopped. `report` is a LabString — it reaches the
+   *  browser and never a span attribute (§8). Kept by `admit()` since W1 and, until the
+   *  failure banner, rendered by nothing. */
+  manifest?: { report?: string | null } | null;
 };
 
 type Page = { events: RunEvent[]; cursor: number; stream_id: string };

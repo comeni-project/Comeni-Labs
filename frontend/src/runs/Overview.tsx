@@ -119,10 +119,14 @@ function Expanded({ runId, process }: { runId: string; process: string }) {
   );
 }
 
-export function Table({ data, runId }: { data: OverviewData; runId?: string }) {
+export function Table({ data, runId, openOn }: {
+  data: OverviewData; runId?: string; openOn?: string;
+}) {
   const rows = data.rows;
   const top = ceilings(rows);
-  const [open, setOpen] = useState<string | null>(null);
+  // `openOn` is the failed process, expanded from the start — §9: the comparison is
+  // the diagnosis, so the siblings have to be on screen without a click.
+  const [open, setOpen] = useState<string | null>(openOn ?? null);
 
   return (
     <div>
@@ -214,11 +218,13 @@ export function Table({ data, runId }: { data: OverviewData; runId?: string }) {
   );
 }
 
-export function Overview({ data, runId }: { data: OverviewData; runId?: string }) {
-  return <Table data={data} runId={runId} />;
+export function Overview({ data, runId, openOn }: {
+  data: OverviewData; runId?: string; openOn?: string;
+}) {
+  return <Table data={data} runId={runId} openOn={openOn} />;
 }
 
-export function OverviewPanel({ runId }: { runId: string }) {
+export function OverviewPanel({ runId, openOn }: { runId: string; openOn?: string }) {
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["overview", runId],
     queryFn: () => get<OverviewData>(`/api/runs/${runId}/overview`),
@@ -226,5 +232,5 @@ export function OverviewPanel({ runId }: { runId: string }) {
   });
   if (isPending) return <Loading what="the run" />;
   if (isError || !data) return <Failed error={error ?? "the overview could not be read"} />;
-  return <Table data={data} runId={runId} />;
+  return <Table data={data} runId={runId} openOn={openOn} />;
 }

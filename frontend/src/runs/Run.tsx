@@ -9,10 +9,16 @@ import { get } from "../wiener/api/client";
 import { Console } from "./Console";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
+import { Failure, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
+
+type FailedTask = {
+  process: string; tag?: string | null; latest_exit?: number | null;
+  attempts: number; peak_rss_bytes?: number | null;
+};
 
 type RunState = {
   run_id: string;
@@ -74,12 +80,40 @@ export function Run() {
     refetchInterval: 4_000,
   });
 
+  // **Assembled from the record, and only when the run actually failed.** The failed task
+  // comes from the tasks projection, the memory it was ALLOWED from the overview row for its
+  // process — `TaskOut` has no asked half — and the report from the error event the console
+  // already holds. Three sources because they are three different facts, not because the
+  // banner is doing arithmetic.
+  const failedTask = useQuery({
+    queryKey: ["failed-task", id],
+    queryFn: () => get<{ tasks: FailedTask[] }>(
+      `/api/runs/${id}/tasks?status=FAILED&sort=-peak_rss_bytes&limit=1`,
+    ),
+    enabled: state.data?.phase === "failed",
+  });
+
+
   if (state.isPending) return <Loading what="the run" />;
   if (state.isError) return <Failed error={state.error} />;
 
   const run = state.data;
   const phase = isPhase(run.phase) ? run.phase : "queued";
   const now = Date.now();
+
+  const worst = failedTask.data?.tasks?.[0];
+  const failed: FailureDetail | null = worst
+    ? {
+        process: worst.process,
+        tag: worst.tag,
+        exit: worst.latest_exit ?? null,
+        attempts: worst.attempts,
+        peak_rss_bytes: worst.peak_rss_bytes ?? null,
+        asked_bytes: (overview.data?.rows ?? []).find((row) => row.process === worst.process)
+          ?.memory_asked_bytes ?? null,
+        report: stream.events.find((event) => event.manifest?.report)?.manifest?.report ?? null,
+      }
+    : null;
 
   const declared = overview.data?.steps_declared ?? 0;
   const finished = overview.data?.steps_finished ?? 0;
@@ -143,6 +177,11 @@ export function Run() {
         )}
       </header>
 
+      {/* Above the overview, so a failed run says where it stopped without a click — and the
+          failed process is what the table opens on beneath it, because the comparison is the
+          diagnosis: one task at 63.8 GB beside eleven at 58 says what a single number cannot. */}
+      {run.phase === "failed" && failed && <Failure failed={failed} />}
+
       <section className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">
           {/* **Two views of one `RunState`, so switching is a render and never a fetch** —
@@ -164,7 +203,7 @@ export function Run() {
           </span>
         </div>
         {view === "overview" ? (
-          <OverviewPanel runId={run.run_id} />
+          <OverviewPanel runId={run.run_id} openOn={failed?.process} />
         ) : view === "tasks" ? (
           <Tasks
             runId={run.run_id}

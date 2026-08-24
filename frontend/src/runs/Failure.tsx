@@ -1,0 +1,73 @@
+import { bytes } from "./units";
+
+/** Everything the banner says, and every field of it comes from the record.
+ *
+ * `report` is Nextflow's own `errorReport`, which `admit()` has always kept and nothing has
+ * ever rendered. It is a **`LabString`**: it reaches this browser and must never become a span
+ * attribute — §8 forbids that and `test_the_fold_is_where_the_lab_strings_stop` holds it.
+ * Nothing here weakens that, because nothing here writes anything back.
+ */
+export type Failed = {
+  process: string;
+  tag?: string | null;
+  exit: number | null;
+  attempts: number;
+  peak_rss_bytes: number | null;
+  asked_bytes: number | null;
+  report: string | null;
+};
+
+/** Where a run stopped, above the fold, without a click.
+ *
+ * **This shows the failure and does not explain it.** §18.1's *nothing explains it until W3*
+ * is a boundary rather than a shortfall, and a banner that guessed at a cause here is exactly
+ * the shortfall dressed as a feature. Exit 137 is named because SIGKILL is a fact about the
+ * code, not an interpretation of the run.
+ */
+export function Failure({ failed }: { failed: Failed }) {
+  const both = failed.peak_rss_bytes !== null && failed.asked_bytes !== null;
+
+  return (
+    <section
+      data-testid="failure"
+      className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden"
+      style={{ borderLeft: "3px solid var(--fault)" }}
+    >
+      <div className="px-4 py-3 flex flex-col gap-1.5">
+        <p className="font-ui text-label uppercase tracking-[.14em] font-semibold
+                      text-[var(--fault)]">
+          this run failed
+        </p>
+        <p className="font-data text-body text-ink">
+          {failed.process}
+          {failed.tag && <span className="text-ink-2"> · {failed.tag}</span>}
+          {failed.exit !== null && (
+            <span className="text-ink-2">
+              {" "}· exit {failed.exit}
+              {failed.exit === 137 && <span className="text-ink-3"> (killed — out of memory)</span>}
+            </span>
+          )}
+          <span className="text-ink-2"> · attempt {failed.attempts}</span>
+        </p>
+
+        {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
+            `63.8 GB` invites the reader to supply a ceiling they do not have. */}
+        {both && (
+          <p data-testid="failure-resources" className="font-data text-secondary text-ink-2">
+            peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
+          </p>
+        )}
+      </div>
+
+      {failed.report && (
+        <pre
+          data-testid="failure-report"
+          className="px-4 py-3 m-0 font-data text-secondary text-ink-2 bg-paper
+                     border-t border-line overflow-x-auto whitespace-pre-wrap"
+        >
+          {failed.report}
+        </pre>
+      )}
+    </section>
+  );
+}
