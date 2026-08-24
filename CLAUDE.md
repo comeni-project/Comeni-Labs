@@ -100,7 +100,7 @@ a resolved one come out at the same tiers with the same premises.
 `human_override` keeps its meaning, because a pipeline an agent assembled must not read as one a
 person drew by hand. That is A130 arriving from the other direction.
 
-**Wiener W1 is COMPLETE as of 2026-08-24**, on `wiener-w1`, **unmerged**. Wiener went from zero
+**Wiener W1 is COMPLETE as of 2026-08-24**, on `wiener-w1`, **merged into `main` the same day**. Wiener went from zero
 lines to *a pipeline runs, you watch it, and its waterfall is queryable* in a day: two plans,
 26 tasks, nine checkpoints. `wiener-core` is pure and joined invariant 1 — the first time that
 list has grown — and it paid off where §3.1 predicted, refusing the OpenTelemetry SDK when the
@@ -122,6 +122,20 @@ asks for — nf-core's `conf/base.config` label mappings, a convention quoted ra
 judgement invented — and a cap is kept separate from a request: `process.resourceLimits` is a
 *site* fact written by Wiener's launcher, never a number in the artifact. Both were found by a
 board with one half of every comparison empty.
+
+**The whole stack comes up with one `docker compose up`**, which was the operator's constraint
+rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
+ClickHouse and Grafana. Two consequences are worth knowing before touching it. **The worker holds
+the host Docker socket** — that is how a container spawns Nextflow which spawns containers, and it
+is root-equivalent, so `WIENER_API_TOKEN` in `.env` is the boundary in front of it and the worker
+warns at startup if the socket is mounted without one (`docs/design/wiener.md` §12.1 records the
+trade, and W5's `-profile k8s` removes it). And **the run directory is bind-mounted at the same
+absolute path inside and outside** the container, because a path handed to the daemon is resolved
+on the host — a named volume silently breaks that and a root-owned one breaks it loudly.
+
+**The Mendel→Wiener courier does not exist** — A179. `mendel-api` serves no kept artifact and the
+builder has no button that uploads one, so every run so far was submitted from a terminal. Both
+halves work; the hand-off between them is the hole.
 
 **Nobody has looked at these screens.** Checkpoints 3 and 5 drove the HTTP and WebSocket halves
 and verified them; the browser half is unrun, which is exactly the gap 3E's lesson names.
