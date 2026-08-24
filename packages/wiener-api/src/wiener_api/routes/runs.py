@@ -1,0 +1,111 @@
+"""The public surface: upload an artifact, submit a run, read what happened.
+
+Every body here is `extra="forbid"`, which is what makes an unexpected field a 422 rather than
+a field silently ignored — and the field somebody would try is a path.
+"""
+
+import secrets
+from datetime import UTC, datetime
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, UploadFile
+from pydantic import BaseModel, ConfigDict
+
+from wiener_api import db, jobs, repository
+from wiener_api.models import Run, RunArtifact
+from wiener_api.services.artifacts import store
+from wiener_api.services.projection import state_of
+from wiener_api.settings import settings
+
+router = APIRouter(prefix="/api")
+
+
+class SubmitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_id: str
+    samplesheet: str
+    """What the lab fills `params.input` with. **Not stored** — §7.1: no table holds a
+    samplesheet, and this rides to the launcher as a job argument rather than a column."""
+    executor: Literal["local"] = "local"
+    """`local` only in W1. k8s and awsbatch are W5, and an enum that accepted them before
+    anything had run there would be a lie the API tells its own generated client, which would
+    offer them in a dropdown."""
+
+
+class ArtifactStored(BaseModel):
+    artifact_id: str
+    digest: str
+    size_bytes: int
+
+
+class RunAccepted(BaseModel):
+    run_id: str
+
+
+class RunRow(BaseModel):
+    id: str
+    phase: str
+    executor: str
+    submitted_by: str
+    submitted_at: datetime
+
+
+@router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
+             summary="Upload a gated pipeline directory")
+async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
+    try:
+        artifact_id, digest, size = store(await bundle.read())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    with db.session_scope() as session:
+        repository.add(session, settings.lab_id, RunArtifact(
+            id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
+            digest=digest, size_bytes=size,
+        ))
+    return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size)
+
+
+@router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")
+async def submit(body: SubmitRequest) -> RunAccepted:
+    run_id = secrets.token_hex(16)
+    with db.session_scope() as session:
+        if repository.artifact(session, settings.lab_id, body.artifact_id) is None:
+            raise HTTPException(status_code=404, detail="no such artifact")
+        repository.add(session, settings.lab_id, Run(
+            id=run_id, artifact_id=body.artifact_id, submitted_by="operator",
+            submitted_at=datetime.now(UTC), phase="queued", executor=body.executor,
+            ingest_secret=secrets.token_hex(16),
+        ))
+    await jobs.enqueue("launch_job", run_id, body.samplesheet)
+    return RunAccepted(run_id=run_id)
+
+
+@router.get("/runs", operation_id="listRuns", summary="The board")
+def board() -> list[RunRow]:
+    with db.session_scope() as session:
+        return [
+            RunRow(id=r.id, phase=r.phase, executor=r.executor,
+                   submitted_by=r.submitted_by, submitted_at=r.submitted_at)
+            for r in repository.runs(session, settings.lab_id)
+        ]
+
+
+@router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")
+def read(run_id: str) -> dict:
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        return state_of(session, settings.lab_id, run_id).model_dump(mode="json")
+
+
+@router.get("/runs/{run_id}/events", operation_id="readRunEvents",
+            summary="The record, in order")
+def events(run_id: str, after: int = -1, limit: int = 200) -> list[dict]:
+    """What the console reads before it subscribes — §7.2's page-then-tail handoff."""
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        rows = repository.events(session, settings.lab_id, run_id)
+        return [row.payload for row in rows if row.seq > after][:limit]

@@ -36,14 +36,26 @@ def site_config(run: Run) -> str:
     )
 
 
-def command(run: Run, workdir: str) -> list[str]:
-    return [
+def command(run: Run, workdir: str, samplesheet: str = "-") -> list[str]:
+    """The head process's argv.
+
+    **`--input` is here because nothing else carries it.** The submit body takes a samplesheet
+    and §7.1 forbids a column for it, so it rides to the launcher as a job argument and lands
+    on the command line — which is where `params.input` expects it: the emitted pipeline
+    references it as a placeholder the lab fills at run time (invariant 15). The plan accepted
+    a samplesheet at `POST /api/runs` and passed it to nothing, and Checkpoint 2's own script
+    submits `"-"`, so no step in this phase would have noticed.
+    """
+    argv = [
         "nextflow", "run", ".",
         "-profile", run.executor,
         "-c", f"{workdir}/site.config",
         "-w", f"{workdir}/work",
         "-name", f"wiener-{run.id}",
     ]
+    if samplesheet and samplesheet != "-":
+        argv += ["--input", samplesheet]
+    return argv
 
 
 def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
@@ -53,7 +65,7 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 
 
-def launch(run_id: str) -> None:
+def launch(run_id: str, samplesheet: str = "-") -> None:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
 
     The artifact is COPIED rather than run in place: a second run of the same artifact must not
@@ -72,6 +84,6 @@ def launch(run_id: str) -> None:
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         run.phase = "launching"
-        argv = command(run, workdir=str(workdir))
+        argv = command(run, workdir=str(workdir), samplesheet=samplesheet)
 
     _spawn(argv, cwd=workdir)

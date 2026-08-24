@@ -1680,7 +1680,7 @@ git commit -m "feat(wiener-api): the launcher, and the site.config that makes a 
 - Produces: `POST /api/artifacts`, `POST /api/runs`, `GET /api/runs`, `GET /api/runs/{id}`,
   `GET /api/runs/{id}/events`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # packages/wiener-api/tests/test_runs.py
@@ -1709,12 +1709,12 @@ def test_the_board_lists_runs_newest_first(client, three_runs):
     assert [r["id"] for r in rows] == list(reversed(three_runs))
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_runs.py -x`
 Expected: FAIL — 404 on every route.
 
-- [ ] **Step 3: Implement `artifacts.py` and `routes/runs.py`**
+- [x] **Step 3: Implement `artifacts.py` and `routes/runs.py`**
 
 `artifacts.py` unzips into `settings.artifact_root / <id>` and digests the result:
 
@@ -1757,12 +1757,12 @@ class SubmitRequest(BaseModel):
 
 and mints `id` and `ingest_secret` with `secrets.token_hex(16)` before enqueuing `launch_job`.
 
-- [ ] **Step 4: Mount both apps**
+- [x] **Step 4: Mount both apps**
 
 `main.py` gains `create_app()` (public, `/api/*`) and re-exports `create_ingest_app()`; the
 compose file runs them on 8001 and 8099 respectively.
 
-- [ ] **Step 5: Run the tests, the gate, and commit**
+- [x] **Step 5: Run the tests, the gate, and commit**
 
 Run: `uv run pytest packages/wiener-api -v && make check`
 
@@ -2126,6 +2126,10 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 6 | `conftest.py` uses `StaticPool` | A bare `sqlite://` gives every connection its own empty database, so `create_all` lands in one and the session opens another. It surfaces as `no such table: run`, several layers from the cause |
 | 7 | `launch()` reaches rows through `repository` and `db.session_scope()` rather than `session.get()` and a bound symbol | The tenancy guard again, plus `CLAUDE.md`'s own gotcha — *"import modules, not symbols, where tests monkeypatch"*. `ingest.py` was changed the same way, and the conftest fixture that had been patching two modules to work around it now patches one |
 | 7 | A fourth test: `test_launch_copies_the_artifact_and_starts_nextflow_there` | The plan's three cover the strings `launch()` assembles and not what it does with them, so **`launch()` would have been executed for the first time at Checkpoint 2, against real Nextflow.** It runs through the `_spawn` seam that exists for exactly this |
+| 8 | **The samplesheet reached nothing.** `command()` gained `--input`, `launch()` and `launch_job` gained the parameter, and a test covers the path | `POST /api/runs` accepts a `samplesheet` and §7.1 forbids a column for it, so between the request and the launch — which happens later, in a worker, from the database — there was **nowhere for it to live**, and Task 7's `command()` has no `--input`. It now rides as a job argument, which is transient by nature and the right lifetime. Checkpoint 2's own script submits `"-"`, so nothing in this phase would have noticed |
+| 8 | `store()` refuses an archive member that escapes the artifact directory | `extractall` on a hostile zip writes wherever the member names, and §12.1 says the upload is authenticated by nothing in W1. The plan's version called `extractall` directly |
+| 8 | `python-multipart` added to the manifest | `UploadFile` needs it, and FastAPI raises `RuntimeError` at request time rather than at import — so the failure surfaces as a 500 on the first upload rather than as an install error |
+| 8 | Three tests beyond the plan's four | The digest agreeing across two differently-built archives of the same tree (the whole reason it walks sorted pairs), the zip-escape refusal, and the samplesheet path above |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---

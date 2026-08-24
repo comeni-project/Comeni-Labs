@@ -80,3 +80,39 @@ def ingest_client(session) -> TestClient:
     from wiener_api.main import create_ingest_app
 
     return TestClient(create_ingest_app())
+
+
+@pytest.fixture
+def client(session, tmp_path, monkeypatch) -> TestClient:
+    """The public app, with the queue and the artifact store stood in for.
+
+    `jobs.enqueue` is patched rather than Redis, for the reason `mendel_api.jobs` records: a
+    route that reached Redis directly would make every route test need one.
+    """
+    from wiener_api import jobs
+    from wiener_api.main import create_app
+
+    monkeypatch.setattr(settings, "artifact_root", tmp_path / "artifacts")
+    monkeypatch.setattr(settings, "work_root", tmp_path / "work")
+
+    async def _enqueue(name, *args):
+        queued.append((name, args))
+
+    queued: list[tuple[str, tuple]] = []
+    monkeypatch.setattr(jobs, "enqueue", _enqueue)
+    test_client = TestClient(create_app())
+    test_client.queued = queued          # type: ignore[attr-defined]
+    return test_client
+
+
+@pytest.fixture
+def a_bundle() -> bytes:
+    """A minimal pipeline directory, zipped in memory."""
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("main.nf", "workflow {}\n")
+        archive.writestr("pipeline.yml", "schema_version: 5\n")
+    return buffer.getvalue()

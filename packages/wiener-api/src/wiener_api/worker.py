@@ -10,8 +10,10 @@ from wiener_api.services.launcher import launch
 from wiener_api.settings import settings
 
 
-async def launch_job(ctx: dict, run_id: str) -> str:
-    launch(run_id)
+async def launch_job(ctx: dict, run_id: str, samplesheet: str = "-") -> str:
+    """The samplesheet travels here rather than in a column — §7.1 forbids the column, and a
+    job argument is transient by nature, which is the right lifetime for it."""
+    launch(run_id, samplesheet)
     return run_id
 
 
