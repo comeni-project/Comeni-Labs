@@ -1335,7 +1335,7 @@ git commit -m "feat(wiener-api): four tables, and the two guards that hold the b
 - Produces: `create_ingest_app() -> FastAPI` and
   `record(session, run_id: str, payload: dict) -> RunState`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_ingest.py
@@ -1382,12 +1382,12 @@ def test_projection_matches_replay(ingest_client, a_run, session):
     assert folded.counts.succeeded == 2 and folded.counts.failed == 1
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_ingest.py -x`
 Expected: FAIL — no `create_ingest_app`.
 
-- [ ] **Step 3: Write `projection.py`**
+- [x] **Step 3: Write `projection.py`**
 
 ```python
 """The record, and the cache over it.
@@ -1445,7 +1445,7 @@ def record(session: Session, run_id: str, payload: dict) -> RunState:
     return state
 ```
 
-- [ ] **Step 4: Write `routes/ingest.py`**
+- [x] **Step 4: Write `routes/ingest.py`**
 
 ```python
 """Where the head process posts. **Not on the public app** — `docs/design/wiener.md` §13.1.
@@ -1481,19 +1481,19 @@ def create_ingest_app() -> FastAPI:
     return app
 ```
 
-- [ ] **Step 5: Write the conftest fixtures**
+- [x] **Step 5: Write the conftest fixtures**
 
 `packages/wiener-api/tests/conftest.py` provides `session` (a SQLite-backed
 `Base.metadata.create_all` session), `a_run` (a `Run` row with a known `ingest_secret`), and
 `ingest_client` (`TestClient(create_ingest_app())`). Use SQLite so **CI needs no Postgres** —
 the same reason `mendel-api`'s services carry `_run` and `_directory` seams.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `uv run pytest packages/wiener-api/tests/test_ingest.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/wiener-api
@@ -2120,6 +2120,10 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 5 | `tests/test_models.py` became `tests/test_wiener_models.py` | The same basename collision Task 1 hit — `mendel-api/tests/test_models.py` exists. Twice in five tasks; the plan names test files without checking whether the name is taken |
 | 5 | `tests/test_compose.py` was edited, which the plan does not mention, and two of its tests now **derive** what they used to spell out | **The guard fired and was right.** `test_the_stack_is_five_services` says in its own docstring that adding a service means editing it and noticing the overlay — and the plan's Step 9 said "add the compose services" and said nothing about `docker-compose.prod.yml`, so `wiener-postgres` would have been published on the host in production. Two neighbouring tests had the same weakness in a form nothing would have caught: one asserted `count("ports: !reset") == 3` and the other named `("postgres", "redis", "api")` literally, so **neither checked a service added after they were written**. Both now derive from the base, and the derived version was watched failing on a removed overlay entry: `each of ['api', 'postgres', 'redis', 'wiener-api', 'wiener-postgres'] must reset its ports; the overlay does it 4 times` |
 | 5 | The samplesheet-column guard's message was rewritten | It printed the whole column set and an unreadable `assert not ({...} & {...})`, naming neither the offending column nor the reason. It now says `a table grew a column for a sample: ['run.input_path']` |
+| 6 | `projection.py`'s `select()` calls moved into `repository.py`, and `state_of`/`record` gained a `lab_id` | **Task 5's guard refused the plan's Task 6 code**, which is the guard working rather than an obstacle: two `select()`s on `run_event` and a `session.get(Run, …)` were exactly the queries A177 says may not live outside the repository |
+| 6 | `test_the_ingest_app_is_not_the_public_app` was rewritten, and a `_paths()` helper added | `{r.path for r in app.routes}` **raises** on the ingest app — FastAPI 0.141 leaves an `_IncludedRouter` with no `.path` and no `.routes`. Written defensively with a `getattr` it would have found nothing and passed while proving nothing, which is precisely the check Plan 3A phase 6's audit caught iterating `app.routes` and finding zero. It now walks `original_router`, is guarded by `test_the_route_scan_sees_something`, **and** asserts behaviourally: the public app is POSTed a real run id and secret and must answer 404 |
+| 6 | `test_projection_matches_replay` was strengthened to compare the cache | As written it called `state_of` — which *is* the replay — and asserted two counts, so **it would have passed with the projection tables empty**. Its name promises §7.1's claim that the cache agrees with the fold, and it now compares `run.phase` and every `run_task` row against the folded state. Watched failing by not refreshing `run.phase`: `assert 'queued' == 'failed'` |
+| 6 | `conftest.py` uses `StaticPool` | A bare `sqlite://` gives every connection its own empty database, so `create_all` lands in one and the session opens another. It surfaces as `no such table: run`, several layers from the cause |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
