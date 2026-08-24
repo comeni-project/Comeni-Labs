@@ -63,6 +63,10 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",
         ("/api/pipeline/drafts/{draft_id}/keep", "post"): "keepDraft",
+        # **The only route that answers with bytes** — the courier's Mendel half, A179. It
+        # serves a zip, so the generated client's return type is not a schema; `client.ts`
+        # has a `blob()` for exactly this one and nothing else.
+        ("/api/pipeline/drafts/{draft_id}/bundle", "get"): "downloadBundle",
         ("/api/pipeline/drafts/{draft_id}/gate", "post"): "startGate",
         ("/api/pipeline/gates/{run_id}", "get"): "readGate",
         ("/api/sources/draft", "post"): "draftTool",

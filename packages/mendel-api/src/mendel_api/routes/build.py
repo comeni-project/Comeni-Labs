@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 from mendel_api import identity, jobs
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
+from mendel_api.services import bundle as bundle_service
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import gates as gate_service
@@ -190,6 +191,39 @@ def keep_draft(draft_id: str) -> Kept:
         return Kept(path=str(draft_service.keep(draft_id)))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+
+
+@router.get(
+    "/drafts/{draft_id}/bundle",
+    operation_id="downloadBundle",
+    summary="The kept pipeline, as a zip somebody else can run",
+    response_class=Response,
+    responses={**REFUSES, 200: {"content": {"application/zip": {}}}},
+)
+def bundle(draft_id: str) -> Response:
+    """**Mendel's half of the courier, and the whole of what it knows about running** — A179.
+
+    `docs/design/wiener.md` §12: the browser fetches this and posts it to Wiener, so the copy
+    happens in a place that can see both halves and neither half can see the other. This route
+    does not know that Wiener exists, has no idea what will be done with the archive, and would
+    serve the same bytes to `curl`.
+
+    **It does not check that a gate passed.** Whether an un-gated pipeline may run is a policy
+    about running, and running is Wiener's — `execution-boundary.md` §3. What Mendel owes here
+    is an honest artifact; the builder's own control is what refuses to offer the button before
+    a gate has passed, where a person can read the reason.
+    """
+    try:
+        archive = bundle_service.of(draft_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404, detail=f"nothing has been kept under draft {draft_id}"
+        ) from None
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="pipeline-{draft_id[:8]}.zip"'},
+    )
 
 
 @router.post(

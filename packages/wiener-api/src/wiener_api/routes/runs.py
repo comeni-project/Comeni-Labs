@@ -48,6 +48,15 @@ class ArtifactStored(BaseModel):
     artifact_id: str
     digest: str
     size_bytes: int
+    declared: list[str] = []
+    """The parameters this artifact leaves `null` — what a submission must fill, exactly.
+
+    **Returned here so nobody has to provoke a 422 to find out.** `submit` already refuses with
+    `declared`/`missing`/`unknown`, and a client could learn the shape by posting an empty map
+    and reading the refusal — which works, and would make an error the documented way to ask a
+    question. The moment somebody has uploaded an artifact is the moment they need to know what
+    it wants, so it is said then.
+    """
 
 
 class RunAccepted(BaseModel):
@@ -90,7 +99,8 @@ async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
             id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
             digest=digest, size_bytes=size,
         ))
-    return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size)
+    return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
+                          declared=sorted(declared_holes(artifact_id)))
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")

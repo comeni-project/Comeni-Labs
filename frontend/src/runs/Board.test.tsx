@@ -63,3 +63,17 @@ it("reads the board from Wiener, not from Mendel", async () => {
   await screen.findByTestId("run-4c1e9a07b2f1de40");
   expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/runs");
 });
+
+it("offers a token field when Wiener refuses, rather than a status code", async () => {
+  // §12.1's check is one shared bearer token, and the board is the first Wiener page anybody
+  // opens — so it is where a fresh install meets the 401. `Failed` would have printed
+  // `/api/runs → 401`, which is true and tells nobody what to do about it.
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+  const router = createMemoryRouter(routes, { initialEntries: ["/runs"] });
+  render(
+    <QueryClientProvider client={makeClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId("token-prompt")).toBeTruthy());
+});

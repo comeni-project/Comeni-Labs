@@ -11,7 +11,9 @@ import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Compare } from "./Compare";
 import { Gate, GatePanel } from "./Gate";
+import { SubmitPanel } from "./Submit";
 import { Findings } from "./Findings";
+import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
 import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
@@ -145,10 +147,16 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   const offsets = builder.offsets;
   const isLoading = data === null;
   const error = builder.drawnError;
-  const [panel, setPanel] = useState<"review" | "problems" | "compare" | "gate">("review");
+  const [panel, setPanel] = useState<"review" | "problems" | "compare" | "gate" | "run">(
+    "review",
+  );
   // **The draft lifecycle, finally connected.** 3E built create/save/keep on the server and
   // wired none of it; a gate needs an artifact on disk, which is what surfaced that.
   const keeper = useKeep(builder.graph);
+  // **Read here, not inside the panel.** `useGate` shares its state through the query cache,
+  // so this is the same gate the toolbar button and the gate tab are looking at — which is
+  // what makes "a gate passed" mean the one a person just watched.
+  const gate = useGate(keeper.draftId);
   /** Where the cursor is while a wire is being dragged, in canvas coordinates. */
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   /** Where a right-click opened a menu, and on what. */
@@ -478,7 +486,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             what you drew comes before what Mendel would have done differently, because a graph
             that cannot be emitted is not yet worth diffing. */}
         <div className="flex gap-1 border-b border-line px-2 pt-2">
-          {(["review", "problems", "compare", "gate"] as const).map((t) => (
+          {(["review", "problems", "compare", "gate", "run"] as const).map((t) => (
             <button
               key={t}
               data-testid={`tab-${t}`}
@@ -502,6 +510,13 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         )}
         {panel === "gate" && (
           <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />
+        )}
+        {/* **The only tab that leaves Mendel** — A179, `wiener.md` §12. It is a separate tab
+            from *gate* rather than a button beside it, because a gate proves this artifact and
+            a run spends a laboratory's time on its own data: `execution-boundary.md` §3 keeps
+            those two words apart everywhere else and this is where they would blur. */}
+        {panel === "run" && (
+          <SubmitPanel draftId={keeper.draftId} gated={gate.passed && !keeper.blocked} />
         )}
         {panel === "compare" && (
           <>

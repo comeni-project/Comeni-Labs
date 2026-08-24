@@ -133,9 +133,11 @@ trade, and W5's `-profile k8s` removes it). And **the run directory is bind-moun
 absolute path inside and outside** the container, because a path handed to the daemon is resolved
 on the host — a named volume silently breaks that and a root-owned one breaks it loudly.
 
-**The Mendel→Wiener courier does not exist** — A179. `mendel-api` serves no kept artifact and the
-builder has no button that uploads one, so every run so far was submitted from a terminal. Both
-halves work; the hand-off between them is the hole.
+**The Mendel→Wiener courier exists as of 2026-08-24** — A179 closed. `GET
+/api/pipeline/drafts/{id}/bundle` serves a kept artifact as a zip and the builder's *run* tab
+posts it to Wiener, so **the browser is the courier and neither API learns the other exists**.
+Two clicks rather than one, because uploading is what discovers the parameters: the artifact
+declares its own holes and Wiener reads them out on upload. `docs/design/wiener.md` §12.
 
 **Nobody has looked at these screens.** Checkpoints 3 and 5 drove the HTTP and WebSocket halves
 and verified them; the browser half is unrun, which is exactly the gap 3E's lesson names.

@@ -1,5 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
+import { Unauthorized } from "../wiener/api/client";
+
 /** The query client, with defaults chosen rather than inherited.
  *
  * **The cache is trusted, because the mutations keep it correct.** Every write since phase 2
@@ -25,6 +27,12 @@ export function makeClient(): QueryClient {
         staleTime: 30_000,
         refetchOnWindowFocus: false,
         refetchOnMount: false,
+        /** **A 401 is not a transient failure.** TanStack retries three times with backoff by
+         *  default, so a Wiener with a token set left every screen spinning for seconds before
+         *  it could offer the field that fixes it — and retrying a credential that is wrong is
+         *  three requests nobody wanted. Everything else keeps the default. */
+        retry: (count: number, error: Error) =>
+          !(error instanceof Unauthorized) && count < 3,
       },
     },
   });

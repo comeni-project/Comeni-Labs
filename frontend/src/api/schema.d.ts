@@ -473,6 +473,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The kept pipeline, as a zip somebody else can run
+         * @description **Mendel's half of the courier, and the whole of what it knows about running** — A179.
+         *
+         *     `docs/design/wiener.md` §12: the browser fetches this and posts it to Wiener, so the copy
+         *     happens in a place that can see both halves and neither half can see the other. This route
+         *     does not know that Wiener exists, has no idea what will be done with the archive, and would
+         *     serve the same bytes to `curl`.
+         *
+         *     **It does not check that a gate passed.** Whether an un-gated pipeline may run is a policy
+         *     about running, and running is Wiener's — `execution-boundary.md` §3. What Mendel owes here
+         *     is an honest artifact; the builder's own control is what refuses to offer the button before
+         *     a gate has passed, where a person can read the reason.
+         */
+        get: operations["downloadBundle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/compare": {
         parameters: {
             query?: never;
@@ -2467,6 +2497,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Kept"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    downloadBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
