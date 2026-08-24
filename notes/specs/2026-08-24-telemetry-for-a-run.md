@@ -166,85 +166,20 @@ Two consequences worth planning around:
 
 ---
 
-## 4. What this domain already tracks, and where Wiener differs
+## 4. What this domain already tracks
 
-Seqera Platform — the commercial Nextflow control plane — surfaces CPU, memory, job duration
-and I/O per process, **each shown both raw and as a percentage of what was requested**, and
-feeds that history into *per-process resource recommendations* for the next run.
+Seqera Platform shows CPU, memory, job duration and I/O per process, **each raw and as a
+percentage of what was requested**, and uses the history to recommend per-process resources.
 
-Two things follow.
+Useful as a data point: the asked-versus-got framing is what practitioners already read, so
+§9.3 is aiming at the right thing. Build that.
 
-**The asked-versus-got framing is the domain standard, not a Wiener invention.** §9.3 arrived at
-it independently and it is what practitioners already read. Building anything else would be
-building something people have to learn.
-
-**Where Wiener differs is what it does with the history, and that difference is the product.**
-A recommendation engine emits a number somebody either trusts or ignores. §14's loop turns the
-same history into a **proposal into the forge queue** — a signature, a count, and the resource
-ceilings involved — which a named human approves into a rule or a contract that is versioned,
-cited and visible in a diff. Same input, and the output is reviewable rather than opaque. That
-is W6, and this research is what tells us the input is worth keeping now.
-
----
-
-### 4.1 Resembling a run manager is fine. The product is different for other reasons
-
-**Corrected 2026-08-24**, after this section first argued that measuring what Seqera measures
-was a competition worth losing. That was wrong, and the operator said so: **the five dashboards
-in §5.1 are the work**, the asked-versus-got framing is right *because* practitioners already
-read it, and a pipeline runner that resembles other pipeline runners in what it reports is a
-pipeline runner people can use on day one. Novelty in a resource plot is not a feature.
-
-**Wiener is one part of Comeni Labs, and the difference is in ownership rather than in
-readings.**
-
-- **It is Apache-2.0 and a laboratory hosts it themselves.** That is not a fallback tier —
-  invariant 13: *self-hosted is not a degraded tier; same registry, same resolver,
-  byte-identical output, and anything that would only work on our infrastructure is a design
-  error.* Seqera's control plane is a product you buy access to; this is a product you run.
-- **A centralised deployment is an option we may also offer**, and it sells convenience, never
-  capability. A lab that never talks to us gets the same numbers.
-- **Telemetry is opt-in and off by default** (`CLAUDE.md`), and §8 already says the collector is
-  self-hosted for the same reason: spans reaching a *hosted vendor* are an undeclared egress
-  path, and worse than the model one because telemetry is fire-and-forget.
-
-**Three constraints follow, and they bind phase 3 rather than being philosophy:**
-
-1. **The dashboards ship as importable artifacts**, not as a service. A lab points Wiener at
-   their own OTLP endpoint and gets the same five boards. If a board only renders on
-   infrastructure we run, invariant 13 is broken and the plan is wrong.
-2. **The backend stays swappable.** SigNoz is §8's default because one store for traces, logs
-   and metrics is one thing to operate — but Wiener speaks OTLP, so Grafana or Jaeger is a
-   configuration line. Nothing in the mapping may assume a query language.
-3. **No number requires a Comeni account to compute.** Everything in §5.1 is derivable from one
-   deployment's own spans and metrics.
-
-### 4.2 And one thing only this product can add
-
-Not instead of the dashboards — **beside them**, and cheaply, because the data is already
-local.
-
-`pipeline.yml` is in the artifact Wiener owns, `Pipeline` is a `comeni-core` type, and
-`comeni-core` is the one package both halves share (§3.3). So Wiener can label a run with its
-own decisions **without touching Mendel at all** — which is what that shared package is for.
-
-| attribute | from | the question it answers |
-|---|---|---|
-| `comeni.decision.tier` | `Why.tier`, `DecisionRecord.tier` | **do tier-3 decisions fail more often than tier-2 ones?** If a rule-matched choice breaks more than a documented default, the rule tables are wrong — a claim about the engine, measured |
-| `comeni.decision.source` | `Why.source` / `resolved_by` | resolver, rule, human, model — A130 from the other direction: does a value a *model* chose behave like one a person chose? |
-| `comeni.contract.id` | the step's pinned contract | which contract's steps fail — the registry's own error rate |
-| `comeni.registry.layer` | `Why.from_layer` | does an overlay's displacement beat the base it replaced? |
-| `comeni.override` | `human_override` / `model_override` | did overriding a tier-4 answer help? |
-
-No other platform can compute these, because no other platform records *why* a value is what it
-is. It is also what turns §14's loop from *"STAR_ALIGN fails sometimes"* into *"the rule setting
-its memory is wrong above 3 Gb"* — a proposal naming what to change.
-
-**It need not ship in phase 3.** Unlike the fifteen trace fields — gone forever if `admit()`
-drops them — telemetry is **regenerable**: spans are a pure function of `RunState` and the
-artifact, both kept, and §3 says a backdated span is legal. Labels can be back-filled by
-replaying the record. Carry them because they are nearly free once the artifact is open, not
-because there is a cliff.
+**Optional, and cheap once the artifact is open**: `pipeline.yml` is in the artifact Wiener
+owns and `Pipeline` is a `comeni-core` type, so a task span can also carry the tier, the
+source, the contract id and the layer that produced the step — `Why.tier`, `Why.source`,
+`Why.from_layer`. That makes "which decisions produce failing steps" a query. It can wait:
+spans are a pure function of `RunState` and the artifact, both kept, and a backdated span is
+legal, so labels can be back-filled by replay.
 
 ## 5. What to build, in order
 
@@ -255,7 +190,7 @@ implementation of what ClickHouse is for.
 1. **`spans(RunState) -> list[Span]`, pure, in `wiener-core`** — the run span, one child per
    attempt, the mapping tables above. Held by a golden test over the two committed captures, so
    the mapping is as reproducible as the emitted `.nf`.
-2. **The exporter in `wiener-api`** — OTLP, self-hosted, off by default. Invariant 1 is what
+2. **The exporter in `wiener-api`** — OTLP, pointed at the collector in the compose stack. Invariant 1 is what
    keeps the SDK out of `wiener-core`, and this is the payoff §3.1 predicted.
 3. **The five CI/CD metrics**, verbatim. `cicd.pipeline.run.active` is §2's fleet level, which
    had no mechanism before.
@@ -266,6 +201,11 @@ implementation of what ClickHouse is for.
 
 ### 5.1 Dashboards, and what each answers
 
+**They live in the telemetry backend, not in the SPA** — the collector and ClickHouse §8 puts
+in the compose stack. That is what keeps §9.4 true: the *run page* is two views of one
+`RunState` and gains no third, and these are the across-runs views that only exist once there
+is more than one run to compare. Board definitions live in the repo beside the compose file.
+
 | dashboard | answers | built from |
 |---|---|---|
 | **Is anything wrong now** | active runs by state, failures in the last day, runs gone `lost` | `cicd.pipeline.run.active`, `cicd.pipeline.run.errors` |
@@ -273,10 +213,6 @@ implementation of what ClickHouse is for.
 | **Where the time goes** | per-process duration and queue wait, p50/p95/max | task spans |
 | **Where the capacity goes** | asked versus used, per process, worst case kept | the six `wiener.*` attributes |
 | **What breaks** | exit codes per process over time, retries, repeat signatures | `process.exit.code`, `wiener.task.attempt` |
-
-**Every one of these must render against a laboratory's own backend** — §4.1. They are board
-definitions shipped with Wiener, not a service, and the test of that is whether a lab which has
-never spoken to us sees the same five.
 
 **Keep the maximum, not the mean** — §9.3 already says it and it is the single most important
 display rule here: the maximum is what kills a run and the mean is what hides it.
