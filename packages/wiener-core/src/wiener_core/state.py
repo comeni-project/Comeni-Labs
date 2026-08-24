@@ -25,7 +25,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from wiener_core.events import EventKind, RunEvent, TaskStatus
+from wiener_core.events import FROM_NEXTFLOW, EventKind, RunEvent, TaskStatus
 
 
 class RunPhase(StrEnum):
@@ -75,6 +75,12 @@ class RunState(BaseModel):
     started_at_ms: int | None = None
     ended_at_ms: int | None = None
     last_seq: int = -1
+    last_activity_ms: int | None = None
+    """When Nextflow last said anything. **A heartbeat is not activity.**
+
+    That distinction is the whole of `LOST` detection (§17): the timer's heartbeat is what
+    *wakes* the check, and if it also counted as a sign of life the check could never fire —
+    a dead head process would look alive precisely because Wiener kept talking to itself."""
     terminal_seen: frozenset[EventKind] = frozenset()
     run_succeeded: bool | None = None
 
@@ -133,6 +139,12 @@ def fold(state: RunState, event: RunEvent) -> RunState:
 
     started_at = state.started_at_ms or (
         event.at_ms if event.kind is EventKind.STARTED else None)
+    # `max`, not assignment — A176's convergence property caught the difference. A redelivered
+    # body carries its ORIGINAL `at_ms`, so overwriting rewinds liveness and a run that has
+    # been quiet for an hour can be made to look fresh by an old event arriving twice.
+    activity = state.last_activity_ms
+    if event.kind in FROM_NEXTFLOW:
+        activity = max(event.at_ms, activity) if activity is not None else event.at_ms
     started = started_at is not None
 
     return state.model_copy(update={
@@ -140,6 +152,7 @@ def fold(state: RunState, event: RunEvent) -> RunState:
         "tasks": tasks,
         "counts": _counts(tasks),
         "last_seq": event.seq,
+        "last_activity_ms": activity,
         "terminal_seen": seen,
         "run_succeeded": succeeded,
         "started_at_ms": started_at,

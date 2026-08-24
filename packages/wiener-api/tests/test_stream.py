@@ -112,3 +112,33 @@ def test_an_empty_run_still_hands_over_something_usable(client, a_bundle):
                          ).json()["run_id"]
     page = client.get(f"/api/runs/{run_id}/events").json()
     assert page == {"events": [], "cursor": -1, "stream_id": "0-0"}
+
+
+def test_the_timer_beats_only_unfinished_runs(session, a_run, tail):
+    """A175 gave the heartbeat a type and a constructor and no author, so `RunPhase.LOST` was a
+    phase nothing could produce. This is the author — and it must not append to runs that are
+    over, or a finished run's record grows forever."""
+    import asyncio
+
+    from wiener_api import repository
+    from wiener_api.services.projection import state_of
+    from wiener_api.worker import heartbeat_job
+
+    assert asyncio.run(heartbeat_job({})) == 1
+    assert state_of(session, a_run.lab_id, a_run.id).last_seq == 0
+
+    repository.run(session, a_run.lab_id, a_run.id).phase = "succeeded"
+    session.commit()
+    assert asyncio.run(heartbeat_job({})) == 0, "a finished run was beaten"
+
+
+def test_a_beat_is_recorded_but_does_not_look_like_life(session, a_run, tail):
+    import asyncio
+
+    from wiener_api.services.projection import state_of
+    from wiener_api.worker import heartbeat_job
+
+    asyncio.run(heartbeat_job({}))
+    state = state_of(session, a_run.lab_id, a_run.id)
+    assert state.last_seq == 0, "the beat is in the record"
+    assert state.last_activity_ms is None, "and Nextflow has still said nothing"

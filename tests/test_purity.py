@@ -572,6 +572,76 @@ def test_the_attribute_exemption_names_a_file_that_exists():
     )
 
 
+def _imported_roots(path: pathlib.Path) -> set[str]:
+    """The top-level module of every import in a file. AST rather than a substring scan.
+
+    `"mendel_forge" in text` — which the test below uses — matches a docstring, a comment and
+    the word in a variable name, and misses nothing only because it over-matches. For an arrow
+    between two halves of a product that is not good enough in either direction: a sentence
+    naming the other half would fail the build, and nobody would trust the guard afterwards.
+    """
+    roots: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, ast.Import):
+            roots |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            roots.add(node.module.split(".")[0])
+    return roots
+
+
+def _half_of(package: str) -> str | None:
+    """Which product a package belongs to. `comeni-core` belongs to both and is the point."""
+    if package.startswith("mendel-"):
+        return "mendel"
+    if package.startswith("wiener-"):
+        return "wiener"
+    return None
+
+
+def test_the_two_halves_share_only_comeni_core():
+    """`docs/design/wiener.md` §3.3, and **it was not built until 2026-08-24**.
+
+    Nothing under `mendel_*` may import `wiener_*`, and nothing under `wiener_*` may import
+    `mendel_*` — with the single exception of `comeni_core`, which is the shared artifact
+    vocabulary and the reason that package keeps the platform name.
+
+    **The exception is the interesting half.** `wiener-core` reads `Pipeline` because a run is
+    a run *of an artifact*; everything else about Mendel — resolution, the registry, the forge —
+    is invisible to Wiener, and a laboratory can run Wiener against a pipeline Mendel never
+    built. That independence is a feature (§12.1), and it stops being true the first time an
+    import crosses.
+
+    **What made this urgent rather than tidy**: phase 3 draws the run graph, `layout.py` lives
+    in `mendel-compiler`, and the obvious way to get it is an import. `wiener-core` happens to
+    be protected — its allowlist is closed, so any `mendel_*` import fails there already — but
+    `wiener-api` is impure and unguarded, and so is every `mendel-*` package in the other
+    direction. Both were reverted and watched before this existed: green, twice.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    packages = sorted(p.name for p in (root / "packages").iterdir() if p.is_dir())
+    halves = {name: _half_of(name) for name in packages}
+    assert {"mendel", "wiener"} <= set(halves.values()), (
+        f"this scan found no two halves to keep apart: {halves}"
+    )
+
+    offences: list[str] = []
+    for package, half in halves.items():
+        if half is None:
+            continue
+        forbidden = "wiener_" if half == "mendel" else "mendel_"
+        for path in sorted((root / "packages" / package / "src").rglob("*.py")):
+            crossed = sorted(r for r in _imported_roots(path) if r.startswith(forbidden))
+            if crossed:
+                offences.append(f"{path.relative_to(root)} imports {', '.join(crossed)}")
+
+    assert offences == [], (
+        "the two halves of the product may share only `comeni_core`:\n  "
+        + "\n  ".join(offences)
+        + "\nA run is a run OF an artifact, so `wiener-core` reads `Pipeline` — and nothing "
+          "else about Mendel is Wiener's to see. docs/design/wiener.md §3.3."
+    )
+
+
 def test_no_pure_package_imports_an_impure_one():
     """The dependency arrow, asserted rather than assumed.
 

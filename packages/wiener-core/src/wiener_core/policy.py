@@ -71,9 +71,14 @@ def decide(state: RunState, policy: Policy, now_ms: int) -> list[Intent]:
         intents.append(Intent(kind=IntentKind.ESCALATE, because=Reason.RUN_FAILED,
                               at_ms=now_ms, needs_approval=False))
 
-    if state.phase is RunPhase.RUNNING and not state.tasks:
-        since = now_ms - (state.started_at_ms or 0)
-        if since > policy.lost_after_ms:
+    if state.phase is RunPhase.RUNNING:
+        # **Silence, not emptiness.** This read `not state.tasks`, so a run that submitted four
+        # hundred tasks and then went quiet — the actual shape of a dead head process — was
+        # never lost, and only a run that never started one could be. Silence is measured from
+        # the last thing NEXTFLOW said; the heartbeat that wakes this check is deliberately not
+        # one of those things (§17, and `RunState.last_activity_ms`).
+        silent_since = state.last_activity_ms or state.started_at_ms or 0
+        if now_ms - silent_since > policy.lost_after_ms:
             intents.append(Intent(kind=IntentKind.GIVE_UP, because=Reason.NO_EVENTS,
                                   at_ms=now_ms))
 

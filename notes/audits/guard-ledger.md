@@ -2676,3 +2676,35 @@ see. Postgres row-level security is the control that survives all three, and it 
 §7.1's mechanism is a repository module and a scan, which is prevention by convention plus
 detection, not prevention by construction. Invariant 11's directory-by-construction note
 records the same trade going the other way.
+
+---
+
+## The two halves, and the clock that wakes a run — 2026-08-24
+
+Two gaps found by reading the spec against the code after Checkpoint 3, and closed before
+phase 3 could build on either.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_the_two_halves_share_only_comeni_core` | `import mendel_compiler.layout` in `wiener_api/repository.py` | failed | `the two halves of the product may share only comeni_core:` / `  packages/wiener-api/src/wiener_api/repository.py imports mendel_compiler` |
+| 2026-08-24 | same | `from wiener_core.state import RunState` in `mendel_api/questions.py` | failed | `  packages/mendel-api/src/mendel_api/questions.py imports wiener_core` |
+
+**`docs/design/wiener.md` §3.3 declared this rule and nothing built it.** Both reverts were run
+*before* the guard existed and both passed — green, twice — which is the difference between a
+rule written down and a rule held.
+
+**The claim it corrects was half wrong when first reported.** `wiener-core` importing
+`mendel_compiler` *does* already fail, because that package's allowlist is closed and
+`mendel_compiler` is not on it. What was unguarded is everything impure: `wiener-api` in one
+direction and every `mendel-*` package in the other. Saying "the arrow is unguarded" was
+therefore too broad, and the difference matters — a closed allowlist protects the pure half by
+construction, and only the impure half needed a rule.
+
+**Why it was urgent rather than tidy.** Phase 3 draws the run graph, `layout.py` lives in
+`mendel-compiler`, and the obvious way to get it is an import — from `wiener-api`, which is
+exactly where nothing was watching.
+
+**It is an AST scan rather than a substring one**, unlike its neighbour
+`test_no_pure_package_imports_an_impure_one`, which greps for `"mendel_forge" in text`. For an
+arrow between two halves that over-matching is not acceptable in either direction: a sentence
+naming the other half would fail the build, and a guard nobody trusts gets deleted.

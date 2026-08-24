@@ -27,6 +27,14 @@ def runs(session: Session, lab_id: str, limit: int = 50) -> list[Run]:
     ))
 
 
+def unfinished(session: Session, lab_id: str) -> list[Run]:
+    """Runs that have not reached a terminal phase — what the heartbeat timer walks."""
+    return list(session.scalars(
+        select(Run).where(Run.lab_id == lab_id,
+                          Run.phase.notin_(("succeeded", "failed", "cancelled", "lost")))
+    ))
+
+
 def artifact(session: Session, lab_id: str, artifact_id: str) -> RunArtifact | None:
     return session.scalar(
         select(RunArtifact).where(RunArtifact.lab_id == lab_id, RunArtifact.id == artifact_id)

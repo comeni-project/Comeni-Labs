@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
-from wiener_core.events import RunEvent, admit
+from wiener_core.events import RunEvent, admit, heartbeat
 from wiener_core.state import EMPTY, RunState, fold, replay
 
 from wiener_api import repository
@@ -34,7 +34,26 @@ def state_of(session: Session, lab_id: str, run_id: str) -> RunState:
 def record(session: Session, lab_id: str, run_id: str, payload: dict) -> RunState:
     """Admit one weblog body, append it to the record, and refresh the projections."""
     seq = repository.next_seq(session, lab_id, run_id)
-    event = admit(payload, run_id=run_id, seq=seq)
+    return append(session, lab_id, run_id, admit(payload, run_id=run_id, seq=seq))
+
+
+def beat(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState:
+    """Append the timer's heartbeat. **The only producer of one** — §6.1.
+
+    `admit()` refuses a heartbeat from the network (MW0002), so this is the whole of that
+    kind's provenance on the server, and it goes through the same `append` as everything else:
+    the record does not gain a second way in.
+
+    It is not a sign of life. `fold` ignores it for `last_activity_ms`, which is what lets a
+    quiet run be told apart from a dead one.
+    """
+    seq = repository.next_seq(session, lab_id, run_id)
+    return append(session, lab_id, run_id, heartbeat(run_id=run_id, at_ms=at_ms, seq=seq))
+
+
+def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunState:
+    """Persist one admitted event, fold it, refresh the projections, publish the tail."""
+    seq = event.seq
 
     repository.add(session, lab_id, RunEventRow(
         run_id=run_id, seq=seq, kind=event.kind, at_ms=event.at_ms,
