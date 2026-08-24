@@ -143,3 +143,15 @@ def test_a_resourced_event_survives_it_too():
     assert twice.trace.pct_cpu == once.trace.pct_cpu
     assert twice.trace.peak_rss_bytes == once.trace.peak_rss_bytes
     assert twice.trace.start_ms == once.trace.start_ms
+
+
+def test_the_no_exit_sentinel_becomes_absent():
+    """Nextflow sends `2147483647` — `Integer.MAX_VALUE` — for a task that has not exited.
+
+    Stored as-is it reaches a dashboard as a real exit code, grouped beside the 0s and 1s, and
+    "what breaks" reports a failure mode nothing has. §4.4 is about deciding what may enter, and
+    a sentinel meaning *absent* enters as absent.
+    """
+    running = next(b for b in _bodies() if b.get("trace", {}).get("status") == "RUNNING")
+    assert running["trace"]["exit"] == 2_147_483_647, "the fixture still carries the sentinel"
+    assert admit(running, run_id="r1", seq=1).trace.exit is None

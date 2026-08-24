@@ -426,6 +426,22 @@ that failed, which is what makes `errorStrategy` worth having.
 """
 
 
+RETRY_ON_RESOURCE = [
+    "    // Retry once on the exit codes that mean *not enough of something* — 137 is the OOM",
+    "    // kill, 130-145 are the signals, 104 is a Slurm/LSF resource refusal. Anything else",
+    "    // is a real failure and retrying it just costs time. nf-core's conf/base.config.",
+    "    //",
+    "    // **This is what makes `* task.attempt` above mean anything.** Without a retry the",
+    "    // multiplier can never fire and the label's second attempt is decoration: a task",
+    "    // killed for memory asks for the same amount again, forever.",
+    "    errorStrategy = { task.exitStatus in ((130..145) + 104) ? 'retry' : 'finish' }",
+    "    maxRetries    = 1",
+]
+"""A convention, and half of a pair: the labels say what a retry asks for and this is what
+causes one. Emitting the first without the second is what shipped on 2026-08-24 for an hour —
+found by a board panel that was empty because nothing in any run had ever reached attempt 2."""
+
+
 def _label_scope() -> list[str]:
     lines = [
         "    // Resource requests by label, from nf-core's conf/base.config. A CONVENTION:",
@@ -436,6 +452,7 @@ def _label_scope() -> list[str]:
         "    // A site caps these with `process.resourceLimits` in its own config — how big",
         "    // the machine is, is not a fact about the pipeline.",
     ]
+    lines += RETRY_ON_RESOURCE
     for label, directives in RESOURCE_LABELS:
         lines.append(f"    withLabel: {label} {{")
         lines += [f"        {directive}" for directive in directives]

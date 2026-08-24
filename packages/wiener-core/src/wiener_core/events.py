@@ -166,6 +166,18 @@ class RunEvent(BaseModel):
     manifest: RunManifest | None = None
 
 
+NO_EXIT: Final = 2**31 - 1
+"""Nextflow's sentinel for *this task has no exit code yet* — `Integer.MAX_VALUE`.
+
+**It is not an exit code and must not be stored as one.** A task that is submitted or running
+carries it, and left alone it reaches a dashboard as `exit_code 2147483647` grouped beside the
+real 0s and 1s. §4.4's job is deciding what may enter; a sentinel that means *absent* enters as
+absent.
+
+Found on 2026-08-24 by grouping real spans by exit code and reading the answer.
+"""
+
+
 def _at_ms(body: dict[str, Any]) -> int:
     return int(datetime.fromisoformat(body["utcTime"].replace("Z", "+00:00")).timestamp() * 1000)
 
@@ -181,6 +193,8 @@ def admit(payload: dict[str, Any], run_id: str, seq: int) -> RunEvent:
         raise ValueError(coded("MW0002", f"{kind} is authored by Wiener, not posted to it"))
 
     trace = TaskTrace.model_validate(payload["trace"]) if payload.get("trace") else None
+    if trace is not None and trace.exit == NO_EXIT:
+        trace = trace.model_copy(update={"exit": None})
 
     manifest = None
     if (meta := payload.get("metadata")) is not None:

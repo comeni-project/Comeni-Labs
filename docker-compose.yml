@@ -204,7 +204,12 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
     volumes:
-      - ./ops/grafana:/etc/grafana/provisioning/datasources:ro
+      # **The whole provisioning tree, not one directory of it.** Grafana reads
+      # `provisioning/datasources/` and `provisioning/dashboards/` as separate providers, and
+      # mounting `ops/grafana` onto the datasources directory alone meant the dashboard
+      # provider was never seen: "starting to provision dashboards / finished" with nothing
+      # between, and an empty search.
+      - ./ops/grafana:/etc/grafana/provisioning:ro
       - ./ops/boards:/etc/grafana/boards:ro
     depends_on:
       clickhouse: {condition: service_healthy}

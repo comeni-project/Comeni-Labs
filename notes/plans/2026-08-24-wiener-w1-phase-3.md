@@ -499,13 +499,13 @@ def test_spans_are_a_golden_file():
 
 **Files:** create `ops/boards/*.json` (or the backend's own format), `ops/boards/README.md`
 
-- [ ] **Step 1: Build them in the UI first, then export.** A board written by hand against a
+- [x] **Step 1: Build them in the UI first, then export.** A board written by hand against a
   query language nobody has run is a board that renders empty.
-- [ ] **Step 2: The four** — §8.1's table: *is anything wrong now*, *where the time goes*,
+- [x] **Step 2: The four** — §8.1's table: *is anything wrong now*, *where the time goes*,
   *where the capacity goes*, *what breaks*. **Keep the maximum, not the mean.**
-- [ ] **Step 3: `README.md` says how to import them**, in three lines, and says which one is
+- [x] **Step 3: `README.md` says how to import them**, in three lines, and says which one is
   useless until W5 (queue wait reads zero on `local`).
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ## ✋ CHECKPOINT 4 — the boards answer their questions
 
@@ -622,6 +622,10 @@ designed. Build what is drawn.
 | 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
 | 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
 | 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 7 | The boards were authored as JSON and **each query verified against real data** rather than built in a UI and exported | The plan says build them in Grafana first, and this session cannot click. So every panel's SQL was run against ClickHouse before it went in a board, and then all eleven were re-run through the provisioned boards: **10 of 11 returned rows, and the eleventh was empty for a reason** |
+| 7 | The Grafana mount was wrong and nothing was provisioned | `ops/grafana` was mounted onto `provisioning/datasources`, so the dashboard provider was never read — the log says *"starting to provision dashboards / finished"* with nothing between, and the search returns nothing. The whole `provisioning` tree is mounted now |
+| 7 | **`errorStrategy` was missing, so `* task.attempt` was decoration** | Found by the one empty panel: nothing in any run had ever reached attempt 2, because the emitted config has no retry. A task killed for memory would ask for the same amount again, forever. nf-core pairs the two and so does this now — same citation, and it is what makes the OOM-retry story real |
+| 7 | Every panel gained a `noValue` sentence | **Silence and breakage look identical**, and a reader cannot tell which they are seeing. *"Nothing has needed a second try"* is good news; *"No queue wait recorded — it reads zero on the local executor"* is an explanation rather than a gap |
 | CP3 | **A run was two traces, and only ClickHouse could see it** | The SDK invents a random trace id for a span with no parent context, so the run span landed in a trace of its own while the five task spans shared the derived one — and their `ParentSpanId` pointed at a span that did not exist. One lone `RUN` and five orphans, which is the shape of failure that looks like it works. **Every unit test stubbed `_emit`**, so they asserted what Wiener intends rather than what the SDK produces. A `_DerivedIds` generator fixes it; the guard that catches it runs the real provider into an in-memory exporter |
 | CP3 | The first version of that guard was **vacuous** and I caught it by reverting | It built its own `TracerProvider` with `_ids` attached, so removing the generator from the real one changed nothing and it still passed. `build_provider()` exists so the test constructs the subject rather than a copy of it — and reverting now gives `a run must be ONE trace: assert 2 == 1` |
 | 5 | **No containers were added.** The telemetry backend is pointed at, not composed | **SigNoz deprecated its bundled Compose files in v0.130.0** and installs through Foundry — a CLI that renders and runs its own stack rather than composing into somebody else's. Vendoring the deprecated manifest would mean running an unmaintained copy of another project's stack to preserve one-file tidiness. §8 already said the backend is *named but not depended on*, and the operator's steer was that production is Kubernetes anyway, so this is that sentence being used rather than bent. `ops/telemetry/README.md` is how to run one; `WIENER_OTLP_ENDPOINT` is the whole integration |
