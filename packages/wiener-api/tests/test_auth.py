@@ -61,3 +61,44 @@ def test_an_unset_token_leaves_the_api_open_and_says_so(monkeypatch, session, ca
         client = TestClient(create_app())
     assert client.get("/api/runs").status_code == 200
     assert "accepts every request" in caplog.text
+
+
+def test_an_open_api_beside_a_mounted_socket_shouts(monkeypatch, session, caplog, tmp_path):
+    """**Either alone is a choice; the pair is the incident.**
+
+    A worker holding the Docker socket can start containers on the host, which is
+    root-equivalent — so an unset token *and* a mounted socket together mean anyone who can
+    reach the API can reach the machine. The single warning about the token does not say that,
+    and the person who needs to hear it is the one who has not thought about it.
+    """
+    from wiener_api import main
+
+    monkeypatch.setattr(settings, "api_token", "")
+    monkeypatch.setattr(main, "socket_is_mounted", lambda: True)
+
+    with caplog.at_level("WARNING"):
+        TestClient(main.create_app())
+    assert "REACH THE HOST" in caplog.text
+
+
+def test_the_worker_is_where_the_pairing_warning_can_fire(monkeypatch, caplog):
+    """The API's own check finds nothing in the real topology — the socket is mounted on the
+    worker — so the warning that matters lives where the socket does. A check that cannot fire
+    is worse than no check, because it reads as one."""
+    from wiener_api import main
+    from wiener_api.worker import warn_about_the_pairing
+
+    monkeypatch.setattr(settings, "api_token", "")
+    monkeypatch.setattr(main, "socket_is_mounted", lambda: True)
+
+    import asyncio
+
+    with caplog.at_level("WARNING"):
+        asyncio.run(warn_about_the_pairing({}))
+    assert "CAN REACH THIS HOST" in caplog.text
+
+    caplog.clear()
+    monkeypatch.setattr(settings, "api_token", "a-real-token")
+    with caplog.at_level("WARNING"):
+        asyncio.run(warn_about_the_pairing({}))
+    assert caplog.text == "", "a token in front of it is the whole point; do not cry wolf"

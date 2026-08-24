@@ -168,8 +168,8 @@ services:
     environment:
       WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
-      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
-    volumes: ["./.run/wiener:/var/wiener"]
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+    volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
     command: uvicorn wiener_api.main:create_ingest_app --factory --host 0.0.0.0 --port 8099
 
   wiener-worker:
@@ -184,10 +184,41 @@ services:
     environment:
       WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
-      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
-      WIENER_WORK_ROOT: /var/wiener/work
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
       WIENER_INGEST_BASE_URL: http://wiener-ingest:8099
-    volumes: ["./.run/wiener:/var/wiener"]
+      WIENER_CONTAINER_PROFILE: docker
+    volumes:
+      # **The Docker socket, and what that means, said plainly.**
+      #
+      # Nextflow launches a container per task, and this container is where Nextflow runs — so
+      # it needs a container runtime. Mounting the host's socket gives whatever runs here the
+      # ability to start containers on the host, which is root-equivalent: a container can
+      # mount `/`. **Whoever can submit a run can therefore reach the host**, and the thing
+      # standing in front of that is `WIENER_API_TOKEN`.
+      #
+      # That is the posture every CI runner takes — Jenkins agents, GitLab runners — and the
+      # rule is the same: *the runner is as trusted as what it runs*. Here that is the
+      # laboratory's own gated pipelines from a registry it curates. `docs/design/wiener.md`
+      # §12.1 records it as a cost rather than leaving it to be discovered.
+      #
+      # **It goes away in W5.** With `-profile k8s` or `awsbatch` Nextflow submits jobs to a
+      # scheduler and starts no local containers, so this line is a `local`-executor concession
+      # and not an architectural one.
+      #
+      # The alternative considered and rejected for the MVP: Apptainer in this image, which is
+      # rootless and needs unprivileged user namespaces, `/dev/fuse` and a seccomp exception —
+      # it works here and not on an Ubuntu 24.04 host, which is the opposite of "works
+      # anywhere".
+      - /var/run/docker.sock:/var/run/docker.sock
+      # **Mounted at the SAME absolute path inside and out**, which is not tidiness. Nextflow
+      # asks the host's daemon to bind-mount a task's work directory, and the daemon resolves
+      # that path against the HOST filesystem — so a container path of `/var/wiener/work` would
+      # mount a directory the host does not have, and every task would see an empty workdir.
+      - ${PWD}/.run/wiener:${PWD}/.run/wiener
+    # The socket is owned by root:docker; this container runs as the host user, which needs to
+    # be in that group to open it.
+    group_add: ["${DOCKER_GID_SOCK:-957}"]
     command: arq wiener_api.worker.WorkerSettings
 
   wiener-api:
@@ -200,12 +231,12 @@ services:
     environment:
       WIENER_DATABASE_URL: postgresql+psycopg://wiener:wiener@wiener-postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1
-      WIENER_ARTIFACT_ROOT: /var/wiener/artifacts
-      WIENER_WORK_ROOT: /var/wiener/work
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
       # **Unset by default, and the API says so at startup.** Right for a laptop and wrong for
       # anything reachable — §12.1. `WIENER_API_TOKEN=$(openssl rand -hex 24)` in a `.env`.
       WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
-    volumes: ["./.run/wiener:/var/wiener"]
+    volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
     # **No published port.** nginx is the way in — one origin, split by path, the same split
     # `vite.config.ts` already makes in development.
     command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001

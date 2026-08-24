@@ -6,6 +6,7 @@ on the first would make an ingest route reachable by anything that can reach the
 """
 
 import logging
+import pathlib
 import secrets
 
 from fastapi import FastAPI, Request
@@ -16,6 +17,15 @@ from wiener_api.routes.runs import router as runs_router
 from wiener_api.settings import settings
 
 log = logging.getLogger(__name__)
+
+DOCKER_SOCKET = pathlib.Path("/var/run/docker.sock")
+
+
+def socket_is_mounted() -> bool:
+    """Whether this deployment can start containers on the host. A function rather than an
+    inline check so a test can say what it is testing."""
+    return DOCKER_SOCKET.exists()
+
 
 OPEN_PATHS = frozenset({"/api/health", "/openapi.json", "/docs", "/redoc",
                         "/docs/oauth2-redirect"})
@@ -32,11 +42,21 @@ def create_app() -> FastAPI:
         # **Said out loud at startup**, because the alternative is a deployment that is open
         # and nobody notices until it matters. §12.1 makes this a W1 requirement and an
         # unconfigured install is the one most likely to exist.
+        #
+        # **The second sentence is the one that matters**, and only when both halves are true:
+        # a worker with the Docker socket can start containers on the host, so an open API and
+        # a mounted socket together mean anyone who can reach this can reach the machine.
+        # Either alone is a choice; the pair is the incident.
         log.warning(
             "WIENER_API_TOKEN is unset: this API accepts every request. Fine on a laptop, "
-            "and §12.1 of docs/design/wiener.md says the first deployment anybody else can "
-            "reach needs the check first.",
+            "and §12.1 says the first deployment anybody else can reach needs the check first.",
         )
+        if socket_is_mounted():
+            log.warning(
+                "AND the Docker socket is mounted: a run can start containers on the host, "
+                "which is root-equivalent. With no token, ANYONE WHO CAN REACH THIS API CAN "
+                "REACH THE HOST. Set WIENER_API_TOKEN before exposing this beyond localhost.",
+            )
 
     @app.middleware("http")
     async def require_token(request: Request, call_next):

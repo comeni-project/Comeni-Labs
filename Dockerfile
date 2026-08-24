@@ -63,6 +63,7 @@ FROM python:3.12-slim-bookworm AS runtime
 # why nothing noticed this image had no Nextflow at all.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git curl default-jre-headless \
+      docker.io \
  && curl -fsSL https://get.nextflow.io -o /usr/local/bin/nextflow \
  && chmod +x /usr/local/bin/nextflow \
  && rm -rf /var/lib/apt/lists/*

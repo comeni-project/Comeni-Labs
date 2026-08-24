@@ -4,6 +4,7 @@ The same shape `mendel-api` takes for gates: the route writes a row and returns 
 milliseconds, and the work that can take three days happens somewhere a browser is not waiting.
 """
 
+import logging
 from datetime import UTC, datetime
 
 from arq import cron
@@ -11,7 +12,7 @@ from arq.connections import RedisSettings
 from wiener_core.policy import IntentKind, Policy, Reason, decide
 from wiener_core.state import RunPhase
 
-from wiener_api import db, repository
+from wiener_api import db, main, repository
 from wiener_api.services.launcher import launch
 from wiener_api.services.projection import beat
 from wiener_api.settings import settings
@@ -64,8 +65,29 @@ def _given_up_on(state, policy: Policy, now_ms: int) -> bool:
     )
 
 
+async def warn_about_the_pairing(ctx: dict) -> None:
+    """**The container that holds the socket is the one that can see it.**
+
+    `main.create_app` checks this too and, in the compose topology, always finds nothing: the
+    socket is mounted on the worker and not on the API, so that warning could never fire where
+    it matters. A check that cannot fire is worse than no check, because it reads as one.
+
+    Either half is a choice. The pair — an API anyone can reach and a worker that can start
+    containers on the host — is how a laboratory tool becomes a way into a laboratory's
+    machine.
+    """
+    if main.socket_is_mounted() and not settings.api_token:
+        logging.getLogger(__name__).warning(
+            "This worker can start containers on the host (the Docker socket is mounted) and "
+            "WIENER_API_TOKEN is unset, so the API in front of it accepts every request. "
+            "ANYONE WHO CAN REACH THAT API CAN REACH THIS HOST. Set WIENER_API_TOKEN before "
+            "exposing it beyond localhost — docs/design/wiener.md §12.1.",
+        )
+
+
 class WorkerSettings:
     functions = [launch_job]
+    on_startup = warn_about_the_pairing
     cron_jobs = [
         # Every five minutes. The interval only has to be finer than the coarsest thing that
         # reads it, and §17's `LOST` window is deliberately blunt — it must exceed the slowest

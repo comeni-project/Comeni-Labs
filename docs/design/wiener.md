@@ -1001,6 +1001,27 @@ this property and pretending otherwise would be the dangerous version. What foll
   recorded digests.
 - **Write mode (§11) gates additionally on internal-network origin**, off by default. The verb
   vocabulary is what makes that gate meaningful: a shell behind an IP check is still a shell.
+- **The worker holds the host's Docker socket, and the token is what stands in front of it**
+  (decided 2026-08-24). Nextflow starts a container per task and Wiener's worker is itself a
+  container, so it needs a runtime; the socket gives it one and gives it root-equivalent access
+  to the host, because a container can mount `/`. **Whoever can submit a run can therefore reach
+  the machine.**
+
+  That is every CI runner's posture — Jenkins agents, GitLab runners — and the rule is the same:
+  *the runner is as trusted as what it runs*, which here is the laboratory's own gated pipelines
+  from a registry it curates. It is written down rather than left to be found, and the worker
+  says it out loud at startup when the socket is mounted **and** no token is set, because either
+  alone is a choice and the pair is the incident.
+
+  **It disappears in W5.** With `-profile k8s` or `awsbatch`, Nextflow submits jobs to a
+  scheduler and starts no local containers, so this is a `local`-executor concession rather than
+  an architectural one.
+
+  **Apptainer was considered and rejected for the MVP.** It is rootless and daemonless and would
+  avoid all of the above — and it needs unprivileged user namespaces, `/dev/fuse` and a seccomp
+  exception, which works on one developer's host and not on an Ubuntu 24.04 one. Trading a
+  labelled risk for *"it does not work on my machine"* is the wrong trade for a tool whose point
+  is that it works anywhere.
 
 **Wiener becomes independently useful**, and that is a feature rather than a side effect — a
 laboratory can run a pipeline Mendel never built, which is a far stronger position than a component
