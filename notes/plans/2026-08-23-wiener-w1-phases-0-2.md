@@ -1778,8 +1778,8 @@ git commit -m "feat(wiener-api): artifacts, submit, and the board"
 **Stop. This is the checkpoint that matters most, because everything before it is testable
 without Nextflow and this is not.**
 
-- [ ] **Bring the stack up**: `make dev` plus the new `wiener-postgres` and `wiener-api`.
-- [ ] **Submit a real run by hand**, against the repo's own emitted spine:
+- [x] **Bring the stack up**: `make dev` plus the new `wiener-postgres` and `wiener-api`.
+- [x] **Submit a real run by hand**, against the repo's own emitted spine:
 
 ```bash
 uv run mendel build --goal examples/rnaseq-goal.yml --out /tmp/spine
@@ -1790,9 +1790,9 @@ R=$(curl -s localhost:8001/api/runs -H 'content-type: application/json' \
 sleep 60 && curl -s localhost:8001/api/runs/$R | jq '{phase, counts}'
 ```
 
-- [ ] **Confirm the events are in Postgres**, not just in memory:
+- [x] **Confirm the events are in Postgres**, not just in memory:
   `SELECT kind, count(*) FROM run_event GROUP BY kind;`
-- [ ] **Report to the operator**: the phase, the counts, how long the first event took to
+- [x] **Report to the operator**: the phase, the counts, how long the first event took to
   arrive, and **whether `trace.enabled` actually delivered `peak_rss`** — that is finding 6
   being confirmed against a real pipeline rather than the four-second toy that found it.
 
@@ -2132,6 +2132,7 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 8 | Three tests beyond the plan's four | The digest agreeing across two differently-built archives of the same tree (the whole reason it walks sorted pairs), the zip-escape refusal, and the samplesheet path above |
 | CP2 | `settings.container_profile`, and `command()` passes `-profile {executor},{container}` | **A run needs two profiles and the launcher passed one.** The emitted config separates the executor from the container runtime and its own `k8s` profile says so in a comment — `-profile k8s,docker -c site.config`. With one profile every process runs uncontained and every tool must be on the host's PATH. Found by running it: the first real submission failed, the second reached `local,docker` and worked |
 | CP2 | **`TaskTrace` gained the fifteen `trace.enabled` fields**, plus a second committed capture and two tests | §9.4 calls this *"a line in an allowlist and a test, rather than a subsystem"*, which reads like phase-3 display work. It is not: **`run_event` is the record and it cannot be back-filled**, so every run stored before this had no resource history *ever*, and phase 3's dashboard would open on months of runs it could say nothing about. Confirmed against a raw capture rather than assumed — the weblog body carries all fifteen and `admit()` was dropping every one. The committed `failing-run.jsonl` was taken *without* `trace.enabled`, which is exactly why every test passed while the fields went in the bin |
+| CP2 | The checkpoint ran on the **host**, not through `make dev` | **Nothing serves the ingest app in compose.** Task 8 step 4 says the compose file runs the two apps "on 8001 and 8099 respectively" and the service has one `command`, so a container stack answers the public API and drops every event. It is left as a finding rather than fixed here, because the fix is a topology decision — the head process posts to `127.0.0.1:8099`, which is only true if the ingest app shares a container with whatever spawns Nextflow, and §13.1's loopback claim depends on that. Phases 0–2 target one operator on a laptop, which is what was run |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
