@@ -8,7 +8,7 @@ transport over, arriving one release later in a different package.
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 
-from wiener_api.db import session_scope
+from wiener_api import db
 from wiener_api.services.projection import record
 from wiener_api.settings import settings
 
@@ -18,7 +18,7 @@ router = APIRouter()
 @router.post("/events/{run_id}/{secret}", status_code=204)
 async def ingest(run_id: str, secret: str, request: Request) -> None:
     payload = await request.json()
-    with session_scope() as session:
+    with db.session_scope() as session:
         from wiener_api import repository
 
         row = repository.run(session, settings.lab_id, run_id)

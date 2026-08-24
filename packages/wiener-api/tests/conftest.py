@@ -49,10 +49,11 @@ def session(monkeypatch):
             session.rollback()
             raise
 
+    # One patch, because both callers reach it as `db.session_scope()` rather than binding
+    # the symbol at import — CLAUDE.md's own gotcha: `from x import f` binds past a later
+    # patch of `x.f`, and the first version of this fixture patched two modules to work
+    # around exactly that.
     monkeypatch.setattr(db, "session_scope", scope)
-    import wiener_api.routes.ingest as ingest_module
-
-    monkeypatch.setattr(ingest_module, "session_scope", scope)
     yield session
     session.close()
 

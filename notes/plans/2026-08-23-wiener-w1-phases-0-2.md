@@ -1513,7 +1513,7 @@ git commit -m "feat(wiener-api): ingest on its own app, with a per-run secret"
 - Produces: `site_config(run) -> str`, `launch(run_id: str) -> None`,
   `WorkerSettings` with `launch_job`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/wiener-api/tests/test_launcher.py
@@ -1545,12 +1545,12 @@ def test_a_launch_writes_no_client_supplied_path(a_run):
     assert str(work_dir(a_run.id)).endswith(a_run.id)
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-api/tests/test_launcher.py -x`
 Expected: FAIL — no `launcher` module.
 
-- [ ] **Step 3: Write `launcher.py`**
+- [x] **Step 3: Write `launcher.py`**
 
 ```python
 """Launching the head process, and the config that makes it report.
@@ -1606,7 +1606,7 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 ```
 
-- [ ] **Step 4: Write `launch()` and the ARQ job**
+- [x] **Step 4: Write `launch()` and the ARQ job**
 
 Append to `launcher.py`:
 
@@ -1655,12 +1655,12 @@ class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `uv run pytest packages/wiener-api/tests/test_launcher.py -v`
 Expected: 3 passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/wiener-api
@@ -2124,6 +2124,8 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 6 | `test_the_ingest_app_is_not_the_public_app` was rewritten, and a `_paths()` helper added | `{r.path for r in app.routes}` **raises** on the ingest app — FastAPI 0.141 leaves an `_IncludedRouter` with no `.path` and no `.routes`. Written defensively with a `getattr` it would have found nothing and passed while proving nothing, which is precisely the check Plan 3A phase 6's audit caught iterating `app.routes` and finding zero. It now walks `original_router`, is guarded by `test_the_route_scan_sees_something`, **and** asserts behaviourally: the public app is POSTed a real run id and secret and must answer 404 |
 | 6 | `test_projection_matches_replay` was strengthened to compare the cache | As written it called `state_of` — which *is* the replay — and asserted two counts, so **it would have passed with the projection tables empty**. Its name promises §7.1's claim that the cache agrees with the fold, and it now compares `run.phase` and every `run_task` row against the folded state. Watched failing by not refreshing `run.phase`: `assert 'queued' == 'failed'` |
 | 6 | `conftest.py` uses `StaticPool` | A bare `sqlite://` gives every connection its own empty database, so `create_all` lands in one and the session opens another. It surfaces as `no such table: run`, several layers from the cause |
+| 7 | `launch()` reaches rows through `repository` and `db.session_scope()` rather than `session.get()` and a bound symbol | The tenancy guard again, plus `CLAUDE.md`'s own gotcha — *"import modules, not symbols, where tests monkeypatch"*. `ingest.py` was changed the same way, and the conftest fixture that had been patching two modules to work around it now patches one |
+| 7 | A fourth test: `test_launch_copies_the_artifact_and_starts_nextflow_there` | The plan's three cover the strings `launch()` assembles and not what it does with them, so **`launch()` would have been executed for the first time at Checkpoint 2, against real Nextflow.** It runs through the `_spawn` seam that exists for exactly this |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
