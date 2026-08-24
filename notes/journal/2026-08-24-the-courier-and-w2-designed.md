@@ -79,7 +79,7 @@ filtering by process is an indexed query and *ordering by memory* would mean loa
 documents. Three derived columns fix it. It is the same lesson `CLAUDE.md` already records about
 ranking at scale being `ORDER BY`.
 
-**A200 — BLOCKING, and it is the operator's.** The artboards show `sample_07` on every task row.
+**A200 — resolved, and it corrected the audit.** The artboards show `sample_07` on every task row.
 **Nothing in the fold can name a sample**: `TaskTrace` admits `tag`, `name`, `hash` and `workdir`,
 every one marked `LabString`, and `fold()` keeps none of them.
 
@@ -89,11 +89,28 @@ That is not an oversight — and a guard written in W1 predicted this exact day:
 > will want for the console one day — reopens the path, and this fails rather than the leak
 > shipping."*
 
-W2 is that day. §8's claim that no lab string can become a span attribute is **structural** today
-because they are not in the fold at all; the obvious fix downgrades it to a rule somebody must
-remember. Four options are in the plan with their costs; the recommendation is that `wiener-api`
-reads them from `run_event.payload` at query time and `wiener-core` never sees one — **and that it
-is measured at Checkpoint 1 rather than argued.**
+W2 is that day. **Resolved the same evening, and the resolution corrected the audit's own
+recommendation** — which is the part worth carrying.
+
+The audit recommended reading the fields from `run_event.payload` at query time. The operator
+asked whether the guard was actually necessary and whether that was not simply slower. Both
+halves of the answer moved:
+
+- **The guard is fair and is kept.** Its docstring puts it better than the audit did — *"`script`,
+  `workdir`, `name` and `tag` are exactly the fields a backend would happily index and retain"* —
+  and the risk is not theoretical: the collector's exporter is a **config file** a laboratory can
+  point at any OTLP backend, §16 says Wiener stands in patient data, and a FASTQ tag is often an
+  accession number.
+- **But the guard protects `wiener-core`, and two of the four options keep lab strings out of it
+  entirely.** A `labels` column written by the *impure* projection does not weaken it by a line.
+  And the §7.1 objection raised against that option was overstated: §7.1 forbids a table holding
+  *the samplesheet's contents*, and a per-task tag is not that — it is already in
+  `run_event.payload`, a column next door.
+
+So: a `labels` JSON column on `run_task`, unindexed, written from the raw payload.
+**`wiener-core` never sees a lab string and never will.** The residual is written down rather than
+hidden: the column makes tags conveniently queryable in a way scanning a payload permits but does
+not invite.
 
 ## What a fresh reader gets wrong
 
@@ -116,8 +133,7 @@ is measured at Checkpoint 1 rather than argued.**
 
 **Execute the W2 plan**, with `superpowers:executing-plans`, task by task.
 
-**Answer A200 first** — Tasks 5, 9 and 11 are blocked on it and Task 1 is not, so Phase W2A can
-start while it is being decided.
+**A200 is answered** — a `labels` column, option 3 — so nothing blocks Task 1.
 
 **Still true from W1 and unchanged:** nobody has looked at the run screens in a browser; the forge
 needs testing and rework; and W3 is the AI, after W2.
