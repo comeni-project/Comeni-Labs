@@ -366,7 +366,7 @@ def test_a_trace_less_run_leaves_them_absent_rather_than_zero():
 **Read first:** the research note §1.2 and §1.4. Every attribute name and every enum value is
 there. **Do not invent one.**
 
-- [ ] **Step 1: Write the failing tests, against both committed captures**
+- [x] **Step 1: Write the failing tests, against both committed captures**
 
 ```python
 def test_a_run_is_one_server_span_with_a_child_per_attempt():
@@ -407,30 +407,30 @@ def test_spans_are_a_golden_file():
     """The mapping is as reproducible as the emitted `.nf` — same events in, same spans out."""
 ```
 
-- [ ] **Step 2: Run and watch them fail.**
-- [ ] **Step 3: Write `spans.py`.** `Span` carries `name`, `kind`, `span_id`, `parent`,
+- [x] **Step 2: Run and watch them fail.**
+- [x] **Step 3: Write `spans.py`.** `Span` carries `name`, `kind`, `span_id`, `parent`,
   `start_ns`, `end_ns`, `attributes: dict[str, str | int | float | bool]`. Ids are derived from
   `(run_id, task_id, attempt)` **deterministically** — a random id makes the golden file
   impossible and replay non-identical.
-- [ ] **Step 4: Golden file**, committed, over `failing-run.jsonl` and `resourced-run.jsonl`.
-- [ ] **Step 5: `make check` and commit.**
+- [x] **Step 4: Golden file**, committed, over `failing-run.jsonl` and `resourced-run.jsonl`.
+- [x] **Step 5: `make check` and commit.**
 
 ### Task 4: The six that have no convention
 
 **Files:** modify `spans.py`, `tests/test_spans.py`
 
-- [ ] **Step 1: Write the failing test** — every one of the six from the note §2 present on a
+- [x] **Step 1: Write the failing test** — every one of the six from the note §2 present on a
   task span, with the exact names: `wiener.task.attempt`, `wiener.task.cpus_asked`,
   `wiener.task.cpu_used_pct`, `wiener.task.memory_asked_bytes`, `wiener.task.memory_peak_bytes`,
   `wiener.task.queue_wait_ms`, `wiener.task.read_bytes`, `wiener.task.write_bytes`,
   `wiener.task.cached`.
-- [ ] **Step 2: A test that the numbers are the trace's** — `queue_wait_ms` is
+- [x] **Step 2: A test that the numbers are the trace's** — `queue_wait_ms` is
   `duration_ms - realtime_ms` and nothing else; `process.exit.code` is reused rather than
   renamed.
-- [ ] **Step 3: A test that a trace-less run degrades honestly** — `failing-run.jsonl` was
+- [x] **Step 3: A test that a trace-less run degrades honestly** — `failing-run.jsonl` was
   captured without `trace.enabled`, so those attributes are **absent, not zero**. A zero would
   read as "this task used no memory".
-- [ ] **Step 4: `make check` and commit.**
+- [x] **Step 4: `make check` and commit.**
 
 ## ✋ CHECKPOINT 2 — the mapping, before anything is sent
 
@@ -622,6 +622,9 @@ designed. Build what is drawn.
 | 1 | One line changed in `test_layout.py` | `_port_x` moved with the arithmetic, so the import moved. **No assertion changed**, and the count is 13 before and 13 after |
 | 2 | A third capture was committed: `tests/fixtures/weblog/spine-run.events.jsonl` | The colouring cannot be tested against the two existing fixtures — one is a two-task failure and the other a toy `GREET` pipeline, and **neither shares a process name with the spine**. This is a real run of this exact artifact, seventeen events, exported from Postgres |
 | 2a | The fold **merges** attempts rather than replacing them | Found by writing the test the plan asked for and then asking what else could rewind. Only `process_completed` carries the resources, so a redelivered `process_started` erased them — **and the loss is invisible**, because an absent field is also what a run without `trace.enabled` looks like. Reproduced, then fixed: a field a later event reports wins, a field it leaves empty keeps what was known, and a status never rewinds out of a terminal one |
+| 3 | **A190 was decided rather than deferred a third time**: `cicd.pipeline.name` is derived from `goal.want` — `counts.matrix` for the spine | It blocks the mapping and the operator said keep going. Derived beats the digest because every board groups by this and a digest starts a new series on every rebuild, which makes *"is the spine getting slower"* unanswerable across exactly the change you want to measure. The cost is that two pipelines producing the same thing collide, and the fix for that — a submitter-supplied name **defaulting to this** — is an added field rather than a changed one, so nothing here has to move |
+| 3 | `_span_id` is a readable composite, not a hash | The purity guard refused `hashlib` in `wiener-core` and was right to: OpenTelemetry ids are eight bytes on the wire, and meeting a wire format is the exporter's job. The pure half says *which* span |
+| 4 | A structural test was added: `test_the_fold_is_where_the_lab_strings_stop` | **Found by trying to break the string-sniffing one.** Sabotaging `spans()` to emit `process.command_line` failed with *`TaskState` has no attribute `script`* — the marked fields live on `TaskTrace` and the fold keeps `process` rather than `name`, so nothing a span can reach is a lab string. §8's rule is enforced by construction, and this test is what keeps it that way when somebody adds `script` to `TaskState` for the console |
 | 2a | `projection.append`'s attempts dump needed no change | It is `a.model_dump(mode="json")`, so the new fields ride along. Checked rather than assumed |
 
 ---
