@@ -146,12 +146,15 @@ it("opens on the overview, not the console", async () => {
     .toHaveAttribute("aria-pressed", "false");
 });
 
-it("draws the Tasks tab disabled rather than hiding it", async () => {
-  // The same call this page already made about `Graph` between phases 2 and 3: a control that
-  // goes nowhere SILENTLY is the mistake `Shell.tsx` records 3A shipping six of. Drawn and
-  // disabled says the run has a tasks view and it is not built; hidden says nothing.
+it("offers four views of one run, and switching is a render", async () => {
+  // The Tasks tab was drawn DISABLED for one task — the same call this page made about
+  // `Graph` between phases 2 and 3, because a control that goes nowhere silently is the
+  // mistake `Shell.tsx` records 3A shipping six of. It is a real control now, and this test
+  // changed from asserting the promise to asserting the thing.
   at(STATE, PAGE, "overview");
-  expect(await screen.findByRole("button", { name: "Tasks" })).toBeDisabled();
+  for (const name of ["Overview", "Tasks", "Console", "Graph"]) {
+    expect(await screen.findByRole("button", { name })).toBeEnabled();
+  }
 });
 
 

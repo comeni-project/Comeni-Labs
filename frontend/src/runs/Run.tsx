@@ -9,6 +9,7 @@ import { get } from "../wiener/api/client";
 import { Console } from "./Console";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
+import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
@@ -152,12 +153,10 @@ export function Run() {
               statement that the console cannot be the answer. It keeps its shape; it stops
               being what opens.
 
-              `Tasks` is drawn DISABLED rather than hidden, the same call this file already
-              makes about `Graph`: a control that goes nowhere silently is the mistake
-              `Shell.tsx` records 3A shipping six of. It answers *what across the whole run
-              retried*, and it arrives with the paged endpoint's screen. */}
+              §6's two questions, one row component: `Overview` expands a process to ask *what
+              did this process do*, and `Tasks` spans the run to ask *what retried*. */}
           <Segment name="Overview" active={view === "overview"} onPick={() => setView("overview")} />
-          <Segment name="Tasks" active={false} onPick={() => {}} disabled />
+          <Segment name="Tasks" active={view === "tasks"} onPick={() => setView("tasks")} />
           <Segment name="Console" active={view === "console"} onPick={() => setView("console")} />
           <Segment name="Graph" active={view === "graph"} onPick={() => setView("graph")} />
           <span className="ml-auto text-label text-ink-3">
@@ -166,6 +165,11 @@ export function Run() {
         </div>
         {view === "overview" ? (
           <OverviewPanel runId={run.run_id} />
+        ) : view === "tasks" ? (
+          <Tasks
+            runId={run.run_id}
+            processes={(overview.data?.rows ?? []).map((row) => row.process)}
+          />
         ) : view === "graph" ? (
           <Graph runId={run.run_id} />
         ) : stream.error ? (
