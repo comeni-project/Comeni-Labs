@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 members = [
     "comeni-core",
     "comeni-labs",
+    "dag-core",
     "mendel-ai",
     "mendel-api",
     "mendel-compiler",
@@ -386,6 +387,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "comeni-core" },
+    { name = "dag-core" },
     { name = "mendel-ai" },
     { name = "mendel-api" },
     { name = "mendel-compiler" },
@@ -408,6 +410,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "dag-core", editable = "packages/dag-core" },
     { name = "mendel-ai", editable = "packages/mendel-ai" },
     { name = "mendel-api", editable = "packages/mendel-api" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
@@ -495,6 +498,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ca/11/34c5ae40b945e69aa72b87dc268135b7049905f3824af573b7073acbb946/coverage-7.15.3-cp314-cp314t-win_arm64.whl", hash = "sha256:d2e1acb7aee29dfa8f3e48c23f36670898baca1209d9bdd3985a50c7f982165e", size = 225212, upload-time = "2026-08-02T18:50:12.63Z" },
     { url = "https://files.pythonhosted.org/packages/37/e7/7069b3d6c018917f49ba2e1c5fb910e498c7fefa3a1b78cb1b79e61ff45d/coverage-7.15.3-py3-none-any.whl", hash = "sha256:da78fa6fc7dafe4212839173133ee85afcf42c5cd5f3e47fa7c1c210453b445e", size = 214297, upload-time = "2026-08-02T18:50:14.709Z" },
 ]
+
+[[package]]
+name = "dag-core"
+version = "0.1.0"
+source = { editable = "packages/dag-core" }
 
 [[package]]
 name = "distro"
@@ -1216,6 +1224,7 @@ version = "0.1.0"
 source = { editable = "packages/mendel-compiler" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "dag-core" },
     { name = "jinja2" },
     { name = "mendel-resolver" },
     { name = "pydantic" },
@@ -1225,6 +1234,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "dag-core", editable = "packages/dag-core" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },

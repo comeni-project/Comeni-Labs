@@ -71,6 +71,9 @@ CLOSED_PACKAGES = {
         "collections", "collections.abc", "enum", "math", "operator", "pathlib", "re",
         "typing", "pydantic", "yaml", "comeni_core", "mendel_resolver",
     },
+    "dag-core": {
+        "__future__", "collections", "collections.abc", "dataclasses", "typing", "dag_core",
+    },
     "wiener-core": {
         "collections", "collections.abc", "datetime", "enum", "typing",
         "pydantic", "comeni_core", "wiener_core",
@@ -143,6 +146,24 @@ CLOSED_PACKAGES = {
 # has to parse `utcTime`, an ISO-8601 string, to get `at_ms` — so the parse happens either way,
 # and doing it without `datetime` means hand-rolling ISO-8601, which is the same trade the
 # `math` note above rejected for `log2`.
+
+# `dag-core` was added 2026-08-24 (`docs/design/wiener.md` §9.1.1), and it is the fifth such
+# note — the second for a whole package rather than an import.
+#
+# **It is the shortest allowlist on this list and it does not include `comeni_core`.** The
+# arithmetic moved out of `mendel_compiler.layout` unchanged, and the one thing that changed is
+# that it no longer reads a `PipelineIR`: it lays out a neutral `Graph`, and each half brings
+# the adapter that knows what its own artifact is. A package that lays out a graph has no
+# business knowing what a pipeline is, and the allowlist is where that is enforced rather than
+# hoped for.
+#
+# `__future__` is here because the moved module carries `from __future__ import annotations` and
+# `_outside_allowlist` has no exemption for it. That was found by the plan's own audit (A187)
+# rather than by this entry failing, which is the cheaper order.
+#
+# The alternative considered and rejected: leave the layout in `mendel-compiler` and let Wiener
+# import it. Rejected because `test_the_two_halves_share_only_comeni_core` forbids exactly that,
+# and correctly — a run graph is not a reason for Wiener to depend on Mendel's compiler.
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 

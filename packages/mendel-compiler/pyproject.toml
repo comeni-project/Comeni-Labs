@@ -20,6 +20,7 @@ classifiers = [
 
 # Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
 dependencies = [
+  "dag-core>=0.1.0",
   "comeni-core>=0.1.0",
   "mendel-resolver>=0.1.0",
   "pydantic>=2.9",
@@ -43,3 +44,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mendel_compiler"]
+
+[tool.uv.sources]
+dag-core = { workspace = true }
+comeni-core = { workspace = true }
+mendel-resolver = { workspace = true }

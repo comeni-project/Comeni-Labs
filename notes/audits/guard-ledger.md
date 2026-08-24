@@ -2708,3 +2708,28 @@ exactly where nothing was watching.
 `test_no_pure_package_imports_an_impure_one`, which greps for `"mendel_forge" in text`. For an
 arrow between two halves that over-matching is not acceptable in either direction: a sentence
 naming the other half would fail the build, and a guard nobody trusts gets deleted.
+
+---
+
+## A fifth pure package, and the arithmetic that moved — 2026-08-24
+
+`dag-core`, phase 3 Task 1. The layout is shared by the builder's canvas and Wiener's run graph,
+so it is a package that is neither half (`docs/design/wiener.md` §9.1.1).
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_purity.py::test_every_package_is_classified` | created `packages/dag-core/` before classifying it | failed | `every package must be classified pure, banlist or explicitly impure …` / `  on disk, unclassified: ['dag-core']` |
+
+**Its allowlist is the shortest on the list and does not include `comeni_core`.** The arithmetic
+moved unchanged; the one thing that changed is that it no longer reads a `PipelineIR`. A package
+that lays out a graph has no business knowing what a pipeline is, and the allowlist is where
+that is enforced rather than hoped for.
+
+**`__future__` was on the entry before it was written**, because the plan's own audit (A187)
+found `_outside_allowlist` has no exemption for it. That is the cheaper order — a finding in a
+plan costs a paragraph, and the same finding at execution costs a failing gate and a guess.
+
+**The move was proven rather than asserted**: `packages/mendel-compiler/tests/test_layout.py`
+was 13 passing before and 13 passing after, `make verify` is green, and the frontend's 113
+canvas tests are untouched. One line changed in that test file — `_port_x` is imported from
+`dag_core.layout` now — and no assertion did.
