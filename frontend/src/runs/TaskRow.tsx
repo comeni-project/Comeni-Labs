@@ -22,10 +22,27 @@ export type TaskView = {
  *  look 137 up is a reader the interface failed. */
 const OOM = 137;
 
-function mark(task: TaskView): string | null {
-  if (task.latest_exit === OOM) return "killed — out of memory";
-  if (task.latest_exit) return `exit ${task.latest_exit}`;
-  return null;
+/** Tag · Attempt · Exit · Memory · CPU · Realtime — the artboard's columns, in its order.
+ *  `Process` is prepended for the tab that spans processes and omitted where the row already
+ *  sits under its process heading. */
+const COLUMNS = "grid-cols-[1fr_4rem_5rem_6rem_4rem_5rem]";
+const WITH_PROCESS = "grid-cols-[11rem_1fr_4rem_5rem_6rem_4rem_5rem]";
+
+/** The header the artboard draws above a task table — one spelling, both callers. */
+export function TaskHeader({ showProcess }: { showProcess: boolean }) {
+  return (
+    <div className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} gap-3 px-4 py-1.5
+                     border-b border-line bg-surface-2
+                     font-ui text-label uppercase tracking-[.14em] font-semibold text-ink-3`}>
+      {showProcess && <span>process</span>}
+      <span>tag</span>
+      <span className="text-right">attempt</span>
+      <span className="text-right">exit</span>
+      <span className="text-right">memory</span>
+      <span className="text-right">cpu</span>
+      <span className="text-right">realtime</span>
+    </div>
+  );
 }
 
 /** **One component, two callers** — the expanded process row and the Tasks tab. The same
@@ -39,16 +56,12 @@ export function TaskRow({ task, showProcess, worst = false }: {
   showProcess: boolean;
   worst?: boolean;
 }) {
-  const note = mark(task);
-  const columns = showProcess
-    ? "grid-cols-[10rem_1fr_3.5rem_5.5rem_4rem_5rem]"
-    : "grid-cols-[1fr_3.5rem_5.5rem_4rem_5rem]";
-
+  const exit = task.latest_exit;
   return (
     <div
       data-testid={`task-${task.task_id}`}
-      className={`grid ${columns} items-baseline gap-3 px-4 py-1.5 font-data text-secondary
-                  border-b border-line last:border-b-0 tabular-nums
+      className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} items-baseline gap-3 px-4 py-1.5
+                  font-data text-secondary border-b border-line last:border-b-0 tabular-nums
                   hover:bg-[var(--hover)]`}
       style={{ transition: `background-color var(--t)` }}
     >
@@ -56,29 +69,40 @@ export function TaskRow({ task, showProcess, worst = false }: {
         <span data-testid="process" className="text-ink truncate">{task.process}</span>
       )}
 
-      <span data-testid="task" className="flex items-baseline gap-2 min-w-0">
-        <span className="text-ink truncate">{task.tag ?? `task ${task.task_id}`}</span>
-        {task.attempts > 1 && (
-          <span
-            data-testid="retried"
-            title={`${task.attempts} attempts`}
-            className="shrink-0 text-[var(--measured)]"
-          >
-            ↻ {task.attempts}
-          </span>
-        )}
+      <span data-testid="task" className="flex items-baseline gap-2 min-w-0 text-ink">
+        <span className="truncate">{task.tag ?? `task ${task.task_id}`}</span>
         {worst && <span className="shrink-0 text-ink-3">worst</span>}
-        {note && (
-          <span data-testid="mark" className="shrink-0 text-[var(--undecided)]">{note}</span>
+      </span>
+
+      {/* The attempt NUMBER, always — the artboard's column. `↻` marks the ones that are not
+          the first, so a retry is legible without reading the digit. */}
+      <span
+        data-testid={task.attempts > 1 ? "retried" : "attempt"}
+        className={`text-right ${task.attempts > 1 ? "text-[var(--measured)]" : "text-ink-2"}`}
+      >
+        {task.attempts > 1 && "↻"}{task.attempts}
+      </span>
+
+      <span data-testid="exit" className="text-right">
+        {exit === null || exit === undefined ? (
+          <span className="text-ink-3">{ABSENT}</span>
+        ) : exit === 0 ? (
+          <span className="text-ink-2">0</span>
+        ) : (
+          <span data-testid="mark" className="text-[var(--undecided)]"
+                title={exit === OOM ? "killed — out of memory" : undefined}>
+            {exit}{exit === OOM && <span className="text-ink-3"> killed — out of memory</span>}
+          </span>
         )}
       </span>
 
+      <span data-testid="mem" className="text-right text-ink-2">
+        {bytes(task.peak_rss_bytes)}
+      </span>
       <span data-testid="cpu" className="text-right text-ink-2">{percent(task.pct_cpu)}</span>
-      <span data-testid="mem" className="text-right text-ink-2">{bytes(task.peak_rss_bytes)}</span>
       <span data-testid="time" className="text-right text-ink-2">
         {seconds(task.realtime_ms)}
       </span>
-      <span className="text-right text-ink-3">{task.status ?? ABSENT}</span>
     </div>
   );
 }

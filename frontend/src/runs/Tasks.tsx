@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
-import { TaskRow, type TaskView } from "./TaskRow";
+import { TaskHeader, TaskRow, type TaskView } from "./TaskRow";
 
 type TasksPage = { tasks: TaskView[]; total: number };
 
@@ -89,7 +89,13 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
           retried only
         </label>
 
-        <span className="ml-auto flex items-center gap-2 text-label text-ink-3">
+        {/* `412 tasks · sorted by memory` — what you are looking at and how it is ordered,
+            which the artboard puts here rather than leaving the sort to be inferred. */}
+        <span data-testid="tasks-count" className="ml-auto text-label text-ink-3">
+          {(data?.total ?? 0).toLocaleString()} tasks · sorted by{" "}
+          {SORTS.find((option) => option.key === sort)?.label ?? "task"}
+        </span>
+        <span className="flex items-center gap-2 text-label text-ink-3">
           sort
           {SORTS.map((option) => (
             <button
@@ -114,6 +120,7 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
         <Failed error={error ?? "the tasks could not be read"} />
       ) : (
         <>
+          <TaskHeader showProcess />
           <div ref={scroller} className="overflow-auto max-h-[60vh]">
             <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
               {virtual.getVirtualItems().map((item) => (

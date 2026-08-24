@@ -15,6 +15,8 @@ import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
 
+const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
+
 type FailedTask = {
   process: string; tag?: string | null; latest_exit?: number | null;
   attempts: number; peak_rss_bytes?: number | null;
@@ -64,6 +66,9 @@ export function Run() {
   const [params] = useSearchParams();
   const from = params.get("from");
   const [view, setView] = useUrlState("view", "overview");
+  // §7's zoom-and-filter rung: the overview's right-click lands here, and the URL
+  // carries it so a filtered console is a link somebody can paste.
+  const [only, setOnly] = useUrlState("process", "");
   useTitle(id ? `Run ${id.slice(0, 8)}` : "Run");
 
   const state = useQuery({
@@ -167,8 +172,13 @@ export function Run() {
             over a denominator of zero is an invented number. */}
         {declared > 0 && (
           <span data-testid="run-progress" className="flex flex-col gap-1.5 mt-1">
-            <span className="text-secondary text-ink-2 tabular-nums">
-              {finished} of {declared} steps finished
+            <span className="flex items-baseline gap-2">
+              <span className="text-secondary text-ink-2 tabular-nums">
+                {finished} of {declared} steps finished
+              </span>
+              {/* Where the denominator came from, said out loud — §5's whole argument is that
+                  this is the only one anybody can source. */}
+              <span className="text-label text-ink-3">declared by the artifact</span>
             </span>
             <span className="block h-1.5 rounded-full overflow-hidden max-w-md"
                   style={{ background: "var(--line)", boxShadow: "var(--well)" }}>
@@ -200,11 +210,14 @@ export function Run() {
               §6's two questions, one row component: `Overview` expands a process to ask *what
               did this process do*, and `Tasks` spans the run to ask *what retried*. */}
           <Segment name="Overview" active={view === "overview"} onPick={() => setView("overview")} />
-          <Segment name="Tasks" active={view === "tasks"} onPick={() => setView("tasks")} />
           <Segment name="Console" active={view === "console"} onPick={() => setView("console")} />
           <Segment name="Graph" active={view === "graph"} onPick={() => setView("graph")} />
+          <Segment name="Tasks" active={view === "tasks"} onPick={() => setView("tasks")} />
           <span className="ml-auto text-label text-ink-3">
-            {stream.following ? "following" : "not following"} · read-only until W4
+            {stream.following
+              ? "following · read-only until W4"
+              : TERMINAL.has(run.phase) ? "not following · the run is over"
+              : "not following · read-only until W4"}
           </span>
         </div>
         {view === "overview" ? (
@@ -219,7 +232,12 @@ export function Run() {
         ) : stream.error ? (
           <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
         ) : (
-          <Console events={stream.events} following={stream.following} />
+          <Console
+            events={stream.events}
+            following={stream.following}
+            process={only}
+            onClearProcess={() => setOnly("")}
+          />
         )}
       </section>
     </div>

@@ -32,8 +32,9 @@ function at(ms: number): string {
  * **Virtualised**, for the same reason the Tasks tab is: a 5,000-task run is 15,000 events,
  * and putting them all in the DOM is how a console that pages correctly still feels broken.
  */
-export function Console({ events, following, process = "" }: {
+export function Console({ events, following, process = "", onClearProcess }: {
   events: RunEvent[]; following: boolean; process?: string;
+  onClearProcess?: () => void;
 }) {
   const rows = useMemo(
     () => events.filter((event) => event.trace && (!process || event.trace.process === process)),
@@ -50,6 +51,20 @@ export function Console({ events, following, process = "" }: {
 
   return (
     <div data-testid="console" className="flex flex-col">
+      {/* **The way back out.** A console that arrived filtered and offers no way to widen is a
+          view you can get stuck in — and the count below says `38 of 412`, so the reader can
+          see there is something to widen to. */}
+      {process && (
+        <p className="px-4 py-2 flex items-baseline gap-2 border-b border-line bg-surface-2
+                      text-label text-ink-3">
+          filtered from the overview — {process}
+          <button type="button" onClick={onClearProcess}
+                  className="bg-transparent border-0 p-0 cursor-pointer text-ink-3
+                             hover:text-ink underline">
+            show everything
+          </button>
+        </p>
+      )}
       <div ref={scroller} className="font-data text-secondary max-h-[60dvh] overflow-y-auto">
        <ol style={{ height: virtual.getTotalSize(), position: "relative", margin: 0,
                     padding: 0, listStyle: "none" }}>

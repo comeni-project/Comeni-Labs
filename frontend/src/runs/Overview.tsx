@@ -4,8 +4,8 @@ import { useState } from "react";
 import { get } from "../wiener/api/client";
 import type { components } from "../wiener/api/schema";
 import { Failed, Loading } from "../ui/States";
-import { TaskRow, type TaskView } from "./TaskRow";
-import { ABSENT, bytes, percent, seconds } from "./units";
+import { TaskHeader, TaskRow, type TaskView } from "./TaskRow";
+import { ABSENT, pair, percent, seconds, shortBytes } from "./units";
 
 type TasksPage = { tasks: TaskView[]; total: number };
 
@@ -107,6 +107,7 @@ function Expanded({ runId, process }: { runId: string; process: string }) {
   }
   return (
     <div className="bg-paper">
+      <TaskHeader showProcess={false} />
       {data.tasks.map((task, index) => (
         <TaskRow key={task.task_id} task={task} showProcess={false} worst={index === 0} />
       ))}
@@ -130,10 +131,10 @@ export function Table({ data, runId, openOn }: {
 
   return (
     <div>
-      <div className="grid grid-cols-[14rem_9rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2
+      <div className="grid grid-cols-[13rem_8rem_7rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2
                       border-b border-line bg-surface-2 shadow-e1
                       font-ui text-label uppercase tracking-[.14em] font-semibold text-ink-3">
-        <span>process</span><span>tasks</span>
+        <span>process</span><span>tasks</span><span>progress</span>
         <span>memory peak / asked</span><span>cpu used / asked</span>
         <span>worst realtime</span><span>read / written</span>
       </div>
@@ -145,7 +146,7 @@ export function Table({ data, runId, openOn }: {
           <div key={row.process}>
           <div
             data-testid={`row-${row.process}`}
-            className={`grid grid-cols-[14rem_9rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2.5
+            className={`grid grid-cols-[13rem_8rem_7rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2.5
                         items-center border-b border-line last:border-b-0
                         hover:bg-[var(--hover)] ${row.reached ? "" : "opacity-55"}`}
             style={{ transition: "background-color var(--t)" }}
@@ -182,6 +183,14 @@ export function Table({ data, runId, openOn }: {
 
             <Count row={row} />
 
+            {/* **Done over tasks SEEN**, which is a fact about what has been reported rather
+                than a claim about what is coming (§5). It is not a percentage of the work. */}
+            <Bar
+              testId={`bar-progress-${row.process}`} figureId={`progress-${row.process}`}
+              value={row.reached ? row.done : null} ceiling={row.tasks || null}
+              label={row.reached ? `${row.done}/${row.tasks}` : ABSENT}
+            />
+
             {/* Memory and cpu are their own ceiling: what was ASKED FOR is the scale, so a
                 nearly-full bar is the next exit 137 and an almost-empty one is capacity
                 nobody needed. §9.3's comparison, drawn. */}
@@ -189,13 +198,15 @@ export function Table({ data, runId, openOn }: {
               testId={`bar-mem-${row.process}`} figureId={`mem-${row.process}`}
               value={row.memory_peak_bytes} ceiling={row.memory_asked_bytes}
               tint="var(--measured)"
-              label={`${bytes(row.memory_peak_bytes)} of ${bytes(row.memory_asked_bytes)}`}
+              label={pair(row.memory_peak_bytes, row.memory_asked_bytes)}
             />
             <Bar
               testId={`bar-cpu-${row.process}`} figureId={`cpu-${row.process}`}
               value={row.cpu_used_pct} ceiling={row.cpus_asked ? row.cpus_asked * 100 : null}
               tint="var(--measured)"
-              label={`${percent(row.cpu_used_pct)} of ${row.cpus_asked ?? ABSENT}`}
+              label={row.cpu_used_pct !== null && row.cpus_asked
+                ? percent(row.cpu_used_pct / row.cpus_asked)
+                : ABSENT}
             />
             <Bar
               testId="bar-time" figureId={`time-${row.process}`}
@@ -205,7 +216,9 @@ export function Table({ data, runId, openOn }: {
             <Bar
               testId={`bar-io-${row.process}`} figureId={`io-${row.process}`}
               value={io} ceiling={top.io}
-              label={io === null ? ABSENT : bytes(io)}
+              label={io === null
+                ? ABSENT
+                : `${shortBytes(row.read_bytes)} / ${shortBytes(row.write_bytes)}`}
             />
           </div>
           {open === row.process && runId && (
@@ -214,6 +227,21 @@ export function Table({ data, runId, openOn }: {
           </div>
         );
       })}
+
+      {/* The artboard's footer, and the second line is the legend the four rules need in
+          front of a reader who did not read the spec. */}
+      <p className="px-4 py-2 flex items-baseline gap-3 border-t border-line
+                    text-label text-ink-3">
+        <span data-testid="table-footer">
+          {data.steps_declared > 0
+            ? `${data.steps_declared} processes declared`
+            : `${rows.length} processes seen`} ·{" "}
+          {rows.reduce((seen, row) => seen + row.tasks, 0)} tasks seen
+        </span>
+        <span className="ml-auto">
+          every bar shares its column's scale · — means nothing was reported, never zero
+        </span>
+      </p>
     </div>
   );
 }

@@ -38,21 +38,22 @@ export function Failure({ failed }: { failed: Failed }) {
       style={{ borderLeft: "3px solid var(--fault)" }}
     >
       <div className="px-4 py-3 flex flex-col gap-1.5">
-        <p className="font-ui text-label uppercase tracking-[.14em] font-semibold
-                      text-[var(--fault)]">
-          this run failed
-        </p>
         <p className="font-data text-body text-ink">
           {failed.process ?? "no task failed — the run stopped before one started"}
-          {failed.tag && <span className="text-ink-2"> · {failed.tag}</span>}
-          {failed.process && failed.exit !== null && (
+          {failed.process && (
             <span className="text-ink-2">
-              {" "}· exit {failed.exit}
-              {failed.exit === 137 && <span className="text-ink-3"> (killed — out of memory)</span>}
+              {failed.tag && ` (${failed.tag})`}
+              {failed.exit !== null && ` exited ${failed.exit}`}
+              {` on attempt ${failed.attempts}`}
+              {failed.exit === 137 && (
+                <span className="text-ink-3"> — killed, out of memory</span>
+              )}
             </span>
           )}
-          {failed.process && <span className="text-ink-2"> · attempt {failed.attempts}</span>}
         </p>
+        {/* **Said out loud, because it is the difference between this and a chat window.**
+            Every field above is a value the record holds; nothing here is inferred. */}
+        <p className="text-label text-ink-3">from the record · nothing interpreted</p>
 
         {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
             `63.8 GB` invites the reader to supply a ceiling they do not have. */}
@@ -64,13 +65,22 @@ export function Failure({ failed }: { failed: Failed }) {
       </div>
 
       {failed.report && (
-        <pre
-          data-testid="failure-report"
-          className="px-4 py-3 m-0 font-data text-secondary text-ink-2 bg-paper
-                     border-t border-line overflow-x-auto whitespace-pre-wrap"
-        >
-          {failed.report}
-        </pre>
+        <div className="border-t border-line">
+          <p className="px-4 pt-3 text-label text-ink-3">Command error:</p>
+          <pre
+            data-testid="failure-report"
+            className="mx-4 my-2 p-3 font-data text-secondary text-ink-2 bg-paper
+                       border border-line rounded-[var(--r)] max-h-64
+                       overflow-auto whitespace-pre-wrap"
+          >
+            {failed.report}
+          </pre>
+          {/* §18.1: nothing EXPLAINS a failure until W3. Saying so is a boundary; leaving it
+              unsaid would let the banner read as an explanation that came up short. */}
+          <p className="px-4 pb-3 text-label text-ink-3">
+            Nextflow&rsquo;s own errorReport · shown, not explained — W3 explains
+          </p>
+        </div>
       )}
     </section>
   );
