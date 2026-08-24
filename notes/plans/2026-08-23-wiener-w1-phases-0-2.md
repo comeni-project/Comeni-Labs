@@ -504,7 +504,7 @@ git commit -m "feat(wiener-core): admit(), the ingress allowlist, against a real
   `fold(state: RunState, event: RunEvent) -> RunState`,
   `replay(events: Iterable[RunEvent]) -> RunState`.
 
-- [ ] **Step 1: Write the failing tests — the three properties spec §6.3 names**
+- [x] **Step 1: Write the failing tests — the three properties spec §6.3 names**
 
 ```python
 # packages/wiener-core/tests/test_fold.py
@@ -578,12 +578,12 @@ def test_an_empty_run_is_queued():
     assert EMPTY.phase is RunPhase.QUEUED and EMPTY.counts.succeeded == 0
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `uv run pytest packages/wiener-core/tests/test_fold.py -x`
 Expected: FAIL — `No module named 'wiener_core.state'`.
 
-- [ ] **Step 3: Write `state.py`**
+- [x] **Step 3: Write `state.py`**
 
 ```python
 """What a run *is*: a fold over the events it produced.
@@ -743,12 +743,12 @@ def replay(events: Iterable[RunEvent]) -> RunState:
     return state
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `uv run pytest packages/wiener-core/tests/test_fold.py -v`
 Expected: 5 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/wiener-core
@@ -2111,6 +2111,8 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 2 | `EmittedBy` gained `WIENER`, and `tests/test_diagnostics_ownership.py`'s `PACKAGE_OF` gained `"wiener": "wiener-core"` | `emitted_by` is required and its enum had six members, none of them Wiener's. The ownership guard derives the package from that value rather than trusting it, so both halves had to learn the same name |
 | 2 | `raise coded(...)` became `raise ValueError(coded(...))` | **`coded()` returns a string, not an exception** — deliberately: *"a factory returning an exception would have to take the type as an argument"*, and several emissions are prints rather than raises. The plan's form raises `TypeError: exceptions must derive from BaseException` |
 | 2 | `make docs` does not regenerate the page | It runs the generator with `--check`; regenerating is `uv run python tools/generate_diagnostics_doc.py`. `CLAUDE.md` says *"`make docs` regenerates it"*, which is the sentence that drifted |
+| 3 | Step 4 expects 5 passed; it is 7 | A176 added two tests to this file when the plan was corrected, and the step's count was not updated with them |
+| 3 | The two A176 assertions gained failure messages | Reverting the fix to watch them fail printed `assert False` and a `RunState(...) == RunState(...)` diff — neither says what broke. The ledger already records a guard whose message argued for the wrong fix; these now print the attempt numbers, `{1: [1, 1, 1], …}`, and name the repair |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
