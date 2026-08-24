@@ -1,3 +1,4 @@
+import { Menu, copy, useContextMenu, type MenuItem } from "./Menu";
 import { ABSENT, bytes, percent, seconds } from "./units";
 
 /** One task, as either of the two questions asks for it.
@@ -51,14 +52,33 @@ export function TaskHeader({ showProcess }: { showProcess: boolean }) {
  * `showProcess` is the whole of the difference. The Tasks tab spans processes and needs the
  * name; an expanded row sits under its own process heading and repeating it is noise.
  */
-export function TaskRow({ task, showProcess, worst = false }: {
+export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
   task: TaskView;
   showProcess: boolean;
   worst?: boolean;
+  onOpenConsole?: (process: string) => void;
 }) {
   const exit = task.latest_exit;
+  const menu = useContextMenu();
+
+  /** §12.3's task-row menu. Two of its verbs are dim for a reason that is **not** "W4 does
+   *  it": `/tasks` carries `tag` and no other lab string, which A200 decided deliberately —
+   *  the work directory and the command line live in `run_event.payload` and stay there. */
+  const items: MenuItem[] = [
+    { label: "Open in console here",
+      onPick: onOpenConsole && (() => onOpenConsole(task.process)) },
+    { label: "Copy the task id", onPick: () => void copy(String(task.task_id)) },
+    ...(task.tag ? [{ label: "Copy the tag", onPick: () => void copy(task.tag!) }] : []),
+    { label: "Copy work directory", why: "not served", separated: true },
+    { label: "Copy task hash", why: "not served" },
+    { label: "Copy the command line", why: "not served" },
+    { label: "Retry this task", w4: true, separated: true },
+  ];
+
   return (
+    <>
     <div
+      {...menu.bind}
       data-testid={`task-${task.task_id}`}
       className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} items-baseline gap-3 px-4 py-1.5
                   font-data text-secondary border-b border-line last:border-b-0 tabular-nums
@@ -104,5 +124,7 @@ export function TaskRow({ task, showProcess, worst = false }: {
         {seconds(task.realtime_ms)}
       </span>
     </div>
+    {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
+    </>
   );
 }

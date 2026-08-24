@@ -4,6 +4,7 @@ import { useState } from "react";
 import { get } from "../wiener/api/client";
 import type { components } from "../wiener/api/schema";
 import { Failed, Loading } from "../ui/States";
+import { Menu, copy, useContextMenu, type MenuItem } from "./Menu";
 import { TaskHeader, TaskRow, type TaskView } from "./TaskRow";
 import { ABSENT, pair, percent, seconds, shortBytes } from "./units";
 
@@ -74,6 +75,18 @@ function Count({ row }: { row: Row }) {
   );
 }
 
+/** One row, as a spreadsheet would take it. The header is included so a paste into a sheet
+ *  arrives labelled — a row of eight bare numbers is not a row anybody can use. */
+function tsv(row: Row): string {
+  const head = ["process", "tasks", "done", "failed", "memory_peak_bytes",
+                "memory_asked_bytes", "cpu_used_pct", "realtime_ms", "read_bytes",
+                "write_bytes"];
+  const values = [row.process, row.tasks, row.done, row.failed, row.memory_peak_bytes,
+                  row.memory_asked_bytes, row.cpu_used_pct, row.realtime_ms, row.read_bytes,
+                  row.write_bytes];
+  return `${head.join("\t")}\n${values.map((v) => v ?? "").join("\t")}`;
+}
+
 /** The ceilings every column shares. Computed once over the visible rows, because a scale
  *  derived per row is not a scale. */
 function ceilings(rows: Row[]) {
@@ -120,14 +133,33 @@ function Expanded({ runId, process }: { runId: string; process: string }) {
   );
 }
 
-export function Table({ data, runId, openOn }: {
+export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
   data: OverviewData; runId?: string; openOn?: string;
+  onOpenConsole?: (process: string) => void;
+  onOpenGraph?: (process: string) => void;
 }) {
   const rows = data.rows;
   const top = ceilings(rows);
   // `openOn` is the failed process, expanded from the start — §9: the comparison is
   // the diagnosis, so the siblings have to be on screen without a click.
   const [open, setOpen] = useState<string | null>(openOn ?? null);
+  const menu = useContextMenu();
+  const [subject, setSubject] = useState<Row | null>(null);
+
+  /** §12.3's process-row menu. **Nothing here is reachable only by right-click** — every item
+   *  duplicates a visible control or is a clipboard action, so the discoverability cost of a
+   *  hidden gesture does not apply. W4's verbs are listed and dimmed. */
+  const itemsFor = (row: Row): MenuItem[] => [
+    { label: "Show its tasks",
+      onPick: () => setOpen(open === row.process ? null : row.process) },
+    { label: "Open in console",
+      onPick: onOpenConsole && (() => onOpenConsole(row.process)) },
+    { label: "Show in graph", onPick: onOpenGraph && (() => onOpenGraph(row.process)) },
+    { label: "Copy process name", onPick: () => void copy(row.process), separated: true },
+    { label: "Copy row as TSV", onPick: () => void copy(tsv(row)) },
+    { label: "Retry the failed tasks", w4: true, separated: true },
+    { label: "Cancel", w4: true },
+  ];
 
   return (
     <div>
@@ -146,6 +178,9 @@ export function Table({ data, runId, openOn }: {
           <div key={row.process}>
           <div
             data-testid={`row-${row.process}`}
+            {...menu.bind}
+            onContextMenu={(event) => { setSubject(row); menu.bind.onContextMenu(event); }}
+            onKeyDown={(event) => { setSubject(row); menu.bind.onKeyDown(event); }}
             className={`grid grid-cols-[13rem_8rem_7rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2.5
                         items-center border-b border-line last:border-b-0
                         hover:bg-[var(--hover)] ${row.reached ? "" : "opacity-55"}`}
@@ -230,6 +265,10 @@ export function Table({ data, runId, openOn }: {
 
       {/* The artboard's footer, and the second line is the legend the four rules need in
           front of a reader who did not read the spec. */}
+      {menu.at && subject && (
+        <Menu items={itemsFor(subject)} at={menu.at} onClose={menu.close} />
+      )}
+
       <p className="px-4 py-2 flex items-baseline gap-3 border-t border-line
                     text-label text-ink-3">
         <span data-testid="table-footer">
@@ -246,13 +285,15 @@ export function Table({ data, runId, openOn }: {
   );
 }
 
-export function Overview({ data, runId, openOn }: {
-  data: OverviewData; runId?: string; openOn?: string;
-}) {
-  return <Table data={data} runId={runId} openOn={openOn} />;
+export function Overview(props: Parameters<typeof Table>[0]) {
+  return <Table {...props} />;
 }
 
-export function OverviewPanel({ runId, openOn }: { runId: string; openOn?: string }) {
+export function OverviewPanel({ runId, openOn, onOpenConsole, onOpenGraph }: {
+  runId: string; openOn?: string;
+  onOpenConsole?: (process: string) => void;
+  onOpenGraph?: (process: string) => void;
+}) {
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["overview", runId],
     queryFn: () => get<OverviewData>(`/api/runs/${runId}/overview`),
@@ -260,5 +301,8 @@ export function OverviewPanel({ runId, openOn }: { runId: string; openOn?: strin
   });
   if (isPending) return <Loading what="the run" />;
   if (isError || !data) return <Failed error={error ?? "the overview could not be read"} />;
-  return <Table data={data} runId={runId} openOn={openOn} />;
+  return (
+    <Table data={data} runId={runId} openOn={openOn}
+           onOpenConsole={onOpenConsole} onOpenGraph={onOpenGraph} />
+  );
 }

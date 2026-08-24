@@ -6,6 +6,7 @@ import { Empty, Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { isUnauthorized, TokenPrompt } from "../wiener/Token";
 import type { components } from "../wiener/api/schema";
+import { Menu, copy, useContextMenu, type MenuItem } from "./Menu";
 import { colourOf, isPhase } from "./phases";
 
 type RunRow = components["schemas"]["RunRow"];
@@ -32,10 +33,29 @@ const eyebrow = "font-ui text-label uppercase tracking-[.14em] font-semibold tex
  */
 function Row({ run }: { run: RunRow }) {
   const phase = isPhase(run.phase) ? run.phase : "queued";
+  const menu = useContextMenu();
+  const link = `${window.location.origin}/runs/${run.id}`;
+
+  /** §12.3's board-row menu. Every item duplicates the row's own click or is a clipboard
+   *  action — nothing is reachable only by right-click. */
+  const items: MenuItem[] = [
+    { label: "Open", onPick: () => { window.location.href = `/runs/${run.id}`; } },
+    { label: "Open in a new tab", onPick: () => window.open(`/runs/${run.id}`, "_blank") },
+    { label: "Copy run id", onPick: () => void copy(run.id), separated: true },
+    { label: "Copy a link to this run", onPick: () => void copy(link) },
+    { label: "Copy row as TSV",
+      onPick: () => void copy([run.id, run.phase, run.executor, run.submitted_by,
+                               run.submitted_at].join("\t")) },
+    { label: "Cancel", w4: true, separated: true },
+    { label: "Relaunch", w4: true },
+  ];
+
   return (
+    <>
     <Link
       data-testid={`run-${run.id}`}
       to={`/runs/${run.id}`}
+      {...menu.bind}
       className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-3.5 no-underline
                  text-ink border-b border-line last:border-b-0
                  transition-colors hover:bg-surface-2"
@@ -56,6 +76,8 @@ function Row({ run }: { run: RunRow }) {
         {new Date(run.submitted_at).toLocaleString()}
       </time>
     </Link>
+    {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
+    </>
   );
 }
 

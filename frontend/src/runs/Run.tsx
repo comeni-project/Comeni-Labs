@@ -221,14 +221,22 @@ export function Run() {
           </span>
         </div>
         {view === "overview" ? (
-          <OverviewPanel runId={run.run_id} openOn={failed?.process} />
+          <OverviewPanel
+            runId={run.run_id}
+            openOn={failed?.process}
+            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+            onOpenGraph={() => setView("graph")}
+          />
         ) : view === "tasks" ? (
           <Tasks
             runId={run.run_id}
             processes={(overview.data?.rows ?? []).map((row) => row.process)}
           />
         ) : view === "graph" ? (
-          <Graph runId={run.run_id} />
+          <Graph
+            runId={run.run_id}
+            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+          />
         ) : stream.error ? (
           <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
         ) : (
@@ -237,6 +245,7 @@ export function Run() {
             following={stream.following}
             process={only}
             onClearProcess={() => setOnly("")}
+            onFilter={(process) => setOnly(process)}
           />
         )}
       </section>

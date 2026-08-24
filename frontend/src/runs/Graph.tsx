@@ -1,4 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+
+import { Menu, copy, useContextMenu } from "./Menu";
 
 import { Canvas } from "../build/Canvas";
 import { path } from "../build/geometry";
@@ -47,9 +50,9 @@ function tally(node: Placed): string {
   return parts.join(" · ");
 }
 
-function RunNode({ node }: { node: Placed }) {
+function RunNode({ node, bind }: { node: Placed; bind?: object }) {
   return (
-    <g data-testid={`node-${node.id}`} data-state={
+    <g data-testid={`node-${node.id}`} {...bind} data-state={
       node.failed ? "failed" : node.running ? "running"
         : node.total && node.done === node.total ? "done" : "waiting"
     }>
@@ -75,7 +78,41 @@ function RunNode({ node }: { node: Placed }) {
   );
 }
 
-export function Graph({ runId }: { runId: string }) {
+/** The figure, as a file that opens outside this app.
+ *
+ * **Honest to offer only because `dag-core`'s layout is deterministic** — §12.3. The same run
+ * draws the same figure twice, which is the whole reason that layout lives in Python rather
+ * than in the browser, and it is what makes this a figure for a methods section rather than a
+ * screenshot of a moment.
+ *
+ * The token values are resolved into the copy: `var(--pea)` means nothing in a file opened in
+ * Inkscape, so the SVG would arrive with every stroke unset.
+ */
+function svgOf(svg: SVGSVGElement | null): string {
+  if (!svg) return "";
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const root = getComputedStyle(document.documentElement);
+  const resolve = (value: string) =>
+    value.replace(/var\((--[a-z0-9-]+)\)/g, (_, name: string) =>
+      root.getPropertyValue(name).trim() || "currentColor");
+
+  for (const node of Array.from(clone.querySelectorAll<SVGElement>("*"))) {
+    for (const name of ["fill", "stroke"]) {
+      const value = node.getAttribute(name);
+      if (value?.includes("var(")) node.setAttribute(name, resolve(value));
+    }
+  }
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.style.background = root.getPropertyValue("--paper").trim();
+  return new XMLSerializer().serializeToString(clone);
+}
+
+export function Graph({ runId, onOpenConsole }: {
+  runId: string; onOpenConsole?: (process: string) => void;
+}) {
+  const canvas = useRef<SVGSVGElement>(null);
+  const menu = useContextMenu();
+  const [node, setNode] = useState<string | null>(null);
   const { view, onWheel, onPointerDown } = useView();
   const graph = useQuery({
     queryKey: ["run-graph", runId],
@@ -100,8 +137,43 @@ export function Graph({ runId }: { runId: string }) {
         </span>
       }
     >
+      {menu.at && (
+        <Menu
+          at={menu.at}
+          onClose={menu.close}
+          items={node
+            // §12.3's graph-node menu.
+            ? [
+                { label: "Show its tasks", w4: true },
+                { label: "Open in console",
+                  onPick: onOpenConsole && (() => onOpenConsole(node)) },
+                { label: "Show it in the table", w4: true },
+                { label: "Copy process name", onPick: () => void copy(node), separated: true },
+                { label: "Copy the container image", w4: true },
+                { label: "Retry the failed tasks", w4: true, separated: true },
+              ]
+            // §12.3's canvas menu.
+            : [
+                { label: "Fit to the window", w4: true },
+                { label: "Zoom to 100%", w4: true },
+                { label: "Copy the graph as SVG",
+                  onPick: () => void copy(svgOf(canvas.current)), separated: true },
+                { label: "Save as PNG", w4: true },
+                { label: "Show the pipeline it came from", w4: true, separated: true },
+              ]}
+        />
+      )}
+
       <svg
+        ref={canvas}
         data-testid="run-graph"
+        onContextMenu={(event) => {
+          // The node under the pointer, or the canvas itself — one listener, because an SVG
+          // child's own handler would fight the canvas's for the same gesture.
+          const hit = (event.target as Element).closest?.("[data-testid^='node-']");
+          setNode(hit?.getAttribute("data-testid")?.replace("node-", "") ?? null);
+          menu.bind.onContextMenu(event as unknown as React.MouseEvent<HTMLElement>);
+        }}
         width={graph.data.width + 40}
         height={graph.data.height + 40}
         className="overflow-visible"

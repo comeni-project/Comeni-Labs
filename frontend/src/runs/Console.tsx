@@ -1,6 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import { Menu, copy, useContextMenu, type MenuItem } from "./Menu";
 import { elapsed } from "./elapsed";
 import type { RunEvent } from "./useRunStream";
 
@@ -19,6 +20,13 @@ const COLOUR: Record<string, string> = {
   RUNNING: "var(--measured)", SUBMITTED: "var(--ink-3)", ABORTED: "var(--undecided)",
 };
 
+/** One line, as text — the same thing the row draws, so a copy and a screenshot agree. */
+function asText(event: RunEvent): string {
+  const trace = event.trace;
+  return [at(event.at_ms), trace?.status ?? event.kind, trace?.process ?? "",
+          trace?.name ?? ""].filter(Boolean).join("  ");
+}
+
 function at(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour12: false });
 }
@@ -32,10 +40,13 @@ function at(ms: number): string {
  * **Virtualised**, for the same reason the Tasks tab is: a 5,000-task run is 15,000 events,
  * and putting them all in the DOM is how a console that pages correctly still feels broken.
  */
-export function Console({ events, following, process = "", onClearProcess }: {
+export function Console({ events, following, process = "", onClearProcess, onFilter }: {
   events: RunEvent[]; following: boolean; process?: string;
   onClearProcess?: () => void;
+  onFilter?: (process: string) => void;
 }) {
+  const menu = useContextMenu();
+  const [line, setLine] = useState<RunEvent | null>(null);
   const rows = useMemo(
     () => events.filter((event) => event.trace && (!process || event.trace.process === process)),
     [events, process],
@@ -48,6 +59,20 @@ export function Console({ events, following, process = "", onClearProcess }: {
     overscan: 16,
     initialRect: { width: 1200, height: 600 },
   });
+
+  /** §12.3's console-line menu. **`copy everything shown`, not everything** — a console
+   *  filtered to STAR_ALIGN that copied all 412 lines would be lying about what you were
+   *  looking at. */
+  const itemsFor = (event: RunEvent): MenuItem[] => [
+    { label: "Copy this line", onPick: () => void copy(asText(event)) },
+    { label: "Copy the task's work directory", w4: true },
+    { label: "Filter to this process",
+      onPick: onFilter && event.trace ? () => onFilter(event.trace!.process) : undefined,
+      separated: true },
+    { label: "Show it in the overview", w4: true },
+    { label: "Copy everything shown",
+      onPick: () => void copy(rows.map(asText).join("\n")), separated: true },
+  ];
 
   return (
     <div data-testid="console" className="flex flex-col">
@@ -75,6 +100,9 @@ export function Console({ events, following, process = "", onClearProcess }: {
             <li
               key={event.seq}
               data-testid={`event-${event.seq}`}
+              {...menu.bind}
+              onContextMenu={(e) => { setLine(event); menu.bind.onContextMenu(e); }}
+              onKeyDown={(e) => { setLine(event); menu.bind.onKeyDown(e); }}
               style={{ position: "absolute", top: 0, left: 0, width: "100%",
                        transform: `translateY(${item.start}px)` }}
               className="grid grid-cols-[auto_auto_1fr_auto] items-baseline gap-3 px-4 py-1
@@ -102,6 +130,8 @@ export function Console({ events, following, process = "", onClearProcess }: {
         })}
        </ol>
       </div>
+      {menu.at && line && <Menu items={itemsFor(line)} at={menu.at} onClose={menu.close} />}
+
       <p data-testid="event-count"
          className="px-4 py-2 text-label text-ink-3 text-center border-t border-line">
         {/* **What is SHOWN, when a filter is on** — §12.3 makes the same point about copying:
