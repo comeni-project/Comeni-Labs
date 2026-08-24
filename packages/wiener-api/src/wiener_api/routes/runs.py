@@ -284,14 +284,18 @@ class ProcessStatsOut(BaseModel):
 def run_stats(run_id: str) -> list[ProcessStatsOut]:
     """Per process, worst case kept. The maximum is what kills a run and the mean is what hides
     it — §9.3, and the sort is by what took longest because that is what a reader came for."""
-    from wiener_core.stats import stats
+    from wiener_core.overview import overview
 
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
         state = state_of(session, settings.lab_id, run_id)
 
-    return [ProcessStatsOut(**row.model_dump()) for row in stats(state)]
+    # `overview()` orders by what the artifact declares and this route has no artifact, so the
+    # old sort is kept here rather than in the projection. **This whole route is replaced by
+    # `/overview` in Task 2** — it is held working for one commit, not designed.
+    rows = sorted(overview(state, []).rows, key=lambda row: row.realtime_ms or 0, reverse=True)
+    return [ProcessStatsOut(**row.model_dump()) for row in rows]
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}
