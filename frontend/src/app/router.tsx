@@ -6,6 +6,7 @@ import { ContractRoute } from "../forge/ContractRoute";
 import { Builder } from "../build/Builder";
 import { Queue } from "../forge/Queue";
 import { Board as Runs } from "../runs/Board";
+import { Run } from "../runs/Run";
 import { Tools } from "../forge/Tools";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
@@ -27,6 +28,7 @@ export const routes: RouteObject[] = [
       { path: "/", element: <Home /> },
       { path: "/build", element: <Builder /> },
       { path: "/runs", element: <Runs /> },
+      { path: "/runs/:id", element: <Run /> },
       { path: "/forge/queue", element: <Queue /> },
       { path: "/forge/queue/question/:subject", element: <Question /> },
       { path: "/forge/tools", element: <Tools /> },

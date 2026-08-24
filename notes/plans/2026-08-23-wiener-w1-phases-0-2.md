@@ -2026,7 +2026,7 @@ git commit -m "feat(frontend): the runs board, from the API's own schema"
 **Interfaces:**
 - Consumes: `GET /api/runs/{id}`, `GET /api/runs/{id}/events`, `WS /api/runs/{id}/stream`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 // frontend/src/runs/Run.test.tsx
@@ -2054,16 +2054,16 @@ test("the console says it is read-only rather than pretending it is not", async 
 });
 ```
 
-- [ ] **Step 2: Run and watch it fail**, then build `useRunStream` — fetch the page, render it,
+- [x] **Step 2: Run and watch it fail**, then build `useRunStream` — fetch the page, render it,
   open the socket at the returned `stream_id`, append. On socket close, re-page rather than
   reopening blind.
 
-- [ ] **Step 3: Build `Console.tsx`** against `docs/design/wiener-mockups/Main.dc.html` and
+- [x] **Step 3: Build `Console.tsx`** against `docs/design/wiener-mockups/Main.dc.html` and
   `Failure.dc.html`. **The Graph toggle renders as a disabled segment labelled `Graph`** — it is
   phase 3, and a control that goes nowhere silently is what `Shell.tsx` records as the mistake
   3A shipped six of.
 
-- [ ] **Step 4: Run everything and commit**
+- [x] **Step 4: Run everything and commit**
 
 Run: `cd frontend && npx vitest run && npx tsc -b`
 
@@ -2142,6 +2142,10 @@ pasted verbatim* — plans here are corrected during execution by design.
 | 11 | The vite proxy gained `/api/runs` and `/api/artifacts` **before** `/api` | Two APIs share one origin and vite matches in insertion order, so `/api` would have swallowed both and every board request would have reached Mendel. `ws: true` on the runs entry, or Task 12's socket cannot connect in dev |
 | 11 | The board shows neither **"12 samples"** nor task progress, which the mockup does | Both are absences with reasons rather than omissions. Nothing can say how many samples a run has — §7.1 forbids the table and the params ride as a job argument, so the mockup was drawn before that rule had teeth. Progress per run would mean folding every run's events on every page load, which is the reason `run_task` exists at all; it belongs on the run page |
 | 11 | `src/wiener/api/client.ts` is its own wrapper rather than a reuse of `src/api/client.ts` | **The refusal shapes differ.** Mendel answers 422 with a coded `Refusal` string; Wiener's submit answers with the artifact's declared parameters and which are unknown or missing. One wrapper trying to be both turns the useful half into *"refused, with no reason given"* |
+| 12 | `<Run />` reads `useParams()` rather than taking an `id` prop, and the tests go through the router | The repo's own convention — `Board.test.tsx` and every forge test render the real route table, which is what catches a route that was never registered |
+| 12 | **The hook does not reopen on a clean close.** Watched failing | A finished run's socket closes with 1000 *because* the server drained it, so re-paging on that opens another socket, which closes for the same reason — forever. Only an abnormal close (1006 and friends) is a dropped connection worth re-paging for. The revert produced two sockets where there should be one |
+| 12 | The cursor is a `ref`, not read out of state | `onclose` fires from a closure made when the socket opened, so reading `events` there gives whatever the array was at that moment — and re-paging from a stale cursor re-fetches everything that arrived while it was connected |
+| 12 | The console draws **only task events** | `started`, `completed` and `error` are the run's own lifecycle and the header already says it; `error` carries nothing to show at all (§4.3 finding 1). Three lines among four hundred is noise |
 | 2 | One test was added beyond the plan's four: `test_a_lab_string_is_marked_on_the_type` | §10.2's redaction claim is that a marked field added later cannot be missed. Nothing held that, and three of the four marked fields are `Annotated[...] | None` — a check reading only `__metadata__` sees `name` and misses `script`, `workdir` and `tag`, which are the ones carrying paths |
 
 ---
