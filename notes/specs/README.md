@@ -101,5 +101,18 @@ Three kinds live here:
   standard has one, and the finding that a span may be backdated, which is what makes a pure
   `spans(RunState)` and a three-day replay possible at all.
 
+- **One written from a design canvas rather than from prose** —
+  [`2026-08-24-w2-reading-a-run.md`](2026-08-24-w2-reading-a-run.md), Wiener W2. `wiener.md` §18
+  gives W2 one ending condition — *you can read a 400-task run without reading text* — and
+  reading the code found that **two of the five things it names are already built**, so what is
+  left is the ending condition, which is a statement that the console cannot be the answer.
+  Eleven decisions were put to the operator and answered before a line was drawn; nine artboards
+  in [`docs/design/w2-mockups/`](../../docs/design/w2-mockups/) are what they look like, and the
+  spec absorbed the interim decisions file so two documents cannot disagree later.
+  **The operator overrode the recommendation once and was right**: an exception threshold at 80%
+  is a magic number nobody sourced, and this project refuses an unsourced value everywhere else.
+  It also carries two defects the design pass found — the events page loads once and silently
+  drops the rest, and `--hover` is referenced five times in the builder and defined nowhere.
+
 **Read the relevant spec before starting the part that implements it.** The plan argues from the
 spec, and a plan read alone loses the reasons.
