@@ -157,7 +157,61 @@ services:
     ports: ["${WIENER_API_HOST_PORT:-8001}:8001"]
     command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001
 
+  # ---- telemetry: opt-in, `make telemetry` or `--profile telemetry` -------------------
+  #
+  # **Not in the default stack**, because `make dev` should not grow a ClickHouse for people
+  # who are working on the forge. **Not a separate file either**, because two compose files
+  # drift — which is the argument `docker-compose.prod.yml`'s own header makes about overlays.
+  #
+  # **ClickHouse and Grafana rather than SigNoz** (2026-08-24). SigNoz is what §8 named and it
+  # deprecated bundled Compose in v0.130.0, installing through a CLI that renders its own
+  # stack; vendoring that manifest means running an unmaintained copy of somebody else's
+  # deployment. These are first-party images, the store is the same ClickHouse either way, and
+  # the boards are JSON in `ops/boards/` rather than something clicked into a vendor's UI.
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3-alpine
+    container_name: ${CLICKHOUSE_CONTAINER_NAME:-wiener-clickhouse}
+    profiles: [telemetry]
+    environment:
+      CLICKHOUSE_DB: otel
+      CLICKHOUSE_USER: otel
+      CLICKHOUSE_PASSWORD: otel
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes: ["wiener-clickhouse:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.121.0
+    container_name: ${OTEL_CONTAINER_NAME:-wiener-otel}
+    profiles: [telemetry]
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes: ["./ops/otel/collector.yaml:/etc/otel/collector.yaml:ro"]
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    ports: ["${OTLP_HOST_PORT:-4317}:4317"]
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: ${GRAFANA_CONTAINER_NAME:-wiener-grafana}
+    profiles: [telemetry]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      - ./ops/grafana:/etc/grafana/provisioning/datasources:ro
+      - ./ops/boards:/etc/grafana/boards:ro
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    ports: ["${GRAFANA_HOST_PORT:-3001}:3000"]
+
 volumes:
   mendel-pg:
   wiener-pg:
   wiener-var:
+  wiener-clickhouse:

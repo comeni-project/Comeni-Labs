@@ -1,0 +1,40 @@
+# OTLP in, ClickHouse out. That is the whole of it.
+#
+# **Nothing is sampled.** A tracing store's defaults drop spans, and §8's rule is that
+# OpenTelemetry is the lens rather than the record — a lens that quietly loses a task span is a
+# lens that lies. If this store fills, the answer is a retention policy somebody chose, not a
+# sampler nobody noticed.
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  batch:
+    timeout: 5s
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    # **Credentials belong here, not in the endpoint.** The first version of this file left them
+    # out and the collector tried `default` with no password: `code: 516, Authentication failed`.
+    username: otel
+    password: otel
+    database: otel
+    create_schema: true
+    ttl: 720h
+    # Thirty days, and a number somebody should argue with rather than inherit. §8: a clinical
+    # audit trail is measured in months where a tracing store defaults to days — which is
+    # exactly why the record lives in Postgres and not here.
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]

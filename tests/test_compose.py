@@ -41,10 +41,19 @@ def prod_text() -> str:
     return (ROOT / "docker-compose.prod.yml").read_text()
 
 
+def _default_stack(base) -> dict:
+    """What `make dev` brings up — everything without a profile.
+
+    A profiled service is defined here and started only when asked for, which is how the
+    telemetry three can live in this file without a ClickHouse landing on somebody who is
+    working on the forge."""
+    return {name: svc for name, svc in base["services"].items() if not svc.get("profiles")}
+
+
 def _publish_a_host_port(base) -> set[str]:
     """Which services the base exposes on the host. Derived, because a written-out list is a
     list that stops matching the stack the day somebody adds a service to it."""
-    return {name for name, service in base["services"].items() if service.get("ports")}
+    return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
 def test_the_stack_is_seven_services(base):
@@ -55,9 +64,31 @@ def test_the_stack_is_seven_services(base):
     what stopped them arriving with a host-published port that the prod overlay had never
     heard of — the plan's Task 5 said "add the compose services" and said nothing about the
     overlay, which is precisely the gap a literal list catches."""
-    assert sorted(base["services"]) == [
+    assert sorted(_default_stack(base)) == [
         "api", "postgres", "redis", "web", "wiener-api", "wiener-postgres", "worker",
     ]
+
+
+def test_the_telemetry_backend_is_opt_in(base):
+    """**`make dev` must not grow a ClickHouse** for somebody working on the forge, and the
+    backend must not be a second compose file either — two files drift, which is the argument
+    `docker-compose.prod.yml`'s own header makes about overlays.
+
+    A profile is the third option: defined here, started when asked for. `make telemetry`."""
+    profiled = {name for name, svc in base["services"].items() if svc.get("profiles")}
+    assert profiled == {"clickhouse", "otel-collector", "grafana"}
+    assert all(base["services"][name]["profiles"] == ["telemetry"] for name in profiled)
+
+
+def test_nothing_in_the_default_stack_depends_on_a_profiled_service(base):
+    """A dependency on something that does not start is a stack that does not come up. Wiener
+    reaches the collector by URL — `WIENER_OTLP_ENDPOINT` — and by nothing else."""
+    profiled = {name for name, svc in base["services"].items() if svc.get("profiles")}
+    for name, svc in _default_stack(base).items():
+        assert not (set(svc.get("depends_on") or {}) & profiled), (
+            f"{name} depends on {profiled & set(svc.get('depends_on') or {})}, which "
+            "`make dev` does not start"
+        )
 
 
 def test_the_overlay_names_only_services_the_base_has(base, prod):

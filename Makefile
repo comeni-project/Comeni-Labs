@@ -105,6 +105,11 @@ client:  ## regenerate both TypeScript clients from the APIs' own schemas
 migrate:  ## apply database migrations
 	cd packages/mendel-api && uv run alembic upgrade head
 
+telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafana on :3001
+	docker compose --profile telemetry up -d clickhouse otel-collector grafana
+	@echo "OTLP on localhost:4317 · boards on http://localhost:3001"
+	@echo "point Wiener at it:  export WIENER_OTLP_ENDPOINT=http://localhost:4317"
+
 wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
 	cd packages/wiener-api && uv run alembic upgrade head
 

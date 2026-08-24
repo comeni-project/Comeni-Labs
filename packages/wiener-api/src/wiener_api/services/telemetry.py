@@ -18,6 +18,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from wiener_core.spans import Span, SpanKind, pipeline_name, spans
 from wiener_core.state import RunPhase, RunState
@@ -26,6 +27,33 @@ from wiener_api.settings import settings
 
 log = logging.getLogger(__name__)
 
+class _DerivedIds(IdGenerator):
+    """Ids the SDK would otherwise invent.
+
+    **A run is one trace, and without this it was two.** The SDK generates a random trace id for
+    a span with no parent context, so the run span landed in a trace of its own while the five
+    task spans shared the derived one — and their `ParentSpanId` pointed at a span that did not
+    exist. In a UI that is one lone `RUN` and five orphans, which is the shape of failure that
+    looks like it works until somebody opens it.
+
+    Caught by querying ClickHouse at Checkpoint 3, not by a unit test: the test stubbed `_emit`,
+    so it asserted what Wiener *intended* rather than what the SDK produced.
+
+    Safe to be stateful because `export()` emits one run's spans in order, in one thread.
+    """
+
+    def __init__(self) -> None:
+        self.trace_id = 0
+        self.span_id = 0
+
+    def generate_trace_id(self) -> int:
+        return self.trace_id
+
+    def generate_span_id(self) -> int:
+        return self.span_id
+
+
+_ids = _DerivedIds()
 _tracer: trace.Tracer | None = None
 _metrics: dict[str, object] = {}
 
@@ -54,7 +82,7 @@ def configure() -> bool:
         return True
 
     resource = Resource.create({"service.name": "wiener"})
-    provider = TracerProvider(resource=resource)
+    provider = build_provider(resource)
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(
         endpoint=settings.otlp_endpoint, insecure=True)))
     trace.set_tracer_provider(provider)
@@ -76,7 +104,22 @@ def configure() -> bool:
     return True
 
 
+def build_provider(resource: Resource) -> TracerProvider:
+    """The provider, built where a test can reach it.
+
+    **Separated because the test that could not see it was vacuous**: it built its own provider
+    with `_ids` attached, so removing the generator from the real one changed nothing and the
+    test still passed. A guard that constructs its own subject is asserting its own setup.
+    """
+    return TracerProvider(resource=resource, id_generator=_ids)
+
+
 def _emit(span: Span) -> None:
+    # The run id is the first segment of every span's id — `<run>.<task>.<attempt>` — so one
+    # trace id covers the run whether or not the span has a parent.
+    _ids.trace_id = _id_of(span.span_id.split(".")[0], 16)
+    _ids.span_id = _id_of(span.span_id, 8)
+
     parent = None
     if span.parent:
         parent = trace.set_span_in_context(NonRecordingSpan(SpanContext(
