@@ -22,9 +22,32 @@ def work_dir(run_id: str) -> Path:
     return settings.work_root / run_id
 
 
+def _resource_limits() -> str:
+    """How big this machine is — **the definitive site fact**, and the reason the emitted
+    config may state what a process *asks for* without knowing what it can *have*.
+
+    `execution-boundary.md` §6: site facts live here and never in the artifact. nf-core's
+    convention asks `process_medium` for 36 GB, which is right on a cluster and unschedulable on
+    a laptop — Nextflow refuses rather than clamping, so without this the labels Mendel now
+    emits would stop every local run dead.
+
+    `resourceLimits` is Nextflow's own clamp and replaced the old `check_max` helper.
+    """
+    import os
+
+    cpus = os.cpu_count() or 1
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+        gigabytes = max(1, int(pages / 1024**3))
+    except (ValueError, OSError):  # a platform without sysconf; be conservative rather than wrong
+        gigabytes = 4
+    return f"process.resourceLimits = [ cpus: {cpus}, memory: {gigabytes}.GB, time: 24.h ]\n"
+
+
 def site_config(run: Run) -> str:
     url = f"{settings.ingest_base_url}/events/{run.id}/{run.ingest_secret}"
     return (
+        _resource_limits() +
         "// Written by Wiener at launch. Site facts only — never the artifact.\n"
         "weblog {\n"
         "    enabled = true\n"

@@ -731,18 +731,18 @@ than readings — a bare `peak_rss` means nothing without what was asked for.
 | **time** | `duration` | `realtime` | the difference is **queue wait**. On a cluster that is the number that explains a slow run |
 | **i/o** | — | `read_bytes` · `write_bytes` | which step actually moves the data |
 
-**The `asked` half of the memory row does not exist yet, and it is Mendel's** (found 2026-08-24
-by querying a real run's spans). The emitted `nextflow.config` carries `ext.args` and nothing
-else — no `memory` or `cpus` directive on any process — so Nextflow reports `memory: null` and
-the comparison has one side. `cpus` reads 1 because that is Nextflow's default rather than
-anything the pipeline asked for.
+**The `asked` half was empty until 2026-08-24, and closing it was a Mendel change.** The
+emitted `nextflow.config` carried `ext.args` and no resource directive at all, so Nextflow
+reported `memory: null` and the comparison had one side — a pipeline that requests nothing
+cannot be over-provisioned or under-provisioned. It now emits nf-core's `conf/base.config`
+label mappings, which is a **convention** rather than a judgement: every vendored module already
+declares `label 'process_*'` and this is what the ecosystem reads it against.
 
-That is not a telemetry gap to paper over: **a pipeline that requests nothing cannot be
-over-provisioned or under-provisioned**, and the panel should say so rather than draw a bar
-against zero. It becomes a real comparison when Mendel emits resource directives, which is a
-resolver-and-emitter question — a `memory` for a step is a decision with a tier and a `why:`
-like any other, and it is exactly the kind of decision §14's loop would later improve from
-observed runs.
+**A cap is not a request**, and the split matters: the artifact says what a process *asks for*,
+and what a machine *has* is a site fact — `process.resourceLimits`, written into `site.config`
+by Wiener's launcher from the host's real cpu count and memory. The emitted `test` and
+`stub_data` profiles carry a modest cap of their own, because a smoke run has no site config and
+`process_high` asking for 72 GB stopped `mendel build --gate test` dead.
 
 **Per process, not per task.** A 400-task run has 400 traces and nobody reads 400 rows; the
 dashboard aggregates by process and keeps the outlier — *STAR_ALIGN: 12 tasks, peak 61 GB of 64
