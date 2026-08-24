@@ -2755,3 +2755,26 @@ named as a bonus nobody had tested. It has now been tested.
 there is a translation in `wiener-api` — including turning a readable `<run>.<task>.<attempt>`
 id into the eight bytes the wire wants. That translation is a real cost of the split, and it is
 smaller than the thing it prevents.
+
+---
+
+## Absence is not zero, and two tests said so — 2026-08-24
+
+W2 Task 1 step 6. `overview()` is the front door's projection, and its docstring's sharpest
+claim is that *a number nothing reported is `None`, never zero* — a run launched without
+`trace.enabled` reports no resources at all, and a zero reads as **this process used no
+memory**, which is a lie a reader cannot tell from a true number.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_overview.py::test_absence_is_none_and_never_zero` | `memory_peak_bytes=_worst([...])` → `_worst([...]) or 0` in `wiener_core/overview.py` | failed | `AssertionError: assert 0 is None` / `  where 0 = ProcessRow(process='GREET', …, memory_peak_bytes=0, …).memory_peak_bytes` |
+
+**A second test failed that was not aimed at this**, and that is the part worth recording:
+`test_a_declared_process_the_run_never_reached_is_a_row_and_not_a_gap` went red on the same
+edit, because a process the run has not reached reports nothing either — so `or 0` claims a
+peak for a process that never started. One `or 0` is two different lies, and only one of them
+had a test written for it.
+
+**`or 0` rather than `if … else 0` on purpose.** The plausible way this defect arrives is not
+somebody deciding zero is right; it is somebody making a type checker happy about `int | None`
+in one keystroke. That is the edit the guard has to catch.

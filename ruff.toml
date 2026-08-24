@@ -10,6 +10,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [lint.per-file-ignores]
 # The mockup builder is HTML: its long lines are style attributes and SVG path data inside
-# string literals, where a wrap puts the break somewhere the reader has to undo. Only the
-# length rule is relaxed, and only here — E, F, I, UP, B and SIM still apply to the code.
-"docs/design/*-mockups/build.py" = ["E501"]
+# string literals, where a wrap puts the break somewhere the reader has to undo, and its
+# markup is `%`-templated because a template is filled positionally after it is written.
+# Relaxed only here, and only for the two rules that are about writing HTML in Python —
+# E, F, I, B, SIM and the rest of UP still apply. Nothing imports these files (A196): they
+# are a design tool whose output is nine artboards, and the artboards are the artifact.
+"docs/design/*-mockups/build.py" = ["E501", "UP031"]
