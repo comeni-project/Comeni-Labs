@@ -16,8 +16,14 @@ def test_the_executor_is_a_profile_and_never_an_emission(a_run):
     from wiener_api.services.launcher import command
 
     argv = command(a_run, workdir="/tmp/x")
-    assert "-profile" in argv and "local" in argv
     assert "-c" in argv
+    profiles = argv[argv.index("-profile") + 1].split(",")
+    assert profiles[0] == "local"
+    assert "docker" in profiles, (
+        "a run needs the executor AND a container runtime: the emitted config separates them "
+        "and its own k8s profile says `-profile k8s,docker -c site.config`. With one profile "
+        f"every process runs uncontained. Got {profiles}."
+    )
 
 
 def test_a_launch_writes_no_client_supplied_path(a_run):

@@ -82,3 +82,36 @@ def test_a_lab_string_is_marked_on_the_type():
 
     hints = get_type_hints(TaskTrace, include_extras=True)
     assert {n for n, h in hints.items() if marked(h)} == {"name", "script", "workdir", "tag"}
+
+
+RESOURCED = Path(__file__).parents[3] / "tests/fixtures/weblog/resourced-run.jsonl"
+
+
+def test_the_resource_fields_survive_admit():
+    """§4.3 finding 6 and §9.4. **The record cannot be back-filled**, so this is not a phase-3
+    display concern: a run admitted without these has no resource history ever.
+
+    The fixture is a second real capture, taken 2026-08-24 with `trace.enabled = true` — the
+    committed `failing-run.jsonl` was taken *without* it, which is exactly why the first
+    version of `TaskTrace` could drop all fifteen and every test still passed.
+    """
+    bodies = [json.loads(line) for line in RESOURCED.read_text().splitlines() if line.strip()]
+    done = next(b for b in bodies if b["event"] == "process_completed")
+    trace = admit(done, run_id="r1", seq=0).trace
+
+    assert trace.pct_cpu is not None, "%cpu was dropped — §9.3's cpu comparison has no `got`"
+    assert trace.peak_rss_bytes is not None, "peak_rss was dropped — the OOM story is gone"
+    assert trace.rchar and trace.wchar, "the i/o counters were dropped"
+    assert trace.cpu_model, "cpu_model was dropped"
+
+
+def test_the_two_captures_differ_in_exactly_the_way_finding_6_says():
+    """One run with `trace.enabled`, one without. If a future Nextflow starts sending the
+    resource fields unconditionally, this fails and finding 6 gets revisited rather than
+    quietly staying in the document as folklore."""
+    without = [json.loads(line) for line in FIXTURE.read_text().splitlines() if line.strip()]
+    plain = next(b for b in without if b["event"] == "process_completed")
+    assert "peak_rss" not in plain["trace"], (
+        "the trace-less capture now carries peak_rss — finding 6 said the fields are opt-in, "
+        "and that is no longer true of this Nextflow"
+    )

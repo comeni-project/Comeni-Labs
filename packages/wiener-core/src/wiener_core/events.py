@@ -94,6 +94,38 @@ class TaskTrace(BaseModel):
     workdir: Annotated[str, LAB_STRING] | None = None
     tag: Annotated[str, LAB_STRING] | None = None
 
+    # --- what `trace.enabled` adds, and what §9 draws ----------------------------------
+    #
+    # **Kept because the record cannot be back-filled.** §9.4 says admitting these is "a line
+    # in an allowlist and a test, rather than a subsystem", and it reads like display work
+    # deferrable to phase 3 — it is not. `run_event` is the source of truth, so a run recorded
+    # without them has no resource history *ever*, and the dashboard that phase 3 builds would
+    # open on months of runs it can say nothing about.
+    #
+    # Confirmed against a real capture on 2026-08-24 rather than assumed: with
+    # `trace.enabled = true` the weblog body carries all of these, and `admit()` was dropping
+    # every one. §9.3's four comparisons are asked-versus-got pairs, and both halves are here —
+    # `cpus` against `%cpu`, `memory` against `peak_rss`, `duration` against `realtime`.
+    pct_cpu: float | None = Field(default=None, alias="%cpu")
+    pct_mem: float | None = Field(default=None, alias="%mem")
+    rss_bytes: int | None = Field(default=None, alias="rss")
+    vmem_bytes: int | None = Field(default=None, alias="vmem")
+    peak_rss_bytes: int | None = Field(default=None, alias="peak_rss")
+    peak_vmem_bytes: int | None = Field(default=None, alias="peak_vmem")
+    rchar: int | None = None
+    wchar: int | None = None
+    read_bytes: int | None = None
+    write_bytes: int | None = None
+    syscr: int | None = None
+    syscw: int | None = None
+    vol_ctxt: int | None = None
+    inv_ctxt: int | None = None
+    cpu_model: str | None = None
+    """Not a lab string: the model of the CPU the site owns, which says nothing about a
+    sample. `container`, `queue` and `native_id` are the same class and are deliberately still
+    dropped — nothing reads them yet, and §4.4's rule is that a field arrives when something
+    needs it, in a diff."""
+
 
 class RunManifest(BaseModel):
     """The `metadata` on `started` and `completed`, reduced to what Wiener uses."""

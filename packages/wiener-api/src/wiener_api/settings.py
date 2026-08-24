@@ -23,6 +23,19 @@ class Settings(BaseSettings):
     principal to derive it from, one deployment is one laboratory and this is where it is
     named. The route handlers never read a `lab_id` out of a body or a query string; the day
     authentication lands, this default is replaced by the principal and nothing else moves."""
+    container_profile: str = "docker"
+    """Which container runtime this site has, named as one of the artifact's own profiles.
+
+    **A run needs two profiles, not one.** The emitted config separates the executor
+    (`local`, `k8s`, `awsbatch`) from the runtime (`docker`, `singularity`), and its `k8s`
+    profile says so in a comment: `nextflow run . -profile k8s,docker -c site.config`. The
+    launcher passed only the executor, so every process would have run without a container and
+    every tool would have had to be on the host's PATH.
+
+    Named rather than restated: the artifact already defines what `docker` means, including the
+    `-u $(id -u):$(id -g)` that keeps work directories from being root-owned. Site facts say
+    *which*, never *what* — `docs/design/execution-boundary.md` §6.
+    """
     stream_maxlen: int = 10_000
     """§7.2, and a starting number rather than a measurement — §17 carries it."""
 

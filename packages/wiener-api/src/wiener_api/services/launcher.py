@@ -48,7 +48,7 @@ def command(run: Run, workdir: str, samplesheet: str = "-") -> list[str]:
     """
     argv = [
         "nextflow", "run", ".",
-        "-profile", run.executor,
+        "-profile", f"{run.executor},{settings.container_profile}",
         "-c", f"{workdir}/site.config",
         "-w", f"{workdir}/work",
         "-name", f"wiener-{run.id}",
