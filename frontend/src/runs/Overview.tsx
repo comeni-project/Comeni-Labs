@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { get } from "../wiener/api/client";
 import type { components } from "../wiener/api/schema";
 import { Failed, Loading } from "../ui/States";
+import { TaskRow, type TaskView } from "./TaskRow";
 import { ABSENT, bytes, percent, seconds } from "./units";
+
+type TasksPage = { tasks: TaskView[]; total: number };
 
 export type Row = components["schemas"]["ProcessRowOut"];
 export type OverviewData = components["schemas"]["OverviewOut"];
@@ -84,9 +88,41 @@ function ceilings(rows: Row[]) {
   };
 }
 
-export function Table({ data }: { data: OverviewData }) {
+/** What one process did — fetched **only while it is open**.
+ *
+ * `enabled` is the whole of the cost argument: a run with forty processes must not open forty
+ * queries to draw a table nobody has clicked. This is §6's first question — *what did this
+ * process do* — and the Tasks tab is the second.
+ */
+function Expanded({ runId, process }: { runId: string; process: string }) {
+  const { data, isPending } = useQuery({
+    queryKey: ["tasks", runId, process],
+    queryFn: () => get<TasksPage>(
+      `/api/runs/${runId}/tasks?process=${encodeURIComponent(process)}&sort=-peak_rss_bytes`,
+    ),
+  });
+  if (isPending) return <p className="px-8 py-2 text-secondary text-ink-3">Reading tasks…</p>;
+  if (!data?.tasks.length) {
+    return <p className="px-8 py-2 text-secondary text-ink-3">No task has been reported.</p>;
+  }
+  return (
+    <div className="bg-paper">
+      {data.tasks.map((task, index) => (
+        <TaskRow key={task.task_id} task={task} showProcess={false} worst={index === 0} />
+      ))}
+      {data.total > data.tasks.length && (
+        <p className="px-4 py-1.5 text-label text-ink-3">
+          {data.total - data.tasks.length} more — open the Tasks tab
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function Table({ data, runId }: { data: OverviewData; runId?: string }) {
   const rows = data.rows;
   const top = ceilings(rows);
+  const [open, setOpen] = useState<string | null>(null);
 
   return (
     <div>
@@ -102,8 +138,8 @@ export function Table({ data }: { data: OverviewData }) {
         const io = row.read_bytes === null && row.write_bytes === null
           ? null : (row.read_bytes ?? 0) + (row.write_bytes ?? 0);
         return (
+          <div key={row.process}>
           <div
-            key={row.process}
             data-testid={`row-${row.process}`}
             className={`grid grid-cols-[14rem_9rem_1fr_1fr_1fr_1fr] gap-4 px-4 py-2.5
                         items-center border-b border-line last:border-b-0
@@ -111,6 +147,22 @@ export function Table({ data }: { data: OverviewData }) {
             style={{ transition: "background-color var(--t)" }}
           >
             <span className="flex items-baseline gap-2 min-w-0">
+              {/* The caret is at rest rather than on hover: a control that only exists under
+                  the pointer cannot be found by somebody looking for it. */}
+              <button
+                type="button"
+                data-testid={`expand-${row.process}`}
+                aria-expanded={open === row.process}
+                aria-label={`tasks of ${row.process}`}
+                disabled={!row.reached || !runId}
+                onClick={() => setOpen(open === row.process ? null : row.process)}
+                className="shrink-0 bg-transparent border-0 p-0 cursor-pointer text-ink-3
+                           hover:text-ink disabled:opacity-30 disabled:cursor-default"
+                style={{ transition: `transform var(--t), color var(--t)`,
+                         transform: open === row.process ? "rotate(90deg)" : "none" }}
+              >
+                ›
+              </button>
               <span className="font-data text-body text-ink truncate">{row.process}</span>
               {row.attempts_max > 1 && (
                 <span title={`a task of this process retried — ${row.attempts_max} attempts`}
@@ -152,14 +204,18 @@ export function Table({ data }: { data: OverviewData }) {
               label={io === null ? ABSENT : bytes(io)}
             />
           </div>
+          {open === row.process && runId && (
+            <Expanded runId={runId} process={row.process} />
+          )}
+          </div>
         );
       })}
     </div>
   );
 }
 
-export function Overview({ data }: { data: OverviewData }) {
-  return <Table data={data} />;
+export function Overview({ data, runId }: { data: OverviewData; runId?: string }) {
+  return <Table data={data} runId={runId} />;
 }
 
 export function OverviewPanel({ runId }: { runId: string }) {
@@ -170,5 +226,5 @@ export function OverviewPanel({ runId }: { runId: string }) {
   });
   if (isPending) return <Loading what="the run" />;
   if (isError || !data) return <Failed error={error ?? "the overview could not be read"} />;
-  return <Table data={data} />;
+  return <Table data={data} runId={runId} />;
 }
