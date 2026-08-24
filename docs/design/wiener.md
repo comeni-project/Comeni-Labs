@@ -1015,7 +1015,8 @@ that produced it: its tier, whether a rule or a person or a model settled it, wh
 which registry layer. That turns "STAR_ALIGN fails sometimes" into "the tier-3 rule setting its
 memory is wrong above 3 Gb", which is a proposal a reviewer can act on rather than a complaint.
 **No other platform can compute this**, because no other platform records why a value is what it
-is — and it is the difference between Wiener and a run manager
+is. It is an addition to run management rather than a replacement for it: the resource and
+failure views a laboratory expects are the work, and this sits beside them
 ([`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md) §4.1).
 
 `STAR_ALIGN` exiting 137 across nine runs on genomes over 3 Gb is exactly the observed-data premise

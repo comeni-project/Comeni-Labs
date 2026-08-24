@@ -187,48 +187,63 @@ is W6, and this research is what tells us the input is worth keeping now.
 
 ---
 
-### 4.1 The comparison is with the wrong product, and the operator said so
+### 4.1 Resembling a run manager is fine. The product is different for other reasons
 
-Everything above measures a **run**, which is what a run manager measures, and this document
-spent a section benchmarking against one. **That is one part of Comeni Labs and not its
-objective.** The claim the product is held to is *same goal in → same pipeline out, and nothing
-was guessed silently* — Mendel decides and records why; Wiener is Lab Y, one half of a whole
-that also has a Lab Z. A telemetry design scoped to *what Tower shows* would make Wiener a
-worse Tower, which is a competition worth losing.
+**Corrected 2026-08-24**, after this section first argued that measuring what Seqera measures
+was a competition worth losing. That was wrong, and the operator said so: **the five dashboards
+in §5.1 are the work**, the asked-versus-got framing is right *because* practitioners already
+read it, and a pipeline runner that resembles other pipeline runners in what it reports is a
+pipeline runner people can use on day one. Novelty in a resource plot is not a feature.
 
-**The statistic nobody else can compute is outcome by provenance**, and the reason is
-structural: no other platform records *why* a value is what it is, so no other platform can ask
-whether the reasons were any good.
+**Wiener is one part of Comeni Labs, and the difference is in ownership rather than in
+readings.**
+
+- **It is Apache-2.0 and a laboratory hosts it themselves.** That is not a fallback tier —
+  invariant 13: *self-hosted is not a degraded tier; same registry, same resolver,
+  byte-identical output, and anything that would only work on our infrastructure is a design
+  error.* Seqera's control plane is a product you buy access to; this is a product you run.
+- **A centralised deployment is an option we may also offer**, and it sells convenience, never
+  capability. A lab that never talks to us gets the same numbers.
+- **Telemetry is opt-in and off by default** (`CLAUDE.md`), and §8 already says the collector is
+  self-hosted for the same reason: spans reaching a *hosted vendor* are an undeclared egress
+  path, and worse than the model one because telemetry is fire-and-forget.
+
+**Three constraints follow, and they bind phase 3 rather than being philosophy:**
+
+1. **The dashboards ship as importable artifacts**, not as a service. A lab points Wiener at
+   their own OTLP endpoint and gets the same five boards. If a board only renders on
+   infrastructure we run, invariant 13 is broken and the plan is wrong.
+2. **The backend stays swappable.** SigNoz is §8's default because one store for traces, logs
+   and metrics is one thing to operate — but Wiener speaks OTLP, so Grafana or Jaeger is a
+   configuration line. Nothing in the mapping may assume a query language.
+3. **No number requires a Comeni account to compute.** Everything in §5.1 is derivable from one
+   deployment's own spans and metrics.
+
+### 4.2 And one thing only this product can add
+
+Not instead of the dashboards — **beside them**, and cheaply, because the data is already
+local.
 
 `pipeline.yml` is in the artifact Wiener owns, `Pipeline` is a `comeni-core` type, and
-`comeni-core` is the one package both halves share (§3.3). So Wiener can read a run's decisions
-**without touching Mendel at all** — which is what that shared package is for, and why it keeps
-the platform name rather than the product's.
-
-What that buys, in attributes on the task span, all of them declared data and low cardinality:
+`comeni-core` is the one package both halves share (§3.3). So Wiener can label a run with its
+own decisions **without touching Mendel at all** — which is what that shared package is for.
 
 | attribute | from | the question it answers |
 |---|---|---|
-| `comeni.decision.tier` | `Why.tier`, `DecisionRecord.tier` | **do tier-3 decisions fail more often than tier-2 ones?** If a rule-matched choice breaks more than a documented default, the rule tables are wrong — and that is a claim about the engine, measured |
-| `comeni.decision.source` | `Why.source` / `resolved_by` | resolver, rule, human, model — A130's question from the other direction: does a value a *model* chose behave like one a person chose? |
-| `comeni.contract.id` | the step's pinned contract | which contract's steps fail, across every laboratory that runs it. That is the registry's own error rate |
-| `comeni.registry.layer` | `Why.from_layer` | does an overlay's displacement make things better or worse than the base it replaced? |
-| `comeni.override` | `human_override` / `model_override` | did overriding help? The one honest test of a flagged tier-4 answer |
+| `comeni.decision.tier` | `Why.tier`, `DecisionRecord.tier` | **do tier-3 decisions fail more often than tier-2 ones?** If a rule-matched choice breaks more than a documented default, the rule tables are wrong — a claim about the engine, measured |
+| `comeni.decision.source` | `Why.source` / `resolved_by` | resolver, rule, human, model — A130 from the other direction: does a value a *model* chose behave like one a person chose? |
+| `comeni.contract.id` | the step's pinned contract | which contract's steps fail — the registry's own error rate |
+| `comeni.registry.layer` | `Why.from_layer` | does an overlay's displacement beat the base it replaced? |
+| `comeni.override` | `human_override` / `model_override` | did overriding a tier-4 answer help? |
 
-**None of those is a run statistic.** They are statistics about *decisions*, keyed by the thing
-that made them, and each one closes a loop the product already claims to care about and
-currently cannot check.
+No other platform can compute these, because no other platform records *why* a value is what it
+is. It is also what turns §14's loop from *"STAR_ALIGN fails sometimes"* into *"the rule setting
+its memory is wrong above 3 Gb"* — a proposal naming what to change.
 
-**It is also the input §14 needs.** A failure signature recurring across runs becomes a forge
-proposal; a failure signature recurring *on one contract, at one tier, from one layer* is a
-proposal that says which rule to change. Same mechanism, and the difference between "STAR_ALIGN
-fails sometimes" and "the rule that sets its memory is wrong above 3 Gb".
-
-**This does not have to ship in phase 3, and saying so is the honest part.** Unlike the fifteen
-trace fields — which are gone forever if `admit()` drops them — telemetry is **regenerable**:
-spans are a pure function of `RunState` and the artifact, both of which are kept, and §3 says a
-backdated span is legal. So decision labels can be added later and back-filled by replaying the
-record. Phase 3 should carry them because they are nearly free once the artifact is open, not
+**It need not ship in phase 3.** Unlike the fifteen trace fields — gone forever if `admit()`
+drops them — telemetry is **regenerable**: spans are a pure function of `RunState` and the
+artifact, both kept, and §3 says a backdated span is legal. Labels can be back-filled by
+replaying the record. Carry them because they are nearly free once the artifact is open, not
 because there is a cliff.
 
 ## 5. What to build, in order
@@ -258,6 +273,10 @@ implementation of what ClickHouse is for.
 | **Where the time goes** | per-process duration and queue wait, p50/p95/max | task spans |
 | **Where the capacity goes** | asked versus used, per process, worst case kept | the six `wiener.*` attributes |
 | **What breaks** | exit codes per process over time, retries, repeat signatures | `process.exit.code`, `wiener.task.attempt` |
+
+**Every one of these must render against a laboratory's own backend** — §4.1. They are board
+definitions shipped with Wiener, not a service, and the test of that is whether a lab which has
+never spoken to us sees the same five.
 
 **Keep the maximum, not the mean** — §9.3 already says it and it is the single most important
 display rule here: the maximum is what kills a run and the mean is what hides it.
