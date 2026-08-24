@@ -65,6 +65,7 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     workdir = launcher.work_dir(a_run.id)
     assert (workdir / "main.nf").read_text() == "workflow {}\n", "the artifact was not copied"
     assert (workdir / "site.config").exists(), "nothing told the head process where to report"
+    assert not (workdir / "params.json").exists(), "no params were supplied, so none are written"
     assert a_run.ingest_secret in (workdir / "site.config").read_text()
     assert spawned and spawned[0][1] == str(workdir), "Nextflow was not started in the copy"
     assert repository.run(session, a_run.lab_id, a_run.id).phase == "launching"

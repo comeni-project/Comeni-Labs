@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
-from wiener_api.services.artifacts import store
+from wiener_api.services.artifacts import declared_holes, store
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
 
@@ -24,9 +24,18 @@ class SubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    samplesheet: str
-    """What the lab fills `params.input` with. **Not stored** — §7.1: no table holds a
-    samplesheet, and this rides to the launcher as a job argument rather than a column."""
+    params: dict[str, str | list[str]] = {}
+    """The values only the laboratory can supply, and **the artifact is the schema**.
+
+    Mendel emits every value it can justify and `= null` for every value it cannot, so a
+    submission fills precisely those nulls — no more, and no fewer. That makes this map
+    flexible without being open: `declared_holes()` reads them out of the artifact, so an
+    unknown key and a missing one are both refused, for any pipeline, including one Mendel
+    never built.
+
+    **Not stored** — §7.1: no table holds a samplesheet. These ride to the launcher as a job
+    argument, which is transient by nature and the right lifetime for run data.
+    """
     executor: Literal["local"] = "local"
     """`local` only in W1. k8s and awsbatch are W5, and an enum that accepted them before
     anything had run there would be a lie the API tells its own generated client, which would
@@ -73,12 +82,21 @@ async def submit(body: SubmitRequest) -> RunAccepted:
     with db.session_scope() as session:
         if repository.artifact(session, settings.lab_id, body.artifact_id) is None:
             raise HTTPException(status_code=404, detail="no such artifact")
+
+        holes = declared_holes(body.artifact_id)
+        if (supplied := set(body.params)) != holes:
+            raise HTTPException(status_code=422, detail={
+                "message": "a run fills exactly the parameters the artifact leaves null",
+                "declared": sorted(holes),
+                "unknown": sorted(supplied - holes),
+                "missing": sorted(holes - supplied),
+            })
         repository.add(session, settings.lab_id, Run(
             id=run_id, artifact_id=body.artifact_id, submitted_by="operator",
             submitted_at=datetime.now(UTC), phase="queued", executor=body.executor,
             ingest_secret=secrets.token_hex(16),
         ))
-    await jobs.enqueue("launch_job", run_id, body.samplesheet)
+    await jobs.enqueue("launch_job", run_id, body.params)
     return RunAccepted(run_id=run_id)
 
 

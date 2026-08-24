@@ -10,10 +10,10 @@ from wiener_api.services.launcher import launch
 from wiener_api.settings import settings
 
 
-async def launch_job(ctx: dict, run_id: str, samplesheet: str = "-") -> str:
-    """The samplesheet travels here rather than in a column — §7.1 forbids the column, and a
-    job argument is transient by nature, which is the right lifetime for it."""
-    launch(run_id, samplesheet)
+async def launch_job(ctx: dict, run_id: str, params: dict | None = None) -> str:
+    """The run's parameters travel here rather than in a column — §7.1 forbids the column, and
+    a job argument is transient by nature, which is the right lifetime for run data."""
+    launch(run_id, params)
     return run_id
 
 

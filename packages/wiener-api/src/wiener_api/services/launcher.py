@@ -7,6 +7,7 @@ without it fifteen resource fields never arrive and the dashboard is empty for a
 on screen would explain.
 """
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,15 +37,17 @@ def site_config(run: Run) -> str:
     )
 
 
-def command(run: Run, workdir: str, samplesheet: str = "-") -> list[str]:
+def command(run: Run, workdir: str, has_params: bool = False) -> list[str]:
     """The head process's argv.
 
-    **`--input` is here because nothing else carries it.** The submit body takes a samplesheet
-    and §7.1 forbids a column for it, so it rides to the launcher as a job argument and lands
-    on the command line — which is where `params.input` expects it: the emitted pipeline
-    references it as a placeholder the lab fills at run time (invariant 15). The plan accepted
-    a samplesheet at `POST /api/runs` and passed it to nothing, and Checkpoint 2's own script
-    submits `"-"`, so no step in this phase would have noticed.
+    **Two profiles, never one.** The emitted config separates the executor from the container
+    runtime, and its own `k8s` profile says so: `-profile k8s,docker -c site.config`. Site
+    facts name *which* profile, never restate what it means.
+
+    **`-params-file`, not a splice of `--input`.** The values a laboratory supplies fill the
+    artifact's declared nulls, and there may be any number of them — a file is Nextflow's own
+    mechanism for that, it survives values a shell would mangle, and it leaves a readable
+    record of what this run was given beside the config that ran it.
     """
     argv = [
         "nextflow", "run", ".",
@@ -53,8 +56,8 @@ def command(run: Run, workdir: str, samplesheet: str = "-") -> list[str]:
         "-w", f"{workdir}/work",
         "-name", f"wiener-{run.id}",
     ]
-    if samplesheet and samplesheet != "-":
-        argv += ["--input", samplesheet]
+    if has_params:
+        argv += ["-params-file", f"{workdir}/params.json"]
     return argv
 
 
@@ -65,7 +68,7 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 
 
-def launch(run_id: str, samplesheet: str = "-") -> None:
+def launch(run_id: str, params: dict[str, object] | None = None) -> None:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
 
     The artifact is COPIED rather than run in place: a second run of the same artifact must not
@@ -83,7 +86,9 @@ def launch(run_id: str, samplesheet: str = "-") -> None:
         workdir.mkdir(parents=True, exist_ok=True)
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
+        if params:
+            (workdir / "params.json").write_text(json.dumps(params, indent=2, sort_keys=True))
         run.phase = "launching"
-        argv = command(run, workdir=str(workdir), samplesheet=samplesheet)
+        argv = command(run, workdir=str(workdir), has_params=bool(params))
 
     _spawn(argv, cwd=workdir)

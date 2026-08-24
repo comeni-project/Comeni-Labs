@@ -115,4 +115,6 @@ def a_bundle() -> bytes:
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("main.nf", "workflow {}\n")
         archive.writestr("pipeline.yml", "schema_version: 5\n")
+        # The holes this artifact declares — what a submission must fill, exactly.
+        archive.writestr("nextflow.config", "params {\n    input = null\n    fasta = null\n}\n")
     return buffer.getvalue()

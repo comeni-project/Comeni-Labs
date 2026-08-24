@@ -840,6 +840,22 @@ vocabulary is what makes the audit finite: a reviewer checks a list of verbs, no
 Wiener's storage; Wiener owns it from then on. **No shared volume, no shared environment variable,
 no shared id.**
 
+**A submission fills the artifact's declared holes, and the artifact is the schema** (decided
+2026-08-24). This document said `samplesheet`, and a real run needs three values: the emitted
+config carries `params { fasta = null; gtf = null; input = null }`, and Mendel emits all three
+the same way because a `Goal` says *`have: genome.fasta`* — a type, not a file. So the rule is:
+**Mendel emits every value it can justify and a placeholder for every value only the laboratory
+can supply; Wiener fills the placeholders.** `declared_holes()` reads the nulls out of the
+artifact, so an unknown key and a missing one are both refused at submit — for any pipeline,
+including one Mendel never built. The values reach Nextflow through `-params-file`, which
+carries a list where a spliced `--input` could not, and no table holds them (§7.1): they ride
+to the launcher as a job argument, which is the right lifetime for run data.
+
+It costs one thing, said plainly: a value filled at submit has no `why:`, because it is data
+rather than a decision. If a reference genome ever becomes a resolvable decision — a curated
+`GRCh38` with a citation — Mendel emits a value instead of `null`, the hole disappears, and the
+map stops carrying that key with **no change to this API**.
+
 ```
 Mendel side                    Wiener side
 -----------                    -----------
@@ -888,7 +904,7 @@ that only works downstream of us, and it is invariant 13's spirit applied one le
 POST   /api/artifacts              upload a gated pipeline directory -> {artifact_id, digest}
 GET    /api/artifacts/{id}         what it is: pipeline digest, gate verdict, process count
 
-POST   /api/runs                   {artifact_id, samplesheet, executor, policy_id} -> {run_id}
+POST   /api/runs                   {artifact_id, params, executor, policy_id} -> {run_id}
 GET    /api/runs                   the board: phase, counts, elapsed — one row per run
 GET    /api/runs/{id}              RunState, projected
 GET    /api/runs/{id}/tasks        the task table, paged
