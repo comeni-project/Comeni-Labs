@@ -21,6 +21,11 @@ export function useKeep(graph: DraftGraph) {
   /** The graph as it was when it was last kept, serialised. **Not a boolean**: `useGraph`'s
    *  `dirty` clears on a successful autosave, and a saved draft is still not a kept one. */
   const [keptGraph, setKeptGraph] = useState<string | null>(null);
+  /** **When** it was kept, for the rail's `kept <time>`. The rail's own tests pass a phrase
+   *  ("3 minutes ago"), so this field has always been a time — `Builder` handed it the literal
+   *  string "kept" instead, and the rail rendered `kept kept`. A wall clock rather than a
+   *  relative phrase, because a relative one goes stale in place with nothing to re-render it. */
+  const [keptAt, setKeptAt] = useState<string | null>(null);
 
   const keep = useMutation({
     mutationFn: async () => {
@@ -34,13 +39,17 @@ export function useKeep(graph: DraftGraph) {
       await post<Kept>(`/pipeline/drafts/${id}/keep`, {});
       return id;
     },
-    onSuccess: () => setKeptGraph(JSON.stringify(graph)),
+    onSuccess: () => {
+      setKeptGraph(JSON.stringify(graph));
+      setKeptAt(new Date().toLocaleTimeString());
+    },
   });
 
   const moved = keptGraph !== null && keptGraph !== JSON.stringify(graph);
 
   return {
     draftId,
+    keptAt,
     keep: () => keep.mutate(),
     keeping: keep.isPending,
     /** A coded refusal from `keep` — `MD05xx` for an illegal graph. Shown, not swallowed. */

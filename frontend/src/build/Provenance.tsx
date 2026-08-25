@@ -52,9 +52,15 @@ export function Provenance({
           <b className="font-data">{Math.round(data.settled_share * 100)}%</b> settled without
           judgement
         </span>
+        {/* **"steps", because the band beside this counts DECISIONS.** `needs_review` is a
+            list of nodes and `provenance` is a tally of decisions, so a pipeline reads
+            `6 Undecided` on the bar and `5 steps` here — both true, six tier-4 decisions
+            spread over five steps. Unlabelled they look like the same number disagreeing
+            with itself, which is how this was first reported as a defect. */}
         {undecided > 0 && (
           <span data-testid="undecided" className="text-body text-[var(--undecided)]">
-            · <b className="font-data">{undecided}</b> needs your decision
+            · <b className="font-data">{undecided}</b>{" "}
+            {undecided === 1 ? "step needs" : "steps need"} your decision
           </span>
         )}
         <span className="ml-auto text-secondary text-ink-3">

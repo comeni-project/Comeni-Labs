@@ -114,7 +114,10 @@ describe("the provenance bar", () => {
     // half that was not would be the honest number doing dishonest work.
     at(RISKY);
     await waitFor(() =>
-      expect(screen.getByTestId("undecided").textContent).toMatch(/1\s*needs your decision/i),
+      // "step needs" / "steps need" — the noun is what separates this count (nodes) from the
+      // band's beside it (decisions); they are different numbers for the same pipeline.
+      expect(screen.getByTestId("undecided").textContent)
+        .toMatch(/1\s*steps? needs? your decision/i),
     );
   });
 });

@@ -50,7 +50,7 @@ export function Walk({ draw, keep, gate, run }: {
   draw: { steps: number; problems: number };
   keep: { keptAt?: string | null; stale?: string | null; onKeep?: () => void; busy?: boolean };
   gate: { passed: boolean; note?: string | null; blocked?: string | null;
-          onLint?: () => void; onPreview?: () => void; panel?: ReactNode };
+          panel?: ReactNode };
   run: { sent: boolean; note?: string | null; blocked?: string | null;
          onSend?: () => void; panel?: ReactNode };
 }) {
@@ -89,10 +89,10 @@ export function Walk({ draw, keep, gate, run }: {
         note={gate.blocked ?? gate.note}
         panel={gate.panel}
       >
-        <button type="button" className={control} disabled={!kept} onClick={gate.onLint}
-                style={{ transition: `background-color var(--t)` }}>Lint</button>
-        <button type="button" className={control} disabled={!kept} onClick={gate.onPreview}
-                style={{ transition: `background-color var(--t)` }}>Preview</button>
+        {/* **No buttons here.** `gate.panel` is `GatePanel`, which renders `Gate`, which
+            renders Lint and Preview already — with the state these could not have: whether a
+            gate is mid-run, the verdict colour, and the blocked reason as a title. Rendering a
+            plain pair beside it drew the step twice, a dead pair above a live one. */}
       </Step>
 
       <Step
