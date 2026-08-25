@@ -32,55 +32,76 @@ export function Failure({ failed }: { failed: Failed }) {
   const both = failed.peak_rss_bytes !== null && failed.asked_bytes !== null;
 
   return (
+    /* **A tinted block with a full border, not a white card with a red stripe.** The artboard
+       fills the banner with `--undecided-soft` and outlines it in `--undecided`, which is what
+       makes it read as *the run stopped here* before a word of it is read. The left-stripe
+       card was the same treatment the console gives one failed LINE — using it for the whole
+       banner flattened the difference between the run failing and a task failing. */
     <section
       data-testid="failure"
-      className="bg-surface border border-line rounded-[var(--r)] shadow-e2 overflow-hidden"
-      style={{ borderLeft: "3px solid var(--fault)" }}
+      className="rounded-[var(--r)] shadow-e2 p-[15px] flex flex-col gap-2.5"
+      style={{ background: "var(--undecided-soft)", border: "1px solid var(--undecided)" }}
     >
-      <div className="px-4 py-3 flex flex-col gap-1.5">
-        <p className="font-data text-body text-ink">
+      <div className="flex items-baseline gap-2.5">
+        <p className="font-data m-0" style={{ fontSize: "15px", color: "var(--fault)" }}>
           {failed.process ?? "no task failed — the run stopped before one started"}
           {failed.process && (
-            <span className="text-ink-2">
+            <>
               {failed.tag && ` (${failed.tag})`}
               {failed.exit !== null && ` exited ${failed.exit}`}
               {` on attempt ${failed.attempts}`}
-              {failed.exit === 137 && (
-                <span className="text-ink-3"> — killed, out of memory</span>
-              )}
-            </span>
+            </>
           )}
         </p>
-        {/* **Said out loud, because it is the difference between this and a chat window.**
-            Every field above is a value the record holds; nothing here is inferred. */}
-        <p className="text-label text-ink-3">from the record · nothing interpreted</p>
-
-        {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
-            `63.8 GB` invites the reader to supply a ceiling they do not have. */}
-        {both && (
-          <p data-testid="failure-resources" className="font-data text-secondary text-ink-2">
-            peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
-          </p>
-        )}
+        {/* **Said out loud, and set opposite the headline** — because it is the difference
+            between this and a chat window. Every field beside it is a value the record holds;
+            nothing here is inferred. */}
+        <p className="ml-auto m-0 text-label uppercase tracking-[.08em] text-ink-3
+                      whitespace-nowrap">
+          from the record · nothing interpreted
+        </p>
       </div>
 
+      {/* **Only when both halves are known.** Half a comparison is worse than none: a bare
+          `63.8 GB` invites the reader to supply a ceiling they do not have.
+          The BAR is the point — `63.8 of 64` is a sentence, and a bar at 99% is the reason
+          the task died, visible without reading either number. */}
+      {both && (
+        <div data-testid="failure-resources" className="flex items-center gap-2.5">
+          <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+                style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
+            <span className="block h-full"
+                  style={{ width: `${Math.min(100, Math.round(
+                    (failed.peak_rss_bytes! / failed.asked_bytes!) * 100))}%`,
+                    background: "var(--undecided)" }} />
+          </span>
+          <span className="font-data text-body text-ink-2">
+            peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
+          </span>
+        </div>
+      )}
+
       {failed.report && (
-        <div className="border-t border-line">
-          <p className="px-4 pt-3 text-label text-ink-3">Command error:</p>
+        <>
+          {/* `--surface` inside the tinted banner, so the record sits ON the alarm rather than
+              in it — the artboard's inset well. **Scrolls rather than truncates**: the
+              artboard shows a curated three-line excerpt, and cutting a real `errorReport` at
+              three lines would hide the half that matters on the runs this is for. */}
           <pre
             data-testid="failure-report"
-            className="mx-4 my-2 p-3 font-data text-secondary text-ink-2 bg-paper
-                       border border-line rounded-[var(--r)] max-h-64
-                       overflow-auto whitespace-pre-wrap"
+            className="m-0 p-3 font-data text-secondary text-ink-2 rounded-[var(--r)]
+                       max-h-72 overflow-auto whitespace-pre-wrap"
+            style={{ background: "var(--surface)", border: "1px solid var(--line)",
+                     boxShadow: "var(--well)", lineHeight: 1.7 }}
           >
             {failed.report}
           </pre>
           {/* §18.1: nothing EXPLAINS a failure until W3. Saying so is a boundary; leaving it
               unsaid would let the banner read as an explanation that came up short. */}
-          <p className="px-4 pb-3 text-label text-ink-3">
+          <p className="m-0 text-label uppercase tracking-[.08em] text-ink-3">
             Nextflow&rsquo;s own errorReport · shown, not explained — W3 explains
           </p>
-        </div>
+        </>
       )}
     </section>
   );
