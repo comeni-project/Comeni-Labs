@@ -117,3 +117,58 @@ def test_retried_only_is_a_query_over_the_blob_and_not_a_scan(session, a_run):
     _replay_into(session, a_run.id)
     assert repository.tasks_page(session, settings.lab_id, a_run.id, retried_only=True) == []
     assert repository.tasks_total(session, settings.lab_id, a_run.id, retried_only=True) == 0
+
+
+def test_attempt_one_finds_the_tasks_that_never_retried(session, a_run):
+    """**The NULL trap, held by a test.**
+
+    A task that never retried can carry a NULL `attempts`, and `json_array_length(NULL)` is
+    NULL — so a bare `= 1` matches nothing and *attempt 1* silently returns an empty table
+    while the run plainly has tasks. The filter coalesces to 1; this is what watches it.
+    """
+    _replay_into(session, a_run.id)
+    quiet = repository.task(session, settings.lab_id, a_run.id, 1)
+    quiet.attempts = None            # SQLAlchemy writes the JSON value `null`
+    session.flush()
+
+    first = repository.tasks_page(session, settings.lab_id, a_run.id, attempt=1, limit=50)
+    assert any(row.task_id == 1 for row in first), "a NULL attempts is one attempt, not none"
+    assert repository.tasks_total(session, settings.lab_id, a_run.id, attempt=1) == len(first)
+
+
+def test_attempt_three_means_three_or_more(session, a_run):
+    """`3+` is the last option the artboard offers, so it is a floor rather than an equality —
+    a task on its fifth attempt is exactly what somebody picking it wants to see."""
+    _replay_into(session, a_run.id)
+    stubborn = repository.task(session, settings.lab_id, a_run.id, 2)
+    stubborn.attempts = [{"n": 1}, {"n": 2}, {"n": 3}, {"n": 4}]
+    session.flush()
+
+    assert [row.task_id for row in repository.tasks_page(
+        session, settings.lab_id, a_run.id, attempt=3, limit=50)] == [2]
+
+
+def test_the_board_summary_is_not_swallowed_by_the_run_id_route(client, a_run):
+    """**A literal path beside a parameterised one is an ORDERING, not a disambiguation.**
+
+    `/runs/summary` and `/runs/{run_id}` both match `GET /api/runs/summary`, and FastAPI takes
+    whichever is declared first. Declared after, `summary` is read as a run id and the board's
+    tiles 404 on a run nobody asked for — with nothing in the logs to say why. Moving the
+    decorator is a one-line change somebody will make while tidying, so this watches it.
+    """
+    answer = client.get("/api/runs/summary")
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert body["window_days"] == 14
+    assert len(body["days"]) == 14, "one bucket per day, including the days nothing ran"
+    assert {"day", "succeeded", "failed"} == set(body["days"][0])
+
+
+def test_the_board_counts_tasks_without_folding_events(session, client, a_run):
+    """The tally beside a board row is a GROUP BY over `run_task`, so the page stays a page."""
+    _replay_into(session, a_run.id)
+    session.flush()
+
+    row = next(r for r in client.get("/api/runs").json()["runs"] if r["id"] == a_run.id)
+    assert row["tasks_seen"] > 0
+    assert row["tasks_done"] <= row["tasks_seen"]

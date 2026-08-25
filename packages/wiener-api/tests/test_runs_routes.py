@@ -129,7 +129,10 @@ def test_the_board_lists_runs_newest_first(client, a_bundle):
     ids = [client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
                                           "params": {"input": "x", "fasta": "y"}}).json()["run_id"]
            for _ in range(3)]
-    assert [row["id"] for row in client.get("/api/runs").json()] == list(reversed(ids))
+    # `/api/runs` is a PAGE now — `{runs, total}` — because the board filters and pages.
+    page = client.get("/api/runs").json()
+    assert [row["id"] for row in page["runs"]] == list(reversed(ids))
+    assert page["total"] == len(ids)
 
 
 def _spine_bundle() -> bytes:

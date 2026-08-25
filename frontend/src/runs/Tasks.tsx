@@ -30,12 +30,14 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
   const [process, setProcess] = useState("");
   const [status, setStatus] = useState("");
   const [retriedOnly, setRetriedOnly] = useState(false);
+  const [attempt, setAttempt] = useState("");
   const [sort, setSort] = useState<string>("task_id");
 
   const query = new URLSearchParams({ sort, limit: String(LIMIT) });
   if (process) query.set("process", process);
   if (status) query.set("status", status);
   if (retriedOnly) query.set("retried_only", "true");
+  if (attempt) query.set("attempt", attempt);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["tasks-tab", runId, query.toString()],
@@ -80,6 +82,21 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
             {STATUSES.map((name) => (
               <option key={name} value={name}>{name || "all"}</option>
             ))}
+          </select>
+        </label>
+
+        {/* **`attempt`, the artboard's third control.** `retried only` answers *did anything
+            retry*; this answers *which try am I looking at*, which is the question when a
+            process fails on 1 and passes on 2. `3+` is a floor, not an equality — a task on
+            its fifth is what somebody picking it wants. */}
+        <label className="flex items-center gap-1.5 text-label text-ink-3">
+          attempt
+          <select aria-label="attempt" className={control}
+                  value={attempt} onChange={(e) => setAttempt(e.target.value)}>
+            <option value="">any</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3+</option>
           </select>
         </label>
 

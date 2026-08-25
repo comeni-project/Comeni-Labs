@@ -28,11 +28,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The board */
+        /**
+         * The board
+         * @description One page of runs, newest first, with each row's task tally beside it.
+         */
         get: operations["listRuns"];
         put?: never;
         /** Run a pipeline */
         post: operations["submitRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the board's tiles count
+         * @description **Declared before `/runs/{run_id}`**, or FastAPI matches `summary` as a run id and every
+         *     request 404s on a run nobody asked for. A literal path and a parameterised one that can
+         *     both match are ordered, never disambiguated.
+         */
+        get: operations["readBoardSummary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -175,10 +200,42 @@ export interface components {
              */
             declared: string[];
         };
+        /**
+         * BoardSummary
+         * @description What the tiles count. **Every field is a tally or a percentile over `run`** — nothing
+         *     here folds an event stream, which is what keeps the board a page and not a job.
+         */
+        BoardSummary: {
+            /** Window Days */
+            window_days: number;
+            /** Failed */
+            failed: number;
+            /** Running */
+            running: number;
+            /** Succeeded */
+            succeeded: number;
+            /** Total */
+            total: number;
+            /** Median Ms */
+            median_ms: number | null;
+            /** P95 Ms */
+            p95_ms: number | null;
+            /** Days */
+            days: components["schemas"]["DayCount"][];
+        };
         /** Body_uploadArtifact */
         Body_uploadArtifact: {
             /** Bundle */
             bundle: string;
+        };
+        /** DayCount */
+        DayCount: {
+            /** Day */
+            day: string;
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
         };
         /** DrawnWire */
         DrawnWire: {
@@ -412,6 +469,28 @@ export interface components {
              * Format: date-time
              */
             submitted_at: string;
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * Tasks Done
+             * @default 0
+             */
+            tasks_done: number;
+            /**
+             * Tasks Seen
+             * @default 0
+             */
+            tasks_seen: number;
+        };
+        /**
+         * RunsPage
+         * @description A page of the board, and the total the same filters match.
+         */
+        RunsPage: {
+            /** Runs */
+            runs: components["schemas"]["RunRow"][];
+            /** Total */
+            total: number;
         };
         /** SubmitRequest */
         SubmitRequest: {
@@ -534,7 +613,13 @@ export interface operations {
     };
     listRuns: {
         parameters: {
-            query?: never;
+            query?: {
+                phase?: string | null;
+                who?: string | null;
+                executor?: string | null;
+                after?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -547,7 +632,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunRow"][];
+                    "application/json": components["schemas"]["RunsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -572,6 +666,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readBoardSummary: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardSummary"];
                 };
             };
             /** @description Validation Error */
@@ -720,6 +845,7 @@ export interface operations {
                 process?: string | null;
                 status?: string | null;
                 retried_only?: boolean;
+                attempt?: number | null;
                 sort?: string;
                 after?: number;
                 limit?: number;

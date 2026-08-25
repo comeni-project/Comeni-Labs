@@ -84,6 +84,40 @@ class RunRow(BaseModel):
     executor: str
     submitted_by: str
     submitted_at: datetime
+    ended_at: datetime | None = None
+    """So the board can say how long a run took without opening it."""
+    tasks_done: int = 0
+    tasks_seen: int = 0
+    """**Tasks, not steps.** `steps_declared` is in the artifact and reading one per row is
+    what the board could never afford; how many tasks a run has seen is one GROUP BY over the
+    `run_task` projection W2 built."""
+
+
+class RunsPage(BaseModel):
+    """A page of the board, and the total the same filters match."""
+
+    runs: list[RunRow]
+    total: int
+
+
+class DayCount(BaseModel):
+    day: str
+    succeeded: int
+    failed: int
+
+
+class BoardSummary(BaseModel):
+    """What the tiles count. **Every field is a tally or a percentile over `run`** — nothing
+    here folds an event stream, which is what keeps the board a page and not a job."""
+
+    window_days: int
+    failed: int
+    running: int
+    succeeded: int
+    total: int
+    median_ms: int | None
+    p95_ms: int | None
+    days: list[DayCount]
 
 
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
@@ -128,13 +162,35 @@ async def submit(body: SubmitRequest) -> RunAccepted:
 
 
 @router.get("/runs", operation_id="listRuns", summary="The board")
-def board() -> list[RunRow]:
+def board(phase: str | None = None, who: str | None = None, executor: str | None = None,
+          after: int = 0, limit: int = 25) -> RunsPage:
+    """One page of runs, newest first, with each row's task tally beside it."""
     with db.session_scope() as session:
-        return [
-            RunRow(id=r.id, phase=r.phase, executor=r.executor,
-                   submitted_by=r.submitted_by, submitted_at=r.submitted_at)
-            for r in repository.runs(session, settings.lab_id)
-        ]
+        page, total = repository.runs_page(session, settings.lab_id, phase=phase, who=who,
+                                           executor=executor, after=after, limit=limit)
+        counts = repository.task_counts(session, settings.lab_id, [r.id for r in page])
+        return RunsPage(
+            runs=[
+                RunRow(id=r.id, phase=r.phase, executor=r.executor,
+                       submitted_by=r.submitted_by, submitted_at=r.submitted_at,
+                       ended_at=r.ended_at,
+                       tasks_done=counts.get(r.id, (0, 0))[0],
+                       tasks_seen=counts.get(r.id, (0, 0))[1])
+                for r in page
+            ],
+            total=total,
+        )
+
+
+@router.get("/runs/summary", operation_id="readBoardSummary",
+            summary="What the board's tiles count")
+def board_summary(days: int = 14) -> BoardSummary:
+    """**Declared before `/runs/{run_id}`**, or FastAPI matches `summary` as a run id and every
+    request 404s on a run nobody asked for. A literal path and a parameterised one that can
+    both match are ordered, never disambiguated."""
+    with db.session_scope() as session:
+        return BoardSummary(**repository.board_summary(session, settings.lab_id,
+                                                       days=max(1, min(days, 90))))
 
 
 @router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")
@@ -356,14 +412,15 @@ class TasksOut(BaseModel):
 @router.get("/runs/{run_id}/tasks", operation_id="readTasks",
             summary="A run's tasks, filtered, sorted and paged")
 def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
-              retried_only: bool = False, sort: str = "task_id",
-              after: int = 0, limit: int = 100) -> TasksOut:
+              retried_only: bool = False, attempt: int | None = None,
+              sort: str = "task_id", after: int = 0, limit: int = 100) -> TasksOut:
     """**A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
     falls back to `task_id` rather than reaching the database."""
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
-        filters = {"process": process, "status": status, "retried_only": retried_only}
+        filters = {"process": process, "status": status, "retried_only": retried_only,
+                   "attempt": attempt}
         rows = repository.tasks_page(session, settings.lab_id, run_id,
                                      sort=sort, after=after, limit=limit, **filters)
         total = repository.tasks_total(session, settings.lab_id, run_id, **filters)
