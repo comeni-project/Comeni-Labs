@@ -7,7 +7,7 @@ three days of events on every page load — they are a cache with a rebuild path
 
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from wiener_api.db import Base
@@ -63,6 +63,28 @@ class RunTask(Base):
     attempts: Mapped[list] = mapped_column(JSON, default=list)
     latest_exit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_change_ms: Mapped[int] = mapped_column(BigInteger)
+
+    # --- derived from the latest attempt, so the table can be ORDERED BY --------------
+    #
+    # **A191.** `attempts` is JSON and cannot be indexed usefully. The Tasks tab sorts 5,000
+    # rows by memory, which is an `ORDER BY` or it is loading 5,000 documents. The projection
+    # already computes these when it writes the row, so the cost is three columns and no
+    # second source of truth — the JSON stays authoritative and these are its index.
+    peak_rss_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    realtime_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    pct_cpu: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # --- A200. The lab's own words, and the ONLY place in Wiener they are projected ----
+    #
+    # `[{n, tag, hash, workdir}]`, one per attempt, written from the raw payload by this
+    # projection — which lives in `wiener-api` and is impure. **`wiener-core` never sees
+    # them**, so `test_the_fold_is_where_the_lab_strings_stop` passes untouched and §8's
+    # claim that no lab string can become a span attribute stays STRUCTURAL rather than
+    # becoming a rule somebody has to remember.
+    #
+    # Deliberately NOT indexed. The column exists so a task row can say `sample_07`, not so
+    # anybody can search a deployment for a patient.
+    labels: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class RunArtifact(Base):

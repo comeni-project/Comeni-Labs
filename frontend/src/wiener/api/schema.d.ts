@@ -28,11 +28,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The board */
+        /**
+         * The board
+         * @description One page of runs, newest first, with each row's task tally beside it.
+         */
         get: operations["listRuns"];
         put?: never;
         /** Run a pipeline */
         post: operations["submitRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the board's tiles count
+         * @description **Declared before `/runs/{run_id}`**, or FastAPI matches `summary` as a run id and every
+         *     request 404s on a run nobody asked for. A literal path and a parameterised one that can
+         *     both match are ordered, never disambiguated.
+         */
+        get: operations["readBoardSummary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -97,7 +122,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/runs/{run_id}/stats": {
+    "/api/runs/{run_id}/overview": {
         parameters: {
             query?: never;
             header?: never;
@@ -105,11 +130,33 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What each process asked for and what it used
-         * @description Per process, worst case kept. The maximum is what kills a run and the mean is what hides
-         *     it — §9.3, and the sort is by what took longest because that is what a reader came for.
+         * One row per process the artifact declares
+         * @description **It does not 404 on an unreadable artifact** — A192, and deliberately unlike `/graph`.
+         *     The counts come from the fold and are true whatever happened to the directory; what is lost
+         *     is the declared list, so every row says `declared: false` and the bar has no denominator.
          */
-        get: operations["readRunStats"];
+        get: operations["readOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A run's tasks, filtered, sorted and paged
+         * @description **A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
+         *     falls back to `task_id` rather than reaching the database.
+         */
+        get: operations["readTasks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -153,10 +200,42 @@ export interface components {
              */
             declared: string[];
         };
+        /**
+         * BoardSummary
+         * @description What the tiles count. **Every field is a tally or a percentile over `run`** — nothing
+         *     here folds an event stream, which is what keeps the board a page and not a job.
+         */
+        BoardSummary: {
+            /** Window Days */
+            window_days: number;
+            /** Failed */
+            failed: number;
+            /** Running */
+            running: number;
+            /** Succeeded */
+            succeeded: number;
+            /** Total */
+            total: number;
+            /** Median Ms */
+            median_ms: number | null;
+            /** P95 Ms */
+            p95_ms: number | null;
+            /** Days */
+            days: components["schemas"]["DayCount"][];
+        };
         /** Body_uploadArtifact */
         Body_uploadArtifact: {
             /** Bundle */
             bundle: string;
+        };
+        /** DayCount */
+        DayCount: {
+            /** Day */
+            day: string;
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
         };
         /** DrawnWire */
         DrawnWire: {
@@ -202,6 +281,24 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** OverviewOut */
+        OverviewOut: {
+            /**
+             * Rows
+             * @default []
+             */
+            rows: components["schemas"]["ProcessRowOut"][];
+            /**
+             * Steps Declared
+             * @default 0
+             */
+            steps_declared: number;
+            /**
+             * Steps Finished
+             * @default 0
+             */
+            steps_finished: number;
         };
         /**
          * PlacedNode
@@ -259,15 +356,59 @@ export interface components {
             attempts: number;
         };
         /**
-         * ProcessStatsOut
-         * @description §9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
-         *     run was launched without `trace.enabled` and nothing was reported.
+         * ProcessRowOut
+         * @description One process's row. **Absent is not zero** — a `null` here means the run was launched
+         *     without `trace.enabled` and nothing was reported, or the run has not reached this process
+         *     at all. The interface renders both as a dash and neither as a number.
+         *
+         *     Mirrored from `wiener_core.ProcessRow` rather than reused, the way `/graph`'s models are:
+         *     the wire format is `wiener-api`'s to keep stable, and the pure package's types answer to
+         *     the fold. Declared field by field rather than as a `dict`, because the generated client is
+         *     what stops the two halves drifting and a `dict` reaches TypeScript as nothing at all.
          */
-        ProcessStatsOut: {
+        ProcessRowOut: {
             /** Process */
             process: string;
-            /** Tasks */
+            /**
+             * Declared
+             * @default false
+             */
+            declared: boolean;
+            /**
+             * Reached
+             * @default false
+             */
+            reached: boolean;
+            /**
+             * Tasks
+             * @default 0
+             */
             tasks: number;
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Cached
+             * @default 0
+             */
+            cached: number;
+            /**
+             * Attempts Max
+             * @default 1
+             */
+            attempts_max: number;
             /** Memory Asked Bytes */
             memory_asked_bytes?: number | null;
             /** Memory Peak Bytes */
@@ -328,6 +469,28 @@ export interface components {
              * Format: date-time
              */
             submitted_at: string;
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * Tasks Done
+             * @default 0
+             */
+            tasks_done: number;
+            /**
+             * Tasks Seen
+             * @default 0
+             */
+            tasks_seen: number;
+        };
+        /**
+         * RunsPage
+         * @description A page of the board, and the total the same filters match.
+         */
+        RunsPage: {
+            /** Runs */
+            runs: components["schemas"]["RunRow"][];
+            /** Total */
+            total: number;
         };
         /** SubmitRequest */
         SubmitRequest: {
@@ -346,6 +509,52 @@ export interface components {
              * @constant
              */
             executor: "local";
+        };
+        /**
+         * TaskOut
+         * @description One task row. `tag` is the laboratory's own word for it — A200 — and it is the only
+         *     field here that a laboratory wrote.
+         */
+        TaskOut: {
+            /** Task Id */
+            task_id: number;
+            /** Process */
+            process: string;
+            /** Status */
+            status: string;
+            /**
+             * Attempts
+             * @default 1
+             */
+            attempts: number;
+            /** Latest Exit */
+            latest_exit?: number | null;
+            /**
+             * Last Change Ms
+             * @default 0
+             */
+            last_change_ms: number;
+            /** Peak Rss Bytes */
+            peak_rss_bytes?: number | null;
+            /** Realtime Ms */
+            realtime_ms?: number | null;
+            /** Pct Cpu */
+            pct_cpu?: number | null;
+            /** Tag */
+            tag?: string | null;
+        };
+        /** TasksOut */
+        TasksOut: {
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: components["schemas"]["TaskOut"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -404,7 +613,13 @@ export interface operations {
     };
     listRuns: {
         parameters: {
-            query?: never;
+            query?: {
+                phase?: string | null;
+                who?: string | null;
+                executor?: string | null;
+                after?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -417,7 +632,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunRow"][];
+                    "application/json": components["schemas"]["RunsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -442,6 +666,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readBoardSummary: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardSummary"];
                 };
             };
             /** @description Validation Error */
@@ -553,7 +808,7 @@ export interface operations {
             };
         };
     };
-    readRunStats: {
+    readOverview: {
         parameters: {
             query?: never;
             header?: never;
@@ -570,7 +825,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProcessStatsOut"][];
+                    "application/json": components["schemas"]["OverviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readTasks: {
+        parameters: {
+            query?: {
+                process?: string | null;
+                status?: string | null;
+                retried_only?: boolean;
+                attempt?: number | null;
+                sort?: string;
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TasksOut"];
                 };
             };
             /** @description Validation Error */

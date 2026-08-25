@@ -25,7 +25,7 @@ function Card({ module: m, top }: { module: Module; top: number }) {
       data-testid="module-card"
       style={{ top }}
       className="absolute left-full ml-3 z-20 w-[300px] rounded-r border border-line
-                 bg-surface p-4 shadow-[0_4px_16px_var(--shadow)]"
+                 bg-surface p-4 shadow-e3"
     >
       <h4 className="m-0 font-data text-body font-semibold text-ink">{m.process}</h4>
       <p className="mt-1 mb-0 text-secondary text-ink-3 font-data">{m.contract_id}</p>

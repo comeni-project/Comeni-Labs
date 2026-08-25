@@ -57,6 +57,27 @@
   --color-undecided: var(--undecided);
   --color-undecided-soft: var(--undecided-soft);
   --color-fault: var(--fault);
+  --color-hover: var(--hover);
+  --color-hover-strong: var(--hover-strong);
+
+  /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
+     the same reason the colours are mirrored: one definition, and a seventh elevation cannot
+     be invented by eye. */
+  --shadow-e1: var(--e1);
+  --shadow-e2: var(--e2);
+  --shadow-e3: var(--e3);
+  --shadow-well: var(--well);
+}
+
+/* It removes the TRANSITION, never the feedback: the colour still changes, it just arrives
+   at once, and the lift is dropped. A reduced-motion reader loses the animation, not the
+   information — which is why this is not `transition: none` on everything. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 body {
@@ -76,3 +97,22 @@ body {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
+
+/* **Two motions that encode STATE, and nothing decorative.** `dashboard.md` treats movement
+   as meaning: a dash that flows says data is crossing this edge right now, and a dot that
+   breathes says this task is still going. Both stop the moment the thing they describe does,
+   which is what separates them from the `rise` above — that one is a page-load flourish, and
+   these two are the only place the product animates because something is TRUE.
+
+   They were in `w2-mockups/build.py` and nowhere else, so `class="live"` and `class="breathe"`
+   in the product were dead names — the same defect `--hover` was, and the reason
+   `tokens.test.ts` greps for undefined custom properties.
+
+   NOTHING THAT ENCODES A QUANTITY MOVES. A bar never animates; §9.2 refuses a rate on a live
+   edge for the same reason. These say *still happening*, never *how much*.
+   The reduced-motion block above removes the animation and leaves the colour. */
+@keyframes flow { to { stroke-dashoffset: -24; } }
+@keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.live { stroke-dasharray: 6 6; animation: flow 1.1s linear infinite; }
+.breathe { animation: breathe 2.4s ease-in-out infinite; }

@@ -76,6 +76,27 @@ def beat(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState:
     return append(session, lab_id, run_id, heartbeat(run_id=run_id, at_ms=at_ms, seq=seq))
 
 
+def _label(row, event: RunEvent) -> None:
+    """A200. The laboratory's own words, written from the admitted event and nowhere else.
+
+    **This is the only place in Wiener a lab string is projected**, and it is here rather than
+    in `wiener_core` on purpose: `fold()` keeps none of `tag`, `name`, `hash` or `workdir`, so
+    §8's claim that no lab string can become a span attribute is structural rather than a rule
+    somebody has to remember. `test_the_fold_is_where_the_lab_strings_stop` passes untouched.
+
+    One entry per attempt, keyed by `n` and merged — the same convergence rule the fold uses,
+    so a redelivered body does not append a second copy.
+    """
+    trace = event.trace
+    if row is None or trace is None:
+        return
+    by_n = {entry["n"]: entry for entry in (row.labels or [])}
+    by_n[trace.attempt] = {"n": trace.attempt, "tag": trace.tag,
+                           "name": trace.name, "hash": trace.hash,
+                           "workdir": trace.workdir}
+    row.labels = [by_n[n] for n in sorted(by_n)]
+
+
 def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunState:
     """Persist one admitted event, fold it, refresh the projections, publish the tail."""
     seq = event.seq
@@ -112,6 +133,18 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         existing.attempts = [a.model_dump(mode="json") for a in task.attempts]
         existing.latest_exit = task.latest_exit
         existing.last_change_ms = task.last_change_ms
+
+        # A191. The latest attempt's numbers, lifted out of the JSON so the Tasks tab can
+        # `ORDER BY` them. The blob stays authoritative; these three are its index.
+        latest = task.attempts[-1] if task.attempts else None
+        existing.peak_rss_bytes = latest.peak_rss_bytes if latest else None
+        existing.realtime_ms = latest.realtime_ms if latest else None
+        existing.pct_cpu = latest.pct_cpu if latest else None
+
+        # A200. Only the task this event actually describes — the labels come from the
+        # admitted event, and the fold does not carry them.
+        if event.trace is not None and event.trace.task_id == task.task_id:
+            _label(existing, event)
 
     session.flush()
     # **After the flush and never before.** A stream entry for an event Postgres has not

@@ -1,0 +1,26 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900,
+      "title": "The runs board — a dashboard, not a stack" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -190, "w": 460,
+      "text": "THE BOARD ANSWERS FOUR QUESTIONS, IN THIS ORDER\n\nA person opening /runs is asking, in order of urgency: is anything broken, what is running, is this getting better or worse, and where is the run I want. The four tiles and the chart are those first three; the list is the fourth and still gets most of the screen.\n\nThe old board answered only the fourth, and answered it with id, executor, phase and a timestamp — which is why finding a run meant opening runs." },
+
+    { "id": "tiles", "x": 500, "y": -190, "w": 430,
+      "text": "WHY THESE FOUR AND NOT EIGHT\n\nNEEDS YOU is first because it is the only tile that asks for an action — same word the landing page uses, so the two front doors agree.\n\nSUCCEEDED carries its own bar rather than a second number: 86% and 42 of 49 are one fact twice, and the bar is what makes it comparable to the next fortnight.\n\nTYPICAL RUN is p50 with p95 beside it. A median alone hides the tail, and the tail is what makes somebody think a run has hung." },
+
+    { "id": "chart", "x": 970, "y": -190, "w": 470,
+      "text": "RUNS PER DAY — STACKED, BECAUSE THE PARTS SUM TO SOMETHING REAL\n\nSucceeded over failed, and the two together are how much this instance ran. Both are named in the legend, so identity is never colour alone.\n\nOnly the tallest column is labelled. A number over every bar is noise the shape already carries.\n\nA day with no runs draws a 1px rule, not a zero-height bar — the same distinction the run table makes when it says a dash never means zero." },
+
+    { "id": "row", "x": 0, "y": 960, "w": 520,
+      "text": "A ROW SAYS WHY IT FAILED\n\nSTAR_GENOMEGENERATE · exit 127 sits under the run id on a failed row and nowhere else. It is the one fact that decides whether you open the run, and it costs a line only on the rows that need it.\n\nSTEPS is a bar and a fraction — the same pair the run overview uses, so a board row and a process row say a number the same way." },
+
+    { "id": "needs-a-field", "x": 560, "y": 960, "w": 520,
+      "text": "PIPELINE IS A PROPOSAL, NOT A FIELD\n\nGET /api/runs returns id, phase, executor, submitted_by and submitted_at — there is no name for what was run, so every row would read the same without one.\n\nThe column is drawn because a board without it cannot answer 'where is the RNA-seq one'. It needs a field on the run: the goal, or the kept draft's name. That is a decision, not a defect — the artboard is where it gets asked." },
+
+    { "id": "filters", "x": 1120, "y": 960, "w": 320,
+      "text": "FILTERS, BECAUSE 49 ROWS ALREADY NEEDS THEM\n\nphase · who · executor, in a strip — the same strip the Tasks tab already has. The board is the one screen with more rows than fit and was the one screen with no way to narrow them." }
+  ],
+  "launch": { "view": "focused", "file": "Main.dc.html" }
+}

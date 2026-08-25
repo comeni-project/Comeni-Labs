@@ -84,6 +84,40 @@ class RunRow(BaseModel):
     executor: str
     submitted_by: str
     submitted_at: datetime
+    ended_at: datetime | None = None
+    """So the board can say how long a run took without opening it."""
+    tasks_done: int = 0
+    tasks_seen: int = 0
+    """**Tasks, not steps.** `steps_declared` is in the artifact and reading one per row is
+    what the board could never afford; how many tasks a run has seen is one GROUP BY over the
+    `run_task` projection W2 built."""
+
+
+class RunsPage(BaseModel):
+    """A page of the board, and the total the same filters match."""
+
+    runs: list[RunRow]
+    total: int
+
+
+class DayCount(BaseModel):
+    day: str
+    succeeded: int
+    failed: int
+
+
+class BoardSummary(BaseModel):
+    """What the tiles count. **Every field is a tally or a percentile over `run`** — nothing
+    here folds an event stream, which is what keeps the board a page and not a job."""
+
+    window_days: int
+    failed: int
+    running: int
+    succeeded: int
+    total: int
+    median_ms: int | None
+    p95_ms: int | None
+    days: list[DayCount]
 
 
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
@@ -128,13 +162,35 @@ async def submit(body: SubmitRequest) -> RunAccepted:
 
 
 @router.get("/runs", operation_id="listRuns", summary="The board")
-def board() -> list[RunRow]:
+def board(phase: str | None = None, who: str | None = None, executor: str | None = None,
+          after: int = 0, limit: int = 25) -> RunsPage:
+    """One page of runs, newest first, with each row's task tally beside it."""
     with db.session_scope() as session:
-        return [
-            RunRow(id=r.id, phase=r.phase, executor=r.executor,
-                   submitted_by=r.submitted_by, submitted_at=r.submitted_at)
-            for r in repository.runs(session, settings.lab_id)
-        ]
+        page, total = repository.runs_page(session, settings.lab_id, phase=phase, who=who,
+                                           executor=executor, after=after, limit=limit)
+        counts = repository.task_counts(session, settings.lab_id, [r.id for r in page])
+        return RunsPage(
+            runs=[
+                RunRow(id=r.id, phase=r.phase, executor=r.executor,
+                       submitted_by=r.submitted_by, submitted_at=r.submitted_at,
+                       ended_at=r.ended_at,
+                       tasks_done=counts.get(r.id, (0, 0))[0],
+                       tasks_seen=counts.get(r.id, (0, 0))[1])
+                for r in page
+            ],
+            total=total,
+        )
+
+
+@router.get("/runs/summary", operation_id="readBoardSummary",
+            summary="What the board's tiles count")
+def board_summary(days: int = 14) -> BoardSummary:
+    """**Declared before `/runs/{run_id}`**, or FastAPI matches `summary` as a run id and every
+    request 404s on a run nobody asked for. A literal path and a parameterised one that can
+    both match are ordered, never disambiguated."""
+    with db.session_scope() as session:
+        return BoardSummary(**repository.board_summary(session, settings.lab_id,
+                                                       days=max(1, min(days, 90))))
 
 
 @router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")
@@ -263,12 +319,28 @@ def _pipeline_of(session, run_id: str):
     return _artifact_pipeline(session, settings.lab_id, run_id)
 
 
-class ProcessStatsOut(BaseModel):
-    """§9.3's four comparisons for one process. **Absent is not zero** — a `null` here means the
-    run was launched without `trace.enabled` and nothing was reported."""
+class ProcessRowOut(BaseModel):
+    """One process's row. **Absent is not zero** — a `null` here means the run was launched
+    without `trace.enabled` and nothing was reported, or the run has not reached this process
+    at all. The interface renders both as a dash and neither as a number.
+
+    Mirrored from `wiener_core.ProcessRow` rather than reused, the way `/graph`'s models are:
+    the wire format is `wiener-api`'s to keep stable, and the pure package's types answer to
+    the fold. Declared field by field rather than as a `dict`, because the generated client is
+    what stops the two halves drifting and a `dict` reaches TypeScript as nothing at all.
+    """
 
     process: str
-    tasks: int
+    declared: bool = False
+    reached: bool = False
+
+    tasks: int = 0
+    done: int = 0
+    running: int = 0
+    failed: int = 0
+    cached: int = 0
+    attempts_max: int = 1
+
     memory_asked_bytes: int | None = None
     memory_peak_bytes: int | None = None
     cpus_asked: int | None = None
@@ -279,19 +351,92 @@ class ProcessStatsOut(BaseModel):
     write_bytes: int | None = None
 
 
-@router.get("/runs/{run_id}/stats", operation_id="readRunStats",
-            summary="What each process asked for and what it used")
-def run_stats(run_id: str) -> list[ProcessStatsOut]:
-    """Per process, worst case kept. The maximum is what kills a run and the mean is what hides
-    it — §9.3, and the sort is by what took longest because that is what a reader came for."""
-    from wiener_core.stats import stats
+class OverviewOut(BaseModel):
+    rows: list[ProcessRowOut] = []
+    steps_declared: int = 0
+    """**The only honest denominator** — §5. Nextflow discovers tasks as channels emit, so a
+    task-level percentage is a number nobody can source; the artifact declares its steps
+    before the run starts. `0` means the artifact could not be read, and the bar draws
+    nothing rather than dividing by it."""
+    steps_finished: int = 0
+
+
+@router.get("/runs/{run_id}/overview", operation_id="readOverview",
+            summary="One row per process the artifact declares")
+def run_overview(run_id: str) -> OverviewOut:
+    """**It does not 404 on an unreadable artifact** — A192, and deliberately unlike `/graph`.
+    The counts come from the fold and are true whatever happened to the directory; what is lost
+    is the declared list, so every row says `declared: false` and the bar has no denominator.
+    """
+    from wiener_core.overview import overview
 
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
+        pipeline = _pipeline_of(session, run_id)
         state = state_of(session, settings.lab_id, run_id)
 
-    return [ProcessStatsOut(**row.model_dump()) for row in stats(state)]
+    declared = [step.process for step in pipeline.steps] if pipeline is not None else []
+    got = overview(state, declared)
+    return OverviewOut(
+        rows=[ProcessRowOut(**row.model_dump()) for row in got.rows],
+        steps_declared=got.steps_declared,
+        steps_finished=got.steps_finished,
+    )
+
+
+class TaskOut(BaseModel):
+    """One task row. `tag` is the laboratory's own word for it — A200 — and it is the only
+    field here that a laboratory wrote."""
+
+    task_id: int
+    process: str
+    status: str
+    attempts: int = 1
+    latest_exit: int | None = None
+    last_change_ms: int = 0
+
+    peak_rss_bytes: int | None = None
+    realtime_ms: int | None = None
+    pct_cpu: float | None = None
+    tag: str | None = None
+
+
+class TasksOut(BaseModel):
+    tasks: list[TaskOut] = []
+    total: int = 0
+    """How many the same filters match, not how many are on this page. A table that says
+    *404 more* has to know."""
+
+
+@router.get("/runs/{run_id}/tasks", operation_id="readTasks",
+            summary="A run's tasks, filtered, sorted and paged")
+def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
+              retried_only: bool = False, attempt: int | None = None,
+              sort: str = "task_id", after: int = 0, limit: int = 100) -> TasksOut:
+    """**A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
+    falls back to `task_id` rather than reaching the database."""
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        filters = {"process": process, "status": status, "retried_only": retried_only,
+                   "attempt": attempt}
+        rows = repository.tasks_page(session, settings.lab_id, run_id,
+                                     sort=sort, after=after, limit=limit, **filters)
+        total = repository.tasks_total(session, settings.lab_id, run_id, **filters)
+        tasks = [
+            TaskOut(
+                task_id=row.task_id, process=row.process, status=row.status,
+                attempts=len(row.attempts or []) or 1, latest_exit=row.latest_exit,
+                last_change_ms=row.last_change_ms,
+                peak_rss_bytes=row.peak_rss_bytes, realtime_ms=row.realtime_ms,
+                pct_cpu=row.pct_cpu,
+                tag=(row.labels or [{}])[-1].get("tag"),
+            )
+            for row in rows
+        ]
+
+    return TasksOut(tasks=tasks, total=total)
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

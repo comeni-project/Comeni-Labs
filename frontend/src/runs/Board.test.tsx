@@ -8,13 +8,32 @@ import { routes } from "../app/router";
 
 const RUNS = [
   { id: "4c1e9a07b2f1de40", phase: "running", executor: "local",
-    submitted_by: "operator", submitted_at: "2026-08-23T20:01:00Z" },
+    submitted_by: "operator", submitted_at: "2026-08-23T20:01:00Z",
+    ended_at: null, tasks_done: 3, tasks_seen: 5 },
   { id: "77b21de4c3802f1a", phase: "failed", executor: "local",
-    submitted_by: "operator", submitted_at: "2026-08-22T09:30:00Z" },
+    submitted_by: "operator", submitted_at: "2026-08-22T09:30:00Z",
+    ended_at: "2026-08-22T09:31:04Z", tasks_done: 1, tasks_seen: 5 },
 ];
 
+/** The tiles read a second endpoint, so the stub has to answer by URL now — one body for
+ *  every request made the board iterate a summary as if it were a page. */
+const SUMMARY = {
+  window_days: 14, failed: 1, running: 1, succeeded: 6, total: 8,
+  median_ms: 41_000, p95_ms: 252_000,
+  days: Array.from({ length: 14 }, (_, n) => ({
+    day: `2026-08-${String(n + 11).padStart(2, "0")}`,
+    succeeded: n % 3, failed: n === 13 ? 1 : 0,
+  })),
+};
+
 function at(runs: unknown = RUNS) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => runs }));
+  vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) =>
+    Promise.resolve({
+      ok: true,
+      json: async () => (String(url).includes("/summary")
+        ? SUMMARY
+        : { runs, total: Array.isArray(runs) ? runs.length : 0 }),
+    })));
   const router = createMemoryRouter(routes, { initialEntries: ["/runs"] });
   return render(
     <QueryClientProvider client={makeClient()}>
@@ -61,7 +80,8 @@ it("reads the board from Wiener, not from Mendel", async () => {
   // from the Mendel client would 404 in dev and hit the wrong service in prod.
   at();
   await screen.findByTestId("run-4c1e9a07b2f1de40");
-  expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/runs");
+  // The PATH is what this is about — the query string carries paging and filters now.
+  expect(String(vi.mocked(fetch).mock.calls[0][0])).toMatch(/^\/api\/runs(\?|$)/);
 });
 
 it("offers a token field when Wiener refuses, rather than a status code", async () => {

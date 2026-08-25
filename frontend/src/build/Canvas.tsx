@@ -20,6 +20,7 @@ export function Canvas({
   onDrop,
   children,
   footer,
+  grid = true,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
@@ -33,6 +34,10 @@ export function Canvas({
   onDrop?: (e: React.DragEvent) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
+  /** The dotted surface, on by default. **It is an invitation**: a grid says things can be
+   *  placed here, which is true of the builder and false of a finished run. The run graph
+   *  turns it off and keeps the pan, zoom and drag that make the canvas worth having. */
+  grid?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
 
@@ -54,13 +59,16 @@ export function Canvas({
       // **`select-none`.** Dragging a node is a pointer drag over text, and without this the browser
       // treats it as a selection gesture — every label on the canvas highlights blue as you move
       // a box, and the highlight survives the drop.
-      className="relative flex-1 min-h-0 overflow-hidden bg-paper select-none
-                 cursor-grab active:cursor-grabbing
-                 [background-image:radial-gradient(var(--line)_1px,transparent_1px)]"
-      style={{
-        backgroundSize: `${GRID * view.k}px ${GRID * view.k}px`,
-        backgroundPosition: `${view.x}px ${view.y}px`,
-      }}
+      className={`relative flex-1 min-h-0 overflow-hidden bg-paper select-none
+                  cursor-grab active:cursor-grabbing
+                  ${grid
+                    ? "[background-image:radial-gradient(var(--line)_1px,transparent_1px)]"
+                    : ""}`}
+      style={grid
+        ? { backgroundSize: `${GRID * view.k}px ${GRID * view.k}px`,
+            backgroundPosition: `${view.x}px ${view.y}px` }
+        // The artboard insets the graph rather than tiling it — a figure in a well.
+        : { boxShadow: "var(--well)" }}
     >
       <div
         data-testid="stage"

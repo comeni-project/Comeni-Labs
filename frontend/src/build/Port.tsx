@@ -88,9 +88,9 @@ export function Port({
                     verdict === "no"
                       ? "opacity-25"
                       : verdict === "conventional-no"
-                        ? "text-[var(--advisory,var(--profiled))]"
+                        ? "text-[var(--measured)]"
                         : verdict === "yes"
-                          ? "text-[var(--settled)]"
+                          ? "text-[var(--pea)]"
                           : port.met
                             ? "text-ink-3"
                             : "text-[var(--undecided)]"
@@ -131,7 +131,7 @@ export function Port({
           style={{ [inbound ? "bottom" : "top"]: "18px" }}
           className="absolute left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded-r
                      border border-line bg-surface px-2 py-1 font-data text-label
-                     text-ink shadow-[0_2px_8px_var(--shadow)] pointer-events-none"
+                     text-ink shadow-e2 pointer-events-none"
         >
           <b className="font-semibold">{port.name}</b>
           <span className="text-ink-3"> · {port.type_id}</span>

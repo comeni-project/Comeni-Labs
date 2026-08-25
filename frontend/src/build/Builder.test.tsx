@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -267,5 +268,38 @@ describe("selection", () => {
     fireEvent.click(nodes[0]);
     fireEvent.keyDown(window, { key: "Delete" });
     await waitFor(() => expect(screen.getAllByTestId("node").length).toBe(nodes.length - 1));
+  });
+});
+
+describe("a value you type", () => {
+  /** **The card is fed by the SERVER's echo and written to LOCAL state**, and those are two
+   * stores. `drawn` is a query keyed on the debounced graph and carries
+   * `placeholderData: (previous) => previous`, so what the field displays does not advance
+   * between keystrokes — and every `onChange` therefore receives `"" + newChar`. Typing
+   * `ILLUMINA` left `A`.
+   *
+   * **This test types the way a person does.** `Settings.test.tsx` fires ONE `change` carrying
+   * the whole value, which never reads the displayed value and so passes on the broken code —
+   * a green tick over an open hole, which is the W2 journal's own lesson about a guard that
+   * proves nothing. `userEvent.type` sends one key at a time and reads the DOM between them.
+   */
+  it("accumulates instead of keeping only the last character", async () => {
+    const user = userEvent.setup();
+    at({
+      ...PIPELINE,
+      steps: [
+        { ...PIPELINE.steps[0],
+          settings: [{ name: "seq_platform", value: null, tier: 4, why: "", domain: null,
+                       route: "ext", reason: "" }] },
+        PIPELINE.steps[1],
+      ],
+    });
+
+    fireEvent.click(await screen.findByTestId("open-settings"));
+    const field = await screen.findByTestId("setting-field");
+
+    await user.type(field, "ILLUMINA");
+
+    expect((field as HTMLInputElement).value).toBe("ILLUMINA");
   });
 });

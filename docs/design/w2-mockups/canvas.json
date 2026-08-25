@@ -1,0 +1,229 @@
+{
+ "pages": [
+  {
+   "id": "page-1",
+   "name": "W2 \u2014 the run page"
+  },
+  {
+   "id": "page-2",
+   "name": "W2 \u2014 the walk"
+  }
+ ],
+ "artboards": [
+  {
+   "file": "Main.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "1 \u00b7 Overview \u2014 a run going well"
+  },
+  {
+   "file": "Expanded.dc.html",
+   "x": 1560,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "2 \u00b7 A process, expanded"
+  },
+  {
+   "file": "Failure.dc.html",
+   "x": 3120,
+   "y": 0,
+   "w": 1440,
+   "h": 1010,
+   "page": "page-1",
+   "title": "3 \u00b7 A run that failed"
+  },
+  {
+   "file": "Tasks.dc.html",
+   "x": 4680,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "4 \u00b7 Tasks \u2014 the whole run"
+  },
+  {
+   "file": "Console.dc.html",
+   "x": 0,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "5 \u00b7 Console \u2014 filtered, and no longer the door"
+  },
+  {
+   "file": "Graph.dc.html",
+   "x": 1560,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "6 \u00b7 Graph \u2014 dag-core, coloured"
+  },
+  {
+   "file": "Walk.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "page": "page-2",
+   "title": "7 \u00b7 The builder \u2014 draw, keep, gate, run"
+  },
+  {
+   "file": "Menus.dc.html",
+   "x": 3120,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "8 \u00b7 Right-click \u2014 the shortcuts"
+  },
+  {
+   "file": "GraphMenu.dc.html",
+   "x": 4680,
+   "y": 1180,
+   "w": 1440,
+   "h": 900,
+   "page": "page-1",
+   "title": "9 \u00b7 Right-click on the graph"
+  }
+ ],
+ "annotations": [
+  {
+   "id": "d1",
+   "x": 0,
+   "y": -300,
+   "w": 900,
+   "page": "page-1",
+   "text": "D1 \u00b7 THE OVERVIEW IS THE FRONT DOOR.\nOne row per process the ARTIFACT DECLARES, not one per task \u2014 which is why MULTIQC has a row before the run reaches it.\n\nShneiderman's ladder in the right order: overview, then zoom and filter, then details on demand. The console started at the last rung."
+  },
+  {
+   "id": "d2",
+   "x": 1000,
+   "y": -300,
+   "w": 900,
+   "page": "page-1",
+   "text": "D2 \u00b7 EVERY COMPARISON, EVERY ROW.\nAll four of \u00a79.3's asked-vs-got pairs, on identical scales down each column, so processes are comparable by position and length.\n\nException-only was recommended and rejected: a threshold at 80% is a magic number nobody sourced, and this project refuses an unsourced value everywhere else. For a scientific tool the reader decides what is anomalous."
+  },
+  {
+   "id": "d6",
+   "x": 1960,
+   "y": -300,
+   "w": 900,
+   "page": "page-1",
+   "text": "D6 \u00b7 THE ONLY HONEST DENOMINATOR IS THE ARTIFACT'S.\nNextflow does not know how many tasks a process will have \u2014 tasks appear as channels emit. So a percentage over a task count is a number nobody can source, the same fault \u00a79.2 refuses when it forbids a rate on a live edge.\n\nThe run bar is steps finished of steps DECLARED. Per-process counts are absolute: '3 done', '9 more seen'."
+  },
+  {
+   "id": "d7",
+   "x": 3120,
+   "y": -300,
+   "w": 1000,
+   "page": "page-1",
+   "text": "D7 \u00b7 A FAILED RUN OPENS ON THE FAILURE.\nWhich process, which task, exit code, attempt, the resource line where both halves are known, and Nextflow's own errorReport \u2014 which the record already admits and nothing renders today.\n\nIt SHOWS the failure and does not explain it, so \u00a718.1's 'nothing explains it until W3' stays true. The failed process opens itself; its siblings are the comparison."
+  },
+  {
+   "id": "d4",
+   "x": 4680,
+   "y": -300,
+   "w": 900,
+   "page": "page-1",
+   "text": "D4 \u00b7 TASKS IN TWO PLACES, FROM ONE COMPONENT.\nExpanding a process answers 'what did THIS do'; the Tasks tab answers 'what across the whole run retried'. Different questions, each cheap alone.\n\nThe cost is two renderings of a task row, paid by ONE TaskRow with two callers \u2014 the same shape as dag-core serving two canvases."
+  },
+  {
+   "id": "d5",
+   "x": 0,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "D5 \u00b7 THE CONSOLE STAYS. IT IS NOT THE DOOR.\nIt gains a job it does not have today: opened from a failing process, it arrives FILTERED to that process. That is the zoom-and-filter rung.\n\nScale target ~5,000 tasks. A defect found while deciding it: useRunStream pages ONCE at limit=200 and then tails, so reloading mid-run on anything larger silently shows the first 200 events and a hole."
+  },
+  {
+   "id": "d9",
+   "x": 1560,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "D9 \u00b7 DEPTH, EVERYWHERE.\nEvery surface here uses the four tokens from \u00a79.5 \u2014 --e1 on a chip, --e2 on a card, --e3 on the working panel, --well cut into every bar track. No new hue: all four derive from --shadow.\n\nThey are still not in frontend/src/tokens.css. W2 lands them, across builder, forge and runs \u2014 judging 'boring and stale' on one screen tells you nothing."
+  },
+  {
+   "id": "d3",
+   "x": 0,
+   "y": -340,
+   "w": 1000,
+   "page": "page-2",
+   "text": "D3 \u00b7 THE WALK IS A RAIL.\nDraw, keep, gate, run \u2014 one vertical stepper owning all four. Gate and Run stop being tabs; the toolbar keeps nothing but the pipeline name.\n\nEvery status derives from state that already exists \u2014 draftId, moved, gate.passed, artifact, runId \u2014 never a step index. The blocked reason is RENDERED UNDER THE STEP, not put in a title attribute: 'why can't I' stops requiring a hover. That is the single biggest change here."
+  },
+  {
+   "id": "d3b",
+   "x": 0,
+   "y": 950,
+   "w": 1000,
+   "page": "page-2",
+   "text": "What is deliberately absent: no chat panel. \u00a718.1 \u2014 the right-hand column is empty until W3 rather than stubbed, and the 2026-08-23 mockups next door drew one because they were drawing the whole of Wiener, not W2."
+  },
+  {
+   "id": "hover",
+   "x": 2960,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "INTERACTION \u2014 AND THESE ARTBOARDS ARE LIVE, SO HOVER THEM.\n\nOne timing for everything: 140ms on a cubic-bezier(.4,0,.2,1). That is not a new number \u2014 it is what Tailwind's `transition-colors` already resolves to in the seven places the product uses it. Naming it is what lets the rest agree.\n\nA row tints rather than fills: the research is blunt that a loud hover on a dense table flickers as the cursor moves. The caret darkens and nudges 2px. Buttons and chips LIFT \u2014 --e1 to --e2 \u2014 which is the Depth register doing the work it was picked for.\n\nNothing that encodes a quantity moves. A bar never animates on hover: motion implying a number nothing measured is the fault \u00a79.2 refuses when it forbids a rate on a live edge."
+  },
+  {
+   "id": "hoverbug",
+   "x": 3960,
+   "y": 2110,
+   "w": 760,
+   "page": "page-1",
+   "text": "A DEFECT THIS PASS FOUND.\n\n`hover:bg-[var(--hover)]` appears five times in frontend/src/build/ \u2014 Compare.tsx twice, Findings.tsx, Builder.tsx twice \u2014 and --hover IS DEFINED NOWHERE. Not in tokens.css, not in main.css, not in dashboard.md. Five hover states are dead CSS.\n\nThat is why the builder feels inert, and it is one line to fix: --hover is --ink at 5%, so it tints whatever surface it lands on and inverts for free in dark mode. No new hue \u2014 the same argument the Depth tokens make from --shadow."
+  },
+  {
+   "id": "reveal",
+   "x": 1000,
+   "y": 950,
+   "w": 900,
+   "page": "page-1",
+   "text": "D10 \u00b7 NOTHING APPEARS ON HOVER. THE SHORTCUTS ARE ON RIGHT-CLICK.\n\nThe first pass revealed `console` and `tasks` chips on a row hover. The operator killed them on two counts and both are right: they COVERED the read/written column, and they pointed at two of the four tabs sitting directly above the table \u2014 an affordance that obscures data to reach something already one click away.\n\nSo a row hover does exactly two things: it tints, and the caret darkens and nudges. The shortcuts moved to a context menu, where a shortcut belongs \u2014 nothing is only reachable there, so there is no discoverability cost."
+  },
+  {
+   "id": "keys",
+   "x": 1000,
+   "y": 1600,
+   "w": 900,
+   "page": "page-1",
+   "text": "KEYBOARD AND REDUCED MOTION, BOTH CHEAP.\n\nThe product has focus-visible in three places and no shared ring. One --ring token means a keyboard reaches everything a mouse does; every row here is tabbable.\n\nprefers-reduced-motion removes the TRANSITION, never the feedback \u2014 the colour still changes, it just arrives at once, and the lift is dropped. A reduced-motion user loses the animation, not the information."
+  },
+  {
+   "id": "railhover",
+   "x": 1100,
+   "y": 0,
+   "w": 620,
+   "page": "page-2",
+   "text": "The rail is hoverable too: a step tints, its control lifts. The blocked control carries cursor:not-allowed and keeps its reason underneath \u2014 a disabled button that explains itself is the one pattern the builder already got right, and this only moves it out of a tooltip."
+  },
+  {
+   "id": "menus",
+   "x": 3120,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "THE TWO MENUS, AND WHY THEY ARE SAFE.\n\nA process row: show its tasks, open in console, show in graph, copy the name, copy the row as TSV \u2014 a scientific tool should let you get a number out. A task row: open in console here, copy the work directory, the hash, the command line.\n\nW4's verbs are LISTED AND DIMMED with a W4 tag rather than absent: a control that does not exist yet is a promise you can read, and a menu that grows two new items later is worse than one that always had the shape.\n\nKeyboard parity is free: Shift+F10 fires a contextmenu event, so handling the event covers the key. Every row is already tabbable."
+  },
+  {
+   "id": "menus2",
+   "x": 4680,
+   "y": 2110,
+   "w": 900,
+   "page": "page-1",
+   "text": "EVERY WIENER SURFACE GETS ONE \u2014 a menu on one page and nowhere else is worse than none, because it teaches a gesture that then fails.\n\nThe canvas menu is the one carrying something genuinely new: COPY THE GRAPH AS SVG. That is where a figure leaves the tool and lands in a methods section, and a graph laid out by dag-core is deterministic \u2014 the same run draws the same figure twice.\n\nWhat the menus do NOT take: a text selection and the errorReport block keep the browser's own menu. Overriding right-click everywhere steals Copy from people, which is a worse bug than having no menu at all."
+  }
+ ],
+ "launch": {
+  "view": "canvas",
+  "page": "page-1"
+ }
+}

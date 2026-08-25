@@ -105,7 +105,7 @@ export function Node({
       }}
       className="absolute flex rounded-r border border-line-2 border-l-0 bg-surface
                  cursor-grab active:cursor-grabbing
-                 hover:shadow-[0_2px_10px_var(--shadow)]
+                 hover:shadow-e2
                  data-[selected]:shadow-[0_0_0_2px_var(--ink)]
                  data-[dim]:opacity-20 transition-[box-shadow,opacity]"
     >

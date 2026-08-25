@@ -22,7 +22,10 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`notes/journal/`](notes/journal/).**
+> **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
+> [`2026-08-24-wiener-w2.md`](notes/journal/2026-08-24-wiener-w2.md). **Three entries share that
+> date and a filename sort does not order them**; that one says so at the top and lists the
+> other two in the order they were written.
 > It is append-only and dated, so it cannot silently go stale the way this section can — and it
 > carries what is next, what was decided, and what a fresh reader gets wrong. This section holds
 > only what stays true between plans; the journal is the handoff.
@@ -139,8 +142,35 @@ posts it to Wiener, so **the browser is the courier and neither API learns the o
 Two clicks rather than one, because uploading is what discovers the parameters: the artifact
 declares its own holes and Wiener reads them out on upload. `docs/design/wiener.md` §12.
 
-**Nobody has looked at these screens.** Checkpoints 3 and 5 drove the HTTP and WebSocket halves
-and verified them; the browser half is unrun, which is exactly the gap 3E's lesson names.
+**Wiener W2 is COMPLETE as of 2026-08-24**, on `wiener-w2`. `/runs/{id}` opens on **one row per
+process the artifact declares** rather than four hundred lines of text, and the console is a tab.
+`overview()` replaces `stats()`: a declared process has a row *before the run reaches it*, so the
+table's length is known before the first event. `run_task` gained three derived columns, because
+ordering 5,000 tasks by memory is an `ORDER BY` or it is loading 5,000 JSON documents — and a
+fourth, `labels`, written from the admitted event by the **impure** projection, so `wiener-core`
+still never sees a lab string.
+
+**Six defects were found by running it or by a guard, and none by a test written to pass** — the
+W1 pattern repeating. `steps_finished` counted a process whose every task *failed*, so a real run
+read 2 of 5 finished with zero successes; the console paged **once** at 200 and subscribed,
+invisible on every run anybody had because the largest is five tasks; and checking the built
+screens against the artboards found the overview missing a whole column.
+
+**One guard proved nothing and passed anyway**, which is the part worth carrying. The batching
+test asserted an array had not changed synchronously — true with the fix *and* without it,
+because React batches renders on its own. A guard that passes on the code it was written to
+reject is a green tick over an open hole. Watch a guard fail **against the specific defect**, not
+merely watch it fail.
+
+**`--hover` now exists.** It was referenced five times in `frontend/src/build/` and defined
+nowhere from Plan 3C until 2026-08-24 — five dead hover states, which is most of why the builder
+felt inert. An undefined custom property is not an error; it is silence, so `tokens.test.ts`
+greps for it. Two more turned up the same way: `--profiled` and `--settled` named tiers that
+never existed in the palette.
+
+**Nobody has looked at these screens.** W1's checkpoints 3 and 5 drove the HTTP and WebSocket
+halves and verified them; W2's checkpoints 3, 4, 5 and 6 are owed for the same reason. The
+browser half is unrun, which is exactly the gap 3E's lesson names.
 
 **The entire forge still needs testing and general rework**, and the operator is rethinking its
 design (2026-08-23). Nothing in 3E or Wiener touches `mendel-forge`.

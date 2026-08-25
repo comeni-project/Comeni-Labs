@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/* THE ONE PLACE COLOUR IS DEFINED for these artboards.
+   Everything above the line is copied verbatim from frontend/src/tokens.css, which
+   mirrors docs/design/dashboard.md §2. Do not edit those values here — edit them there.
+
+   Below the line are the FOUR tokens the Depth direction needs. They add no hue:
+   every one is built from --shadow, which already exists. That is the whole argument
+   for this direction — depth is not a colour problem, so it costs no palette. */
+:root {
+  --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
+  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
+  --line: #DCE2DF; --line-2: #C4CDC8;
+  --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
+  --measured: #B77B2B; --measured-soft: #F6EBD8;
+  --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
+  --shadow: rgba(18, 21, 26, .14);
+  --r: 3px;
+  --font-display: Georgia, "Iowan Old Style", "Times New Roman", ui-serif, serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
+
+  /* ---- proposed additions: the elevation ramp. No new hue. ---- */
+  --e1: 0 1px 1px var(--shadow);                              /* a chip, a control */
+  --e2: 0 1px 2px var(--shadow), 0 6px 16px -10px var(--shadow);   /* a card */
+  --e3: 0 1px 2px var(--shadow), 0 14px 34px -18px var(--shadow);  /* the working panel */
+  --well: inset 0 1px 2px var(--shadow);                      /* a track, a groove */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
+    --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
+    --line: #2A3134; --line-2: #3A4347;
+    --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
+    --measured: #D9A458; --measured-soft: #2C2416;
+    --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
+    --shadow: rgba(0, 0, 0, .5);
+  }
+}
+
+/* ---- proposed additions: interaction. Derived, like the elevation ramp above. ----
+
+   --hover is NOT a new hue: it is --ink at 5%, so it tints whatever surface it lands on
+   and it inverts for free in dark mode, where --ink is light. That is the same argument
+   the Depth tokens make from --shadow.
+
+   IT ALSO CLOSES A DEFECT. `hover:bg-[var(--hover)]` appears five times in
+   frontend/src/build/ — Compare, Findings and two Builder lists — and --hover is defined
+   NOWHERE. Those five hover states are dead CSS, which is why the builder feels inert.
+
+   --t is the house timing, and it is not new either: it is what Tailwind's
+   `transition-colors` already resolves to in the seven places the product uses it. Naming
+   it is what lets everything else agree with those seven. */
+:root {
+  --hover: color-mix(in oklab, var(--ink) 5%, transparent);
+  --hover-strong: color-mix(in oklab, var(--ink) 9%, transparent);
+  --t: 140ms cubic-bezier(.4, 0, .2, 1);
+  --t-lift: 180ms cubic-bezier(.2, .7, .3, 1);
+  --ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--pea);
+}
+
+    body { margin:0; font-family:var(--font-ui); font-size:13px; line-height:1.5;
+           color:var(--ink); background:var(--paper); -webkit-font-smoothing:antialiased; }
+    a { color:var(--pea); text-decoration:none; transition:color var(--t); }
+    a:hover { color:var(--ink); }
+
+    /* Every interactive thing agrees on one timing, and NOTHING that encodes a quantity
+       moves. A bar never animates on hover: motion that implies a number nothing measured
+       is the fault §9.2 refuses when it forbids a rate on a live edge. */
+    .row { cursor:pointer; transition:background-color var(--t); }
+    .row:hover { background:var(--hover); }
+    .row:hover .caret { color:var(--ink); transform:translateX(2px); }
+    .caret { transition:color var(--t), transform var(--t); }
+        .trow { transition:background-color var(--t); }
+    .trow:hover { background:var(--hover); }
+    .btn, .btn-q, .btn-off, .tab, .chip {
+      transition:background-color var(--t), color var(--t), box-shadow var(--t-lift),
+                 border-color var(--t), transform var(--t-lift); }
+    .btn:hover, .btn-q:hover, .chip:hover { box-shadow:var(--e2); transform:translateY(-1px); }
+    .btn:active, .btn-q:active, .chip:active { box-shadow:var(--e1); transform:translateY(0); }
+    .btn-q:hover, .chip:hover { background:var(--hover); border-color:var(--line-2); }
+    .btn-off { cursor:not-allowed; }
+    .tab:hover { background:var(--hover); color:var(--ink); }
+    .tab.on:hover { background:var(--surface); }
+    .mi { transition:background-color var(--t), color var(--t); }
+    .mi:hover { background:var(--hover); color:var(--ink); }
+    .mi[style*="not-allowed"]:hover { background:transparent; color:var(--ink-3); }
+    .step { transition:background-color var(--t); border-radius:var(--r); }
+    .step:hover { background:var(--hover); }
+    /* Keyboard parity. The product has focus-visible in three places and no shared ring;
+       one token means a keyboard reaches everything a mouse does. */
+    .row:focus-visible, .btn:focus-visible, .btn-q:focus-visible, .tab:focus-visible,
+    .chip:focus-visible { outline:none; box-shadow:var(--ring); }
+    /* Reduced motion removes the TRANSITION, never the feedback: the colour still changes,
+       it just arrives at once. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration:.01ms !important;
+                               animation-duration:.01ms !important;
+                               animation-iteration-count:1 !important; }
+      .btn:hover, .btn-q:hover, .chip:hover { transform:none; }
+    }
+    @keyframes flow { to { stroke-dashoffset:-24; } }
+    @keyframes breathe { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+    .live { stroke-dasharray:6 6; animation:flow 1.1s linear infinite; }
+    .breathe { animation:breathe 2.4s ease-in-out infinite; }
+    .mono { font-family:var(--font-data); }
+    .lbl { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+            box-shadow:var(--e2); }
+    .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+             box-shadow:var(--e3); display:flex; flex-direction:column; overflow:hidden; }
+    .strip { padding:9px 16px; background:var(--surface-2); border-bottom:1px solid var(--line);
+             display:flex; align-items:center; gap:12px; }
+    .well { height:6px; border-radius:3px; background:var(--surface-2); overflow:hidden;
+            box-shadow:var(--well); display:flex; }
+    .btn { padding:6px 12px; border-radius:var(--r); background:var(--pea);
+           color:var(--on-pea); font-size:12.5px; font-weight:600; box-shadow:var(--e1);
+           border:0; display:inline-block; }
+    .btn-q { padding:6px 12px; border-radius:var(--r); border:1px solid var(--line-2);
+             color:var(--ink-2); font-size:12.5px; background:var(--surface);
+             display:inline-block; }
+    .btn-off { padding:6px 12px; border-radius:var(--r); border:1px solid var(--line);
+               color:var(--ink-3); font-size:12.5px; background:var(--surface-2);
+               display:inline-block; }
+    .tabs { display:flex; gap:2px; }
+    .tab { padding:5px 13px; font-size:12.5px; color:var(--ink-3); border-radius:var(--r);
+           background:transparent; }
+    .tab.on { color:var(--ink); font-weight:600; background:var(--surface);
+              box-shadow:var(--e1); }
+    .th { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
+          font-weight:600; }
+    .absent { color:var(--line-2); font-family:var(--font-data); font-size:12.5px; }
+  </style>
+</helmet>
+<div style="display:flex; flex-direction:column; height:900px; background:var(--paper); overflow:hidden;">
+  <nav style="display:flex; align-items:center; gap:28px; padding:0 20px; height:54px;
+              background:var(--surface); border-bottom:1px solid var(--line);
+              box-shadow:var(--e1); position:relative; z-index:3; flex:0 0 auto;">
+    <span style="display:flex; align-items:baseline; gap:8px; font-family:var(--font-display);
+                 font-size:21px; letter-spacing:-.015em; color:var(--ink);">
+      <i style="width:9px; height:9px; align-self:center; border-radius:50% 50% 50% 0;
+                background:var(--pea); transform:rotate(-45deg);"></i>Comeni Labs</span>
+    <div style="display:flex; gap:2px; margin-left:8px;"><span style="padding:6px 12px; font-size:13px; font-weight:600; color:var(--ink); box-shadow:inset 0 -2px 0 var(--pea);">Builder</span><span style="padding:6px 12px; font-size:13px; color:var(--ink-2);">Forge</span><span style="padding:6px 12px; font-size:13px; color:var(--ink-2);">Runs</span></div>
+    
+    <span style="margin-left:auto; padding:4px 8px; border:1px solid var(--line);
+                 border-radius:var(--r); font-size:11.5px; color:var(--ink-3);
+                 background:var(--surface); box-shadow:var(--e1);">
+      What the words mean <span class="mono">?</span></span>
+  </nav>
+  <div style="flex:1 1 auto; display:flex; gap:14px; padding:16px 20px 20px; min-height:0;">
+    <section class="panel" style="flex:1 1 auto; min-width:0;">
+      <div class="strip"><span class="lbl">canvas</span><span style="margin-left:auto; font-size:11.5px; color:var(--ink-3);">4 steps &middot; 3 wires</span></div>
+      <div style="flex:1 1 auto; background:var(--paper); box-shadow:var(--well); position:relative; overflow:hidden;">
+        <svg width="100%" height="100%" viewBox="0 0 900 520">
+          <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"></path></marker></defs>
+          <path d="M198 120 L 300 120" stroke="var(--line-2)" stroke-width="1.5" fill="none" marker-end="url(#b)"></path>
+          <path d="M488 120 L 590 120" stroke="var(--line-2)" stroke-width="1.5" fill="none" marker-end="url(#b)"></path>
+          <path d="M198 270 L 250 270 L 250 145 L 300 145" stroke="var(--line-2)" stroke-width="1.5" fill="none" marker-end="url(#b)"></path>
+<rect x="20" y="95" width="178" height="50" rx="3" fill="var(--surface)" stroke="var(--line-2)" stroke-width="1.5"></rect><text x="32" y="116" font-family="var(--font-data)" font-size="12" fill="var(--ink)">STAR_GENOMEGENERATE</text><text x="32" y="133" font-family="var(--font-data)" font-size="10.5" fill="var(--ink-3)">tier 1</text><rect x="20" y="245" width="178" height="50" rx="3" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="1.5"></rect><text x="32" y="266" font-family="var(--font-data)" font-size="12" fill="var(--ink)">entry &middot; reads</text><text x="32" y="283" font-family="var(--font-data)" font-size="10.5" fill="var(--ink-3)">fastq.reads</text><rect x="310" y="95" width="178" height="50" rx="3" fill="var(--surface)" stroke="var(--line-2)" stroke-width="1.5"></rect><text x="322" y="116" font-family="var(--font-data)" font-size="12" fill="var(--ink)">STAR_ALIGN</text><text x="322" y="133" font-family="var(--font-data)" font-size="10.5" fill="var(--ink-3)">tier 2</text><rect x="600" y="95" width="178" height="50" rx="3" fill="var(--surface)" stroke="var(--line-2)" stroke-width="1.5"></rect><text x="612" y="116" font-family="var(--font-data)" font-size="12" fill="var(--ink)">SAMTOOLS_SORT</text><text x="612" y="133" font-family="var(--font-data)" font-size="10.5" fill="var(--ink-3)">tier 1</text>        </svg>
+      </div>
+    </section>
+    <aside class="panel" style="width:340px; flex:0 0 auto;">
+      <div class="strip"><span class="lbl">pipeline</span><span style="margin-left:auto; font-size:11.5px; color:var(--ink-3);">rnaseq spine</span></div>
+      <div style="padding:16px 16px 6px;">
+      <div class="step" style="position:relative; padding:8px 8px 18px 34px; margin:0 -8px;"><span style="position:absolute; left:18px; top:34px; bottom:-6px; width:1.5px; background:var(--line);"></span><span style="position:absolute; left:10px; top:10px; width:19px; height:19px; border-radius:50%; background:var(--pea); border:1.5px solid var(--pea); color:var(--on-pea); font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:var(--e1);">&#10003;</span><div style="display:flex; align-items:center; gap:10px; min-height:23px;"><span style="font-size:13px; font-weight:500; color:var(--ink);">Draw</span><span style="margin-left:auto; display:flex; gap:6px;"></span></div><div style="font-size:11.5px; color:var(--ink-3); margin-top:2px;">4 steps &middot; no problems</div></div>
+      <div class="step" style="position:relative; padding:8px 8px 18px 34px; margin:0 -8px;"><span style="position:absolute; left:18px; top:34px; bottom:-6px; width:1.5px; background:var(--line);"></span><span style="position:absolute; left:10px; top:10px; width:19px; height:19px; border-radius:50%; background:var(--measured); border:1.5px solid var(--measured); color:var(--paper); font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:var(--e1);">&#9679;</span><div style="display:flex; align-items:center; gap:10px; min-height:23px;"><span style="font-size:13px; font-weight:600; color:var(--ink);">Keep</span><span style="margin-left:auto; display:flex; gap:6px;"><span class="btn-q">Keep</span></span></div><div style="font-size:11.5px; color:var(--ink-3); margin-top:2px;">kept 3 minutes ago</div><div style="margin-top:6px; padding:6px 9px; background:var(--measured-soft); border-radius:var(--r); font-size:11.5px; color:var(--ink-2); box-shadow:var(--e1);">You have changed it since you kept it. Keep again to gate the new version.</div></div>
+      <div class="step" style="position:relative; padding:8px 8px 18px 34px; margin:0 -8px;"><span style="position:absolute; left:18px; top:34px; bottom:-6px; width:1.5px; background:var(--line);"></span><span style="position:absolute; left:10px; top:10px; width:19px; height:19px; border-radius:50%; background:var(--measured); border:1.5px solid var(--measured); color:var(--paper); font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:var(--e1);">&#9679;</span><div style="display:flex; align-items:center; gap:10px; min-height:23px;"><span style="font-size:13px; font-weight:600; color:var(--ink);">Gate</span><span style="margin-left:auto; display:flex; gap:6px;"><span class="btn-q">Lint</span><span class="btn-q">Preview</span></span></div><div style="font-size:11.5px; color:var(--ink-3); margin-top:2px;">lint passed &middot; preview not run</div></div>
+      <div class="step" style="position:relative; padding:8px 8px 18px 34px; margin:0 -8px;"><span style="position:absolute; left:10px; top:10px; width:19px; height:19px; border-radius:50%; background:var(--surface); border:1.5px solid var(--line-2); color:var(--ink-3); font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:var(--e1);">4</span><div style="display:flex; align-items:center; gap:10px; min-height:23px;"><span style="font-size:13px; font-weight:500; color:var(--ink-3);">Run</span><span style="margin-left:auto; display:flex; gap:6px;"><span class="btn-off">Send to Wiener</span></span></div><div style="font-size:11.5px; color:var(--ink-3); margin-top:2px;">nothing sent yet</div><div style="margin-top:6px; padding:6px 9px; background:var(--measured-soft); border-radius:var(--r); font-size:11.5px; color:var(--ink-2); box-shadow:var(--e1);">A gate has to pass on the version you kept.</div></div>
+      </div>
+      <div style="margin-top:auto; padding:11px 16px; border-top:1px solid var(--line); background:var(--surface-2);"><span class="lbl">why a control is off is written under it, never in a tooltip</span></div>
+      <div style="padding:9px 16px; border-top:1px solid var(--line); display:flex; gap:2px;"><span class="tab on">Review</span><span class="tab">Problems</span><span class="tab">Compare</span></div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

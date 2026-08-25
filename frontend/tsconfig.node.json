@@ -19,5 +19,10 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  // `src/tokens.test.ts` reads the filesystem to prove every `var(--x)` the app
+  // references is defined. It is a build-time check rather than app code, so it
+  // belongs to the project that has node types — putting `@types/node` on the
+  // browser project to satisfy one test is how `fs` becomes importable in a
+  // component by accident.
+  "include": ["vite.config.ts", "src/tokens.test.ts", "src/runs/TaskRow.callers.test.ts"]
 }

@@ -2755,3 +2755,104 @@ named as a bonus nobody had tested. It has now been tested.
 there is a translation in `wiener-api` — including turning a readable `<run>.<task>.<attempt>`
 id into the eight bytes the wire wants. That translation is a real cost of the split, and it is
 smaller than the thing it prevents.
+
+---
+
+## Absence is not zero, and two tests said so — 2026-08-24
+
+W2 Task 1 step 6. `overview()` is the front door's projection, and its docstring's sharpest
+claim is that *a number nothing reported is `None`, never zero* — a run launched without
+`trace.enabled` reports no resources at all, and a zero reads as **this process used no
+memory**, which is a lie a reader cannot tell from a true number.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `test_overview.py::test_absence_is_none_and_never_zero` | `memory_peak_bytes=_worst([...])` → `_worst([...]) or 0` in `wiener_core/overview.py` | failed | `AssertionError: assert 0 is None` / `  where 0 = ProcessRow(process='GREET', …, memory_peak_bytes=0, …).memory_peak_bytes` |
+
+**A second test failed that was not aimed at this**, and that is the part worth recording:
+`test_a_declared_process_the_run_never_reached_is_a_row_and_not_a_gap` went red on the same
+edit, because a process the run has not reached reports nothing either — so `or 0` claims a
+peak for a process that never started. One `or 0` is two different lies, and only one of them
+had a test written for it.
+
+**`or 0` rather than `if … else 0` on purpose.** The plausible way this defect arrives is not
+somebody deciding zero is right; it is somebody making a type checker happy about `int | None`
+in one keystroke. That is the edit the guard has to catch.
+
+---
+
+## An undefined `var()` is silence, not an error — 2026-08-24
+
+W2 Task 4 step 7. **This guard is the only kind of thing that could have caught the defect it
+was written for.** `--hover` was referenced five times in `frontend/src/build/` and defined
+nowhere from Plan 3C until today: `hover:bg-[var(--hover)]` compiles, ships, and renders as
+nothing at all. Five hover states were dead CSS for a fortnight, which is most of why the
+builder felt inert, and no test, typecheck or review found it — because there is nothing to
+find. An undefined custom property is not an error; the declaration is simply dropped.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `tokens.test.ts::defines every custom property the app references` | deleted the `--hover:` line from `frontend/src/tokens.css` | failed | `AssertionError: expected [ Array(1) ] to deeply equal []` / `+ "--hover (…/build/Builder.tsx, …/build/Compare.tsx, …/build/Findings.tsx, …/main.css)"` |
+
+**It names the files, not just the token**, which is the difference between a guard that
+reports a fact and one that hands over the fix.
+
+**Writing it found two more the plan did not know about.** `--profiled` and `--settled` were
+referenced in `Findings.tsx` and `Port.tsx` as names for tier 3 and tiers 1–2, and neither has
+ever existed in the palette — the real names are `--measured` and `--pea`. One of them hid
+inside a fallback chain, `var(--advisory, var(--profiled))`, where **both** names were
+undefined, which is why the guard's regex matches `var(\s*--name` rather than the closing
+paren: a fallback to another missing token is the most invisible form of this bug.
+
+**Paired with a vacuity check**, per A67: `finds something, so it cannot pass by reaching
+nothing`. A file walk that breaks would otherwise turn the guard green rather than red.
+
+---
+
+## A zero-length bar and a zero are the same picture — 2026-08-24
+
+W2 Task 6 step 5. The overview is the run page's front door, and §4's second rule is that
+**absence is `—`, never `0%`**: a run launched without `trace.enabled` reports nothing at all,
+and a zero reads as *this process used no memory*.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `Overview.test.tsx::renders an absent measurement as a dash and never as zero` | `bytes()` returns `"0 B"` instead of `ABSENT` for `null`, in `runs/units.ts` | failed | `expect(element).toHaveTextContent()` / `Expected element to have text content: —` / `Received: 0 B of 34.4 GB` |
+
+**The same edit is caught twice, in two packages, and that is the point.** `wiener-core`'s
+`test_absence_is_none_and_never_zero` holds the projection and this holds the drawing — the
+number can be lied about at either end, and a `?? 0` in a component is exactly as invisible as
+an `or 0` in the fold. One guard per end is not redundancy; it is two different authors.
+
+**The bar is guarded by construction rather than by a test.** `Bar` renders no fill element at
+all when the value is `null`, so there is nothing to give a width — a zero-length bar and a
+zero-valued bar are the same picture, and only one of them is true.
+
+---
+
+## The tail that got slower the longer you watched — 2026-08-24
+
+W2 Task 10. A199: `setEvents((seen) => [...seen, event])` copies the whole array **per
+message**, so a 5,000-task run's console degrades quadratically as it grows. The fix buffers
+arrivals and writes state once per animation frame.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-24 | `useRunStream.test.tsx::coalesces a burst into one state write rather than one per event` | restored the per-message `setEvents` in `ws.onmessage`, dropping the frame buffer | failed | `AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times` |
+
+**The first version of this test proved nothing and passed anyway**, which is the part worth
+recording. It asserted that the events array had not changed synchronously after fifty
+messages — true with the fix and true without it, because React batches renders on its own.
+A guard that passes on the code it was written to reject is worse than no guard: it is a green
+tick over an open hole.
+
+What discriminates is the **frame count**: one scheduled `requestAnimationFrame` for fifty
+messages is only true of the buffered version, and zero is what the unbuffered one gives. The
+lesson is the A67 one from a new angle — a guard has to be watched failing *against the
+specific defect*, not merely watched failing.
+
+**A second defect was found by the drain test in the same task**, and it was mine rather than
+inherited: the paging loop's `setEvents` updater closed over the loop's mutable `page`
+variable, and React runs a functional update *later* — so page one's updater read whichever
+page had arrived by then. 437 events came back as 237, page two vanished, page three merged
+twice. `const arrived = page.events` inside the loop body is the whole fix.

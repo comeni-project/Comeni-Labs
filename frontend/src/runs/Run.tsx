@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 
 import { useUrlState } from "../app/useUrlState";
 
@@ -8,10 +8,19 @@ import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
 import { Graph } from "./Graph";
-import { Stats } from "./Stats";
+import { OverviewPanel, type OverviewData } from "./Overview";
+import { Failure, type Failed as FailureDetail } from "./Failure";
+import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
+
+const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
+
+type FailedTask = {
+  process: string; tag?: string | null; latest_exit?: number | null;
+  attempts: number; peak_rss_bytes?: number | null;
+};
 
 type RunState = {
   run_id: string;
@@ -21,19 +30,6 @@ type RunState = {
   started_at_ms: number | null;
   ended_at_ms: number | null;
 };
-
-const eyebrow = "font-ui text-label uppercase tracking-[.14em] font-semibold text-ink-3";
-
-function Count({ label, value, colour }: { label: string; value: number; colour?: string }) {
-  return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-data text-body tabular-nums" style={colour ? { color: colour } : {}}>
-        {value}
-      </span>
-      <span className="text-label text-ink-3">{label}</span>
-    </span>
-  );
-}
 
 /** One run, watched. Built against `wiener-mockups/Main.dc.html`.
  *
@@ -45,15 +41,25 @@ function Count({ label, value, colour }: { label: string; value: number; colour?
  * The header's counts come from the projection; the console's rows come from the stream. Both
  * are the same events — one folded, one in order — which is why they cannot disagree.
  */
-function Segment({ name, active, onPick }: {
-  name: string; active: boolean; onPick: () => void;
+function Segment({ name, active, onPick, disabled = false }: {
+  name: string; active: boolean; onPick: () => void; disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={active}
-      className={`text-body ${active ? "font-semibold text-ink" : "text-ink-3 hover:text-ink"}`}
+      disabled={disabled}
+      title={disabled ? "arrives with the paged tasks endpoint" : undefined}
+      // **The active tab is a pill, and it is the only solid fill on the panel** — which is
+      // what makes it read as *you are here* rather than as one of four words. `--surface`
+      // against the strip's `--surface-2` is the artboard's pairing; bold alone was not
+      // enough contrast to locate at a glance.
+      className={`text-body rounded-[3px] px-[13px] py-[5px] border-0
+                  disabled:cursor-not-allowed disabled:opacity-40
+                  ${active
+                    ? "font-semibold text-ink bg-surface shadow-e1"
+                    : "text-ink-3 hover:text-ink bg-transparent hover:bg-[var(--hover)]"}`}
     >
       {name}
     </button>
@@ -62,8 +68,12 @@ function Segment({ name, active, onPick }: {
 
 export function Run() {
   const { id } = useParams();
-  const [view, setView] = useUrlState("view", "console");
-  const [more, setMore] = useUrlState("more", "0");
+  const [params] = useSearchParams();
+  const from = params.get("from");
+  const [view, setView] = useUrlState("view", "overview");
+  // §7's zoom-and-filter rung: the overview's right-click lands here, and the URL
+  // carries it so a filtered console is a link somebody can paste.
+  const [only, setOnly] = useUrlState("process", "");
   useTitle(id ? `Run ${id.slice(0, 8)}` : "Run");
 
   const state = useQuery({
@@ -72,6 +82,27 @@ export function Run() {
     refetchInterval: 5_000,
   });
   const stream = useRunStream(id);
+  // The same query key `OverviewPanel` uses, so react-query serves both from one request —
+  // the header needs the denominator and the table needs the rows, and they are one fact.
+  const overview = useQuery({
+    queryKey: ["overview", id],
+    queryFn: () => get<OverviewData>(`/api/runs/${id}/overview`),
+    refetchInterval: 4_000,
+  });
+
+  // **Assembled from the record, and only when the run actually failed.** The failed task
+  // comes from the tasks projection, the memory it was ALLOWED from the overview row for its
+  // process — `TaskOut` has no asked half — and the report from the error event the console
+  // already holds. Three sources because they are three different facts, not because the
+  // banner is doing arithmetic.
+  const failedTask = useQuery({
+    queryKey: ["failed-task", id],
+    queryFn: () => get<{ tasks: FailedTask[] }>(
+      `/api/runs/${id}/tasks?status=FAILED&sort=-peak_rss_bytes&limit=1`,
+    ),
+    enabled: state.data?.phase === "failed",
+  });
+
 
   if (state.isPending) return <Loading what="the run" />;
   if (state.isError) return <Failed error={state.error} />;
@@ -80,15 +111,59 @@ export function Run() {
   const phase = isPhase(run.phase) ? run.phase : "queued";
   const now = Date.now();
 
+  const worst = failedTask.data?.tasks?.[0];
+  const report = stream.events.find((event) => event.manifest?.report)?.manifest?.report ?? null;
+  const failed: FailureDetail | null = worst
+    ? {
+        process: worst.process,
+        tag: worst.tag,
+        exit: worst.latest_exit ?? null,
+        attempts: worst.attempts,
+        peak_rss_bytes: worst.peak_rss_bytes ?? null,
+        asked_bytes: (overview.data?.rows ?? []).find((row) => row.process === worst.process)
+          ?.memory_asked_bytes ?? null,
+        report,
+      }
+    // No task failed, but the run did. Say so with what the record has.
+    : report
+      ? { process: null, tag: null, exit: null, attempts: 1,
+          peak_rss_bytes: null, asked_bytes: null, report }
+      : null;
+
+  const declared = overview.data?.steps_declared ?? 0;
+  const finished = overview.data?.steps_finished ?? 0;
+
   return (
-    <div className="p-6 max-w-4xl mx-auto flex flex-col gap-4">
-      <header className="flex flex-col gap-2">
-        <Link to="/runs" className="text-label text-ink-3 no-underline hover:text-ink">
-          ← Board
-        </Link>
-        <div className="flex items-baseline justify-between gap-4">
-          <h1 className="font-data text-title text-ink">run {run.run_id.slice(0, 8)}</h1>
-          <span className="flex items-center gap-2 text-body">
+    <div className="p-6 flex flex-col gap-4">
+      {/* **The artboard's shelf.** Every run screen opens on a `--surface-2` band with an
+          `--e1` lip, and the header was sitting bare on `--paper` — which is most of why the
+          top of the page read as a different product from the panel below it. Three rows,
+          the artboard's: where you came from, what this is, and how far along. */}
+      <header className="-mx-6 -mt-6 mb-2 px-6 pt-4 pb-3.5 bg-surface-2 border-b border-line
+                         shadow-e1 relative z-[2] flex flex-col">
+        <span className="flex items-center gap-3 mb-[3px]">
+          <Link to="/runs" className="text-secondary text-ink-3 no-underline hover:text-ink">
+            ← Board
+          </Link>
+          {/* Only when you came from one. A link back to a pipeline you never opened is a
+              guess about where you were. */}
+          {from && (
+            <Link to={`/build?draft=${from}`}
+                  className="ml-auto text-secondary text-pea no-underline hover:text-ink">
+              ↩ pipeline
+            </Link>
+          )}
+        </span>
+
+        {/* **The phase sits beside the id, and the elapsed goes right.** They were the other
+            way about — a dot floated at the far edge of a 1500px header, a full column away
+            from the thing whose state it describes, and the elapsed on a line of its own as an
+            uppercase label. The artboard reads `run 85bbe6a0 ● running ............ 7m12s`. */}
+        <div className="flex items-baseline gap-3.5">
+          <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">
+            run {run.run_id.slice(0, 8)}
+          </h1>
+          <span className="flex items-center gap-[7px] text-body text-ink-2">
             <span
               aria-hidden
               className="inline-block w-2 h-2 rounded-full"
@@ -96,53 +171,110 @@ export function Run() {
             />
             {run.phase}
           </span>
+          <span className="ml-auto font-data text-body text-ink-3 tabular-nums">
+            {elapsed(run.started_at_ms, run.ended_at_ms, now)}
+          </span>
         </div>
-        <p className={eyebrow}>
-          {elapsed(run.started_at_ms, run.ended_at_ms, now)} elapsed
-        </p>
+
+        {/* **Steps finished of steps DECLARED** — §5, and the only denominator anybody can
+            source. Nextflow discovers tasks as channels emit, so a task-level percentage is a
+            number that grows under you; the artifact declares its steps before the run starts.
+
+            **Drawn from the current numbers on every render, and never from a remembered
+            maximum.** This count is not monotonic and cannot be: a step with three tasks done
+            is finished until a fourth is submitted, and Checkpoint 1 asked exactly this. A bar
+            that only ever fills would be monotonic and false.
+
+            Absent when `steps_declared` is 0 — A192: the artifact could not be read, and a bar
+            over a denominator of zero is an invented number. */}
+        {declared > 0 && (
+          <span data-testid="run-progress" className="flex items-center gap-3.5 mt-[11px]">
+            <span className="text-secondary text-ink-2 tabular-nums whitespace-nowrap">
+              {finished} of {declared} steps finished
+            </span>
+            {/* The bar is INLINE and capped at 520px — full-width it read as the page's own
+                loading bar rather than as this run's progress. */}
+            <span className="block h-2 rounded-[3px] overflow-hidden flex-1 max-w-[520px]"
+                  style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
+              <span
+                className="block h-full"
+                style={{ width: `${(finished / declared) * 100}%`,
+                         background: "var(--pea)", transition: `width var(--t)` }}
+              />
+            </span>
+            {/* Where the denominator came from, said out loud — §5's whole argument is that
+                this is the only one anybody can source. */}
+            <span className="text-label text-ink-3 whitespace-nowrap">
+              declared by the artifact
+            </span>
+          </span>
+        )}
       </header>
 
-      <section
-        data-testid="counts"
-        className="flex items-center gap-8 px-4 py-3 bg-surface border border-line
-                   rounded-[var(--r)]"
-      >
-        <Count label="running" value={run.counts.running} colour="var(--measured)" />
-        <Count label="done" value={run.counts.succeeded} colour="var(--pea)" />
-        <Count label="cached" value={run.counts.cached} />
-        <Count label="failed" value={run.counts.failed} colour="var(--undecided)" />
-        {/* `wiener-mockups/Main.dc.html` puts a More control here and the numbers behind it.
-            **Collapsed by default**: the counts answer "how is it going" and the comparisons
-            answer "was it sized right", which is a different question asked less often. */}
-        <button
-          type="button"
-          onClick={() => setMore(more === "1" ? "0" : "1")}
-          aria-expanded={more === "1"}
-          className="ml-auto text-label text-ink-3 hover:text-ink"
-        >
-          {more === "1" ? "Less" : "More"}
-        </button>
-      </section>
+      {/* Above the overview, so a failed run says where it stopped without a click — and the
+          failed process is what the table opens on beneath it, because the comparison is the
+          diagnosis: one task at 63.8 GB beside eleven at 58 says what a single number cannot. */}
+      {run.phase === "failed" && failed && <Failure failed={failed} />}
 
-      {more === "1" && <Stats runId={run.run_id} />}
-
-      <section className="bg-surface border border-line rounded-[var(--r)] overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">
+      {/* **`flex flex-col flex-1 min-h-0`, and the graph is why.** The canvas inside asks for
+          `flex-1 min-h-0` to fill the panel; this section was neither a flex column nor
+          stretched, so it wrapped to content and the canvas got the 15px left over — a 568px
+          graph clipped to a sliver. It is also what the artboards draw: the panel fills the
+          viewport and its caption bar sits at the bottom on `margin-top:auto`. */}
+      <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
+                          rounded-[var(--r)] shadow-e2 overflow-hidden">
+        {/* `shrink-0` because the section is a flex column now and a strip that compresses is
+            a strip that loses its pills. `py-[9px] px-4` is the artboard's own measurement. */}
+        <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
+                        border-b border-line bg-surface-2">
           {/* **Two views of one `RunState`, so switching is a render and never a fetch** —
               §9. The view lives in the URL because a link to a failing graph is the thing
               somebody pastes into a message. */}
-          <Segment name="Console" active={view !== "graph"} onPick={() => setView("console")} />
+          {/* **The overview is the front door and the console is a tab** — §18's ending
+              condition is that a 400-task run can be read without reading text, which is a
+              statement that the console cannot be the answer. It keeps its shape; it stops
+              being what opens.
+
+              §6's two questions, one row component: `Overview` expands a process to ask *what
+              did this process do*, and `Tasks` spans the run to ask *what retried*. */}
+          <Segment name="Overview" active={view === "overview"} onPick={() => setView("overview")} />
+          <Segment name="Console" active={view === "console"} onPick={() => setView("console")} />
           <Segment name="Graph" active={view === "graph"} onPick={() => setView("graph")} />
+          <Segment name="Tasks" active={view === "tasks"} onPick={() => setView("tasks")} />
           <span className="ml-auto text-label text-ink-3">
-            {stream.following ? "following" : "not following"} · read-only until W4
+            {stream.following
+              ? "following · read-only until W4"
+              : TERMINAL.has(run.phase) ? "not following · the run is over"
+              : "not following · read-only until W4"}
           </span>
         </div>
-        {view === "graph" ? (
-          <Graph runId={run.run_id} />
+        {view === "overview" ? (
+          <OverviewPanel
+            runId={run.run_id}
+            openOn={failed?.process}
+            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+            onOpenGraph={() => setView("graph")}
+          />
+        ) : view === "tasks" ? (
+          <Tasks
+            runId={run.run_id}
+            processes={(overview.data?.rows ?? []).map((row) => row.process)}
+          />
+        ) : view === "graph" ? (
+          <Graph
+            runId={run.run_id}
+            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+          />
         ) : stream.error ? (
           <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
         ) : (
-          <Console events={stream.events} following={stream.following} />
+          <Console
+            events={stream.events}
+            following={stream.following}
+            process={only}
+            onClearProcess={() => setOnly("")}
+            onFilter={(process) => setOnly(process)}
+          />
         )}
       </section>
     </div>

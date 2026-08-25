@@ -61,6 +61,31 @@ unconsidered.
 | `--undecided` | `#CC4B2C` | `#E87352` | tier 4 |
 | `--fault` | `#8B1E1E` | `#D96B6B` | **build failures only** |
 
+### Interaction and depth
+
+**Every one of these is derived from a token above rather than being a new value**, which is
+why the palette did not grow when Wiener's visual direction was settled as Depth. `--hover` is
+`--ink` at 5%, so it tints whatever surface it lands on and inverts for free in dark mode; the
+elevation ramp is `--shadow` at four spreads.
+
+| Token | Value | Use |
+|---|---|---|
+| `--hover` | `--ink` at 5% | any row, cell or control under the pointer |
+| `--hover-strong` | `--ink` at 9% | the same, where a row is already tinted |
+| `--t` | `140ms cubic-bezier(.4, 0, .2, 1)` | every colour and elevation transition |
+| `--ring` | `0 0 0 2px --paper, 0 0 0 4px --pea` | focus, and only focus |
+| `--e1` | `0 1px 1px --shadow` | chips, controls, table headers |
+| `--e2` | two-layer | cards |
+| `--e3` | two-layer, wider | the working panel, menus |
+| `--well` | `inset 0 1px 2px --shadow` | every bar track |
+
+**`--hover` was referenced five times in `frontend/src/build/` and defined nowhere**, from
+Plan 3C until 2026-08-24 — so five hover states were dead CSS, which is most of why the
+builder felt inert. An undefined `var()` is not an error; it is silence, which is why
+`tokens.test.ts` greps rather than trusting review. Two more were found the same way:
+`--profiled` and `--settled` were names for tier 3 and tiers 1–2 that never existed here, and
+those references now say `--measured` and `--pea`.
+
 **Why deep botanical green as primary.** Mendel's peas. It is subject-derived rather than
 SaaS-blue-by-default, and it is desaturated enough to coexist with amber and coral without
 fighting them.

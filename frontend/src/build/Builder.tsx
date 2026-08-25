@@ -10,16 +10,17 @@ import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
 import { Compare } from "./Compare";
-import { Gate, GatePanel } from "./Gate";
+import { GatePanel } from "./Gate";
 import { SubmitPanel } from "./Submit";
 import { Findings } from "./Findings";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
+import { Walk } from "./Walk";
 import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
-import { graphOf, useBuilder, useExample } from "./useBuilder";
+import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
 import { accepts, useCompatibility } from "./useCompatibility";
 import { useView } from "./useView";
 
@@ -226,28 +227,10 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
           RNA-seq spine
         </span>
-        {/* **Keep, then Gate — and neither of them is Run.**
-            `docs/design/execution-boundary.md` §3: a gate proves this artifact on public test
-            data and takes no samplesheet, while running a laboratory's data is Wiener's job.
-            The two must not share a label, because a control called *Run* that sometimes
-            gates is how invariant 15 stops being structural and becomes a promise.
-
-            This replaces a disabled *Run pipeline* button whose `title` said "Running a
-            pipeline is Wiener's job, and Wiener is not built." Still true — the sentence
-            moved into `Gate.tsx` where a reader will still meet it. */}
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            data-testid="keep"
-            disabled={keeper.keeping}
-            onClick={() => keeper.keep()}
-            title="Write the pipeline.yml. A gate certifies what was kept."
-            className="px-3 py-1 rounded-r text-body font-semibold border border-line
-                       bg-transparent text-ink disabled:opacity-40"
-          >
-            {keeper.keeping ? "Keeping…" : "Keep"}
-          </button>
-          <Gate draftId={keeper.draftId} blocked={keeper.blocked} />
-        </div>
+        {/* **Keep, Gate and Run left this toolbar for `Walk`** — W2 §13. They were three
+            controls in three places for one sequence, and the rail is that sequence said
+            once. `execution-boundary.md` §3's rule that a gate and a run must never share a
+            label is kept there rather than here. */}
         {blocking > 0 && (
           <span data-testid="blocking" className="text-secondary text-[var(--undecided)]">
             <b className="font-data">{blocking}</b> to decide
@@ -327,7 +310,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
           <div
             data-zoomer
             className="absolute right-4 bottom-4 flex items-center gap-1 rounded-r
-                       border border-line bg-surface px-1 py-1 shadow-[0_1px_2px_var(--shadow)]"
+                       border border-line bg-surface px-1 py-1 shadow-e1"
           >
             <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
               −
@@ -485,8 +468,39 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         {/* **Three tabs, and the order is the order you need them in.** What is wrong with
             what you drew comes before what Mendel would have done differently, because a graph
             that cannot be emitted is not yet worth diffing. */}
+        {/* Draw → Keep → Gate → Run, above the tabs, because it is the sequence and they are
+            the detail. **The only place that leaves Mendel** is its last step — A179,
+            `wiener.md` §12 — and it stays a distinct step rather than a second gate button,
+            because `execution-boundary.md` §3 keeps those two words apart everywhere else. */}
+        <div className="p-2">
+          <Walk
+            draw={{ steps: builder.graph.nodes?.length ?? 0,
+                    problems: builder.findings.length }}
+            keep={{
+              // `keptAt` is a **time**, and the rail prints `kept ${keptAt}` — the literal
+              // "kept" here rendered `kept kept` on screen. A draft id also is not the same
+              // fact: a draft is *saved* from the first edit and only `keep` certifies it.
+              keptAt: keeper.keptAt,
+              stale: keeper.blocked,
+              busy: keeper.keeping,
+              onKeep: () => keeper.keep(),
+            }}
+            gate={{
+              passed: gate.passed && !keeper.blocked,
+              blocked: keeper.blocked ? "A gate has to pass on the version you kept." : null,
+              panel: <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />,
+            }}
+            run={{
+              sent: false,
+              blocked: gate.passed ? null : "A gate has to pass on the version you kept.",
+              panel: <SubmitPanel draftId={keeper.draftId}
+                                  gated={gate.passed && !keeper.blocked} />,
+            }}
+          />
+        </div>
+
         <div className="flex gap-1 border-b border-line px-2 pt-2">
-          {(["review", "problems", "compare", "gate", "run"] as const).map((t) => (
+          {(["review", "problems", "compare"] as const).map((t) => (
             <button
               key={t}
               data-testid={`tab-${t}`}
@@ -508,16 +522,8 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         {panel === "problems" && (
           <Findings findings={builder.findings} onSelect={setSelected} />
         )}
-        {panel === "gate" && (
-          <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />
-        )}
-        {/* **The only tab that leaves Mendel** — A179, `wiener.md` §12. It is a separate tab
-            from *gate* rather than a button beside it, because a gate proves this artifact and
-            a run spends a laboratory's time on its own data: `execution-boundary.md` §3 keeps
-            those two words apart everywhere else and this is where they would blur. */}
-        {panel === "run" && (
-          <SubmitPanel draftId={keeper.draftId} gated={gate.passed && !keeper.blocked} />
-        )}
+
+
         {panel === "compare" && (
           <>
             <div className="p-3 pb-0">
@@ -574,7 +580,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             data-testid="node-menu"
             style={{ left: menu.x, top: menu.y }}
             className="fixed z-50 min-w-[160px] rounded-r border border-line bg-surface py-1
-                       shadow-[0_4px_16px_var(--shadow)]"
+                       shadow-e3"
           >
             <button
               data-testid="menu-settings"
@@ -614,10 +620,10 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[560px] max-h-[70vh] overflow-auto rounded-r border
-                       border-line bg-surface shadow-[0_4px_16px_var(--shadow)]"
+                       border-line bg-surface shadow-e3"
           >
             <Settings
-              step={data.steps.find((s) => s.id === carded)!}
+              step={withTypedValues(data.steps.find((s) => s.id === carded)!, builder.graph)}
               onClose={() => setCarded(null)}
               onSet={(name, value) => builder.setParam(carded, name, value)}
             />
