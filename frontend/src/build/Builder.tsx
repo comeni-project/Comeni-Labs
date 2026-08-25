@@ -20,7 +20,7 @@ import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
-import { graphOf, useBuilder, useExample } from "./useBuilder";
+import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
 import { accepts, useCompatibility } from "./useCompatibility";
 import { useView } from "./useView";
 
@@ -477,7 +477,10 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
             draw={{ steps: builder.graph.nodes?.length ?? 0,
                     problems: builder.findings.length }}
             keep={{
-              keptAt: keeper.draftId ? "kept" : null,
+              // `keptAt` is a **time**, and the rail prints `kept ${keptAt}` — the literal
+              // "kept" here rendered `kept kept` on screen. A draft id also is not the same
+              // fact: a draft is *saved* from the first edit and only `keep` certifies it.
+              keptAt: keeper.keptAt,
               stale: keeper.blocked,
               busy: keeper.keeping,
               onKeep: () => keeper.keep(),
@@ -620,7 +623,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                        border-line bg-surface shadow-e3"
           >
             <Settings
-              step={data.steps.find((s) => s.id === carded)!}
+              step={withTypedValues(data.steps.find((s) => s.id === carded)!, builder.graph)}
               onClose={() => setCarded(null)}
               onSet={(name, value) => builder.setParam(carded, name, value)}
             />

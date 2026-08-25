@@ -5,7 +5,7 @@ import { freeSpot } from "./geometry";
 
 import { get, post } from "../api/client";
 import { useGraph } from "./useGraph";
-import type { AlignedStep, Built, Comparison, DraftGraph, Verdict } from "../api/types";
+import type { AlignedStep, Built, Comparison, DraftGraph, Step, Verdict } from "../api/types";
 
 
 /** What the canvas draws before anything is on it. Not a loading state and not an error. */
@@ -37,6 +37,33 @@ export function graphOf(built: Built): DraftGraph {
       to_node: wire.to_node,
       to_port: wire.to_port,
     })),
+  };
+}
+
+/** One step, with **what you have typed** laid over what the server last echoed back.
+ *
+ * `drawn` is a query keyed on the *debounced* graph and carries
+ * `placeholderData: (previous) => previous`, so `step.settings[].value` deliberately lags an
+ * edit — that is what keeps the canvas from blanking on every keystroke. A **controlled input**
+ * fed from that lagging copy never advances between keys, so each `onChange` reads
+ * `"" + newChar` and only the last character survives: typing `ILLUMINA` left `A`.
+ *
+ * **The graph is the authority for a value; the server is the authority for everything else**
+ * — the tier, the domain, the reason. Overlaying only `value` keeps it that way, so a typed
+ * value shows instantly while the tier it exits at stays the server's to stamp.
+ */
+export function withTypedValues(step: Step, graph: DraftGraph): Step {
+  const params = graph.nodes.find((node) => node.id === step.id)?.params;
+  if (!params?.length) return step;
+  // `DraftParam.value` admits `string | number | boolean` while a `SettingView` renders a
+  // `string`. Everything a person types arrives as a string already; coercing here keeps the
+  // widening in the graph, where the schema wants it, rather than in the control.
+  const typed = new Map(params.map((param) => [param.name, String(param.value)]));
+  return {
+    ...step,
+    settings: step.settings.map((setting) =>
+      typed.has(setting.name) ? { ...setting, value: typed.get(setting.name)! } : setting,
+    ),
   };
 }
 
