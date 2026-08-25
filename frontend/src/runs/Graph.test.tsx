@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -54,7 +54,9 @@ it("draws the pipeline's own layout, coloured by what the run did", async () => 
   at();
   const star = await screen.findByTestId("node-star_align");
   expect(star).toHaveAttribute("data-state", "failed");
-  expect(star).toHaveTextContent("7 / 12");
+  // **The overview's words, not a fraction** — `Graph.dc.html` writes `12 done · 1 retried`,
+  // and a bare `7 / 12` claims a denominator nobody can source while a run is live.
+  expect(star).toHaveTextContent("7 done");
   expect(star).toHaveTextContent("3 failed");
 });
 
@@ -63,7 +65,8 @@ it("says a step that has not been reached is waiting, not zero of zero", async (
   // whole pipeline, and the steps that never started are what tell you where it stopped.
   at();
   const last = await screen.findByTestId("node-featurecounts");
-  expect(last).toHaveTextContent("waiting");
+  // `not started` is the artboard's wording; `data-state` keeps the machine-readable name.
+  expect(last).toHaveTextContent("not started");
   expect(last).toHaveAttribute("data-state", "waiting");
 });
 
@@ -79,13 +82,15 @@ it("animates an active edge and never implies a rate", async () => {
   // §9.2: a pulse whose speed or thickness implied MB/s would be a number nobody measured. The
   // duration is a constant, and this is the test that keeps it one.
   at();
+  // The motion is `.live` in the stylesheet now — one definition shared with the artboards
+  // rather than an `<animate>` per edge — but the property under test is unchanged: the
+  // duration is a CONSTANT in CSS, so there is nowhere for a byte count to reach it.
   const active = await screen.findByTestId("wire-trimgalore-star_align");
-  const animation = active.querySelector("animate");
-  expect(animation).not.toBeNull();
-  expect(animation!.getAttribute("dur")).toBe("0.9s");
+  expect(active.getAttribute("class")).toContain("live");
+  expect(active).toHaveAttribute("data-active", "true");
 
   const still = await screen.findByTestId("wire-star_align-featurecounts");
-  expect(still.querySelector("animate")).toBeNull();
+  expect(still.getAttribute("class") ?? "").not.toContain("live");
 });
 
 it("switches between the two views without fetching the graph twice", async () => {
@@ -93,4 +98,23 @@ it("switches between the two views without fetching the graph twice", async () =
   await screen.findByTestId("run-graph");
   const graphCalls = vi.mocked(fetch).mock.calls.filter((c) => String(c[0]).includes("/graph"));
   expect(graphCalls).toHaveLength(1);
+});
+
+it("does not put the context menu inside the transformed stage", async () => {
+  // **A `position: fixed` element inside a `transform`ed ancestor is positioned against that
+  // ancestor, not the viewport.** `Canvas` renders its children inside a stage carrying
+  // `translate(...) scale(...)`, so a menu placed there drifts further from the cursor the
+  // further you have panned — and it drifts by exactly the pan, which reads as "the menu
+  // spawns a long way off" rather than as a CSS rule.
+  //
+  // jsdom does no layout, so the offset itself cannot be measured here. The STRUCTURE can:
+  // the menu must not be a descendant of the stage. That is the property the fix restores and
+  // the one a later tidy-up would undo.
+  at();
+  const node = await screen.findByTestId("node-star_align");
+  fireEvent.contextMenu(node, { clientX: 120, clientY: 90 });
+
+  const menu = await screen.findByRole("menu");
+  const stage = screen.getByTestId("stage");
+  expect(stage.contains(menu)).toBe(false);
 });
