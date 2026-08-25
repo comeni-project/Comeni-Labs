@@ -29,8 +29,19 @@ const EVENTS = {
              trace: { process: "STAR_ALIGN", status: "COMPLETED", name: "STAR_ALIGN (s1)" } }],
   cursor: 0, stream_id: "0-0",
 };
-const RUNS = [{ id: "4c1e9a07b2f1de40", phase: "running", executor: "local",
-                submitted_by: "operator", submitted_at: "2026-08-23T20:01:00Z" }];
+const RUNS = {
+  runs: [{ id: "4c1e9a07b2f1de40", phase: "running", executor: "local",
+           submitted_by: "operator", submitted_at: "2026-08-23T20:01:00Z",
+           ended_at: null, tasks_done: 1, tasks_seen: 1 }],
+  total: 1,
+};
+const SUMMARY = {
+  window_days: 14, failed: 0, running: 1, succeeded: 0, total: 1,
+  median_ms: null, p95_ms: null,
+  days: Array.from({ length: 14 }, (_, n) => ({
+    day: `2026-08-${String(n + 11).padStart(2, "0")}`, succeeded: 0, failed: 0,
+  })),
+};
 const GRAPH = {
   nodes: [{ id: "star_align", label: "STAR_ALIGN", x: 10, y: 10, width: 100, height: 40,
             total: 1, done: 1, failed: 0, running: 0, attempts: 1 }],
@@ -59,7 +70,8 @@ function at(path: string) {
         : url.includes("/overview") ? OVERVIEW
         : url.includes("/graph") ? GRAPH
         : url.includes("/tasks") ? TASKS
-        : url.endsWith("/api/runs") ? RUNS
+        : url.includes("/summary") ? SUMMARY
+        : url.includes("/api/runs?") || url.endsWith("/api/runs") ? RUNS
         : STATE,
     })));
   const router = createMemoryRouter(routes, { initialEntries: [path] });

@@ -16,3 +16,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # E, F, I, B, SIM and the rest of UP still apply. Nothing imports these files (A196): they
 # are a design tool whose output is nine artboards, and the artboards are the artifact.
 "docs/design/*-mockups/build.py" = ["E501", "UP031"]
+# The runs board is drawn by the same tool for the same reason — it borrows `build.py`'s
+# chrome rather than restating it, so it inherits its shape and therefore its two exemptions.
+"docs/design/runs-board/board.py" = ["E501", "UP031"]
