@@ -30,8 +30,11 @@ it("identifies a task by its id when the run predates the labels column", () => 
 it("names an out-of-memory kill rather than printing 137", () => {
   // 137 is SIGKILL and on a Nextflow task it is nearly always the OOM killer. A reader who
   // has to look that up is a reader the interface failed.
+  // The gloss lives in the trailing ANNOTATION column, not inside the exit cell — a
+  // sentence in a 70px column is what was widening the table. The code is still shown.
   render(<TaskRow task={{ ...BASE, latest_exit: 137, status: "FAILED" }} showProcess={false} />);
-  expect(screen.getByTestId("mark")).toHaveTextContent(/out of memory/i);
+  expect(screen.getByTestId("note")).toHaveTextContent(/out of memory/i);
+  expect(screen.getByTestId("mark")).toHaveTextContent("137");
 });
 
 it("adds a process column only for the tab that spans processes", () => {

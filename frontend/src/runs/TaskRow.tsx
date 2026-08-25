@@ -23,25 +23,35 @@ export type TaskView = {
  *  look 137 up is a reader the interface failed. */
 const OOM = 137;
 
-/** Tag · Attempt · Exit · Memory · CPU · Realtime — the artboard's columns, in its order.
- *  `Process` is prepended for the tab that spans processes and omitted where the row already
- *  sits under its process heading. */
-const COLUMNS = "grid-cols-[1fr_4rem_5rem_6rem_4rem_5rem]";
-const WITH_PROCESS = "grid-cols-[11rem_1fr_4rem_5rem_6rem_4rem_5rem]";
+/** Tag · Attempt · Exit · Memory · CPU · Realtime · mark — the artboard's columns, its
+ *  widths, its order. `Process` is prepended for the tab that spans processes and omitted
+ *  where the row already sits under its process heading.
+ *
+ * **The `1fr` is the LAST column, and that is the whole shape of this table.** It was on
+ * `tag`, so the tag cell absorbed every spare pixel and shoved attempt through realtime
+ * against the right edge — a row with its identity at one end of the screen and its numbers
+ * at the other, which is exactly what a small-multiple table must not be. Fixed narrow
+ * columns cluster the figures where the eye can compare them down the column, and the
+ * trailing `1fr` is the annotation slot: `worst`, `retried once`, `killed — out of memory`.
+ */
+const COLUMNS = "grid-cols-[120px_60px_70px_110px_90px_100px_1fr]";
+const WITH_PROCESS = "grid-cols-[190px_120px_60px_70px_110px_90px_100px_1fr]";
+
+/** Indented under its process, or flush in the tab that spans them — the artboard's two
+ *  paddings. The indent is what makes an expanded block read as *inside* its row. */
+const PAD = "pl-[46px] pr-[18px]";
+const PAD_TAB = "px-[18px]";
 
 /** The header the artboard draws above a task table — one spelling, both callers. */
 export function TaskHeader({ showProcess }: { showProcess: boolean }) {
   return (
-    <div className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} gap-3 px-4 py-1.5
-                     border-b border-line bg-surface-2
-                     font-ui text-label uppercase tracking-[.14em] font-semibold text-ink-3`}>
+    <div className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} gap-4
+                     ${showProcess ? `${PAD_TAB} py-2 border-b border-line-2`
+                                   : `${PAD} py-[7px] border-y border-line`}
+                     font-ui text-label uppercase tracking-[.08em] font-semibold text-ink-3`}>
       {showProcess && <span>process</span>}
-      <span>tag</span>
-      <span className="text-right">attempt</span>
-      <span className="text-right">exit</span>
-      <span className="text-right">memory</span>
-      <span className="text-right">cpu</span>
-      <span className="text-right">realtime</span>
+      <span>tag</span><span>attempt</span><span>exit</span>
+      <span>memory</span><span>cpu</span><span>realtime</span><span />
     </div>
   );
 }
@@ -75,54 +85,67 @@ export function TaskRow({ task, showProcess, worst = false, onOpenConsole }: {
     { label: "Retry this task", w4: true, separated: true },
   ];
 
+  // **The mark column carries every annotation**, so the figures stay a clean grid. `worst`
+  // and a retry note are the artboard's; the OOM gloss moves here out of the exit cell,
+  // where it was widening a 70px column with a sentence.
+  const failed = exit !== null && exit !== undefined && exit !== 0;
+  const mark = failed && exit === OOM ? "killed — out of memory"
+    : task.attempts > 1 ? `retried ${task.attempts > 2 ? `${task.attempts - 1} times` : "once"}`
+    : worst ? "worst" : "";
+
   return (
     <>
     <div
       {...menu.bind}
       data-testid={`task-${task.task_id}`}
-      className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} items-baseline gap-3 px-4 py-1.5
+      className={`grid ${showProcess ? WITH_PROCESS : COLUMNS} items-baseline gap-4
+                  ${showProcess ? PAD_TAB : PAD} py-1.5
                   font-data text-secondary border-b border-line last:border-b-0 tabular-nums
                   hover:bg-[var(--hover)]`}
-      style={{ transition: `background-color var(--t)` }}
+      style={{
+        transition: `background-color var(--t)`,
+        // A failed task is tinted and struck with a 2px rule down its left edge — the
+        // artboard's treatment, and the reason a failing row is findable in a wall of them
+        // without reading the exit column.
+        ...(failed
+          ? { background: "var(--undecided-soft)",
+              boxShadow: "inset 2px 0 0 var(--undecided)" }
+          : {}),
+      }}
     >
       {showProcess && (
         <span data-testid="process" className="text-ink truncate">{task.process}</span>
       )}
 
-      <span data-testid="task" className="flex items-baseline gap-2 min-w-0 text-ink">
-        <span className="truncate">{task.tag ?? `task ${task.task_id}`}</span>
-        {worst && <span className="shrink-0 text-ink-3">worst</span>}
+      <span data-testid="task"
+            className={`truncate ${failed ? "text-[var(--undecided)]" : "text-ink"}`}>
+        {task.tag ?? `task ${task.task_id}`}
       </span>
 
-      {/* The attempt NUMBER, always — the artboard's column. `↻` marks the ones that are not
-          the first, so a retry is legible without reading the digit. */}
+      {/* The attempt NUMBER, always — the artboard's column. It turns `--measured` when it is
+          not the first, so a retry is legible without reading the digit. */}
       <span
         data-testid={task.attempts > 1 ? "retried" : "attempt"}
-        className={`text-right ${task.attempts > 1 ? "text-[var(--measured)]" : "text-ink-2"}`}
+        className={task.attempts > 1 ? "text-[var(--measured)]" : "text-ink-2"}
       >
-        {task.attempts > 1 && "↻"}{task.attempts}
+        {task.attempts}
       </span>
 
-      <span data-testid="exit" className="text-right">
+      <span data-testid="exit">
         {exit === null || exit === undefined ? (
           <span className="text-ink-3">{ABSENT}</span>
         ) : exit === 0 ? (
           <span className="text-ink-2">0</span>
         ) : (
-          <span data-testid="mark" className="text-[var(--undecided)]"
-                title={exit === OOM ? "killed — out of memory" : undefined}>
-            {exit}{exit === OOM && <span className="text-ink-3"> killed — out of memory</span>}
-          </span>
+          <span data-testid="mark" className="text-[var(--undecided)]">{exit}</span>
         )}
       </span>
 
-      <span data-testid="mem" className="text-right text-ink-2">
-        {bytes(task.peak_rss_bytes)}
-      </span>
-      <span data-testid="cpu" className="text-right text-ink-2">{percent(task.pct_cpu)}</span>
-      <span data-testid="time" className="text-right text-ink-2">
-        {seconds(task.realtime_ms)}
-      </span>
+      <span data-testid="mem" className="text-ink-2">{bytes(task.peak_rss_bytes)}</span>
+      <span data-testid="cpu" className="text-ink-2">{percent(task.pct_cpu)}</span>
+      <span data-testid="time" className="text-ink-2">{seconds(task.realtime_ms)}</span>
+      <span data-testid="note"
+            className={failed ? "text-[var(--undecided)]" : "text-ink-3"}>{mark}</span>
     </div>
     {menu.at && <Menu items={items} at={menu.at} onClose={menu.close} />}
     </>

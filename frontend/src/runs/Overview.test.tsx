@@ -36,7 +36,12 @@ it("scales every bar in a column against the same maximum", () => {
   // A small multiple is only a comparison if the axes agree. Two bars scaled to their own
   // row say nothing about each other, which is the entire point of putting them in a column.
   render(<Overview data={{ ...OK, rows: [SLOW, FAST] }} />);
-  const [slow, fast] = screen.getAllByTestId("bar-time");
+  // **Addressed per row.** This read `getAllByTestId("bar-time")` and took [0] and [1], which
+  // worked only because every row rendered the same bare `bar-time` — the one bar in the table
+  // whose testid was not suffixed with its process. Two rows, one id: the test passed on an
+  // ambiguity, and nothing could have addressed a single row's realtime bar.
+  const slow = screen.getByTestId("bar-time-SLOW");
+  const fast = screen.getByTestId("bar-time-FAST");
   expect(parseFloat(slow.style.width)).toBeGreaterThan(parseFloat(fast.style.width) * 5);
 });
 

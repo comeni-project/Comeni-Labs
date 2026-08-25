@@ -49,7 +49,16 @@ export function pair(used: number | null | undefined, asked: number | null | und
     const size = value / scale;
     return size < 10 && unit > 0 ? size.toFixed(1) : String(Math.round(size));
   };
-  return `${round(used)} / ${round(asked)} ${units[unit]}`;
+  const peak = round(used);
+  // **One unit, unless one unit erases the measurement.** A process peaking at 3.8 MB against
+  // a 31 GB ask renders `0.0 / 31 GB` — and this table's own footer says a dash means nothing
+  // was reported, *never zero*. So `0.0` asserts a measured zero the record contradicts, on a
+  // screen whose whole claim is that nothing was guessed silently. Where the shared unit would
+  // round a real number to nothing, spell each half in its own: comparison at a glance is worth
+  // less than not lying about what was measured. Both halves still carry their suffix, so the
+  // reader can see the two are orders apart rather than being quietly misled about the scale.
+  if (used > 0 && Number(peak) === 0) return `${bytes(used)} / ${bytes(asked)}`;
+  return `${peak} / ${round(asked)} ${units[unit]}`;
 }
 
 /** `1.2G / 31G` — read and written, kept apart. The artboard shows both because *which step
