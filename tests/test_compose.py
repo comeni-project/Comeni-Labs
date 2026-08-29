@@ -258,3 +258,59 @@ def test_the_draft_root_is_a_volume_shared_by_the_api_and_the_worker(base):
         root = services[name]["environment"]["MENDEL_DRAFT_ROOT"]
         mounts = [v.split(":")[1] for v in services[name]["volumes"] if ":" in v]
         assert root in mounts, f"{name}: MENDEL_DRAFT_ROOT={root} is backed by no volume"
+
+
+def _database_owners(services: dict) -> dict[str, list[str]]:
+    """Every service that reads a database, grouped by the database it reads.
+
+    Derived rather than listed, so a third database arriving with a third service is covered
+    the day it lands instead of the day somebody remembers this file.
+    """
+    owners: dict[str, list[str]] = {}
+    for name, service in services.items():
+        for key, url in (service.get("environment") or {}).items():
+            if key.endswith("_DATABASE_URL"):
+                owners.setdefault(url, []).append(name)
+    return owners
+
+
+def test_every_database_in_the_base_stack_is_migrated_by_exactly_one_service(base):
+    """A database nobody migrates is a stack that comes up green and 500s on the first request.
+
+    `wiener-api` ran `alembic upgrade head` in `docker-compose.prod.yml` **and nowhere else**,
+    so `make prod` came up migrated and `make dev` came up with no `run` table. Nothing in the
+    stack looked wrong — nine containers healthy — and `/runs` answered with a traceback naming
+    `relation "run" does not exist`. The fix is one line of compose; the reason it survived is
+    that the only copy lived in the overlay, which is the file for what prod *removes*.
+
+    **Exactly one**, not at least one: two services racing `alembic upgrade head` against one
+    database is how a migration deadlocks on a cold start.
+
+    This is the docstring at the top of this file arriving a second time — a service that
+    reaches no database serves 500s on every screen, and it is visible in the YAML.
+    """
+    for url, services in _database_owners(base["services"]).items():
+        migrators = [
+            s for s in services
+            if "alembic upgrade head" in str(base["services"][s].get("command", ""))
+        ]
+        assert len(migrators) == 1, (
+            f"{url.rsplit('/', 1)[-1]}: read by {services}, migrated by {migrators or 'nobody'}"
+        )
+
+
+def test_the_overlay_never_introduces_a_migration_the_base_lacks(base, prod):
+    """The drift that hid the bug above, guarded in the direction it actually drifted.
+
+    An overlay may reasonably drop `--reload` from a command. It may not be the only place a
+    database gets created, because then dev and prod are not the same stack with the unsafe
+    parts removed — they are two stacks, and only one of them works.
+    """
+    for name, service in prod["services"].items():
+        prod_command = str(service.get("command", ""))
+        if "alembic upgrade head" not in prod_command:
+            continue
+        base_command = str(base["services"][name].get("command", ""))
+        assert "alembic upgrade head" in base_command, (
+            f"{name}: the overlay migrates and the base does not — dev comes up unmigrated"
+        )

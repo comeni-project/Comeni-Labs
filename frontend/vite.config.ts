@@ -11,12 +11,22 @@ export default defineConfig({
     // The API is a separate process; the browser talks to one origin.
     // One prefix, so the SPA keeps every other path — including its own `/forge/*` routes,
     // which this proxy used to swallow.
-    // **Two APIs, one origin, split by path.** Wiener is its own service on 8001 and its
-    // routes live under `/api` too (spec §13), so the specific entries come FIRST — vite
-    // matches in insertion order and `/api` would otherwise swallow both.
+    // **Two APIs, one origin, split by path.** Wiener is its own service and its routes live
+    // under `/api` too (spec §13), so the specific entries come FIRST — vite matches in
+    // insertion order and `/api` would otherwise swallow both.
+    //
+    // **Wiener is reached through nginx, not through a port.** These pointed at
+    // `localhost:8001` and `wiener-api` publishes no host port by design — its compose entry
+    // says so in as many words — so every Wiener route on the HMR server was a 502 while the
+    // same route through `http://localhost/` was fine. `make dev` prints the HMR address
+    // first, so the advertised way in was the one where half the app was dead.
+    //
+    // Proxying at nginx rather than opening 8001 is the fix that keeps the decision: dev now
+    // takes the path prod serves, WebSocket upgrade and the 512m artifact body included,
+    // which is the whole argument `docker-compose.prod.yml` makes for being an overlay.
     proxy: {
-      "/api/runs": { target: "http://localhost:8001", ws: true },
-      "/api/artifacts": "http://localhost:8001",
+      "/api/runs": { target: "http://localhost", ws: true },
+      "/api/artifacts": "http://localhost",
       "/api": "http://localhost:8000",
     },
   },
