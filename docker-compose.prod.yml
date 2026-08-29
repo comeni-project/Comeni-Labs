@@ -48,7 +48,11 @@ services:
   wiener-api:
     restart: unless-stopped
     # No `ports` reset: it publishes none in the base either. nginx is the way in.
-    command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"
+    #
+    # **No `command` override either, and that is the fix rather than an omission.** This file
+    # carried the only copy of `alembic upgrade head` for Wiener, so prod migrated and dev did
+    # not. The base now runs it — and `wiener-api` has no `--reload` to strip, so unlike `api`
+    # there is nothing left for prod to say here.
 
   wiener-ingest:
     restart: unless-stopped

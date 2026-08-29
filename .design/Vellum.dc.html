@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=Sometype+Mono:wght@400;500;700&display=swap">
+  <style>
+    body { margin:0; background:#EBE8E0; color:#14140F;
+           font-family:"Instrument Sans", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#1B5E8C; } a:hover { color:#14140F; }
+    .d { font-family:"Instrument Serif", Georgia, serif; font-weight:400; }
+    .m { font-family:"Sometype Mono", ui-monospace, monospace; }
+    .lb { font-family:"Sometype Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#7A776C; }
+    .field { position:absolute; inset:0; pointer-events:none; }
+    /* the press: a halftone screen, paper tooth, and one plate slightly out of register */
+    .tone  { background-image:radial-gradient(rgba(20,20,15,.16) .8px, transparent .9px);
+             background-size:4px 4px; opacity:.5;
+             mask-image:linear-gradient(160deg, #000 0%, transparent 62%); }
+    .tooth { opacity:.42; mix-blend-mode:multiply; }
+    .off   { position:relative; }
+    .off::before { content:attr(data-echo); position:absolute; left:2.5px; top:1.5px;
+                   color:#E4572E; opacity:.42; z-index:-1; }
+    .row { display:grid; grid-template-columns:14px 200px 1fr 128px 66px;
+           gap:16px; align-items:center; padding:10px 10px; border-bottom:1px solid #D5D1C6; }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:1000px; overflow:hidden; background:#EBE8E0;">
+  <div class="field tone"></div>
+  <svg class="field tooth" aria-hidden="true">
+    <filter id="pt"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/></filter>
+    <rect width="100%" height="100%" filter="url(#pt)" opacity=".2"/>
+  </svg>
+
+  <div style="position:relative; padding:30px 44px 38px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:18px; border-bottom:2px solid #14140F;">
+      <div style="display:flex; align-items:baseline; gap:26px;">
+        <span class="d" style="font-size:22px; letter-spacing:-.01em;">Comeni</span>
+        <span style="font-size:12.5px; color:#7A776C;">Build</span>
+        <span style="font-size:12.5px; font-weight:600;">Runs</span>
+        <span style="font-size:12.5px; color:#7A776C;">Registry</span>
+      </div>
+      <span class="m" style="font-size:10.5px; color:#9A968A;">417bcc1c</span>
+    </div>
+
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:38px 0 32px;">
+      <div>
+        <div class="lb" style="padding-bottom:10px;">rnaseq-counts &middot; 24 samples</div>
+        <div class="d off" data-echo="21m 40s" style="font-size:86px; letter-spacing:-.02em; line-height:.88;">21m 40s</div>
+      </div>
+      <div style="display:flex; gap:42px; align-items:flex-end; padding-bottom:12px;">
+        <div>
+          <div class="lb" style="padding-bottom:8px;">Steps</div>
+          <div style="font-size:16px;"><span style="color:#14140F;">&#9679;</span> 3 done &nbsp;<span style="color:#1B5E8C;">&#9673;</span> 1 running</div>
+        </div>
+        <div>
+          <div class="lb" style="padding-bottom:8px;">Failed</div>
+          <div style="font-size:16px; color:#7A776C;">none</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding-bottom:34px;">
+      <div class="lb" style="padding-bottom:14px;">Where the time went</div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#4A483F;">TRIMGALORE</div>
+          <div style="height:14px; background:#DFDBD0; position:relative;">
+            <div style="position:absolute; left:0%; width:9.8%; top:0; bottom:0; background:#14140F;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#7A776C; text-align:right;">2m10</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; font-weight:600;">STAR_ALIGN</div>
+          <div style="height:14px; background:#DFDBD0; position:relative;">
+            <div style="position:absolute; left:9.5%; width:67%; top:0; bottom:0; background:#14140F;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; text-align:right; font-weight:700;">14m30</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#4A483F;">SAMTOOLS_SORT</div>
+          <div style="height:14px; background:#DFDBD0; position:relative;">
+            <div style="position:absolute; left:75.4%; width:14.2%; top:0; bottom:0; background:#14140F;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#7A776C; text-align:right;">3m05</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#1B5E8C; font-weight:600;">FEATURECOUNTS</div>
+          <div style="height:14px; background:#DFDBD0; position:relative;">
+            <div style="position:absolute; left:89.2%; right:0; top:0; bottom:0; background:#1B5E8C;"></div>
+            <div style="position:absolute; left:89.2%; right:0; top:0; bottom:0; background:#E4572E;
+                        opacity:.4; transform:translate(2px,1.5px);"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#1B5E8C; text-align:right;">2m20</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; padding-top:5px;">
+          <div></div>
+          <div style="display:flex; justify-content:space-between;">
+            <span class="m" style="font-size:9px; color:#A5A197;">0</span>
+            <span class="m" style="font-size:9px; color:#A5A197;">11m</span>
+            <span class="m" style="font-size:9px; color:#A5A197;">22m</span>
+          </div><div></div>
+        </div>
+      </div>
+      <div style="font-size:13px; color:#5C5A50; padding-top:14px; max-width:66ch;">
+        Black is finished work; the second plate is only ever what is still running.
+        Alignment took two thirds of the clock.
+      </div>
+    </div>
+
+    <div style="padding-bottom:30px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+        <div class="lb">Memory held against memory touched</div>
+        <div class="m" style="font-size:10px; color:#9A968A;">track = reserved &middot; fill = peak</div>
+      </div>
+
+      <div class="row" style="border-bottom:1.5px solid #14140F;">
+        <div></div><div class="lb">Process</div><div class="lb">Memory</div>
+        <div class="lb" style="text-align:right;">Peak / held</div><div class="lb" style="text-align:right;">Use</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px;">&#9679;</div>
+        <div style="font-size:12.5px;">TRIMGALORE</div>
+        <div style="height:9px; background:#DFDBD0; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:23%; background:#E4572E;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#4A483F;">1.4 / 6 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B23F1B; font-weight:700;">23%</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px;">&#9679;</div>
+        <div style="font-size:12.5px;">STAR_ALIGN</div>
+        <div style="height:9px; background:#DFDBD0; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:82%; background:#14140F;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#4A483F;">31.2 / 38 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#4A483F;">82%</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px;">&#9679;</div>
+        <div style="font-size:12.5px;">SAMTOOLS_SORT</div>
+        <div style="height:9px; background:#DFDBD0; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:26%; background:#E4572E;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#4A483F;">2.1 / 8 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B23F1B; font-weight:700;">26%</div>
+      </div>
+
+      <div class="row" style="background:rgba(27,94,140,.06);">
+        <div style="font-size:11px; color:#1B5E8C;">&#9673;</div>
+        <div style="font-size:12.5px;">FEATURECOUNTS</div>
+        <div style="height:9px; background:#DFDBD0; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:14%; background:#1B5E8C;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#4A483F;">1.1 / 8 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#1B5E8C; font-weight:700;">14%</div>
+      </div>
+
+      <div style="font-size:13px; color:#5C5A50; padding-top:14px; max-width:70ch;">
+        Three processes hold <span style="color:#B23F1B; font-weight:600;">22 GB</span> and touch
+        <span style="font-weight:600;">4.6</span>. Asking for less is not only cheaper &mdash;
+        it is scheduled sooner.
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px;">
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Still moving</div>
+        <div style="border-top:1.5px solid #14140F; padding-top:15px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+            <span style="font-size:12.5px; font-weight:600;">FEATURECOUNTS</span>
+            <span class="m" style="font-size:10.5px; color:#1B5E8C;">9 / 24 tasks</span>
+          </div>
+          <svg viewBox="0 0 300 46" style="width:100%; height:46px;" aria-hidden="true">
+            <polyline fill="none" stroke="#E4572E" stroke-width="2" stroke-linejoin="round" opacity=".45"
+              transform="translate(2.5,1.5)"
+              points="0,36 17,31 34,21 50,15 67,10 84,11 100,16 117,10 134,15 150,20 167,16 184,10 200,15 217,20 234,25 250,20 267,15 284,10 300,14"/>
+            <polyline fill="none" stroke="#1B5E8C" stroke-width="2" stroke-linejoin="round"
+              points="0,36 17,31 34,21 50,15 67,10 84,11 100,16 117,10 134,15 150,20 167,16 184,10 200,15 217,20 234,25 250,20 267,15 284,10 300,14"/>
+          </svg>
+          <div class="m" style="font-size:9.5px; color:#9A968A; padding-top:5px;">tasks completing &middot; last 90s</div>
+          <div style="font-size:12.5px; color:#5C5A50; padding-top:11px; line-height:1.5;">
+            Only the running row gets a trace. A finished process has a duration; a
+            running one has a question.
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Tail</div>
+        <div style="border-top:1.5px solid #14140F; padding-top:15px;">
+          <div class="m" style="font-size:10.5px; line-height:2.15;">
+            <div style="color:#9A968A;">19:22:06 <span style="color:#4A483F;">submitted (9)</span> FEATURECOUNTS</div>
+            <div style="color:#9A968A;">19:20:41 <span style="color:#14140F; font-weight:700;">completed</span> SAMTOOLS_SORT (24)</div>
+            <div style="color:#9A968A;">19:20:39 <span style="color:#B23F1B; font-weight:700;">warn</span> reserved 8 GB, peak 2.1</div>
+            <div style="color:#9A968A;">16:35:12 <span style="color:#14140F; font-weight:700;">completed</span> STAR_ALIGN (24)</div>
+            <div style="color:#9A968A;">02:10:55 <span style="color:#14140F; font-weight:700;">completed</span> TRIMGALORE (24)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <style>
+    body { margin:0; background:#0B0A07; color:#FFC24A;
+           font-family:"Archivo", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#FFD98A; } a:hover { color:#fff; }
+    .m { font-family:"JetBrains Mono", ui-monospace, monospace; }
+    .lb { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.16em; text-transform:uppercase; color:#8C6A2A; }
+    /* a tube: scanlines, a rolling bar, a vignette, and everything lit */
+    .field { position:absolute; inset:0; pointer-events:none; }
+    .scan  { background-image:repeating-linear-gradient(180deg, rgba(0,0,0,.34) 0 1px, transparent 1px 3px); }
+    .vig   { box-shadow:inset 0 0 190px 60px rgba(0,0,0,.86); border-radius:14px; }
+    .roll  { height:110px; background:linear-gradient(180deg, transparent, rgba(255,194,74,.045), transparent);
+             animation:roll 9s linear infinite; }
+    @keyframes roll { from{transform:translateY(-140px);} to{transform:translateY(1010px);} }
+    .lit   { text-shadow:0 0 1px rgba(255,180,60,.85), 0 0 9px rgba(255,150,30,.42); }
+    .glow  { box-shadow:0 0 8px rgba(255,150,30,.45); }
+    .pulse { animation:pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity:.5; } }
+    .cur   { animation:blink 1.05s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .roll,.pulse,.cur { animation:none !important; } .roll { display:none; }
+    }
+    .row { display:grid; grid-template-columns:15px 190px 1fr 132px 74px;
+           gap:14px; align-items:center; padding:9px 10px; border-bottom:1px solid #241B0C; }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:1000px; overflow:hidden; background:#0B0A07;">
+  <div class="field" style="overflow:hidden;"><div class="roll"></div></div>
+  <div class="field scan"></div>
+  <div class="field vig"></div>
+
+  <div style="position:relative; padding:28px 36px 34px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:20px; border-bottom:1px solid #3A2A0E;">
+      <div style="display:flex; align-items:baseline; gap:24px;">
+        <span class="m lit" style="font-size:12px; font-weight:700; letter-spacing:.24em;">COMENI</span>
+        <span class="m" style="font-size:11px; color:#8C6A2A;">BUILD</span>
+        <span class="m lit" style="font-size:11px;">RUNS</span>
+        <span class="m" style="font-size:11px; color:#8C6A2A;">REGISTRY</span>
+      </div>
+      <div class="m" style="font-size:11px; color:#6E5420;">CH 2 &middot; 417BCC1C</div>
+    </div>
+
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:32px 0 28px;">
+      <div>
+        <div class="lb" style="padding-bottom:10px;">RNASEQ-COUNTS &middot; 24 SAMPLES</div>
+        <div class="m lit" style="font-size:52px; font-weight:700; letter-spacing:-.03em; line-height:.92;">
+          21:40<span class="cur">_</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:36px; align-items:flex-end;">
+        <div>
+          <div class="lb" style="padding-bottom:7px;">STEPS</div>
+          <div class="m lit" style="font-size:17px;">3 DONE &middot; <span class="pulse">1 RUN</span></div>
+        </div>
+        <div>
+          <div class="lb" style="padding-bottom:7px;">FAILED</div>
+          <div class="m" style="font-size:17px; color:#6E5420;">NONE</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding-bottom:30px;">
+      <div class="lb" style="padding-bottom:13px;">WHERE THE TIME WENT</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+
+        <div style="display:grid; grid-template-columns:196px 1fr 60px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11px; color:#C29A48;">&#9679; TRIMGALORE</div>
+          <div style="height:13px; background:#191307; position:relative;">
+            <div class="glow" style="position:absolute; left:0%; width:9.8%; top:0; bottom:0; background:#C08A22;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#8C6A2A; text-align:right;">2m10</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 60px; gap:14px; align-items:center;">
+          <div class="m lit" style="font-size:11px;">&#9679; STAR_ALIGN</div>
+          <div style="height:13px; background:#191307; position:relative;">
+            <div class="glow" style="position:absolute; left:9.5%; width:67%; top:0; bottom:0; background:#FFB000;"></div>
+          </div>
+          <div class="m lit" style="font-size:10.5px; text-align:right;">14m30</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 60px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11px; color:#C29A48;">&#9679; SAMTOOLS_SORT</div>
+          <div style="height:13px; background:#191307; position:relative;">
+            <div class="glow" style="position:absolute; left:75.4%; width:14.2%; top:0; bottom:0; background:#C08A22;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#8C6A2A; text-align:right;">3m05</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 60px; gap:14px; align-items:center;">
+          <div class="m lit" style="font-size:11px;">&#9673; FEATURECOUNTS</div>
+          <div style="height:13px; background:#191307; position:relative;">
+            <div class="glow pulse" style="position:absolute; left:89.2%; right:0; top:0; bottom:0; background:#FFD98A;"></div>
+          </div>
+          <div class="m lit" style="font-size:10.5px; text-align:right;">2m20</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 60px; gap:14px; padding-top:4px;">
+          <div></div>
+          <div style="display:flex; justify-content:space-between;">
+            <span class="m" style="font-size:9px; color:#5A4418;">0</span>
+            <span class="m" style="font-size:9px; color:#5A4418;">11m</span>
+            <span class="m" style="font-size:9px; color:#5A4418;">22m</span>
+          </div><div></div>
+        </div>
+      </div>
+      <div style="font-size:12.5px; color:#B08C40; padding-top:12px;">
+        Brightness is duration. Alignment is two thirds of the run, and it is the only
+        thing worth tuning first.
+      </div>
+    </div>
+
+    <div style="padding-bottom:28px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+        <div class="lb">MEMORY HELD AGAINST MEMORY TOUCHED</div>
+        <div class="m" style="font-size:10px; color:#6E5420;">TRACK = RESERVED &middot; FILL = PEAK</div>
+      </div>
+
+      <div class="row" style="border-bottom:1px solid #3A2A0E;">
+        <div></div><div class="lb">PROCESS</div><div class="lb">MEMORY</div>
+        <div class="lb" style="text-align:right;">PEAK / HELD</div><div class="lb" style="text-align:right;">USE</div>
+      </div>
+
+      <div class="row">
+        <div class="m" style="font-size:11px; color:#C29A48;">&#9679;</div>
+        <div class="m" style="font-size:11px;">TRIMGALORE</div>
+        <div style="height:10px; background:#191307; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:23%; background:#8C6A2A;
+                      border-right:2px dashed #FFB000;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#C29A48;">1.4 / 6 GB</div>
+        <div class="m lit" style="font-size:10.5px; text-align:right;">23%</div>
+      </div>
+
+      <div class="row">
+        <div class="m" style="font-size:11px; color:#C29A48;">&#9679;</div>
+        <div class="m" style="font-size:11px;">STAR_ALIGN</div>
+        <div style="height:10px; background:#191307; position:relative;">
+          <div class="glow" style="position:absolute; left:0; top:0; bottom:0; width:82%; background:#FFB000;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#C29A48;">31.2 / 38 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#C29A48;">82%</div>
+      </div>
+
+      <div class="row">
+        <div class="m" style="font-size:11px; color:#C29A48;">&#9679;</div>
+        <div class="m" style="font-size:11px;">SAMTOOLS_SORT</div>
+        <div style="height:10px; background:#191307; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:26%; background:#8C6A2A;
+                      border-right:2px dashed #FFB000;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#C29A48;">2.1 / 8 GB</div>
+        <div class="m lit" style="font-size:10.5px; text-align:right;">26%</div>
+      </div>
+
+      <div class="row" style="background:#150F06;">
+        <div class="m pulse" style="font-size:11px;">&#9673;</div>
+        <div class="m" style="font-size:11px;">FEATURECOUNTS</div>
+        <div style="height:10px; background:#191307; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:14%; background:#8C6A2A;
+                      border-right:2px dashed #FFB000;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#C29A48;">1.1 / 8 GB</div>
+        <div class="m lit" style="font-size:10.5px; text-align:right;">14%</div>
+      </div>
+
+      <div style="font-size:12.5px; color:#B08C40; padding-top:12px;">
+        A dashed edge is the tube&rsquo;s way of saying <i>slack</i>. Three processes hold
+        <span class="lit">22&nbsp;GB</span> and touch 4.6 &mdash; asking for less is scheduled sooner.
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+      <div>
+        <div class="lb" style="padding-bottom:12px;">STILL MOVING</div>
+        <div style="border:1px solid #3A2A0E; padding:15px 16px; background:#100C05;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:11px;">
+            <span class="m" style="font-size:11px;">FEATURECOUNTS</span>
+            <span class="m lit" style="font-size:10.5px;">9 / 24 TASKS</span>
+          </div>
+          <div class="m lit" style="font-size:19px; letter-spacing:-.06em; line-height:1;">
+            ▂▃▅▆▇▇▆▇▆▅▆▇▆▅▄▅▆▇<span class="pulse">▆</span>
+          </div>
+          <div class="m" style="font-size:9.5px; color:#6E5420; padding-top:9px;">TASKS COMPLETING &middot; LAST 90S</div>
+          <div style="font-size:12px; color:#B08C40; padding-top:11px; line-height:1.5;">
+            Only the running row gets a trace. A finished process has a duration; a
+            running one has a question.
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="lb" style="padding-bottom:12px;">TAIL</div>
+        <div style="border:1px solid #3A2A0E; padding:15px 16px; background:#100C05;">
+          <div class="m" style="font-size:10.5px; line-height:2.1;">
+            <div style="color:#6E5420;">19:22:06 <span style="color:#C29A48;">SUBMITTED (9)</span> FEATURECOUNTS</div>
+            <div style="color:#6E5420;">19:20:41 <span class="lit">COMPLETED</span> SAMTOOLS_SORT (24)</div>
+            <div style="color:#6E5420;">19:20:39 <span style="color:#E0562F;">WARN</span> RESERVED 8 GB, PEAK 2.1</div>
+            <div style="color:#6E5420;">16:35:12 <span class="lit">COMPLETED</span> STAR_ALIGN (24)</div>
+            <div style="color:#6E5420;">02:10:55 <span class="lit">COMPLETED</span> TRIMGALORE (24)</div>
+            <div style="color:#5A4418;">&gt;<span class="cur">_</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -238,8 +238,15 @@ services:
       WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
     volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
     # **No published port.** nginx is the way in — one origin, split by path, the same split
-    # `vite.config.ts` already makes in development.
-    command: uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001
+    # `vite.config.ts` already makes in development, which is why that file proxies Wiener at
+    # nginx rather than at a port this service does not open.
+    #
+    # **It migrates its own database, like `api` does.** This ran `alembic upgrade head` in
+    # `docker-compose.prod.yml` and nowhere else, so `make prod` came up migrated and `make dev`
+    # came up with no `run` table — the stack looked green and the first request to `/api/runs`
+    # was a 500 naming a relation that does not exist. A migration belongs where the service is
+    # defined; the overlay is for what prod removes, not for what dev was missing.
+    command: sh -c "cd packages/wiener-api && alembic upgrade head && cd /app && exec uvicorn wiener_api.main:create_app --factory --host 0.0.0.0 --port 8001"
 
   # ---- telemetry: opt-in, `make telemetry` or `--profile telemetry` -------------------
   #

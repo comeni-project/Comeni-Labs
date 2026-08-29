@@ -1,4 +1,4 @@
-.PHONY: help registry-present check verify slow guards residue links test lint fmt types docs static stub profile forge clean \
+.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs static stub profile forge clean \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
@@ -11,6 +11,8 @@ RUN_DIR  := .run
 PIDFILE  := $(RUN_DIR)/vite.pid
 LOGFILE  := $(RUN_DIR)/vite.log
 DEVREG   := $(RUN_DIR)/registry
+# npm writes this file on every install, so it is the honest mtime for "what is installed".
+NODEDEPS := frontend/node_modules/.package-lock.json
 
 registry-present:  ## refuse early if the registry submodule was not checked out
 	@if [ -z "$$(ls -A registry 2>/dev/null)" ]; then \
@@ -113,12 +115,17 @@ telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafa
 wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
 	cd packages/wiener-api && uv run alembic upgrade head
 
-dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
+dev: names-free $(DEVREG) $(NODEDEPS)  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
-	@# **Made here, owned by whoever ran make.** A named volume is created root-owned and the
-	@# containers run as the host user, so the first artifact upload dies on `PermissionError:
-	@# /var/wiener/artifacts`. Same trap CLAUDE.md records for ./workspace, and the same fix.
-	@mkdir -p .run/wiener/artifacts .run/wiener/work
+	@# **Made here, owned by whoever ran make.** Docker creates a missing bind-mount source
+	@# ROOT-owned, and the containers run as the host user — so the first write dies on
+	@# `PermissionError`. Same trap CLAUDE.md records for ./workspace, and the same fix.
+	@#
+	@# **The Wiener pair was covered and the Mendel pair was not**, while the sentence above
+	@# named ./workspace as the precedent. Measured 2026-08-29: `.run/drafts` and `workspace`
+	@# came up `root root`, and pressing *Keep* in the builder answered 500 with
+	@# `PermissionError: /app/drafts/<id>` — the one control the whole loop hangs on.
+	@mkdir -p .run/wiener/artifacts .run/wiener/work .run/drafts workspace
 	$(DC) up -d --build
 	@mkdir -p $(RUN_DIR)
 	@if [ -f $(PIDFILE) ] && kill -0 `cat $(PIDFILE)` 2>/dev/null; then \
@@ -134,6 +141,50 @@ dev: $(DEVREG)  ## the whole stack, plus Vite on the host for HMR
 	@echo "  API:            http://localhost:8000/docs"
 	@echo "  Runs:           http://localhost:5173/runs"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
+
+# **Install what the frontend now depends on, before Vite serves it.**
+#
+# `make dev` ran `npm run dev` against whatever `node_modules` happened to hold. Pull a commit
+# that adds a dependency and the HMR server starts fine and fails in the browser — while
+# `http://localhost/` stays green, because the `web` image runs `npm ci` in its own build. Two
+# addresses, one of them silently a version behind. Measured after a 152-commit pull:
+# `@tanstack/react-virtual` was in `package.json`, absent from `node_modules`, and `tsc -b`
+# was the only thing that said so.
+$(NODEDEPS): frontend/package-lock.json
+	@echo "frontend dependencies changed — installing"
+	cd frontend && npm install
+
+# **Refuse early when another checkout already owns our container names.**
+#
+# The names are fixed (`mendel-api`, `wiener-db`, ...) so `docker exec mendel-db psql` works
+# without looking anything up. The cost is that two checkouts collide, and the collision
+# surfaces as a daemon error naming ONE container, mid-way through `up`, after some volumes
+# have already been created:
+#
+#     Error response from daemon: Conflict. The container name "/mendel-redis" is already in
+#     use by container "a5ba6fa6ed10..."
+#
+# `.env.example` has commented `*_CONTAINER_NAME` overrides "so two checkouts can run side by
+# side", but `make dev` copies that file with them still commented — so the default experience
+# is the conflict, and the message says nothing about the fix. This lists every colliding name
+# at once and names both ways out.
+names-free:
+	@names="$${API_CONTAINER_NAME:-mendel-api} $${WORKER_CONTAINER_NAME:-mendel-worker} $${WEB_CONTAINER_NAME:-mendel-web} $${WIENER_API_CONTAINER_NAME:-wiener-api} mendel-db mendel-redis wiener-db wiener-ingest wiener-worker"; \
+	mine="$${COMPOSE_PROJECT_NAME:-$$(basename "$$PWD" | tr '[:upper:]' '[:lower:]')}"; \
+	clash=""; \
+	for n in $$names; do \
+	  owner="$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' $$n 2>/dev/null || true)"; \
+	  if [ -n "$$owner" ] && [ "$$owner" != "$$mine" ]; then clash="$$clash  $$n (owned by '$$owner')\n"; fi; \
+	done; \
+	if [ -n "$$clash" ]; then \
+	  printf 'another checkout already owns these container names:\n\n'; \
+	  printf "$$clash"; \
+	  printf '\ncompose would fail part-way through `up`, one name at a time. Either:\n\n'; \
+	  printf '    docker rm $$(docker ps -aq --filter label=com.docker.compose.project=<owner>)\n\n'; \
+	  printf 'to retire that stack — named volumes survive, so its data does — or set the\n'; \
+	  printf '*_CONTAINER_NAME lines in .env to run both side by side.\n'; \
+	  exit 1; \
+	fi
 
 # A CLONE of the registry, because a submodule's `.git` is a pointer at a host path that
 # resolves to nothing inside a container — so accepting a drift would refuse with MF0107, and

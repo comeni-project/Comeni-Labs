@@ -21,6 +21,12 @@ earlier one — the same discipline as `audits/` and for the same reason.
 > true, what a fresh reader will wrongly assume, and what is next. `the-shared-question.md` sorts
 > last and is that morning's Plan 2.5 entry.
 >
+> **2026-08-29 has TWO entries.** Read
+> [`2026-08-29-walking-the-loop.md`](2026-08-29-walking-the-loop.md) first — the loop walked by
+> hand end to end, and the fourteen defects it found — then
+> [`2026-08-29-the-screens-redesigned.md`](2026-08-29-the-screens-redesigned.md), which is the
+> design session that answers them and carries the canvas the rework builds from.
+>
 > **When a day has several entries, name the entry point here.** A directory listing cannot say
 > which of nine is the summary, and "most recent" below means *most recent by date*, not by
 > filename.

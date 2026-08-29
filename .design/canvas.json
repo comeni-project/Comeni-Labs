@@ -1,0 +1,547 @@
+{
+ "pages": [
+  {
+   "id": "page-1",
+   "name": "Builder"
+  },
+  {
+   "id": "page-2",
+   "name": "Overview"
+  },
+  {
+   "id": "page-3",
+   "name": "Run screen"
+  },
+  {
+   "id": "page-4",
+   "name": "Themes"
+  },
+  {
+   "id": "page-5",
+   "name": "Runs"
+  }
+ ],
+ "artboards": [
+  {
+   "file": "BuilderCanvas.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 canvas",
+   "is_interactive": true
+  },
+  {
+   "file": "BuilderRun.dc.html",
+   "x": 3000,
+   "y": 1000,
+   "w": 1400,
+   "h": 900,
+   "page": "page-1",
+   "title": "Builder \u00b7 run sheet"
+  },
+  {
+   "file": "BuilderSettings.dc.html",
+   "x": 1500,
+   "y": 1000,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 settings"
+  },
+  {
+   "file": "BuilderPort.dc.html",
+   "x": 1500,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 port picker"
+  },
+  {
+   "file": "BuilderSwap.dc.html",
+   "x": 3000,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 swap"
+  },
+  {
+   "file": "BuilderEmpty.dc.html",
+   "x": 0,
+   "y": 1000,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 empty + assistant"
+  },
+  {
+   "file": "BuilderBrowse.dc.html",
+   "x": 0,
+   "y": 2020,
+   "w": 1400,
+   "h": 900,
+   "page": "page-1",
+   "title": "Builder \u00b7 browse"
+  },
+  {
+   "file": "BuilderArtifact.dc.html",
+   "x": 1500,
+   "y": 2020,
+   "w": 1400,
+   "h": 880,
+   "page": "page-1",
+   "title": "Builder \u00b7 artifact"
+  },
+  {
+   "file": "Overview.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 1000,
+   "page": "page-2",
+   "title": "Overview \u00b7 active",
+   "is_interactive": true
+  },
+  {
+   "file": "OverviewQuiet.dc.html",
+   "x": 1500,
+   "y": 0,
+   "w": 1400,
+   "h": 830,
+   "page": "page-2",
+   "title": "Overview \u00b7 quiet"
+  },
+  {
+   "file": "OverviewFirst.dc.html",
+   "x": 1500,
+   "y": 980,
+   "w": 1400,
+   "h": 760,
+   "page": "page-2",
+   "title": "Overview \u00b7 first run"
+  },
+  {
+   "file": "Main.dc.html",
+   "x": 3000,
+   "y": 0,
+   "w": 700,
+   "h": 1060,
+   "page": "page-2",
+   "title": "Brief"
+  },
+  {
+   "file": "Observatory.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 1060,
+   "page": "page-3",
+   "is_interactive": true
+  },
+  {
+   "file": "Console.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 1000,
+   "page": "page-4"
+  },
+  {
+   "file": "DeepField.dc.html",
+   "x": 1500,
+   "y": 0,
+   "w": 1400,
+   "h": 1040,
+   "page": "page-4",
+   "title": "Deep Field"
+  },
+  {
+   "file": "Phosphor.dc.html",
+   "x": 3000,
+   "y": 0,
+   "w": 1400,
+   "h": 1000,
+   "page": "page-4"
+  },
+  {
+   "file": "Foundry.dc.html",
+   "x": 4500,
+   "y": 0,
+   "w": 1400,
+   "h": 1040,
+   "page": "page-4"
+  },
+  {
+   "file": "Vellum.dc.html",
+   "x": 6000,
+   "y": 0,
+   "w": 1400,
+   "h": 1040,
+   "page": "page-4"
+  },
+  {
+   "file": "RunsBoard.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 900,
+   "page": "page-5"
+  },
+  {
+   "file": "RunView.dc.html",
+   "x": 1500,
+   "y": 0,
+   "w": 1400,
+   "h": 1330,
+   "page": "page-5",
+   "is_interactive": true,
+   "title": "RunView \u2014 table / graph toggle"
+  },
+  {
+   "file": "RunFailed.dc.html",
+   "x": 3000,
+   "y": 0,
+   "w": 1400,
+   "h": 1330,
+   "page": "page-5"
+  },
+  {
+   "file": "RunEarly.dc.html",
+   "x": 4500,
+   "y": 0,
+   "w": 1400,
+   "h": 1000,
+   "page": "page-5"
+  },
+  {
+   "file": "RunConsole.dc.html",
+   "x": 6000,
+   "y": 0,
+   "w": 1400,
+   "h": 1130,
+   "page": "page-5"
+  },
+  {
+   "file": "RunMonitor.dc.html",
+   "x": 7500,
+   "y": 0,
+   "w": 1400,
+   "h": 1080,
+   "page": "page-5",
+   "title": "RunMonitor \u2014 deferred, not the MVP"
+  }
+ ],
+ "annotations": [
+  {
+   "id": "n-bcanvas",
+   "x": 0,
+   "y": -250,
+   "w": 460,
+   "page": "page-1",
+   "text": "BUILDER \u2014 a schematic, not a diagram toy.\\n\\nTHE FIELD, reworked. The arcs were anchored bottom-left at page scale, so the canvas was showing the empty part of them. It now has its OWN field: three arc families arranged so something always crosses the graph, long chords, a soft pool where the pipeline sits, and a graticule of 13 ticks along one arc \u2014 measured rather than decorative.\\n\\nTHE GRID ONLY EXISTS WHILE YOU MOVE SOMETHING. Flip the CANVAS dial above the frame to 'moving a step': a 28px grid fades in with snap guides through the step's spine and column. Galaxy's idea, scoped to the gesture that needs it \u2014 a permanent grid is the loudest hobby-editor signal there is.\\n\\nAlso: orthogonal wires, one uniform 172x112 symbol, types on the node, tier as a left edge bar, corner registration marks, and a settled step gets no colour at all."
+  },
+  {
+   "id": "n-bport",
+   "x": 1500,
+   "y": -250,
+   "w": 440,
+   "page": "page-1",
+   "text": "PORT PICKER \u2014 same canvas, popover anchored to STAR's output.\n\nClick an output, get only what accepts it: 6 of 1,604. Click an input, get only what produces it.\n\nproducers_of already ranks by (surplus, -priority, id), so the reason is real: SAMTOOLS_SORT is first because it is the only producer of the state FEATURECOUNTS asks for.\n\nSearch sits INSIDE the popover, for when six becomes sixty. It is not how the list comes to exist."
+  },
+  {
+   "id": "n-bswap",
+   "x": 2660,
+   "y": -250,
+   "w": 430,
+   "page": "page-1",
+   "text": "SWAP \u2014 same canvas, mid-preview. TRIMGALORE struck through, HISAT2 in place and marked NEW.\n\nThe consequences are in the RAIL, where you clicked Swap from \u2014 not a floating panel somewhere else.\n\nFour changes listed, nothing applied until you say so. A resolver that silently rewrites four things is indistinguishable from one that guessed."
+  },
+  {
+   "id": "n-bempty",
+   "x": 0,
+   "y": 1020,
+   "w": 430,
+   "page": "page-1",
+   "text": "EMPTY \u2014 same shell, canvas blank, Run disabled, title reads 'untitled pipeline \u00b7 not saved yet'.\n\nThe assistant writes a GOAL, never a pipeline. It hands back a typed goal card you correct, and the engine builds from that \u2014 invariant 3 drawn rather than described.\n\nWatch strandedness: it says it will not invent it."
+  },
+  {
+   "id": "n-bbrowse",
+   "x": 1500,
+   "y": 1020,
+   "w": 430,
+   "page": "page-1",
+   "text": "BROWSE \u2014 over the real canvas. The rare case, and the same surface as command-K.\n\nSearch plus filters. Cards carry the type signature, which is the description that ships today \u2014 ModuleContract has no prose field yet (#78), so there is a slot and no fake text in it.\n\nSALMON_QUANT is shown but marked WON'T FIT HERE with the reason, rather than hidden. And a tool appears under EVERY role it declares, not just roles[0]."
+  },
+  {
+   "id": "n-bartifact",
+   "x": 3000,
+   "y": 1020,
+   "w": 430,
+   "page": "page-1",
+   "text": "ARTIFACT \u2014 the second view, reached by the segmented toggle beside Run.\n\npipeline.yml is the pipeline, so the other view of the canvas is the artifact itself. Every value carries its why: tier, rule, premise. Open values are null and marked.\n\nSection jumps are a row of chips, not another left-hand list."
+  },
+  {
+   "id": "n-overview",
+   "x": 0,
+   "y": -150,
+   "w": 420,
+   "page": "page-2",
+   "text": "OVERVIEW \u2014 settled. The lab's work, By pipeline / By run on one toggle, plus Results ready and Changed underneath you."
+  },
+  {
+   "id": "n-run",
+   "x": 0,
+   "y": -150,
+   "w": 420,
+   "page": "page-3",
+   "text": "OBSERVATORY \u2014 the settled theme. Console's density inside Deep Field's breathing arcs. TYPE and FIELD dials sit above the frame."
+  },
+  {
+   "id": "n-themes",
+   "x": 0,
+   "y": -150,
+   "w": 420,
+   "page": "page-4",
+   "text": "Round two, kept for reference. Console and Deep Field are what Observatory was merged from; Phosphor, Foundry and Vellum are the rejected axes."
+  },
+  {
+   "id": "n-brun",
+   "x": 1500,
+   "y": 760,
+   "w": 440,
+   "page": "page-1",
+   "text": "RUN SHEET \u2014 over the real canvas, dimmed. Invariant 15 picks this design.\n\nNo input accepts a sample identifier, filename or path. The Goal holds a SHAPE. So a source node carrying a path would break the product's central promise.\n\nThe split: the canvas carries the shape (typed input sockets, dashed, blue-edged, no settings); the binding lives with the RUN. Same pipeline, different data, no edit.\n\nYou never type a path. Reachability is stated BEFORE you commit \u2014 reads are already there, the reference is 14 GB and six minutes away."
+  },
+  {
+   "id": "n-bsettings",
+   "x": 1500,
+   "y": 760,
+   "w": 430,
+   "page": "page-1",
+   "text": "SETTINGS \u2014 a card on the node, opened from the ... in its header. Not a giant list.\n\nIt is ordered by what could possibly need you: the 2 with no rule first, as choices rather than a text field; then the 1 that was measured, with the premise; then '11 settled' folded away.\n\nThat order is the product's claim applied to a popover \u2014 you should never have to hunt for the thing that was not decided.\n\nThe rail is now about the CHOICE (what this step is, why this tool, swap it) and the card is about the VALUES. No more two lists of the same thing."
+  },
+  {
+   "id": "impl-walk",
+   "x": 0,
+   "y": 3020,
+   "w": 560,
+   "page": "page-1",
+   "text": "IMPLEMENTATION 1 \u2014 deleting Draw -> Keep -> Gate -> Run\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nThe four verbs STILL HAPPEN. They stop being UI. Walk.tsx goes; useKeep / useGate / useSubmit get orchestrated behind one action.\n\nRun  =  keep (artifact write)  ->  lint  ->  open the run sheet  ->  submit  ->  navigate to the run.\n\nWHAT MUST SURVIVE\n\u00b7 execution-boundary.md \u00a73 keeps gate and run apart for a real reason: a gate proves an artifact on PUBLIC data, a run touches the lab's OWN. Keep that split in the backend. It is two things the machine does, never two buttons a person presses.\n\u00b7 Walk.tsx derives every step's state FROM THE WORLD, not from a counter \u2014 so editing after keeping moves it backwards. That logic is correct and should move into the status line. Do not replace it with a step index.\n\nWHY IT IS CHEAP\n\u00b7 drafts already autosave every 5s, so Keep is an implementation detail wearing a button\n\u00b7 lint is 1.6s, not the 10s people remember \u2014 that was the gate. It fits inside Run.\n\nTHE STATUS LINE replaces the rail: 'saved 4s ago \u00b7 valid \u00b7 2 values need you'. Three facts, derived, and it says nothing when nothing is wrong.\n\nTHE DEFECT THAT MATTERS MOST\nOn the walk, Keep returned 500 and the rail sat there unchanged \u2014 nothing on screen, nothing in the console. The only way to learn the page's central action had failed was docker logs. EVERY MUTATION THAT FAILS MUST SAY SO. A silent failure is worse than any friction this redesign removes."
+  },
+  {
+   "id": "impl-geom",
+   "x": 600,
+   "y": 3020,
+   "w": 560,
+   "page": "page-1",
+   "text": "IMPLEMENTATION 2 \u2014 canvas geometry, and the bug I actually hit\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nNOTHING HAD box-sizing: border-box. So a declared 180px node rendered at 182, a 150px source at 177, a 9px port at 12 \u2014 and because I typed the wire endpoints separately from the node positions, every wire sat 6px above its port and the source wires started 27px SHORT of the box they left.\n\nTHE RULE: port positions are DERIVED from node geometry in one place. Never write a coordinate twice.\n\n  spine  = node.y + NODE_H/2        every symbol connects here\n  second = node.y + NODE_H/2 + 22   a secondary input sits below it\n\nUNIFORM SYMBOL SIZE IS LOad-BEARING. 172 x 112 for every process node. It is what makes the main chain dead straight \u2014 variable heights put a jog between every pair and the whole thing reads sloppy again.\n\nROUTING is orthogonal (H / V / H), never bezier. Right angles read engineered.\n\nTHREE LAYERS, THREE BEHAVIOURS \u2014 do not merge them:\n\u00b7 the arc field is anchored to the VIEWPORT and does not pan. It is ambience.\n\u00b7 the millimetre grid pans WITH the nodes. It is a measuring surface.\n\u00b7 corner registration marks are fixed to the viewport bounds.\n\nTHE GRID EXISTS ONLY DURING A DRAG. Fades in on pointer-down, out on release. A permanent grid is the loudest hobby-editor signal there is. Three rulings, 1:5:10 \u2014 8px / 40px / 80px."
+  },
+  {
+   "id": "impl-walkbugs",
+   "x": 1200,
+   "y": 3020,
+   "w": 560,
+   "page": "page-1",
+   "text": "IMPLEMENTATION 3 \u2014 what the walk found, and must not come back\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n(notes/journal/2026-08-29-walking-the-loop.md)\n\n\u00b7 TWO 'Send to Wiener' BUTTONS, stacked. The rail rendered the step's label as a button and the panel rendered the real control beneath it. Both enabled; the visible one was inert. Do not let a label become a control.\n\n\u00b7 EVERY STEP LANDED ON IDENTICAL COORDINATES. Two nodes, one visible. Adding from a port fixes this by construction \u2014 the new node has a place to go. Adding from the browse overlay still needs an offset.\n\n\u00b7 THE PALETTE WAS UNREACHABLE BY KEYBOARD. Bare <div draggable>, no role, no tabindex, absent from the a11y tree. The browse overlay must be keyboard-first: focus on open, arrows to move, enter to add.\n\n\u00b7 THE VERDICT PANEL LAGGED THE GRAPH BY 2-3s WITH NO MARKER. It described a graph that no longer existed. Mark it stale while recomputing.\n\n\u00b7 module.roles[0] \u2014 grouping used only the FIRST role, so a tool that both trims and QCs was invisible under one of its jobs. A tool appears under EVERY role it declares.\n\n\u00b7 THE RAIL SCROLLED ITSELF BACK TO THE TOP, taking the form you were filling with it.\n\n\u00b7 NO REFLOW BELOW ~1100px: three columns clipped rather than rearranged, canvas down to a 197px strip. Two columns now, and the rail must collapse.\n\n\u00b7 AN UNDEFINED CSS CUSTOM PROPERTY IS SILENCE, NOT AN ERROR. --hover was referenced five times and defined nowhere from Plan 3C until 2026-08-24. tokens.test.ts greps for it \u2014 any new token needs the same guard."
+  },
+  {
+   "id": "impl-inv",
+   "x": 1800,
+   "y": 3020,
+   "w": 560,
+   "page": "page-1",
+   "text": "IMPLEMENTATION 4 \u2014 invariants this design rests on\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nINVARIANT 15 decides the input design. 'No input accepts a sample identifier, filename or path.' The Goal holds a SHAPE.\n  -> a source node carries a TYPE and never a path\n  -> the binding lives with the RUN, not the pipeline\n  -> same pipeline, different data, no edit\nIf a path ever reaches pipeline.yml, the product's central promise is gone. This is not a style choice.\n\nINVARIANT 3 decides the assistant. The model produces a GOAL, never a pipeline. The goal card is editable and the user corrects it BEFORE anything runs. An assistant that draws nodes has put the model's unreliability back in the output.\n  -> and it must say when it does not know. The 'strandedness \u2014 I will not invent it' line is the whole design, not copy.\n\nINVARIANT 6. Tier 4 is always flagged. Open values show ON the node in red, in the status line, in the settings card and in the run sheet. Four places is correct, not redundant \u2014 it is the honesty mechanism.\n\nPROTECTION PROFILES. This design lets Run proceed with open values, recording the answer as the user's. Under 'sealed' that must INVERT and block the build. Nobody has specified that branch \u2014 do not guess it, raise it.\n\nTHE TIER LADDER on the canvas: settled gets NO COLOUR AT ALL. Only measured (amber) and open (red) spend any. Colour where something needs you, nowhere else."
+  },
+  {
+   "id": "impl-reuse",
+   "x": 2400,
+   "y": 3020,
+   "w": 560,
+   "page": "page-1",
+   "text": "IMPLEMENTATION 5 \u2014 reuse what exists, and what is missing\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nALREADY BUILT \u2014 do not write a second implementation:\n\u00b7 validate(graph, layers) -> Verdict, nine MD0500 diagnostics (Plan 3E)\n\u00b7 the COMPATIBILITY INDEX that colours a wire mid-drag, held to the verb by a test over every port pair in the registry. The port picker's filtering is that index \u2014 not a new rule.\n\u00b7 producers_of ranks candidates by (surplus, -priority, id). The port picker's ordering AND its stated reason come from there. 'SAMTOOLS_SORT is first because it is the only producer of the state FEATURECOUNTS asks for' is computed, not written.\n\u00b7 compare puts your graph beside the resolver's WITH THE RESOLVER'S OWN REASON. The swap consequence list is that, scoped to one node.\n\u00b7 dag-core does layout. Both canvases, one arithmetic.\n\nMISSING, AND BLOCKING:\n\u00b7 #78 \u2014 ModuleContract has NO description field. Do not invent prose. The type signature is the description and it ships today. Leave the slot empty.\n\u00b7 #77 \u2014 discovery reads vendored modules only, so the '1,604' on these boards is aspirational. The board shows '6 of 1,604' because the FILTERED number is the useful one either way.\n\u00b7 publishDir IS EMITTED NOWHERE. Until it is, 'Results' links to nothing. One line per process in the emitted config plus one endpoint \u2014 and it is what ends the loop.\n\nMOTION \u2014 five movements, one curve, nothing else moves:\n  settle 200ms \u00b7 grow-x 520ms FIRST PAINT ONLY \u00b7 flow 1.1s (running only) \u00b7 blink (cursor only) \u00b7 lift 140ms (hover only)\nRe-running grow-x on every render turns a filter change into a light show. That is how a tool starts reading as generated."
+  },
+  {
+   "id": "impl-settled",
+   "x": 3000,
+   "y": 3020,
+   "w": 520,
+   "page": "page-1",
+   "text": "SETTLED \u2014 please do not re-litigate\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\n\u00b7 THE LEFT STEPS LIST IS DELETED ON PURPOSE. It duplicated the canvas. Orientation is the minimap's job. Do not bring back a third column.\n\n\u00b7 NO PROMPT BOX ON THE POPULATED PAGE. Creation is monthly; checking a run is daily. The prompt lives in the empty state (where it IS the page) and in the command palette. Never as a banner.\n\n\u00b7 SETTINGS LIVE IN THE CARD ON THE NODE, not the rail. The rail is about the CHOICE \u2014 what this step is, why this tool, swap it. The card is about the VALUES. Two lists of the same thing is what we just removed.\n\n\u00b7 THE SETTINGS CARD IS ORDERED BY WHAT COULD NEED YOU: no-rule values first as CHOICES not a text field, then measured with its premise, then 'n settled' folded. Never alphabetical.\n\n\u00b7 CANVAS IS LEFT-TO-RIGHT. The second view is the ARTIFACT (pipeline.yml), not a list.\n\n\u00b7 SWAP SHOWS, THEN ASKS. Every consequence listed, previewed on the canvas, nothing applied until the person says so. A resolver that silently rewrites four things is indistinguishable from one that guessed.\n\n\u00b7 ABSENCE IS ABSENCE. If nothing is running and nothing is waiting, the section DOES NOT RENDER. Never a card saying nothing is happening."
+  },
+  {
+   "id": "ov-scope",
+   "x": 0,
+   "y": 1820,
+   "w": 580,
+   "page": "page-2",
+   "text": "IMPLEMENTATION 1 \u2014 THIS IS THE LAB, AND LATER IT IS BOTH\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nEverything on this page is the LAB's work. There are no accounts yet, so there is nothing else it could be.\n\nWHEN ACCOUNTS ARRIVE there will be TWO overviews \u2014 the lab's and your own \u2014 and the whole point of building it lab-first is that the second one is a FILTER, not a second page.\n\nWhat makes that true, and must not be dropped:\n\u00b7 EVERY ROW CARRIES A PERSON. 'started by', 'owner'. If a row ever ships without one, the individual view stops being derivable and becomes a rewrite.\n\u00b7 pipeline_draft HAS NO OWNER COLUMN TODAY. Add it before this page ships, even while it is always the same value. Backfilling ownership onto historical runs later is the expensive version of this.\n\u00b7 the scope switch belongs in the SHELL, beside 'Ferreira lab' \u2014 not as a third option on the Work toggle. Work is by-pipeline / by-run; scope is lab / mine. Two different questions, two different controls.\n\nWHAT CHANGES IN THE INDIVIDUAL VIEW: only the filter. NOW still shows what is running (yours), Work still has both views, Results and Changed-underneath-you still apply. No layout branches.\n\nWHAT DOES NOT CHANGE: 'Changed underneath you' is always lab-wide even in the personal view. A contract moving under a pipeline is not a personal event."
+  },
+  {
+   "id": "ov-absence",
+   "x": 620,
+   "y": 1820,
+   "w": 560,
+   "page": "page-2",
+   "text": "IMPLEMENTATION 2 \u2014 ABSENCE IS ABSENCE\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nCompare the ACTIVE and QUIET artboards. The difference is not a different empty state \u2014 the NOW band DOES NOT EXIST on the quiet one. No card, no 'nothing is waiting on you', no 'the instance is idle'. The page is simply shorter.\n\nTHIS IS THE WHOLE FIX to the bloat complaint. An empty region is faster to read than a paragraph explaining that it is empty. The instinct to fill it with a reassuring sentence is exactly what made the old page read as generated.\n\nAPPLIES TO EVERY BLOCK ON THIS PAGE:\n\u00b7 NOW \u2014 renders only if something is running OR something is waiting\n\u00b7 Results ready \u2014 renders only if a run has published outputs\n\u00b7 Changed underneath you \u2014 renders only if a pinned contract or rule has actually moved. This one will be empty MOST WEEKS. That is correct.\n\u00b7 the resource sentence \u2014 renders only once there are enough runs to aggregate honestly\n\nIf every block is empty, the page is the shell plus Work plus New pipeline. That is a legitimate page, not a broken one.\n\nTHE ONE EXCEPTION is the first-run state, which is its own composition \u2014 one question, one field. Not this page with everything hidden, and not onboarding cards."
+  },
+  {
+   "id": "ov-work",
+   "x": 1240,
+   "y": 1820,
+   "w": 560,
+   "page": "page-2",
+   "text": "IMPLEMENTATION 3 \u2014 the Work toggle, and why it is one block\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nPipelines and runs were two blocks and read as one list rendered twice. The actual bug was that I had leaked RUN information onto the PIPELINE cards \u2014 'last run 2d ago \u00b7 M. Silva'. Two different objects rendered as the same thing.\n\nTHE FIX IS THE SAME TABLE SHAPE FOR BOTH, with columns that differ by object:\n  by pipeline \u2014 makes / provenance bar / run count / last outcome / owner   (READINESS)\n  by run      \u2014 started by / when / outcome / took / results                 (HISTORY)\n\nCards for one and a table for the other was the tell. Do not reintroduce it.\n\nTHE PROVENANCE BAR is one stacked bar per PIPELINE \u2014 settled / measured / open \u2014 never one per value. It is a proportion of one whole, which is the only chart shape that earns a place on a page with four rows. It comes from the artifact, not from a re-resolve.\n\nPERFORMANCE: this page must not resolve anything in the request. The 2026-08-19 audit found every registry-touching screen cost ~250ms warm and one function was responsible. Read the stored artifact; do not rebuild it to draw a bar.\n\nDEFAULT VIEW is by-pipeline. It answers 'what do we have and is any of it waiting on us', which is the question someone opening the front door has. By-run is the follow-up."
+  },
+  {
+   "id": "ov-blocked",
+   "x": 1860,
+   "y": 1820,
+   "w": 560,
+   "page": "page-2",
+   "text": "IMPLEMENTATION 4 \u2014 what is blocked, and on what\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nRESULTS READY IS UNBUILDABLE TODAY. publishDir is emitted NOWHERE in the compiler \u2014 grep the golden spine, there is none. A finished run leaves its outputs in work/<hash>/ and the product will never show them to you.\n  -> one line per process in the emitted config, plus one endpoint\n  -> it is the cheapest large win available and it is the move the loop has never had\n  -> until it exists, '18 files' links to nothing. Do not ship the block half-working; ship it after.\n\nCHANGED UNDERNEATH YOU needs mendel upgrade --dry-run per pipeline against the current registry. That is expensive and MUST NOT run in the request \u2014 it is a worker job on a schedule, with the result stored. The page reads a table.\n  -> what makes it worth the work: every pipeline pins its contracts by digest, so we can say what a re-resolve WOULD move before anyone runs it. Nothing else in this space can.\n  -> 'a no-op upgrade' is a real and useful answer. Show it.\n\nTHE RESOURCE SENTENCE aggregates across runs. Legitimate at lab scale, meaningless at four. Gate it on a run count, and keep it a SENTENCE \u2014 the moment it becomes a chart on this page it is data slop.\n\nNAV: Builder / Runs / Registry, with the forge INSIDE Registry. That is a router change and the forge's existing routes need reparenting, not deleting."
+  },
+  {
+   "id": "ov-settled",
+   "x": 2480,
+   "y": 1820,
+   "w": 540,
+   "page": "page-2",
+   "text": "SETTLED \u2014 please do not re-litigate\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nNOT ON THIS PAGE, deliberately:\n\u00b7 the registry inventory (12 contracts, 22 types...). That is the PRODUCT's state, not YOURS. It is why the old page read as slop \u2014 information with no question behind it.\n\u00b7 any chart summarising fewer than ~50 rows\n\u00b7 'welcome back', tips, onboarding cards, recently-viewed\n\u00b7 the 'What the words mean' modal. Explanation attaches to the TERM \u2014 a help toggle that arms hover cards \u2014 never a glossary read in advance.\n\nTHE OLD CONSTRAINT: forge-review.md \u00a73 records an Overview page designed and CUT because it answered the same question as the forge Queue, and a test holds / to 'counts and links, never an item'. This page renders items \u2014 pipelines and runs, never a contract or a question subject.\n  -> the operator has ruled that constraint dead for now\n  -> so DELETE OR RESTATE the test deliberately. Do not work around it, and do not leave it failing.\n\nWAITING ON A PERSON NAMES THE VALUES. 'strandedness and fragment size', not '2 items'. A count is what you write when you have not looked.\n\nONE ACTION, TOP RIGHT: New pipeline. Same button whether you have none or fifty."
+  },
+  {
+   "id": "rn-hierarchy",
+   "x": 0,
+   "y": 1420,
+   "w": 330,
+   "text": "THE PYRAMID, AND WHY THE ORDER IS FIXED.\n\nSummary top, trend middle, granular detail bottom \u2014 the inverted pyramid Grafana's own guidance describes, and the reason band 1 must be readable without scrolling.\n\nBand 0 is the header, and its one sentence is the five-second answer. If a reader has to look at a chart to learn whether the run is fine, the header is wrong.\n\nBand 1 is FOUR panels, never six. Attention decays left to right \u2014 a fifth tile is a fifth thing nobody reads. The four are RED adapted to a pipeline: how far, what broke, is it moving, what is it costing. On a narrow layout they wrap 2x2; they are never dropped to fit, because dropping one drops a question.\n\nTHE TABLE/GRAPH TOGGLE IS STATE, NOT A SECOND SCREEN. It was two artboards and that was two chances to drift \u2014 one board carries both.\n\nDrill down IN PLACE. Clicking a timeline lane filters the tasks table below it. Never a second page for the same run.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-series",
+   "x": 350,
+   "y": 1420,
+   "w": 350,
+   "text": "THE TWO CURVES ARE NOT THE SAME KIND OF FACT.\n\nWiener has no samples. The trace gives ONE summary row per task attempt, so every series on this page is derived from task windows, and whether that is honest depends on how the scalar distributes over its window:\n\n1. A RESERVATION is constant over the window. Sum `cpus` / `memory_bytes` over live tasks and the curve is EXACT, not synthetic. Same for anything countable \u2014 tasks in flight, queue depth from submit->start, completions.\n\n2. A TOTAL divides over the window. `pct_cpu` is a mean, `read_bytes` a total. Spreading uniformly preserves the integral and invents the shape. Draw it STEPPED and label it derived \u2014 smoothness is the visual grammar of 'I measured this'.\n\n3. A PEAK does not distribute at all. `peak_rss_bytes` is a bound, never a series. There is no memory-over-time chart at any fidelity, and drawing one would be the exact failure the product claim exists to prevent.\n\nBuild it from BOUNDARIES: +delta at start, -delta at end, sort, prefix-sum. Exact at every breakpoint, no bin artefacts, 5,000 tasks is 10,000 events. Bin only to render, and size the bin off run duration or a 40-second run collapses to one point.\n\nA RUNNING TASK DOES NOT RELEASE ITS RESERVATION AT `now`. Closing its interval at the clock made the asked curve fall to zero at the right edge \u2014 found by rendering it.\n\n`series(state) -> Series` belongs in `wiener-core`: pure, no clock, same shape as `overview()` and `spans()`, and it inherits invariant 1 for free. Computing it in the browser needs every attempt window and `/tasks` pages at 100.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-timeline",
+   "x": 720,
+   "y": 1420,
+   "w": 330,
+   "text": "THE TIMELINE, RULE BY RULE.\n\nA LANE IS A PROCESS, in the order the artifact declares \u2014 so a process that has not been reached still has a lane, exactly as `overview()` gives it a row before the run gets there. The chart's height is known before the first event.\n\nSUB-ROWS ARE CONCURRENCY, greedily packed: a finished row is reused. Above roughly 40 concurrent the stack stops and the remainder becomes a density band \u2014 never 5,000 rows.\n\nCOLOUR IS STATUS, NEVER PROCESS. The lane already carries identity. Done green, running purple, failed red \u2014 the first draft coloured by process and a finished STAR task was indistinguishable from a running one.\n\nA RETRY IS A SEPARATE BAR in the same lane. `Attempt` is per-attempt precisely so the try that asked for more memory is visible; collapsing them loses the only interesting thing.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-absence",
+   "x": 1070,
+   "y": 1420,
+   "w": 330,
+   "text": "ABSENT IS NOT ZERO, AND THE EARLY BOARD IS THE PROOF.\n\n`RunEarly` is the state that breaks every dashboard: 41 seconds in, four tiles that would each read zero. Every panel there says what it CANNOT say yet. Ship that state deliberately or the page lies for its first minute.\n\nAN ABSENT SERIES IS A REASON TO DRAW A DIFFERENT PANEL, NOT AN EMPTY ONE. Until a task completes there is no *used* curve, so the panel is not `asked against used` with one curve missing \u2014 it is `cpu reserved`, one exact curve, live and complete. It gains its second curve and its second name at the first completion. The first answer was a hatched empty box and it was wrong: nobody should stare at a placeholder for a minute.\n\nA PEAK IS ONLY KNOWN WHEN A TASK ENDS. `ProcessRow.reported_resources` exists for this \u2014 a run launched without `trace.enabled` gets one sentence, not four empty bars.\n\n`steps_finished` IS NOT MONOTONIC and its own docstring says so. Never a bar that only fills.\n\nA DASH NEVER MEANS ZERO anywhere on these boards.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-blocked",
+   "x": 1440,
+   "y": 1420,
+   "w": 330,
+   "text": "BLOCKED, FAKE, OR NOT YET PROJECTED.\n\n`submitted_by` IS HARDCODED \"operator\" at submit. The board's *who* filter and any person column are decoration over a constant \u2014 wire it or leave the column out until accounts land. Do not ship a filter that filters nothing.\n\n`publishDir` IS EMITTED NOWHERE, so a finished run still cannot link to its outputs. This is the third screen it has blocked. Ship *Results* after it, not a half-working version.\n\nDURATION BY PIPELINE needs a GROUP BY artifact_id the repository does not have.\n\nTHE TIMELINE AND THE ENVELOPE need attempt windows. They are inside `run_task.attempts` but are not projected as columns, and `/runs/{id}/tasks` pages at 100 \u2014 so this is either three derived columns or a dedicated `/series` endpoint over the pure function. Not a fold in the request: A191's rule is that a board is a query.\n\nPERFORMANCE. The 2026-08-19 audit found every registry-touching screen cost ~250ms warm. Nothing on these boards may resolve anything.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-ai",
+   "x": 1810,
+   "y": 1420,
+   "w": 330,
+   "text": "THE MONITOR IS DEFERRED. `RunMonitor` is drawn so the SHAPE is settled, not so it ships.\n\nDecided 2026-08-29: too much for the MVP. `wiener.md` \u00a710 stays the design; none of it is built \u2014 `AiBrief`, `Redactor`, `PassThrough`, the signature set on `RunState` are all absent and `ai-core` does not exist.\n\nIT IS A CHAT, with a composer as the primary affordance. The automatic briefs are entries in the same thread, badged by what woke them \u2014 heartbeat, new signature, run ended \u2014 so you can tell what was volunteered from what was asked. An empty thread on a healthy run is correct.\n\nAN ETA QUESTION NEEDS THE PROCESS TABLE, not one task. So `ASKED` carries the `Overview` rows \u2014 still typed, still no lab strings, because process names come from the artifact. And the answer must name what it has no basis for: a step that has never run in this pipeline has no history to average.\n\nTHE LAYOUT MUST NOT HOLD A HOLE FOR IT. No reserved width, no empty column, no disabled button. The page simply narrows when the rail arrives.\n\nTHREE THINGS SETTLED WHILE DEFERRING, so they are not re-argued:\n\nIt is NOT a fifth Mendel door. Mendel's four track the PROMPT taint path and invariant 15 says Mendel never receives patient data. Wiener does \u2014 `trace.name`, `tag`, `workdir`, `script` are `LabString`. Its own guard, in `wiener-core`, never an entry in `DOORS`.\n\nAUTOMATIC BRIEFS ALWAYS RUN REDACTED. \u00a710.3 says `guarded` shows the payload and waits, but three of the four triggers have no human present. Only a human ask releases lab strings.\n\nTHE CONSOLE TAIL NEVER CROSSES. `AiBrief` has no field that can hold one, on purpose.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-settled",
+   "x": 2180,
+   "y": 1420,
+   "w": 330,
+   "text": "DELIBERATELY ABSENT. Do not add these back.\n\nNO GAUGE, NO DONUT, NO PERCENT-COMPLETE RING. Each needs a denominator this system does not have.\n\nNO PER-ROW SPARKLINE. There is nothing to plot inside a task.\n\nNO DUAL AXIS, ever \u2014 two measures of different scale are two charts.\n\nNO SAMPLING SUBSYSTEM. The worker holds the Docker socket and could poll cgroups for real curves; it was considered and rejected on 2026-08-29 because it only works for the local executor, and a panel that appears on some runs and not others is worse than one that never appears. Revisit at W5 if at all.\n\nNO FOUR-STEP LOOP. Draw/Keep/Gate/Run does not exist here any more than it does in the builder. A run is submitted and then watched.\n\nTHE RUNS-PER-DAY BARS AND THE ENVELOPE'S ASKED LINE ARE NOT BLUE. #6CB7FF means *you can click this*; a bar wearing it is a promise the page does not keep.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-failure",
+   "x": 2550,
+   "y": 1420,
+   "w": 350,
+   "text": "THE FAILURE PANEL SHOWS THE FAILURE. IT DOES NOT EXPLAIN IT.\n\nThis was redrawn on 2026-08-29 after checking what the backend actually holds. The first version wrote a paragraph naming the OOM killer and tabulated three attempts escalating 36 -> 48 -> 72 GB. Neither is available, and the first is not even the right KIND of thing.\n\nWHAT IS REAL TODAY, and `Failure.tsx` already renders it:\n\u00b7 the worst failed task, from `/tasks?status=FAILED&sort=-peak_rss_bytes&limit=1`\n\u00b7 `process`, `tag`, `latest_exit`, `attempts` (a COUNT, not a history)\n\u00b7 `peak_rss_bytes` from that row, `memory_asked_bytes` from the overview row\n\u00b7 `manifest.report` \u2014 Nextflow's own `errorReport`, RUN-level, one per run, found by scanning the event stream. Not per attempt.\n\nTHE BAR IS DRAWN ONLY WHEN BOTH HALVES ARE KNOWN. Half a comparison is worse than none: a bare `71.4 GB` invites the reader to supply a ceiling they do not have.\n\n`137` IS GLOSSED AS SIGKILL AND NOTHING MORE. 128+9 is POSIX arithmetic. *The OOM killer did it* is an inference \u2014 common, usually right, and still an inference, since a scheduler or a person can send SIGKILL too. \u00a718.1: nothing explains a failure until W3, and a banner that guessed here would be the shortfall dressed as a feature.\n\nTHE PER-ATTEMPT ESCALATION TABLE IS ABSENT FOR A DIFFERENT REASON. The numbers exist in `run_task.attempts` \u2014 `memory_bytes` and `peak_rss_bytes` per attempt \u2014 and `TaskOut` exposes only a count. Projecting them is what unlocks that panel, and it is a deterministic panel when it comes, not an AI one.\n\nA RUN CAN FAIL WITH NO FAILED TASK \u2014 a bad parameter, an unreadable channel. `process` is nullable and the panel still says what the record has.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-console",
+   "x": 2920,
+   "y": 1420,
+   "w": 330,
+   "text": "THE CONSOLE IS A TAB, AND IT IS NOT A LOG FILE.\n\nONLY TASK EVENTS DRAW A ROW. `started`, `completed` and `error` are the run's own lifecycle and the header already says them; three lines among four hundred is noise, and `error` carries nothing to show.\n\nTHE TAG IS WHAT DISTINGUISHES A TASK FROM ITS SIBLINGS AND ONLY THAT. Nextflow's `name` is `PROCESS (tag)`, so printing the process beside it once read `STAR_ALIGN (STAR_ALIGN (SRR6357072))` on every line. A name that does not take that shape is printed whole rather than parsed into silence.\n\nVIRTUALISED, and this is where W2 was bitten: the console paged ONCE at 200 and then subscribed, which was invisible on every run anybody had because the largest was five tasks. A 5,000-task run is 15,000 events.\n\nFILTERS COME FROM THE EVENTS IN HAND, never a constant. A status the run never reported is a filter that can only empty the view.\n\nARRIVING FROM A PROCESS ROW KEEPS THE FILTER. That is zoom-and-filter: opening the console from a process must not mean scrolling four hundred lines to find it again.",
+   "page": "page-5"
+  },
+  {
+   "id": "rn-board",
+   "x": 3290,
+   "y": 1420,
+   "w": 330,
+   "text": "THE BOARD IS FOR A RESEARCHER, NOT AN ADMINISTRATOR.\n\nThe first version led with four 14-day tiles \u2014 runs, failed, median, p95. Those describe the INSTANCE. A researcher is asking four different questions: what is running, what came back, what needs me, and is this run normal.\n\nSO THE BANDS ARE: running now \u00b7 needs you \u00b7 finished recently \u00b7 every run. Overlapping the main overview is fine and expected \u2014 this is the same question at more depth.\n\n`median duration` EARNED ITS PLACE ONLY BY MOVING ONTO A ROW. A median in the abstract is trivia; the same median beside a run is a judgement \u2014 *usually 38m* under a live bar, and *+3% vs usual* on a finished one. This is the most useful number on the board.\n\nA DELTA NEEDS A FINISHED RUN. `-43% vs usual` on a run still going reads as *it was faster*, which is the opposite of what it means. A running row says `of ~38m` instead.\n\n`needs you` ONLY EXISTS WHEN IT HAS SOMETHING IN IT. A card reading *nothing needs you* trains people to stop looking at the place things appear.\n\n`submitted_by` IS STILL A CONSTANT, so there is no *mine* filter on this board. The filter row offers a pipeline instead, which is real.",
+   "page": "page-5"
+  },
+  {
+   "id": "mo-page-1",
+   "x": 0,
+   "y": 3120,
+   "w": 350,
+   "text": "MOTION: FIVE MOVEMENTS, ONE CURVE. Nothing else moves.\n\ncubic-bezier(.32,.72,0,1) everywhere. A second easing curve is a second personality.\n\n\u00b7 settle   200ms  rows and cards arriving, staggered 30ms \u2014 capped at ~8 items, then the\n                  rest appear at once. A 400-row table that staggers takes 12 seconds.\n\u00b7 grow-x   520ms  bars drawing from zero, FIRST PAINT ONLY. A bar that re-animates every\n                  poll is a bar nobody can read. Key on identity, not on value.\n\u00b7 flow     1.1s   the running bar, and ONLY it. It is the page's one claim that something\n                  is happening right now, and it is worthless if anything else uses it.\n\u00b7 blink    1.1s   the live cursor, and only it.\n\u00b7 lift     140ms  hover on anything clickable \u2014 and it is the CONTRACT: if it lifts it is\n                  clickable, if it is clickable it lifts.\n\nNUMBERS NEVER TWEEN. Elapsed time, task counts and byte figures snap, in tabular-nums. A counter rolling up to its value is unreadable at exactly the moment somebody is reading it, and on a live page it never settles.\n\n`prefers-reduced-motion: reduce` KILLS ALL FIVE and the transition, not just the decorative ones. The page must be fully legible with every animation off \u2014 which is also how it renders in a screenshot and in a PDF.\n\nTHE AMBIENT BACKGROUND IS 46s AND 680s. It must never be perceptible as movement; if you can see it moving while reading a number, it is too fast.\n\nTHIS IS THE SAME NOTE ON ALL THREE PAGES. The reference implementation is in the Runs boards' <style> block; lift it rather than re-deriving it here.",
+   "page": "page-1"
+  },
+  {
+   "id": "rs-page-1",
+   "x": 370,
+   "y": 3120,
+   "w": 350,
+   "text": "RESPONSIVENESS: THREE RULES, AND THE RUNS BOARDS CARRY THE REFERENCE CSS.\n\n1. EVERY BAND IS `auto-fit minmax()`, NEVER A FIXED COLUMN COUNT. Four tiles become two, then one. NOTHING IS EVER DROPPED TO FIT \u2014 dropping a tile drops a question, and the reader cannot tell a missing panel from a panel with nothing to say.\n\n2. A TABLE SCROLLS INSIDE ITSELF. `.tbl { overflow-x:auto }` with a `min-width` on the row is the only horizontal scrolling allowed anywhere; the page body must never scroll sideways. Columns stay aligned with their headings instead of crushing \u2014 the heading grid and the row grid are one declaration, which is what stops them drifting apart.\n\n3. THE CHARTS ARE ALREADY FLUID. Every SVG is `width:100%` on a viewBox, so the timeline, the envelope and the DAG reflow for free. What is NOT fluid is the lane-label gutter \u2014 a fixed padding, shrunk in exactly one place (`.tlpad`), and below ~760px the labels move above their band instead.\n\nTHE BREAKPOINTS ARE 1180 AND 760, and they are content breakpoints rather than device ones: 1180 is where the rail can no longer sit beside the page, 760 is where a two-up band stops being two-up. Do not add a third without a piece of content that needs it.\n\nA SIDE RAIL STACKS, IT DOES NOT OVERLAY. `.withRail` goes to one column at 1180 and the rail lands under the content. An overlay drawer hides the thing the rail is talking about.\n\nWHAT IS NOT DESIGNED: a phone. These are desk screens \u2014 a 5,000-task timeline on a 390px viewport is not a layout problem, it is a different product. The rules above degrade gracefully to a tablet and stop there, deliberately.\n\nTHIS IS THE SAME NOTE ON ALL THREE PAGES. The reference implementation is in the Runs boards' <style> block; lift it rather than re-deriving it here.",
+   "page": "page-1"
+  },
+  {
+   "id": "mo-page-2",
+   "x": 0,
+   "y": 1920,
+   "w": 350,
+   "text": "MOTION: FIVE MOVEMENTS, ONE CURVE. Nothing else moves.\n\ncubic-bezier(.32,.72,0,1) everywhere. A second easing curve is a second personality.\n\n\u00b7 settle   200ms  rows and cards arriving, staggered 30ms \u2014 capped at ~8 items, then the\n                  rest appear at once. A 400-row table that staggers takes 12 seconds.\n\u00b7 grow-x   520ms  bars drawing from zero, FIRST PAINT ONLY. A bar that re-animates every\n                  poll is a bar nobody can read. Key on identity, not on value.\n\u00b7 flow     1.1s   the running bar, and ONLY it. It is the page's one claim that something\n                  is happening right now, and it is worthless if anything else uses it.\n\u00b7 blink    1.1s   the live cursor, and only it.\n\u00b7 lift     140ms  hover on anything clickable \u2014 and it is the CONTRACT: if it lifts it is\n                  clickable, if it is clickable it lifts.\n\nNUMBERS NEVER TWEEN. Elapsed time, task counts and byte figures snap, in tabular-nums. A counter rolling up to its value is unreadable at exactly the moment somebody is reading it, and on a live page it never settles.\n\n`prefers-reduced-motion: reduce` KILLS ALL FIVE and the transition, not just the decorative ones. The page must be fully legible with every animation off \u2014 which is also how it renders in a screenshot and in a PDF.\n\nTHE AMBIENT BACKGROUND IS 46s AND 680s. It must never be perceptible as movement; if you can see it moving while reading a number, it is too fast.\n\nTHIS IS THE SAME NOTE ON ALL THREE PAGES. The reference implementation is in the Runs boards' <style> block; lift it rather than re-deriving it here.",
+   "page": "page-2"
+  },
+  {
+   "id": "rs-page-2",
+   "x": 370,
+   "y": 1920,
+   "w": 350,
+   "text": "RESPONSIVENESS: THREE RULES, AND THE RUNS BOARDS CARRY THE REFERENCE CSS.\n\n1. EVERY BAND IS `auto-fit minmax()`, NEVER A FIXED COLUMN COUNT. Four tiles become two, then one. NOTHING IS EVER DROPPED TO FIT \u2014 dropping a tile drops a question, and the reader cannot tell a missing panel from a panel with nothing to say.\n\n2. A TABLE SCROLLS INSIDE ITSELF. `.tbl { overflow-x:auto }` with a `min-width` on the row is the only horizontal scrolling allowed anywhere; the page body must never scroll sideways. Columns stay aligned with their headings instead of crushing \u2014 the heading grid and the row grid are one declaration, which is what stops them drifting apart.\n\n3. THE CHARTS ARE ALREADY FLUID. Every SVG is `width:100%` on a viewBox, so the timeline, the envelope and the DAG reflow for free. What is NOT fluid is the lane-label gutter \u2014 a fixed padding, shrunk in exactly one place (`.tlpad`), and below ~760px the labels move above their band instead.\n\nTHE BREAKPOINTS ARE 1180 AND 760, and they are content breakpoints rather than device ones: 1180 is where the rail can no longer sit beside the page, 760 is where a two-up band stops being two-up. Do not add a third without a piece of content that needs it.\n\nA SIDE RAIL STACKS, IT DOES NOT OVERLAY. `.withRail` goes to one column at 1180 and the rail lands under the content. An overlay drawer hides the thing the rail is talking about.\n\nWHAT IS NOT DESIGNED: a phone. These are desk screens \u2014 a 5,000-task timeline on a 390px viewport is not a layout problem, it is a different product. The rules above degrade gracefully to a tablet and stop there, deliberately.\n\nTHIS IS THE SAME NOTE ON ALL THREE PAGES. The reference implementation is in the Runs boards' <style> block; lift it rather than re-deriving it here.",
+   "page": "page-2"
+  },
+  {
+   "id": "mo-page-5",
+   "x": 3660,
+   "y": 1420,
+   "w": 350,
+   "text": "MOTION: FIVE MOVEMENTS, ONE CURVE. Nothing else moves.\n\ncubic-bezier(.32,.72,0,1) everywhere. A second easing curve is a second personality.\n\n\u00b7 settle   200ms  rows and cards arriving, staggered 30ms \u2014 capped at ~8 items, then the\n                  rest appear at once. A 400-row table that staggers takes 12 seconds.\n\u00b7 grow-x   520ms  bars drawing from zero, FIRST PAINT ONLY. A bar that re-animates every\n                  poll is a bar nobody can read. Key on identity, not on value.\n\u00b7 flow     1.1s   the running bar, and ONLY it. It is the page's one claim that something\n                  is happening right now, and it is worthless if anything else uses it.\n\u00b7 blink    1.1s   the live cursor, and only it.\n\u00b7 lift     140ms  hover on anything clickable \u2014 and it is the CONTRACT: if it lifts it is\n                  clickable, if it is clickable it lifts.\n\nNUMBERS NEVER TWEEN. Elapsed time, task counts and byte figures snap, in tabular-nums. A counter rolling up to its value is unreadable at exactly the moment somebody is reading it, and on a live page it never settles.\n\n`prefers-reduced-motion: reduce` KILLS ALL FIVE and the transition, not just the decorative ones. The page must be fully legible with every animation off \u2014 which is also how it renders in a screenshot and in a PDF.\n\nTHE AMBIENT BACKGROUND IS 46s AND 680s. It must never be perceptible as movement; if you can see it moving while reading a number, it is too fast.",
+   "page": "page-5"
+  },
+  {
+   "id": "rs-page-5",
+   "x": 4030,
+   "y": 1420,
+   "w": 350,
+   "text": "RESPONSIVENESS: THREE RULES, AND THE RUNS BOARDS CARRY THE REFERENCE CSS.\n\n1. EVERY BAND IS `auto-fit minmax()`, NEVER A FIXED COLUMN COUNT. Four tiles become two, then one. NOTHING IS EVER DROPPED TO FIT \u2014 dropping a tile drops a question, and the reader cannot tell a missing panel from a panel with nothing to say.\n\n2. A TABLE SCROLLS INSIDE ITSELF. `.tbl { overflow-x:auto }` with a `min-width` on the row is the only horizontal scrolling allowed anywhere; the page body must never scroll sideways. Columns stay aligned with their headings instead of crushing \u2014 the heading grid and the row grid are one declaration, which is what stops them drifting apart.\n\n3. THE CHARTS ARE ALREADY FLUID. Every SVG is `width:100%` on a viewBox, so the timeline, the envelope and the DAG reflow for free. What is NOT fluid is the lane-label gutter \u2014 a fixed padding, shrunk in exactly one place (`.tlpad`), and below ~760px the labels move above their band instead.\n\nTHE BREAKPOINTS ARE 1180 AND 760, and they are content breakpoints rather than device ones: 1180 is where the rail can no longer sit beside the page, 760 is where a two-up band stops being two-up. Do not add a third without a piece of content that needs it.\n\nA SIDE RAIL STACKS, IT DOES NOT OVERLAY. `.withRail` goes to one column at 1180 and the rail lands under the content. An overlay drawer hides the thing the rail is talking about.\n\nWHAT IS NOT DESIGNED: a phone. These are desk screens \u2014 a 5,000-task timeline on a 390px viewport is not a layout problem, it is a different product. The rules above degrade gracefully to a tablet and stop there, deliberately.",
+   "page": "page-5"
+  }
+ ],
+ "launch": {
+  "view": "canvas",
+  "page": "page-1"
+ }
+}

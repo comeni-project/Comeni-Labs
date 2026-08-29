@@ -1,0 +1,7 @@
+Shared shell fragment reference — not an artboard.
+Motion vocabulary (five movements, one curve, nothing else moves):
+  settle  200ms  rows and cards arriving, staggered by 30ms
+  grow-x  520ms  bars drawing from zero, FIRST PAINT ONLY
+  flow    1.1s   the running bar, and only it
+  blink   1.1s   the live cursor, and only it
+  lift    140ms  hover on anything clickable

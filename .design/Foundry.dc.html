@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@500;700;800;900&family=Karla:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin:0; background:#0F0C0A; color:#EDE3DA;
+           font-family:"Karla", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#FF7A33; } a:hover { color:#fff; }
+    .d { font-family:"Darker Grotesque", system-ui, sans-serif; font-weight:900; }
+    .m { font-family:"DM Mono", ui-monospace, monospace; }
+    .lb { font-family:"DM Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#7E6E64; }
+    .field { position:absolute; inset:0; pointer-events:none; }
+    .grain { opacity:.5; mix-blend-mode:overlay; }
+    /* heat: the running process pools warmth into the page behind it */
+    .ember { background:radial-gradient(58% 42% at 50% 100%, rgba(255,106,31,.16) 0%, transparent 70%);
+             animation:ember 5.5s ease-in-out infinite alternate; }
+    @keyframes ember { to { opacity:.55; } }
+    .hot  { animation:hot 2.2s ease-in-out infinite; }
+    @keyframes hot { 50% { opacity:.62; } }
+    @media (prefers-reduced-motion: reduce) { .ember,.hot { animation:none !important; } }
+    .row { display:grid; grid-template-columns:14px 200px 1fr 128px 66px;
+           gap:16px; align-items:center; padding:11px 12px; border-bottom:1px solid #1E1815; }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:1000px; overflow:hidden; background:#0F0C0A;">
+  <div class="field ember"></div>
+  <svg class="field grain" aria-hidden="true">
+    <filter id="fg"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/></filter>
+    <rect width="100%" height="100%" filter="url(#fg)" opacity=".16"/>
+  </svg>
+
+  <div style="position:relative; padding:26px 40px 36px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:20px; border-bottom:1px solid #2A211C;">
+      <div style="display:flex; align-items:baseline; gap:26px;">
+        <span class="d" style="font-size:24px; letter-spacing:-.02em; line-height:1;">COMENI</span>
+        <span style="font-size:12.5px; color:#7E6E64;">Build</span>
+        <span style="font-size:12.5px;">Runs</span>
+        <span style="font-size:12.5px; color:#7E6E64;">Registry</span>
+      </div>
+      <span class="m" style="font-size:10.5px; color:#5A4C44;">417bcc1c</span>
+    </div>
+
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:34px 0 30px;">
+      <div>
+        <div class="lb" style="padding-bottom:6px;">rnaseq-counts &middot; 24 samples</div>
+        <div class="d" style="font-size:96px; letter-spacing:-.035em; line-height:.78;">
+          21<span style="color:#5A4C44;">m</span>40<span style="color:#5A4C44;">s</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:40px; align-items:flex-end; padding-bottom:10px;">
+        <div>
+          <div class="lb" style="padding-bottom:8px;">Steps</div>
+          <div style="font-size:16px;"><span style="color:#8E9A9E;">&#9679;</span> 3 cooled &nbsp;<span style="color:#FF6A1F;">&#9673;</span> 1 hot</div>
+        </div>
+        <div>
+          <div class="lb" style="padding-bottom:8px;">Failed</div>
+          <div style="font-size:16px; color:#7E6E64;">none</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding-bottom:32px;">
+      <div class="lb" style="padding-bottom:14px;">Where the time went</div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#B5A79C;">TRIMGALORE</div>
+          <div style="height:16px; background:#181310; position:relative;">
+            <div style="position:absolute; left:0%; width:9.8%; top:0; bottom:0; background:#8E9A9E;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#7E6E64; text-align:right;">2m10</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px;">STAR_ALIGN</div>
+          <div style="height:16px; background:#181310; position:relative;">
+            <div style="position:absolute; left:9.5%; width:67%; top:0; bottom:0; background:#8E9A9E;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; text-align:right;">14m30</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#B5A79C;">SAMTOOLS_SORT</div>
+          <div style="height:16px; background:#181310; position:relative;">
+            <div style="position:absolute; left:75.4%; width:14.2%; top:0; bottom:0; background:#8E9A9E;"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#7E6E64; text-align:right;">3m05</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; align-items:center;">
+          <div style="font-size:12.5px; color:#FF7A33;">FEATURECOUNTS</div>
+          <div style="height:16px; background:#181310; position:relative;">
+            <div class="hot" style="position:absolute; left:89.2%; right:0; top:0; bottom:0;
+                        background:linear-gradient(90deg,#C43F0C,#FF8A3D);
+                        box-shadow:0 0 18px rgba(255,106,31,.6);"></div>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#FF7A33; text-align:right;">2m20</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:204px 1fr 62px; gap:16px; padding-top:5px;">
+          <div></div>
+          <div style="display:flex; justify-content:space-between;">
+            <span class="m" style="font-size:9px; color:#4A3E38;">0</span>
+            <span class="m" style="font-size:9px; color:#4A3E38;">11m</span>
+            <span class="m" style="font-size:9px; color:#4A3E38;">22m</span>
+          </div><div></div>
+        </div>
+      </div>
+      <div style="font-size:13px; color:#A2938A; padding-top:14px; max-width:66ch;">
+        Finished work cools to steel; only what is running is still lit. Alignment took
+        two thirds of the clock.
+      </div>
+    </div>
+
+    <div style="padding-bottom:30px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:13px;">
+        <div class="lb">Memory held against memory touched</div>
+        <div class="m" style="font-size:10px; color:#5A4C44;">track = reserved &middot; fill = peak</div>
+      </div>
+
+      <div class="row" style="border-bottom:1px solid #2A211C;">
+        <div></div><div class="lb">Process</div><div class="lb">Memory</div>
+        <div class="lb" style="text-align:right;">Peak / held</div><div class="lb" style="text-align:right;">Use</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px; color:#8E9A9E;">&#9679;</div>
+        <div style="font-size:12.5px;">TRIMGALORE</div>
+        <div style="height:9px; background:#181310; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:23%; background:#E8A33D;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B5A79C;">1.4 / 6 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#E8A33D;">23%</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px; color:#8E9A9E;">&#9679;</div>
+        <div style="font-size:12.5px;">STAR_ALIGN</div>
+        <div style="height:9px; background:#181310; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:82%; background:#8E9A9E;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B5A79C;">31.2 / 38 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B5A79C;">82%</div>
+      </div>
+
+      <div class="row">
+        <div style="font-size:11px; color:#8E9A9E;">&#9679;</div>
+        <div style="font-size:12.5px;">SAMTOOLS_SORT</div>
+        <div style="height:9px; background:#181310; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:26%; background:#E8A33D;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B5A79C;">2.1 / 8 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#E8A33D;">26%</div>
+      </div>
+
+      <div class="row" style="background:rgba(255,106,31,.055);">
+        <div class="hot" style="font-size:11px; color:#FF6A1F;">&#9673;</div>
+        <div style="font-size:12.5px;">FEATURECOUNTS</div>
+        <div style="height:9px; background:#181310; position:relative;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:14%; background:#FF6A1F;"></div>
+        </div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#B5A79C;">1.1 / 8 GB</div>
+        <div class="m" style="font-size:10.5px; text-align:right; color:#FF7A33;">14%</div>
+      </div>
+
+      <div style="font-size:13px; color:#A2938A; padding-top:14px; max-width:70ch;">
+        Three processes hold <span style="color:#E8A33D;">22 GB</span> and touch
+        <span style="color:#EDE3DA;">4.6</span>. Asking for less is not only cheaper &mdash;
+        it is scheduled sooner.
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px;">
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Still moving</div>
+        <div style="border:1px solid #2A211C; background:rgba(255,106,31,.04); padding:16px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:11px;">
+            <span style="font-size:12.5px;">FEATURECOUNTS</span>
+            <span class="m" style="font-size:10.5px; color:#FF7A33;">9 / 24 tasks</span>
+          </div>
+          <div style="display:flex; align-items:flex-end; gap:3px; height:40px;">
+            <div style="flex:1; height:26%; background:#7A3A14;"></div>
+            <div style="flex:1; height:38%; background:#8E4517;"></div>
+            <div style="flex:1; height:58%; background:#A9511A;"></div>
+            <div style="flex:1; height:72%; background:#C45E1D;"></div>
+            <div style="flex:1; height:88%; background:#E06A20;"></div>
+            <div style="flex:1; height:92%; background:#E06A20;"></div>
+            <div style="flex:1; height:74%; background:#C45E1D;"></div>
+            <div style="flex:1; height:90%; background:#E06A20;"></div>
+            <div style="flex:1; height:70%; background:#C45E1D;"></div>
+            <div style="flex:1; height:56%; background:#A9511A;"></div>
+            <div style="flex:1; height:72%; background:#C45E1D;"></div>
+            <div style="flex:1; height:88%; background:#E06A20;"></div>
+            <div style="flex:1; height:74%; background:#C45E1D;"></div>
+            <div style="flex:1; height:58%; background:#A9511A;"></div>
+            <div style="flex:1; height:44%; background:#8E4517;"></div>
+            <div style="flex:1; height:60%; background:#A9511A;"></div>
+            <div style="flex:1; height:78%; background:#C45E1D;"></div>
+            <div class="hot" style="flex:1; height:94%; background:#FF8A3D;"></div>
+          </div>
+          <div class="m" style="font-size:9.5px; color:#5A4C44; padding-top:8px;">tasks completing &middot; last 90s</div>
+          <div style="font-size:12.5px; color:#A2938A; padding-top:11px; line-height:1.5;">
+            Only the running row gets a trace. A finished process has a duration; a
+            running one has a question.
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Tail</div>
+        <div style="border:1px solid #2A211C; padding:16px;">
+          <div class="m" style="font-size:10.5px; line-height:2.15;">
+            <div style="color:#5A4C44;">19:22:06 <span style="color:#B5A79C;">submitted (9)</span> FEATURECOUNTS</div>
+            <div style="color:#5A4C44;">19:20:41 <span style="color:#8E9A9E;">completed</span> SAMTOOLS_SORT (24)</div>
+            <div style="color:#5A4C44;">19:20:39 <span style="color:#E8A33D;">warn</span> reserved 8 GB, peak 2.1</div>
+            <div style="color:#5A4C44;">16:35:12 <span style="color:#8E9A9E;">completed</span> STAR_ALIGN (24)</div>
+            <div style="color:#5A4C44;">02:10:55 <span style="color:#8E9A9E;">completed</span> TRIMGALORE (24)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

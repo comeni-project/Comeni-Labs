@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;600;700&family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin:0; background:#08090A; color:#DDE3E1;
+           font-family:"Spline Sans", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; } a:hover { color:#fff; }
+    .d { font-family:"Martian Mono", ui-monospace, monospace; }
+    .m { font-family:"Spline Sans Mono", ui-monospace, monospace; }
+    .lb { font-family:"Spline Sans Mono", ui-monospace, monospace;
+          font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:#6E7A78; }
+    /* ambience: scanlines over a faint rule grid, and one slow pass of light */
+    .field { position:absolute; inset:0; pointer-events:none; }
+    .scan { background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px); }
+    .rule { background-image:
+              linear-gradient(rgba(108,183,255,.030) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(108,183,255,.030) 1px, transparent 1px);
+            background-size:34px 34px;
+            mask-image:radial-gradient(120% 80% at 22% 0%, #000 0%, transparent 72%); }
+    .sweep { background:linear-gradient(180deg, transparent, rgba(108,183,255,.055), transparent);
+             height:38%; animation:sweep 14s linear infinite; }
+    @keyframes sweep { from { transform:translateY(-100%);} to { transform:translateY(360%);} }
+    .cur { animation:blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .live { animation:live 2.6s ease-in-out infinite; }
+    @keyframes live { 50% { opacity:.45; } }
+    .flow { background-image:linear-gradient(90deg, transparent 0 6px, rgba(8,9,10,.55) 6px 10px);
+            background-size:16px 100%; animation:flow 1s linear infinite; }
+    @keyframes flow { to { background-position:16px 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .sweep,.cur,.live,.flow { animation:none !important; }
+      .sweep { display:none; }
+    }
+    .row { display:grid; grid-template-columns:15px 190px 1fr 132px 76px;
+           gap:14px; align-items:center; padding:9px 10px; border-bottom:1px solid #14171A; }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:1000px; overflow:hidden;">
+  <div class="field scan"></div>
+  <div class="field rule"></div>
+  <div class="field" style="overflow:hidden;"><div class="sweep"></div></div>
+
+  <div style="position:relative; padding:26px 34px 34px;">
+
+    <!-- ══ bar ══ -->
+    <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:22px; border-bottom:1px solid #1B1F22;">
+      <div style="display:flex; align-items:baseline; gap:22px;">
+        <span class="d" style="font-size:13px; font-weight:700; letter-spacing:-.04em;">comeni</span>
+        <span class="m" style="font-size:11.5px; color:#6E7A78;">build</span>
+        <span class="m" style="font-size:11.5px; color:#DDE3E1;">runs</span>
+        <span class="m" style="font-size:11.5px; color:#6E7A78;">registry</span>
+      </div>
+      <div class="m" style="font-size:11.5px; color:#4C5658;">
+        <span style="color:#6CB7FF;">&rsaquo;</span> jump to a run, a step, a code <span style="color:#2B3134;">&#8984;K</span>
+      </div>
+    </div>
+
+    <!-- ══ heading + the one number that matters ══ -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:30px 0 26px;">
+      <div>
+        <div class="lb" style="padding-bottom:9px;">run 417bcc1c &middot; rnaseq-counts &middot; 24 samples</div>
+        <div class="d" style="font-size:34px; font-weight:700; letter-spacing:-.055em; line-height:1;">
+          21<span style="color:#3A4244;">m</span>40<span style="color:#3A4244;">s</span>
+          <span class="cur" style="color:#BD6DCD;">&#9646;</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:34px; align-items:flex-end;">
+        <div>
+          <div class="lb" style="padding-bottom:6px;">Steps</div>
+          <div class="m" style="font-size:19px;"><span style="color:#10AA91;">&#9679;</span> 3 done <span style="color:#3A4244;">/</span> <span style="color:#BD6DCD;">1 running</span></div>
+        </div>
+        <div>
+          <div class="lb" style="padding-bottom:6px;">Tasks failed</div>
+          <div class="m" style="font-size:19px; color:#6E7A78;">none</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Q1 · where is the time going ══ -->
+    <div style="padding-bottom:30px;">
+      <div class="lb" style="padding-bottom:12px;">Where the time went</div>
+      <div style="display:flex; flex-direction:column; gap:7px;">
+
+        <div style="display:grid; grid-template-columns:196px 1fr 62px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11.5px;"><span style="color:#10AA91;">&#9679;</span> TRIMGALORE</div>
+          <div style="height:14px; background:#0F1113; position:relative;">
+            <div style="position:absolute; left:0%; width:9.8%; top:0; bottom:0; background:#10AA91;"></div>
+          </div>
+          <div class="m" style="font-size:11px; color:#6E7A78; text-align:right;">2m10</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 62px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11.5px;"><span style="color:#10AA91;">&#9679;</span> STAR_ALIGN</div>
+          <div style="height:14px; background:#0F1113; position:relative;">
+            <div style="position:absolute; left:9.5%; width:67%; top:0; bottom:0; background:#10AA91;"></div>
+          </div>
+          <div class="m" style="font-size:11px; color:#DDE3E1; text-align:right;">14m30</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 62px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11.5px;"><span style="color:#10AA91;">&#9679;</span> SAMTOOLS_SORT</div>
+          <div style="height:14px; background:#0F1113; position:relative;">
+            <div style="position:absolute; left:75.4%; width:14.2%; top:0; bottom:0; background:#10AA91;"></div>
+          </div>
+          <div class="m" style="font-size:11px; color:#6E7A78; text-align:right;">3m05</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 62px; gap:14px; align-items:center;">
+          <div class="m" style="font-size:11.5px;"><span style="color:#BD6DCD;">&#9679;</span> FEATURECOUNTS</div>
+          <div style="height:14px; background:#0F1113; position:relative;">
+            <div class="flow" style="position:absolute; left:89.2%; right:0; top:0; bottom:0; background-color:#BD6DCD;"></div>
+          </div>
+          <div class="m" style="font-size:11px; color:#BD6DCD; text-align:right;">2m20</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:196px 1fr 62px; gap:14px; padding-top:3px;">
+          <div></div>
+          <div style="display:flex; justify-content:space-between;">
+            <span class="m" style="font-size:9px; color:#3A4244;">0</span>
+            <span class="m" style="font-size:9px; color:#3A4244;">11m</span>
+            <span class="m" style="font-size:9px; color:#3A4244;">22m</span>
+          </div>
+          <div></div>
+        </div>
+      </div>
+      <div style="font-size:12.5px; color:#8E9A98; padding-top:11px;">
+        Alignment is two thirds of the wall clock. Nothing else is worth tuning first.
+      </div>
+    </div>
+
+    <!-- ══ Q2 · are we over-asking ══ -->
+    <div style="padding-bottom:28px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+        <div class="lb">Memory held against memory touched</div>
+        <div class="m" style="font-size:10px; color:#4C5658;">track = reserved &middot; fill = peak</div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:0;">
+        <div class="row" style="border-bottom:1px solid #1B1F22;">
+          <div></div><div class="lb">Process</div><div class="lb">Memory</div>
+          <div class="lb" style="text-align:right;">Peak / held</div><div class="lb" style="text-align:right;">Use</div>
+        </div>
+
+        <div class="row">
+          <div class="m" style="font-size:11px; color:#10AA91;">&#9679;</div>
+          <div class="m" style="font-size:11.5px;">TRIMGALORE</div>
+          <div style="height:10px; background:#14171A; position:relative;">
+            <div style="position:absolute; left:0; top:0; bottom:0; width:23%; background:#C1B508;"></div>
+          </div>
+          <div class="m" style="font-size:11px; text-align:right; color:#A9B3B1;">1.4 / 6 GB</div>
+          <div class="m" style="font-size:11px; text-align:right; color:#C1B508;">23%</div>
+        </div>
+
+        <div class="row">
+          <div class="m" style="font-size:11px; color:#10AA91;">&#9679;</div>
+          <div class="m" style="font-size:11.5px;">STAR_ALIGN</div>
+          <div style="height:10px; background:#14171A; position:relative;">
+            <div style="position:absolute; left:0; top:0; bottom:0; width:82%; background:#10AA91;"></div>
+          </div>
+          <div class="m" style="font-size:11px; text-align:right; color:#A9B3B1;">31.2 / 38 GB</div>
+          <div class="m" style="font-size:11px; text-align:right; color:#10AA91;">82%</div>
+        </div>
+
+        <div class="row">
+          <div class="m" style="font-size:11px; color:#10AA91;">&#9679;</div>
+          <div class="m" style="font-size:11.5px;">SAMTOOLS_SORT</div>
+          <div style="height:10px; background:#14171A; position:relative;">
+            <div style="position:absolute; left:0; top:0; bottom:0; width:26%; background:#C1B508;"></div>
+          </div>
+          <div class="m" style="font-size:11px; text-align:right; color:#A9B3B1;">2.1 / 8 GB</div>
+          <div class="m" style="font-size:11px; text-align:right; color:#C1B508;">26%</div>
+        </div>
+
+        <div class="row" style="background:#0E1113;">
+          <div class="m live" style="font-size:11px; color:#BD6DCD;">&#9679;</div>
+          <div class="m" style="font-size:11.5px;">FEATURECOUNTS</div>
+          <div style="height:10px; background:#14171A; position:relative;">
+            <div style="position:absolute; left:0; top:0; bottom:0; width:14%; background:#BD6DCD;"></div>
+          </div>
+          <div class="m" style="font-size:11px; text-align:right; color:#A9B3B1;">1.1 / 8 GB</div>
+          <div class="m" style="font-size:11px; text-align:right; color:#BD6DCD;">14%</div>
+        </div>
+      </div>
+
+      <div style="font-size:12.5px; color:#8E9A98; padding-top:11px;">
+        Three processes hold <span style="color:#C1B508;">22 GB</span> and touch
+        <span style="color:#DDE3E1;">4.6</span>. Asking for less is not only cheaper &mdash;
+        it is scheduled sooner.
+      </div>
+    </div>
+
+    <!-- ══ Q3 · is the running one moving, and what is it saying ══ -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+
+      <div>
+        <div class="lb" style="padding-bottom:12px;">Still moving</div>
+        <div style="background:#0E1113; border:1px solid #1B1F22; padding:15px 16px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:10px;">
+            <span class="m" style="font-size:11.5px;">FEATURECOUNTS</span>
+            <span class="m" style="font-size:11px; color:#BD6DCD;">9 / 24 tasks</span>
+          </div>
+          <div class="m" style="font-size:19px; color:#BD6DCD; letter-spacing:-.06em; line-height:1;">
+            ▂▃▅▆▇▇▆▇▆▅▆▇▆▅▄▅▆▇<span class="live">▆</span>
+          </div>
+          <div class="m" style="font-size:10px; color:#4C5658; padding-top:8px;">
+            tasks completing &middot; last 90s
+          </div>
+          <div style="font-size:12px; color:#8E9A98; padding-top:10px; line-height:1.5;">
+            The only row that gets a trace. A finished process has a duration &mdash;
+            a running one has a question.
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="lb" style="padding-bottom:12px;">Tail</div>
+        <div style="background:#0E1113; border:1px solid #1B1F22; padding:15px 16px;">
+          <div class="m" style="font-size:11px; line-height:2.05;">
+            <div style="color:#4C5658;">19:22:06 <span style="color:#8E9A98;">submitted (9)</span> FEATURECOUNTS</div>
+            <div style="color:#4C5658;">19:20:41 <span style="color:#10AA91;">completed</span> SAMTOOLS_SORT (24)</div>
+            <div style="color:#4C5658;">19:20:39 <span style="color:#C1B508;">warn</span> reserved 8 GB, peak 2.1</div>
+            <div style="color:#4C5658;">16:35:12 <span style="color:#10AA91;">completed</span> STAR_ALIGN (24)</div>
+            <div style="color:#4C5658;">02:10:55 <span style="color:#10AA91;">completed</span> TRIMGALORE (24)</div>
+            <div style="color:#2B3134;">&rsaquo;<span class="cur">_</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

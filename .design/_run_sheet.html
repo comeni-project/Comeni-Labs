@@ -1,0 +1,103 @@
+  <div class="pop" style="position:absolute; left:50%; top:50px; transform:translateX(-50%);
+              width:820px; background:#0A1014; border:1px solid #22333B;
+              box-shadow:0 30px 80px -30px #000;">
+    <div style="padding:18px 24px 16px; border-bottom:1px solid #162025;
+                display:flex; align-items:baseline; justify-content:space-between;">
+      <div>
+        <div style="font-size:19px; font-weight:600; letter-spacing:-.02em;">Run rnaseq-counts</div>
+        <div class="m" style="font-size:10.5px; color:#455257; padding-top:5px;">
+          the pipeline says what it needs &middot; this is where you say where it is</div>
+      </div>
+      <span class="m" style="font-size:10px; color:#455257;">esc to close</span>
+    </div>
+    <div style="padding:20px 24px 6px;">
+      <div class="lb" style="padding-bottom:14px;">Inputs &middot; 2</div>
+      <div class="settle" style="padding-bottom:20px;">
+        <div style="display:flex; align-items:baseline; gap:12px; padding-bottom:9px;">
+          <span class="m" style="font-size:12.5px;">reads</span>
+          <span class="m" style="font-size:10px; color:#6CB7FF;">fastq.reads[paired]</span>
+        </div>
+        <div class="lift" style="border:1px solid #2A3D48; background:#0E1418; padding:11px 13px;
+                    display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span class="m" style="font-size:11.5px;">ferreira-s3 / 2026-08 / rnaseq-liver</span>
+          <span class="m" style="font-size:10px; color:#6CB7FF;">change &#9662;</span>
+        </div>
+        <div style="display:flex; gap:22px; padding-top:9px; align-items:baseline;">
+          <span style="font-size:11.5px; color:#10AA91;">&#10003; 24 pairs</span>
+          <span style="font-size:11.5px; color:#889699;">paired on <span class="m" style="font-size:10.5px;">_R1</span> / <span class="m" style="font-size:10.5px;">_R2</span></span>
+          <span style="font-size:11.5px; color:#889699;">samplesheet written for you</span>
+        </div>
+        <div style="padding-top:8px; font-size:11.5px; color:#10AA91;">
+          &#9679; already reachable from the cluster &mdash; nothing is copied</div>
+      </div>
+      <div class="settle" style="animation-delay:40ms; padding-bottom:20px;">
+        <div style="display:flex; align-items:baseline; gap:12px; padding-bottom:9px;">
+          <span class="m" style="font-size:12.5px;">reference</span>
+          <span class="m" style="font-size:10px; color:#6CB7FF;">genome.index.star</span>
+        </div>
+        <div class="lift" style="border:1px solid #1E282C; background:#0B1013; padding:11px 13px;
+                    display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span class="m" style="font-size:11.5px;">GRCm39 &middot; Ensembl 110 <span style="color:#455257;">&mdash; registered reference</span></span>
+          <span class="m" style="font-size:10px; color:#6CB7FF;">change &#9662;</span>
+        </div>
+        <div style="padding-top:8px; font-size:11.5px; color:#C1B508;">
+          &#9679; not on the cluster &mdash; 14 GB will be staged first, about 6 minutes</div>
+      </div>
+      <div class="settle" style="animation-delay:80ms; padding-bottom:22px;">
+        <div class="lb" style="padding-bottom:9px;">Results go to</div>
+        <div class="lift" style="border:1px solid #1E282C; background:#0B1013; padding:11px 13px;
+                    display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span class="m" style="font-size:11.5px;">ferreira-s3 / results / rnaseq-counts / <span style="color:#455257;">2026-08-29</span></span>
+          <span class="m" style="font-size:10px; color:#6CB7FF;">change &#9662;</span>
+        </div>
+      </div>
+    </div>
+    <div class="settle" style="animation-delay:120ms; padding:16px 24px 8px;
+                border-top:1px solid #162025; background:rgba(227,103,78,.045);">
+      <div class="lb" style="color:#E3674E; padding-bottom:13px;">2 values have no rule</div>
+      <div style="padding-bottom:15px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:8px;">
+          <span class="m" style="font-size:11.5px;">strandedness</span>
+          <span class="m" style="font-size:10px; color:#455257;">FEATURECOUNTS</span>
+        </div>
+        <div style="display:flex; gap:7px;">
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E3A4E;
+                background:#101E27; color:#6CB7FF; cursor:pointer;">measure it</span>
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">unstranded</span>
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">forward</span>
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">reverse</span>
+        </div>
+        <div style="font-size:11.5px; color:#889699; padding-top:8px;">
+          Measuring adds one step and about 4 minutes. Anything you pick instead is recorded as yours.</div>
+      </div>
+      <div style="padding-bottom:16px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:8px;">
+          <span class="m" style="font-size:11.5px;">feature_type</span>
+          <span class="m" style="font-size:10px; color:#455257;">FEATURECOUNTS</span>
+        </div>
+        <div style="display:flex; gap:7px;">
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">exon</span>
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">gene</span>
+          <span class="m lift" style="font-size:11px; padding:6px 13px; border:1px solid #1E282C;
+                color:#889699; cursor:pointer;">transcript</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 24px 18px; border-top:1px solid #162025;
+                display:flex; align-items:center; justify-content:space-between;">
+      <div class="m" style="font-size:11px; color:#67757A;">
+        96 tasks &middot; 24 samples &times; 4 steps &middot;
+        <span style="color:#455257;">last run of this shape took 21m</span></div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span class="lift" style="font-size:12.5px; color:#889699; border:1px solid #1E282C;
+              padding:9px 16px; cursor:pointer;">Cancel</span>
+        <span class="lift" style="font-size:13.5px; font-weight:600; color:#080B0D; background:#6CB7FF;
+              padding:9px 24px; cursor:pointer;">Start run</span>
+      </div>
+    </div>
+  </div>
