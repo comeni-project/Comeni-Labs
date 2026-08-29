@@ -214,14 +214,17 @@ def _tasks():
     t, tid = [], 1
     for i in range(6):                                       # FASTQC — 6 done
         t.append(('FASTQC', tid, 6, 6 + 88 + (i % 3) * 8, 2, 172 + (i % 3) * 9,
-                  6, 1.02 + (i % 3) * .11, 'done')); tid += 1
+                  6, 1.02 + (i % 3) * .11, 'done'))
+        tid += 1
     for i in range(4):                                       # TRIMGALORE — first wave
         t.append(('TRIMGALORE', tid, 115, 115 + 205 + (i % 4) * 11, 4, 304 + (i % 3) * 9,
-                  12, 2.71 + (i % 3) * .14, 'done')); tid += 1
+                  12, 2.71 + (i % 3) * .14, 'done'))
+        tid += 1
     for i in range(2):                                       # TRIMGALORE — second wave
         t.append(('TRIMGALORE', tid, 325, 325 + 210 + i * 12, 4, 298 + i * 14,
-                  12, 2.80 + i * .09, 'done')); tid += 1
-    t.append(('STAR_ALIGN', 13, 525, 1145, 8, 742, 36, 33.1, 'done')); # attempt 2 — see RETRY
+                  12, 2.80 + i * .09, 'done'))
+        tid += 1
+    t.append(('STAR_ALIGN', 13, 525, 1145, 8, 742, 36, 33.1, 'done')) # attempt 2 — see RETRY
     t.append(('STAR_ALIGN', 14, 360, 1008, 8, 738, 36, 32.6, 'done'))
     t.append(('STAR_ALIGN', 15, 1010, None, 8, None, 36, None, 'running'))
     t.append(('STAR_ALIGN', 16, 1150, None, 8, None, 36, None, 'running'))
@@ -254,7 +257,7 @@ def series(tasks, now=NOW):
         return out
 
     asked, used = [], []
-    for p, _i, s, e, cpus, pct, _m, _pk, st in tasks:
+    for _p, _i, s, e, cpus, pct, _m, _pk, _st in tasks:
         if s is None:
             continue
         # **A running task does not release its reservation at `now`.** Closing the
@@ -309,7 +312,8 @@ def _pack(bars):
         for r, free in enumerate(rows):
             if free <= s:
                 rows[r] = e
-                out.append((s, e, r, *rest)); break
+                out.append((s, e, r, *rest))
+                break
         else:
             rows.append(e)
             out.append((s, e, len(rows) - 1, *rest))
@@ -351,7 +355,7 @@ def timeline(now=NOW, tasks=None, retry=RETRY, h_row=7, gap=9):
         if not reached:
             out.append(f'<line x1="0" y1="{by + 3:.0f}" x2="{TL_W}" y2="{by + 3:.0f}" '
                        f'stroke="#131C21" stroke-width="1" stroke-dasharray="2 6"/>')
-        for s, e, r, status, tid in packed:
+        for s, e, r, status, _tid in packed:
             x, w = X(s), max(2.0, X(e) - X(s))
             fill = {'done': OK, 'running': RUN, 'failed': FAIL}[status]
             op = '.30' if status == 'failed' else ('.34' if status == 'running' else '.62')
@@ -569,7 +573,7 @@ def run_graph(rows=None):
     NW, NH, GAP, Y = 196, 74, 62, 26
     out = [f'<svg viewBox="0 0 {5*NW + 4*GAP} {NH + 60}" width="100%" '
            f'height="{NH + 60}" style="display:block; overflow:visible;">']
-    for i, (name, done, seen, running, queued, *_rest) in enumerate(rows):
+    for i, (name, done, seen, running, _queued, *_rest) in enumerate(rows):
         x = i * (NW + GAP)
         reached = seen > 0
         stroke = COL[name] if reached else '#243036'
@@ -636,7 +640,7 @@ STEP_STRIP = (
     '<span style="display:flex; gap:3px; width:120px; height:9px;">'
     + f'<span class="grow" style="flex:1; background:{OK};"></span>' * 2
     + f'<span class="grow flow" style="flex:1; background:{RUN};"></span>'
-    + f'<span style="flex:1; background:#1B262B;"></span>' * 2 + '</span>')
+    + '<span style="flex:1; background:#1B262B;"></span>' * 2 + '</span>')
 
 
 def tiles_live():
@@ -755,7 +759,7 @@ def runs_per_day():
                  '<span style="display:flex; flex-direction:column; justify-content:flex-end; '
                  'gap:2px; width:100%; max-width:22px;">')
         if total == 0:
-            cols += f'<i style="display:block; height:2px; background:#1B262B;"></i>'
+            cols += '<i style="display:block; height:2px; background:#1B262B;"></i>'
         else:
             if f:
                 cols += (f'<i class="grow" style="display:block; height:{f/top*H:.0f}px; '
@@ -787,7 +791,7 @@ def runs_per_day():
 def duration_by_pipeline():
     top = max(m for _n, m, _c in PIPES)
     rows = ''
-    for i, (name, mins, count) in enumerate(PIPES):
+    for i, (name, mins, _count) in enumerate(PIPES):
         label = f'{mins//60}h {mins%60:02d}m' if mins >= 60 else f'{mins}m'
         rows += f'''<div class="settle" style="display:grid; grid-template-columns:112px 1fr 72px;
                     gap:12px; align-items:center; padding:7px 0; animation-delay:{i*30}ms;">
@@ -800,150 +804,6 @@ def duration_by_pipeline():
     return panel('median duration, by pipeline', rows,
                  right=f'<span class="m" style="font-size:10px; color:{DIM};">'
                        f'over 61 runs &middot; 14 days</span>')
-
-
-def now_band():
-    strips = ''
-    for rid, name, _p, done, seen, el, _ex, _c in RUNS[:2]:
-        strips += f'''<a class="lift settle" style="display:grid;
-              grid-template-columns:176px 1fr 96px; gap:20px; align-items:center;
-              padding:13px 14px; border:1px solid {LINE}; background:rgba(12,18,22,.6);
-              text-decoration:none;">
-          <span>
-            <span style="display:block; font-size:14px; color:{INK}; font-weight:500;">{name}</span>
-            <span class="m" style="font-size:10px; color:{DIM};">{rid}</span></span>
-          <span style="display:flex; gap:3px; height:9px;">
-            <span class="grow" style="flex:{done}; background:{OK}; opacity:.8;"></span>
-            <span class="grow flow" style="flex:2; background:{RUN};"></span>
-            <span style="flex:{seen-done-2}; background:#1B262B;"></span></span>
-          <span class="m" style="font-size:13px; color:{RUN}; text-align:right;">{el}</span>
-        </a>'''
-    return f'''
-    <div class="settle" style="padding:26px 0 0;">
-      <div style="display:flex; align-items:baseline; gap:14px; padding-bottom:14px;">
-        <span class="lb">running now</span>
-        <span class="m" style="font-size:11px; color:{MUT};">
-          2 runs &middot; 6 tasks in flight &middot; oldest started 21 min ago</span>
-      </div>
-      <div class="pair">{strips}</div>
-    </div>'''
-
-
-def runs_table():
-    head = f'''<div class="rr" style="border-bottom:1px solid {LINE};">
-      <span class="lb">pipeline</span><span class="lb">state</span><span class="lb">tasks</span>
-      <span class="lb" style="text-align:right;">duration</span>
-      <span class="lb" style="text-align:right;">submitted</span>
-      <span class="lb" style="text-align:right;">run</span></div>'''
-    when = ['now', 'now', '2h ago', 'yesterday', 'yesterday', '2 days ago']
-    rows = ''
-    for i, (rid, name, phase, done, seen, el, _ex, c) in enumerate(RUNS):
-        rows += f'''<div class="rr lift settle" style="animation-delay:{i*30}ms;">
-          <span style="font-size:12.5px; color:{INK};">{name}</span>
-          <span class="m" style="font-size:10.5px; color:{c};">{phase}</span>
-          <span style="display:flex; align-items:center; gap:10px;">
-            <span style="flex:1; max-width:150px;">{bar(done/seen*100, c if phase!="failed" else FAIL)}</span>
-            <span class="m" style="font-size:10.5px; color:{MUT};">{done}/{seen}</span></span>
-          <span class="m" style="font-size:11px; color:{MUT}; text-align:right;">{el}</span>
-          <span class="m" style="font-size:11px; color:{DIM}; text-align:right;">{when[i]}</span>
-          <span class="m" style="font-size:11px; color:{INK_I}; text-align:right;">{rid}</span>
-        </div>'''
-    filters = (f'<span style="display:flex; gap:6px;">'
-               + ''.join(f'<span class="m lift" style="font-size:10px; letter-spacing:.08em;'
-                         f' text-transform:uppercase; padding:5px 11px; border:1px solid '
-                         f'{LINE}; color:{INK if f=="all" else MUT}; cursor:pointer;'
-                         f' background:{"#122029" if f=="all" else "transparent"};">{f}</span>'
-                         for f in ('all', 'running', 'failed', 'mine')) + '</span>')
-    return panel('61 runs', f'<div class="tbl"><div>{head}{rows}</div></div>',
-                 right=filters)
-
-
-# ══ the failure ═══════════════════════════════════════════════════════════════════════
-def failure_card():
-    """On a failed run the failure IS the summary, so it sits directly under band 1 rather
-    than behind a tab. Everything in it is derived: exit 137 is the kernel's OOM killer, which
-    is a fact about the number and not an inference about the log."""
-    att = [(1, '36 GB', '35.9 GB', '4m 02s', 137), (2, '48 GB', '47.6 GB', '5m 11s', 137),
-           (3, '72 GB', '71.4 GB', '6m 48s', 137)]
-    rows = ''
-    for n, ask, peak, rt, ex in att:
-        rows += f'''<div style="display:grid; grid-template-columns:74px 1fr 92px 78px 58px;
-              gap:14px; align-items:center; padding:9px 0; border-bottom:1px solid {LINE2};">
-          <span class="m" style="font-size:11px; color:{MUT};">attempt {n}</span>
-          <span style="position:relative; height:7px; background:#141D21;">
-            <span class="grow" style="position:absolute; inset:0 auto 0 0; width:99%;
-                  background:{FAIL}; opacity:.75;"></span></span>
-          <span class="m" style="font-size:11px; color:{MUT}; text-align:right;">{peak} / {ask}</span>
-          <span class="m" style="font-size:11px; color:{MUT}; text-align:right;">{rt}</span>
-          <span class="m" style="font-size:11px; color:{FAIL}; text-align:right;">exit {ex}</span>
-        </div>'''
-    return f'''
-      <div class="pl settle" style="border-left:3px solid {FAIL}; margin-top:20px;">
-        <div class="hd">
-          <span style="display:flex; align-items:baseline; gap:14px;">
-            <span class="lb" style="color:{FAIL};">what stopped the run</span>
-            <span class="m" style="font-size:11.5px; color:{INK};">STAR_ALIGN &middot; task 13</span>
-            <span class="m" style="font-size:11px; color:{MUT};">SRR6357072</span></span>
-          {chip('terminate', FAIL)}
-        </div>
-        <div style="padding:16px 24px 20px;">
-          <div style="font-size:13px; color:{INK}; line-height:1.6; max-width:74ch;">
-            Exit 137 is the kernel's OOM killer &mdash; the task was killed for exceeding its
-            memory, three times, each time asking for more.
-            <span style="color:{MUT};">Peak RSS reached 99% of the request on every attempt,
-            so the ceiling was never the problem: the request was.</span>
-          </div>
-          <div style="margin-top:18px;">{rows}</div>
-          <div style="display:flex; gap:10px; margin-top:18px; align-items:center;">
-            <span class="m lift" style="font-size:11px; padding:9px 16px; cursor:pointer;
-                  color:{INK_I}; border:1px solid {INK_I}55; background:#122029;">
-              relaunch &mdash;resume with 96 GB</span>
-            <span class="m lift" style="font-size:11px; padding:9px 16px; cursor:pointer;
-                  color:{MUT}; border:1px solid {LINE};">open the console at this task</span>
-            <span class="m" style="font-size:10.5px; color:{DIM}; margin-left:6px;">
-              a site setting &mdash; it changes the launch, never pipeline.yml</span>
-          </div>
-        </div>
-      </div>'''
-
-
-# ══ boards ════════════════════════════════════════════════════════════════════════════
-def build_runs_board():
-    body = (shell() + now_band() + f'''
-    <div style="display:flex; align-items:baseline; gap:12px; padding:34px 0 12px;">
-      <span class="lb">the last 14 days</span>
-      <span class="m" style="font-size:10.5px; color:{DIM};">every run this lab submitted</span>
-    </div>
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px;">
-      {tile('runs', '61', 'Across four pipelines.')}
-      {tile('failed', '5', '8% of the window. Four were the same OOM.', colour=FAIL)}
-      {tile('median', '38m', 'Half of all runs finish inside this.')}
-      {tile('p95', '2h 14m', 'One in twenty takes at least this &mdash; all of them wgs-variants.',
-            colour=ATTN)}
-    </div>
-    <div style="display:grid; grid-template-columns:1.35fr 1fr; gap:14px; padding-top:14px;">
-      {runs_per_day()}{duration_by_pipeline()}
-    </div>
-    <div style="padding-top:14px;">{runs_table()}</div>''')
-    return page('RunsBoard', 940, body)
-
-
-def build_run_view(name='RunView', view='table'):
-    band3 = panel('processes',
-                  process_table() if view == 'table' else run_graph(),
-                  right=toggle(view), pad='4px 24px 10px' if view == 'table' else '18px 24px 22px')
-    body = (shell('rnaseq-counts') + run_header() + band1(tiles_live()) + f'''
-    <div style="padding-top:14px;">{band2()}</div>
-    <div style="padding-top:14px;">{band3}</div>
-    <div style="padding-top:14px;">
-      {panel('tasks', tasks_table()
-             + f'<div class="m" style="font-size:11px; color:{DIM}; padding:12px 6px 0;">'
-               f'13 more &mdash; filtered to STAR_ALIGN by clicking its lane above.</div>',
-             right=tabs(), pad='4px 24px 14px')}
-    </div>''')
-    return page(name, 1330 if view == 'table' else 1300, body)
-
-
 NOW_FAILED = 1331
 
 
@@ -957,36 +817,6 @@ def failed_tasks():
     t.append(('STAR_ALIGN', 13, 607, 918, 8, None, 48, 47.6, 'failed'))
     t.append(('STAR_ALIGN', 13, 923, 1331, 8, None, 72, 71.4, 'failed'))
     return t
-
-
-def build_run_failed():
-    tl, _h = timeline(now=NOW_FAILED, tasks=failed_tasks(), retry=None)
-    tiles = (tile('progress', '2 <span style="font-size:16px; color:' + MUT + ';">of 5</span>',
-                  'STAR_ALIGN never finished, so nothing downstream of it ran.',
-                  extra=FAILED_STRIP)
-             + tile('failures', '1', 'One task, three attempts, all OOM-killed.', colour=FAIL,
-                    extra=chip('terminate', FAIL), delay=30)
-             + tile('moving', 'stopped', 'Nextflow terminated the run 22m in, after the '
-                    'third attempt.', colour=MUT, delay=60)
-             + tile('resource fit', '99%', 'Peak RSS against the request on the failing task '
-                    '&mdash; the request was the ceiling.', colour=FAIL, delay=90))
-    body = (shell('rnaseq-counts')
-            + run_header(phase='failed', elapsed='22m 11s', colour=FAIL, action='Relaunch',
-                         sentence=f'<span style="color:{INK};">STAR_ALIGN</span> &middot; '
-                                  f'1 of 6 tasks done &middot; terminated after task 13 '
-                                  f'failed three times, four tasks never started')
-            + band1(tiles) + failure_card() + f'''
-    <div style="padding-top:14px;">
-      {panel('timeline', f'<div class="tlpad">{tl}</div>',
-             right=f'<span class="m" style="font-size:10.5px; color:{DIM};">'
-                   f'the red bars are the three attempts, in the STAR_ALIGN lane</span>')}
-    </div>
-    <div style="padding-top:14px;">
-      {panel('processes', process_table(PROC_ROWS_FAILED), right=toggle(), pad='4px 24px 10px')}
-    </div>''')
-    return page('RunFailed', 1210, body)
-
-
 FAILED_STRIP = (
     '<span style="display:flex; gap:3px; width:120px; height:9px;">'
     + f'<span class="grow" style="flex:1; background:{OK};"></span>' * 2
@@ -998,50 +828,6 @@ EARLY_STRIP = (
     '<span style="display:flex; gap:3px; width:120px; height:9px;">'
     + f'<span class="grow flow" style="flex:1; background:{RUN};"></span>'
     + '<span style="flex:1; background:#1B262B;"></span>' * 4 + '</span>')
-
-
-def build_run_early():
-    """41 seconds in. **The state that breaks every dashboard**: four tiles that would each
-    read zero, a chart with two bars in it, and a table of nothing. Every panel here says what
-    it cannot say yet, because a zero and a not-yet-measured are different facts."""
-    early = [t for t in TASKS if t[0] == 'FASTQC']
-    tl, _h = timeline(now=41, tasks=[(p, i, s, None, c, None, m, None, 'running')
-                                     for p, i, s, _e, c, _pc, m, _pk, _st in early[:4]],
-                      retry=None)
-    tiles = (tile('progress', '0 <span style="font-size:16px; color:' + MUT + ';">of 5</span>',
-                  'FASTQC is the first step and no task of it has finished.', extra=EARLY_STRIP, colour=MUT)
-             + tile('failures', '0', 'Nothing has failed.', colour=MUT, delay=30)
-             + tile('moving', '&mdash;', 'No task has completed yet, so there is nothing to '
-                    'measure against.', colour=MUT, delay=60)
-             + tile('resource fit', 'no basis', 'A peak is only known once a task ends. '
-                    '<span style="color:' + DIM + ';">Four are 40 seconds in.</span>',
-                    colour=MUT, delay=90))
-    body = (shell('rnaseq-counts')
-            + run_header(elapsed='41s',
-                         sentence=f'<span style="color:{INK};">FASTQC</span> &middot; '
-                                  f'4 tasks running, 2 waiting &middot; nothing has finished')
-            + band1(tiles) + f'''
-    <div style="padding-top:14px;">
-      {panel('timeline', f'<div class="tlpad">{tl}</div>'
-             + f'<div style="display:flex; align-items:baseline; justify-content:space-between;'
-               f' padding:16px 0 8px; border-top:1px solid {LINE2}; margin-top:6px;">'
-               f'<span class="lb">cpu &mdash; asked against used</span>{LEGEND}</div>'
-             + f'<div style="padding-left:132px; position:relative;">'
-               f'<div class="hatch" style="height:104px; border-bottom:1px solid #131C21;"></div>'
-               f'<div style="position:absolute; inset:0; display:flex; align-items:center;'
-               f' justify-content:center;"><span class="m" style="font-size:11px; color:{MUT};'
-               f' background:{BG}; padding:5px 12px;">the used curve begins at the first '
-               f'completion</span></div></div>',
-             right=f'<span class="m" style="font-size:10.5px; color:{DIM};">'
-                   f'6 tasks &middot; 0 done &middot; 4 running &middot; 2 waiting</span>')}
-    </div>
-    <div style="padding-top:14px;">
-      {panel('processes', process_table(PROC_ROWS_EARLY), right=toggle(), pad='4px 24px 10px')}
-    </div>''')
-    return page('RunEarly', 1000, body)
-
-
-
 # ══ the run screen, with a REAL toggle — one board, not two ═══════════════════════════
 def build_run_view():
     """`table` and `graph` were two artboards of one screen, which is two chances to drift.
@@ -1261,13 +1047,13 @@ def console_lines():
                    status if en is not None else 'RUNNING', proc, tag, tid))
     ev.sort()
     rows = ''
-    for i, (at, status, proc, tag, tid) in enumerate(ev):
+    for at, status, proc, tag, _tid in ev:
         hh, mm, ss = at // 3600, (at // 60) % 60, at % 60
         hot = status == 'FAILED'
         rows += (f'<div class="lift" style="display:grid; '
                  f'grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px;'
                  f' align-items:center; padding:0 8px;'
-                 f'{f" background:rgba(227,103,78,.07);" if hot else ""}">'
+                 f'{" background:rgba(227,103,78,.07);" if hot else ""}">'
                  f'<span class="m" style="font-size:11px; color:{C[status]};">{GLYPH[status]}</span>'
                  f'<span class="m" style="font-size:11px; color:{DIM};">{hh:02d}:{mm:02d}:{ss:02d}</span>'
                  f'<span class="m" style="font-size:11px; color:{C[status]};">{status.lower()}</span>'
@@ -1279,7 +1065,7 @@ def console_lines():
 
 
 def build_console():
-    ctl = (f'<span style="display:flex; gap:6px; align-items:center;">'
+    ctl = ('<span style="display:flex; gap:6px; align-items:center;">'
            + ''.join(f'<span class="m lift" style="font-size:10.5px; padding:5px 11px;'
                      f' border:1px solid {LINE}; color:{MUT}; cursor:pointer;">{t}</span>'
                      for t in ('all processes &or;', 'all states &or;'))
@@ -1563,7 +1349,7 @@ def needs_you():
     """**Only exists when it has something in it.** A card reading *nothing needs you* is a
     card that trains people to stop looking at the place things appear."""
     rows = ''
-    for i, (rid, name, why, when, col) in enumerate(NEEDS):
+    for i, (_rid, name, why, when, col) in enumerate(NEEDS):
         rows += f'''<a class="lift settle" style="display:grid;
               grid-template-columns:14px 1fr 96px; gap:14px; align-items:center;
               padding:12px 6px; border-bottom:1px solid {LINE2}; text-decoration:none;
@@ -1582,7 +1368,7 @@ def needs_you():
 
 def finished_recently():
     rows = ''
-    for i, (rid, name, dur, when, what, usual, els) in enumerate(DONE_RECENTLY):
+    for i, (_rid, name, dur, when, what, usual, els) in enumerate(DONE_RECENTLY):
         rows += f'''<a class="lift settle" style="display:grid;
               grid-template-columns:1fr 88px 108px; gap:14px; align-items:center;
               padding:12px 6px; border-bottom:1px solid {LINE2}; text-decoration:none;
@@ -1632,7 +1418,7 @@ def runs_table():
           <span style="text-align:right;">{vs}</span>
           <span class="m" style="font-size:11px; color:{INK_I}; text-align:right;">{rid}</span>
         </div>'''
-    filters = (f'<span style="display:flex; gap:6px;">'
+    filters = ('<span style="display:flex; gap:6px;">'
                + ''.join(f'<span class="m lift" style="font-size:10px; letter-spacing:.08em;'
                          f' text-transform:uppercase; padding:5px 11px; border:1px solid '
                          f'{LINE}; color:{INK if f=="all" else MUT}; cursor:pointer;'

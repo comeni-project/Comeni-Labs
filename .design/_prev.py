@@ -1,4 +1,8 @@
-import pathlib, re, subprocess, sys
+import pathlib
+import re
+import subprocess
+import sys
+
 OUT = pathlib.Path('/tmp/claude-1000/-home-rafael-Documents-GitHub-Comeni-Labs/9d6cd1fa-c2d6-4749-abe3-6862ce86bbd2/scratchpad/prev')
 OUT.mkdir(parents=True, exist_ok=True)
 names = sys.argv[1:] or [p.stem.replace('.dc','') for p in pathlib.Path('.').glob('Run*.dc.html')]

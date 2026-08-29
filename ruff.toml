@@ -19,3 +19,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # The runs board is drawn by the same tool for the same reason — it borrows `build.py`'s
 # chrome rather than restating it, so it inherits its shape and therefore its two exemptions.
 "docs/design/runs-board/board.py" = ["E501", "UP031"]
+# `.design/` is the same class again: two generators whose output is twenty-four artboards,
+# and whose long lines are style attributes, SVG path data and `{{ }}` template holes inside
+# string literals. **E501 only** — deliberately not a directory exclude, because F811 caught
+# seven superseded functions left behind by an append-and-override edit, and a blanket exclude
+# would have shipped all seven. Nothing imports these files; `python runs_boards.py` and
+# `python build_boards.py` regenerate the `.dc.html` beside them, byte for byte.
+".design/*.py" = ["E501"]

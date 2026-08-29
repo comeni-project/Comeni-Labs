@@ -1,6 +1,6 @@
 # Every builder board is composed from the SAME shell and the SAME canvas.
 # Continuity is not remembered here, it is structural: change a node once.
-import io, pathlib
+import pathlib
 
 HEAD = pathlib.Path('_bhead.html').read_text()
 
@@ -112,7 +112,7 @@ def wire(a, b, bend=None):
     mx = bend if bend is not None else (x1 + x2) / 2
     return f'<path d="M{x1} {y1} H{mx} V{y2} H{x2}"/>'
 
-FIELD = open('_field.html').read()
+FIELD = pathlib.Path('_field.html').read_text()
 
 def field_layers(kind='arcs', drag=False):
     """The canvas is a window onto the field, not a surface with wallpaper.
@@ -281,7 +281,6 @@ def cols(canvas_html, rail_html):
 def shellwrap(inner, h=880):
     return f'  <div style="position:relative; display:flex; flex-direction:column; height:{h}px;">\n{inner}  </div>\n'
 
-pathlib.Path('_compose.py').write_text('')  # marker
 print('helpers defined')
 
 # ── rail bodies ────────────────────────────────────────────────────────────
@@ -493,22 +492,26 @@ def scrim(inner):
     return ('  <div class="layer" style="background:rgba(6,9,11,.76); backdrop-filter:blur(2px);"></div>\n'
             + inner)
 
-RUN_SRC = open('_run_sheet.html').read()
-BROWSE_SRC = open('_browse.html').read()
+RUN_SRC = pathlib.Path('_run_sheet.html').read_text()
+BROWSE_SRC = pathlib.Path('_browse.html').read_text()
 
-import re
 
 def _slice_div(src, anchor):
     """Take exactly one balanced <div> subtree starting at `anchor`."""
-    i = src.index(anchor); depth = 0; j = i
+    i = src.index(anchor)
+    depth, j = 0, i
     while True:
-        o = src.find('<div', j); c = src.find('</div>', j)
-        if c == -1: break
+        o, c = src.find('<div', j), src.find('</div>', j)
+        if c == -1:
+            break
         if o != -1 and o < c:
-            depth += 1; j = o + 4
+            depth += 1
+            j = o + 4
         else:
-            depth -= 1; j = c + 6
-            if depth == 0: return src[i:j]
+            depth -= 1
+            j = c + 6
+            if depth == 0:
+                return src[i:j]
     return src[i:]
 
 RUN_SHEET = _slice_div(RUN_SRC, '<div class="pop"')

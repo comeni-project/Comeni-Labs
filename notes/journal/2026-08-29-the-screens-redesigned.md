@@ -49,6 +49,14 @@ avoid, arriving on the half that is supposed to be exact.
 `.design/_prev.py` strips the `.dc.html` wrapper and screenshots each board with headless
 Chrome. Use it. It is thirty seconds and it is the only reason those three shipped fixed.
 
+**And the repo's own lint caught a fourth class the screenshots could not.** The generators are
+written by appending and overriding, which left **seven superseded function definitions** in
+`runs_boards.py` — a next reader would have found two `build_runs_board`s and no way to tell
+which won. `F811` named all seven; deleting them cut 218 lines and the artboards regenerated
+byte-identical, which is the proof they were dead. `ruff.toml` therefore exempts `.design/*.py`
+from **E501 only**, following the precedent the older mockup builders set, and deliberately not
+as a directory exclude: a blanket exclude would have shipped all seven.
+
 **Continuity is structural, not checked.** Every Runs board is generated from one shell and
 **one task list**, and the timeline, the envelope and the four tiles are all *computed* from it
 by the arithmetic the real page would use. That is a direct response to the first builder set,
