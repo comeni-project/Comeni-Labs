@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Chivo:wght@400;500;600;800&family=Chivo+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin:0; background:#080B0D; color:#DFE6E6; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; text-decoration:none; } a:hover { color:#fff; }
+    .m  { font-family:var(--fm); }
+    .lb { font-family:var(--fm); font-size:9.5px; letter-spacing:.15em;
+          text-transform:uppercase; color:#67757A; }
+    .layer { position:absolute; inset:0; pointer-events:none; }
+    .breathe { animation:breathe 46s ease-in-out infinite alternate; }
+    @keyframes breathe { to { opacity:1.85; } }
+    .slowA { transform-box:view-box; transform-origin:140px 900px; animation:spin 680s linear infinite; }
+    .slowB { transform-box:view-box; transform-origin:1300px 70px;  animation:spin 980s linear infinite reverse; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .rule { background-image:
+              linear-gradient(rgba(108,183,255,.026) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(108,183,255,.026) 1px, transparent 1px);
+            background-size:36px 36px;
+            mask-image:radial-gradient(105% 62% at 16% 0%, #000 0%, transparent 66%); }
+    .scan { background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px); }
+    .vig  { background:radial-gradient(130% 92% at 50% 3%, transparent 44%, rgba(8,11,13,.9) 100%); }
+
+    /* five movements, one curve. nothing else moves. */
+    .settle { animation:settle 200ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes settle { from { opacity:0; transform:translateY(4px); } }
+    .grow { animation:grow 520ms cubic-bezier(.32,.72,0,1) backwards; transform-origin:left; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    .flow { background-image:linear-gradient(90deg, transparent 0 7px, rgba(8,11,13,.5) 7px 11px);
+            background-size:18px 100%; animation:flow 1.1s linear infinite; }
+    @keyframes flow { to { background-position:18px 0; } }
+    .cur { animation:blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .lift { transition:background-color 140ms ease, border-color 140ms ease,
+                       transform 140ms cubic-bezier(.32,.72,0,1); }
+    .lift:hover { background-color:#0E1418; transform:translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .breathe,.slowA,.slowB,.settle,.grow,.flow,.cur { animation:none !important; }
+      .lift { transition:none; }
+    }
+    .seg { border:0; cursor:pointer; font-family:var(--fm); font-size:10px;
+           letter-spacing:.08em; text-transform:uppercase; padding:6px 13px;
+           transition:background-color 140ms ease, color 140ms ease; }
+    .seg:focus-visible { outline:2px solid #6CB7FF; outline-offset:2px; }
+    /* a panel is a bounded region of the page, not a floating card: one hairline, no shadow,
+       no radius. Grafana's frame, in this palette. */
+    .pl { border:1px solid #172025; background:rgba(12,18,22,.62); }
+    .pl > .hd { display:flex; align-items:center; justify-content:space-between;
+                padding:10px 14px; border-bottom:1px solid #121A1D; }
+    /* the board's run table, and the run screen's process table */
+    .rr { display:grid; grid-template-columns:150px 96px 1fr 116px 92px 88px;
+          gap:16px; align-items:center; padding:11px 6px; border-bottom:1px solid #121A1D; }
+    .pr { display:grid; grid-template-columns:186px 74px 1fr 92px 168px 96px 56px;
+          gap:14px; align-items:center; padding:10px 6px; border-bottom:1px solid #121A1D; }
+    .tk { display:grid; grid-template-columns:56px 176px 92px 1fr 82px 74px 58px;
+          gap:14px; align-items:center; padding:9px 6px; border-bottom:1px solid #121A1D; }
+    .hatch { background-image:repeating-linear-gradient(45deg,
+               rgba(103,117,122,.20) 0 1px, transparent 1px 5px); }
+
+    /* ── responsiveness ──────────────────────────────────────────────────────────────
+       Three rules, and they are the whole of it.
+
+       1. EVERY BAND IS auto-fit, NEVER A FIXED COLUMN COUNT. Four tiles become two, then
+          one, and nothing is ever dropped to fit — dropping a tile drops a question.
+       2. A TABLE SCROLLS INSIDE ITSELF. `.tbl` is the only place horizontal scrolling is
+          allowed; the page body must never scroll sideways. The row keeps its `min-width`
+          so columns stay aligned with their headings instead of crushing.
+       3. THE CHARTS ARE ALREADY FLUID — every SVG is `width:100%` on a viewBox, so the
+          timeline and the envelope reflow for free. What is NOT fluid is the lane-label
+          gutter, which is a fixed pixel padding and shrinks in one place: `.tlpad`. */
+    .band { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(232px, 1fr)); }
+    .pair { display:grid; gap:14px; align-items:start;
+            grid-template-columns:repeat(auto-fit, minmax(330px, 1fr)); }
+    .tbl  { overflow-x:auto; }
+    .tbl > * { min-width:880px; }
+    .tlpad { padding-left:132px; }
+    .withRail { display:grid; gap:16px; align-items:start; grid-template-columns:1fr 400px; }
+    @media (max-width: 1180px) {
+      .tlpad { padding-left:96px; }
+      .withRail { grid-template-columns:1fr; }
+    }
+    @media (max-width: 760px) {
+      .tlpad { padding-left:0; }   /* lane labels move above their band below this */
+    }
+  </style>
+</helmet>
+
+<div style="--fs: {{ t.sans }}; --fm: {{ t.mono }}; font-family:var(--fs);
+            position:relative; min-height:1500px; overflow:hidden; background:#080B0D;">
+
+  <svg class="layer" viewBox="0 0 1400 1500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="breathe" fill="none">
+      <g class="slowA" stroke="#6CB7FF" stroke-width="1">
+        <circle cx="140" cy="900" r="600"  opacity=".085"/>
+        <circle cx="140" cy="900" r="880"  opacity=".055"/>
+        <circle cx="140" cy="900" r="1220" opacity=".034"/>
+        <path d="M140 900 L1520 200" stroke-width=".75" opacity=".055"/>
+      </g>
+      <g class="slowB" stroke="#10AA91">
+        <circle cx="1300" cy="70" r="470" opacity=".055" stroke-width="1"/>
+        <circle cx="1300" cy="70" r="790" opacity=".034" stroke-width="1"/>
+      </g>
+      <path d="M-60 780 Q 640 1000 1470 630" stroke="#10AA91" stroke-width="1" opacity=".026"/>
+    </g>
+  </svg>
+  <div class="layer rule"></div>
+  <div class="layer scan"></div>
+  <div class="layer vig"></div>
+  <div style="position:relative; padding:28px 44px 40px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:20px; border-bottom:1px solid #172025;">
+      <div style="display:flex; align-items:baseline; gap:28px;">
+        <span style="font-size:14px; font-weight:700; letter-spacing:-.02em;">Comeni</span>
+        <span style="font-size:12.5px; color:#67757A;">Builder</span>
+        <span style="font-size:12.5px; color:#DFE6E6; border-bottom:1px solid #6CB7FF;
+                     padding-bottom:3px;">Runs</span>
+        <span style="font-size:12.5px; color:#67757A;">Registry</span>
+        <span style="color:#2A3438;">/</span><span class="m" style="font-size:12px; color:#8D9A9E;">rnaseq-counts</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:20px;">
+        <span class="m" style="font-size:11px; color:#455257;">
+          <span style="color:#6CB7FF;">&rsaquo;</span> ask for a pipeline, or jump to one
+          <span style="color:#2A3438;">&#8984;K</span></span>
+        <span class="m" style="font-size:11px; color:#67757A;">Ferreira lab</span>
+      </div>
+    </div>
+    <div class="settle" style="padding:26px 0 22px; display:flex; align-items:flex-start;
+                justify-content:space-between; gap:40px; border-bottom:1px solid #172025;">
+      <div>
+        <div style="display:flex; align-items:baseline; gap:16px;">
+          <span style="font-size:31px; font-weight:600; letter-spacing:-.035em;
+                       line-height:1;">rnaseq-counts</span>
+          <span class="m" style="font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 8px; color:#BD6DCD; background:#BD6DCD1F; border:1px solid #BD6DCD44;">running</span>
+          <span class="m" style="font-size:11.5px; color:#455257;">a3f9c2e1</span>
+        </div>
+        <div style="font-size:12.5px; color:#67757A; margin-top:11px;"><span style="color:#DFE6E6;">STAR_ALIGN</span> &middot; 2 of 6 tasks done, 2 running, 2 waiting for a slot</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:22px;">
+        <div style="text-align:right;">
+          <div class="m" style="font-size:23px; color:#BD6DCD; letter-spacing:-.02em;">
+            21m 40s<span class="cur">&#9646;</span></div>
+          <div class="m" style="font-size:10.5px; color:#455257; margin-top:4px;">
+            local &middot; started 21:04</div>
+        </div>
+        <span class="m lift" style="font-size:10.5px; letter-spacing:.08em;
+              text-transform:uppercase; padding:8px 15px; color:#67757A;
+              border:1px solid #172025; cursor:pointer;">Cancel</span>
+      </div>
+    </div><div style="padding-top:20px;">
+      <div class="pl settle">
+        <div class="hd"><span class="lb">console</span><span style="display:flex; gap:4px;"><span class="m lift" style="font-size:11px; padding:7px 14px; cursor:pointer; color:#67757A; background:transparent; border:1px solid transparent;">tasks <span style="color:#455257;">18</span></span><span class="m lift" style="font-size:11px; padding:7px 14px; cursor:pointer; color:#DFE6E6; background:#122029; border:1px solid #6CB7FF55;">console</span></span></div>
+        <div style="padding:14px 24px 18px;"><div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid #121A1D;"><span class="m" style="font-size:11px; color:#67757A;">34 lines &middot; task events only</span><span style="display:flex; gap:6px; align-items:center;"><span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #172025; color:#67757A; cursor:pointer;">all processes &or;</span><span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #172025; color:#67757A; cursor:pointer;">all states &or;</span><span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #10AA9155; color:#10AA91; background:#10AA9114; cursor:pointer;">&#9679; following</span></span></div><div style="padding-top:6px;"><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357070)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:04:06</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357075)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:34</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:36</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:40</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357070)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:42</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:48</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:05:50</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">FASTQC</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357075)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:05:55</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357070)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:05:55</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:05:55</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:05:55</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:09:20</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357070)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:09:25</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:09:25</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357075)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:09:31</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:09:42</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:09:53</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:10:00</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:10:00</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px; background:rgba(227,103,78,.07);"><span class="m" style="font-size:11px; color:#E3674E;">&times;</span><span class="m" style="font-size:11px; color:#455257;">21:12:40</span><span class="m" style="font-size:11px; color:#E3674E;">failed</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072) <span style="color:#E3674E;">exit 137</span></span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:12:45</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:12:55</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:13:07</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">TRIMGALORE</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357075)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:20:48</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357071)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:20:50</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#BD6DCD;">&#9679;</span><span class="m" style="font-size:11px; color:#455257;">21:20:51</span><span class="m" style="font-size:11px; color:#BD6DCD;">running</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357073)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#10AA91;">&check;</span><span class="m" style="font-size:11px; color:#455257;">21:23:05</span><span class="m" style="font-size:11px; color:#10AA91;">completed</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357072)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#67757A;">&middot;</span><span class="m" style="font-size:11px; color:#455257;">21:23:10</span><span class="m" style="font-size:11px; color:#67757A;">submitted</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div><div class="lift" style="display:grid; grid-template-columns:14px 74px 96px 186px 1fr; gap:12px; height:22px; align-items:center; padding:0 8px;"><span class="m" style="font-size:11px; color:#BD6DCD;">&#9679;</span><span class="m" style="font-size:11px; color:#455257;">21:23:11</span><span class="m" style="font-size:11px; color:#BD6DCD;">running</span><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span class="m" style="font-size:11px; color:#67757A;">(SRR6357074)</span></div></div><div style="display:flex; align-items:center; justify-content:space-between; padding-top:12px; margin-top:8px; border-top:1px solid #121A1D;"><span class="m" style="font-size:10.5px; color:#455257;">virtualised &mdash; a 5,000-task run is 15,000 events, and putting them all in the DOM is how a console that pages correctly still feels broken</span><span class="m" style="font-size:10.5px; color:#455257;">right-click a line to copy it, or filter to its process</span></div><div style="margin-top:14px; border-top:1px solid #172025; padding-top:14px;"><div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:9px;"><span class="lb">run operations</span><span class="m" style="font-size:10px; color:#455257;">a closed vocabulary of five &mdash; there is no shell behind this box</span></div><div style="display:flex; align-items:center; gap:11px; border:1px solid #172025; background:#0A1014; padding:10px 13px;"><span class="m" style="font-size:12px; color:#6CB7FF;">&rsaquo;</span><span class="m" style="font-size:12px; color:#DFE6E6;">cancel<span class="cur">&#9646;</span></span><span class="m" style="font-size:10px; color:#455257; margin-left:auto;">&#8984;K anywhere</span></div><div style="border:1px solid #172025; border-top:0; background:rgba(10,16,20,.9); padding:5px 3px;"><div class="lift" style="display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:baseline; padding:7px 10px; cursor:pointer;"><span class="m" style="font-size:11.5px; color:#DFE6E6;">cancel</span><span style="font-size:11px; color:#67757A;">terminate the head process</span><span class="m" style="font-size:10px; color:#455257; text-align:right;"></span></div><div class="lift" style="display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:baseline; padding:7px 10px; cursor:pointer;"><span class="m" style="font-size:11.5px; color:#3B474B;">relaunch</span><span style="font-size:11px; color:#3B474B;">launch again, optionally -resume</span><span class="m" style="font-size:10px; color:#455257; text-align:right;">needs a terminal run</span></div><div class="lift" style="display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:baseline; padding:7px 10px; cursor:pointer;"><span class="m" style="font-size:11.5px; color:#3B474B;">retry task N</span><span style="font-size:11px; color:#3B474B;">relaunch -resume, targeting one failure</span><span class="m" style="font-size:10px; color:#455257; text-align:right;">needs a terminal run</span></div><div class="lift" style="display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:baseline; padding:7px 10px; cursor:pointer;"><span class="m" style="font-size:11.5px; color:#DFE6E6;">pause</span><span style="font-size:11px; color:#67757A;">stop submitting new tasks</span><span class="m" style="font-size:10px; color:#455257; text-align:right;"></span></div><div class="lift" style="display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:baseline; padding:7px 10px; cursor:pointer;"><span class="m" style="font-size:11.5px; color:#DFE6E6;">apply</span><span style="font-size:11px; color:#67757A;">take a run-level proposal into site.config</span><span class="m" style="font-size:10px; color:#455257; text-align:right;"></span></div></div><div style="border:1px solid #6CB7FF33; background:#0B1419; padding:13px 16px; margin-top:10px;"><div class="m" style="font-size:11.5px; color:#DFE6E6; padding-bottom:9px;"><span style="color:#6CB7FF;">&rsaquo;</span> cancel</div><div style="display:grid; grid-template-columns:86px 1fr; gap:12px; padding:3px 0;"><span class="lb">intent</span><span class="m" style="font-size:11px; color:#DFE6E6;">CANCEL</span></div><div style="display:grid; grid-template-columns:86px 1fr; gap:12px; padding:3px 0;"><span class="lb">because</span><span class="m" style="font-size:11px; color:#67757A;">OPERATOR_REQUEST</span></div><div style="display:grid; grid-template-columns:86px 1fr; gap:12px; padding:3px 0;"><span class="lb">requires</span><span class="m" style="font-size:11px; color:#C1B508;">approval by a named human</span></div><div style="display:grid; grid-template-columns:86px 1fr; gap:12px; padding:3px 0;"><span class="lb">audit</span><span class="m" style="font-size:11px; color:#67757A;">who &middot; when &middot; why &middot; prior phase</span></div><div style="display:grid; grid-template-columns:86px 1fr; gap:12px; padding:3px 0;"><span class="lb">not</span><span class="m" style="font-size:11px; color:#455257;">pipeline.yml &mdash; no verb here touches the artifact</span></div><div style="display:flex; gap:8px; margin-top:12px;"><span class="m lift" style="font-size:10.5px; padding:7px 14px; cursor:pointer; color:#6CB7FF; border:1px solid #6CB7FF55; background:#122029;">confirm</span><span class="m lift" style="font-size:10.5px; padding:7px 14px; cursor:pointer; color:#67757A; border:1px solid #172025;">discard</span></div><div class="m" style="font-size:10px; color:#455257; margin-top:11px; padding-top:10px; border-top:1px solid #172025;">once this run is terminal the same box offers <span style="color:#67757A;">relaunch --resume --mem 96.GB</span>, and the preview names the override as <span style="color:#67757A;">RELAUNCH(resume=true, overrides={memory: 96.GB})</span> before anything runs.</div></div></div></div>
+      </div></div>
+  </div>
+</div>
+
+<script data-dc-script data-props='{"type":{"editor":"enum","options":["Geist","Chivo","Plex"],"default":"Geist","section":"Type"},"$preview":{"width":1400,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = {  }; }
+  renderVals() {
+    const PAIRS = {
+      Geist: { sans: '"Geist", system-ui, sans-serif',         mono: '"Geist Mono", ui-monospace, monospace' },
+      Chivo: { sans: '"Chivo", system-ui, sans-serif',         mono: '"Chivo Mono", ui-monospace, monospace' },
+      Plex:  { sans: '"IBM Plex Sans", system-ui, sans-serif', mono: '"IBM Plex Mono", ui-monospace, monospace' }
+    };
+    return { t: PAIRS[this.props.type] ?? PAIRS.Geist };
+  }
+}
+</script>
+</body>
+</html>

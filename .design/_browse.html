@@ -1,0 +1,106 @@
+  <div class="pop" style="position:absolute; left:50%; top:56px; transform:translateX(-50%);
+              width:900px; background:#0A1014; border:1px solid #22333B;
+              box-shadow:0 30px 80px -30px #000;">
+    <div style="padding:16px 20px 14px; border-bottom:1px solid #162025;">
+      <div style="display:flex; align-items:center; gap:11px;">
+        <span class="m" style="font-size:15px; color:#6CB7FF;">&rsaquo;</span>
+        <span style="font-size:16px; color:#DFE6E6;">align</span>
+        <span class="cur m" style="font-size:15px; color:#6CB7FF;">&#9646;</span>
+        <span class="m" style="font-size:10px; color:#455257; margin-left:auto;">esc to close</span>
+      </div>
+    </div>
+    <div style="padding:12px 20px; border-bottom:1px solid #162025; display:flex;
+                align-items:center; gap:9px; flex-wrap:wrap;">
+      <span class="lb" style="padding-right:4px;">Filter</span>
+      <span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #1E3A4E;
+            color:#6CB7FF; background:#101E27; cursor:pointer;">accepts fastq.reads &times;</span>
+      <span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #1E282C;
+            color:#67757A; cursor:pointer;">produces&hellip;</span>
+      <span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #1E282C;
+            color:#67757A; cursor:pointer;">role&hellip;</span>
+      <span class="m lift" style="font-size:10.5px; padding:5px 11px; border:1px solid #1E282C;
+            color:#67757A; cursor:pointer;">in this registry only</span>
+      <span class="m" style="font-size:10px; color:#455257; margin-left:auto;">9 of 1,604</span>
+    </div>
+    <div style="padding:16px 20px 8px;">
+      <div class="lb" style="padding-bottom:12px;">Aligner &middot; 4</div>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:11px;">
+        <div class="settle lift" style="border:1px solid #2A3D48; background:#0E1418; padding:13px 14px; cursor:pointer;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span class="m" style="font-size:12.5px; font-weight:500;">STAR_ALIGN</span>
+            <span class="m" style="font-size:9px; color:#10AA91; letter-spacing:.1em;">IN PIPELINE</span>
+          </div>
+          <div class="m" style="font-size:9.5px; color:#6CB7FF; padding-top:5px;">
+            fastq.reads[trimmed] &rarr; alignment.bam</div>
+          <div style="font-size:11.5px; color:#889699; padding-top:7px; line-height:1.45;">
+            Splice-aware. Wants a genome index and about 38 GB.</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/star/align@2.7.11a &middot; aligner, splice_aware</div>
+        </div>
+        <div class="settle lift" style="animation-delay:30ms; border:1px solid #1E282C;
+                    background:#0B1013; padding:13px 14px; cursor:pointer;">
+          <div class="m" style="font-size:12.5px; font-weight:500;">HISAT2_ALIGN</div>
+          <div class="m" style="font-size:9.5px; color:#6CB7FF; padding-top:5px;">
+            fastq.reads &rarr; alignment.bam</div>
+          <div style="font-size:11.5px; color:#889699; padding-top:7px; line-height:1.45;">
+            Splice-aware, low memory. Peaks near 8 GB.</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/hisat2/align@2.2.1 &middot; aligner, splice_aware</div>
+        </div>
+        <div class="settle lift" style="animation-delay:60ms; border:1px solid #1E282C;
+                    background:#0B1013; padding:13px 14px; cursor:pointer;">
+          <div class="m" style="font-size:12.5px; font-weight:500;">BWA_MEM</div>
+          <div class="m" style="font-size:9.5px; color:#6CB7FF; padding-top:5px;">
+            fastq.reads &rarr; alignment.bam</div>
+          <div style="font-size:11.5px; color:#889699; padding-top:7px; line-height:1.45;">
+            Not splice-aware &mdash; for DNA, not RNA.</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/bwa/mem@0.7.18 &middot; aligner</div>
+        </div>
+        <div class="settle lift" style="animation-delay:90ms; border:1px solid #1E282C;
+                    background:#0B1013; padding:13px 14px; cursor:pointer; opacity:.55;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span class="m" style="font-size:12.5px; font-weight:500;">SALMON_QUANT</span>
+            <span class="m" style="font-size:9px; color:#C1B508; letter-spacing:.1em;">WON'T FIT HERE</span>
+          </div>
+          <div class="m" style="font-size:9.5px; color:#67757A; padding-top:5px;">
+            fastq.reads &rarr; counts.matrix</div>
+          <div style="font-size:11.5px; color:#C1B508; padding-top:7px; line-height:1.45;">
+            Skips alignment entirely, so SAMTOOLS_SORT downstream would have no input.</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/salmon/quant@1.10.3 &middot; pseudo_aligner</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:8px 20px 16px;">
+      <div class="lb" style="padding-bottom:12px;">Trimming &middot; 3</div>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:11px;">
+        <div class="settle lift" style="animation-delay:120ms; border:1px solid #1E282C;
+                    background:#0B1013; padding:13px 14px; cursor:pointer;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span class="m" style="font-size:12.5px; font-weight:500;">TRIMGALORE</span>
+            <span class="m" style="font-size:9px; color:#10AA91; letter-spacing:.1em;">IN PIPELINE</span>
+          </div>
+          <div class="m" style="font-size:9.5px; color:#6CB7FF; padding-top:5px;">
+            fastq.reads &rarr; fastq.reads[trimmed]</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/trimgalore@0.6.10 &middot; trimming, qc_per_sample</div>
+        </div>
+        <div class="settle lift" style="animation-delay:150ms; border:1px solid #1E282C;
+                    background:#0B1013; padding:13px 14px; cursor:pointer;">
+          <div class="m" style="font-size:12.5px; font-weight:500;">FASTP</div>
+          <div class="m" style="font-size:9.5px; color:#6CB7FF; padding-top:5px;">
+            fastq.reads &rarr; fastq.reads[trimmed]</div>
+          <div class="m" style="font-size:9.5px; color:#455257; padding-top:8px;">
+            nf-core/fastp@0.23.4 &middot; trimming, qc_per_sample</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 20px; border-top:1px solid #162025; display:flex;
+                align-items:center; justify-content:space-between;">
+      <span class="m" style="font-size:10px; color:#455257;">
+        &#8595;&#8593; move &middot; &#8629; add &middot; &#8997;&#8629; add and open settings</span>
+      <span class="m" style="font-size:10px; color:#455257;">
+        a tool appears under <b style="color:#67757A;">every</b> role it declares</span>
+    </div>
+  </div>

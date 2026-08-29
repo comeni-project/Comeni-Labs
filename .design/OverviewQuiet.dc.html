@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin:0; background:#080B0D; color:#DFE6E6;
+           font-family:"Geist", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; text-decoration:none; } a:hover { color:#fff; }
+    .m  { font-family:"Geist Mono", ui-monospace, monospace; }
+    .lb { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#67757A; }
+    .layer { position:absolute; inset:0; pointer-events:none; }
+    .breathe { animation:breathe 46s ease-in-out infinite alternate; }
+    @keyframes breathe { to { opacity:1.85; } }
+    .slowA { transform-box:view-box; transform-origin:140px 760px; animation:spin 680s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .rule { background-image:
+              linear-gradient(rgba(108,183,255,.026) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(108,183,255,.026) 1px, transparent 1px);
+            background-size:36px 36px;
+            mask-image:radial-gradient(105% 62% at 16% 0%, #000 0%, transparent 66%); }
+    .scan { background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px); }
+    .vig  { background:radial-gradient(130% 92% at 50% 3%, transparent 44%, rgba(8,11,13,.9) 100%); }
+    .settle { animation:settle 200ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes settle { from { opacity:0; transform:translateY(4px); } }
+    .grow { animation:grow 520ms cubic-bezier(.32,.72,0,1) backwards; transform-origin:left; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    .lift { transition:background-color 140ms ease, border-color 140ms ease,
+                       transform 140ms cubic-bezier(.32,.72,0,1); }
+    .lift:hover { background-color:#0E1418; transform:translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .breathe,.slowA,.settle,.grow { animation:none !important; } .lift { transition:none; }
+    }
+    .pr { display:grid; grid-template-columns:14px 156px 1fr 118px 74px 96px 78px;
+          gap:14px; align-items:center; padding:11px 6px; border-bottom:1px solid #121A1D; }
+    .rrow { display:grid; grid-template-columns:14px 168px 118px 90px 1fr 74px 84px;
+            gap:14px; align-items:center; padding:10px 6px; border-bottom:1px solid #121A1D; }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:830px; overflow:hidden; background:#080B0D;">
+  <svg class="layer" viewBox="0 0 1400 830" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="breathe" fill="none">
+      <g class="slowA" stroke="#6CB7FF" stroke-width="1">
+        <circle cx="140" cy="760" r="560"  opacity=".085"/>
+        <circle cx="140" cy="760" r="840"  opacity=".055"/>
+        <circle cx="140" cy="760" r="1180" opacity=".034"/>
+      </g>
+      <path d="M-60 620 Q 640 830 1470 500" stroke="#10AA91" stroke-width="1" opacity=".03"/>
+    </g>
+  </svg>
+  <div class="layer rule"></div>
+  <div class="layer scan"></div>
+  <div class="layer vig"></div>
+
+  <div style="position:relative; padding:28px 44px 40px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:20px; border-bottom:1px solid #172025;">
+      <div style="display:flex; align-items:baseline; gap:28px;">
+        <span style="font-size:14px; font-weight:700; letter-spacing:-.02em;">Comeni</span>
+        <span style="font-size:12.5px; color:#67757A;">Builder</span>
+        <span style="font-size:12.5px; color:#67757A;">Runs</span>
+        <span style="font-size:12.5px; color:#67757A;">Registry</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:20px;">
+        <span class="m" style="font-size:11px; color:#455257;">
+          <span style="color:#6CB7FF;">&rsaquo;</span> search <span style="color:#2A3438;">&#8984;K</span></span>
+        <span class="m" style="font-size:11px; color:#67757A;">Ferreira lab</span>
+      </div>
+    </div>
+
+    <!-- No NOW band. Nothing is running and nothing is waiting, so there is nothing here.
+         Not a card saying so — the section does not exist. -->
+
+    <div style="padding:34px 0 0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:13px;">
+        <div style="display:flex; align-items:center; gap:18px;">
+          <div class="lb">Work</div>
+          <div style="display:flex; border:1px solid #1E282C;">
+            <span class="m" style="font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+                  padding:6px 13px; background:#122029; color:#6CB7FF;">By pipeline</span>
+            <span class="m" style="font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+                  padding:6px 13px; color:#67757A;">By run</span>
+          </div>
+        </div>
+        <span class="lift" style="font-size:12.5px; color:#6CB7FF; border:1px solid #1E3A4E;
+                    padding:6px 13px; cursor:pointer;">New pipeline</span>
+      </div>
+
+      <div class="pr" style="border-bottom:1px solid #1E282C;">
+        <div></div><div class="lb">Pipeline</div><div class="lb">Makes</div>
+        <div class="lb">Settled &middot; measured &middot; open</div>
+        <div class="lb" style="text-align:right;">Runs</div>
+        <div class="lb" style="text-align:right;">Last outcome</div>
+        <div class="lb" style="text-align:right;">Owner</div>
+      </div>
+
+      <div class="pr settle lift" style="animation-delay:30ms;">
+        <div style="font-size:11px; color:#10AA91;">&#9679;</div>
+        <div style="font-size:12.5px; font-weight:500;">rnaseq-counts</div>
+        <div style="font-size:12px; color:#889699;">counts from paired RNA-seq reads</div>
+        <div><div style="display:flex; gap:2px; height:5px;">
+          <div class="grow" style="flex:0 0 80%; background:#10AA91; animation-delay:200ms;"></div>
+          <div class="grow" style="flex:1; background:#C1B508; animation-delay:240ms;"></div></div></div>
+        <div class="m" style="font-size:11px; color:#889699; text-align:right;">31</div>
+        <div style="font-size:12px; color:#889699; text-align:right;">succeeded</div>
+        <div class="m" style="font-size:10.5px; color:#67757A; text-align:right;">R. Correia</div>
+      </div>
+
+      <div class="pr settle lift" style="animation-delay:60ms;">
+        <div style="font-size:11px; color:#10AA91;">&#9679;</div>
+        <div style="font-size:12.5px; font-weight:500;">atac-peaks</div>
+        <div style="font-size:12px; color:#889699;">peaks from paired ATAC-seq reads</div>
+        <div><div style="display:flex; gap:2px; height:5px;">
+          <div class="grow" style="flex:0 0 82%; background:#10AA91; animation-delay:230ms;"></div>
+          <div class="grow" style="flex:1; background:#C1B508; animation-delay:270ms;"></div></div></div>
+        <div class="m" style="font-size:11px; color:#889699; text-align:right;">9</div>
+        <div style="font-size:12px; color:#889699; text-align:right;">succeeded</div>
+        <div class="m" style="font-size:10.5px; color:#67757A; text-align:right;">M. Silva</div>
+      </div>
+
+      <div class="pr settle lift" style="animation-delay:90ms;">
+        <div style="font-size:11px; color:#10AA91;">&#9679;</div>
+        <div style="font-size:12.5px; font-weight:500;">wgs-variants</div>
+        <div style="font-size:12px; color:#889699;">small variants from whole-genome reads</div>
+        <div><div style="display:flex; gap:2px; height:5px;">
+          <div class="grow" style="flex:0 0 78%; background:#10AA91; animation-delay:260ms;"></div>
+          <div class="grow" style="flex:1; background:#C1B508; animation-delay:300ms;"></div></div></div>
+        <div class="m" style="font-size:11px; color:#889699; text-align:right;">14</div>
+        <div style="font-size:12px; color:#889699; text-align:right;">succeeded</div>
+        <div class="m" style="font-size:10.5px; color:#67757A; text-align:right;">J. Costa</div>
+      </div>
+
+      <div class="pr settle lift" style="animation-delay:120ms; border-bottom:0;">
+        <div style="font-size:11px; color:#455257;">&#9675;</div>
+        <div style="font-size:12.5px; font-weight:500;">16s-profile</div>
+        <div style="font-size:12px; color:#889699;">community profile from 16S amplicons</div>
+        <div><div style="display:flex; gap:2px; height:5px;">
+          <div class="grow" style="flex:0 0 86%; background:#10AA91; animation-delay:290ms;"></div>
+          <div class="grow" style="flex:1; background:#C1B508; animation-delay:330ms;"></div></div></div>
+        <div class="m" style="font-size:11px; color:#455257; text-align:right;">0</div>
+        <div style="font-size:12px; color:#455257; text-align:right;">never run</div>
+        <div class="m" style="font-size:10.5px; color:#67757A; text-align:right;">A. Reis</div>
+      </div>
+
+      <div style="font-size:12.5px; color:#889699; padding-top:12px;">
+        This month the lab reserved <span style="color:#C1B508;">1.2 TB&middot;h</span> and touched
+        <span style="color:#DFE6E6;">310 GB&middot;h</span>. Nearly all the gap is
+        <a href="#">wgs-variants</a>.
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px; padding:30px 0 0;">
+      <div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+          <div class="lb">Results ready</div>
+          <a href="#" style="font-size:12px;">All results &rarr;</a>
+        </div>
+        <div style="border-top:1px solid #1E282C;">
+          <div class="settle lift" style="display:flex; justify-content:space-between; align-items:baseline;
+                      padding:10px 4px; border-bottom:1px solid #121A1D; animation-delay:150ms; cursor:pointer;">
+            <div><span style="font-size:12.5px;">wgs-variants</span>
+              <span class="m" style="font-size:11px; color:#67757A;"> &middot; 6d ago</span></div>
+            <div class="m" style="font-size:11px; color:#889699;">18 files &middot; 4.2 GB</div>
+          </div>
+          <div class="settle lift" style="display:flex; justify-content:space-between; align-items:baseline;
+                      padding:10px 4px; border-bottom:1px solid #121A1D; animation-delay:180ms; cursor:pointer;">
+            <div><span style="font-size:12.5px;">atac-peaks</span>
+              <span class="m" style="font-size:11px; color:#67757A;"> &middot; 5d ago</span></div>
+            <div class="m" style="font-size:11px; color:#889699;">12 files &middot; 1.1 GB</div>
+          </div>
+          <div class="settle lift" style="display:flex; justify-content:space-between; align-items:baseline;
+                      padding:10px 4px; animation-delay:210ms; cursor:pointer;">
+            <div><span style="font-size:12.5px;">rnaseq-counts</span>
+              <span class="m" style="font-size:11px; color:#67757A;"> &middot; 3d ago</span></div>
+            <div class="m" style="font-size:11px; color:#889699;">6 files &middot; 88 MB</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;">
+          <div class="lb">Changed underneath you</div>
+          <a href="#" style="font-size:12px;">Registry &rarr;</a>
+        </div>
+        <div style="border-top:1px solid #1E282C;">
+          <div class="settle lift" style="padding:10px 4px; border-bottom:1px solid #121A1D;
+                      animation-delay:150ms; cursor:pointer;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <span class="m" style="font-size:12px;">nf-core/star <span style="color:#67757A;">2.7.11a &rarr;</span> <span style="color:#C1B508;">2.7.11b</span></span>
+              <span class="m" style="font-size:10.5px; color:#67757A;">2 pipelines</span>
+            </div>
+            <div style="font-size:12px; color:#889699; padding-top:3px;">
+              Re-resolving would change <span style="color:#DFE6E6;">1 setting</span> in rnaseq-counts.
+            </div>
+          </div>
+          <div class="settle lift" style="padding:10px 4px; animation-delay:180ms; cursor:pointer;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <span class="m" style="font-size:12px;">rule <span style="color:#67757A;">R04 read-length</span> <span style="color:#C1B508;">revised</span></span>
+              <span class="m" style="font-size:10.5px; color:#67757A;">1 pipeline</span>
+            </div>
+            <div style="font-size:12px; color:#889699; padding-top:3px;">
+              wgs-variants would be unchanged &mdash; <span style="color:#10AA91;">a no-op upgrade</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

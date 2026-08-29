@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin:0; background:#080B0D; color:#DFE6E6;
+           font-family:"Geist", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; text-decoration:none; } a:hover { color:#fff; }
+    .m  { font-family:"Geist Mono", ui-monospace, monospace; }
+    .lb { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#67757A; }
+    .layer { position:absolute; inset:0; pointer-events:none; }
+    .breathe { animation:breathe 46s ease-in-out infinite alternate; }
+    @keyframes breathe { to { opacity:1.85; } }
+    .slowA { transform-box:view-box; transform-origin:120px 880px; animation:spin 680s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .scan { background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px); }
+    .vig  { background:radial-gradient(130% 92% at 50% 3%, transparent 46%, rgba(8,11,13,.88) 100%); }
+    .settle { animation:settle 200ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes settle { from { opacity:0; transform:translateY(4px); } }
+    .pop { animation:pop 180ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes pop { from { opacity:0; transform:translateY(-6px) scale(.985); } }
+    .grow { animation:grow 520ms cubic-bezier(.32,.72,0,1) backwards; transform-origin:left; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    .cur { animation:blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .lift { transition:background-color 140ms ease, border-color 140ms ease,
+                       transform 140ms cubic-bezier(.32,.72,0,1); }
+    .lift:hover { background-color:#0E1418; transform:translateY(-1px); }
+    .dash { stroke-dasharray:4 5; animation:march 900ms linear infinite; }
+    @keyframes march { to { stroke-dashoffset:-18; } }
+    @media (prefers-reduced-motion: reduce) {
+      .breathe,.slowA,.settle,.pop,.grow,.cur,.dash { animation:none !important; }
+      .lift { transition:none; }
+    }
+    /* ── node: a uniform schematic symbol, not a floating card ───────────── */
+    .node { position:absolute; width:172px; height:112px; background:#0C1216;
+            border:1px solid #253239; border-left:3px solid #2C3E45;
+            display:flex; flex-direction:column; }
+    .node .hd { display:flex; align-items:center; gap:8px; height:28px;
+                padding:0 10px; border-bottom:1px solid #1A252A; }
+    .node .rows { flex:1; padding:5px 0; }
+    .node .pr { display:flex; align-items:center; gap:7px; height:19px; padding:0 10px;
+                font-family:"Geist Mono", ui-monospace, monospace; font-size:8.5px; }
+    .node .ft { height:24px; display:flex; align-items:center; padding:0 10px;
+                border-top:1px solid #1A252A; font-family:"Geist Mono", ui-monospace, monospace;
+                font-size:9px; color:#5D6C71; }
+    .node.sel { border-color:#6CB7FF; border-left-color:#6CB7FF;
+                box-shadow:0 0 0 1px rgba(108,183,255,.26); }
+    .node.meas { border-left-color:#C1B508; }
+    .node.open { border-left-color:#E3674E; }
+    /* a SOURCE is not a process — it carries a type, never a path */
+    .src { position:absolute; width:120px; height:80px; background:#0A1418;
+           border:1px dashed #2E4750; border-left:3px solid #6CB7FF;
+           display:flex; flex-direction:column; justify-content:center; padding:0 10px; }
+    .port { position:absolute; width:7px; height:7px; background:#0C1216;
+            border:1px solid #4A5C64; }
+    .port.on { border-color:#6CB7FF; background:#12222E; }
+    .plus { position:absolute; width:18px; height:18px;
+            border:1px solid #1E3A4E; color:#6CB7FF; background:#0A1218;
+            display:flex; align-items:center; justify-content:center;
+            font-size:13px; line-height:1; cursor:pointer; }
+    /* topological levels, drawn faintly. structure without a dot grid. */
+    .col { position:absolute; top:0; bottom:0; width:1px; background:#121B1F; }
+    .shell { display:flex; align-items:center; justify-content:space-between;
+             padding-bottom:14px; border-bottom:1px solid #172025; }
+  </style>
+
+</helmet>
+
+<div style="position:relative; min-height:880px; overflow:hidden; background:#080B0D;">
+  <svg class="layer" viewBox="0 0 1400 880" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="breathe" fill="none"><g class="slowA" stroke="#6CB7FF" stroke-width="1">
+      <circle cx="120" cy="880" r="580" opacity=".07"/>
+      <circle cx="120" cy="880" r="860" opacity=".045"/>
+      <circle cx="120" cy="880" r="1200" opacity=".028"/>
+    </g><path d="M-60 700 Q 640 920 1470 540" stroke="#10AA91" stroke-width="1" opacity=".022"/></g>
+  </svg>
+  <div class="layer vig"></div>
+  <div style="position:relative; display:flex; flex-direction:column; height:880px;">
+    <div style="padding:22px 30px 0;">
+      <div class="shell">
+        <div style="display:flex; align-items:baseline; gap:26px;">
+          <span style="font-size:14px; font-weight:700; letter-spacing:-.02em;">Comeni</span>
+          <span style="font-size:12.5px;">Builder</span>
+          <span style="font-size:12.5px; color:#67757A;">Runs</span>
+          <span style="font-size:12.5px; color:#67757A;">Registry</span>
+        </div>
+        <span class="m" style="font-size:11px; color:#67757A;">Ferreira lab</span>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 0 16px;">
+        <div style="display:flex; align-items:baseline; gap:18px;">
+          <span style="font-size:26px; font-weight:600; letter-spacing:-.03em;">untitled pipeline</span>
+          <span class="m" style="font-size:10.5px; color:#455257;">not saved yet</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div style="display:flex; border:1px solid #1E282C;">
+            <span class="m" style="font-size:10px; letter-spacing:.09em;
+                  text-transform:uppercase; padding:7px 15px; background:#122029; color:#6CB7FF;">Canvas</span>
+            <span class="m lift" style="font-size:10px; letter-spacing:.09em;
+                  text-transform:uppercase; padding:7px 15px; color:#67757A; cursor:pointer;">Artifact</span>
+          </div>
+          <span style="font-size:13.5px; font-weight:600; color:#2A3438; border:1px solid #16202400; background:#0D1316; padding:9px 26px;">Run</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1; display:grid; grid-template-columns:1fr 302px; min-height:0;">
+      <div style="position:relative; overflow:hidden; border-top:1px solid #141C20;">
+        <div style="position:absolute; inset:0;">
+        <svg style="position:absolute; inset:0;" width="100%" height="100%"
+             viewBox="0 0 1100 660" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <radialGradient id="pool" cx="46%" cy="34%" r="58%">
+              <stop offset="0%" stop-color="#6CB7FF" stop-opacity=".055"/>
+              <stop offset="100%" stop-color="#6CB7FF" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="1100" height="660" fill="url(#pool)"/>
+          <g class="breathe" fill="none">
+            <g class="slowA" stroke="#6CB7FF">
+              <circle cx="60" cy="700" r="380" opacity=".085" stroke-width="1"/>
+              <circle cx="60" cy="700" r="530" opacity=".062" stroke-width="1"/>
+              <circle cx="60" cy="700" r="700" opacity=".044" stroke-width="1"/>
+              <circle cx="60" cy="700" r="900" opacity=".030" stroke-width="1"/>
+            </g>
+            <g class="slowB" stroke="#10AA91">
+              <circle cx="1180" cy="-60" r="410" opacity=".055" stroke-width="1"/>
+              <circle cx="1180" cy="-60" r="590" opacity=".038" stroke-width="1"/>
+              <circle cx="1180" cy="-60" r="800" opacity=".026" stroke-width="1"/>
+            </g>
+            <g stroke="#6CB7FF" opacity=".05" stroke-width="1">
+              <circle cx="560" cy="980" r="700"/>
+              <circle cx="560" cy="980" r="838"/>
+            </g>
+            <g stroke="#6CB7FF" opacity=".08" stroke-width="1"><path d="M-97.8 740.6 L-104.4 738.2"/><path d="M-35.8 612.5 L-41.7 608.8"/><path d="M50.8 499.6 L45.7 494.8"/><path d="M158.5 406.6 L154.5 400.9"/><path d="M282.7 337.2 L280.0 330.8"/><path d="M418.4 294.5 L417.0 287.6"/><path d="M560.0 280.0 L560.0 273.0"/><path d="M701.6 294.5 L703.0 287.6"/><path d="M837.3 337.2 L840.0 330.8"/><path d="M961.5 406.6 L965.5 400.9"/><path d="M1069.2 499.6 L1074.3 494.8"/><path d="M1155.8 612.5 L1161.7 608.8"/><path d="M1217.8 740.6 L1224.4 738.2"/></g>
+            <g stroke="#6CB7FF" stroke-width=".75">
+              <path d="M-80 96 L1220 402" opacity=".045"/>
+              <path d="M-80 520 L1220 176" opacity=".034"/>
+              <path d="M180 -60 L980 720" opacity=".026"/>
+            </g>
+          </g>
+        </svg>
+        <div style="position:absolute; left:16px; top:16px; width:16px; height:16px;
+                    border-left:1px solid #28353C; border-top:1px solid #28353C;"></div>
+        <div style="position:absolute; right:16px; top:16px; width:16px; height:16px;
+                    border-right:1px solid #28353C; border-top:1px solid #28353C;"></div>
+        <div style="position:absolute; left:16px; bottom:16px; width:16px; height:16px;
+                    border-left:1px solid #28353C; border-bottom:1px solid #28353C;"></div>
+        <div style="position:absolute; right:16px; bottom:16px; width:16px; height:16px;
+                    border-right:1px solid #28353C; border-bottom:1px solid #28353C;"></div>
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+          <div style="text-align:center;">
+            <div class="m" style="font-size:11px; color:#2A3438; letter-spacing:.14em;
+                        text-transform:uppercase;">Nothing drawn yet</div>
+            <div style="font-size:12.5px; color:#3A474C; padding-top:9px;">
+              Answer on the right, or <span style="color:#455257;">+ Add step</span> to place one yourself</div>
+          </div>
+        </div>
+        <div style="position:absolute; left:22px; bottom:18px; display:flex; gap:8px;">
+          <span class="m lift" style="font-size:10px; color:#67757A; border:1px solid #1E282C;
+                padding:6px 11px; cursor:pointer;">Fit</span>
+          <span class="m lift" style="font-size:10px; color:#6CB7FF; border:1px solid #1E3A4E;
+                padding:6px 11px; cursor:pointer;">+ Add step</span>
+        </div>
+        </div>
+      </div>
+      <div style="border-left:1px solid #141C20; border-top:1px solid #141C20;
+                  display:flex; flex-direction:column; min-height:0;">
+        <div style="display:flex; gap:2px; padding:14px 16px 0;">
+          <span class="m" style="font-size:10px; letter-spacing:.09em;
+                text-transform:uppercase; padding:6px 11px;
+                color:#DFE6E6; box-shadow:inset 0 -2px 0 #6CB7FF;">Assistant</span>
+          <span class="m lift" style="font-size:10px; letter-spacing:.09em;
+                text-transform:uppercase; padding:6px 11px;
+                color:#67757A; cursor:pointer;">Step</span>
+        </div>
+        <div style="flex:1; overflow:hidden; padding:20px 18px 0;">
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="settle" style="font-size:13.5px; color:#889699; line-height:1.6;">
+              What do you want to make?</div>
+            <div class="settle" style="animation-delay:60ms; align-self:flex-end; max-width:90%;
+                        background:#122029; padding:11px 13px; font-size:13px; line-height:1.5;">
+              gene counts from paired-end RNA-seq, mouse liver, 24 samples</div>
+            <div class="settle" style="animation-delay:140ms;">
+              <div style="font-size:13px; color:#889699; line-height:1.55; padding-bottom:12px;">
+                Here is the goal I read. Correct anything before it builds.</div>
+              <div style="border:1px solid #22333B; background:#0A1014;">
+                <div style="padding:10px 13px; border-bottom:1px solid #162025; display:flex;
+                            justify-content:space-between; align-items:baseline;">
+                  <span class="lb">Goal</span>
+                  <span class="m" style="font-size:9.5px; color:#455257;">editable</span></div>
+                <div style="padding:12px 13px; display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:grid; grid-template-columns:60px 1fr; gap:9px; align-items:baseline;">
+                    <span class="lb" style="letter-spacing:.1em;">Have</span>
+                    <span class="m" style="font-size:11px; color:#6CB7FF;">fastq.reads[paired]</span></div>
+                  <div style="display:grid; grid-template-columns:60px 1fr; gap:9px; align-items:baseline;">
+                    <span class="lb" style="letter-spacing:.1em;">Want</span>
+                    <span class="m" style="font-size:11px; color:#6CB7FF;">counts.matrix</span></div>
+                  <div style="display:grid; grid-template-columns:60px 1fr; gap:9px; align-items:baseline;">
+                    <span class="lb" style="letter-spacing:.1em;">Organism</span>
+                    <span class="m" style="font-size:11px;">mus_musculus</span></div>
+                  <div style="display:grid; grid-template-columns:60px 1fr; gap:9px; align-items:start;">
+                    <span class="lb" style="letter-spacing:.1em; padding-top:2px;">Unsure</span>
+                    <div><span class="m" style="font-size:11px; color:#C1B508;">strandedness</span>
+                      <div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">
+                        You did not say, and I will not invent it.</div></div></div>
+                </div>
+                <div style="padding:11px 13px; border-top:1px solid #162025; display:flex; gap:9px;">
+                  <span class="lift" style="font-size:12.5px; font-weight:600; color:#080B0D;
+                        background:#6CB7FF; padding:7px 16px; cursor:pointer;">Build this</span>
+                  <span class="lift" style="font-size:12.5px; color:#889699; border:1px solid #1E282C;
+                        padding:7px 14px; cursor:pointer;">Edit</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

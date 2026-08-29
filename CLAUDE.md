@@ -23,9 +23,16 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-08-24-wiener-w2.md`](notes/journal/2026-08-24-wiener-w2.md). **Three entries share that
-> date and a filename sort does not order them**; that one says so at the top and lists the
-> other two in the order they were written.
+> [`2026-08-29-the-screens-redesigned.md`](notes/journal/2026-08-29-the-screens-redesigned.md).
+> **2026-08-29 has two entries and a filename sort does not order them**: read
+> [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
+> loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
+> which answers them and carries the canvas the rework builds from. Earlier days do the same
+> thing: 2026-08-24 has three entries and 2026-08-18 has nine, and each day's entry point is
+> named in [`notes/journal/README.md`](notes/journal/README.md).
+>
+> **This pointer went three entries stale before anybody noticed** (fixed 2026-08-29), which is
+> the same failure mode as the counts below. Update it in the commit that adds the entry.
 > It is append-only and dated, so it cannot silently go stale the way this section can — and it
 > carries what is next, what was decided, and what a fresh reader gets wrong. This section holds
 > only what stays true between plans; the journal is the handoff.
