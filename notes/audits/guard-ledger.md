@@ -3004,3 +3004,48 @@ failures were the guard catching the *documentation* of the curves that had just
 this file's own comments quote the old values, which is the habit the rest of this repository
 asks for. A scan that cannot tell a declaration from prose punishes writing down what you
 changed.
+
+## Publishing nothing, with every process green — 2026-08-30
+
+Plan 4 phase 1. Six guards across three files, and the entry worth reading is the one at the
+bottom about what none of them could have caught.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_emit.py` "the artifact never names an output directory" | `outdir = null` → `outdir = 'results'` — the cheap, tempting default almost every nf-core pipeline ships | failed | `the artifact must declare the hole`, plus the golden diff showing the exact line |
+| 2026-08-30 | `test_emit.py` "publishing is off when nobody said where" | restored `enabled: { params.outdir != null }`, the closure form that shipped first | failed | `assert 'enabled: params.outdir != null,' in …` |
+| 2026-08-30 | `test_launcher.py` "the launcher says where outputs go" | deleted `--outdir` from `command()`'s argv | failed | `nothing would be published at all` |
+| 2026-08-30 | `test_launcher.py` "the destination is a command line param and not the site config" | moved `params.outdir` into `site_config()` — the form that reads correctly and does not work | failed | `in site.config this is read too late to enable publishing, and it fails silently` |
+| 2026-08-30 | `test_launcher.py` "wiener never asks a person for an output directory" | dropped `- SUPPLIED_BY_WIENER` from `declared_holes` | failed | `assert {'gtf', 'input', 'outdir'} == {'gtf', 'input'}` |
+| 2026-08-30 | `test_results_route.py` "a run that published nothing is not a run that cannot publish" | made `published` always `True`, collapsing three absences into one | failed | `nothing has been launched, so nothing can be said` |
+| 2026-08-30 | `test_results_route.py` "results are scoped to a lab" | removed the `repository.run(...)` lookup that enforces `lab_id` | failed | `assert 200 == 404` |
+
+### What no test caught, and what did
+
+**`publishDir` shipped with `enabled: { params.outdir != null }` and published NOTHING.** All five
+processes ran green, the stub gate reported PASS, every unit test passed, `nextflow config`
+printed the directive correctly, and `.nextflow.log` contained no mention of publishing at all.
+Nextflow evaluates `enabled` when it reads the config and never calls a closure handed to it.
+
+**What found it was `ls results/`.** Not a test — there is no test in this repository that could
+have had an opinion, because the behaviour lives in Nextflow. This is the W1/W2 pattern for the
+third time: defects found by running the thing and looking at the output, none by a test written
+to pass.
+
+**Then the fix was wrong too, in a way only a second run could show.** `enabled: params.outdir
+!= null` is an expression evaluated while the `process {` scope is read — so it sees a
+command-line `--outdir` (injected before parsing) and **not** a `profiles { stub_data { params
+.outdir = … } }` (read afterwards). The first correction moved the destination into the two gate
+profiles, which is where it reads most naturally and where it silently does nothing. Measured:
+profile + expression published nothing with every process green; CLI + expression published 41
+files. The destination now lives on the command line in both `gates.py` and Wiener's launcher.
+
+**Three experiments, written down so nobody repeats them:** a closure `enabled` never fires; a
+lazy `saveAs` guard publishes correctly *but still creates a directory called `null`*, because
+Nextflow resolves the path before calling it; only an expression `enabled` plus a CLI param gets
+both branches right. Verified: `--outdir` publishes 41 files, and no destination at all leaves no
+`results/` and no `null/`.
+
+**Every revert above was verified to land** — `grep -c` on the edited file before the run was
+believed. Two of them did not land on the first attempt, which is the miss this ledger recorded
+earlier the same day.

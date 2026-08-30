@@ -69,3 +69,67 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     assert a_run.ingest_secret in (workdir / "site.config").read_text()
     assert spawned and spawned[0][1] == str(workdir), "Nextflow was not started in the copy"
     assert repository.run(session, a_run.lab_id, a_run.id).phase == "launching"
+    assert launcher.results_dir(a_run.id).is_dir(), (
+        "a run that publishes nothing must have an empty results directory rather than none — "
+        "otherwise /results cannot tell 'produced no output' from 'no such run'"
+    )
+
+
+def test_the_launcher_says_where_outputs_go(a_run):
+    """A run publishes into its own directory, and the artifact never named one.
+
+    `emit.py`'s `PUBLISH_DIR` emits `params.outdir = null` because where results go is a SITE
+    fact — the same argument `process.resourceLimits` makes about how big the machine is. This
+    is the other half: Wiener supplies the value, derived from the opaque run id exactly as
+    `work_dir` is, so no path is ever accepted from a client.
+    """
+    from wiener_api.services.launcher import command, results_dir, work_dir
+
+    argv = command(a_run, workdir=str(work_dir(a_run.id)))
+    assert "--outdir" in argv, "nothing would be published at all"
+    given = argv[argv.index("--outdir") + 1]
+    assert given == str(results_dir(a_run.id))
+    assert given.startswith(str(work_dir(a_run.id))), (
+        f"outputs must land inside the run's own directory, not beside it: {given}"
+    )
+    assert a_run.id in given, "derived from the opaque id, never from anything a client sent"
+
+
+def test_the_destination_is_a_command_line_param_and_not_the_site_config(a_run):
+    """**Not a style choice, and the reason is Nextflow's evaluation order.**
+
+    `publishDir`'s `enabled:` is an expression evaluated while the `process {` scope is read.
+    A `-c` file layers on top and a `profiles {` block is read afterwards, so neither can turn
+    publishing on; a command-line param can, because those are injected before parsing.
+
+    Measured on 2026-08-30 against a real stub run: a profile-set `outdir` published **nothing**
+    with all five processes green, and the same config with `--outdir` published 41 files. This
+    test exists because that failure is completely silent — no error, no warning, no log line.
+    """
+    from wiener_api.services.launcher import command, site_config, work_dir
+
+    assert "outdir" not in site_config(a_run), (
+        "in site.config this is read too late to enable publishing, and it fails silently"
+    )
+    assert "--outdir" in command(a_run, workdir=str(work_dir(a_run.id)))
+
+
+def test_wiener_never_asks_a_person_for_an_output_directory(tmp_path, monkeypatch):
+    """`outdir` is a null in the artifact, and a null is how Wiener discovers what to ask for.
+
+    Left alone, the run sheet would have offered a field for it — turning a server's own
+    business into a client-supplied filesystem path, which is what `work_dir`'s docstring
+    refuses on this side and what invariant 15 refuses on Mendel's.
+    """
+    from wiener_api.services import artifacts
+    from wiener_api.settings import settings
+
+    root = tmp_path / "artifacts" / "abc"
+    root.mkdir(parents=True)
+    (root / "nextflow.config").write_text(
+        "params {\n    input = null\n    gtf = null\n    outdir = null\n}\n"
+    )
+    monkeypatch.setattr(settings, "artifact_root", tmp_path / "artifacts")
+
+    assert artifacts.declared_holes("abc") == {"input", "gtf"}
+    assert "outdir" in artifacts.SUPPLIED_BY_WIENER

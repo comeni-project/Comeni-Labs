@@ -49,6 +49,24 @@ def store(bundle: bytes) -> tuple[str, str, int]:
     return artifact_id, digest, size
 
 
+SUPPLIED_BY_WIENER = frozenset({"outdir"})
+"""Nulls in the artifact that are **site facts Wiener fills**, not questions for a laboratory.
+
+`outdir` arrived on 2026-08-30 with `publishDir`. It is emitted `= null` exactly as `input` is —
+the artifact must not name a destination — so `declared_holes` picked it up and the run sheet
+would have asked a person to type a path into the API.
+
+**That is worse than an odd field.** `docs/design/wiener.md` §12's whole shape is that the
+browser posts an artifact and Wiener reads the artifact's own holes back out; a hole that is
+really a server's own business turns into a client-supplied filesystem path, which is the thing
+invariant 15 exists to prevent on Mendel's side and the thing `work_dir`'s docstring refuses on
+this one. Wiener already knows where the run's directory is, and passes `--outdir` itself.
+
+**A set rather than a special case**, because the next site fact emitted as a null belongs here
+too and should not need this argument made again.
+"""
+
+
 def declared_holes(artifact_id: str) -> set[str]:
     """The parameters this artifact says only the laboratory can supply.
 
@@ -60,6 +78,9 @@ def declared_holes(artifact_id: str) -> set[str]:
 
     Only the **top-level** `params` block is read. A profile that assigns `params.fasta` is
     *filling* a hole, not declaring one — which is what the artifact's own `test` profile does.
+
+    `SUPPLIED_BY_WIENER` is subtracted: a null that is a *site* fact is this server's business,
+    not a question for anybody.
     """
     config = settings.artifact_root / artifact_id / "nextflow.config"
     if not config.is_file():
@@ -78,4 +99,5 @@ def declared_holes(artifact_id: str) -> set[str]:
         depth += {"{": 1, "}": -1}.get(text[end], 0)
         end += 1
 
-    return set(re.findall(r"^\s*(\w+)\s*=\s*null\s*$", text[start:end - 1], re.MULTILINE))
+    nulls = set(re.findall(r"^\s*(\w+)\s*=\s*null\s*$", text[start:end - 1], re.MULTILINE))
+    return nulls - SUPPLIED_BY_WIENER

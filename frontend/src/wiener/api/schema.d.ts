@@ -165,6 +165,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a run published
+         * @description A directory walk, and deliberately nothing more.
+         *
+         *     **Nothing here resolves anything** — the 2026-08-19 audit found every registry-touching
+         *     screen cost ~250ms warm, and a results list has no reason to be one of them.
+         *
+         *     **Paged, because a 5,000-task run publishes more than a page.** W2 shipped a console that
+         *     fetched once at 200 and subscribed, and it was invisible on every run anybody had because
+         *     the largest was five tasks. Same mistake, same file, one endpoint along.
+         *
+         *     `lab_id` is enforced the way `repository.py`'s header asks: this hands back filenames, and a
+         *     filter you can forget is a leak.
+         */
+        get: operations["readResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -425,6 +455,43 @@ export interface components {
             read_bytes?: number | null;
             /** Write Bytes */
             write_bytes?: number | null;
+        };
+        /**
+         * ResultFile
+         * @description One published file. Every field is read off the filesystem; nothing is inferred.
+         */
+        ResultFile: {
+            /** Process */
+            process: string;
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Modified Ms */
+            modified_ms: number;
+        };
+        /**
+         * ResultsOut
+         * @description What a run published, and — when it published nothing — which kind of nothing.
+         *
+         *     **Three absences, and they are different facts.** `rn-absence`'s rule and
+         *     `ProcessRow.reported_resources` are the shape being copied: an empty list for all three
+         *     would say *this run produced no output* about a run that has not started, about a run whose
+         *     pipeline predates publishing entirely, and about a run that genuinely made nothing.
+         */
+        ResultsOut: {
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["ResultFile"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Published */
+            published: boolean;
         };
         /** RunAccepted */
         RunAccepted: {
@@ -865,6 +932,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TasksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readResults: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultsOut"];
                 };
             };
             /** @description Validation Error */

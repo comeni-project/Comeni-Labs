@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
-from wiener_api.services import stream
+from wiener_api.services import launcher, stream
 from wiener_api.services.artifacts import declared_holes, store
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
@@ -437,6 +437,78 @@ def run_tasks(run_id: str, process: str | None = None, status: str | None = None
         ]
 
     return TasksOut(tasks=tasks, total=total)
+
+
+class ResultFile(BaseModel):
+    """One published file. Every field is read off the filesystem; nothing is inferred."""
+
+    process: str
+    """The directory `publishDir` put it in, which is the process name lowercased. Read back
+    rather than joined to the artifact: what is on disk is what the run actually produced."""
+    name: str
+    """Relative to the process directory, so nothing here is an absolute path."""
+    size_bytes: int
+    modified_ms: int
+
+
+class ResultsOut(BaseModel):
+    """What a run published, and — when it published nothing — which kind of nothing.
+
+    **Three absences, and they are different facts.** `rn-absence`'s rule and
+    `ProcessRow.reported_resources` are the shape being copied: an empty list for all three
+    would say *this run produced no output* about a run that has not started, about a run whose
+    pipeline predates publishing entirely, and about a run that genuinely made nothing.
+    """
+
+    files: list[ResultFile] = []
+    total: int = 0
+    """How many the run published, not how many are on this page."""
+    published: bool
+    """Whether this run has a results directory at all. `False` means the run was launched
+    before `publishDir` existed, or has not reached `launch()` — never that it made nothing."""
+
+
+@router.get("/runs/{run_id}/results", operation_id="readResults",
+            summary="What a run published")
+def run_results(run_id: str, after: int = 0, limit: int = 200) -> ResultsOut:
+    """A directory walk, and deliberately nothing more.
+
+    **Nothing here resolves anything** — the 2026-08-19 audit found every registry-touching
+    screen cost ~250ms warm, and a results list has no reason to be one of them.
+
+    **Paged, because a 5,000-task run publishes more than a page.** W2 shipped a console that
+    fetched once at 200 and subscribed, and it was invisible on every run anybody had because
+    the largest was five tasks. Same mistake, same file, one endpoint along.
+
+    `lab_id` is enforced the way `repository.py`'s header asks: this hands back filenames, and a
+    filter you can forget is a leak.
+    """
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+
+    root = launcher.results_dir(run_id)
+    if not root.is_dir():
+        return ResultsOut(published=False)
+
+    found = sorted(
+        (path for path in root.rglob("*") if path.is_file()),
+        key=lambda path: str(path.relative_to(root)),
+    )
+    page = found[after:after + limit]
+    return ResultsOut(
+        files=[
+            ResultFile(
+                process=path.relative_to(root).parts[0],
+                name="/".join(path.relative_to(root).parts[1:]) or path.name,
+                size_bytes=path.stat().st_size,
+                modified_ms=int(path.stat().st_mtime * 1000),
+            )
+            for path in page
+        ],
+        total=len(found),
+        published=True,
+    )
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

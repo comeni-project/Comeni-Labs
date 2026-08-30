@@ -1002,6 +1002,42 @@ This closes a gap that document names in §4: today the only thing that can name
 `settings.draft_root / draft_id`, both of them `mendel-api`'s private facts. **Sharing those between
 the halves is the entanglement §8 warns about, arriving as an environment variable.**
 
+### 12.2 Where the results go — added 2026-08-30, Plan 4 phase 1
+
+**A third site fact, beside `process.resourceLimits` and the weblog URL**, and it arrived with
+`publishDir`. Until this phase the emitted pipeline published nothing at all: a finished run left
+its outputs in `work/<hash>/` under names nobody can read, and that had blocked three screens.
+
+**The artifact declares the hole and never fills it.** `emit_config` emits `params.outdir = null`,
+exactly as it emits `params.input = null`, because where a laboratory keeps its results is a
+property of a *site* — the same argument this document already makes about how big the machine is.
+A path baked into the artifact would make `mendel emit` produce a different file per deployment,
+and `Pipeline.emitted`'s digests would stop reproducing.
+
+**Wiener supplies it, from the opaque run id.** `launcher.results_dir(run_id)` is
+`work_dir(run_id) / "results"` — server-chosen, so no path is ever accepted from a client, and
+inside the run's own directory so a run's outputs, work directory, `site.config` and `params.json`
+are one thing to keep or delete.
+
+**It goes on the command line, and NOT in `site.config`.** This is the one counter-intuitive part
+and it is not a preference. `publishDir`'s `enabled:` is an expression Nextflow evaluates while
+reading the `process {` scope; a `-c` file layers on top of that and a `profiles {` block is read
+after it, so neither can switch publishing on. A command-line param can, because those are
+injected before parsing. Measured against a real stub run: a profile-set `outdir` published
+**nothing** with all five processes green, and the same config with `--outdir` published 41 files.
+`mendel_compiler.gates` carries the same line for the same reason.
+
+**`outdir` is not a question for a laboratory.** `declared_holes()` reads the artifact's nulls to
+discover what a submission must supply, so without care it would have offered a person a field for
+this — turning a server's own business into a client-supplied filesystem path.
+`artifacts.SUPPLIED_BY_WIENER` subtracts it, and is a set rather than a special case because the
+next site fact emitted as a null belongs there too.
+
+**`GET /runs/{id}/results` lists what landed**, paged, scoped by `lab_id`, resolving nothing. It
+distinguishes three absences that an empty list would flatten into one: a run that has not reached
+`launch()`, a run whose pipeline predates publishing, and a run that genuinely produced nothing.
+Only the third is an empty list with `published: true`.
+
 ### 12.1 Wiener executes what it is handed
 
 **That is arbitrary code execution by design.** Running a pipeline is running code; every design has

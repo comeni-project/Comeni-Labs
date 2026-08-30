@@ -89,21 +89,21 @@ those profiles or a stub run publishes into whatever the working directory happe
 **Deliverable:** `nextflow.config` carries a `publishDir` and an `outdir` parameter; the golden
 files record it.
 
-- [ ] Add `outdir = null` to the `params {` block in `emit_config()`, **after** the entry params
+- [x] Add `outdir = null` to the `params {` block in `emit_config()`, **after** the entry params
       so the entry-param loop stays untouched and the diff is one line in one place.
-- [ ] Add a `PUBLISH_DIR` constant beside `RESOURCE_LABELS` in `emit.py`, with a docstring in the
+- [x] Add a `PUBLISH_DIR` constant beside `RESOURCE_LABELS` in `emit.py`, with a docstring in the
       house style saying: it is a **convention** quoted from nf-core's `modules.config`, not a
       judgement; the directory is derived from `task.process` so it depends on no step; `mode`
       is `copy` because a symlink into a work directory that gets cleaned is a result that
       evaporates; and `params.outdir` is `null` in the artifact because **where outputs go is a
       site fact**, with `process.resourceLimits` named as the precedent.
-- [ ] Emit it from `_label_scope()` — the same scope, above the labels, so a reader meets the
+- [x] Emit it from `_label_scope()` — the same scope, above the labels, so a reader meets the
       publishing rule before the resource rules.
-- [ ] Give `stub_data` and the `test` profile their own `params.outdir` default so a gate run
+- [x] Give `stub_data` and the `test` profile their own `params.outdir` default so a gate run
       publishes somewhere predictable rather than into the process's working directory.
-- [ ] Regenerate every golden `nextflow.config`. **Read the diff.** Confirm it is additive, that
+- [x] Regenerate every golden `nextflow.config`. **Read the diff.** Confirm it is additive, that
       nothing reordered, and that no path appears anywhere in the artifact.
-- [ ] Add `test_the_artifact_never_names_an_output_directory` — assert `emit_config` output
+- [x] Add `test_the_artifact_never_names_an_output_directory` — assert `emit_config` output
       contains `outdir = null` and matches no absolute path. **Watch it fail** by hard-coding a
       default, and record the revert in [`../audits/guard-ledger.md`](../audits/guard-ledger.md).
 
@@ -118,13 +118,13 @@ breaking the one thing that executes.
 **Deliverable:** Wiener supplies `outdir`, so a real run's outputs land somewhere Wiener can find
 them.
 
-- [ ] In `packages/wiener-api/src/wiener_api/services/launcher.py`, extend `site_config(run)` to
+- [x] In `packages/wiener-api/src/wiener_api/services/launcher.py`, extend `site_config(run)` to
       write `params.outdir` pointing at `work_dir(run_id) / "results"`. It goes beside
       `_resource_limits()` and for the same stated reason — read that function's comment and
       match its argument rather than restating it.
-- [ ] Create the directory at launch, next to where `workdir` is created, so a run that publishes
+- [x] Create the directory at launch, next to where `workdir` is created, so a run that publishes
       nothing still has a directory rather than a 404 that reads as a missing run.
-- [ ] Add `test_the_launcher_says_where_outputs_go` to `packages/wiener-api/tests/test_launcher.py`
+- [x] Add `test_the_launcher_says_where_outputs_go` to `packages/wiener-api/tests/test_launcher.py`
       — assert the written `site.config` names a directory inside the run's own workdir and no
       other. **Watch it fail** by pointing it one level up.
 
@@ -139,24 +139,24 @@ five and six defects respectively were found by running it and none by a test wr
 **Deliverable:** an endpoint that lists what a run published, and says honestly when there is
 nothing.
 
-- [ ] Add the route to `packages/wiener-api/src/wiener_api/routes/runs.py`, following the file's
+- [x] Add the route to `packages/wiener-api/src/wiener_api/routes/runs.py`, following the file's
       existing shape — a declared `ResultsOut` model, an `operation_id`, a one-line `summary`.
-- [ ] It returns one entry per published file: the process that made it, the relative name, the
+- [x] It returns one entry per published file: the process that made it, the relative name, the
       size, the modification time. **Every field comes from the filesystem**; nothing is
       inferred, and nothing resolves anything (the 2026-08-19 audit's rule — no screen may touch
       the registry in a request).
-- [ ] **Absent is not zero.** A run that has published nothing yet and a run that published
+- [x] **Absent is not zero.** A run that has published nothing yet and a run that published
       nothing at all are different answers, and a run launched before this phase existed is a
       third. Distinguish them in the response rather than returning an empty list for all three
       — `rn-absence`'s rule, and `ProcessRow.reported_resources` is the shape to copy.
-- [ ] Enforce `lab_id` the way every other query in `repository.py` does. That file's header
+- [x] Enforce `lab_id` the way every other query in `repository.py` does. That file's header
       says a filter you can forget is a leak, and this one hands back filenames.
-- [ ] Paginate. A run with 5,000 tasks can publish more files than that, and W2's console was
+- [x] Paginate. A run with 5,000 tasks can publish more files than that, and W2's console was
       bitten by exactly this — it paged once at 200 and nobody noticed, because the largest run
       anybody had was five tasks.
-- [ ] Add `test_results_are_scoped_to_a_lab` and `test_an_unpublished_run_is_not_an_empty_run`.
+- [x] Add `test_results_are_scoped_to_a_lab` and `test_an_unpublished_run_is_not_an_empty_run`.
       Watch both fail.
-- [ ] `make client` to regenerate `frontend/src/wiener/api/schema.d.ts`.
+- [x] `make client` to regenerate `frontend/src/wiener/api/schema.d.ts`.
 
 **Verify:** `make check`, and read the endpoint's answer for the real run from Task 2.
 
@@ -164,12 +164,12 @@ nothing.
 
 ## Task 4 — record what changed
 
-- [ ] Update `docs/design/wiener.md` §12 with the `outdir` site fact, beside `resourceLimits`,
+- [x] Update `docs/design/wiener.md` §12 with the `outdir` site fact, beside `resourceLimits`,
       naming this plan and the date.
-- [ ] Update `docs/reference/pipeline-schema.md` if `outdir` appears in a `pipeline.yml` — it
+- [x] Update `docs/reference/pipeline-schema.md` if `outdir` appears in a `pipeline.yml` — it
       should **not**, and if it does, that is a finding rather than a documentation task. Stop and
       say so.
-- [ ] Add a line to `CLAUDE.md`'s current-state section: the emitted pipeline now publishes, and
+- [x] Add a line to `CLAUDE.md`'s current-state section: the emitted pipeline now publishes, and
       the directory is a site fact. Keep it to two sentences — that section is 156 lines because
       of paragraphs that were meant to be two sentences.
 
@@ -177,12 +177,22 @@ nothing.
 
 ## Execution record
 
+**Executed 2026-08-30**, on `worktree-plan-4-phase-0` (the same branch as phase 0 — `wiener-w1`
+carried phases 0–3 the same way). 24 of 24 steps. `make verify` green at **1655 passed**, 5 slow
+tests, 76 guards; the frontend gate green at 281 after `make client`.
+
+**Proved by running it, not by tests passing.** `mendel build --gate stub` → `gate stub: PASS` →
+**41 files across 5 process directories**, and no destination given → nothing published and no
+directory called `null`.
+
 | Task | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
+| 1 | No — the design was right and the *mechanism* was wrong twice | **`enabled: { … }` published NOTHING with all five processes green.** Nextflow evaluates `enabled` when it reads the config and never calls a closure. No error, no warning, no log line; `nextflow config` printed the directive correctly. Found by `ls results/` after a stub run — there is no test in this repository that could have had an opinion, because the behaviour is Nextflow's. |
+| 1 | And the first fix was also wrong | An expression `enabled` is evaluated while the `process {` scope is read, so it sees a **command-line** `--outdir` and **not** a **profile-set** one. The plan's step "give `stub_data` and the `test` profile their own `params.outdir`" was carried out, measured to publish nothing, and **reverted**: the gates now pass `--outdir` on the command line (`gates.py`). Better anyway — it keeps *where results go* out of the artifact entirely, including out of its profiles, which is what the site-fact argument actually asks for. |
+| 1 | Plus a guard that caught its own documentation | `test_publishing_is_off_when_nobody_said_where` tripped on the emitted config's own **comment**, which quotes the broken closure form. Comment lines are stripped before asserting — the same fix `tokens.test.ts` needed hours earlier for the same reason. A scan that cannot tell a directive from the prose above it punishes writing the reason down. |
+| 2 | Plus a finding the plan did not anticipate | **`outdir` would have been shown to a person as a parameter to fill.** `declared_holes()` discovers a submission's shape by reading the artifact's nulls, and `outdir` is now one — so the run sheet would have offered a field for a filesystem path, turning a server's own business into a client-supplied path. `artifacts.SUPPLIED_BY_WIENER` subtracts it, as a set rather than a special case. |
+| 3 | Yes | Three absences kept distinct (`published: false` vs an empty list), paged at 200, `lab_id` enforced, nothing resolved. Verified against Task 1's real gate output rather than a fixture. |
+| 4 | Yes, and the stop-condition did not fire | The plan said to **stop and report** if `outdir` appeared in `pipeline.yml`. It does not — checked against a real build. |
 
 ## What this phase deliberately does not do
 

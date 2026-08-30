@@ -133,6 +133,14 @@ judgement invented — and a cap is kept separate from a request: `process.resou
 *site* fact written by Wiener's launcher, never a number in the artifact. Both were found by a
 board with one half of every comparison empty.
 
+**The emitted pipeline publishes its results, as of 2026-08-30** — Plan 4 phase 1, and until
+then it published nothing at all, so a finished run left its outputs in `work/<hash>/` under
+names nobody can read. `params.outdir` is `null` in the artifact and Wiener supplies it, a third
+site fact beside `resourceLimits`; it goes on Nextflow's **command line** and not in `site.config`,
+because `publishDir`'s `enabled:` is evaluated while the `process {` scope is read and a `-c` file
+is layered after it. That distinction was found by running a stub gate and looking in `results/`:
+the closure form published nothing with all five processes green, no error and no log line.
+
 **The whole stack comes up with one `docker compose up`**, which was the operator's constraint
 rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
 ClickHouse and Grafana. Two consequences are worth knowing before touching it. **The worker holds
