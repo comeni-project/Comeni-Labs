@@ -255,6 +255,17 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
     return out, total
 
 
+def artifact_path(draft_id: str) -> Path | None:
+    """Where `keep` wrote this draft's `pipeline.yml`, or `None` if it never has.
+
+    **Returned, never accepted** — the same direction `Kept.path` travels. A server saying where
+    it put something is the opposite of a client naming a file, which is what invariant 15
+    refuses.
+    """
+    path = _output_root() / draft_id / "pipeline.yml"
+    return path if path.is_file() else None
+
+
 def create(graph: DraftGraph, name: str, who: str) -> str:
     """`token_hex(16)` rather than a serial: `routes/build.py` records that the API may not
     accept a path, and a guessable id is the next-worst thing."""

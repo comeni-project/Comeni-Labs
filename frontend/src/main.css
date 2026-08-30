@@ -249,7 +249,11 @@ body {
 
    The canvas keeps a floor, because a canvas narrower than a node is not a canvas. Both grips
    stay drag-resizable above the breakpoint; below it they are simply not in the way. */
-.builder { display: grid; grid-template-columns: auto 5px minmax(320px, 1fr) 5px auto; }
+/* **Three children, three columns**: the canvas, the grip, the rail. It declared FIVE — a
+   leftover from when a module palette and its grip sat on the left — so the last two sat empty
+   and the canvas was sized `auto` instead of taking the space. 335px of dead ground to the
+   right of the rail, found by looking at the built page. */
+.builder { display: grid; grid-template-columns: minmax(320px, 1fr) 5px auto; }
 @media (max-width: 1180px) {
   .builder { grid-template-columns: minmax(0, 1fr); grid-auto-rows: min-content; }
   .builder > .grip { display: none; }

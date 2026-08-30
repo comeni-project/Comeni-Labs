@@ -516,6 +516,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/artifact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The kept pipeline.yml, as text
+         * @description **The other view of the canvas.** `n-bartifact`: *pipeline.yml is the pipeline, so the
+         *     other view of the canvas is the artifact itself.*
+         *
+         *     404 when the draft has never been kept — a draft has no artifact until `keep` writes one,
+         *     and inventing an empty document would claim otherwise.
+         */
+        get: operations["readArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/drafts/{draft_id}/bundle": {
         parameters: {
             query?: never;
@@ -774,6 +798,19 @@ export interface components {
             settled: string[];
             /** Refused */
             refused: components["schemas"]["RefusedDraft"][];
+        };
+        /**
+         * Artifact
+         * @description A kept pipeline, as the document it is.
+         */
+        Artifact: {
+            /** Text */
+            text: string;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: string[];
         };
         /**
          * Attention
@@ -1787,6 +1824,11 @@ export interface components {
             because: string;
             /** Axis Reason */
             axis_reason: string;
+            /**
+             * Premise
+             * @default []
+             */
+            premise: string[];
         };
         /**
          * State
@@ -2709,6 +2751,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Kept"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Artifact"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */

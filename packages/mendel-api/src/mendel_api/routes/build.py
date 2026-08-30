@@ -244,6 +244,53 @@ def keep_draft(draft_id: str) -> Kept:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
 
 
+class Artifact(BaseModel):
+    """A kept pipeline, as the document it is."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    """The `pipeline.yml` verbatim.
+
+    **Not a projection of it.** `CLAUDE.md`: *`pipeline.yml` IS the pipeline* — one artifact
+    carrying the goal, every step and setting with a `why:`, every contract pinned by digest.
+    The builder's second view is that file, so sending a re-serialised model would mean the
+    screen showed something structurally similar to what `mendel emit` reads, which is exactly
+    the gap a reader opens this view to close.
+    """
+    sections: list[str] = []
+    """Top-level keys, in the order they appear, so the view can offer jumps without parsing
+    YAML in the browser. A row of chips, not another left-hand list (`n-bartifact`)."""
+
+
+@router.get(
+    "/drafts/{draft_id}/artifact",
+    operation_id="readArtifact",
+    summary="The kept pipeline.yml, as text",
+    responses=REFUSES,
+)
+def read_artifact(draft_id: str) -> Artifact:
+    """**The other view of the canvas.** `n-bartifact`: *pipeline.yml is the pipeline, so the
+    other view of the canvas is the artifact itself.*
+
+    404 when the draft has never been kept — a draft has no artifact until `keep` writes one,
+    and inventing an empty document would claim otherwise.
+    """
+    path = draft_service.artifact_path(draft_id)
+    if path is None or not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="this pipeline has not been kept yet, so there is no artifact to read",
+        )
+    text = path.read_text()
+    sections = [
+        line.split(":", 1)[0]
+        for line in text.splitlines()
+        if line and not line[0].isspace() and not line.startswith("#") and ":" in line
+    ]
+    return Artifact(text=text, sections=sections)
+
+
 @router.get(
     "/drafts/{draft_id}/bundle",
     operation_id="downloadBundle",

@@ -5,12 +5,14 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
 import { Node } from "./Node";
-import { LeftPanel } from "./LeftPanel";
 import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
+import { ArtifactView } from "./ArtifactView";
+import { Browse } from "./Browse";
 import { Picker } from "./Picker";
 import { Provenance } from "./Provenance";
 import { Status } from "./Status";
+import { Swap } from "./Swap";
 import { useRun } from "./useRun";
 import { usePipelineDraft } from "./usePipelineDraft";
 import { Compare } from "./Compare";
@@ -20,7 +22,6 @@ import { Findings } from "./Findings";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
 import { heightFor, portX } from "./geometry";
-import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
 import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
@@ -84,7 +85,15 @@ function Side({
           <span className="ml-auto font-data text-secondary text-[var(--undecided)]">{badge}</span>
         )}
       </div>
-      <div className="flex-1 overflow-auto">{children}</div>
+      {/* **Not a scroller.** `Rail` owns a `flex-1 min-h-0 overflow-auto` of its own,
+          so this made two nested scroll containers around one list — which is a well-known way
+          to lose a scroll position: the outer one scrolls, the inner content changes height, and
+          the outer clamps back to zero. The 2026-08-29 walk lost a half-filled parameter form to
+          exactly that.
+
+          `min-h-0` is load-bearing beside `flex-1`: without it a flex child refuses to shrink
+          below its content and the child's own scroller never engages. */}
+      <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
     </div>
   );
 }
@@ -101,7 +110,6 @@ function Side({
  */
 export function Builder() {
   useTitle("Builder");
-  const left = useWidth(232, 190, 430);
   const right = useWidth(320, 280, 560);
   const { view, onWheel, onPointerDown, reset, nudge, fit } = useView();
   const box = useRef<HTMLDivElement>(null);
@@ -138,7 +146,7 @@ export function Builder() {
   return example.data ? (
     <Editing built={example.data} opened={draft.opened} draft={draft}
       view={view} onWheel={onWheel} onPointerDown={onPointerDown}
-      reset={reset} nudge={nudge} fit={fit} box={box} left={left} right={right}
+      reset={reset} nudge={nudge} fit={fit} box={box} right={right}
       selected={selected} setSelected={setSelected} isolated={isolated} setIsolated={setIsolated}
       carded={carded} setCarded={setCarded} dragging={dragging} setDragging={setDragging} />
   ) : (
@@ -166,7 +174,7 @@ const GOAL = {
 };
 
 function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nudge, fit, box,
-  left, right,
+  right,
   selected, setSelected, isolated, setIsolated, carded, setCarded, dragging, setDragging }: any) {
   // **Node offsets live in `useGraph`, not in each node.** They were local state, which meant a
   // dragged node left its wires behind — the graph broke the moment you touched it.
@@ -199,6 +207,19 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
     gatePassed: gate.passed,
     openSheet: () => setPanel("run"),
   });
+
+  /** Canvas or artifact. **`pipeline.yml` IS the pipeline**, so the second view of the canvas
+   *  is the artifact itself rather than a list (`n-bartifact`). */
+  const [view2, setView2] = useState<"canvas" | "artifact">("canvas");
+
+  /** Which step is being swapped, if any. **Shown, then asked** — nothing is applied while
+   *  this is open (`n-bswap`). */
+  const [swapping, setSwapping] = useState<string | null>(null);
+
+  /** Whether the browse overlay is open. It replaced the permanent left palette — creation is
+   *  monthly, checking a run is daily, so a third column was rent paid every day for a thing
+   *  used monthly (`impl-settled`). */
+  const [browsing, setBrowsing] = useState(false);
 
   /** Which port's picker is open, and where to draw it. `null` most of the time. */
   const [picking, setPicking] = useState<
@@ -303,6 +324,25 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           stale={builder.stale}
         />
 
+        <div className="ml-auto flex rounded-r overflow-hidden border border-line">
+          {(["canvas", "artifact"] as const).map((which) => (
+            <button
+              key={which}
+              type="button"
+              data-testid={`view-${which}`}
+              onClick={() => setView2(which)}
+              aria-pressed={view2 === which}
+              className={`px-3 py-1 text-label uppercase tracking-[.1em] border-0 cursor-pointer
+                          transition-colors
+                          ${view2 === which
+                            ? "bg-surface-2 text-ink"
+                            : "bg-transparent text-ink-3 hover:text-ink"}`}
+            >
+              {which}
+            </button>
+          ))}
+        </div>
+
         {/* **The one action, and it does the whole sequence.** Keep, lint, open the run sheet,
             submit. It is disabled only while it is working — never because a step somebody
             cannot see has not happened yet. */}
@@ -311,7 +351,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           type="button"
           disabled={runner.busy || builder.graph.nodes.length === 0}
           onClick={() => void runner.run()}
-          className="ml-auto px-4 py-1.5 rounded-r text-body cursor-pointer
+          className="px-4 py-1.5 rounded-r text-body cursor-pointer
                      border border-[var(--link)] text-[var(--link)] bg-transparent lift
                      disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -342,26 +382,9 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         data-testid="builder"
         className="builder overflow-hidden"
       >
-      <Side
-        side="left"
-        title="Modules"
-        width={left.width}
-        collapsed={left.collapsed}
-        onExpand={() => left.setCollapsed(false)}
-      >
-        {data && (
-          <LeftPanel data={data} onAdd={builder.addNode} />
-        )}
-      </Side>
-      <Grip
-        side="left"
-        onPointerDown={(e) => left.onPointerDown(e, "left")}
-        onCollapse={() => left.setCollapsed(true)}
-        onNudge={() => {}}
-      />
-
       <div className="stage flex flex-col overflow-hidden">
-        {data && (
+        {view2 === "artifact" && <ArtifactView draftId={draft.draftId} />}
+        {view2 === "canvas" && data && (
           <Provenance data={data} isolated={isolated} onIsolate={setIsolated} />
         )}
         <Canvas
@@ -392,15 +415,15 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           setSelected(null);
           setCarded(null);
         }}
-        onDragOver={(e: React.DragEvent) => {
-          if (e.dataTransfer.types.includes(MODULE_DND)) e.preventDefault();
-        }}
-        onDrop={(e: React.DragEvent) => {
-          const contractId = e.dataTransfer.getData(MODULE_DND);
-          if (contractId) {
-            e.preventDefault();
-            builder.addNode(contractId);
-          }
+        // **The drop handlers are deleted with the palette that dragged onto them.** They were
+        // half of a gesture whose other half no longer exists, and a drop target with no drag
+        // source is dead code that reads as a feature. The three ways in are now the port
+        // picker, the browse overlay, and this canvas's own context menu.
+        onContextMenu={(e: React.MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-testid="node"]')) return;
+          e.preventDefault();
+          setBrowsing(true);
         }}
         footer={
           <div
@@ -645,11 +668,23 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             />
           </>
         )}
-        {panel === "review" && data && (
+        {panel === "review" && data && swapping && (
+          <Swap
+            step={data.steps.find((one: any) => one.id === swapping)!}
+            graph={builder.graph}
+            onClose={() => setSwapping(null)}
+            onApply={(contractId: string) => {
+              builder.replaceContract(swapping, contractId);
+              setSwapping(null);
+            }}
+          />
+        )}
+        {panel === "review" && data && !swapping && (
           <Rail
             data={data}
             selected={selected}
             onSelect={setSelected}
+            onSwap={setSwapping}
             onCollapse={() => right.setCollapsed(true)}
           />
         )}
@@ -703,6 +738,13 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             </button>
           </div>
         </>
+      )}
+
+      {browsing && (
+        <Browse
+          onClose={() => setBrowsing(false)}
+          onAdd={(contractId: string) => { builder.addAt(contractId); setBrowsing(false); }}
+        />
       )}
 
       {picking && (

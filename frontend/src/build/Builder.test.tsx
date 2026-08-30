@@ -83,24 +83,32 @@ function at(body: unknown = PIPELINE) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the builder shell", () => {
-  it("is three columns", async () => {
+  it("is TWO columns — the canvas and the rail", async () => {
+    // **Three became two**, and it was the left column that went. `impl-settled`: *the left
+    // steps list is deleted on purpose. It duplicated the canvas.* Its other tab — the module
+    // palette — is the browse overlay now, which is a better answer to *what could I add* and
+    // does not charge a permanent column for a monthly question.
     at();
     await waitFor(() => expect(screen.getByTestId("builder")).toBeTruthy());
-    expect(screen.getByTestId("modules")).toBeTruthy();
+    expect(screen.queryByTestId("modules")).toBeNull();
     expect(screen.getByTestId("canvas")).toBeTruthy();
     expect(screen.getByTestId("rail")).toBeTruthy();
   });
 
-  it("resizes each panel only within the range the design gives it", async () => {
-    // `dashboard.md` §4 — 190–430 left, 280–560 right. The numbers are the design's, and a
-    // panel draggable to 40px is a panel draggable into uselessness.
+  it("resizes the rail only within the range the design gives it", async () => {
+    // `dashboard.md` §4 — 280–560 for the rail. The numbers are the design's, and a panel
+    // draggable to 40px is a panel draggable into uselessness.
+    //
+    // **The left half of this test went with the left column.** It checked 190–430 on a panel
+    // that no longer exists; the rule it was protecting is unchanged and is asserted here on
+    // the panel that remains.
     at();
-    const left = await screen.findByTestId("modules");
-    fireEvent.pointerDown(screen.getByTestId("resize-left"), { clientX: 260 });
-    fireEvent.pointerMove(window, { clientX: 0 });
-    expect(parseInt(left.style.width, 10)).toBeGreaterThanOrEqual(190);
+    const rail = await screen.findByTestId("rail");
+    fireEvent.pointerDown(screen.getByTestId("resize-right"), { clientX: 900 });
     fireEvent.pointerMove(window, { clientX: 2000 });
-    expect(parseInt(left.style.width, 10)).toBeLessThanOrEqual(430);
+    expect(parseInt(rail.style.width, 10)).toBeGreaterThanOrEqual(280);
+    fireEvent.pointerMove(window, { clientX: 0 });
+    expect(parseInt(rail.style.width, 10)).toBeLessThanOrEqual(560);
     fireEvent.pointerUp(window);
   });
 
@@ -290,7 +298,8 @@ describe("a value you type", () => {
       steps: [
         { ...PIPELINE.steps[0],
           settings: [{ name: "seq_platform", value: null, tier: 4, why: "", domain: null,
-                       route: "ext", reason: "" }] },
+                       route: "ext", reason: "", axis_reason: "", because: "",
+                       premise: [] }] },
         PIPELINE.steps[1],
       ],
     });

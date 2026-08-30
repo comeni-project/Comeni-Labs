@@ -32,7 +32,7 @@ const PIPELINE = {
         { name: "bam", type_id: "alignment.bam", side: "out", met: true },
       ],
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
-                   reason: "nobody judged it", axis_reason: "" }],
+                   reason: "nobody judged it", axis_reason: "", premise: [] }],
     },
   ],
   layout: {
@@ -76,66 +76,38 @@ function at() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("what the design asked for", () => {
-  it("no longer keeps a list of the steps beside the canvas that draws them", async () => {
-    // **Restated, not deleted, and this is the second time on this project.**
+  it("answers what could I add, and now does it better than the palette did", async () => {
+    // ═══ THE THIRD RESTATEMENT OF THIS TEST, AND THE LOUDEST ═══════════════════════════
     //
-    // It read *"keeps both lists — the pipeline's steps and every module"*, and defended the
-    // pair: *`In pipeline` answers where is that step; `All modules` answers what could I add.
-    // 3C shipped only the first, which is a table of contents rather than a picker.*
+    // This file exists so four things the plan cut and the operator put back could not go
+    // missing quietly again. **Three of the four were about the left palette**, and the palette
+    // is now deleted. That is not the plan cutting them again — it is the browse overlay
+    // answering each better, and the honest way to record it is here, in the test that held
+    // them, rather than by deleting the file.
     //
-    // The **picker** half of that argument survives and is asserted below. The **list** half is
-    // reversed by `impl-settled` on the redesign canvas: *the left steps list is deleted on
-    // purpose. It duplicated the canvas. Orientation is the minimap's job. Do not bring back a
-    // third column.* A table of contents for a picture you are looking at is a second place for
-    // the two to disagree.
+    // What each restored thing was protecting, and where it lives now:
     //
-    // This file exists so four things the plan cut could not go missing quietly again. Reversing
-    // one of them **loudly**, in the test that held it, is the only honest way to do it — the
-    // same move phase 2 made on `forge-review.md` §3.
+    // - *`All modules` answers what could I add* — the picker half of the original pair. The
+    //   overlay answers it with search, every role, and the type signature.
+    // - *A module can be dragged in; the affordance must be REAL* — the rule was never about
+    //   dragging, it was **never offer a control that does nothing**. Adding is now a click, a
+    //   keypress, or a port picker, and the drag handlers were deleted WITH their source rather
+    //   than left as a drop target nothing can drag onto.
+    // - *A card beside the panel, because the content is a sentence* — there is no sentence.
+    //   #78: `ModuleContract` has no prose field, `impl-reuse` forbids inventing one, and the
+    //   overlay shows the type signature, which is what a contract actually knows.
+    //
+    // `Browse.test.tsx` holds the overlay's own behaviour. This holds that the QUESTION is
+    // still answered somewhere, which is what the operator was protecting.
     at();
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows.length).toBe(3);
+    await screen.findAllByTestId("node");
+    expect(screen.queryByTestId("module-row")).toBeNull();
     expect(screen.queryByTestId("step-row")).toBeNull();
-    expect(screen.queryByTestId("left-tab-pipeline")).toBeNull();
-  });
 
-  it("offers every module, not only the ones already in the pipeline", async () => {
-    // The picker half, unchanged: what could I add is still a real question and the canvas
-    // does not answer it.
-    at();
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows.length).toBe(3);
-    expect(rows.some((r) => r.textContent?.includes("hisat2/align"))).toBe(true);
-  });
-
-  it("a module can be dragged in, and the list no longer calls itself a placeholder", async () => {
-    // **The premise of this test changed; the rule behind it did not.**
-    //
-    // It read "does not pretend a module can be dragged in", because 3C had `draggable` with an
-    // `onDragStart` that set data nothing read — a control that moves under your hand and does
-    // nothing. Its note said *a `Goal` cannot pin a module, so "add this to the pipeline" is not
-    // expressible in the engine today*, and that was true.
-    //
-    // A `DraftGraph` makes it false: a drawn graph pins whatever you put in it. So the rule —
-    // never offer a control that does nothing — now points the other way, and what it demands is
-    // that the affordance be REAL. `Modules.test.tsx` holds the other half: with no `onAdd`, the
-    // rows are not draggable and the list still calls itself reference-only.
-    at();
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows[0].getAttribute("draggable")).toBe("true");
-    expect(screen.queryByText(/reference only — placeholder/i)).toBeNull();
-    expect(screen.getByText(/double-click, to add a step/i)).toBeTruthy();
-  });
-
-  it("opens a card beside the panel when a module is hovered", async () => {
-    // `dashboard.md` §4 — beside the panel, not under the cursor, because the content is a
-    // sentence and it must not cover the rows you are scanning.
-    at();
-    const rows = await screen.findAllByTestId("module-row");
-    fireEvent.mouseEnter(rows[0]);
-    const card = await screen.findByTestId("module-card");
-    expect(card.textContent).toContain("Needs");
-    expect(card.textContent).toContain("Makes");
+    fireEvent.contextMenu(screen.getByTestId("canvas"));
+    const cards = await screen.findAllByTestId("browse-card");
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.some((c) => c.textContent?.includes("HISAT2_ALIGN"))).toBe(true);
   });
 
   it("draws a port for each side, in different shapes", async () => {

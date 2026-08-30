@@ -20,11 +20,14 @@ export function Rail({
   data,
   selected,
   onSelect,
+  onSwap,
   onCollapse,
 }: {
   data: Built;
   selected: string | null;
   onSelect: (id: string | null) => void;
+  /** Offer to replace this step. The rail is where a CHOICE is questioned. */
+  onSwap?: (id: string) => void;
   onCollapse: () => void;
 }) {
   const [tab, setTab] = useState<"ask" | "step" | "review">("review");
@@ -103,7 +106,24 @@ export function Rail({
 
         {tab === "step" &&
           (step ? (
-            <Settings step={step} onClose={() => onSelect(null)} />
+            <>
+              {/* **The rail is about the CHOICE; the card is about the VALUES** —
+                  `impl-settled`. *What this step is, why this tool, swap it* lives here; the
+                  settings card on the node owns the parameters. Two lists of the same thing is
+                  what the left column was. */}
+              <div className="px-4 pt-3">
+                <button
+                  type="button"
+                  data-testid="open-swap"
+                  onClick={() => onSwap?.(step.id)}
+                  className="px-3 py-1 rounded-r border border-line text-body text-ink-2
+                             bg-transparent cursor-pointer lift hover:text-ink"
+                >
+                  Swap for something else
+                </button>
+              </div>
+              <Settings step={step} onClose={() => onSelect(null)} />
+            </>
           ) : (
             <p className="p-4 text-body text-ink-2 m-0">
               Click a step on the canvas to see what it takes, what it gives, and how every

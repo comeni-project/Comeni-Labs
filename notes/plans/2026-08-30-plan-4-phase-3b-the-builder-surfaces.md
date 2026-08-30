@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:executing-plans`, driven by the
 > operator's own session, task by task. **Do NOT use `subagent-driven-development`** — `CLAUDE.md`
-> forbids farming out implementation. Tick each `- [ ]` as it completes, and where a step was
+> forbids farming out implementation. Tick each `- [x]` as it completes, and where a step was
 > carried out differently, tick it anyway and record the deviation in the execution table. Leave
 > a box **unticked** if it was not done: that is how the next phase's inheritance stays visible.
 
@@ -126,72 +126,73 @@ rail scrolling itself back to the top, and the three-layer arc field.
 
 **Deliverable:** one way to find a tool, and it is keyboard-first.
 
-- [ ] Search plus filters, over the real canvas — the same surface as the command palette later.
-- [ ] **A tool appears under EVERY role it declares**, not `roles[0]` (P3b-3). Watch it fail with
+- [x] Search plus filters, over the real canvas — the same surface as the command palette later.
+- [x] **A tool appears under EVERY role it declares**, not `roles[0]` (P3b-3). Watch it fail with
       a two-role fixture.
-- [ ] A tool that cannot fit here is **shown and marked**, with the reason, rather than hidden.
-- [ ] The type signature is the description; **leave the prose slot empty** (#78, P3b-4).
-- [ ] Delete `Modules.tsx` and `LeftPanel.tsx` once this replaces them — and not before, so the
+- [x] A tool that cannot fit here is **shown and marked**, with the reason, rather than hidden.
+- [x] The type signature is the description; **leave the prose slot empty** (#78, P3b-4).
+- [x] Delete `Modules.tsx` and `LeftPanel.tsx` once this replaces them — and not before, so the
       product can add a step at every commit.
-- [ ] The empty canvas's right-click *Add a step here* opens it (3a's unticked box).
+- [x] The empty canvas's right-click *Add a step here* opens it (3a's unticked box).
 
 ---
 
 ## Task 4 — swap, and the settings card's missing half
 
-- [ ] *Swap for something else* on the rail, using `compare` scoped to one node. Every consequence
+- [x] *Swap for something else* on the rail, using `compare` scoped to one node. Every consequence
       listed; the canvas previews it struck-through and marked NEW; **nothing applied until the
       person says so**.
-- [ ] The settings card offers a no-rule value as **choices** rather than a text field, and shows
+- [x] The settings card offers a no-rule value as **choices** rather than a text field, and shows
       the **premise** beside a measured one (P3b-1 — the rest of the card already exists).
 
 ---
 
 ## Task 5 — the artifact view, and the run sheet
 
-- [ ] The `Canvas` / `Artifact` toggle from 3a, now with something behind it: `pipeline.yml` **is**
+- [x] The `Canvas` / `Artifact` toggle from 3a, now with something behind it: `pipeline.yml` **is**
       the pipeline, so the second view of the canvas is the artifact itself. Every value with its
       `why:` — tier, rule, premise. Open values are null and marked.
-- [ ] Section jumps are a row of chips, not another left-hand list.
+- [x] Section jumps are a row of chips, not another left-hand list.
 - [ ] The run sheet: typed input **sockets** on the canvas (dashed, no settings, a TYPE and never
       a path), and the binding with the RUN. Reachability stated **before** you commit.
-- [ ] **You never type a path.** If one ever reaches `pipeline.yml`, the product's central promise
+- [x] **You never type a path.** If one ever reaches `pipeline.yml`, the product's central promise
       is gone — this is not a style choice (`impl-inv`).
 
 ---
 
 ## Task 6 — the rail stops scrolling itself to the top
 
-- [ ] 3a's unticked box. Find what remounts it — a new key on every verdict, most likely — and key
+- [x] 3a's unticked box. Find what remounts it — a new key on every verdict, most likely — and key
       the container so it survives a re-render. The walk lost a half-filled parameter form to this.
 
 ---
 
 ## Task 7 — look at it, then write it down
 
-- [ ] **Render it and use it.** Every phase this session found defects a green suite could not.
-- [ ] Journal, `CLAUDE.md` pointer in the same commit, `notes/README.md` row, guard ledger with
+- [~] **Render it and use it.** Every phase this session found defects a green suite could not.
+- [x] Journal, `CLAUDE.md` pointer in the same commit, `notes/README.md` row, guard ledger with
       every revert **verified to land**.
 
 ---
 
 ## Execution record
 
-**Tasks 1 and 2 executed 2026-08-30**, on `worktree-plan-4-phase-0`. `make check` green at
-1676; frontend gate green at **287 tests in 53 files**, `tsc` clean, lint unchanged.
+**All seven tasks executed 2026-08-30**, on `worktree-plan-4-phase-0`. `make check` green at
+**1676**; frontend gate green at **291 tests in 54 files**, `tsc` clean, lint unchanged at its
+five pre-existing warnings, production build compiles to one easing curve.
 
-**Tasks 3–7 are NOT done and their boxes are unticked**, which is the point: the browse overlay,
-swap, the settings card's missing half, the artifact view, the run sheet and the rail's scroll
-are what a phase 3c inherits. The picker is the spine and it stands on its own — adding a step
-from a port works end to end.
+**One box is unticked and one is `[~]`**, and both are named rather than absorbed — see the last
+two rows of the table.
 
 | Task | Carried out as written? | Deviation |
 |---|---|---|
 | 1 | Yes | The reason is arithmetic against the real registry: asking what feeds featureCounts' coordinate-sorted BAM returns exactly `SAMTOOLS_SORT · the only producer of alignment.bam[coordinate_sorted]`, which is the canvas's own sentence, computed. **I sorted the consuming direction backwards** and my own docstring caught it — found by printing the registry's answer and reading it, not by a test. |
 | 2 | Mostly, with one gesture changed and one type extended | **`PortView` had no `states`**, so the picker could only ask *what produces a BAM* — three contracts — when featureCounts asks for one. The states are the difference between a filtered list and an answer, so `PortView` carries them now (the conventional alternative, index 0). **Double-click rather than click**: `onPointerDown` already starts a wire and telling a click from the start of a drag needs movement tracking `Port` does not have; double-click is unambiguous and is the palette's existing *add this* idiom. |
 | 2 | And the guard `useCompatibility` had asked for in prose | Its header ends *"A test asserts the absence."* **No test asserted the absence.** `norule.test.ts` does now, over every non-test file in `build/`, and caught a deliberately introduced `split("[")` immediately. A comment claiming a guard exists is worse than one that does not — it stops the next person looking. |
-| 3 | **Not done.** | The browse overlay. `Modules.tsx` and `LeftPanel.tsx` stay until it replaces them, so a step can be added at every commit. `roles[0]` is still the grouping bug (P3b-3). |
-| 4 | **Not done.** | Swap-with-consequences, and the settings card's two missing halves (choices rather than a text field; the premise beside a measured value). The rest of the card already existed — P3b-1. |
-| 5 | **Not done.** | The artifact view and the run sheet. |
-| 6 | **Not done.** | The rail still scrolls itself to the top. |
-| 7 | Partly | Guards recorded in the ledger, every revert verified to land. **The picker has not been looked at in a browser** — it is covered by six component tests and a real-registry probe of the service behind it, and that is not the same thing. Every phase this session found defects by rendering that a green suite could not. |
+| 3 | Yes, and it took the drag handlers with it | The overlay replaced the palette, so `Modules.tsx`, `LeftPanel.tsx` and `Steps.tsx` are deleted — and with them the canvas's `onDragOver`/`onDrop`, which were **half a gesture whose other half no longer exists**. A drop target with no drag source is dead code that reads as a feature. Three ways in now: the port picker, the overlay, and the canvas's own context menu (3a's unticked box). `roles[0]` is fixed and guarded. |
+| 3 | And `Restored.test.tsx` was restated a third time | That file exists so four operator-restored things cannot vanish quietly, and **three of the four were about the palette**. Reversing them in the test that held them — with what each was protecting and where it lives now — is the only honest way. The *question* each protected is still answered; the answers moved. |
+| 4 | Narrower than written, because most of the card already existed | P3b-1 was right that `Settings.tsx` already groups by tier and renders a `<select>` for any declared domain — so *choices rather than a text field* was **already true**. The genuinely absent half was the **premise**, which needed a new `SettingView.premise` carrying `PremiseRecord.prose()`. That is what tier 3 is yellow FOR: *the machinery worked, check the premise* — and the card said a rule matched without ever saying what it matched on. |
+| 4 | Swap computes its consequences rather than describing them | Choosing a candidate runs `validate` against the graph **as it would be** and diffs the verdict. *Would break MD0506 align.index* is a finding the resolver produced, not a prediction. Nothing is applied until asked. |
+| 5 | The artifact view, yes; the input sockets, no | `GET /drafts/{id}/artifact` serves the `pipeline.yml` **verbatim** — a re-serialised model would mean the screen showed something structurally similar to what `mendel emit` reads, which is the gap this view exists to close. **The canvas's typed input sockets are NOT drawn** and that box is unticked: it is a layout change of the same class as the three-layer arc field. The *binding* half is already correct and now guarded — `norule.test.ts` holds that no control in `build/` takes a path except the run sheet, which is Wiener's. |
+| 6 | Yes, and the cause was structural | The rail sat inside **two nested scroll containers** — `Side`'s and its own. The outer scrolls, the inner content changes height, the outer clamps to zero. `Side` is not a scroller any more. |
+| 7 | `[~]` — the shell was looked at, the new surfaces were not | Looking found the grid still declaring **five columns for three children**, leaving 335px of dead ground beside the rail. The picker, overlay, swap and artifact view have component tests and no browser pass; headless Chrome cannot cheaply drive the clicks that reach them. Recorded as W1 recorded it. |

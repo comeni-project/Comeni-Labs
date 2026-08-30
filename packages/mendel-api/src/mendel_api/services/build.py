@@ -117,6 +117,22 @@ class SettingView(BaseModel):
     Plan 1.14 split them because one field was answering both, which is how the registry came to
     cite the STAR paper as the reason HISAT2 was chosen."""
 
+    premise: list[str] = []
+    """The facts this decision rested on, each as its own sentence.
+
+    **`PremiseRecord.prose()`, not the record.** That method exists because spec §6.1 says no
+    structured value is a reader's only account of itself, and it puts the VALUE first — what a
+    reviewer checks against the sample sheet — and the ORIGIN second — what tells them whether
+    checking is worth the time. `read_length is 150, measured` versus `strandedness is reverse,
+    asserted, not measured` is the whole difference, and it is the difference the card exists to
+    show.
+
+    **This is what tier 3 is yellow FOR.** `CLAUDE.md`: *yellow means the machinery worked, check
+    the premise* — and until Plan 4 phase 3b the card said a rule matched and never said what it
+    matched on, so there was nothing to check. Empty for tiers 1, 2 and 4, which rest on no
+    measurement.
+    """
+
 
 class PortView(BaseModel):
     """One port of a step, as the canvas draws it.
@@ -310,6 +326,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                     axis_reason=setting.why.axis_reason,
                     domain=_domain(layers, by_id[node.id].module.contract_id, setting.name),
                     because=_because(layers, by_id[node.id].module.contract_id, setting.name),
+                    premise=[record.prose() for record in setting.why.premise],
                 )
                 for setting in (by_id[node.id].settings if node.id in by_id else [])
             ],

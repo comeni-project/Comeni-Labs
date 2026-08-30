@@ -16,8 +16,7 @@ export function Canvas({
   onPointerDown,
   onPointerMove,
   onClick,
-  onDragOver,
-  onDrop,
+  onContextMenu,
   children,
   footer,
   grid = false,
@@ -30,8 +29,9 @@ export function Canvas({
   /** A click that reached the canvas rather than a node — the caller decides what that means. */
   onClick?: (e: React.MouseEvent) => void;
   /** Dropping a module from the palette. Omitted where the canvas is read-only. */
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: (e: React.DragEvent) => void;
+  /** Right-click on empty canvas. **The place you would reach for *add a step here* had
+   *  nothing** — nodes had a menu and the canvas did not (the 2026-08-29 walk). */
+  onContextMenu?: (e: React.MouseEvent) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
   /** The dotted surface. **A measuring surface, and it exists only while something is being
@@ -53,8 +53,7 @@ export function Canvas({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onClick={onClick}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
+      onContextMenu={onContextMenu}
       // **`flex-1 min-h-0`, and both halves matter.** The canvas sits in a flex column under
       // the provenance bar, and everything inside it is absolutely positioned — so without
       // `flex-1` it sizes to its content, which is nothing, and the graph renders into a

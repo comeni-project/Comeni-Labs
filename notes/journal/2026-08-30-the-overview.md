@@ -1,6 +1,6 @@
-# 2026-08-30 — the floor, the results, the front door, and the builder's shell
+# 2026-08-30 — the floor, the results, the front door, and the builder
 
-**Read this first if you are picking the project up. This is the newest entry.** It covers four
+**Read this first if you are picking the project up. This is the newest entry.** It covers five
 phases of Plan 4 executed in one day, on `worktree-plan-4-phase-0`.
 
 The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `packages/` or
@@ -8,7 +8,7 @@ The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `
 
 ## Where things stand
 
-**Plan 4 phases 0, 1, 2 and 3a are complete.** The plans are in
+**Plan 4 phases 0, 1, 2, 3a and 3b are complete.** The plans are in
 [`../plans/`](../plans/), each with its steps ticked and an execution record naming every
 deviation.
 
@@ -22,6 +22,9 @@ deviation.
   whole product moved to the **Observatory** palette on the way.
 - **Phase 3a — the builder's shell.** Draw → Keep → Gate → Run is one **Run** action and a status
   line; the duplicated column is gone; the draft lifecycle is real for the first time.
+- **Phase 3b — the builder's surfaces.** Click a port and get what fits, ranked by the resolver's
+  own key; a browse overlay instead of a palette; swap that computes its consequences; the
+  artifact as the canvas's second view.
 
 **`make verify` green at 1655; `make check` green at 1686 with a database up. Frontend: 280 tests
 in 51 files, `tsc` clean, lint unchanged at its five pre-existing warnings.** (The count moved
@@ -142,21 +145,59 @@ eighteen characters from a status line saying the same thing. The **grid was per
 kept their desktop widths, leaving a 232px palette with 660px of dead space beside it, because
 `Side` sets its width as an *inline* style and an inline style beats a class.
 
+## Phase 3b, and a guard that fired on correct code
+
+The picker is the phase's spine: **click a port, get only what fits, in the order `resolve()`
+would consider them.** `GET /api/pipeline/candidates` exposes the `(surplus, -priority, id)` key
+that `router.py` has always sorted by, so *the only producer of `alignment.bam[coordinate_sorted]`*
+is arithmetic rather than a sentence typed beside an alphabetical list.
+
+**A guard that fired on correct code drew a boundary that had lived only in prose.** The
+invariant-15 check — *no control in the builder takes a filesystem path* — caught `Submit.tsx`
+asking for one. That is legitimate: the run sheet is where a laboratory supplies **its own** data,
+those values go to Wiener as a **run's** parameters, and they never enter the graph or
+`pipeline.yml`. Invariant 15 is about what *Mendel* receives. The guard now carries an allowlist
+of exactly one file with that reason attached, and the distinction is in the code instead of in
+three design documents.
+
+**`useCompatibility.ts` had asked for a guard, in prose, for a week.** Its header warns that a
+line parsing a signature in the browser puts the rule in two places, and ends *"A test asserts the
+absence."* No test asserted the absence. That is 3a's *three comments that were true about code
+that did not run* arriving from the other side: **a comment claiming a guard exists is worse than
+one that does not, because it stops the next person looking.**
+
+**Two things I got backwards, both caught by reading my own words back.** The consuming direction
+of the candidates service was sorted so the vaguest match came first, against a docstring written
+minutes earlier saying the opposite — found by printing the real registry's answer. And the
+builder's grid still declared **five columns for three children**, leaving 335px of dead ground
+beside the rail: the CSS fix had been written into a patch script that only opened `Builder.tsx`,
+so it silently did nothing. **A `.replace` whose result is never asserted is a `.replace` that may
+not have run** — the revert lesson, one layer along.
+
+**`Restored.test.tsx` was restated for the third time.** It exists so four things the plan cut and
+the operator put back cannot vanish quietly, and three of the four were about the left palette.
+The overlay answers each better — every role rather than `roles[0]`, search, keyboard-first, the
+type signature as the description — so the reversal is written **into the test that held them**,
+with what each was protecting and where it lives now.
+
 ## What is next
 
-**Phase 3b — the builder's new surfaces.** The port picker off the existing compatibility index,
-the settings card on the node, swap-with-consequences off `compare`, the keyboard-first browse
-overlay, and the artifact view. It also inherits, explicitly:
+**Phase 4 — the runs projections**: `series(state)` pure in `wiener-core`, attempt windows and
+per-attempt resources projected. Then **phase 5**, the runs screens.
 
-- **Four unticked boxes in 3a's plan**, which is how they stay visible: the `Canvas`/`Artifact`
-  toggle (its second half is 3b's), the empty-canvas right-click menu (it would open the browse
-  overlay, so it is 3b's), the rail scrolling itself to the top, and the three-layer arc field —
-  which is new work rather than a correction.
+**What Plan 4 has not done, named rather than absorbed:**
+
+- **The canvas's typed input sockets** — a source node carrying a TYPE and never a path. The
+  *binding* half is correct and now guarded; the drawing is a layout change of the same class as
+  the **three-layer arc field**, which is also not built. Both are 3a/3b's two unticked boxes.
 - **Two known tensions from phase 0**: `breathe` and `animate-pulse` are a sixth and seventh
-  movement, and retiring either is a visible change to a screen 3 or 5 owns.
-- **The builder has still not been driven by hand in a live stack.** It was rendered against
-  fixtures and read, which found four defects; the run sheet, a real keep and a real gate are
-  unexercised. 3a's Task 8 is `[~]` for that reason.
+  movement, and retiring either is a visible change to a screen phase 5 owns.
+- **"Changed underneath you"** on the Overview, and the **resource sentence**, which needs the
+  same projection phase 4 does.
+- **Nothing in the builder has been driven by hand in a live stack.** The shell was rendered
+  against fixtures and read — which found seven defects across 3a and 3b that green suites did
+  not — but the picker, the overlay, swap and the artifact view have component tests and no
+  browser pass, and a real keep, gate and run are unexercised.
 
 Then **phase 4** (runs projections — `series()` in `wiener-core`, attempt windows, per-attempt
 resources) and **phase 5** (the runs screens).

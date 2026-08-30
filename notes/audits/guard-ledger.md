@@ -3229,3 +3229,56 @@ not: `comeni/profile/fastqc` and `nf-core/fastqc` are two contracts declaring on
 The finding is for the **picker**, not the service: a row cannot be identified by its process, so
 it shows the contract id beside the tool. A test holds it, because the next reader will see two
 identical lines and reach for a `set()`.
+
+## The builder's surfaces, and a boundary drawn by a guard that fired — 2026-08-30
+
+Plan 4 phase 3b, tasks 3–7.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Browse.test.tsx` "shows a tool under EVERY role it declares" | grouped by `m.roles[0]` again | failed | cannot find `qc per sample · 1` — the second role's whole group is gone |
+| 2026-08-30 | `Swap.test.tsx` "shows the consequences before anything is applied" (and two more) | made choosing a candidate call `onApply` directly | 3 of 4 failed | *shows, then asks* collapses to *does* |
+| 2026-08-30 | `norule.test.ts` "offers no control that takes a filesystem path" | gave the picker's search a `placeholder="a path to the reference file"` — verified landed with `grep -c` | failed | `"Picker.tsx: a control asking for a path"` |
+
+### The guard fired on real code, and that is how the boundary got drawn
+
+The invariant-15 guard's first run caught **`Submit.tsx`** — `placeholder="a path on the machine
+that runs this"`. It reads like a violation of *no input accepts a sample identifier, filename or
+path*, and it is not: the run sheet is where a laboratory supplies **its own** data, and those
+values go to Wiener as a **run's** parameters. They fill the artifact's declared nulls and never
+enter the graph or `pipeline.yml`.
+
+Invariant 15 is about what **Mendel** receives — the `Goal` holds a shape — and a run is the far
+side of `execution-boundary.md`. So the guard carries an allowlist of exactly one file, named,
+with that reason, the same shape as `artifacts.SUPPLIED_BY_WIENER`.
+
+**A guard that fires on correct code is not a false positive if it makes you write the boundary
+down.** Before this, that distinction lived in three design documents and nowhere in the code.
+
+### Two more found by looking at the built page
+
+- **335px of dead ground beside the rail.** `.builder` still declared **five** columns — a
+  leftover from when a palette and its grip sat on the left — for three children, so the last two
+  sat empty and the canvas was sized `auto` instead of taking the space. The CSS edit meant to fix
+  this had been written into a patch script that only opened `Builder.tsx`, so it silently did
+  nothing. **A `.replace` whose result is never asserted is a `.replace` that may not have run** —
+  the same lesson as the reverts, one layer along.
+- The provenance bar's *100% settled without judgement* on an empty pipeline, carried from 3a and
+  fixed there; noted because the shape recurred.
+
+### A missing array took the whole builder down
+
+Adding `SettingView.premise` crashed `Settings.tsx` on a fixture that predated the field —
+`setting.premise.length` on `undefined`, inside a render, which unmounts the tree. The fixture was
+wrong **and** the component was fragile: a payload cached before the field existed would do the
+same to a real user. It reads `?? []` now. A screen lost to a missing array is a worse failure
+than a premise not shown.
+
+### What was NOT looked at
+
+The port picker, the browse overlay, the swap panel and the artifact view are covered by
+**component tests and a real-registry probe of the service behind the picker** — and none has been
+opened in a browser. Headless Chrome cannot cheaply drive the clicks that reach them.
+
+That is the debt W1 recorded as `[~]`, recorded the same way. Every phase this session found
+defects by rendering that a green suite could not, and these four have not had that pass.

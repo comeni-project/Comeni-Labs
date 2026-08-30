@@ -113,12 +113,17 @@ describe("the builder's shell", () => {
 
   it("can add a step without a pointer", async () => {
     // The palette was a bare `div draggable="true"` — no role, no tabindex, absent from the
-    // accessibility tree. Drag and double-click were the only two ways in.
+    // accessibility tree, so drag and double-click were the only two ways in. Phase 3a gave it
+    // a role and a key handler; 3b replaced it with an overlay that is keyboard-FIRST rather
+    // than keyboard-patched: it focuses its search on open, and arrows and Enter walk it.
     at();
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows[0].getAttribute("role")).toBe("button");
-    expect(rows[0].getAttribute("tabindex")).toBe("0");
-    fireEvent.keyDown(rows[0], { key: "Enter" });
+    await screen.findByTestId("builder");
+    fireEvent.contextMenu(screen.getByTestId("canvas"));
+
+    const overlay = await screen.findByTestId("browse");
+    await screen.findAllByTestId("browse-card");
+    fireEvent.keyDown(overlay, { key: "Enter" });
+
     await waitFor(() =>
       expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]).includes("/pipeline/draw")))
         .toBe(true));

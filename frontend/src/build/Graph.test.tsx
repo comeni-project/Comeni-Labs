@@ -18,7 +18,7 @@ const PIPELINE = {
       tier: 3, reason: "rule matched read_length >= 70",
       ports: [],
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
-                   reason: "nobody judged it", axis_reason: "" }] },
+                   reason: "nobody judged it", axis_reason: "", premise: [] }] },
   ],
   layout: {
     nodes: [node("trimgalore", 338, 0, 2), node("star_align", 169, 128, 3)],

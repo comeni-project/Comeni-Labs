@@ -33,7 +33,7 @@ function show(
 afterEach(() => vi.unstubAllGlobals());
 
 const setting = (name: string, tier: number, value: string | null) => ({
-  name, value, via: "ext", tier, reason: `because ${name}`, axis_reason: "", because: "",
+  name, value, via: "ext", tier, reason: `because ${name}`, axis_reason: "", premise: [], because: "",
 });
 
 const STEP = {
@@ -100,12 +100,12 @@ describe("the settings card", () => {
 describe("tuning a parameter", () => {
   const enumSetting = {
     name: "index_format", value: "bai", via: "ext", tier: 2,
-    reason: "BAI, not CSI", axis_reason: "", because: "every downstream tool reads BAI",
+    reason: "BAI, not CSI", axis_reason: "", premise: [], because: "every downstream tool reads BAI",
     domain: { kind: "enum", values: ["bai", "csi"], minimum: null, maximum: null },
   };
   const freeSetting = {
     name: "seq_platform", value: null, via: "ext", tier: 4,
-    reason: "no rule matched", axis_reason: "", because: "",
+    reason: "no rule matched", axis_reason: "", premise: [], because: "",
     domain: null,
   };
   const step = (settings: unknown[]) =>
