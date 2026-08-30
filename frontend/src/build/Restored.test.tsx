@@ -110,18 +110,38 @@ describe("what the design asked for", () => {
     expect(cards.some((c) => c.textContent?.includes("HISAT2_ALIGN"))).toBe(true);
   });
 
-  it("draws a port for each side, in different shapes", async () => {
-    // **Inputs and outputs are different shapes**, at the operator's request. The design gives
-    // both the same circle and leaves direction to be inferred from which edge it sits on, which
-    // works on a mock you already know and not on a graph you are reading for the first time.
+  it("says which way a port points, without asking you to infer it", async () => {
+    // **The operator's question, restated a FOURTH time** — and this file's own header says that
+    // is exactly what it is for: the question survives, the answer moves.
+    //
+    // The 2026-08-19 request was that inputs and outputs be *different shapes*, because the
+    // design gave both the same circle and left direction to be inferred from which edge it sat
+    // on — which works on a mock you already know and not on a graph you are reading for the
+    // first time. **That reasoning was about a graph flowing DOWNWARD**, where top and bottom
+    // carry no meaning anybody arrives with.
+    //
+    // Phase 6 turned the flow left to right, so the edge itself says it: left is in, right is
+    // out, which is the convention every schematic already uses. And the direction is now
+    // *drawn* as well as positional — each port row inside the node carries `◀` or `▶` beside
+    // the type it describes, which is `n-bcanvas`'s *types on the node*.
+    //
+    // So the request is met twice over, and chevron-versus-circle went with the downward flow
+    // that made it necessary. This asserts the REQUIREMENT — that a reader is never asked to
+    // infer a direction — rather than the shape that used to satisfy it.
     at();
     const ports = await screen.findAllByTestId("port");
     expect(ports).toHaveLength(3);
-    const shape = (p: HTMLElement) => (p.querySelector("path") ? "chevron" : "circle");
-    expect(ports.filter((p) => p.dataset.side === "in").every((p) => shape(p) === "chevron"))
-      .toBe(true);
-    expect(ports.filter((p) => p.dataset.side === "out").every((p) => shape(p) === "circle"))
-      .toBe(true);
+
+    // Every port declares its side, and sits on the edge that side means.
+    for (const port of ports) {
+      expect(port.dataset.side === "in" || port.dataset.side === "out").toBe(true);
+      const style = port.getAttribute("style") ?? "";
+      expect(style).toContain(port.dataset.side === "in" ? "left" : "right");
+    }
+
+    // And the node names the direction in words rather than leaving it to geometry alone.
+    const node = (await screen.findAllByTestId("node"))[0];
+    expect(node.textContent).toMatch(/[◀▶]/);
   });
 
   it("keeps hollow for an input nothing feeds", async () => {
@@ -157,7 +177,10 @@ describe("what the design asked for", () => {
     // `dashboard.md` §5 — from the node's "N settings" button, which is where a person is when
     // they wonder what a step is set to.
     at();
-    fireEvent.click(await screen.findByTestId("open-settings"));
+    // **By its label, not its testid.** `⋯` is on every node now — the artboard
+    // puts it in each header — so the testid names several buttons and the label
+    // names one. It is also what a person would click by.
+    fireEvent.click(await screen.findByLabelText("settings for STAR_ALIGN"));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
     expect(screen.getByTestId("settings-card").textContent).toContain("seq_platform");
   });

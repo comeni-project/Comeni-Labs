@@ -1,5 +1,5 @@
 import type { components } from "../api/schema";
-import { portX } from "./geometry";
+import { NODE_H, portOffset } from "./geometry";
 
 type Built = components["schemas"]["BuiltPipeline"];
 type Placed = components["schemas"]["PlacedNode"];
@@ -63,13 +63,35 @@ export function Sources({ data, offsets }: {
       return [{
         key: `${node.id}.${port.name}`,
         port,
-        x: anchor.x - SOCKET_W - GAP,
-        y: anchor.y + index * (SOCKET_H + 10),
+        // **Left of a root, below anything else** — and the arithmetic says why rather than a
+        // preference. A socket needs `SOCKET_W + GAP` = 240px of clear space to its left, and a
+        // rank is `RANK_PITCH` = 224px from the one before it. So for any node past rank 0 the
+        // space to its left is *already occupied by the node that feeds it*, which is exactly
+        // what it looked like: `annotation.gtf` drawn on top of SAMTOOLS_SORT.
+        //
+        // Below is the honest place for those. It is beside its consumer, it overlaps nothing,
+        // and the stub becomes a short vertical instead of a long horizontal through a node.
+        ...(node.rank === 0
+          ? {
+            // **The first socket is level with the first port; the rest stack clear of it.**
+            // `portOffset` steps by 22, which is right for a 7px port and puts two 62px cards
+            // on top of each other — so the BOX stacks by its own height while the WIRE still
+            // lands on the port, and the stub between them reconciles the two. That is what a
+            // stub is for.
+            x: anchor.x - SOCKET_W - GAP,
+            y: anchor.y + portOffset(0) - SOCKET_H / 2 + index * (SOCKET_H + 8),
+            fromY: anchor.y + portOffset(0) + index * (SOCKET_H + 8),
+          }
+          : {
+            x: anchor.x,
+            y: anchor.y + NODE_H + 20 + index * (SOCKET_H + 8),
+            fromY: anchor.y + NODE_H + 20 + index * (SOCKET_H + 8) + SOCKET_H / 2,
+          }),
         // Where the stub meets the consumer: the same derivation the wires use, so a socket
-        // cannot land 39px from the chevron it points at.
-        toX: anchor.x + portX(node.width, ins.length, index),
-        toY: anchor.y,
-        fromY: anchor.y + index * (SOCKET_H + 10) + SOCKET_H / 2,
+        // cannot land 39px from the chevron it points at. **Left to right**, so an entry
+        // channel enters the consumer's LEFT edge at that port's own offset.
+        toX: anchor.x,
+        toY: anchor.y + portOffset(index),
       }];
     });
   });

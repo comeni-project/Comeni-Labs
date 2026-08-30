@@ -2,7 +2,8 @@ import type { components } from "../api/schema";
 
 type Wire = components["schemas"]["PlacedWire"];
 
-import { elbow, heightFor, path, portX, type Point, type Positions } from "./geometry";
+import { elbow, NODE_W, path, portOffset, SPINE, type Point, type Positions }
+  from "./geometry";
 
 /** Which ports a node declares, in the order the canvas draws them. */
 export type PortIndex = Record<string, { ins: string[]; outs: string[]; width: number }>;
@@ -29,15 +30,12 @@ function ends(
   // `validate` reports that as MD0501, and a picture is not the place to refuse a graph.
   const outAt = source.outs.indexOf(wire.from_port);
   const inAt = target.ins.indexOf(wire.to_port);
+  // **Out of the right edge, into the left edge**, and the offset along the edge is
+  // `portOffset` — the single derivation `impl-geom` names. Nothing here recomputes a node's
+  // size, which is what put every wire 6px above its port on the walk.
   return [
-    {
-      x: from.x + (outAt < 0 ? source.width / 2 : portX(source.width, source.outs.length, outAt)),
-      y: from.y + heightFor(source.ins.length, source.outs.length),
-    },
-    {
-      x: to.x + (inAt < 0 ? target.width / 2 : portX(target.width, target.ins.length, inAt)),
-      y: to.y,
-    },
+    { x: from.x + NODE_W, y: from.y + (outAt < 0 ? SPINE : portOffset(outAt)) },
+    { x: to.x, y: to.y + (inAt < 0 ? SPINE : portOffset(inAt)) },
   ];
 }
 

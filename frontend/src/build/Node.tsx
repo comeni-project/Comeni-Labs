@@ -1,23 +1,30 @@
 import type { components } from "../api/schema";
-import { Port, portX } from "./Port";
+import { NODE_H, NODE_W, portOffset } from "./geometry";
+import { Port } from "./Port";
 
 type Placed = components["schemas"]["PlacedNode"];
 type Step = components["schemas"]["StepView"];
 type PortView = components["schemas"]["PortView"];
 
-/** The tier rail — 4px down the left edge, and the only thing on a node that is not text.
+/** The tier, drawn as the node's **left border** — 3px, and settled spends no colour at all.
  *
- * **Certainty drawn as stroke**, which is `dashboard.md` §1's governing idea and the same
- * language `Standing` uses on the front door. Solid pea for a forced choice, faded pea for a
- * convention, dashed amber for a rule that read measured data, gapped coral for one nobody
- * judged. The treatments are the design's, gradient stops included: 5-on-4-off at tier 3,
- * 3-on-8-off at tier 4, so the gappier a rail looks the less settled the decision is.
+ * `impl-inv` on the redesign canvas is explicit, and it is the rule this table exists to keep:
+ *
+ * > THE TIER LADDER on the canvas: settled gets NO COLOUR AT ALL. Only measured (amber) and
+ * > open (red) spend any. Colour where something needs you, nowhere else.
+ *
+ * It shipped as a 4px inner div in `--pea` for tiers 1 and 2 — so a graph where nothing needed
+ * you was a wall of green, and the two nodes that did need you had to compete with it. A canvas
+ * that colours everything has no way left to say *look here*.
+ *
+ * `--rail` is a neutral slate, which is what `BuilderCanvas.dc.html` gives `.node` by default;
+ * `.meas` and `.open` are the only classes that override it.
  */
 const RAIL: Record<number, string> = {
-  1: "bg-pea",
-  2: "bg-pea opacity-[.42]",
-  3: "bg-[repeating-linear-gradient(to_bottom,var(--measured)_0_5px,transparent_5px_9px)]",
-  4: "bg-[repeating-linear-gradient(to_bottom,var(--undecided)_0_3px,transparent_3px_11px)]",
+  1: "var(--rail)",
+  2: "var(--rail)",
+  3: "var(--measured)",
+  4: "var(--undecided)",
 };
 
 /** One step on the canvas.
@@ -96,6 +103,15 @@ export function Node({
     window.addEventListener("pointerup", up);
   };
 
+  const ports = step?.ports ?? [];
+  const ins = ports.filter((port) => port.side === "in");
+  const outs = ports.filter((port) => port.side === "out");
+  const settings = step?.settings ?? [];
+  const needing = settings.filter((setting) => setting.tier === 4).length;
+  const measured = settings.some((setting) => setting.tier === 3);
+  const settled = settings.length - needing;
+  const open = needing > 0;
+
   return (
     <div
       data-node
@@ -109,75 +125,108 @@ export function Node({
       onClick={onSelect}
       style={{
         // **Absolute, from the client's own position.** It was `placed.x + offset.x` — the
-        // server's coordinate plus a drag delta — which meant a node the server had not laid
-        // out yet had nowhere to be, so an added step could not appear until a round trip came
-        // back. `useGraph` seeds from the server once and owns the position after that.
+        // server's coordinate plus a drag delta — so a node the server had not laid out yet had
+        // nowhere to be, and an added step could not appear until a round trip came back.
         left: `${Math.round(offset.x)}px`,
         top: `${Math.round(offset.y)}px`,
-        width: placed.width,
+        // **One symbol, 172×112, for every process** — `impl-geom` calls this load-bearing:
+        // variable heights put a jog between every pair and the main chain stops reading as a
+        // chain.
+        width: NODE_W,
+        height: NODE_H,
+        background: "var(--node)",
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "var(--node-line)",
+        // The tier is the LEFT BORDER, not an inner bar — so it cannot take width from the
+        // content and cannot be mistaken for a fill.
+        borderLeftWidth: 3,
+        borderLeftColor: open
+          ? "var(--undecided)"
+          : measured
+            ? "var(--measured)"
+            : RAIL[placed.tier] ?? "var(--rail)",
       }}
-      className="absolute flex rounded-r border border-line-2 border-l-0 bg-surface
-                 cursor-grab active:cursor-grabbing
-                 hover:shadow-e2
-                 data-[selected]:shadow-[0_0_0_2px_var(--ink)]
+      className="absolute flex flex-col cursor-grab active:cursor-grabbing
+                 data-[selected]:shadow-[0_0_0_1px_var(--link)]
                  data-[dim]:opacity-20 transition-[box-shadow,opacity]"
     >
-      {/* Ports sit on the node's edges, spread by the same formula that anchors the wires —
-          so a wire lands on its dot rather than near it. */}
-      {(["in", "out"] as const).map((side) => {
-        const ports = (step?.ports ?? []).filter((port) => port.side === side);
-        return ports.map((port, i) => (
-          <Port
-            verdict={
-              // A port only colours during a drag, and never the one being dragged FROM.
-              dragging && port.side === "in" ? verdictFor?.(port.name) : undefined
-            }
-            onStartWire={port.side === "out" ? () => onStartWire?.(port.name) : undefined}
-            onExplore={() => onExplore?.(port)}
-            onFinishWire={port.side === "in" ? () => onFinishWire?.(port.name) : undefined}
-            key={`${side}.${port.name}`}
-            port={port}
-            x={portX(placed.width, ports.length, i)}
-          />
-        ));
-      })}
+      {/* Ports sit ON the edges, at the one derivation — `portOffset`. An input on the left, an
+          output on the right, because that is the way the graph flows. */}
+      {ins.map((port, i) => (
+        <Port key={`in.${port.name}`} port={port} side="in" y={portOffset(i)}
+              verdict={dragging ? verdictFor?.(port.name) : undefined}
+              onExplore={() => onExplore?.(port)}
+              onFinishWire={() => onFinishWire?.(port.name)} />
+      ))}
+      {outs.map((port, i) => (
+        <Port key={`out.${port.name}`} port={port} side="out" y={portOffset(i)}
+              onExplore={() => onExplore?.(port)}
+              onStartWire={() => onStartWire?.(port.name)} />
+      ))}
 
-      <div className={`w-1 shrink-0 rounded-l-r ${RAIL[placed.tier] ?? "bg-line-2"}`} />
-      <div className="flex-1 min-w-0 p-[10px]">
-        <div className="font-data text-body font-semibold tracking-[-.01em] text-ink truncate">
+      {/* ── The header: the name, and the way into its settings ───────────────────────── */}
+      <div className="flex items-center gap-2 h-[28px] px-[10px] shrink-0"
+           style={{ borderBottomWidth: 1, borderBottomStyle: "solid",
+                    borderBottomColor: "var(--node-rule)" }}>
+        <span className="font-data text-[11px] font-medium text-ink truncate">
           {step?.process ?? placed.id}
-        </div>
-        <div className="text-label text-ink-3 mt-[2px] truncate">
-          {step?.contract_id ?? ""}
-        </div>
-        {step && step.settings.length > 0 && (
-          <div className="mt-2 flex items-baseline gap-2">
-            <button
-              data-testid="open-settings"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenSettings?.();
-              }}
-              className="text-secondary text-ink-2 bg-transparent border-0 p-0 cursor-pointer
-                         underline decoration-dotted underline-offset-2 hover:text-ink"
-            >
-              {step.settings.length} {step.settings.length === 1 ? "setting" : "settings"}
-            </button>
-            {/* **The worst tier among its parameters, on the node.** `dashboard.html` does the
-                same: a step can be settled and still hold a parameter nobody judged, and a
-                reader scanning the canvas has to be able to see that without opening a card. */}
-            {step.settings.some((s) => s.tier === 4) ? (
-              <span className="text-label uppercase tracking-[.1em] text-[var(--undecided)]">
-                needs your decision
-              </span>
-            ) : step.settings.some((s) => s.tier === 3) ? (
-              <span className="text-label uppercase tracking-[.1em] text-[var(--measured)]">
-                check the premise
-              </span>
-            ) : null}
-          </div>
+        </span>
+        {step && (
+          // **`⋯` on every node** — the artboard puts it in each header, and the settings live
+          // in a card on the node. `impl-settled`: *the rail is about the CHOICE, the card is
+          // about the VALUES. Two lists of the same thing is what we just removed.*
+          <button
+            data-testid="open-settings"
+            aria-label={`settings for ${step.process}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenSettings?.(); }}
+            className="ml-auto font-data text-[11px] leading-none bg-transparent border-0 p-0
+                       cursor-pointer text-ink-3 hover:text-ink"
+          >
+            ⋯
+          </button>
         )}
+      </div>
+
+      {/* ── The rows: the TYPES, on the node ─────────────────────────────────────────────
+          `n-bcanvas`: *types on the node*. They were on the wire labels, so reading what a step
+          consumes meant tracing a line to its far end. */}
+      <div className="flex-1 min-h-0 py-[5px] overflow-hidden">
+        {ports.slice(0, 4).map((port) => (
+          <div key={`${port.side}.${port.name}`}
+               className="flex items-center gap-[7px] h-[19px] px-[10px] font-data text-[8.5px]">
+            <span aria-hidden style={{ color: "var(--port-line)" }}>
+              {port.side === "in" ? "◀" : "▶"}
+            </span>
+            <span className={port.side === "in" ? "text-ink-2 truncate" : "text-ink-3 truncate"}>
+              {port.type_id || port.name}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── The footer: what could need you, and the contract when nothing does ─────────
+          Invariant 6 — an open value shows on the node, in the status line, in the settings
+          card and in the run sheet. Four places is the honesty mechanism, not redundancy. */}
+      <div data-testid="node-foot"
+           className="h-[24px] flex items-center gap-1 px-[10px] shrink-0 font-data text-[9px]
+                      text-ink-3"
+           style={{ borderTopWidth: 1, borderTopStyle: "solid",
+                    borderTopColor: "var(--node-rule)" }}>
+        {/* **`2 need you · 11 settled`**, which is the artboard verbatim. Invariant 6 — an open
+            value shows on the node, in the status line, in the settings card and in the run
+            sheet; this is the first of the four.
+
+            **A MEASURED value is not counted here**, and that is the artboard's choice rather
+            than an omission: the `.meas` node's footer reads plainly `14 settled` and the amber
+            left border carries the whole signal. Tier 3 says *the machinery worked, check the
+            premise* — it is not a thing waiting on you, and putting it in the same sentence as
+            the count that is would flatten the difference the tier ladder exists to draw. */}
+        {open && <span style={{ color: "var(--undecided)" }}>{needing} need you</span>}
+        {open && settled > 0 && <span aria-hidden>·</span>}
+        {settled > 0 && <span>{settled} settled</span>}
+        {!open && settled === 0 && <span className="truncate">{step?.contract_id ?? ""}</span>}
       </div>
     </div>
   );

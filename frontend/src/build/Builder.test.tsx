@@ -304,7 +304,10 @@ describe("a value you type", () => {
       ],
     });
 
-    fireEvent.click(await screen.findByTestId("open-settings"));
+    // **By its label, not its testid.** `⋯` is on every node now — the artboard
+    // puts it in each header — so the testid names several buttons and the label
+    // names one. It is also what a person would click by.
+    fireEvent.click(await screen.findByLabelText("settings for STAR_ALIGN"));
     const field = await screen.findByTestId("setting-field");
 
     await user.type(field, "ILLUMINA");

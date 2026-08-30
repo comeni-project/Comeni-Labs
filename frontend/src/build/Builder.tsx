@@ -22,7 +22,7 @@ import { SubmitPanel } from "./Submit";
 import { Findings } from "./Findings";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
-import { heightFor, portX } from "./geometry";
+import { NODE_W, portOffset } from "./geometry";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
 import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
@@ -495,19 +495,14 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               pending={
                 dragging && cursor && portIndex[dragging.node]
                   ? {
+                      // Left to right: a wire in flight leaves the RIGHT edge, at the port's
+                      // own offset. Same derivation the settled wires use — `portOffset`.
                       from: {
-                        x:
-                          (offsets[dragging.node]?.x ?? 0) +
-                          portX(
-                            portIndex[dragging.node].width,
-                            portIndex[dragging.node].outs.length,
-                            Math.max(0, portIndex[dragging.node].outs.indexOf(dragging.port)),
-                          ),
+                        x: (offsets[dragging.node]?.x ?? 0) + NODE_W,
                         y:
                           (offsets[dragging.node]?.y ?? 0) +
-                          heightFor(
-                            portIndex[dragging.node].ins.length,
-                            portIndex[dragging.node].outs.length,
+                          portOffset(
+                            Math.max(0, portIndex[dragging.node].outs.indexOf(dragging.port)),
                           ),
                       },
                       to: cursor,

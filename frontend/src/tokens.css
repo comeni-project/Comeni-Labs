@@ -43,6 +43,13 @@
   --undecided: #E3674E; --undecided-soft: #2C1712; --fault: #E3674E;
   --running: #BD6DCD; --running-soft: #241428;
   --link: #6CB7FF; --link-soft: #122029;
+  /* ── The canvas symbol, from `BuilderCanvas.dc.html`'s own `.node` ────────────────────────
+     A node is darker than a panel and outlined rather than filled, which is what makes a graph
+     of them read as a schematic instead of a stack of cards. `--rail` is the SETTLED tier and
+     it is deliberately a neutral slate: `impl-inv` — *settled gets NO COLOUR AT ALL. Only
+     measured (amber) and open (red) spend any.* */
+  --node: #0C1216; --node-line: #253239; --node-rule: #1A252A;
+  --rail: #2C3E45; --port-line: #4A5C64;
   --shadow: rgba(0, 0, 0, .6);
   --r: 3px;
   /* **One family, two cuts** — the artboards use Geist for everything and Geist Mono for data.
@@ -105,6 +112,8 @@
     --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
     --running: #7B3FA0; --running-soft: #F0E6F5;
     --link: #1F5FA8; --link-soft: #E6EEF8;
+    --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
+    --rail: #9AA5A1; --port-line: #8F9A95;
     --shadow: rgba(18, 21, 26, .14);
   }
 }
@@ -120,5 +129,7 @@
   --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
   --running: #7B3FA0; --running-soft: #F0E6F5;
   --link: #1F5FA8; --link-soft: #E6EEF8;
+  --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
+  --rail: #9AA5A1; --port-line: #8F9A95;
   --shadow: rgba(18, 21, 26, .14);
 }

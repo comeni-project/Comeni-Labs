@@ -21,55 +21,63 @@
  * together from the Python side rather than trusting the comment.
  */
 
-/** `NODE_W` in `layout.py`. */
-export const NODE_W = 232;
-/** `HEAD_H` — the node's title band, above any ports. */
-export const HEAD_H = 34;
-/** `PORT_ROW` — how much height one row of ports needs. */
-export const PORT_ROW = 22;
-/** `MIN_H` — a node is never shorter than this. */
-export const MIN_H = 56;
-/** `COL_PITCH` — horizontal spacing when the client has to place a node itself. */
-export const COL_PITCH = 276;
-/** `ROW_PITCH` — vertical spacing for the same. */
-export const ROW_PITCH = 128;
+/** `NODE_W` — **one symbol for every process, and its size is load-bearing.**
+ *
+ * `impl-geom` on the redesign canvas: *variable heights put a jog between every pair and the
+ * whole thing reads sloppy again.* The height used to be computed from the port count. */
+export const NODE_W = 172;
+/** `NODE_H`. Every process node, always. */
+export const NODE_H = 112;
+/** `HEAD_H` — the node's title band, where the name and the `⋯` sit. */
+export const HEAD_H = 28;
+/** `PORT_ROW` — the height of one port row INSIDE a node. It no longer sizes the node. */
+export const PORT_ROW = 19;
+/** `PORT_GAP` — between one port and the next along an edge. */
+export const PORT_GAP = 22;
+/** `SPINE` — **every symbol connects here.** The one derivation, and `impl-geom`'s rule:
+ *  *port positions are DERIVED from node geometry in one place. Never write a coordinate
+ *  twice.* Writing an endpoint separately from the node it belongs to is what put every wire
+ *  6px above its port on the 2026-08-29 walk. */
+export const SPINE = 56;
+/** `SECOND` — a secondary input, 22 below the spine. */
+export const SECOND = 78;
+/** `RANK_PITCH` — between one rank and the next, ALONG the flow. Left to right since phase 6. */
+export const RANK_PITCH = 224;
+/** `SIBLING_PITCH` — between two nodes sharing a rank, ACROSS the flow. */
+export const SIBLING_PITCH = 170;
 /** The radius of an elbow's rounded corner. */
 export const CORNER = 7;
 
 export type Point = { x: number; y: number };
 export type Positions = Record<string, Point>;
 
-/** How tall a node with this many ports must be.
+/** Where a port sits along a node's edge, **from the node's own top-left.**
  *
- * `layout.py::_height`, and it counts **declared** ports — the bug the operator found was this
- * counting wired ones, which left a node sized for one port row with three chevrons on it.
- */
-export function heightFor(ins: number, outs: number): number {
-  return Math.max(MIN_H, HEAD_H + Math.max(ins, outs, 1) * PORT_ROW);
-}
-
-/** Where a port sits along a node's edge.
+ * `_port_offset` in `dag_core.layout`, and the whole of it: the first port is on the spine and
+ * each one after it steps down by `PORT_GAP`.
  *
- * `portX(count, i) = NODE_W * (i + 1) / (count + 1)` — the same formula in `layout.py`,
- * `dashboard.html` and `Port.tsx`. All three must agree or a wire misses its chevron.
+ * **It used to spread ports evenly across the edge**, which made a port's position depend on how
+ * many siblings it had — so declaring one more input moved every wire already drawn. Anchoring
+ * the first on the spine is what makes the main chain dead straight.
  */
-export function portX(width: number, count: number, index: number): number {
-  return (width * (index + 1)) / (count + 1);
+export function portOffset(index: number): number {
+  return SPINE + index * PORT_GAP;
 }
-
 
 /** One wire, as an orthogonal elbow between two points.
  *
- * `layout.py` emits the same shape: down, across at the midpoint, down. **A straight drop is two
- * points, not four** — when the ports line up the two corners are the same coordinate, and
- * emitting them anyway hands the renderer a zero-length segment to round, which turns a 7px
- * corner into a visible nick on a wire that should be plumb.
+ * `dag_core.layout` emits the same shape: **across, over at the midpoint, across** — H / V / H
+ * since the flow turned left-to-right in phase 6. `impl-geom`: *right angles read engineered.*
+ *
+ * **A straight run is two points, not four** — when the ports line up the two corners are the
+ * same coordinate, and emitting them anyway hands the renderer a zero-length segment to round,
+ * which turns a 7px corner into a visible nick on a wire that should be straight.
  */
 export function elbow(start: Point, end: Point): Point[] {
-  const mid = Math.round((start.y + end.y) / 2);
-  return start.x === end.x
+  const mid = Math.round((start.x + end.x) / 2);
+  return start.y === end.y
     ? [start, end]
-    : [start, { x: start.x, y: mid }, { x: end.x, y: mid }, end];
+    : [start, { x: mid, y: start.y }, { x: mid, y: end.y }, end];
 }
 
 /** An SVG path for an elbow, with rounded corners. */

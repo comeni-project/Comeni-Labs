@@ -102,11 +102,11 @@ description. **Leave the slot empty; do not invent prose.**
 
 ## Task 2 — one symbol
 
-- [ ] 172×112 for every process node, `box-sizing: border-box` on everything.
-- [ ] Ports **derived** from node geometry in one place: `spine`, `second = spine + 22`.
-- [ ] Types on the node. Tier as a **left edge bar**. **Settled gets no colour.**
+- [x] 172×112 for every process node, `box-sizing: border-box` on everything.
+- [x] Ports **derived** from node geometry in one place: `spine`, `second = spine + 22`.
+- [x] Types on the node. Tier as a **left edge bar**. **Settled gets no colour.**
 - [ ] Corner registration marks, fixed to the viewport rather than the stage.
-- [ ] A guard that no wire endpoint is computed anywhere but the one derivation.
+- [x] A guard that no wire endpoint is computed anywhere but the one derivation.
 
 ## Task 3 — click a port, get what fits
 
