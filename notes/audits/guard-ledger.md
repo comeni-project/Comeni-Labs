@@ -3386,3 +3386,58 @@ Nothing here is drawn. Phase 5 draws it, and the browser pass is owed at the end
 by the operator's own sequencing. `bin_ms` is a **suggestion the renderer has not yet taken**,
 and the sweep it sizes is exact — if a chart ever bins first, the reservation curve stops being
 exact at every breakpoint and no test in this phase would notice.
+
+---
+
+## The runs screens, and a scan that had to be told what it may quote — Plan 4 phase 5, 2026-08-30
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `curve.test.ts` "never draws a derived curve smooth" | replaced the `H`/`V` step with a cubic bezier through each interval's midpoint — verified landed with `grep -c` | failed | `expected 'M0.0 33.3C25.0 33.3,25.0 0.0,50.0 0.0…' not to contain 'C'` |
+| 2026-08-30 | `Failure.test.tsx` "authors no cause of its own" | added `exit === 137 && " — killed by the OOM killer, try increasing memory"`, verified landed with `grep -c` | failed | `expected 'star_align (sample_07) exited 137 on …' not to contain 'oom'` |
+| 2026-08-30 | `Board.test.tsx` "never puts a delta under a run that has not finished" | let a live row compute its delta against `Date.now()` — verified landed by counting `of ~` down from 2 to 1 | failed | the running row rendered a percentage where `of ~1m 04s` belongs |
+
+### The scan had to be told what it is allowed to quote
+
+`Failure.tsx`'s no-cause guard first scanned the **whole banner** for cause-words. The banner
+renders Nextflow's own `errorReport`, and this repository's fixture for it reads *"an oom-kill
+event was detected"* — so the scan fired on the record the panel exists to show.
+
+Quoting the record is what the banner is **for**. Authoring that sentence is what it must never
+do. A scan that could not tell the two apart would have forced the panel to censor the record to
+stay green — the opposite of the rule it enforces — so it excludes the `failure-report` element
+and covers only the panel's own words.
+
+**That is the second time in two phases a scan fired on the thing it was protecting.** Phase 4's
+`test_it_never_names_a_cause` caught the docstring explaining why an unnamed signal is absent.
+Both were caught by running them; neither would have been caught by reading them. The pattern
+worth naming: **a scan over prose needs a stated boundary between what the code says and what
+the code quotes**, and picking cause-words without one is how it acquires a false positive on
+its first honest input.
+
+### A fallthrough mock, and one panel taking the page down
+
+Adding `<Envelope>` to the run page made **six graph tests fail at once**. Three fixtures mock
+`fetch` with a URL switch that falls through to a `RunState` for anything unrecognised, so the
+new panel read `curves` off a shape that has none and threw during render — taking the header,
+the failure banner and every tab with it.
+
+Both halves were wrong and both are fixed. The fixtures now answer the `/series` route. And the
+panel answers *nothing to draw* for a shape it does not recognise, because **there is no error
+boundary above it**: one panel's throw is the whole run page, and a run that is hard to read is
+better than a run that renders nothing.
+
+### Two things that were fetched and drawn nowhere
+
+`BoardSummary.by_pipeline` shipped in phase 2 and no row used it. `TaskOut.history` shipped in
+phase 4 and no panel used it. Both are now on screen, and both were found by reading the plan's
+own constraints rather than by any test — nothing fails when a correct number is simply not
+rendered, which is the same class of silence as `--hover` being referenced five times and
+defined nowhere.
+
+### What was NOT looked at
+
+**Still nothing in a browser.** Everything in Plan 4 — the builder's four surfaces, the typed
+sockets, the Overview's three states beyond what was rendered in phase 2, and now the envelope,
+the escalation and the board's comparison — has component tests and no browser pass. It is the
+last item on phase 5 and the operator sequenced it there deliberately.

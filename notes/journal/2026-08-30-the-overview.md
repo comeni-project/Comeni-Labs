@@ -1,6 +1,6 @@
-# 2026-08-30 — the floor, the results, the front door, the builder, and what a run cost
+# 2026-08-30 — the floor, the results, the front door, the builder, and the runs
 
-**Read this first if you are picking the project up. This is the newest entry.** It covers six
+**Read this first if you are picking the project up. This is the newest entry.** It covers seven
 phases of Plan 4 executed in one day, on `worktree-plan-4-phase-0`.
 
 The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `packages/` or
@@ -8,7 +8,7 @@ The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `
 
 ## Where things stand
 
-**Plan 4 phases 0, 1, 2, 3a, 3b and 4 are complete.** The plans are in
+**Plan 4 phases 0, 1, 2, 3a, 3b, 4 and 5 are complete.** The plans are in
 [`../plans/`](../plans/), each with its steps ticked and an execution record naming every
 deviation.
 
@@ -27,7 +27,10 @@ deviation.
   artifact as the canvas's second view.
 - **Phase 4 — what a run cost.** A pure `series()` in `wiener-core` that draws only what the
   record can honestly support, one endpoint over the projection rather than the event stream,
-  and the retry escalation finally readable. Nothing draws it yet; phase 5 does.
+  and the retry escalation finally readable.
+- **Phase 5 — the runs screens.** The envelope drawn as the step function it is, the 36 → 48 →
+  72 GB escalation on the failure banner, and `vs usual` on a board row where the median had
+  been fetched and drawn nowhere since phase 2.
 
 **`make verify` green at 1655; `make check` green at 1686 with a database up. Frontend: 280 tests
 in 51 files, `tsc` clean, lint unchanged at its five pre-existing warnings.** (The count moved
@@ -273,23 +276,74 @@ sentence somebody will one day want to add.
 the design it exists to protect. A scan broad enough to fire on its own rationale is a scan that
 gets deleted rather than obeyed; it now names failure causes specifically.
 
+## Phase 5, and a scan that had to be told what it may quote
+
+Phase 4 decided *which* curves are honest and labelled them. Phase 5 is where that labelling
+survives a renderer, and the failure mode is one word in somebody else's library:
+**`curveMonotoneX` turns an area-true, shape-false curve into a picture of measurements nobody
+took**, with no effect on the data and no test to notice. `curve.ts` builds the path and
+`curve.test.ts` refuses a bezier command.
+
+**The exact curves are steps too, and not as a house style.** A reservation genuinely *is* a step
+function: four cpus are held, then twelve, then four. There is no instant at which six were
+reserved, and a line sloping between the breakpoints draws one.
+
+**Each curve gets its own y-axis and they share the x-axis.** `cpus`, `bytes` and `bytes/s` have
+no shared scale, and the alternatives are a second axis nobody reads or a normalisation that makes
+every curve the same height. Stacked rows share the thing that matters — time — so a spike in one
+sits directly above a spike in another, which is what the artboard's overlay was for.
+
+### The scan had to be told what it is allowed to quote
+
+The failure banner's *authors no cause* guard first scanned the **whole banner** for cause-words.
+The banner renders Nextflow's own `errorReport`, and the fixture for it reads *"an oom-kill event
+was detected"* — so the scan fired on the record the panel exists to show.
+
+**Quoting the record is what the banner is for. Authoring that sentence is what it must never
+do.** A scan that could not tell those apart would have forced the panel to censor the record to
+stay green, which is the opposite of the rule. It now excludes the report element and covers only
+the panel's own words.
+
+That is the **second time in two phases a scan fired on the thing it was protecting** — phase 4's
+caught the docstring explaining its own design. Both were found by running them and neither by
+reading them, and the pattern is worth naming: a scan over prose needs a stated boundary between
+what the code *says* and what the code *quotes*.
+
+### Two numbers that were fetched and drawn nowhere
+
+`BoardSummary.by_pipeline` shipped in phase 2 and no row read it. `TaskOut.history` shipped in
+phase 4 and no panel read it. **Nothing fails when a correct number is simply not rendered**,
+which is the same silence as `--hover` being referenced five times and defined nowhere.
+
+The board's comparison also has a rule the endpoint cannot keep: **a delta needs a finished run.**
+`-43% vs usual` under a live bar reads as *it was faster*, the opposite of what it means — a run
+43% through its usual duration has not been fast at anything yet. A running row says `of ~38m`,
+which is the same number saying something true.
+
+And the failing task's **ask now comes from the attempt**. `Run.tsx` took it from the overview
+row under a comment reading *"`TaskOut` has no asked half"* — true until phase 4 — and that row
+is a per-process aggregate, so on a task that escalated it reported a ceiling no single attempt
+was ever given.
+
+### One panel took the whole page down
+
+Adding the envelope made **six graph tests fail at once**. Three fixtures mock `fetch` with a URL
+switch that falls through to a `RunState`, so the new panel read `curves` off a shape that has
+none and threw during render — taking the header, the failure banner and every tab with it.
+
+The fixtures were wrong and so was the panel. **There is no error boundary above it**, so it now
+answers *nothing to draw* for a shape it does not recognise: a run that is hard to read beats a
+run that renders nothing.
+
 ## What is next
 
-**Phase 5 — the runs screens, and the plan for it is written**:
-[`../plans/2026-08-30-plan-4-phase-5-the-runs-screens.md`](../plans/2026-08-30-plan-4-phase-5-the-runs-screens.md),
-against the code that exists rather than the code the canvas predicted. Everything those screens
-read is now projected — `GET /runs/{id}/series` for the envelope, `history` on the task row for
-the escalation, `reported_resources` for the run that recorded nothing — so **no `make client` is
-needed unless a task changes a route.**
+**The browser pass over everything Plan 4 built** — the builder's four surfaces, the typed
+sockets, the envelope, the escalation and the board's comparison. It is the last item on phase 5's
+own plan, it is owed since phase 3a, and the operator sequenced it after the phases rather than
+between them. **Every session that skipped it found defects later that green suites had waved
+through** — seven across 3a and 3b, found by rendering a page and reading it.
 
-What is left is drawing it, and the first thing to get right is that **a derived curve must look
-derived**. Phase 4 decided which curves are honest and labelled them; phase 5 is where that
-labelling survives a renderer or is quietly lost, and the failure mode is one `curveMonotoneX`.
-
-**It is a redraw, not a build.** `frontend/src/runs/` already holds ten components with tests, and
-W2's property that a declared process gets a row *before the run reaches it* is easy to lose in a
-rewrite and expensive to rediscover. Its last task is **the browser pass over everything Plan 4
-built, the builder included** — owed since phase 3a and sequenced there by the operator.
+Then **"Changed underneath you"**, which is its own phase by the operator's decision.
 
 **What Plan 4 has not done, named rather than absorbed:**
 
@@ -332,6 +386,10 @@ built, the builder included** — owed since phase 3a and sequenced there by the
 - **"Nobody has looked at these screens."** For the Overview, somebody has — all three states,
   rendered and read. The Builder and Runs screens still carry that debt, and the operator has
   sequenced one browser pass over all of it after the last phase rather than per phase.
-- **"Phase 4 built a chart."** It built no pixels at all. `bin_ms` is a suggestion the renderer
-  has not yet taken and the sweep it sizes is exact at every breakpoint — if a chart ever bins
-  *first*, that exactness is gone and no test in phase 4 would notice.
+- **"Phase 4 built a chart."** It built no pixels at all — phase 5 drew them. `bin_ms` is a
+  suggestion the renderer **still has not taken**: the envelope draws every breakpoint, because a
+  real run's point count is small enough to draw whole. If a chart ever bins *first*, the
+  exactness the pure layer went to trouble for is gone and no test in either phase would notice.
+- **"The envelope shows memory used."** It does not, and it cannot. There is no memory-over-time
+  curve at any fidelity — `Kind` has two members and the API offers no third — so the component
+  has no way to invent one. What it shows is memory *reserved*, which is exact.

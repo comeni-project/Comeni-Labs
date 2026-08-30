@@ -124,7 +124,7 @@ tests are not that pass and must not be reported as it.
 
 ## Task 5 — write it down, then look at it
 
-- [ ] Journal, `CLAUDE.md` pointer in the same commit, `notes/README.md` row, guard ledger with
+- [x] Journal, `CLAUDE.md` pointer in the same commit, `notes/README.md` row, guard ledger with
       every revert **verified to land** *and* every guard watched failing against the specific
       defect — phase 4's finding, and the reason those are two checks.
 - [ ] **Then the browser pass over everything Plan 4 built** — the builder included. It is owed,
@@ -137,8 +137,8 @@ tests are not that pass and must not be reported as it.
 
 | Task | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
+| 1 | Yes, with the binning bullet satisfied by *not* binning | "Bin for drawing only, using `bin_ms`" — the envelope draws **every breakpoint** and takes the suggestion nowhere, because a real run's point count is small enough to draw whole. That satisfies the constraint the bullet exists for (never bin *before* the sweep) and leaves `bin_ms` unused, which is written down here rather than hidden by a cosmetic call. The panel sits **above the tabs, not behind a fifth segment**: every tab answers a question about a step or a task and the envelope is about the run as a whole. |
+| 2 | Yes, plus one fix the task implied | The plan said the escalation needs `history`; wiring it exposed that `Run.tsx` took the *asked* half from the overview row, which is a **per-process aggregate** — on a task that escalated 36 → 48 → 72 it reported a ceiling no single attempt was given. The ask now comes from the failing attempt, with the old path as a fallback for records predating the projection. |
+| 3 | Yes | The `who` **filter** is deleted and the column stays, with the reason left where the control was so the next reader sees a decision rather than an omission. The API's `who=` query parameter is **kept**: the operator's decision was about the screen, and a filter the server offers is a capability rather than dead code. `as usual` for a run within a tenth of the median is an addition — a row reading `+3%` on every run trains a reader to stop looking at the column meant to catch the outlier. |
+| 4 | Partly — there was little left to redraw | The run page's shape was already drawn against its artboards on 2026-08-25, and phase 5's own addition to it is the envelope from task 1. What this task actually did was the **cleanup**: `Overview` was a pass-through alias for `Table`, kept alive only by its test. A sweep for exports nothing outside their own test uses, and for files nothing imports, found **no other orphan** in `frontend/src` — so "dead code from the W2 layout" was one alias, not a layer. |
+| 5 | Documentation yes; **the browser pass is the one open box** | It is deliberately unticked. It covers all of Plan 4 rather than this phase, the operator sequenced it after the phases, and ticking it would be the exact claim `CLAUDE.md` forbids — a tick means *this step was carried out*. |

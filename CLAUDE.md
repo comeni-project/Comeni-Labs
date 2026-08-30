@@ -24,9 +24,10 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
 > [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
-> phases 0, 1, 2, 3a, 3b and 4: the shared floor, `publishDir`, the front door, the builder, and
-> what a run cost. **The runs screens (phase 5) are what is next**, and everything they read is
-> now projected.
+> phases 0, 1, 2, 3a, 3b, 4 and 5: the shared floor, `publishDir`, the front door, the builder,
+> what a run cost, and the runs screens. **What is next is the browser pass over all of it** —
+> nothing in Plan 4 has been driven by hand in a live stack, and the operator sequenced that
+> after the phases rather than between them.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
 > [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
@@ -164,6 +165,23 @@ convention and refuses a cause: a preemption, a `kill -9` and a cgroup limit are
 holds the line by naming the words. `TaskOut.history` carries what each attempt **asked for**
 beside what it **touched**, which is the 36 → 48 → 72 GB escalation that lived in a JSON column
 where no reader could reach it.
+
+**A derived curve is drawn stepped, and a scan refuses a bezier** — Plan 4 phase 5,
+`frontend/src/runs/curve.ts`. Phase 4 decided which curves are honest and labelled them; this is
+where that labelling survives a renderer, and the failure mode is one word in somebody else's
+library: `curveMonotoneX` turns an area-true, shape-false curve into a picture of measurements
+nobody took, with no effect on the data. **The exact curves are steps too, and not as a house
+style** — a reservation genuinely is a step function, and a line sloping between two breakpoints
+draws an instant at which nothing was ever reserved. Each curve keeps its own y-axis and they
+share the x-axis, because `cpus`, `bytes` and `bytes/s` have no shared scale and time is the
+comparison that matters.
+
+**A scan over prose needs a boundary between what the code says and what it quotes.** The failure
+banner may not author *the OOM killer did it*; it must show Nextflow's `errorReport`, which says
+exactly that. The first version of the guard scanned the whole banner and fired on the record the
+panel exists to show — it now excludes the report and covers only the panel's own words. That is
+the second scan in two phases to fire on the thing it was protecting, and both were found by
+running them rather than reading them.
 
 **The whole stack comes up with one `docker compose up`**, which was the operator's constraint
 rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
