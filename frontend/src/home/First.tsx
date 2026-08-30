@@ -65,16 +65,24 @@ export function First() {
         >
           <span aria-hidden className="font-data text-[14px]"
                 style={{ color: "var(--link)" }}>&rsaquo;</span>
-          {/* **Not `grow`.** The artboard sets the chevron, the text and the cursor as three
-              flex children at their natural widths, so the cursor sits immediately after the
-              sentence the way a terminal's does. Stretching the input pinned the cursor to the
-              far right edge of a 660px bar, 400px from the text it belongs to. */}
+          {/* **Not `grow`, and sized to its own content.** The artboard sets the chevron, the
+              text and the cursor as three flex children at their natural widths, so the cursor
+              sits immediately after the sentence the way a terminal's does. Stretching the
+              input pinned the cursor to the far right edge of a 660px bar, 400px from the text
+              it belongs to.
+
+              `field-sizing: content` is what closes the last of that gap: `size` counts
+              *average* character widths, which in a proportional face leaves the box wider than
+              the words in it. `size` stays as the fallback for a browser without it — the
+              cursor then sits a little further out, which is a smaller wrong than a control
+              with no width at all. */}
           <input
             id="goal"
             disabled
             size={44}
             className="bg-transparent border-0 outline-none text-[15px] cursor-not-allowed
-                       max-w-full placeholder:text-[color:var(--ink-4)]"
+                       max-w-full [field-sizing:content]
+                       placeholder:text-[color:var(--ink-4)]"
             placeholder="gene counts from paired-end RNA-seq of mouse liver"
           />
           {/* The blinking block. `steps(1)` — it snaps rather than fading, which is what a
