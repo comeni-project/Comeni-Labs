@@ -409,6 +409,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What could sit on the other end of a wire, in the resolver's own order
+         * @description The port picker's ordering, and the reason beside each row.
+         *
+         *     **Filtering is the browser's; ordering is not.** `GET /pipeline/compatibility` already tells a
+         *     client what fits — that is a lookup it can do without a round trip, and `useCompatibility`
+         *     does. What it cannot know is which candidate `resolve()` would reach for, and that is what
+         *     makes the picker an answer rather than a filtered list.
+         *
+         *     `states` is a comma-separated list, empty for none. A **query** rather than a path segment
+         *     because a state set is unordered and a path implies one.
+         *
+         *     `side=producing` asks *what could feed this input*; `side=consuming` asks *what would accept
+         *     this output*. Only the first has the resolver's authority behind its order, and
+         *     `services/candidates.py` says so rather than pretending otherwise.
+         */
+        get: operations["listCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/drafts": {
         parameters: {
             query?: never;
@@ -845,21 +877,18 @@ export interface components {
             count: number;
             urgency: components["schemas"]["Urgency"];
         };
-        /**
-         * Candidate
-         * @description One thing that may be answered, and where it comes from.
-         *
-         *     Not `CandidateRef` — that is `egress.py`'s alias for a *reference* that crosses door 2
-         *     (`ContractId | EdgeRef | None`). This is the offered option a reviewer reads.
-         */
-        Candidate: {
-            /** Value */
-            value: string;
+        /** Candidates */
+        Candidates: {
             /**
-             * Note
-             * @default
+             * Candidates
+             * @default []
              */
-            note: string;
+            candidates: components["schemas"]["mendel_api__services__candidates__Candidate"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** CompareIn */
         CompareIn: {
@@ -1337,7 +1366,7 @@ export interface components {
              */
             why_open: string;
             /** Candidates */
-            candidates?: components["schemas"]["Candidate"][];
+            candidates?: components["schemas"]["comeni_core__review__question__Candidate"][];
             /**
              * Closed
              * @default true
@@ -1463,7 +1492,7 @@ export interface components {
             /** Asked By */
             asked_by: string[];
             /** Candidates */
-            candidates: components["schemas"]["Candidate"][];
+            candidates: components["schemas"]["comeni_core__review__question__Candidate"][];
             /** Closed */
             closed: boolean;
             /** Evidence */
@@ -1879,6 +1908,22 @@ export interface components {
              */
             seen_at: string;
         };
+        /**
+         * Candidate
+         * @description One thing that may be answered, and where it comes from.
+         *
+         *     Not `CandidateRef` — that is `egress.py`'s alias for a *reference* that crosses door 2
+         *     (`ContractId | EdgeRef | None`). This is the offered option a reviewer reads.
+         */
+        comeni_core__review__question__Candidate: {
+            /** Value */
+            value: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** Verdict */
         comeni_core__review__verdict__Verdict: {
             /**
@@ -1886,6 +1931,26 @@ export interface components {
              * @default []
              */
             findings: components["schemas"]["Finding"][];
+        };
+        /**
+         * Candidate
+         * @description One contract that could go here, and why it is where it is in the list.
+         */
+        mendel_api__services__candidates__Candidate: {
+            /** Contract Id */
+            contract_id: string;
+            /** Port */
+            port: string;
+            /** Process */
+            process: string;
+            /** Tool */
+            tool: string;
+            /** Surplus */
+            surplus: number;
+            /** Priority */
+            priority: number;
+            /** Why */
+            why: string;
         };
         /**
          * Verdict
@@ -2454,6 +2519,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listCandidates: {
+        parameters: {
+            query: {
+                type_id: string;
+                states?: string;
+                side?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidates"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

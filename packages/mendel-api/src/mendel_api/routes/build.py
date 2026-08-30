@@ -22,12 +22,13 @@ from mendel_api import identity, jobs
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
 from mendel_api.services import bundle as bundle_service
+from mendel_api.services import candidates, registry
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import gates as gate_service
-from mendel_api.services import registry
 from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
+from mendel_api.services.candidates import Candidates
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -117,6 +118,32 @@ def compatibility_index(request: Request, response: Response) -> Compatibility |
         return Response(status_code=304, headers={"ETag": etag})
     response.headers["ETag"] = etag
     return validation.index()
+
+
+@router.get(
+    "/candidates",
+    operation_id="listCandidates",
+    summary="What could sit on the other end of a wire, in the resolver's own order",
+)
+def list_candidates(type_id: str, states: str = "", side: str = "producing") -> Candidates:
+    """The port picker's ordering, and the reason beside each row.
+
+    **Filtering is the browser's; ordering is not.** `GET /pipeline/compatibility` already tells a
+    client what fits — that is a lookup it can do without a round trip, and `useCompatibility`
+    does. What it cannot know is which candidate `resolve()` would reach for, and that is what
+    makes the picker an answer rather than a filtered list.
+
+    `states` is a comma-separated list, empty for none. A **query** rather than a path segment
+    because a state set is unordered and a path implies one.
+
+    `side=producing` asks *what could feed this input*; `side=consuming` asks *what would accept
+    this output*. Only the first has the resolver's authority behind its order, and
+    `services/candidates.py` says so rather than pretending otherwise.
+    """
+    wanted = frozenset(part for part in states.split(",") if part)
+    if side == "consuming":
+        return candidates.consuming(type_id, wanted)
+    return candidates.producing(type_id, wanted)
 
 
 class DraftIn(BaseModel):

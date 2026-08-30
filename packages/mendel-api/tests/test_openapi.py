@@ -52,6 +52,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline", "post"): "buildPipeline",
         ("/api/pipeline/example", "get"): "examplePipeline",
         ("/api/pipeline/compatibility", "get"): "compatibilityIndex",
+        ("/api/pipeline/candidates", "get"): "listCandidates",
         # Every landed contract, for the builder's picker. Distinct from `listTools`, which
         # answers *what is the state of everything* and carries drafts and undrafted tools —
         # neither of which can be dragged onto a canvas.
