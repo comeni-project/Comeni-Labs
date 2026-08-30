@@ -112,10 +112,10 @@ tests are not that pass and must not be reported as it.
 
 ## Task 3 — the board
 
-- [ ] `vs usual` from `by_pipeline`, and **only on a finished run** — a live row says `of ~38m`.
-- [ ] A pipeline with no median shows no comparison rather than a zero.
-- [ ] The `submitted_by` slot renders and does not filter.
-- [ ] Absence rules hold: a lab with no runs is a shorter page, not an empty table.
+- [x] `vs usual` from `by_pipeline`, and **only on a finished run** — a live row says `of ~38m`.
+- [x] A pipeline with no median shows no comparison rather than a zero.
+- [x] The `submitted_by` slot renders and does not filter.
+- [x] Absence rules hold: a lab with no runs is a shorter page, not an empty table.
 
 ## Task 4 — the run page's shape
 
