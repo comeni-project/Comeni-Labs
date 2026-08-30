@@ -549,13 +549,21 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                   setPicking({
                     node: placed.id,
                     port,
-                    // Anchored beside the node rather than at the exact port. The port's own
-                    // canvas coordinate is derivable — `portX` plus the node offset plus the
-                    // view transform — and getting it slightly wrong is how a wire once landed
-                    // 39px from its chevron. Beside the node is right at every zoom.
+                    // **In CONTAINER coordinates, not canvas ones.** The popover mounts
+                    // outside the transformed stage, so a canvas coordinate handed to it
+                    // ignores pan and zoom entirely — it opened in the top-left corner of the
+                    // page, over the header, whichever port you clicked.
+                    //
+                    // The transform is `translate(view.x, view.y)` then `scale(view.k)`, and
+                    // this is it applied forward; line ~400 undoes the same one to put the
+                    // cursor into canvas space. Two places, one transform, written the same
+                    // way round each time.
+                    //
+                    // Beside the node rather than exactly on the port: at low zoom an exact
+                    // anchor puts a 340px panel on top of the thing it is describing.
                     at: {
-                      x: (offsets[placed.id]?.x ?? 0) + placed.width + 16,
-                      y: offsets[placed.id]?.y ?? 0,
+                      x: ((offsets[placed.id]?.x ?? 0) + NODE_W + 16) * view.k + view.x,
+                      y: (offsets[placed.id]?.y ?? 0) * view.k + view.y,
                     },
                   })}
                 onDrag={(by) => builder.moveNode(placed.id, by)}

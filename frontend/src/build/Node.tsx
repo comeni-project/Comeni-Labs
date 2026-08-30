@@ -165,6 +165,40 @@ export function Node({
               onStartWire={() => onStartWire?.(port.name)} />
       ))}
 
+      {/* ── The invitation ────────────────────────────────────────────────────────────────
+          **A 7px square is a target, not an offer.** Clicking a port now opens the picker, and
+          `.plus` is what tells you that before you try — the artboard draws it at
+          `right:-27px`, hanging off the node's first output on the side the graph flows to.
+
+          It does the same thing the port does, deliberately. `impl-walkbugs` records that
+          *every step landed on identical coordinates* when steps were added from a palette; a
+          step added from a port has somewhere to go by construction, so this is the discoverable
+          door onto the path that already works rather than a second way in.
+
+          Only where there is an output to hang it on: a terminal step has nothing downstream and
+          an invitation to add one would be an invitation to draw an illegal wire. */}
+      {outs.length > 0 && onExplore && (
+        <button
+          data-testid="add-downstream"
+          aria-label={`add a step after ${step?.process ?? placed.id}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onExplore(outs[0]); }}
+          className="absolute w-[18px] h-[18px] flex items-center justify-center leading-none
+                     text-[13px] cursor-pointer lift"
+          style={{
+            right: -27,
+            top: portOffset(0) - 9,
+            color: "var(--link)",
+            background: "var(--paper-2)",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderColor: "var(--link-line)",
+          }}
+        >
+          +
+        </button>
+      )}
+
       {/* ── The header: the name, and the way into its settings ───────────────────────── */}
       <div className="flex items-center gap-2 h-[28px] px-[10px] shrink-0"
            style={{ borderBottomWidth: 1, borderBottomStyle: "solid",

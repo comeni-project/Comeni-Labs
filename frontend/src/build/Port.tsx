@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { components } from "../api/schema";
 
@@ -41,6 +41,13 @@ type PortView = components["schemas"]["PortView"];
  * **Hover names it on the canvas**, rather than only in a `title`. A native tooltip waits a
  * second, renders outside the design, and cannot be read at a glance while tracing a wire.
  */
+/** How far the pointer may travel and still count as a click rather than the start of a drag.
+ *
+ * Four device pixels is the usual figure and it is what a native `click` uses in practice. It
+ * exists because an output port has to do BOTH: press-and-move draws a wire, press-and-release
+ * asks what could go here. */
+const SLOP = 4;
+
 export function Port({
   port,
   side,
@@ -64,6 +71,8 @@ export function Port({
   onFinishWire?: () => void;
 }) {
   const [over, setOver] = useState(false);
+  // Where the press landed, so release can tell a click from a drag.
+  const down = useRef<{ x: number; y: number } | null>(null);
   const inbound = side === "in";
 
   return (
@@ -77,6 +86,7 @@ export function Port({
       data-verdict={verdict ?? ""}
       onPointerDown={(e) => {
         e.stopPropagation();
+        down.current = { x: e.clientX, y: e.clientY };
         // An output starts a wire; an input cannot. The direction is the port's, not the
         // gesture's, which is what makes MD0502 unreachable from the canvas rather than merely
         // reported by it.
@@ -84,11 +94,32 @@ export function Port({
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
+
+        // ═══ A CLICK IS A PRESS THAT DID NOT TRAVEL ════════════════════════════════════════
+        //
+        // **`n-bport` says *click* an output and this needed a DOUBLE click**, on a 7px square,
+        // which is why the operator's verdict was that the feature *does not exist*. It was not
+        // missing — `Picker` and `GET /pipeline/candidates` have shipped since phase 3b — it was
+        // bound to a gesture nobody would find.
+        //
+        // The comment that chose the double click was honest about the obstacle: `onPointerDown`
+        // already starts a wire, and telling a click from the beginning of a drag "needs movement
+        // tracking this component does not have". It has it now, and it is four lines: remember
+        // where the press landed, and on release ask whether the pointer moved. Anything under
+        // `SLOP` was a click.
+        //
+        // A wire begun and abandoned costs nothing — the canvas clears `dragging` on any
+        // `pointerup`, so the press that opens this popover tidies itself up.
+        const from = down.current;
+        down.current = null;
+        const still =
+          from && Math.abs(e.clientX - from.x) < SLOP && Math.abs(e.clientY - from.y) < SLOP;
+
+        if (still) {
+          onExplore?.();
+          return;
+        }
         if (inbound) onFinishWire?.();
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        onExplore?.();
       }}
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}
@@ -100,7 +131,8 @@ export function Port({
       style={{ top: y - 3.5, [inbound ? "left" : "right"]: -4 }}
       className={`absolute w-[7px] h-[7px] p-0 leading-none z-10 transition-transform
                   ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
-                  hover:scale-150 focus-visible:scale-150`}
+                  hover:scale-150 focus-visible:scale-150
+                  focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--link)]`}
     >
       <span aria-hidden className="block w-full h-full" style={{
         // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--link`. An

@@ -52,3 +52,44 @@ describe("drag-to-connect", () => {
     expect(screen.getByTestId("port-label")).toHaveTextContent("nothing feeds this");
   });
 });
+
+describe("click a port, get what fits", () => {
+  it("a press that does not travel asks what could go here", () => {
+    // **`n-bport` says CLICK an output.** It needed a double click, on a 7px square — which is
+    // why the operator's verdict was that the feature does not exist. It was not missing:
+    // `Picker` and `GET /pipeline/candidates` have shipped since phase 3b, bound to a gesture
+    // nobody would find.
+    const explore = vi.fn();
+    render(<Port port={out} side={out.side} y={56} onExplore={explore} />);
+    const port = screen.getByTestId("port");
+
+    fireEvent.pointerDown(port, { clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(port, { clientX: 100, clientY: 100 });
+    expect(explore).toHaveBeenCalledTimes(1);
+  });
+
+  it("a press that travels draws a wire instead", () => {
+    // The other half, and the reason the double click was chosen in the first place: an output
+    // has to do both, and a click that also ended a wire would open the popover every time
+    // somebody let go of one.
+    const explore = vi.fn();
+    const finish = vi.fn();
+    render(<Port port={inp} side={inp.side} y={56} onExplore={explore} onFinishWire={finish} />);
+    const port = screen.getByTestId("port");
+
+    fireEvent.pointerDown(port, { clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(port, { clientX: 160, clientY: 220 });
+    expect(explore).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledTimes(1);
+  });
+
+  it("is reachable without a pointer at all", () => {
+    // The 2026-08-29 walk found the module palette absent from the accessibility tree, so drag
+    // and double-click were the only two ways to add a step. A port is a real button with a
+    // label, so it is tab-reachable and announced.
+    render(<Port port={out} side={out.side} y={56} onExplore={vi.fn()} />);
+    const port = screen.getByTestId("port");
+    expect(port.tagName).toBe("BUTTON");
+    expect(port.getAttribute("aria-label")).toMatch(/Output bam: alignment\.bam/);
+  });
+});

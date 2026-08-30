@@ -110,12 +110,12 @@ description. **Leave the slot empty; do not invent prose.**
 
 ## Task 3 — click a port, get what fits
 
-- [ ] A port is a control: focusable, `role="button"`, and it lifts (the lift contract).
-- [ ] Clicking one opens `Picker` anchored to it, filtered by direction, ranked by the router's
+- [x] A port is a control: focusable, `role="button"`, and it lifts (the lift contract).
+- [x] Clicking one opens `Picker` anchored to it, filtered by direction, ranked by the router's
       own key, with the computed reason.
-- [ ] Choosing places the new node **where the port is**, which is `impl-walkbugs`' fix for every
+- [x] Choosing places the new node **where the port is**, which is `impl-walkbugs`' fix for every
       step landing on identical coordinates.
-- [ ] Keyboard-first: focus on open, arrows, enter to add, escape to close.
+- [x] Keyboard-first: focus on open, arrows, enter to add, escape to close.
 
 ## Task 4 — the canvas's own field, and a grid only while moving
 

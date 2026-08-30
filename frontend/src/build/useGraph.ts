@@ -59,6 +59,8 @@ export function useGraph(
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** Every id in use, kept in step synchronously so a batch of adds cannot collide. */
   const taken = useRef<Set<string>>(new Set(initial.nodes.map((n) => n.id)));
+  /** Which nodes a PERSON has moved. Everything else is still the server's to arrange. */
+  const moved = useRef<Set<string>>(new Set());
 
   const edit = useCallback((next: (g: DraftGraph) => DraftGraph) => {
     setGraph((current) => next(current));
@@ -91,6 +93,7 @@ export function useGraph(
   const removeNode = useCallback(
     (id: string) => (
       taken.current.delete(id),
+      moved.current.delete(id),
       edit((g) => ({
         ...g,
         nodes: g.nodes.filter((n) => n.id !== id),
@@ -186,22 +189,43 @@ export function useGraph(
    * did. Positions the client owns outright have no such dependency.
    */
   const moveNode = useCallback(
-    (id: string, to: Offset) => setOffsets((current) => ({ ...current, [id]: to })),
+    (id: string, to: Offset) => {
+      // **This is what makes a position the client's**, and it is the whole of the distinction
+      // `seed` was missing. Being drawn somewhere is not the same as being PUT there.
+      moved.current.add(id);
+      setOffsets((current) => ({ ...current, [id]: to }));
+    },
     [],
   );
 
-  /** Seed positions for nodes the client has never placed.
+  /** Take the server's layout for every node **a person has not moved.**
    *
-   * The server's layout is the canonical arrangement and this is where it lands — **once, per
-   * node.** After that the client's position wins, so re-laying-out on the server cannot move a
-   * box under somebody's hand. `tidy` is how you ask for the canonical arrangement back.
+   * The server's arrangement is the canonical one and this is where it lands. What the client
+   * keeps is what somebody actually dragged — so re-laying-out cannot move a box under a hand,
+   * which is the property this was written for and still has.
+   *
+   * ═══ IT USED TO SEED ONCE PER NODE, EVER, AND THAT WAS THE BUG ═══════════════════════════
+   *
+   * A node was pinned to wherever it first appeared, whether or not anybody had touched it. So
+   * adding a step **re-ranked the graph on the server and the old nodes refused to move**:
+   * `samtools/index` was added downstream of `samtools/sort`, which made it a SIBLING of
+   * `subread/featurecounts` — two nodes in one rank, 170px apart in the new layout, and the
+   * old one still sitting where it had been when it was alone. They drew on top of each other
+   * and the graph appeared to lose a step. The draft was correct throughout; only the picture
+   * was wrong, which is the worst way for it to be wrong.
+   *
+   * That is `impl-walkbugs`' *EVERY STEP LANDED ON IDENTICAL COORDINATES — two nodes, one
+   * visible*, arriving through a different door than the one that was closed. It is written out
+   * here because the door it came through is a comment two functions up that says the client's
+   * position wins: true, and only for a position the client actually chose.
    */
   const seed = useCallback((from: Record<string, Offset>) => {
     setOffsets((current) => {
       let changed = false;
       const next = { ...current };
       for (const [id, at] of Object.entries(from)) {
-        if (next[id] === undefined) {
+        if (moved.current.has(id)) continue;
+        if (next[id]?.x !== at.x || next[id]?.y !== at.y) {
           next[id] = at;
           changed = true;
         }
@@ -211,7 +235,10 @@ export function useGraph(
   }, []);
 
   /** Throw away the client's positions and take the server's again. */
-  const tidy = useCallback(() => setOffsets({}), []);
+  const tidy = useCallback(() => {
+    moved.current.clear();
+    setOffsets({});
+  }, []);
 
   useEffect(() => {
     if (!dirty || !save) return;

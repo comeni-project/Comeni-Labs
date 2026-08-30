@@ -123,3 +123,46 @@ describe("the working graph", () => {
     expect(result.current.dirty).toBe(true); // a failed save is not a save
   });
 });
+
+describe("what the server may rearrange", () => {
+  it("re-seeds a node nobody has moved when the layout changes", () => {
+    // **The defect the operator's walk found, arriving through a different door.**
+    //
+    // `seed` placed a node once per node, EVER. So adding a step re-ranked the graph on the
+    // server and the untouched nodes refused to move: `samtools/index` became a sibling of
+    // `subread/featurecounts`, the new node took the new layout, the old one stayed where it
+    // had been when it was alone in its rank, and the two drew on top of each other. The graph
+    // appeared to lose a step while the saved draft was correct throughout — which is the worst
+    // way for it to be wrong, because nothing but looking would catch it.
+    const { result } = renderHook(() => useGraph({ nodes: [], edges: [] }));
+
+    act(() => result.current.seed({ a: { x: 0, y: 0 }, b: { x: 224, y: 0 } }));
+    expect(result.current.offsets.b).toEqual({ x: 224, y: 0 });
+
+    // The server re-ranks: `b` now shares a rank with something and moves across the flow.
+    act(() => result.current.seed({ a: { x: 0, y: 0 }, b: { x: 224, y: 170 } }));
+    expect(result.current.offsets.b).toEqual({ x: 224, y: 170 });
+  });
+
+  it("never moves a box a person put somewhere", () => {
+    // The property the seed-once rule was written for, and it survives: being DRAWN somewhere
+    // is not being PUT there, and only the second one wins against a re-layout.
+    const { result } = renderHook(() => useGraph({ nodes: [], edges: [] }));
+
+    act(() => result.current.seed({ a: { x: 0, y: 0 } }));
+    act(() => result.current.moveNode("a", { x: 900, y: 500 }));
+    act(() => result.current.seed({ a: { x: 0, y: 170 } }));
+
+    expect(result.current.offsets.a).toEqual({ x: 900, y: 500 });
+  });
+
+  it("gives a tidied node back to the server", () => {
+    const { result } = renderHook(() => useGraph({ nodes: [], edges: [] }));
+
+    act(() => result.current.moveNode("a", { x: 900, y: 500 }));
+    act(() => result.current.tidy());
+    act(() => result.current.seed({ a: { x: 0, y: 170 } }));
+
+    expect(result.current.offsets.a).toEqual({ x: 0, y: 170 });
+  });
+});
