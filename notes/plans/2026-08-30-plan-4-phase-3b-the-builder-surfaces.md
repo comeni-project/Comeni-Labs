@@ -153,7 +153,7 @@ rail scrolling itself back to the top, and the three-layer arc field.
       the pipeline, so the second view of the canvas is the artifact itself. Every value with its
       `why:` — tier, rule, premise. Open values are null and marked.
 - [x] Section jumps are a row of chips, not another left-hand list.
-- [ ] The run sheet: typed input **sockets** on the canvas (dashed, no settings, a TYPE and never
+- [x] The run sheet: typed input **sockets** on the canvas (dashed, no settings, a TYPE and never
       a path), and the binding with the RUN. Reachability stated **before** you commit.
 - [x] **You never type a path.** If one ever reaches `pipeline.yml`, the product's central promise
       is gone — this is not a style choice (`impl-inv`).
@@ -181,8 +181,8 @@ rail scrolling itself back to the top, and the three-layer arc field.
 **1676**; frontend gate green at **291 tests in 54 files**, `tsc` clean, lint unchanged at its
 five pre-existing warnings, production build compiles to one easing curve.
 
-**One box is unticked and one is `[~]`**, and both are named rather than absorbed — see the last
-two rows of the table.
+**Every box is ticked except Task 7's, which is `[~]`** — the shell was rendered and read, the
+four new surfaces have component tests and no browser pass.
 
 | Task | Carried out as written? | Deviation |
 |---|---|---|
@@ -193,6 +193,7 @@ two rows of the table.
 | 3 | And `Restored.test.tsx` was restated a third time | That file exists so four operator-restored things cannot vanish quietly, and **three of the four were about the palette**. Reversing them in the test that held them — with what each was protecting and where it lives now — is the only honest way. The *question* each protected is still answered; the answers moved. |
 | 4 | Narrower than written, because most of the card already existed | P3b-1 was right that `Settings.tsx` already groups by tier and renders a `<select>` for any declared domain — so *choices rather than a text field* was **already true**. The genuinely absent half was the **premise**, which needed a new `SettingView.premise` carrying `PremiseRecord.prose()`. That is what tier 3 is yellow FOR: *the machinery worked, check the premise* — and the card said a rule matched without ever saying what it matched on. |
 | 4 | Swap computes its consequences rather than describing them | Choosing a candidate runs `validate` against the graph **as it would be** and diffs the verdict. *Would break MD0506 align.index* is a finding the resolver produced, not a prediction. Nothing is applied until asked. |
-| 5 | The artifact view, yes; the input sockets, no | `GET /drafts/{id}/artifact` serves the `pipeline.yml` **verbatim** — a re-serialised model would mean the screen showed something structurally similar to what `mendel emit` reads, which is the gap this view exists to close. **The canvas's typed input sockets are NOT drawn** and that box is unticked: it is a layout change of the same class as the three-layer arc field. The *binding* half is already correct and now guarded — `norule.test.ts` holds that no control in `build/` takes a path except the run sheet, which is Wiener's. |
+| 5 | Both, and I was wrong about the second being expensive | `GET /drafts/{id}/artifact` serves the `pipeline.yml` **verbatim** — a re-serialised model would show something structurally similar to what `mendel emit` reads, which is the gap the view exists to close. **The input sockets were first called "a layout change of the same class as the arc field" and that was wrong**, which the operator caught. The arc field is decorative ambience with no data behind it; a socket carries information a person needs and the data is already in the browser — an input is entry-fed when it is `met` and no wire targets it, a question about **edges** rather than types. `Sources.tsx` is ~90 lines and touches neither `dag-core` nor the API. |
+| 5 | And the defect it replaced was worse than nothing | An entry channel drew a **wire stub running off the left edge with a clipped label and no terminus**: the canvas said *something feeds this* and never what, so the only way to learn what the pipeline required was to press Run. Looking at it then found the sockets landing at **x = −200**, off-canvas, because the layout starts at x≈40 and the view opened at origin — fixed by moving the camera, not the layout, since an entry channel is not a node and giving one a position in `dag-core` would make the canvas and the emitted `.nf` disagree about what a step is. |
 | 6 | Yes, and the cause was structural | The rail sat inside **two nested scroll containers** — `Side`'s and its own. The outer scrolls, the inner content changes height, the outer clamps to zero. `Side` is not a scroller any more. |
 | 7 | `[~]` — the shell was looked at, the new surfaces were not | Looking found the grid still declaring **five columns for three children**, leaving 335px of dead ground beside the rail. The picker, overlay, swap and artifact view have component tests and no browser pass; headless Chrome cannot cheaply drive the clicks that reach them. Recorded as W1 recorded it. |

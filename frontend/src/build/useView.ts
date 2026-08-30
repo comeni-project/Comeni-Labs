@@ -15,7 +15,21 @@ export const GRID = 22;
 
 export type View = { x: number; y: number; k: number };
 
-const START: View = { x: 0, y: 0, k: 1 };
+/** **The canvas opens with room for what feeds the pipeline.**
+ *
+ * `dag-core` lays the graph out from x≈40, and an input socket is drawn to the LEFT of the step
+ * it feeds — at roughly x = −200, which is off-screen at `x: 0`. The pipeline looked complete and
+ * its inputs were simply not on the canvas; the only hint was a dashed line disappearing at the
+ * left edge, which is worse than drawing nothing.
+ *
+ * A pan offset rather than a layout change: an entry channel is not a node, and giving one a
+ * position in `dag-core` would make the canvas and the emitted `.nf` disagree about what a step
+ * is. This moves the camera, which is what was wrong.
+ *
+ * 250 = the socket's 150 plus its 90 gap, plus a little air. `reset` returns here, not to
+ * origin, so the same thing is true after somebody presses it.
+ */
+const START: View = { x: 250, y: 20, k: 1 };
 
 export function useView() {
   const [view, setView] = useState<View>(START);

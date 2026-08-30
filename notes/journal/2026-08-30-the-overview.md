@@ -166,7 +166,19 @@ absence."* No test asserted the absence. That is 3a's *three comments that were 
 that did not run* arriving from the other side: **a comment claiming a guard exists is worse than
 one that does not, because it stops the next person looking.**
 
-**Two things I got backwards, both caught by reading my own words back.** The consuming direction
+**A claim of mine was wrong and the operator caught it.** I deferred the canvas's typed input
+sockets as *the same class of work as the three-layer arc field*. Checked: the arc field is
+decoration with no data behind it, and a socket says **what this pipeline requires of you** from
+data already on the client — an input is entry-fed when it is `met` and no wire targets it, which
+is a question about *edges*, not types. Ninety lines, no `dag-core` change, no endpoint.
+
+What it replaced was worse than nothing: an entry channel drew a **wire stub running off the left
+edge with a clipped label and no terminus**, so the only way to learn what a pipeline needed was
+to press Run. And the first render put the sockets at **x = −200**, off-canvas — the same defect
+in a better costume — fixed by moving the camera rather than the layout, because an entry channel
+is not a node.
+
+**Two more I got backwards, both caught by reading my own words back.** The consuming direction
 of the candidates service was sorted so the vaguest match came first, against a docstring written
 minutes earlier saying the opposite — found by printing the real registry's answer. And the
 builder's grid still declared **five columns for three children**, leaving 335px of dead ground
@@ -187,9 +199,11 @@ per-attempt resources projected. Then **phase 5**, the runs screens.
 
 **What Plan 4 has not done, named rather than absorbed:**
 
-- **The canvas's typed input sockets** — a source node carrying a TYPE and never a path. The
-  *binding* half is correct and now guarded; the drawing is a layout change of the same class as
-  the **three-layer arc field**, which is also not built. Both are 3a/3b's two unticked boxes.
+- **The three-layer arc field** — decorative ambience, and the one canvas item still unbuilt.
+  It was deferred alongside the typed input sockets on the claim that they were the same class of
+  work. **They were not**: the sockets carried information a person needs and their data was
+  already in the browser, so they are built. Sizing two things as equal because both were
+  "not built" is a mistake worth remembering.
 - **Two known tensions from phase 0**: `breathe` and `animate-pulse` are a sixth and seventh
   movement, and retiring either is a visible change to a screen phase 5 owns.
 - **"Changed underneath you"** on the Overview, and the **resource sentence**, which needs the

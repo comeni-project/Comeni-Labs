@@ -3282,3 +3282,48 @@ opened in a browser. Headless Chrome cannot cheaply drive the clicks that reach 
 
 That is the debt W1 recorded as `[~]`, recorded the same way. Every phase this session found
 defects by rendering that a green suite could not, and these four have not had that pass.
+
+## What the pipeline needs from you, drawn — 2026-08-30
+
+Plan 4 phase 3b, task 5's second half. **Added after the operator asked whether it was actually
+needed**, against a claim of mine that it was "a layout change of the same class as the arc
+field". That claim was wrong and worth recording as wrong.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Sources.test.tsx` "draws a socket for an input fed from outside, and only for that" | removed the `wired.has(...)` check, so a wired input also grew a socket | failed | `expected 2 to be 1` |
+| 2026-08-30 | `Sources.test.tsx` "carries a TYPE and offers nothing to type into" | — held green; it is invariant 15 drawn | passed | no `input`, `textarea` or `select`, and no `/` anywhere in the socket |
+
+### The claim that was wrong, and how
+
+I said drawing typed input sockets was the same class of work as the three-layer arc field, and
+deferred both. Checking rather than asserting:
+
+- **The arc field** is decorative ambience with no data behind it.
+- **A socket** carries information a person needs — *what this pipeline requires of me* — and the
+  data was **already in the browser**. An input is entry-fed when it is `met` and no wire targets
+  it: a question about **edges**, not about types, so deriving it duplicates no rule.
+  `useCompatibility.ts`'s warning is about type signatures; this counts arrows.
+
+`Sources.tsx` is ~90 lines, touches neither `dag-core` nor the API, and needed no new endpoint.
+**Two things sized as equal because they were both "not built" were not remotely equal**, and the
+only reason the difference surfaced is that somebody asked.
+
+### The defect it replaced was worse than drawing nothing
+
+An entry channel drew a **wire stub running off the left edge, with a clipped label and no
+terminus**. The canvas said *something feeds this* and never what — so the only way to learn what
+a pipeline required was to press Run and read the sheet.
+
+### And then the sockets were invisible
+
+First render put them at **x = −200**: `dag-core` lays out from x≈40, a socket sits to the left of
+its consumer, and the view opens at origin. The pipeline looked complete with its inputs simply
+off-screen, hinted at by a dashed line vanishing at the edge — which is the *original* defect
+wearing a better costume.
+
+Fixed by moving the **camera**, not the layout. An entry channel is not a node, and giving one a
+position in `dag-core` would make the canvas and the emitted `.nf` disagree about what a step is.
+`reset` returns to the same place, so pressing it does not re-hide them.
+
+**Found by looking at the built page**, for the fourth time this session.

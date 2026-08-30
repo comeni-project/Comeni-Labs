@@ -11,6 +11,7 @@ import { ArtifactView } from "./ArtifactView";
 import { Browse } from "./Browse";
 import { Picker } from "./Picker";
 import { Provenance } from "./Provenance";
+import { Sources } from "./Sources";
 import { Status } from "./Status";
 import { Swap } from "./Swap";
 import { useRun } from "./useRun";
@@ -464,6 +465,12 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         {error && <Failed error={error} />}
         {data && (
           <>
+            {/* **What this pipeline needs from you**, before the wires so a node draws over
+                both. An entry channel used to draw a stub running off to the left with a
+                clipped label and no terminus: the canvas said *something feeds this* and never
+                what, so the only way to learn what the pipeline required was to press Run. */}
+            <Sources data={data} offsets={offsets} />
+
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}
             <Wires
               // The client's edges, not the server's — same reason as the nodes.
