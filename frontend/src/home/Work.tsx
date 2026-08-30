@@ -20,8 +20,11 @@ type RunRow = wiener["schemas"]["RunRow"];
  * the question somebody opening the front door has. By-run is the follow-up.
  */
 
-const HEAD = "text-label uppercase tracking-[.14em] text-ink-3 font-normal text-left py-2";
-const CELL = "py-3 border-t border-line align-top";
+/** The artboards' `.lb`: mono, 9.5px, `.15em`, uppercase. It shipped at `.14em` in the UI face,
+ *  which is the same idea drawn with the wrong tool — every label on every board is monospaced. */
+const HEAD = "font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 font-normal "
+  + "text-left py-2";
+const CELL = "py-3 border-t border-line align-middle";
 
 /** How Mendel decided, as one stacked bar per pipeline — a proportion of one whole.
  *
@@ -79,15 +82,33 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
 
   return (
     <div className="tbl">
-      <table className="w-full border-collapse min-w-[720px]">
+      {/* **The artboard's column widths, and they were inverted.** `.pr` is
+          `14px 156px 1fr 118px 74px 96px 78px` — the name is NARROW and *Makes* takes the
+          slack, because the sentence describing what a pipeline produces is the long thing on
+          the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
+          across a gap to reach the columns that matter. */}
+      <table className="w-full border-collapse table-fixed min-w-[860px]">
+        <colgroup>
+          <col className="w-[28px]" />
+          <col className="w-[170px]" />
+          <col />
+          <col className="w-[132px]" />
+          <col className="w-[88px]" />
+          <col className="w-[110px]" />
+          <col className="w-[92px]" />
+        </colgroup>
         <thead>
           <tr>
+            {/* **The status dot is a column of its own**, 14px wide, and the table had none.
+                The artboard leads every row with it — it is what lets somebody read *is any of
+                this waiting on me* down a column instead of across six. */}
+            <th className={HEAD} aria-label="state" />
             <th className={HEAD}>Pipeline</th>
             <th className={HEAD}>Makes</th>
-            <th className={`${HEAD} w-[140px]`}>Settled · measured · open</th>
-            <th className={`${HEAD} text-right w-[70px]`}>Runs</th>
-            <th className={`${HEAD} text-right w-[120px]`}>Last outcome</th>
-            <th className={`${HEAD} text-right w-[130px]`}>Owner</th>
+            <th className={HEAD}>Settled · measured · open</th>
+            <th className={`${HEAD} text-right`}>Runs</th>
+            <th className={`${HEAD} text-right`}>Last outcome</th>
+            <th className={`${HEAD} text-right`}>Owner</th>
           </tr>
         </thead>
         <tbody className="stagger">
@@ -96,6 +117,12 @@ export function ByPipeline({ rows, runs }: { rows: DraftRow[]; runs: RunRow[] })
             const waiting = row.open_values.length + row.open_not_named;
             return (
               <tr key={row.id} className="settle">
+                {/* Green when nothing is waiting, `--undecided` when something is. It reads the
+                    same number the *last outcome* cell does, so the two can never disagree. */}
+                <td className={CELL}>
+                  <i aria-hidden className="block w-[7px] h-[7px] rounded-full"
+                     style={{ background: waiting > 0 ? "var(--undecided)" : "var(--pea)" }} />
+                </td>
                 <td className={CELL}>
                   <Link to={`/build?draft=${row.id}`} className="text-ink no-underline lift
                                                                  inline-block px-1 -mx-1 rounded-r">
@@ -156,9 +183,27 @@ function took(run: RunRow): string {
 export function ByRun({ runs, named }: { runs: RunRow[]; named: Map<string, string> }) {
   return (
     <div className="tbl">
-      <table className="w-full border-collapse min-w-[720px]">
+      {/* **The artboard's column widths, and they were inverted.** `.pr` is
+          `14px 156px 1fr 118px 74px 96px 78px` — the name is NARROW and *Makes* takes the
+          slack, because the sentence describing what a pipeline produces is the long thing on
+          the row. Auto layout gave the name 840px and squeezed the sentence, so the eye ran
+          across a gap to reach the columns that matter. */}
+      <table className="w-full border-collapse table-fixed min-w-[860px]">
+        <colgroup>
+          <col className="w-[28px]" />
+          <col className="w-[170px]" />
+          <col />
+          <col className="w-[132px]" />
+          <col className="w-[88px]" />
+          <col className="w-[110px]" />
+          <col className="w-[92px]" />
+        </colgroup>
         <thead>
           <tr>
+            {/* **The status dot is a column of its own**, 14px wide, and the table had none.
+                The artboard leads every row with it — it is what lets somebody read *is any of
+                this waiting on me* down a column instead of across six. */}
+            <th className={HEAD} aria-label="state" />
             <th className={HEAD}>Pipeline</th>
             <th className={HEAD}>Started by</th>
             <th className={HEAD}>When</th>

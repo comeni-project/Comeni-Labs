@@ -6,7 +6,8 @@ import type { components as wiener } from "../wiener/api/schema";
 type Call = components["schemas"]["Call"];
 type RunRow = wiener["schemas"]["RunRow"];
 
-const EYEBROW = "text-label uppercase tracking-[.14em] text-ink-3 m-0";
+/** The artboards' `.lb` — monospaced, 9.5px, `.15em`. It shipped in the UI face at .14em. */
+const EYEBROW = "font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0";
 
 /** What is happening right now, and what is stopped until somebody decides.
  *
@@ -47,11 +48,18 @@ export function Now({ running, waiting, named }: {
                     addresses it; what somebody scanning the front door recognises is what it is
                     a run OF. The id is still where the link goes. */}
                 <span className="flex items-baseline gap-3 flex-wrap">
-                  <span className="font-display text-title">
+                  {/* **40px / 600 / -.035em, leading 1** — the artboard's own type, and the
+                      largest thing on the page by a wide margin. It shipped at `text-title`,
+                      which is a heading size: the band read as a section rather than as the
+                      one thing happening right now. */}
+                  <span className="text-[40px] font-semibold tracking-[-.035em] leading-none">
                     {(run.pipeline_digest && named.get(run.pipeline_digest)) || run.id.slice(0, 8)}
                   </span>
-                  {/* Elapsed SNAPS, in tabular figures — numbers never tween. */}
-                  <span className="text-running tnum text-object">{elapsed(run.submitted_at)}</span>
+                  {/* Elapsed SNAPS, in tabular figures — numbers never tween. The cursor beside
+                      it is the artboard's mark that this number is still moving. */}
+                  <span className="text-running tnum font-data text-[14px]">
+                    {elapsed(run.submitted_at)}<span className="blink">▮</span>
+                  </span>
                 </span>
                 {/* **`flow` is a MARKER, not a fill.** The first draft gave it `grow`, so it
                     filled the entire remainder — which says *everything not yet done is running
@@ -61,20 +69,30 @@ export function Now({ running, waiting, named }: {
 
                     `flow` is also the page's ONE claim that something is happening now, and it
                     is worthless if anything else wears it. */}
-                <span className="mt-2 flex h-[7px] rounded-[1px] overflow-hidden bg-surface-2">
+                {/* **9px tall, 3px apart, and square** — the artboard draws segments with air
+                    between them rather than one continuous rounded bar. The gap is what makes it
+                    read as *steps* rather than as a percentage. */}
+                <span className="mt-[13px] flex gap-[3px] h-[9px]">
                   <i
                     className="bg-pea"
                     style={{
-                      width: run.tasks_seen
-                        ? `${(run.tasks_done / run.tasks_seen) * 100}%`
-                        : "0%",
+                      flex: run.tasks_seen
+                        ? `0 0 ${(run.tasks_done / run.tasks_seen) * 100}%`
+                        : "0 0 0%",
                     }}
                   />
                   <i className="flow bg-running w-[44px] shrink-0" />
+                  {/* What has not started. `--surface-2`, so the bar has a full width and the
+                      done fraction is read against it rather than against the page. */}
+                  <i className="bg-surface-2 grow" />
                 </span>
-                <span className="mt-2 flex justify-between gap-4 text-secondary text-ink-3">
-                  <span className="tnum">{run.tasks_done} of {run.tasks_seen} tasks</span>
-                  <span>started by {run.submitted_by}</span>
+                <span className="mt-[9px] flex justify-between gap-4">
+                  <span className="tnum text-[12px] text-ink-2">
+                    {run.tasks_done} of {run.tasks_seen} tasks
+                  </span>
+                  <span className="font-data text-[11px] text-ink-3">
+                    {run.submitted_by} &middot; started {elapsed(run.submitted_at)} ago
+                  </span>
                 </span>
               </Link>
             ))}

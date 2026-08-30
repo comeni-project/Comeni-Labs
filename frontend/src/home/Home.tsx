@@ -86,27 +86,45 @@ export function Home() {
 
   return (
     <div className="overflow-auto">
-      <div className="max-w-[1180px] mx-auto px-6 pb-16">
+      {/* **Full-bleed at 44px, which is the artboards' page inset** — `padding: 28px 44px 40px`
+          on every board. It was a centred `max-w-[1180px]` column, so on a wide screen the
+          wordmark sat at x=44 and the table it belongs to started at x=318: the shell and the
+          page read as two documents. */}
+      <div className="px-11 pt-1 pb-10">
         <Now
           running={board.filter((run) => run.phase === "running")}
           waiting={attention.data?.mendel ?? []}
           named={named}
         />
 
-        <section className="mt-9">
+        {/* **A hairline between what is happening and what you have.** The artboard rules the
+            two apart — `height:1px; background:#141C20; margin:28px 0 0` — and without it the
+            Work block reads as a continuation of the running run rather than as the other half
+            of the page. It renders only when there IS a NOW band: a rule under nothing is a
+            line drawn for its own sake, and the quiet page is meant to be shorter. */}
+        {(board.some((run) => run.phase === "running") || (attention.data?.mendel ?? []).length > 0)
+          && <div className="mt-7 h-px bg-line" />}
+
+        <section className="mt-6">
           <div className="flex items-center gap-5 flex-wrap">
-            <p className="text-label uppercase tracking-[.14em] text-ink-3 m-0">Work</p>
-            <div className="flex rounded-r overflow-hidden border border-line">
+            <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
+              Work
+            </p>
+            {/* **A segmented control in a hairline box, and the live half is TINTED rather than
+                filled.** `--link-soft` behind `--link` is the artboard's pairing; it shipped as
+                `--surface-2` behind `--ink`, which is a grey chip that reads as pressed rather
+                than as selected. Square, because nothing in this row has a radius. */}
+            <div className="flex border border-surface-2">
               {(["pipeline", "run"] as const).map((which) => (
                 <button
                   key={which}
                   type="button"
                   onClick={() => setView(which)}
                   aria-pressed={view === which}
-                  className={`px-3 py-1.5 text-label uppercase tracking-[.1em] border-0
-                              cursor-pointer transition-colors
+                  className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
+                              border-0 cursor-pointer transition-colors
                               ${view === which
-                                ? "bg-surface-2 text-ink"
+                                ? "bg-[var(--link-soft)] text-[var(--link)]"
                                 : "bg-transparent text-ink-3 hover:text-ink"}`}
                 >
                   By {which}
@@ -117,8 +135,8 @@ export function Home() {
             {/* **One action, top right. The same button whether you have none or fifty.** */}
             <Link
               to="/build"
-              className="ml-auto px-4 py-2 rounded-r no-underline text-body
-                         border border-[var(--link)] text-[var(--link)] lift"
+              className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
+                         border border-[var(--link-line)] text-[var(--link)] lift"
             >
               New pipeline
             </Link>

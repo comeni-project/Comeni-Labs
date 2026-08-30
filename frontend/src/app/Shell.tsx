@@ -1,10 +1,7 @@
-import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 
 import { Field } from "../ui/Field";
 
-import { Glossary } from "../ui/Glossary";
-import { useKeys } from "./useKeys";
 
 /** The frame: identity, then two workspaces, then the sections of the one you are in.
  *
@@ -51,15 +48,21 @@ import { useKeys } from "./useKeys";
  * you are looking at, not by retyping it into a box in the corner. The panel went with the box
  * rather than staying reachable by nothing. When it returns it should hang off a type id.
  */
-const nav = "px-3 py-1.5 text-body no-underline rounded-r transition-colors";
-const here = "font-semibold text-ink shadow-[inset_0_-2px_0_var(--pea)]";
+/** 12.5px, `--ink-3`, no box — the artboards' shell has no pills in it.
+ *
+ * It shipped as a `--pea` inset shadow on a rounded, padded chip at `--ink-2`. Every part of
+ * that was invented: the artboard marks the section you are in with **`--ink` and a 1px
+ * `--link` underline**, 3px clear of the baseline, and leaves the others as flat text. A pill
+ * reads as a button — as something to press rather than as where you already are. */
+const nav = "pb-[3px] text-[12.5px] no-underline transition-colors border-b border-transparent";
+const here = "text-ink border-b-[var(--link)]";
 
 function Tab({ to, children }: { to: string; children: string }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `${nav} ${isActive ? here : "text-ink-2 hover:text-ink"}`
+        `${nav} ${isActive ? here : "text-ink-3 hover:text-ink"}`
       }
     >
       {children}
@@ -68,13 +71,11 @@ function Tab({ to, children }: { to: string; children: string }) {
 }
 
 export function Shell() {
-  const [helping, setHelping] = useState(false);
   // **One field for the whole application, and the route picks where it is thrown from.**
   // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
   // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
   // gradients into a grey wash, which is exactly what the first attempt looked like.
   const bloom = useLocation().pathname === "/";
-  useKeys({ "?": () => setHelping(true), escape: () => setHelping(false) });
 
   return (
     <div className="grid grid-rows-[54px_1fr] h-dvh">
@@ -87,33 +88,28 @@ export function Shell() {
       {/* **Transparent, not `bg-surface`.** The artboards' shell is a hairline bottom border
           over the field — a filled bar cuts the ground off at the top of the page and makes
           the header read as a separate product from everything under it. */}
-      <nav className="flex items-center gap-7 px-6 border-b border-line">
+      {/* **Baseline-aligned, 28px apart, and the wordmark is one word.** The artboards set
+          `Comeni` at 14px/700/-.02em and the sections at 12.5px, all sitting on one baseline.
+          It shipped as `● Comeni Labs` in the display face beside three pill buttons — four
+          differences from the drawing, in the one row that is on every screen.
+
+          **The right-hand side is empty on purpose.** The artboard puts a `⌘K` command hint and
+          a laboratory name there. Neither exists: the hint is door 1 again plus a jump palette
+          nothing implements, and the laboratory name is a fact this half of the product does not
+          hold. Drawing either would be inventing a control or inventing a fact. */}
+      <nav className="flex items-baseline gap-7 px-11 pt-4 pb-3 border-b border-line">
         <Link
           to="/"
-          aria-label="Comeni Labs — home"
-          className="flex items-baseline gap-2 font-display text-brand tracking-[-.015em]
-                     text-ink no-underline"
+          aria-label="Comeni — home"
+          className="text-[14px] font-bold tracking-[-.02em] text-ink no-underline"
         >
-          <i className="w-[9px] h-[9px] self-center rounded-[50%_50%_50%_0] bg-pea rotate-[-45deg]" />
-          Comeni Labs
+          Comeni
         </Link>
 
-        <div className="flex gap-[2px] ml-2">
-          <Tab to="/build">Builder</Tab>
-          <Tab to="/runs">Runs</Tab>
-        </div>
-
-        <button
-          onClick={() => setHelping(true)}
-          title="What the words mean"
-          className="ml-auto px-2 py-1 rounded-r bg-transparent border border-line
-                     cursor-pointer text-secondary text-ink-3 hover:text-ink hover:border-line-2"
-        >
-          What the words mean <span className="font-data">?</span>
-        </button>
+        <Tab to="/build">Builder</Tab>
+        <Tab to="/runs">Runs</Tab>
       </nav>
       <Outlet />
-      {helping && <Glossary onClose={() => setHelping(false)} />}
     </div>
   );
 }

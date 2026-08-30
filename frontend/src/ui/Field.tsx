@@ -105,6 +105,9 @@ export function Field({ origin = "bottom" }: { origin?: "bottom" | "corner" }) {
         </g>
       </svg>
 
+      {/* The rule grid sits under the scan, and only on the boards that carry a table — the
+          front door's bloom has no grid behind it. */}
+      {origin === "corner" && <div className="absolute inset-0 field-rule" />}
       <div className="absolute inset-0 field-scan" />
       <div className="absolute inset-0 field-vignette" />
     </div>

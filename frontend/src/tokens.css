@@ -36,6 +36,8 @@
   /* The field's CRT scan line. A texture rather than a surface, which is why it is
      an alpha over whatever it lands on and not a colour. */
   --scan-line: rgba(255, 255, 255, .010);
+  /* The field's rule grid — `--link` at 2.6%, masked. Structure, not a surface. */
+  --rule-line: rgba(108, 183, 255, .026);
   --pea: #10AA91; --pea-soft: #0C2A28; --on-pea: #041014;
   --measured: #C1B508; --measured-soft: #2A2708;
   --undecided: #E3674E; --undecided-soft: #2C1712; --fault: #E3674E;
@@ -94,7 +96,10 @@
     --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
     --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
     --scan-line: rgba(0, 0, 0, .012);
+    --rule-line: rgba(60, 110, 160, .045);
+  --rule-line: rgba(60, 110, 160, .045);
   --scan-line: rgba(0, 0, 0, .012);
+  --rule-line: rgba(60, 110, 160, .045);
     --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
     --measured: #B77B2B; --measured-soft: #F6EBD8;
     --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
@@ -109,6 +114,7 @@
   --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
   --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
   --scan-line: rgba(0, 0, 0, .012);
+  --rule-line: rgba(60, 110, 160, .045);
   --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
   --measured: #B77B2B; --measured-soft: #F6EBD8;
   --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
