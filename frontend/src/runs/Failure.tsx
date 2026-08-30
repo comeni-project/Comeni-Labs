@@ -7,6 +7,21 @@ import { bytes } from "./units";
  * attribute — §8 forbids that and `test_the_fold_is_where_the_lab_strings_stop` holds it.
  * Nothing here weakens that, because nothing here writes anything back.
  */
+export type Attempt = {
+  n: number;
+  status: string;
+  exit?: number | null;
+  /** `SIGKILL` for 137 — the 128+n convention, and **nothing else**.
+   *
+   *  Computed by `wiener_core.signals`, which refuses a cause: a preemption, a `kill -9` and a
+   *  cgroup limit are the same code. The panel shows this string as given and adds no word to
+   *  it — §18.1, and the temptation is specific enough to have its own guard. */
+  signal?: string | null;
+  memory_bytes?: number | null;
+  peak_rss_bytes?: number | null;
+  realtime_ms?: number | null;
+};
+
 export type Failed = {
   /** `null` when **no task failed** — a run can stop before any task starts, on a bad
    *  parameter or a file the channel could not read. The phase is still `failed` and the
@@ -19,6 +34,12 @@ export type Failed = {
   peak_rss_bytes: number | null;
   asked_bytes: number | null;
   report: string | null;
+  /** Every attempt, in order — **what each one asked for beside what it touched.**
+   *
+   *  New as of Plan 4 phase 4. Until then `attempts` was a count, and a count cannot show
+   *  36 → 48 → 72 GB, which is the whole reason retries are kept as history (§5.1). It sat in
+   *  a JSON column that nothing projected. */
+  history?: Attempt[];
 };
 
 /** Where a run stopped, above the fold, without a click.
@@ -30,6 +51,10 @@ export type Failed = {
  */
 export function Failure({ failed }: { failed: Failed }) {
   const both = failed.peak_rss_bytes !== null && failed.asked_bytes !== null;
+  const escalation = failed.history ?? [];
+  // One scale for every bar, the largest ask — so the growth is the thing the eye reads.
+  // Two bars scaled to their own rows would each be full and say nothing about each other.
+  const ceiling = Math.max(...escalation.map((a) => a.memory_bytes ?? 0), 1);
 
   return (
     /* **A tinted block with a full border, not a white card with a red stripe.** The artboard
@@ -78,6 +103,44 @@ export function Failure({ failed }: { failed: Failed }) {
           <span className="font-data text-body text-ink-2">
             peaked at {bytes(failed.peak_rss_bytes)} of {bytes(failed.asked_bytes)} asked
           </span>
+        </div>
+      )}
+
+      {/* **The escalation, and it is the panel's best evidence.** Three attempts asking for
+          36, then 48, then 72 GB and dying at each is a story a reader assembles in one glance
+          — and it is the story `attempts: 3` cannot tell. The bars share one scale, the largest
+          ask, so the growth is visible before either number is read.
+
+          **Only when there is more than one attempt.** A single try has nothing to escalate,
+          and its asked-beside-touched is already the bar above. */}
+      {escalation.length > 1 && (
+        <div data-testid="failure-escalation" className="flex flex-col gap-1.5">
+          {escalation.map((attempt) => (
+            <div key={attempt.n} data-testid={`attempt-${attempt.n}`}
+                 className="flex items-center gap-2.5 text-secondary">
+              <span className="font-data text-ink-3 w-[54px] shrink-0 tabular-nums">
+                try {attempt.n}
+              </span>
+              <span className="block h-[7px] w-[170px] rounded-[3px] overflow-hidden shrink-0"
+                    style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
+                <span className="block h-full"
+                      style={{ width: `${((attempt.memory_bytes ?? 0) / ceiling) * 100}%`,
+                               background: "var(--ink-3)" }} />
+              </span>
+              <span className="font-data text-ink-2 tabular-nums">
+                asked {bytes(attempt.memory_bytes)} · touched {bytes(attempt.peak_rss_bytes)}
+              </span>
+              <span className="ml-auto font-data text-ink-3 tabular-nums whitespace-nowrap">
+                {attempt.exit === null || attempt.exit === undefined
+                  ? attempt.status
+                  : `exit ${attempt.exit}`}
+                {/* Shown AS GIVEN. `wiener_core.signals` knows the 128+n convention and refuses
+                    a cause; adding one here would be W3 arriving early, unlabelled, and right
+                    often enough to be trusted when it is wrong. */}
+                {attempt.signal && ` · ${attempt.signal}`}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 

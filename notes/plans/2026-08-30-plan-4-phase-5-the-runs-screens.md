@@ -103,12 +103,12 @@ tests are not that pass and must not be reported as it.
 
 ## Task 2 — the failure escalation
 
-- [ ] `Failure.tsx` reads `TaskOut.history`: asked beside touched, per attempt, so 36 → 48 → 72 GB
+- [x] `Failure.tsx` reads `TaskOut.history`: asked beside touched, per attempt, so 36 → 48 → 72 GB
       is one glance.
-- [ ] The `signal` gloss is shown **as given**. No cause, no advice, no "try increasing".
-- [ ] A single-attempt failure still shows asked-beside-touched — it is the row's only place for
+- [x] The `signal` gloss is shown **as given**. No cause, no advice, no "try increasing".
+- [x] A single-attempt failure still shows asked-beside-touched — it is the row's only place for
       the reservation.
-- [ ] A guard that the panel names no cause. Watch it fail by adding one.
+- [x] A guard that the panel names no cause. Watch it fail by adding one.
 
 ## Task 3 — the board
 

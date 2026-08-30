@@ -10,7 +10,7 @@ import { Console } from "./Console";
 import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
-import { Failure, type Failed as FailureDetail } from "./Failure";
+import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
@@ -21,6 +21,8 @@ const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
 type FailedTask = {
   process: string; tag?: string | null; latest_exit?: number | null;
   attempts: number; peak_rss_bytes?: number | null;
+  /** New as of phase 4 — what each try asked for beside what it touched. */
+  history?: Attempt[];
 };
 
 type RunState = {
@@ -121,8 +123,15 @@ export function Run() {
         exit: worst.latest_exit ?? null,
         attempts: worst.attempts,
         peak_rss_bytes: worst.peak_rss_bytes ?? null,
-        asked_bytes: (overview.data?.rows ?? []).find((row) => row.process === worst.process)
-          ?.memory_asked_bytes ?? null,
+        // **The ask comes from the failing ATTEMPT now, and falls back to the process row.**
+        // The comment above used to read "`TaskOut` has no asked half", which was true until
+        // phase 4 projected it — and the process row is an aggregate, so on a task that
+        // escalated 36 → 48 → 72 it reported a ceiling that no single attempt was given. The
+        // fallback stays for a run whose record predates the projection.
+        asked_bytes: worst.history?.[worst.history.length - 1]?.memory_bytes
+          ?? (overview.data?.rows ?? []).find((row) => row.process === worst.process)
+            ?.memory_asked_bytes ?? null,
+        history: worst.history,
         report,
       }
     // No task failed, but the run did. Say so with what the record has.
