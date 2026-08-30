@@ -3184,3 +3184,48 @@ The empty-pipeline guard was first written as an early `return null` **above** a
 call — a rules-of-hooks violation `tsc` does not catch and `oxlint` did not flag. Moved below
 the hook. Worth a line because the failure it produces is a crash on a state nobody tests: the
 *second* render after the graph empties.
+
+## The picker's order is the resolver's — 2026-08-30
+
+Plan 4 phase 3b, tasks 1 and 2.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_candidates.py` "the order is the resolver's own" | sorted `producers_of`'s result by contract id | failed | `STAR carries the higher registry priority and must come first`, printing the alphabetical order it got |
+| 2026-08-30 | `test_candidates.py` "the closest fit comes first in both directions" | restored `-row.surplus` on the consuming sort | failed | names the rule it broke |
+| 2026-08-30 | `Picker.test.tsx` "asks the question the port actually asks, states included" | dropped `states` from the query | failed | the URL no longer carries `states=coordinate_sorted` |
+| 2026-08-30 | `norule.test.ts` "never parses a type signature in the browser" | replaced the server's `why` with `row.tool.split("[")[0] + " fits"` | failed | `expected [ 'Picker.tsx: splits a signature' ] to deeply equal []` |
+
+### The guard `useCompatibility` asked for, in prose, for a week
+
+That file's header says: *if a line here ever parses a signature — splits on `[`, compares type
+ids, subtracts state sets — the rule that decides whether a BAM can feed featureCounts lives in
+two places, and the second one is invisible to the agreement test. That is the drift this
+repository has paid for twice.* It ends **"A test asserts the absence."**
+
+No test asserted the absence. `norule.test.ts` does now, over every non-test file in `build/`,
+comment-stripped — and it caught the shape immediately when one was introduced deliberately.
+
+This is the same finding as 3a's three comments-that-were-true-about-code-that-did-not-run,
+arriving from the other side: **a comment that claims a guard exists is worse than one that does
+not**, because it stops the next person looking.
+
+### I sorted it backwards and my own docstring caught it
+
+`consuming()` orders by how specifically an input asks. `surplus` there is how much **looser**
+the input is than what you have — an input naming `[trimmed]` scores 0 against trimmed reads, one
+taking anything scores 1 — so the closest fit is the smallest number, and `-row.surplus` put the
+vaguest first.
+
+Found by printing the real registry's answer and reading it, against a docstring written minutes
+earlier that said the opposite. Not by a test; the test came after.
+
+### Two identical-looking rows were both correct
+
+The probe printed `FASTQC` twice for *what accepts fastq.reads*. It reads as a deduplication bug —
+`registry.producers_of` carries a comment about exactly that failure on the other side — and it is
+not: `comeni/profile/fastqc` and `nf-core/fastqc` are two contracts declaring one process name.
+
+The finding is for the **picker**, not the service: a row cannot be identified by its process, so
+it shows the contract id beside the tool. A test holds it, because the next reader will see two
+identical lines and reach for a `set()`.

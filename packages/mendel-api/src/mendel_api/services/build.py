@@ -135,6 +135,20 @@ class PortView(BaseModel):
     met: bool
     """False when nothing in this pipeline feeds it — the hollow dot. Always true for an
     output, which cannot be unmet."""
+    states: list[str] = []
+    """The states this port asks for, or produces. **Sorted**, because a `frozenset` has no
+    stable order and this reaches a canvas that must be byte-identical between renders — the
+    same reason `IREdge.states` carries a `field_serializer`.
+
+    **Added for the port picker**, Plan 4 phase 3b. Without it the picker can only ask *what
+    produces a BAM*, and the answer to that is three contracts; featureCounts asks for
+    `alignment.bam[coordinate_sorted]` and the answer to THAT is one. The states are the
+    difference between a filtered list and an answer, which is the whole point of the picker.
+
+    An input declaring alternatives reports the **conventional** one — `alternatives()[0]`, the
+    contract author's own first choice, which is the same convention the compatibility index's
+    `requires` ordering carries.
+    """
 
 
 class ModuleView(BaseModel):
@@ -267,10 +281,14 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                 type_id=port.type_id,
                 side="in",
                 met=(node_id, port.name) in fed or port.type_id in entered,
+                # The conventional alternative — index 0 is the contract author's own first
+                # choice, the same ordering `compatibility.requires` carries.
+                states=sorted(port.alternatives()[0].states) if port.alternatives() else [],
             )
             for port in contract.consumes
         ] + [
-            PortView(name=port.name, type_id=port.type_id, side="out", met=True)
+            PortView(name=port.name, type_id=port.type_id, side="out", met=True,
+                     states=sorted(port.state))
             for port in contract.produces
         ]
 

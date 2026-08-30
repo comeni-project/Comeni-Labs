@@ -3,6 +3,7 @@ import { Port, portX } from "./Port";
 
 type Placed = components["schemas"]["PlacedNode"];
 type Step = components["schemas"]["StepView"];
+type PortView = components["schemas"]["PortView"];
 
 /** The tier rail — 4px down the left edge, and the only thing on a node that is not text.
  *
@@ -40,6 +41,7 @@ export function Node({
   onStartWire,
   onFinishWire,
   onMoving,
+  onExplore,
   verdictFor,
 }: {
   placed: Placed;
@@ -66,6 +68,8 @@ export function Node({
   /** Called `true` when this node starts moving and `false` when it stops. The canvas draws
    *  its measuring grid only in between. */
   onMoving?: (moving: boolean) => void;
+  /** Somebody double-clicked a port and wants to know what could go on the other end. */
+  onExplore?: (port: PortView) => void;
 }) {
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -129,6 +133,7 @@ export function Node({
               dragging && port.side === "in" ? verdictFor?.(port.name) : undefined
             }
             onStartWire={port.side === "out" ? () => onStartWire?.(port.name) : undefined}
+            onExplore={() => onExplore?.(port)}
             onFinishWire={port.side === "in" ? () => onFinishWire?.(port.name) : undefined}
             key={`${side}.${port.name}`}
             port={port}

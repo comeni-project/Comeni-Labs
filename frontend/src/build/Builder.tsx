@@ -8,6 +8,7 @@ import { Node } from "./Node";
 import { LeftPanel } from "./LeftPanel";
 import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
+import { Picker } from "./Picker";
 import { Provenance } from "./Provenance";
 import { Status } from "./Status";
 import { useRun } from "./useRun";
@@ -198,6 +199,11 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
     gatePassed: gate.passed,
     openSheet: () => setPanel("run"),
   });
+
+  /** Which port's picker is open, and where to draw it. `null` most of the time. */
+  const [picking, setPicking] = useState<
+    { node: string; port: any; at: { x: number; y: number } } | null
+  >(null);
 
   /** Whether a node is being dragged. **The grid exists only while it is.**
    *
@@ -514,6 +520,19 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 onOpenSettings={() => setCarded(placed.id)}
                 offset={offsets[placed.id] ?? { x: 0, y: 0 }}
                 onMoving={setMoving}
+                onExplore={(port: any) =>
+                  setPicking({
+                    node: placed.id,
+                    port,
+                    // Anchored beside the node rather than at the exact port. The port's own
+                    // canvas coordinate is derivable — `portX` plus the node offset plus the
+                    // view transform — and getting it slightly wrong is how a wire once landed
+                    // 39px from its chevron. Beside the node is right at every zoom.
+                    at: {
+                      x: (offsets[placed.id]?.x ?? 0) + placed.width + 16,
+                      y: offsets[placed.id]?.y ?? 0,
+                    },
+                  })}
                 onDrag={(by) => builder.moveNode(placed.id, by)}
                 dragging={dragging}
                 onStartWire={(port: string) => setDragging({ node: placed.id, port })}
@@ -684,6 +703,32 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             </button>
           </div>
         </>
+      )}
+
+      {picking && (
+        <Picker
+          port={picking.port}
+          node={picking.node}
+          at={picking.at}
+          onClose={() => setPicking(null)}
+          onPick={(contractId: string, theirPort: string) => {
+            // **Add the step AND draw the wire.** Adding from a port is the whole point — and
+            // it is also what fixes placement by construction, because the new node has a place
+            // to go rather than a guessed grid cell.
+            const id = builder.addAt(contractId);
+            if (id) {
+              // The direction is the CLICKED port's, not the gesture's. An output feeds the new
+              // node; an input is fed by it. Getting this backwards would draw an MD0502 wire —
+              // which `validate` would report, correctly, about a graph the canvas built wrong.
+              if (picking.port.side === "out") {
+                builder.connect(picking.node, picking.port.name, id, theirPort);
+              } else {
+                builder.connect(id, theirPort, picking.node, picking.port.name);
+              }
+            }
+            setPicking(null);
+          }}
+        />
       )}
 
       {carded && data && (

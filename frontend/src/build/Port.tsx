@@ -41,6 +41,7 @@ export function Port({
   x,
   verdict,
   onStartWire,
+  onExplore,
   onFinishWire,
 }: {
   port: PortView;
@@ -49,6 +50,8 @@ export function Port({
    *  nothing is being dragged, which is most of the time. */
   verdict?: "yes" | "conventional-no" | "no";
   onStartWire?: () => void;
+  /** Open the picker for this port — what could sit on the other end of a wire. */
+  onExplore?: () => void;
   onFinishWire?: () => void;
 }) {
   const [over, setOver] = useState(false);
@@ -76,6 +79,15 @@ export function Port({
       onPointerUp={(e) => {
         e.stopPropagation();
         if (inbound) onFinishWire?.();
+      }}
+      // **Double-click asks what could go here.** A plain click would be the nicer gesture and
+      // is what `n-bport` draws — but `onPointerDown` already starts a wire, and telling a
+      // click from the beginning of a drag needs movement tracking this component does not
+      // have. Double-click is unambiguous, conflicts with nothing, and is the same idiom the
+      // module palette already uses for *add this*.
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onExplore?.();
       }}
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}

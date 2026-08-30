@@ -1612,6 +1612,11 @@ export interface components {
             side: string;
             /** Met */
             met: boolean;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
         };
         /**
          * Proposal
