@@ -165,6 +165,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What this run held over time, and which curves are honest
+         * @description **A query, never a fold** — `rn-blocked`, and A191's rule that a board is a query.
+         *
+         *     `projection.state_of` replays every event a run ever produced; `run_task.attempts` is a
+         *     column holding the same attempts, written by the projection when the row was written. A
+         *     5,000-task run is 15,000 events to fold and one indexed `SELECT` to read.
+         *
+         *     Every decision about *which* curves are honest belongs to `wiener_core.series`, which is
+         *     pure and reads no clock. This route reads rows and hands them over.
+         */
+        get: operations["readSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/results": {
         parameters: {
             query?: never;
@@ -231,6 +258,33 @@ export interface components {
             declared: string[];
         };
         /**
+         * AttemptOut
+         * @description One try, with what it ASKED FOR beside what it TOUCHED.
+         *
+         *     **Both halves, or neither is worth showing.** `peak_rss_bytes` alone says a task touched
+         *     47 GB and leaves *was that a lot?* to the reader; `memory_bytes` is the reservation it was
+         *     given, and the pair is what makes 36 → 48 → 72 a story rather than three numbers.
+         *
+         *     Every field is nullable, because a run launched without `trace.enabled` recorded none of
+         *     them — **absent rather than zero** (§4.3 finding 6).
+         */
+        AttemptOut: {
+            /** N */
+            n: number;
+            /** Status */
+            status: string;
+            /** Exit */
+            exit?: number | null;
+            /** Signal */
+            signal?: string | null;
+            /** Memory Bytes */
+            memory_bytes?: number | null;
+            /** Peak Rss Bytes */
+            peak_rss_bytes?: number | null;
+            /** Realtime Ms */
+            realtime_ms?: number | null;
+        };
+        /**
          * BoardSummary
          * @description What the tiles count. **Every field is a tally or a percentile over `run`** — nothing
          *     here folds an event stream, which is what keeps the board a page and not a job.
@@ -264,6 +318,19 @@ export interface components {
         Body_uploadArtifact: {
             /** Bundle */
             bundle: string;
+        };
+        /** Curve */
+        Curve: {
+            /** Name */
+            name: string;
+            kind: components["schemas"]["Kind"];
+            /** Unit */
+            unit: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["Point"][];
         };
         /** DayCount */
         DayCount: {
@@ -319,6 +386,16 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * Kind
+         * @description How much a curve's shape can be trusted.
+         *
+         *     **Two members, and the absence of a third is the design.** A peak has no honest shape, so
+         *     there is nowhere in this type to record one — which is a stronger guarantee than a comment
+         *     asking nobody to try.
+         * @enum {string}
+         */
+        Kind: "exact" | "derived";
         /** OverviewOut */
         OverviewOut: {
             /**
@@ -391,6 +468,13 @@ export interface components {
              * @default 1
              */
             attempts: number;
+        };
+        /** Point */
+        Point: {
+            /** At Ms */
+            at_ms: number;
+            /** Value */
+            value: number;
         };
         /**
          * ProcessRowOut
@@ -568,6 +652,42 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * Series
+         * @description Every curve a run's attempts can honestly support, and the window they cover.
+         */
+        Series: {
+            /**
+             * Curves
+             * @default []
+             */
+            curves: components["schemas"]["Curve"][];
+            /**
+             * From Ms
+             * @default 0
+             */
+            from_ms: number;
+            /**
+             * To Ms
+             * @default 0
+             */
+            to_ms: number;
+            /**
+             * Open
+             * @default false
+             */
+            open: boolean;
+            /**
+             * Bin Ms
+             * @default 0
+             */
+            bin_ms: number;
+            /**
+             * Reported Resources
+             * @default false
+             */
+            reported_resources: boolean;
+        };
         /** SubmitRequest */
         SubmitRequest: {
             /** Artifact Id */
@@ -618,6 +738,11 @@ export interface components {
             pct_cpu?: number | null;
             /** Tag */
             tag?: string | null;
+            /**
+             * History
+             * @default []
+             */
+            history: components["schemas"]["AttemptOut"][];
         };
         /** TasksOut */
         TasksOut: {
@@ -941,6 +1066,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TasksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Series"];
                 };
             };
             /** @description Validation Error */

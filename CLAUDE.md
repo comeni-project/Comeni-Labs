@@ -24,7 +24,9 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
 > [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
-> phases 0, 1 and 2: the shared floor, `publishDir`, and the front door.
+> phases 0, 1, 2, 3a, 3b and 4: the shared floor, `publishDir`, the front door, the builder, and
+> what a run cost. **The runs screens (phase 5) are what is next**, and everything they read is
+> now projected.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
 > [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
@@ -141,6 +143,27 @@ site fact beside `resourceLimits`; it goes on Nextflow's **command line** and no
 because `publishDir`'s `enabled:` is evaluated while the `process {` scope is read and a `-c` file
 is layered after it. That distinction was found by running a stub gate and looking in `results/`:
 the closure form published nothing with all five processes green, no error and no log line.
+
+**A scalar becomes an honest curve or it does not, and `Kind` has two members** — Plan 4 phase 4,
+`wiener_core/series.py`. Wiener has no samples: the trace gives one summary row per attempt, so
+every series is derived from task *windows*, and whether that is honest depends on how the scalar
+distributes over its window. A **reservation** is constant across it, so summing `cpus` over live
+attempts is exact and not synthetic at all. A **total** spread uniformly is area-true and
+shape-false — drawable, drawn stepped, labelled `derived`. A **peak** does not distribute at all:
+summing `peak_rss_bytes` across live attempts describes an instant that never happened, so
+**there is no memory-over-time curve at any fidelity and no third `Kind` to put one in**. That is
+the tempting one — it is the chart everybody asks for. The sweep is `+delta`/`−delta`, sort,
+prefix-sum: exact at every breakpoint, and **binning is the renderer's job**, with `bin_ms` sized
+off the run's own recorded span rather than a constant. **A running attempt keeps its reservation
+to the right edge**, because `wiener-core` reads no clock and closing an open interval at one made
+the exact curve fall to zero exactly where the derived curve is hatched to avoid saying anything.
+
+**`137` is glossed as `SIGKILL` and nothing more.** `wiener_core/signals.py` knows the 128+n
+convention and refuses a cause: a preemption, a `kill -9` and a cgroup limit are the same code, so
+*the OOM killer did it* is an inference and §18.1 says nothing explains a failure until W3. A scan
+holds the line by naming the words. `TaskOut.history` carries what each attempt **asked for**
+beside what it **touched**, which is the 36 → 48 → 72 GB escalation that lived in a JSON column
+where no reader could reach it.
 
 **The whole stack comes up with one `docker compose up`**, which was the operator's constraint
 rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,

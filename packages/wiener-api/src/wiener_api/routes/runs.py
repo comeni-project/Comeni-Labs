@@ -11,6 +11,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
+from wiener_core.series import Series, series
+from wiener_core.signals import signal_of
+from wiener_core.state import Attempt
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
@@ -419,6 +422,33 @@ def run_overview(run_id: str) -> OverviewOut:
     )
 
 
+class AttemptOut(BaseModel):
+    """One try, with what it ASKED FOR beside what it TOUCHED.
+
+    **Both halves, or neither is worth showing.** `peak_rss_bytes` alone says a task touched
+    47 GB and leaves *was that a lot?* to the reader; `memory_bytes` is the reservation it was
+    given, and the pair is what makes 36 → 48 → 72 a story rather than three numbers.
+
+    Every field is nullable, because a run launched without `trace.enabled` recorded none of
+    them — **absent rather than zero** (§4.3 finding 6).
+    """
+
+    n: int
+    status: str
+    exit: int | None = None
+    signal: str | None = None
+    """`SIGKILL` for 137 — the 128+n convention and nothing else.
+
+    **Not a verdict.** *The OOM killer did it* is the sentence a reader wants under a 137 and
+    it is an inference: a preemption, a `kill -9` and a cgroup limit are the same code. §18.1
+    says nothing explains a failure until W3, and `wiener_core.signals` holds that line with a
+    scan rather than with discipline.
+    """
+    memory_bytes: int | None = None
+    peak_rss_bytes: int | None = None
+    realtime_ms: int | None = None
+
+
 class TaskOut(BaseModel):
     """One task row. `tag` is the laboratory's own word for it — A200 — and it is the only
     field here that a laboratory wrote."""
@@ -434,6 +464,15 @@ class TaskOut(BaseModel):
     realtime_ms: int | None = None
     pct_cpu: float | None = None
     tag: str | None = None
+
+    history: list[AttemptOut] = []
+    """Every attempt, in order — **the column `attempts` could never be.**
+
+    `attempts` is a count, and a count cannot show 36 → 48 → 72 GB. The escalation is the
+    whole reason retries are kept as history (§5.1) and it was in the JSON blob and out of
+    reach of every reader. It ships on a single-attempt task too: even one try carries asked
+    beside touched, which no other field on this row does.
+    """
 
 
 class TasksOut(BaseModel):
@@ -466,11 +505,42 @@ def run_tasks(run_id: str, process: str | None = None, status: str | None = None
                 peak_rss_bytes=row.peak_rss_bytes, realtime_ms=row.realtime_ms,
                 pct_cpu=row.pct_cpu,
                 tag=(row.labels or [{}])[-1].get("tag"),
+                history=[
+                    AttemptOut(
+                        n=one["n"], status=one["status"], exit=one.get("exit"),
+                        signal=signal_of(one.get("exit")),
+                        memory_bytes=one.get("memory_bytes"),
+                        peak_rss_bytes=one.get("peak_rss_bytes"),
+                        realtime_ms=one.get("realtime_ms"),
+                    )
+                    for one in sorted(row.attempts or [], key=lambda a: a["n"])
+                ],
             )
             for row in rows
         ]
 
     return TasksOut(tasks=tasks, total=total)
+
+
+@router.get("/runs/{run_id}/series", operation_id="readSeries",
+            summary="What this run held over time, and which curves are honest")
+def run_series(run_id: str) -> Series:
+    """**A query, never a fold** — `rn-blocked`, and A191's rule that a board is a query.
+
+    `projection.state_of` replays every event a run ever produced; `run_task.attempts` is a
+    column holding the same attempts, written by the projection when the row was written. A
+    5,000-task run is 15,000 events to fold and one indexed `SELECT` to read.
+
+    Every decision about *which* curves are honest belongs to `wiener_core.series`, which is
+    pure and reads no clock. This route reads rows and hands them over.
+    """
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        rows = repository.attempts_of(session, settings.lab_id, run_id)
+
+    attempts = [Attempt.model_validate(one) for row in rows for one in (row or [])]
+    return series(attempts)
 
 
 class ResultFile(BaseModel):

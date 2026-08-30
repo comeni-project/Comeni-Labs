@@ -73,6 +73,22 @@ def task_counts(session: Session, lab_id: str, run_ids: list[str]) -> dict[str, 
     return {run_id: (int(finished or 0), int(seen or 0)) for run_id, finished, seen in rows}
 
 
+def attempts_of(session: Session, lab_id: str, run_id: str) -> list[list]:
+    """Every attempt this run recorded, as the projection stored them.
+
+    **One column, not a fold.** `run_task.attempts` is written by the projection that writes the
+    row, so the attempts are already here — replaying the event stream to rediscover them is the
+    expensive shape A191 named. Ordered so the sweep's input is stable run to run, which is what
+    keeps a chart from redrawing differently on a refresh.
+    """
+    rows = session.execute(
+        select(RunTask.attempts)
+        .where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+        .order_by(RunTask.task_id)
+    ).all()
+    return [row[0] for row in rows]
+
+
 def pipeline_digests(session: Session, lab_id: str, artifact_ids: list[str]) -> dict[str, str]:
     """`{artifact_id: pipeline_digest}` for a page of runs, in one query.
 

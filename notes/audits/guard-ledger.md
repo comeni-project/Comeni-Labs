@@ -3327,3 +3327,62 @@ position in `dag-core` would make the canvas and the emitted `.nf` disagree abou
 `reset` returns to the same place, so pressing it does not re-hide them.
 
 **Found by looking at the built page**, for the fourth time this session.
+
+---
+
+## What a run cost, and which of those numbers is honest — Plan 4 phase 4, 2026-08-30
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_series.py` "a running task does not release at the edge" | closed every open interval at `max(to_ms)` | failed | `the running attempt still holds its reservation / assert 0.0 == 6.0` |
+| 2026-08-30 | `test_series.py` "there is no memory over time curve" | added a `peak rss` curve summing `peak_rss_bytes` | failed | `assert not True` |
+| 2026-08-30 | `test_series_route.py` "never folds the event stream" | swapped `repository.attempts_of` for `projection.state_of` — verified landed by `awk`-slicing the function and counting | **passed, proving nothing** — then failed once the guard was fixed | `AssertionError: the series folded the event stream` |
+| 2026-08-30 | `test_signals.py` "never names a cause" | made `signal_of(137)` return `"SIGKILL — killed by the OOM killer"`, verified landed with `grep -c` | failed | `the gloss names a cause: 'oom'` |
+| 2026-08-30 | `test_attempt_history.py` "asked beside touched" | dropped `memory_bytes` from `AttemptOut`, verified landed inside `run_tasks` with `awk` + `grep -c` | failed | `and the reservation travels with the peak, which is the pair the panel needs` |
+
+### The inert guard, arriving by the route CLAUDE.md names by hand
+
+`test_the_series_never_folds_the_event_stream` was written to patch `projection.state_of` and
+raise. It **passed against a route reverted to fold every event** — because `runs.py` does
+`from wiener_api.services.projection import state_of`, and `from x import f` binds past a later
+patch of `x.f`. That gotcha is in `CLAUDE.md` under its own bullet, it is in this repository's
+conftest as a comment explaining why one fixture patches one module rather than two, and it
+still landed.
+
+What is worth carrying is **why the revert was believed**. The revert itself was verified — the
+folding line was confirmed present inside `run_series` by slicing the function with `awk` and
+counting, which is the discipline this ledger added after a `.replace` silently did nothing.
+Landing the revert and watching the guard are two different checks, and only the first had a
+habit behind it. **A verified revert with a green guard is a finding, not a formality**; the run
+that says *passed* there is the whole point of doing it.
+
+Both spellings are patched now, so neither import style escapes.
+
+### Two members, and the absence of a third is the design
+
+`Kind` is `exact | derived`. A peak does not distribute over a window at all — summing
+`peak_rss_bytes` across live attempts describes an instant that never happened — so there is
+**nowhere in the type** to record a curve whose shape cannot be trusted. That is a stronger
+guarantee than a comment asking nobody to try, and `test_there_is_no_memory_over_time_curve`
+asserts the same thing from outside, including that `Kind` has not grown a third member.
+
+It is the tempting one. It is the number everybody asks for, and every dashboard in this space
+draws it.
+
+### A scan broad enough to hit its own rationale
+
+`test_it_never_names_a_cause` first forbade the word `because` in `signals.py`. It caught the
+sentence *"Absent rather than `"signal 43"`, because a made-up name reads as knowledge"* — the
+docstring explaining the design the scan exists to protect.
+
+A scan that fires on its own reasoning is a scan that gets deleted rather than obeyed. The list
+is now words that name a **failure cause** — `oom`, `out of memory`, `ran out`, `killed by`,
+`caused by`, `exceeded`, `the reason` — and it was watched rejecting the actual sentence
+somebody will one day want to add.
+
+### What was NOT looked at
+
+Nothing here is drawn. Phase 5 draws it, and the browser pass is owed at the end of all phases
+by the operator's own sequencing. `bin_ms` is a **suggestion the renderer has not yet taken**,
+and the sweep it sizes is exact — if a chart ever bins first, the reservation curve stops being
+exact at every breakpoint and no test in this phase would notice.

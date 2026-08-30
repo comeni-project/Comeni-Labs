@@ -1,6 +1,6 @@
-# 2026-08-30 — the floor, the results, the front door, and the builder
+# 2026-08-30 — the floor, the results, the front door, the builder, and what a run cost
 
-**Read this first if you are picking the project up. This is the newest entry.** It covers five
+**Read this first if you are picking the project up. This is the newest entry.** It covers six
 phases of Plan 4 executed in one day, on `worktree-plan-4-phase-0`.
 
 The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `packages/` or
@@ -8,7 +8,7 @@ The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `
 
 ## Where things stand
 
-**Plan 4 phases 0, 1, 2, 3a and 3b are complete.** The plans are in
+**Plan 4 phases 0, 1, 2, 3a, 3b and 4 are complete.** The plans are in
 [`../plans/`](../plans/), each with its steps ticked and an execution record naming every
 deviation.
 
@@ -25,6 +25,9 @@ deviation.
 - **Phase 3b — the builder's surfaces.** Click a port and get what fits, ranked by the resolver's
   own key; a browse overlay instead of a palette; swap that computes its consequences; the
   artifact as the canvas's second view.
+- **Phase 4 — what a run cost.** A pure `series()` in `wiener-core` that draws only what the
+  record can honestly support, one endpoint over the projection rather than the event stream,
+  and the retry escalation finally readable. Nothing draws it yet; phase 5 does.
 
 **`make verify` green at 1655; `make check` green at 1686 with a database up. Frontend: 280 tests
 in 51 files, `tsc` clean, lint unchanged at its five pre-existing warnings.** (The count moved
@@ -192,10 +195,90 @@ The overlay answers each better — every role rather than `roles[0]`, search, k
 type signature as the description — so the reversal is written **into the test that held them**,
 with what each was protecting and where it lives now.
 
+## Phase 4, and the guard that passed while proving nothing
+
+Phase 4 has no pixels in it. It is three things the runs screens need and cannot compute for
+themselves: a curve, an endpoint, and a retry history.
+
+**`wiener_core/series.py` is a fourth pure module and it enforces one rule.** A scalar becomes an
+honest curve or it does not, and which depends on **how it distributes over its window**. Wiener
+has no samples — the trace gives one summary row per attempt — so everything is derived from task
+windows, and there are three branches:
+
+1. **A reservation is constant over its window → the series is exact.** `cpus` and `memory_bytes`
+   are what Nextflow *held* for the whole task lifetime, so summing them over live attempts is
+   the true reservation curve. Not synthetic at all. Same for anything countable.
+2. **A total divides over its window → area-true, shape-false.** `read_bytes` is a total.
+   Spreading it uniformly preserves the integral and **invents the shape**. Drawable, stepped,
+   and labelled `derived` — smoothness is the visual grammar of *I measured this*.
+3. **A peak does not distribute → it is a bound, not a series.** `peak_rss_bytes` is the highest
+   value a task ever touched; summing peaks across live attempts describes an instant that never
+   happened.
+
+**`Kind` has two members and there is no third.** That is the design, not an omission: there is
+nowhere in the type to put a curve whose shape cannot be trusted, which is stronger than a
+comment asking nobody to try. It is also the tempting one — memory-over-time is the chart
+everybody asks for, and every dashboard in this space draws it.
+
+**Boundaries, not bins.** `+delta` at the start of an interval, `−delta` at its end, sort,
+prefix-sum. Exact at every breakpoint, no bucketing artefacts, and 5,000 tasks is 10,000 events
+rather than a scan per bin. `bin_ms` ships as a *suggestion for the renderer*, sized off the run's
+own recorded span — a 40-second stub run gets sub-second bins where a constant picked for a
+four-hour job would collapse it to one point.
+
+**No clock, and it is load-bearing here.** *How long has this been running* is a question about
+now, which makes a series the most tempting place in a pure package to read one. The window ends
+at the last **recorded** boundary. A running attempt keeps its reservation to the right edge —
+closing open intervals at a clock made the *exact* curve fall to zero at the edge, which is the
+precise artefact the derived curve is hatched to avoid, arriving on the half that is supposed to
+be trustworthy.
+
+### The guard that passed while proving nothing
+
+`test_the_series_never_folds_the_event_stream` patches `projection.state_of` to raise, then asks
+the endpoint for a series. It exists because **both implementations return the same numbers** —
+a route that quietly replayed 15,000 events would be green on every other assertion in the file.
+
+It **passed against a route reverted to fold.** `runs.py` does `from …projection import state_of`,
+so patching the attribute on the `projection` module binds past the name the route actually calls.
+That gotcha has its own bullet in `CLAUDE.md` and its own explanatory comment in this
+repository's conftest, and it still landed.
+
+The part worth carrying is not the gotcha. **The revert was verified** — the folding line was
+confirmed present inside `run_series` by slicing the function with `awk` and counting, which is
+exactly the discipline added to this ledger after a `.replace` silently did nothing. Landing a
+revert and watching a guard fail are **two different checks**, and only the first had a habit
+behind it. A verified revert with a green guard is a finding; the run that says *passed* there is
+the whole reason for doing it. Both spellings are patched now.
+
+### The escalation was in the record and out of everyone's reach
+
+`TaskOut.attempts` is a count, and a count cannot show **36 → 48 → 72 GB**. A retry that asked
+for more memory is the entire reason retries are kept as history (§5.1), and it was sitting in a
+JSON column that nothing projected. `history: list[AttemptOut]` exposes it, with what each try
+**asked for** beside what it **touched** — `peak_rss_bytes` alone says a task reached 47 GB and
+leaves *was that a lot?* to the reader.
+
+It ships on single-attempt tasks too. Even one try carries asked-beside-touched, which no other
+field on the row does, so dropping it for unretried tasks would make the common row the one that
+cannot answer the question.
+
+**And no verdict.** `137` is glossed as `SIGKILL` — the 128+n convention, arithmetic — and stops
+there. *The OOM killer did it* is an inference: a preemption, a `kill -9` and a cgroup limit are
+the same code, and §18.1 says nothing explains a failure until W3. `wiener_core/signals.py` holds
+that line with a scan rather than with discipline, and the scan was watched rejecting the exact
+sentence somebody will one day want to add.
+
+**The first version of that scan forbade the word `because`** and caught the docstring explaining
+the design it exists to protect. A scan broad enough to fire on its own rationale is a scan that
+gets deleted rather than obeyed; it now names failure causes specifically.
+
 ## What is next
 
-**Phase 4 — the runs projections**: `series(state)` pure in `wiener-core`, attempt windows and
-per-attempt resources projected. Then **phase 5**, the runs screens.
+**Phase 5 — the runs screens.** Everything they need to read is now projected: `GET
+/runs/{id}/series` for the envelope, `history` on the task row for the escalation, and
+`reported_resources` for the run that recorded nothing. What is left is drawing it — and the
+first thing to get right is that a `derived` curve must look derived.
 
 **What Plan 4 has not done, named rather than absorbed:**
 
@@ -206,23 +289,21 @@ per-attempt resources projected. Then **phase 5**, the runs screens.
   "not built" is a mistake worth remembering.
 - **Two known tensions from phase 0**: `breathe` and `animate-pulse` are a sixth and seventh
   movement, and retiring either is a visible change to a screen phase 5 owns.
-- **"Changed underneath you"** on the Overview, and the **resource sentence**, which needs the
-  same projection phase 4 does.
+- **"Changed underneath you"** on the Overview, and the **resource sentence** — which is now
+  *unblocked*: phase 4 projects reserved-beside-used per attempt, so what it was waiting on
+  exists. It needs the lab-wide aggregate, not the per-run one.
 - **Nothing in the builder has been driven by hand in a live stack.** The shell was rendered
   against fixtures and read — which found seven defects across 3a and 3b that green suites did
   not — but the picker, the overlay, swap and the artifact view have component tests and no
   browser pass, and a real keep, gate and run are unexercised.
 
-Then **phase 4** (runs projections — `series()` in `wiener-core`, attempt windows, per-attempt
-resources) and **phase 5** (the runs screens).
-
 **Deferred, named rather than forgotten:**
 
 - **"Changed underneath you"** — `upgrade --dry-run` per pipeline on a worker schedule, a table
   and an endpoint. Its own phase after the runs screens, by the operator's decision.
-- **The resource sentence** on the Overview. It needs reserved-vs-used aggregated across runs, and
-  *reserved* lives in `run_task.attempts` as JSON rather than a column — the **same** projection
-  phase 4 does for the envelope. It does not render, which is the absence rule working.
+- **The resource sentence** on the Overview. Reserved-beside-used per attempt is projected as of
+  phase 4, so this is no longer blocked on a projection — it needs the **lab-wide** aggregate
+  rather than the per-run one. It does not render, which is the absence rule working.
 - **Results ready** on the Overview. Phase 1 built `GET /runs/{id}/results`, and the block needs a
   lab-wide listing rather than a per-run one. Small, and it belongs with the runs work.
 
@@ -238,4 +319,8 @@ resources) and **phase 5** (the runs screens).
 - **"`by_person` is a fourth band the design does not have."** Correct, and the design was drawn
   against resolver-built pipelines where it is always zero. See the ledger.
 - **"Nobody has looked at these screens."** For the Overview, somebody has — all three states,
-  rendered and read. The Builder and Runs screens still carry that debt.
+  rendered and read. The Builder and Runs screens still carry that debt, and the operator has
+  sequenced one browser pass over all of it after the last phase rather than per phase.
+- **"Phase 4 built a chart."** It built no pixels at all. `bin_ms` is a suggestion the renderer
+  has not yet taken and the sweep it sizes is exact at every breakpoint — if a chart ever bins
+  *first*, that exactness is gone and no test in phase 4 would notice.
