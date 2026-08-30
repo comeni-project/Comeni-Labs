@@ -91,15 +91,15 @@ tests are not that pass and must not be reported as it.
 
 ## Task 1 — the envelope, drawn honestly
 
-- [ ] A chart over `GET /runs/{id}/series`. **Stepped, always** — no spline, no smoothing, and
+- [x] A chart over `GET /runs/{id}/series`. **Stepped, always** — no spline, no smoothing, and
       `exact` and `derived` curves visibly different rather than differently coloured.
-- [ ] **Hatch the derived curves** and label them `derived` in the legend, so the distinction
+- [x] **Hatch the derived curves** and label them `derived` in the legend, so the distinction
       survives a screenshot with no legend read.
-- [ ] `Series.open` marks the right edge as *still in flight*, so a high ending is not read as a
+- [x] `Series.open` marks the right edge as *still in flight*, so a high ending is not read as a
       bad ending.
-- [ ] Bin **for drawing only**, using `bin_ms`, never before the sweep.
-- [ ] `reported_resources: false` renders **one sentence** and no chart.
-- [ ] `test_a_derived_curve_is_never_drawn_smooth` — watch it fail with a spline.
+- [x] Bin **for drawing only**, using `bin_ms`, never before the sweep.
+- [x] `reported_resources: false` renders **one sentence** and no chart.
+- [x] `test_a_derived_curve_is_never_drawn_smooth` — watch it fail with a spline.
 
 ## Task 2 — the failure escalation
 

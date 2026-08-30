@@ -30,10 +30,18 @@ const GRAPH = {
   ],
 };
 
+/** The envelope's body. **Every run screen fetches it now**, and a fallthrough mock handing
+ *  this route a `RunState` is what made six graph tests fail at once — the panel read
+ *  `curves` off a shape that has none. Empty is the honest fixture here: these tests are
+ *  about the graph, and an empty series draws no panel. */
+const SERIES = { curves: [], from_ms: 0, to_ms: 0, bin_ms: 1,
+                 open: false, reported_resources: false };
+
 function at(graph: unknown = GRAPH) {
   vi.stubGlobal("WebSocket", class { constructor() {} close() {} });
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
     const body = url.includes("/graph") ? graph
+      : url.includes("/series") ? SERIES
       : url.includes("/events") ? { events: [], cursor: -1, stream_id: "0-0" }
         : STATE;
     return Promise.resolve({ ok: true, json: async () => body });

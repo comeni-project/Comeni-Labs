@@ -57,12 +57,20 @@ class FakeSocket {
 
 /** `view` is a parameter now, because the console is no longer what the page opens on — W2
  *  Task 6. A test about the socket has to say so rather than relying on the landing view. */
+/** The envelope's body. **Every run screen fetches it now**, and a fallthrough mock handing
+ *  this route a `RunState` is what made six graph tests fail at once — the panel read
+ *  `curves` off a shape that has none. Empty is the honest fixture here: these tests are
+ *  about the graph, and an empty series draws no panel. */
+const SERIES = { curves: [], from_ms: 0, to_ms: 0, bin_ms: 1,
+                 open: false, reported_resources: false };
+
 function at(state: unknown = STATE, page: unknown = PAGE, view = "console",
             overview: unknown = OVERVIEW) {
   sockets.length = 0;
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
-    const body = url.includes("/events") ? page
+    const body = url.includes("/series") ? SERIES
+      : url.includes("/events") ? page
       : url.includes("/overview") ? overview
       : state;
     return Promise.resolve({ ok: true, json: async () => body });

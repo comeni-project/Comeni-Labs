@@ -7,6 +7,7 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
+import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
 import { Failure, type Failed as FailureDetail } from "./Failure";
@@ -215,6 +216,13 @@ export function Run() {
           failed process is what the table opens on beneath it, because the comparison is the
           diagnosis: one task at 63.8 GB beside eleven at 58 says what a single number cannot. */}
       {run.phase === "failed" && failed && <Failure failed={failed} />}
+
+      {/* **What the run held, above the panel and outside the tabs.** It is not a fifth view:
+          the envelope answers *how much of the machine was in use* and every tab answers a
+          question about a step or a task, so putting it behind a segment would hide the one
+          panel that is about the run as a whole. It renders nothing when the record is empty
+          — absence is absence — so a stub run's page is simply shorter. */}
+      <Envelope runId={run.run_id} live={!TERMINAL.has(run.phase)} />
 
       {/* **`flex flex-col flex-1 min-h-0`, and the graph is why.** The canvas inside asks for
           `flex-1 min-h-0` to fill the panel; this section was neither a flex column nor
