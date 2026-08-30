@@ -57,26 +57,6 @@ export function portX(width: number, count: number, index: number): number {
   return (width * (index + 1)) / (count + 1);
 }
 
-/** A free spot for a node the client is placing itself.
- *
- * Used when you drop a module on empty canvas and when one arrives with no drop point (a
- * double-click, or *adopt* pulling in a step the resolver wanted). Walks a grid and takes the
- * first cell nothing overlaps, so two additions never land on top of each other.
- */
-export function freeSpot(taken: Positions, near?: Point): Point {
-  const occupied = Object.values(taken);
-  const clashes = (p: Point) =>
-    occupied.some((q) => Math.abs(q.x - p.x) < NODE_W && Math.abs(q.y - p.y) < ROW_PITCH);
-
-  if (near && !clashes(near)) return near;
-  for (let row = 0; row < 40; row += 1) {
-    for (let col = 0; col < 8; col += 1) {
-      const spot = { x: col * COL_PITCH, y: row * ROW_PITCH };
-      if (!clashes(spot)) return spot;
-    }
-  }
-  return { x: 0, y: 0 };
-}
 
 /** One wire, as an orthogonal elbow between two points.
  *

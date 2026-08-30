@@ -51,6 +51,10 @@ export function useKeep(graph: DraftGraph) {
     draftId,
     keptAt,
     keep: () => keep.mutate(),
+    /** The same verb, awaitable — what `useRun` needs to sequence keep -> lint -> sheet.
+     *  `mutate` returns void by design; a caller that must know whether the artifact landed
+     *  cannot use it, and guessing from `isPending` is how a sequence gets out of order. */
+    keepAsync: () => keep.mutateAsync(),
     keeping: keep.isPending,
     /** A coded refusal from `keep` — `MD05xx` for an illegal graph. Shown, not swallowed. */
     error: keep.error ? String(keep.error.message) : null,

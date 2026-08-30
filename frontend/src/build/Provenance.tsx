@@ -36,6 +36,16 @@ export function Provenance({
   onIsolate: (tier: string | null) => void;
 }) {
   const words = useTiers();
+
+  // **An empty pipeline has no provenance, and must not claim one.** `EMPTY_VIEW` carries
+  // `settled_share: 1`, which is arithmetically defensible — nothing is unsettled — and renders
+  // as *100% settled without judgement* above a blank canvas. That is the front door's absence
+  // rule arriving here: a proportion of nothing is not a proportion, and a bar congratulating you
+  // before you have drawn anything is the same class of lie as a dash that means zero.
+  //
+  // **After the hook, not before it.** The first version returned early above `useTiers()`,
+  // which is a rules-of-hooks violation `tsc` does not catch and this file would have shipped.
+  if (data.steps.length === 0) return null;
   const total = Object.values(data.provenance).reduce((a, b) => a + b, 0);
   const bands = words.tiers
     .map((card) => String(card.tier))

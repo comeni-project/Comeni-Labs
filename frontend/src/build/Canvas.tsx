@@ -20,7 +20,7 @@ export function Canvas({
   onDrop,
   children,
   footer,
-  grid = true,
+  grid = false,
 }: {
   view: View;
   onWheel: (e: React.WheelEvent) => void;
@@ -34,9 +34,13 @@ export function Canvas({
   onDrop?: (e: React.DragEvent) => void;
   children?: React.ReactNode;
   footer?: React.ReactNode;
-  /** The dotted surface, on by default. **It is an invitation**: a grid says things can be
-   *  placed here, which is true of the builder and false of a finished run. The run graph
-   *  turns it off and keeps the pan, zoom and drag that make the canvas worth having. */
+  /** The dotted surface. **A measuring surface, and it exists only while something is being
+   *  moved** — `impl-geom`: *a permanent grid is the loudest hobby-editor signal there is.*
+   *
+   *  It defaulted to `true`, and this docstring argued for that: *it is an invitation; a grid
+   *  says things can be placed here, which is true of the builder and false of a finished run.*
+   *  The invitation is real and it belongs to the **gesture** rather than to the resting screen.
+   *  The builder passes `grid={moving}`; the run graph passes nothing and still gets none. */
   grid?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);

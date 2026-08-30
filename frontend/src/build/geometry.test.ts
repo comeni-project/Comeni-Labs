@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COL_PITCH, elbow, freeSpot, heightFor, NODE_W, path, portX } from "./geometry";
+import { elbow, heightFor, path, portX } from "./geometry";
 
 describe("geometry the client owns", () => {
   it("spreads ports by the same formula layout.py uses", () => {
@@ -28,19 +28,8 @@ describe("geometry the client owns", () => {
     expect(path(elbow({ x: 10, y: 0 }, { x: 200, y: 128 }))).toContain("Q");
   });
 
-  it("never drops a node on top of another", () => {
-    const taken = { a: { x: 0, y: 0 } };
-    const spot = freeSpot(taken, { x: 10, y: 10 });
-    expect(spot).not.toEqual({ x: 10, y: 10 });
-    expect(Math.abs(spot.x) >= NODE_W || Math.abs(spot.y) >= 128).toBe(true);
-  });
-
-  it("takes the drop point when it is clear", () => {
-    expect(freeSpot({}, { x: 400, y: 300 })).toEqual({ x: 400, y: 300 });
-  });
-
-  it("keeps its columns on layout.py's pitch", () => {
-    const second = freeSpot({ a: { x: 0, y: 0 } });
-    expect(second.x % COL_PITCH === 0 || second.y % 128 === 0).toBe(true);
-  });
+  // **`freeSpot` is deleted, and so are its three tests.** It was correct about what it was
+  // given and given the wrong thing: `offsets` are DELTAS added to the layout's position, and
+  // it walked a grid of ABSOLUTE cells. `dag-core` already places a new node without overlap,
+  // so `useBuilder.addAt` stopped fighting it rather than being handed better arguments.
 });

@@ -39,6 +39,7 @@ export function Node({
   dragging,
   onStartWire,
   onFinishWire,
+  onMoving,
   verdictFor,
 }: {
   placed: Placed;
@@ -62,6 +63,9 @@ export function Node({
   /** How an input port should look during someone else's drag. A lookup into the server's
    *  compatibility index — never a decision made here. */
   verdictFor?: (port: string) => "yes" | "conventional-no" | "no" | undefined;
+  /** Called `true` when this node starts moving and `false` when it stops. The canvas draws
+   *  its measuring grid only in between. */
+  onMoving?: (moving: boolean) => void;
 }) {
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -69,6 +73,10 @@ export function Node({
     const sx = e.clientX;
     const sy = e.clientY;
     const from = offset;
+    // **The canvas needs to know a node is moving**, because the grid exists only while
+    // something is. Reported upward for the same reason the position is: it is a fact about
+    // the canvas, not about this box.
+    onMoving?.(true);
     const move = (ev: PointerEvent) =>
       // **Divided by the zoom**, or a node at 50% travels twice as far as the cursor.
       // **Reported upward, not kept here.** It was local state, which meant a dragged node left
@@ -76,6 +84,7 @@ export function Node({
       // graph you cannot rearrange.
       onDrag({ x: from.x + (ev.clientX - sx) / zoom, y: from.y + (ev.clientY - sy) / zoom });
     const up = () => {
+      onMoving?.(false);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };

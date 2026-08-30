@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { freeSpot } from "./geometry";
 
 import { get, post } from "../api/client";
 import { useGraph } from "./useGraph";
@@ -137,12 +136,34 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
    * Local: adopting rewrites the graph in the browser and the next `draw`/`validate` follows
    * from it. Nothing is sent — a round trip per click would make the diff feel like a form.
    */
-  /** Add a node and give it a position immediately, so it appears under the cursor rather
-   *  than after a round trip. */
+  /** Add a node, and let the layout place it unless somebody dropped it somewhere.
+   *
+   * ═══ WHY THIS STOPPED CALLING `freeSpot` ═══════════════════════════════════════════════
+   *
+   * The 2026-08-29 walk found that double-clicking two modules produced **one node on screen
+   * and two in the graph** — they landed on identical coordinates. `freeSpot` looked innocent:
+   * it predates the walk and its docstring promises *two additions never land on top of each
+   * other*, which is true of what it was given.
+   *
+   * **What it was actually doing was guessing.** `offsets` are absolute positions seeded from
+   * the layout (`Node.tsx` renders `left: offset.x`, and says so), so `freeSpot` walked a grid
+   * looking for a cell nothing had claimed *yet* — and wrote its guess in before the layout had
+   * ever seen the new node. Two adds in one tick read the same `offsets` and guess the same
+   * cell; and even one add pins a position `dag-core` never agreed to.
+   *
+   * **The layout already guarantees no overlap**, for the whole graph including the new node,
+   * by construction. So the fix is to stop guessing: add the node, let the next `draw` place it,
+   * and let `seed()` adopt that position. `useBuilder`'s own header says layout stays in Python
+   * *so the canvas is as deterministic as the emitted `.nf`* — a client-side placement guess was
+   * the one thing on this screen quietly contradicting that.
+   *
+   * A deliberate drop at a cursor keeps its position, because that is a person saying where they
+   * want it and is the one case the layout cannot know about.
+   */
   const addAt = useCallback(
     (contractId: string, near?: { x: number; y: number }) => {
       const id = graphState.addNode(contractId);
-      if (id) graphState.moveNode(id, freeSpot(graphState.offsets, near));
+      if (id && near) graphState.moveNode(id, near);
       return id;
     },
     [graphState],
@@ -174,6 +195,14 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
     /** True while the server is catching up. **Not a loading state** — the canvas keeps showing
      *  the last good view; this is only for a quiet indicator. */
     settling: drawn.isFetching || verdict.isFetching,
+    /** Whether what is on screen describes a graph that has already moved.
+     *
+     * **Wider than `settling`, and that is the point.** `settling` is *a request is in
+     * flight*; this also covers the 180ms debounce BEFORE one is sent, when the verdict is
+     * already describing the past and nothing has started catching up yet. The 2026-08-29 walk
+     * saw `UNMET MD0506 star_align.index` for 2-3s against a `star_align` that had been
+     * deleted — and the marker for it existed as `settling` and was rendered by nothing. */
+    stale: key !== JSON.stringify(graph) || drawn.isFetching || verdict.isFetching,
     drawnError: drawn.error,
     findings: verdict.data?.findings ?? [],
     alignment,

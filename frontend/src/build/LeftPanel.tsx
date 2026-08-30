@@ -1,63 +1,47 @@
-import { useState } from "react";
-
 import type { components } from "../api/schema";
 import { Modules } from "./Modules";
-import { Steps } from "./Steps";
 
 type Built = components["schemas"]["BuiltPipeline"];
 
-/** Two lists, two questions.
+/** What could I add.
  *
- * **`In pipeline` answers *where is that step*** — the running order, so you can find a box
- * without hunting the canvas for it. **`All modules` answers *what could I add*** — every landed
- * contract, grouped by role, draggable.
+ * ═══ THE `In pipeline` LIST IS DELETED, ON PURPOSE ════════════════════════════════════════
  *
- * They were one list for a phase, and the one they were was the wrong one: 3C shipped only the
- * in-pipeline list, which is a table of contents rather than a picker. Both are kept because both
- * are asked, and collapsing them again would lose whichever half went.
+ * Plan 4 phase 3a, `impl-settled`: *the left steps list is deleted on purpose. It duplicated
+ * the canvas. Orientation is the minimap's job. Do not bring back a third column.*
+ *
+ * The file it lived in argued for both tabs — *`In pipeline` answers where is that step, and
+ * `All modules` answers what could I add* — and the first question is one the canvas beside it
+ * already answers, in the same order, with the wires drawn in. A table of contents for a picture
+ * you are looking at is a second place for the two to disagree.
+ *
+ * ═══ THIS PALETTE IS ITSELF TEMPORARY ═════════════════════════════════════════════════════
+ *
+ * **3b replaces it with the browse overlay** — search, filters, the type signature as the
+ * description, and a tool appearing under EVERY role it declares rather than `roles[0]`. It is
+ * kept here rather than deleted with the list because deleting both at once would leave no way
+ * to add a step at all between two commits, and a product that cannot be used in between is not
+ * a product that is being built incrementally.
  */
 export function LeftPanel({
   onAdd,
   data,
-  selected,
-  onSelect,
 }: {
   data: Built;
-  selected: string | null;
-  onSelect: (id: string) => void;
   /** Add a contract to the pipeline. Threaded through to `Modules`. */
   onAdd?: (contractId: string) => void;
 }) {
-  const [tab, setTab] = useState<"pipeline" | "all">("pipeline");
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-1 px-3 py-2 border-b border-line">
-        {(["pipeline", "all"] as const).map((one) => (
-          <button
-            key={one}
-            data-testid={`left-tab-${one}`}
-            data-active={tab === one || undefined}
-            onClick={() => setTab(one)}
-            className="px-2 py-1 rounded-r bg-transparent border-0 cursor-pointer
-                       text-secondary text-ink-3 hover:text-ink
-                       data-[active]:text-ink data-[active]:font-semibold
-                       data-[active]:shadow-[inset_0_-2px_0_var(--pea)]"
-          >
-            {one === "pipeline" ? "In pipeline" : "All modules"}
-          </button>
-        ))}
+        <span className="px-2 py-1 text-secondary text-ink-3">All modules</span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        {tab === "pipeline" ? (
-          <Steps data={data} selected={selected} onSelect={onSelect} />
-        ) : (
-          <Modules
-            inPipeline={new Set(data.steps.map((step) => step.contract_id))}
-            onAdd={onAdd}
-          />
-        )}
+        <Modules
+          inPipeline={new Set(data.steps.map((step) => step.contract_id))}
+          onAdd={onAdd}
+        />
       </div>
     </div>
   );

@@ -76,22 +76,33 @@ function at() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("what the design asked for", () => {
-  it("keeps both lists — the pipeline's steps and every module", async () => {
-    // **Two questions, two tabs.** `In pipeline` answers *where is that step*; `All modules`
-    // answers *what could I add*. 3C shipped only the first, which is a table of contents rather
-    // than a picker — and the fix is not to replace it, because both are asked.
+  it("no longer keeps a list of the steps beside the canvas that draws them", async () => {
+    // **Restated, not deleted, and this is the second time on this project.**
+    //
+    // It read *"keeps both lists — the pipeline's steps and every module"*, and defended the
+    // pair: *`In pipeline` answers where is that step; `All modules` answers what could I add.
+    // 3C shipped only the first, which is a table of contents rather than a picker.*
+    //
+    // The **picker** half of that argument survives and is asserted below. The **list** half is
+    // reversed by `impl-settled` on the redesign canvas: *the left steps list is deleted on
+    // purpose. It duplicated the canvas. Orientation is the minimap's job. Do not bring back a
+    // third column.* A table of contents for a picture you are looking at is a second place for
+    // the two to disagree.
+    //
+    // This file exists so four things the plan cut could not go missing quietly again. Reversing
+    // one of them **loudly**, in the test that held it, is the only honest way to do it — the
+    // same move phase 2 made on `forge-review.md` §3.
     at();
-    await screen.findAllByTestId("step-row");
-    fireEvent.click(screen.getByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
     expect(rows.length).toBe(3);
-    fireEvent.click(screen.getByTestId("left-tab-pipeline"));
-    expect(screen.getAllByTestId("step-row").length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("step-row")).toBeNull();
+    expect(screen.queryByTestId("left-tab-pipeline")).toBeNull();
   });
 
   it("offers every module, not only the ones already in the pipeline", async () => {
+    // The picker half, unchanged: what could I add is still a real question and the canvas
+    // does not answer it.
     at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
     expect(rows.length).toBe(3);
     expect(rows.some((r) => r.textContent?.includes("hisat2/align"))).toBe(true);
@@ -110,7 +121,6 @@ describe("what the design asked for", () => {
     // that the affordance be REAL. `Modules.test.tsx` holds the other half: with no `onAdd`, the
     // rows are not draggable and the list still calls itself reference-only.
     at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
     expect(rows[0].getAttribute("draggable")).toBe("true");
     expect(screen.queryByText(/reference only — placeholder/i)).toBeNull();
@@ -121,7 +131,6 @@ describe("what the design asked for", () => {
     // `dashboard.md` §4 — beside the panel, not under the cursor, because the content is a
     // sentence and it must not cover the rows you are scanning.
     at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
     const rows = await screen.findAllByTestId("module-row");
     fireEvent.mouseEnter(rows[0]);
     const card = await screen.findByTestId("module-card");

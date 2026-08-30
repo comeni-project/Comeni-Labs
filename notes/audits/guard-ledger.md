@@ -3111,3 +3111,76 @@ else** — because not one component names a colour. No hex, no `rgba(`, no `bg-
 held by convention alone; a single `#fff` would have been invisible on a light ground and a hole
 in a dark one. `tokens.test.ts` now checks all three spellings, because a palette leaks in three
 ways and blocking two just moves the leak.
+
+## The builder's shell, and a rename that would have deleted the pipeline — 2026-08-30
+
+Plan 4 phase 3a. The 2026-08-29 walk's conclusion was that *the modelling is sound and the
+surface is not*; these guards hold the surface.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Shell.test.tsx` "names the pipeline you opened, never another one" | put the literal `RNA-seq spine` back in the header | failed | `expected 'RNA-seq spine' to be 'atac-peaks'` |
+| 2026-08-30 | `Shell.test.tsx` "can add a step without a pointer" | removed `role` and `tabIndex` from the palette row | failed | `expected null to be 'button'` |
+| 2026-08-30 | `Shell.test.tsx` "says the verdict is being rechecked…" | made the stale branch unreachable in `Status` | failed | `expected 'valid' to match /checking/i` |
+| 2026-08-30 | `Shell.test.tsx` "offers exactly one control per action" | — held green; it is the GENERAL form of a defect this screen had twice | passed | two enabled controls sharing a name is the assertion |
+
+### A rename that would have deleted the pipeline
+
+**Caught while writing it, not by a test.** `PUT /drafts/{id}` writes `{graph, name}` as one
+document, and the first `rename()` sent `{ nodes: [], edges: [] }` because the hook did not have
+the graph to hand. It would have **saved an empty graph** — deleting somebody's pipeline while
+appearing to relabel it.
+
+No test would have caught it, because nobody writes a test asserting that renaming does not
+delete. The signature now takes the graph, and the reason is on the function.
+
+### Three things that were true in a comment and false in the product
+
+Each had been written down, correctly, and nothing checked it:
+
+- **`useGraph` has taken a `save` callback since 3E and no caller ever passed one**, so the
+  5-second autosave had never fired. `useKeep`'s docstring said exactly this. It matters more
+  than a missing feature: the argument for collapsing Draw → Keep → Gate → Run into one *Run* is
+  *drafts already autosave, so Keep is an implementation detail wearing a button* — a **false
+  premise** until this phase made it true.
+- **`useBuilder` has returned `settling` since 3E**, documented as *only for a quiet indicator*,
+  and no surface ever rendered it. That is the marker the walk found missing when the verdict
+  described a deleted node for 2–3s.
+- **`/build?draft=<id>` was ignored.** Phase 2 linked to it from every row of the front door's
+  *by pipeline* table, and every one of those links opened the canonical spine.
+
+### `freeSpot` was correct and deleted anyway
+
+The walk found two steps landing on identical coordinates. `freeSpot` looked guilty — and its
+docstring promised *two additions never land on top of each other*, which was true of what it
+was given. It was **guessing**: it walked a grid for a cell nothing had claimed *yet* and wrote
+the guess in before `dag-core` had ever seen the new node.
+
+`dag-core` already places the whole graph without overlap, by construction. So `addAt` stopped
+guessing rather than being handed better arguments, and `freeSpot` went with its three tests —
+`useBuilder`'s own header says layout stays in Python *so the canvas is as deterministic as the
+emitted `.nf`*, and a client-side placement guess was the one thing on that screen quietly
+contradicting it.
+
+### Four defects that only rendering could find
+
+Built, served against fixtures, and looked at — at 1400px and at 900px:
+
+- **An empty pipeline reported *100% settled without judgement*.** `EMPTY_VIEW` carries
+  `settled_share: 1`, which is arithmetically defensible and reads as congratulation above a
+  blank canvas. A proportion of nothing is not a proportion.
+- **`1 to decide` was rendered twice**, eighteen characters from a status line saying `1 value
+  needs you`. One fact, two renderings, and a reader has to work out which is authoritative.
+- **The grid was permanent.** `Canvas` defaulted `grid={true}` with an argument for it — *a grid
+  is an invitation* — and `impl-geom` answers it: the invitation belongs to the gesture. It now
+  appears while a node is moving, and the run graph still gets none.
+- **Stacked, both panels kept their desktop widths**, leaving a 232px palette with 660px of dead
+  space beside it, and the canvas collapsed to no height at all. `Side` sets its width as an
+  inline style because it is drag-resizable, and an inline style beats a class.
+
+### One caught by React's rules rather than by a tool
+
+The empty-pipeline guard was first written as an early `return null` **above** a `useTiers()`
+call — a rules-of-hooks violation `tsc` does not catch and `oxlint` did not flag. Moved below
+the hook. Worth a line because the failure it produces is a crash on a state nobody tests: the
+*second* render after the graph empties.

@@ -242,6 +242,30 @@ body {
 .tbl { overflow-x: auto; }
 .tbl > * { min-width: max-content; }
 
+/* THE BUILDER'S THREE COLUMNS, and the one screen with a rule of its own.
+   Below 1180 the palette and the rail stop sitting beside the canvas — at 1100px they used to
+   clip rather than rearrange, with the canvas crushed to a 197px strip and the rail's sentences
+   cut mid-word. There was no breakpoint at all and no way to collapse either side.
+
+   The canvas keeps a floor, because a canvas narrower than a node is not a canvas. Both grips
+   stay drag-resizable above the breakpoint; below it they are simply not in the way. */
+.builder { display: grid; grid-template-columns: auto 5px minmax(320px, 1fr) 5px auto; }
+@media (max-width: 1180px) {
+  .builder { grid-template-columns: minmax(0, 1fr); grid-auto-rows: min-content; }
+  .builder > .grip { display: none; }
+
+  /* **`!important` earns it here**, which is rare enough to say why: `Side` sets its width as
+     an INLINE style because it is drag-resizable, and an inline style beats a class. Stacked,
+     that width is meaningless — it left a 232px panel with 660px of dead space beside it, which
+     is what looking at the page at 900px showed. Dropping the inline style instead would mean
+     teaching `Side` about breakpoints, which is the layout leaking into a component. */
+  .builder > .side { width: auto !important; max-width: none; }
+
+  /* The canvas is a grid item with no intrinsic height, so stacked it collapsed to nothing.
+     A canvas narrower or shorter than a node is not a canvas. */
+  .builder > .stage { min-height: 55vh; }
+}
+
 /* RULE 3 — a side rail STACKS, it does not overlay. An overlay drawer hides the thing the rail
    is talking about, which on every screen in this product is the thing you opened it to read. */
 .withRail { display: grid; gap: var(--spacing-6); grid-template-columns: 1fr minmax(0, 320px); }

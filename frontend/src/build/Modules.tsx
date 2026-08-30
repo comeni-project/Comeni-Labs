@@ -101,16 +101,37 @@ export function Modules({
               // **Double-click adds too**, because drag-and-drop is the gesture people miss and
               // a list you can only drag from is a list half the users cannot use.
               draggable={onAdd !== undefined}
+              // **Reachable without a mouse**, and it was not until Plan 4 phase 3a. This was a
+              // bare `div draggable="true"` with no `role`, no `tabIndex` and no key handler —
+              // absent from the accessibility tree entirely, so drag and double-click were the
+              // only two ways to add a step and a keyboard user had none.
+              //
+              // `role="button"` rather than a real `<button>`: a button element cannot be
+              // `draggable` in Firefox, and dropping the drag to gain the semantics would trade
+              // one group of users for another. The handler below is what a button would give.
+              role={onAdd ? "button" : undefined}
+              tabIndex={onAdd ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (!onAdd) return;
+                if (e.key !== "Enter" && e.key !== " ") return;
+                // Space scrolls the panel otherwise, which moves the list under the selection.
+                e.preventDefault();
+                onAdd(module.contract_id);
+              }}
               onDragStart={(e) => {
                 e.dataTransfer.setData(MODULE_DND, module.contract_id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
               onDoubleClick={() => onAdd?.(module.contract_id)}
-              title={onAdd ? "drag onto the canvas, or double-click to add" : undefined}
+              // The card follows the keyboard as well as the pointer, or tabbing through the
+              // list tells you the tool's name and nothing about what it needs or makes.
+              onFocus={(e) => setHovered({ module, top: e.currentTarget.offsetTop })}
+              title={onAdd ? "drag onto the canvas, double-click, or press Enter" : undefined}
               onMouseEnter={(e) =>
                 setHovered({ module, top: e.currentTarget.offsetTop })
               }
               className={`px-4 py-1.5 flex items-baseline gap-2 hover:bg-surface-2
+                         focus-visible:shadow-[var(--ring)] focus-visible:outline-none
                          data-[in-pipeline]:font-semibold
                          ${onAdd ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
             >

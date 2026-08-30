@@ -9,13 +9,15 @@ import { LeftPanel } from "./LeftPanel";
 import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
 import { Provenance } from "./Provenance";
+import { Status } from "./Status";
+import { useRun } from "./useRun";
+import { usePipelineDraft } from "./usePipelineDraft";
 import { Compare } from "./Compare";
 import { GatePanel } from "./Gate";
 import { SubmitPanel } from "./Submit";
 import { Findings } from "./Findings";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
-import { Walk } from "./Walk";
 import { heightFor, portX } from "./geometry";
 import { MODULE_DND } from "./Modules";
 import { Rail } from "./Rail";
@@ -54,7 +56,7 @@ function Side({
         data-collapsed="true"
         onClick={onExpand}
         style={{ width: RAIL }}
-        className="shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
+        className="side shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
                    border-0 border-l border-line text-ink-3 hover:text-ink"
       >
         <span className="[writing-mode:vertical-rl] text-label uppercase tracking-[.13em]">
@@ -73,7 +75,7 @@ function Side({
       data-testid={testid}
       data-collapsed="false"
       style={{ width }}
-      className="shrink-0 flex flex-col bg-surface overflow-hidden"
+      className="side shrink-0 flex flex-col bg-surface overflow-hidden"
     >
       <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
         <span className={label}>{title}</span>
@@ -108,9 +110,33 @@ export function Builder() {
   /** Which output port a wire is being dragged from. `null` most of the time. */
   const [dragging, setDragging] = useState<{ node: string; port: string } | null>(null);
 
+  // **`/build?draft=<id>` opens THAT pipeline.** It always opened the example before Plan 4
+  // phase 3a, which meant every link on the front door — one per row of the *by pipeline*
+  // table — went to the canonical spine instead of the thing you clicked.
+  const draft = usePipelineDraft();
   const example = useExample();
+
+  // A named draft that cannot be read is an ERROR, never a quiet fallback to the example. The
+  // failure mode being avoided is the worst kind: you edit for an hour, and you were editing a
+  // different pipeline the whole time.
+  if (draft.openError) {
+    return (
+      <div className="grid place-items-center h-full">
+        <Failed error={draft.openError} />
+      </div>
+    );
+  }
+  if (draft.loading) {
+    return (
+      <div className="grid place-items-center h-full">
+        <Loading what="the pipeline" />
+      </div>
+    );
+  }
+
   return example.data ? (
-    <Editing built={example.data} view={view} onWheel={onWheel} onPointerDown={onPointerDown}
+    <Editing built={example.data} opened={draft.opened} draft={draft}
+      view={view} onWheel={onWheel} onPointerDown={onPointerDown}
       reset={reset} nudge={nudge} fit={fit} box={box} left={left} right={right}
       selected={selected} setSelected={setSelected} isolated={isolated} setIsolated={setIsolated}
       carded={carded} setCarded={setCarded} dragging={dragging} setDragging={setDragging} />
@@ -138,11 +164,18 @@ const GOAL = {
   want: ["counts.matrix"],
 };
 
-function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, left, right,
+function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nudge, fit, box,
+  left, right,
   selected, setSelected, isolated, setIsolated, carded, setCarded, dragging, setDragging }: any) {
   // **Node offsets live in `useGraph`, not in each node.** They were local state, which meant a
   // dragged node left its wires behind — the graph broke the moment you touched it.
-  const builder = useBuilder(graphOf(built));
+  //
+  // **`draft.save` is passed, and until Plan 4 phase 3a nothing ever was.** `useGraph` has taken
+  // an optional `save` and debounced it at 5s since 3E, and no caller supplied one — so the
+  // autosave had never fired in production. That is not a missing feature so much as a missing
+  // premise: the argument for collapsing four buttons into one *Run* is that drafts already
+  // save themselves.
+  const builder = useBuilder(opened ?? graphOf(built), draft.save);
   const index = useCompatibility();
   const data: Built | null = builder.drawn;
   const offsets = builder.offsets;
@@ -158,6 +191,23 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   // so this is the same gate the toolbar button and the gate tab are looking at — which is
   // what makes "a gate passed" mean the one a person just watched.
   const gate = useGate(keeper.draftId);
+  // **One control, four verbs** — `impl-walk`. The rail is gone; this is what it did.
+  const runner = useRun({
+    keep: keeper.keepAsync,
+    lint: () => gate.start("lint"),
+    gatePassed: gate.passed,
+    openSheet: () => setPanel("run"),
+  });
+
+  /** Whether a node is being dragged. **The grid exists only while it is.**
+   *
+   * `impl-geom`: *a permanent grid is the loudest hobby-editor signal there is.* `Canvas` had
+   * it on by default with an argument for it — *a grid is an invitation; it says things can be
+   * placed here* — and that argument is answered rather than ignored: the invitation is real
+   * and it belongs to the gesture, not to the resting screen. Galaxy's idea, scoped.
+   */
+  const [moving, setMoving] = useState(false);
+
   /** Where the cursor is while a wire is being dragged, in canvas coordinates. */
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   /** Where a right-click opened a menu, and on what. */
@@ -224,23 +274,67 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   return (
     <div className="grid grid-rows-[38px_1fr] h-full overflow-hidden">
       <div className="flex items-center gap-4 px-6 border-b border-line bg-surface">
-        <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
-          RNA-seq spine
-        </span>
-        {/* **Keep, Gate and Run left this toolbar for `Walk`** — W2 §13. They were three
-            controls in three places for one sequence, and the rail is that sequence said
-            once. `execution-boundary.md` §3's rule that a gate and a run must never share a
-            label is kept there rather than here. */}
-        {blocking > 0 && (
-          <span data-testid="blocking" className="text-secondary text-[var(--undecided)]">
-            <b className="font-data">{blocking}</b> to decide
+        {/* **The name is the draft's own.** It was the literal string `RNA-seq spine`, which is
+            why the 2026-08-29 walk deleted every step, replaced them, and still had the old
+            name on screen. `PipelineDraft.name` had existed since 3E with nothing setting it. */}
+        <input
+          data-testid="pipeline-name"
+          aria-label="pipeline name"
+          value={draft.name}
+          placeholder={draft.draftId ? draft.draftId.slice(0, 8) : "untitled pipeline"}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            draft.rename(e.target.value, builder.graph)}
+          className="bg-transparent border-0 outline-none text-object text-ink min-w-[8ch]
+                     w-[22ch] focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1"
+        />
+        <Status
+          savedAt={draft.savedAt}
+          saving={draft.saving}
+          dirty={builder.dirty}
+          error={draft.error}
+          valid={builder.findings.length === 0}
+          open={blocking}
+          stale={builder.stale}
+        />
+
+        {/* **The one action, and it does the whole sequence.** Keep, lint, open the run sheet,
+            submit. It is disabled only while it is working — never because a step somebody
+            cannot see has not happened yet. */}
+        <button
+          data-testid="run"
+          type="button"
+          disabled={runner.busy || builder.graph.nodes.length === 0}
+          onClick={() => void runner.run()}
+          className="ml-auto px-4 py-1.5 rounded-r text-body cursor-pointer
+                     border border-[var(--link)] text-[var(--link)] bg-transparent lift
+                     disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {runner.stage === "keeping" ? "Keeping…"
+            : runner.stage === "linting" ? "Checking…"
+            : "Run"}
+        </button>
+        {runner.error && (
+          <span data-testid="run-error" className="text-secondary">
+            <Failed error={runner.error} padded={false} />
           </span>
         )}
+        {/* **Keep, Gate and Run left this toolbar for `Walk`, and `Walk` has now left too.**
+            W2 §13 moved three controls into one rail; Plan 4 phase 3a removed the rail. One
+            **Run** in the header orchestrates all of it, and the status line says what is
+            true. `execution-boundary.md` §3's rule — that a gate and a run never share a
+            label — is kept in the BACKEND, which is where it was always load-bearing. */}
+        {/* **`N to decide` is deleted, because the status line already says it.** It read
+            `1 to decide` beside a status line reading `1 value needs you` — one fact, two
+            renderings, eighteen characters apart. Found by looking at the built page.
+
+            This is the same discipline as *one control per action*: two places that say the
+            same thing are two places that can come to disagree, and the reader has to work out
+            which is authoritative. `Status` owns it. */}
       </div>
       <div
         ref={box}
         data-testid="builder"
-        className="grid grid-cols-[auto_5px_1fr_5px_auto] overflow-hidden"
+        className="builder overflow-hidden"
       >
       <Side
         side="left"
@@ -250,12 +344,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         onExpand={() => left.setCollapsed(false)}
       >
         {data && (
-          <LeftPanel
-            data={data}
-            selected={selected}
-            onSelect={setSelected}
-            onAdd={builder.addNode}
-          />
+          <LeftPanel data={data} onAdd={builder.addNode} />
         )}
       </Side>
       <Grip
@@ -265,11 +354,12 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         onNudge={() => {}}
       />
 
-      <div className="flex flex-col overflow-hidden">
+      <div className="stage flex flex-col overflow-hidden">
         {data && (
           <Provenance data={data} isolated={isolated} onIsolate={setIsolated} />
         )}
         <Canvas
+        grid={moving}
         view={view}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
@@ -423,6 +513,7 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                 }}
                 onOpenSettings={() => setCarded(placed.id)}
                 offset={offsets[placed.id] ?? { x: 0, y: 0 }}
+                onMoving={setMoving}
                 onDrag={(by) => builder.moveNode(placed.id, by)}
                 dragging={dragging}
                 onStartWire={(port: string) => setDragging({ node: placed.id, port })}
@@ -468,50 +559,21 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         {/* **Three tabs, and the order is the order you need them in.** What is wrong with
             what you drew comes before what Mendel would have done differently, because a graph
             that cannot be emitted is not yet worth diffing. */}
-        {/* Draw → Keep → Gate → Run, above the tabs, because it is the sequence and they are
-            the detail. **The only place that leaves Mendel** is its last step — A179,
-            `wiener.md` §12 — and it stays a distinct step rather than a second gate button,
-            because `execution-boundary.md` §3 keeps those two words apart everywhere else. */}
-        <div className="p-2">
-          <Walk
-            draw={{ steps: builder.graph.nodes?.length ?? 0,
-                    problems: builder.findings.length }}
-            keep={{
-              // `keptAt` is a **time**, and the rail prints `kept ${keptAt}` — the literal
-              // "kept" here rendered `kept kept` on screen. A draft id also is not the same
-              // fact: a draft is *saved* from the first edit and only `keep` certifies it.
-              keptAt: keeper.keptAt,
-              stale: keeper.blocked,
-              busy: keeper.keeping,
-              onKeep: () => keeper.keep(),
-              // **THE SILENT 500.** On 2026-08-29 this call sent `keep` and dropped its error:
-              // the API answered 500, the rail sat there still offering *Keep*, and `docker
-              // logs` was the only way to find out. `useKeep` had returned `error` all along,
-              // documented as "Shown, not swallowed" — nothing read it. Keep has no panel, so
-              // this step is the surface.
-              error: keeper.error,
-            }}
-            gate={{
-              passed: gate.passed && !keeper.blocked,
-              blocked: keeper.blocked ? "A gate has to pass on the version you kept." : null,
-              // **Reported by the panel, not here** — `GatePanel` renders `gate.error` under
-              // its own `gate-error`, with the tool output beside it. Filling the slot too
-              // would print the same refusal twice, one line apart, which is the duplicated
-              // control the same walk found on *Send to Wiener* wearing different clothes.
-              error: null,
-              panel: <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />,
-            }}
-            run={{
-              sent: false,
-              blocked: gate.passed ? null : "A gate has to pass on the version you kept.",
-              // Reported by the panel, as above: `SubmitPanel` renders `submit.error`, and
-              // hands an `Unauthorized` to `TokenPrompt` rather than printing it — which is a
-              // better answer than any message, and one this step could not give.
-              error: null,
-              panel: <SubmitPanel draftId={keeper.draftId}
-                                  gated={gate.passed && !keeper.blocked} />,
-            }}
-          />
+        {/* **Draw → Keep → Gate → Run is gone, and the four verbs still happen.**
+            Plan 4 phase 3a, `impl-walk`. They stopped being UI: the header's **Run** does
+            keep → lint → the run sheet → submit → navigate, and the status line beside the
+            name says what is true — `saved 4s ago · valid · 2 values need you`.
+
+            **The backend split stays.** `execution-boundary.md` §3 keeps gate and run apart
+            for a real reason: a gate proves an artifact on PUBLIC data, a run touches the
+            lab's OWN. That is two things the machine does, and it was never two buttons a
+            person should have had to press.
+
+            The gate's and the run's own panels keep their tabs below, because that is where
+            their output belongs — under the thing that produced it. */}
+        <div className="p-2 flex flex-col gap-2">
+          <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />
+          <SubmitPanel draftId={keeper.draftId} gated={gate.passed && !keeper.blocked} />
         </div>
 
         <div className="flex gap-1 border-b border-line px-2 pt-2">

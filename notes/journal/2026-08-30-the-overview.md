@@ -1,6 +1,6 @@
-# 2026-08-30 — the floor, the results, and the front door
+# 2026-08-30 — the floor, the results, the front door, and the builder's shell
 
-**Read this first if you are picking the project up. This is the newest entry.** It covers three
+**Read this first if you are picking the project up. This is the newest entry.** It covers four
 phases of Plan 4 executed in one day, on `worktree-plan-4-phase-0`.
 
 The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `packages/` or
@@ -8,7 +8,7 @@ The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `
 
 ## Where things stand
 
-**Plan 4 phases 0, 1 and 2 are complete.** The plans are in
+**Plan 4 phases 0, 1, 2 and 3a are complete.** The plans are in
 [`../plans/`](../plans/), each with its steps ticked and an execution record naming every
 deviation.
 
@@ -20,11 +20,15 @@ deviation.
   under names nobody can read.
 - **Phase 2 — the Overview.** `/` is the lab's work rather than the product's inventory, and the
   whole product moved to the **Observatory** palette on the way.
+- **Phase 3a — the builder's shell.** Draw → Keep → Gate → Run is one **Run** action and a status
+  line; the duplicated column is gone; the draft lifecycle is real for the first time.
 
-**`make verify` green at 1655; `make check` green at 1686 with a database up. Frontend: 284 tests
-in 51 files, `tsc` clean, lint unchanged at its five pre-existing warnings.**
+**`make verify` green at 1655; `make check` green at 1686 with a database up. Frontend: 280 tests
+in 51 files, `tsc` clean, lint unchanged at its five pre-existing warnings.** (The count moved
+from 284 to 280 because `Walk.test.tsx` was deleted with `Walk`; its two live assertions moved to
+`Status`.)
 
-## The pattern, for the fourth time running
+## The pattern, for the fifth time running
 
 **Every defect that mattered was found by running the thing or by looking at it. None by a test
 written to pass.** W1 found five that way, W2 six, the 2026-08-29 walk fourteen. This session:
@@ -91,12 +95,68 @@ Nine findings changed a task. The instructive ones:
   Overview page may not exist. The narrower rule survives and is enforced: `/` may render
   pipelines and runs, never a contract id, a question subject or a drift row.
 
+## Phase 3a, and the three comments that were true about code that did not run
+
+The 2026-08-29 walk concluded that **the modelling is sound and the surface is not**, and phase
+3a is the surface. What it found is a pattern worth naming: **three things had been written down
+correctly, in comments, and nothing checked any of them.**
+
+- **`useGraph` has taken a `save` callback since 3E and no caller ever passed one.** The 5-second
+  autosave had never fired in production. `useKeep`'s own docstring said so. This is worse than a
+  missing feature: the argument for collapsing four buttons into one *Run* is *drafts already
+  autosave, so Keep is an implementation detail wearing a button* — and the premise was **false**
+  until this phase made it true.
+- **`useBuilder` has returned `settling` since 3E**, documented as *only for a quiet indicator*,
+  and no surface ever rendered it. That is exactly the marker the walk found missing when the
+  verdict described a deleted node for 2–3 seconds.
+- **`/build?draft=<id>` was ignored.** `Builder` called `useExample()` unconditionally, so every
+  link phase 2 put on the front door — one per row of the *by pipeline* table — opened the
+  canonical spine instead of the pipeline you clicked.
+
+**A comment is not a guard.** Each of these was accurate prose beside code that did not do it,
+and the repository's habit of writing down *why* is what made them findable in an afternoon —
+but only because somebody went looking. `CLAUDE.md` already says a number repeated in prose goes
+stale; a *behaviour* described in prose does the same thing more quietly.
+
+### A rename that would have deleted the pipeline
+
+Caught while writing it. `PUT /drafts/{id}` writes `{graph, name}` as one document, and the first
+`rename()` sent an empty graph because the hook had none to hand — **saving an empty graph while
+appearing to relabel**. No test would have caught it; nobody writes a test asserting that
+renaming does not delete.
+
+### `freeSpot` was correct, and deleted anyway
+
+The walk saw two steps land on identical coordinates and `freeSpot` looked guilty. It was not: it
+was **guessing** a free cell before `dag-core` had seen the new node. The layout already places
+the whole graph without overlap, so `addAt` stopped guessing rather than being handed better
+arguments — `useBuilder`'s own header says layout stays in Python *so the canvas is as
+deterministic as the emitted `.nf`*, and a client-side placement guess was the one thing on that
+screen quietly contradicting it.
+
+### Four more found by looking, at two widths
+
+An empty pipeline reported **100% settled without judgement**. `1 to decide` was rendered twice,
+eighteen characters from a status line saying the same thing. The **grid was permanent** —
+`impl-geom` calls that the loudest hobby-editor signal there is. And stacked at 900px both panels
+kept their desktop widths, leaving a 232px palette with 660px of dead space beside it, because
+`Side` sets its width as an *inline* style and an inline style beats a class.
+
 ## What is next
 
-**Phase 3 — the builder**, in two parts. Its defects are all *feedback* defects and the canvas
-already says what the feedback should be. It also inherits two known tensions from phase 0:
-`breathe` and `animate-pulse` are a sixth and seventh movement, and retiring either is a visible
-change to a screen phase 3 or 5 owns.
+**Phase 3b — the builder's new surfaces.** The port picker off the existing compatibility index,
+the settings card on the node, swap-with-consequences off `compare`, the keyboard-first browse
+overlay, and the artifact view. It also inherits, explicitly:
+
+- **Four unticked boxes in 3a's plan**, which is how they stay visible: the `Canvas`/`Artifact`
+  toggle (its second half is 3b's), the empty-canvas right-click menu (it would open the browse
+  overlay, so it is 3b's), the rail scrolling itself to the top, and the three-layer arc field —
+  which is new work rather than a correction.
+- **Two known tensions from phase 0**: `breathe` and `animate-pulse` are a sixth and seventh
+  movement, and retiring either is a visible change to a screen 3 or 5 owns.
+- **The builder has still not been driven by hand in a live stack.** It was rendered against
+  fixtures and read, which found four defects; the run sheet, a real keep and a real gate are
+  unexercised. 3a's Task 8 is `[~]` for that reason.
 
 Then **phase 4** (runs projections — `series()` in `wiener-core`, attempt windows, per-attempt
 resources) and **phase 5** (the runs screens).
