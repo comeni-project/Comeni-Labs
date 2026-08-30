@@ -105,7 +105,7 @@ description. **Leave the slot empty; do not invent prose.**
 - [x] 172×112 for every process node, `box-sizing: border-box` on everything.
 - [x] Ports **derived** from node geometry in one place: `spine`, `second = spine + 22`.
 - [x] Types on the node. Tier as a **left edge bar**. **Settled gets no colour.**
-- [ ] Corner registration marks, fixed to the viewport rather than the stage.
+- [x] Corner registration marks, fixed to the viewport rather than the stage.
 - [x] A guard that no wire endpoint is computed anywhere but the one derivation.
 
 ## Task 3 — click a port, get what fits
@@ -119,12 +119,12 @@ description. **Leave the slot empty; do not invent prose.**
 
 ## Task 4 — the canvas's own field, and a grid only while moving
 
-- [ ] The canvas field: three arc families so something always crosses the graph, long chords, a
+- [x] The canvas field: three arc families so something always crosses the graph, long chords, a
       pool where the pipeline sits, a graticule of 13 ticks. **Anchored to the viewport; it does
       not pan.**
-- [ ] The millimetre grid **pans with the nodes** and exists only between pointer-down and
+- [x] The millimetre grid **pans with the nodes** and exists only between pointer-down and
       pointer-up. Three rulings, 8 / 40 / 80.
-- [ ] A guard that the grid is absent at rest. Watch it fail with a permanent grid.
+- [x] A guard that the grid is absent at rest. Watch it fail with a permanent grid.
 
 ## Task 5 — the card on the node
 

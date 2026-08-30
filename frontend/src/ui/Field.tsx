@@ -31,14 +31,31 @@
  * **`prefers-reduced-motion` stops it**, in `main.css` alongside the five movements. Two slow
  * animations that never stop are exactly what that media query is for.
  */
-export function Field({ origin = "bottom" }: { origin?: "bottom" | "corner" }) {
+export function Field({ origin = "bottom", within = false }: {
+  origin?: "bottom" | "corner";
+  /** Fill the nearest positioned ancestor instead of the viewport.
+   *
+   * **The canvas needs its own**, and `n-bcanvas` says why: *the arcs were anchored bottom-left
+   * at page scale, so the canvas was showing the empty part of them.* A field struck from the
+   * page's corner puts nothing behind a frame that occupies the page's middle. Scoped to the
+   * canvas, the same arcs cross the graph.
+   */
+  within?: boolean;
+}) {
   return (
-    <div aria-hidden className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div aria-hidden
+         className={`${within ? "absolute" : "fixed"} inset-0 pointer-events-none
+                     overflow-hidden ${within ? "" : "-z-10"}`}>
       {/* **760 tall, which is the artboard's frame — not 900.** The arcs are struck from an
           origin at y=900, *below* the frame, and a 900-tall viewBox put that origin on the
           bottom edge and pushed every ring out of view: what showed was one faint sweep
           instead of four concentric arcs. The origin is meant to be off-canvas. */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1400 760"
+      {/* **The canvas draws it at 1100×660 and the page at 1400×760**, which is each artboard's
+          own frame. The arc coordinates are absolute and identical in both; what changes is how
+          much of them the frame admits, which is the whole of the "showing the empty part"
+          problem `n-bcanvas` describes. */}
+      <svg className="absolute inset-0 w-full h-full"
+           viewBox={within ? "0 0 1100 660" : "0 0 1400 760"}
            preserveAspectRatio="xMidYMid slice">
         <defs>
           <radialGradient id="field-pool" cx="46%" cy="34%" r="58%">
@@ -50,7 +67,10 @@ export function Field({ origin = "bottom" }: { origin?: "bottom" | "corner" }) {
             door's `OverviewFirst` does not — its bloom IS the light source, and a second wash
             on top of it flattens the arcs into grey fog. Drawing both is exactly what that
             looked like. */}
-        {origin === "corner" && <rect width="1400" height="760" fill="url(#field-pool)" />}
+        {origin === "corner" && (
+          <rect width={within ? 1100 : 1400} height={within ? 660 : 760}
+                fill="url(#field-pool)" />
+        )}
 
         {/* **The origin moves with the page, and the arcs do not change.** The front door
             centres its bloom below the prompt (`OverviewFirst`); every other board throws it
@@ -91,15 +111,44 @@ export function Field({ origin = "bottom" }: { origin?: "bottom" | "corner" }) {
             )}
           </g>
 
+          {/* **A third family, and a graticule of thirteen ticks.** `_field.html` carries both
+              and the first pass left them out — which is most of why the field read as a
+              gradient rather than as an instrument. `n-bcanvas` calls the ticks *measured
+              rather than decorative*, and that is the difference they make: an arc with
+              graduations on it is a scale, and an arc without them is a swoosh. */}
+          {origin === "corner" && (
+            <>
+              <g stroke="var(--link)" opacity=".05" strokeWidth="1" fill="none">
+                <circle cx="560" cy="980" r="700" />
+                <circle cx="560" cy="980" r="838" />
+              </g>
+              <g stroke="var(--link)" opacity=".08" strokeWidth="1" fill="none">
+                <path d="M-97.8 740.6 L-104.4 738.2" />
+                <path d="M-35.8 612.5 L-41.7 608.8" />
+                <path d="M50.8 499.6 L45.7 494.8" />
+                <path d="M158.5 406.6 L154.5 400.9" />
+                <path d="M282.7 337.2 L280.0 330.8" />
+                <path d="M418.4 294.5 L417.0 287.6" />
+                <path d="M560.0 280.0 L560.0 273.0" />
+                <path d="M701.6 294.5 L703.0 287.6" />
+                <path d="M837.3 337.2 L840.0 330.8" />
+                <path d="M961.5 406.6 L965.5 400.9" />
+                <path d="M1069.2 499.6 L1074.3 494.8" />
+                <path d="M1155.8 612.5 L1161.7 608.8" />
+                <path d="M1217.8 740.6 L1224.4 738.2" />
+              </g>
+            </>
+          )}
+
           {/* **Chords are the corner field's, not the bloom's.** `_field.html` crosses its arcs
               with three long lines so they stop reading as a target; `OverviewFirst` has none —
               its two rays come off the origin instead, and adding chords on top of them made
               the front door busier than the drawing. */}
           {origin === "corner" && (
             <g stroke="var(--link)" strokeWidth=".75" fill="none">
-              <path d="M-80 96 L1480 402" opacity=".045" />
-              <path d="M-80 520 L1480 176" opacity=".034" />
-              <path d="M180 -60 L1080 820" opacity=".026" />
+              <path d="M-80 96 L1220 402" opacity=".045" />
+              <path d="M-80 520 L1220 176" opacity=".034" />
+              <path d="M180 -60 L980 720" opacity=".026" />
             </g>
           )}
         </g>

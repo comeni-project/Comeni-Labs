@@ -11,7 +11,6 @@ import { useCallback, useRef, useState } from "react";
  */
 export const MIN_K = 0.3;
 export const MAX_K = 2.2;
-export const GRID = 22;
 
 export type View = { x: number; y: number; k: number };
 

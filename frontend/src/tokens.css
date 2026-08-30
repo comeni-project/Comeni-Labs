@@ -50,6 +50,13 @@
      measured (amber) and open (red) spend any.* */
   --node: #0C1216; --node-line: #253239; --node-rule: #1A252A;
   --rail: #2C3E45; --port-line: #4A5C64;
+  /* The measuring grid, three rulings at 1:5:10 — 80 / 40 / 8. The coarsest is loudest, so the
+     eye lands on it first and reads the fine one only when it needs to. */
+  --grid-1: rgba(108, 183, 255, .115);
+  --grid-2: rgba(108, 183, 255, .060);
+  --grid-3: rgba(108, 183, 255, .028);
+  /* The frame's corner registration marks. */
+  --mark: #28353C;
   --shadow: rgba(0, 0, 0, .6);
   --r: 3px;
   /* **One family, two cuts** — the artboards use Geist for everything and Geist Mono for data.
@@ -114,6 +121,10 @@
     --link: #1F5FA8; --link-soft: #E6EEF8;
     --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
     --rail: #9AA5A1; --port-line: #8F9A95;
+    --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+    --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
+  --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+  --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
     --shadow: rgba(18, 21, 26, .14);
   }
 }
@@ -131,5 +142,7 @@
   --link: #1F5FA8; --link-soft: #E6EEF8;
   --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
   --rail: #9AA5A1; --port-line: #8F9A95;
+  --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+  --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
   --shadow: rgba(18, 21, 26, .14);
 }
