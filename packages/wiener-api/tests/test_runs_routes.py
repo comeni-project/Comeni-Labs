@@ -161,7 +161,11 @@ def test_the_graph_is_the_pipelines_own_layout(client, session):
     graph = client.get(f"/api/runs/{run_id}/graph").json()
     assert len(graph["nodes"]) == 5 and graph["wires"]
     by_id = {node["id"]: node for node in graph["nodes"]}
-    assert by_id["trimgalore"]["y"] < by_id["star_align"]["y"] < by_id["samtools_sort"]["y"]
+    # **Left to right, since Plan 4 phase 6.** `dag-core` is one implementation for both
+    # canvases — `impl-reuse`: *both canvases, one arithmetic* — so flipping the builder's
+    # orientation turned this graph with it. That is the intended consequence rather than a side
+    # effect somebody has to discover.
+    assert by_id["trimgalore"]["x"] < by_id["star_align"]["x"] < by_id["samtools_sort"]["x"]
     assert graph["width"] > 0 and graph["height"] > 0
 
 

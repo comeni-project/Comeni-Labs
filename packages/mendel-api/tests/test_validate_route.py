@@ -104,7 +104,9 @@ def test_a_drawn_graph_lays_out_like_a_resolved_one(client):
     }
     view = client.post("/api/pipeline/draw", json=body).json()
     assert [n["id"] for n in view["layout"]["nodes"]] == ["align", "sort"]
-    assert view["layout"]["nodes"][0]["y"] != view["layout"]["nodes"][1]["y"], "not laid out"
+    # **`x`, since Plan 4 phase 6** — the graph runs left to right, so two ranks differ along x
+    # and a `y` assertion here would be checking for the downward layout that was replaced.
+    assert view["layout"]["nodes"][0]["x"] != view["layout"]["nodes"][1]["x"], "not laid out"
     assert len(view["layout"]["wires"]) == 1
 
 

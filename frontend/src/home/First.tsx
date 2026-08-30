@@ -43,7 +43,7 @@ export function First() {
   return (
     <div className="relative overflow-auto">
       <div className="relative min-h-full flex flex-col items-center justify-center
-                      gap-[30px] px-11 pb-20">
+                      gap-[30px] gutter pb-20">
         {/* 34px / 600 / -.03em / 22ch, balanced — the artboard's exact type. It was
             `font-display`, which was a serif, at a size the artboard does not use. */}
         <h1 className="settle m-0 text-center font-ui text-ink font-semibold

@@ -78,7 +78,12 @@ export function Shell() {
   const bloom = useLocation().pathname === "/";
 
   return (
-    <div className="grid grid-rows-[54px_1fr] h-dvh">
+    <div className="grid grid-rows-[auto_1fr] h-dvh">
+      {/* **`auto`, not a 54px track.** The bar was a fixed row and the text sat 10px from its
+          top and 23px from its bottom — visibly high, because a fixed height and the row's own
+          padding were two answers to the same question and the track won. The artboards have
+          no bar at all: the shell is a line of text with the page's 28px above it and 20px
+          below, ruled off. Let the content set the height and nothing is left to disagree. */}
       {/* **Behind everything, and it is the page's ground rather than a decoration.** Every
           artboard opens on an arc field, a scan texture and a vignette; the app had none of
           them and drew a flat black rectangle, which is most of why the built screens did not
@@ -97,11 +102,19 @@ export function Shell() {
           a laboratory name there. Neither exists: the hint is door 1 again plus a jump palette
           nothing implements, and the laboratory name is a fact this half of the product does not
           hold. Drawing either would be inventing a control or inventing a fact. */}
-      <nav className="flex items-baseline gap-7 px-11 pt-4 pb-3 border-b border-line">
+      {/* **`py-3.5`, not the artboard's 28/20.** The drawing has no bar — its 28px is the
+          PAGE's top padding, and lifting that into a persistent header made 68px of chrome
+          above every screen. The page keeps its 28px; the bar is a bar, and a compact one.
+          `gap-7` at 28px is the artboard's own spacing between the wordmark and the sections. */}
+      <nav className="gutter flex items-baseline gap-7 py-3.5 border-b border-line">
         <Link
           to="/"
           aria-label="Comeni — home"
-          className="text-[14px] font-bold tracking-[-.02em] text-ink no-underline"
+          /* **Same box metrics as a Tab.** The tabs carry a 3px pad and a 1px underline, so a
+             wordmark without them made the flex line 4px taller at the bottom than the top —
+             14px above the text and 19px below, which is what "not centred" was. */
+          className="pb-[3px] border-b border-transparent text-[14px] font-bold
+                     tracking-[-.02em] text-ink no-underline"
         >
           Comeni
         </Link>

@@ -298,10 +298,10 @@ export function Board() {
   const lo = page * PER_PAGE + 1;
 
   return (
-    <div className="p-6 flex flex-col gap-3.5 h-full">
+    <div className="gutter py-6 flex flex-col gap-3.5 h-full">
       {/* The same `--surface-2` shelf every run page opens with, so the board and the run are
           one product rather than two designs. */}
-      <header className="-mx-6 -mt-6 px-6 pt-4 pb-3.5 bg-surface-2 border-b border-line
+      <header className="-mx-[24px] md:-mx-[44px] -mt-6 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
                          shadow-e1 relative z-[2] flex items-baseline gap-3.5">
         <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">runs</h1>
         <p className="text-body text-ink-2 m-0">every pipeline this instance has executed</p>

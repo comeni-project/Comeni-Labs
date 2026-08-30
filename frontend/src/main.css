@@ -290,6 +290,18 @@ body {
    reader cannot tell a missing panel from a panel with nothing to say. That distinction is the
    same one the absence rule makes everywhere else in this product — an empty section does not
    render, and a section that fails to render because it did not fit is a lie. */
+/* ═══ ONE GUTTER FOR THE WHOLE APPLICATION ════════════════════════════════════════════════
+
+   The artboards inset every page by 44px and the shell sits on the same line, so the wordmark
+   and the first column of the table below it share an edge. That only holds if there is ONE
+   number: the shell was at 24px and the front door at a centred 1180px column, and they read as
+   two documents stacked on each other.
+
+   **It narrows on a small screen**, at the 760px content breakpoint phase 0 established — 44px
+   of margin either side of a phone is most of the phone. */
+.gutter { padding-inline: 24px; }
+@media (min-width: 760px) { .gutter { padding-inline: 44px; } }
+
 .band {
   display: grid;
   gap: var(--spacing-6);
@@ -336,4 +348,16 @@ body {
    is talking about, which on every screen in this product is the thing you opened it to read. */
 .withRail { display: grid; gap: var(--spacing-6); grid-template-columns: 1fr minmax(0, 320px); }
 @media (max-width: 1180px) { .withRail { grid-template-columns: 1fr; } }
-@media (max-width: 760px)  { .band { grid-template-columns: 1fr; } }
+@media (max-width: 760px)  { /* ═══ ONE GUTTER FOR THE WHOLE APPLICATION ════════════════════════════════════════════════
+
+   The artboards inset every page by 44px and the shell sits on the same line, so the wordmark
+   and the first column of the table below it share an edge. That only holds if there is ONE
+   number: the shell was at 24px and the front door at a centred 1180px column, and they read as
+   two documents stacked on each other.
+
+   **It narrows on a small screen**, at the 760px content breakpoint phase 0 established — 44px
+   of margin either side of a phone is most of the phone. */
+.gutter { padding-inline: 24px; }
+@media (min-width: 760px) { .gutter { padding-inline: 44px; } }
+
+.band { grid-template-columns: 1fr; } }

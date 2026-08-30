@@ -74,6 +74,11 @@ export function Home() {
 
   const pipelines = drafts.data?.drafts ?? [];
   const board = runs.data?.runs ?? [];
+  // **What makes the page the ACTIVE one rather than the QUIET one**, read once so the rule,
+  // the spacing and the band itself can never disagree about whether there is anything to
+  // separate. `Now` returns null on the same condition.
+  const band = board.some((run) => run.phase === "running")
+    || (attention.data?.mendel ?? []).length > 0;
 
   // **The first-run state is its own composition**, not this page with everything hidden and
   // not a page of onboarding cards.
@@ -90,7 +95,7 @@ export function Home() {
           on every board. It was a centred `max-w-[1180px]` column, so on a wide screen the
           wordmark sat at x=44 and the table it belongs to started at x=318: the shell and the
           page read as two documents. */}
-      <div className="px-11 pt-1 pb-10">
+      <div className="gutter pt-7 pb-10">
         <Now
           running={board.filter((run) => run.phase === "running")}
           waiting={attention.data?.mendel ?? []}
@@ -102,10 +107,12 @@ export function Home() {
             Work block reads as a continuation of the running run rather than as the other half
             of the page. It renders only when there IS a NOW band: a rule under nothing is a
             line drawn for its own sake, and the quiet page is meant to be shorter. */}
-        {(board.some((run) => run.phase === "running") || (attention.data?.mendel ?? []).length > 0)
-          && <div className="mt-7 h-px bg-line" />}
+        {band && <div className="mt-7 h-px bg-line" />}
 
-        <section className="mt-6">
+        {/* **24px under the rule, 34px without one** — the ACTIVE and QUIET artboards differ by
+            exactly that, because on the quiet page there is no rule to separate Work from and
+            the space has to do the separating on its own. */}
+        <section className={band ? "mt-6" : "mt-[34px]"}>
           <div className="flex items-center gap-5 flex-wrap">
             <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
               Work

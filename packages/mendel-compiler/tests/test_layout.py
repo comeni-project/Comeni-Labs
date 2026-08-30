@@ -6,10 +6,20 @@ output, byte for byte — and the canvas is the thing a person screenshots. `das
 this the largest outstanding piece; it is the one part of 3C that is an algorithm rather than a
 rendering.
 
-**The graph flows downward.** Read off `dashboard.html`'s own `elbow()`, which routes vertical →
-horizontal at the midpoint → vertical, and off its two hand-placed nodes, which share `top:6` at
-different `left`. The first draft of this plan assumed left-to-right and would have been wrong in
-a way no test here would have caught — the assertions would all have passed on a sideways graph.
+**The graph flows LEFT TO RIGHT, and it used to flow downward.** Plan 3C read the direction off
+`dashboard.html`'s `elbow()` and its two hand-placed nodes, and this docstring warned that a
+sideways graph would have passed every assertion in the file. That warning was right and it is
+why this rewrite touched eight of them.
+
+**The 2026-08-29 redesign canvas supersedes `dashboard.html`.** `impl-settled` says *CANVAS IS
+LEFT-TO-RIGHT* under a heading reading *please do not re-litigate*, and `BuilderCanvas.dc.html`
+is unambiguous: four ranks at x = 194, 418, 642, 866, and two siblings sharing an x at tops 150
+and 320. The operator confirmed it by driving the built page and calling the difference
+incredible. Plan 4 phase 6.
+
+**Every symbol is now the same size**, 172×112, which is `impl-geom`'s load-bearing claim rather
+than a tidiness one: variable heights put a jog between every pair and the main chain stops
+reading as a chain.
 """
 
 from pathlib import Path
@@ -30,12 +40,19 @@ def spine():
     ).ir
 
 
-def test_a_producer_sits_above_its_consumer(spine):
-    """The only structural claim a reader relies on: flow is down, so a step that feeds another
-    is drawn before it."""
+def test_a_producer_sits_LEFT_of_its_consumer(spine):
+    """The only structural claim a reader relies on: flow is rightward, so a step that feeds
+    another is drawn before it.
+
+    **The rank half of this passed on a downward graph too**, which is exactly the blind spot
+    this file's header warned about — a rank is an ordering and says nothing about an axis. The
+    `x` assertion is the one that can tell the two layouts apart.
+    """
     placed = {node.id: node for node in layout.of(spine).nodes}
     for wire in layout.of(spine).wires:
-        assert placed[wire.from_node].rank < placed[wire.to_node].rank
+        source, target = placed[wire.from_node], placed[wire.to_node]
+        assert source.rank < target.rank
+        assert source.x < target.x, f"{wire.from_node} is not left of {wire.to_node}"
 
 
 def test_the_two_roots_share_a_rank(spine):
@@ -45,14 +62,17 @@ def test_the_two_roots_share_a_rank(spine):
     assertion here."""
     placed = {node.id: node for node in layout.of(spine).nodes}
     assert placed["trimgalore"].rank == placed["star_genomegenerate"].rank
-    assert placed["trimgalore"].x != placed["star_genomegenerate"].x
+    # Same rank is the same COLUMN now, so they are separated across the flow rather than along
+    # it — one x, two ys.
+    assert placed["trimgalore"].x == placed["star_genomegenerate"].x
+    assert placed["trimgalore"].y != placed["star_genomegenerate"].y
 
 
 def test_a_converging_node_sits_between_what_feeds_it(spine):
     """**Found by reading the golden file, not by a failing assertion.**
 
-    Ordering is not placement. With `x = order * COL_PITCH` every rank started at zero, so
-    `star_align` — the node both roots converge on — hung off the left edge while one of its two
+    Ordering is not placement. With `across = order * SIBLING_PITCH` every rank started at zero,
+    so `star_align` — the node both roots converge on — hung off one edge while one of its two
     feeders sat 338px away, and its wire crossed the whole graph to reach it. Every other test
     here passed on that layout.
 
@@ -61,28 +81,29 @@ def test_a_converging_node_sits_between_what_feeds_it(spine):
     """
     placed = {node.id: node for node in layout.of(spine).nodes}
     feeders = sorted(
-        placed[nid].x + placed[nid].width / 2 for nid in ("trimgalore", "star_genomegenerate")
+        placed[nid].y + placed[nid].height / 2 for nid in ("trimgalore", "star_genomegenerate")
     )
-    centre = placed["star_align"].x + placed["star_align"].width / 2
+    centre = placed["star_align"].y + placed["star_align"].height / 2
     assert feeders[0] < centre < feeders[1], "star_align hangs off one of its feeders"
 
 
-def test_a_straight_drop_is_two_points(spine):
+def test_a_straight_run_is_two_points(spine):
     """When the ports line up, both elbow corners are the same coordinate. Emitting them anyway
     hands the renderer a zero-length segment to round, which is how a 7px corner becomes a
-    visible nick in a wire that should be plumb."""
+    visible nick in a wire that should be straight."""
     for wire in layout.of(spine).wires:
-        if wire.points[0].x == wire.points[-1].x:
+        if wire.points[0].y == wire.points[-1].y:
             assert len(wire.points) == 2
 
 
 def test_nothing_overlaps(spine):
-    """Two nodes at one rank may not share an x. The failure that makes a graph unreadable
-    rather than merely ugly."""
+    """Two nodes at one rank may not share a `y`. The failure that makes a graph unreadable
+    rather than merely ugly, and the one `impl-walkbugs` reports from the walk: *every step
+    landed on identical coordinates — two nodes, one visible.*"""
     seen = set()
     for node in layout.of(spine).nodes:
-        assert (node.rank, node.x) not in seen, f"{node.id} lands on another node"
-        seen.add((node.rank, node.x))
+        assert (node.rank, node.y) not in seen, f"{node.id} lands on another node"
+        seen.add((node.rank, node.y))
 
 
 def test_the_same_ir_lays_out_identically(spine):
@@ -101,13 +122,18 @@ def test_every_coordinate_is_an_integer(spine):
             assert isinstance(point.x, int) and isinstance(point.y, int)
 
 
-def test_a_wire_leaves_the_bottom_and_arrives_at_the_top(spine):
-    """`dashboard.html`'s `anchor()`: an out port sits at `n.y + height`, an in port at `n.y`."""
+def test_a_wire_leaves_the_right_edge_and_arrives_at_the_left(spine):
+    """An out port sits at `n.x + width`, an in port at `n.x` — the flow read as geometry.
+
+    This is also the guard on `impl-geom`'s rule that **port positions are derived from node
+    geometry in one place**: an endpoint typed separately from the node it belongs to is what put
+    every wire 6px above its port on the 2026-08-29 walk.
+    """
     placed = {node.id: node for node in layout.of(spine).nodes}
     for wire in layout.of(spine).wires:
         start, end = wire.points[0], wire.points[-1]
-        assert start.y == placed[wire.from_node].y + placed[wire.from_node].height
-        assert end.y == placed[wire.to_node].y
+        assert start.x == placed[wire.from_node].x + placed[wire.from_node].width
+        assert end.x == placed[wire.to_node].x
 
 
 def test_a_wire_is_orthogonal(spine):
@@ -171,15 +197,16 @@ def test_a_wire_lands_on_the_port_the_canvas_draws(spine):
 
     `layout` anchored a wire using only the ports that *have wires*, in edge order. The canvas
     draws every port the *contract declares*, in contract order. For `featurecounts` — two
-    declared inputs, one of them wired — the chevron sat at x=77 and the wire ended at x=116.
+    declared inputs, one of them wired — the chevron sat at 77 and the wire ended at 116.
     **39 pixels onto nothing.**
 
     The two agree only when the wired count equals the declared count, which is almost never.
-    Both formulas are the same `portX(width, count, i)`; what differed was the `count`.
+    Both formulas were the same spread; what differed was the `count`. Since phase 6 the
+    offset is index-only, so the two cannot disagree about a count at all.
     """
     # `_port_x` moved to dag-core on 2026-08-24 with the rest of the arithmetic; `of`
     # stays here because it is the adapter. The assertions below are unchanged.
-    from dag_core.layout import _port_x
+    from dag_core.layout import _port_offset
     from mendel_compiler.layout import of
 
     declared = {
@@ -191,27 +218,17 @@ def test_a_wire_lands_on_the_port_the_canvas_draws(spine):
     node = next(n for n in laid.nodes if n.id == "b")
     wire = laid.wires[0]
 
-    # Where the canvas puts `first`: index 0 of 2 declared.
-    drawn = node.x + _port_x(2, 0)
-    assert wire.points[-1].x == drawn, (
-        f"wire ends at {wire.points[-1].x}, canvas draws the port at {drawn}"
+    # Where the canvas puts `first`: index 0, so the spine. The offset no longer depends on how
+    # many siblings a port has — which is the point of anchoring the first one on the spine.
+    drawn = node.y + _port_offset(0)
+    assert wire.points[-1].y == drawn, (
+        f"wire ends at {wire.points[-1].y}, canvas draws the port at {drawn}"
     )
 
 
-def test_a_node_is_tall_enough_for_the_ports_it_declares(spine):
-    """`_height` counted wired edges too. A node with three declared inputs and one wire was
-    sized for one port row, so the other two chevrons sat on top of the node's own text."""
-    from mendel_compiler.layout import of
-
-    ir = _two_nodes()
-    wired_only = of(ir).nodes
-    declared = of(ir, ports={"a": ([], ["out"]), "b": (["first", "second", "third"], [])}).nodes
-    b_wired = next(n for n in wired_only if n.id == "b")
-    b_declared = next(n for n in declared if n.id == "b")
-    assert b_declared.height > b_wired.height
-
-
 def _two_nodes():
+    """`a` feeds `b`, and `b` declares a second input nothing wires. The smallest graph that can
+    tell a wire anchored on DECLARED ports apart from one anchored on wired ones."""
     from comeni_core.plan.ir import IREdge, IRNode, PipelineIR
 
     return PipelineIR(
@@ -222,6 +239,24 @@ def _two_nodes():
         edges=[IREdge(from_node="a", from_port="out", to_node="b", to_port="first",
                       type_id="t.x")],
     )
+
+
+def test_every_symbol_is_the_same_size(spine):
+    """**The opposite of what this file used to assert**, and the change is deliberate.
+
+    A node used to be sized from its declared port count, so the symbol advertised a fact about
+    the CONTRACT that nobody reads a canvas to learn — and `impl-geom` is blunt about the cost:
+
+    > UNIFORM SYMBOL SIZE IS LOAD-BEARING. 172 x 112 for every process node. It is what makes the
+    > main chain dead straight — variable heights put a jog between every pair and the whole thing
+    > reads sloppy again.
+
+    Ports are spread ALONG the edge instead, which is what `_port_offset` does.
+    """
+    from dag_core import layout as dag_layout
+
+    for node in layout.of(spine).nodes:
+        assert (node.width, node.height) == (dag_layout.NODE_W, dag_layout.NODE_H), node.id
 
 
 def test_producers_are_ordered_to_match_the_ports_they_feed(spine):

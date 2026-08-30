@@ -144,12 +144,12 @@ export function Run() {
   const finished = overview.data?.steps_finished ?? 0;
 
   return (
-    <div className="p-6 flex flex-col gap-4">
+    <div className="gutter py-6 flex flex-col gap-4">
       {/* **The artboard's shelf.** Every run screen opens on a `--surface-2` band with an
           `--e1` lip, and the header was sitting bare on `--paper` — which is most of why the
           top of the page read as a different product from the panel below it. Three rows,
           the artboard's: where you came from, what this is, and how far along. */}
-      <header className="-mx-6 -mt-6 mb-2 px-6 pt-4 pb-3.5 bg-surface-2 border-b border-line
+      <header className="-mx-[24px] md:-mx-[44px] -mt-6 mb-2 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
                          shadow-e1 relative z-[2] flex flex-col">
         <span className="flex items-center gap-3 mb-[3px]">
           <Link to="/runs" className="text-secondary text-ink-3 no-underline hover:text-ink">
