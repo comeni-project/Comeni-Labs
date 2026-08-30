@@ -275,10 +275,21 @@ gets deleted rather than obeyed; it now names failure causes specifically.
 
 ## What is next
 
-**Phase 5 — the runs screens.** Everything they need to read is now projected: `GET
-/runs/{id}/series` for the envelope, `history` on the task row for the escalation, and
-`reported_resources` for the run that recorded nothing. What is left is drawing it — and the
-first thing to get right is that a `derived` curve must look derived.
+**Phase 5 — the runs screens, and the plan for it is written**:
+[`../plans/2026-08-30-plan-4-phase-5-the-runs-screens.md`](../plans/2026-08-30-plan-4-phase-5-the-runs-screens.md),
+against the code that exists rather than the code the canvas predicted. Everything those screens
+read is now projected — `GET /runs/{id}/series` for the envelope, `history` on the task row for
+the escalation, `reported_resources` for the run that recorded nothing — so **no `make client` is
+needed unless a task changes a route.**
+
+What is left is drawing it, and the first thing to get right is that **a derived curve must look
+derived**. Phase 4 decided which curves are honest and labelled them; phase 5 is where that
+labelling survives a renderer or is quietly lost, and the failure mode is one `curveMonotoneX`.
+
+**It is a redraw, not a build.** `frontend/src/runs/` already holds ten components with tests, and
+W2's property that a declared process gets a row *before the run reaches it* is easy to lose in a
+rewrite and expensive to rediscover. Its last task is **the browser pass over everything Plan 4
+built, the builder included** — owed since phase 3a and sequenced there by the operator.
 
 **What Plan 4 has not done, named rather than absorbed:**
 
