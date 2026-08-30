@@ -416,7 +416,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Every pipeline this lab has
+         * @description The *by pipeline* half of the front door — and **it had no query at all** until Plan 4
+         *     phase 2. The build router carried create, read, save, keep and bundle, every one addressed
+         *     by a known id; nothing could answer *what do we have*.
+         *
+         *     **Readiness, never history.** A run's outcome belongs to `wiener-api` and to the *by run*
+         *     view; leaking one onto a pipeline row is the defect `ov-work` names by hand.
+         *
+         *     **Nothing here resolves.** Provenance is read off the artifact `keep` wrote.
+         */
+        get: operations["listDrafts"];
         put?: never;
         /**
          * Open a draft
@@ -732,13 +743,21 @@ export interface components {
             /** Refused */
             refused: components["schemas"]["RefusedDraft"][];
         };
-        /** Attention */
+        /**
+         * Attention
+         * @description What needs a person, now.
+         *
+         *     **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
+         *     12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
+         *     state, not YOURS, and it is why the old page read as slop — information with no question
+         *     behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
+         *     a model with no consumer is a model that comes back.
+         */
         Attention: {
             /** Forge */
-            forge: components["schemas"]["Call"][];
+            forge?: components["schemas"]["Call"][];
             /** Mendel */
-            mendel: components["schemas"]["Call"][];
-            standing: components["schemas"]["Standing"];
+            mendel?: components["schemas"]["Call"][];
         };
         /**
          * Band
@@ -1068,6 +1087,53 @@ export interface components {
             };
             /** Generated Module */
             generated_module: boolean;
+        };
+        /**
+         * DraftRow
+         * @description One pipeline on the front door's *by pipeline* table.
+         *
+         *     **Readiness, not history** — `ov-work`. A run's outcome belongs to the *by run* view, and
+         *     leaking `last run 2d ago · M. Silva` onto a pipeline card is the actual bug that made two
+         *     blocks read as one list rendered twice.
+         */
+        DraftRow: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Who */
+            who: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Steps */
+            steps: number;
+            /** Makes */
+            makes?: string[];
+            /** Kept */
+            kept: boolean;
+            /** Digest */
+            digest?: string | null;
+            provenance?: components["schemas"]["Provenance"] | null;
+            /** Open Values */
+            open_values?: components["schemas"]["OpenValue"][];
+            /**
+             * Open Not Named
+             * @default 0
+             */
+            open_not_named: number;
+        };
+        /**
+         * DraftsPage
+         * @description A page of the lab's pipelines, and the total behind it.
+         */
+        DraftsPage: {
+            /** Drafts */
+            drafts: components["schemas"]["DraftRow"][];
+            /** Total */
+            total: number;
         };
         /** DriftReport */
         DriftReport: {
@@ -1409,6 +1475,16 @@ export interface components {
             changed_at?: string | null;
         };
         /**
+         * OpenValue
+         * @description One tier-4 value nobody has answered, named.
+         */
+        OpenValue: {
+            /** Step */
+            step: string;
+            /** Setting */
+            setting: string;
+        };
+        /**
          * Ordering
          * @enum {string}
          */
@@ -1575,6 +1651,33 @@ export interface components {
             /** Still Open */
             still_open: boolean;
         };
+        /**
+         * Provenance
+         * @description How much of one pipeline was settled without judgement — a proportion of one whole.
+         *
+         *     **Read from the stored artifact, never from a re-resolve.** The 2026-08-19 audit found every
+         *     registry-touching screen cost ~250ms warm and one function was responsible; a front door that
+         *     rebuilt four pipelines to draw four bars would be that finding arriving again, this time on
+         *     the page a person opens first.
+         *
+         *     `settled` is tiers 1 and 2 — **tier 3 is deliberately not in it.** A rule matched measured
+         *     data, which is the machinery working, and the premise behind the measurement still needs a
+         *     person. `frontend/src/build/Provenance.tsx` says the same thing in the same words, and
+         *     counting tier 3 as settled would turn the one element carrying the product's claim into the
+         *     one element overstating it.
+         */
+        Provenance: {
+            /** Settled */
+            settled: number;
+            /** Measured */
+            measured: number;
+            /** Open */
+            open: number;
+            /** By Person */
+            by_person: number;
+            /** By Model */
+            by_model: number;
+        };
         /** QueueResponse */
         QueueResponse: {
             /** Questions */
@@ -1650,32 +1753,6 @@ export interface components {
             because: string;
             /** Axis Reason */
             axis_reason: string;
-        };
-        /**
-         * Standing
-         * @description What the registry holds. Not what it needs.
-         */
-        Standing: {
-            /** Contracts */
-            contracts: number;
-            /** Matching */
-            matching: number;
-            /** Unverifiable */
-            unverifiable: number;
-            /** Drifted */
-            drifted: number;
-            /** Types */
-            types: number;
-            /** Roles */
-            roles: number;
-            /** Rules */
-            rules: number;
-            /** Measurements */
-            measurements: number;
-            /** Sources */
-            sources: string[];
-            /** Undrafted */
-            undrafted: number;
         };
         /**
          * State
@@ -2377,6 +2454,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listDrafts: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

@@ -81,6 +81,20 @@ removed.
 Applied backwards the rule already deleted things: an **Overview** page was designed and then
 cut, because it answered the same question as the Queue.
 
+> **This constraint was lifted on 2026-08-30**, by the operator, in Plan 4 phase 2. `/` is now
+> the lab's work — it renders **pipelines and runs**, as items, with a NOW band and a Work
+> table. It is recorded here rather than left for a reader to trip over, because the argument
+> above is a good one and the next person to find it would reasonably re-apply it.
+>
+> **What survives is the narrower rule**, and it is still enforced: the front door may never
+> render a *registry* subject — a contract id, a question subject, a drift row. Those are the
+> Queue's, and the moment one appears on `/` it has become the page that was cut.
+> `test_it_points_at_a_screen_and_never_at_a_registry_subject` holds it.
+>
+> **What did not survive**: the `standing` block, which reported what the registry *holds* — 12
+> contracts, 22 types, 3 rules. That is the product's state rather than the reader's, and it is
+> most of why the old page read as generated.
+
 ---
 
 ## 4. The Queue — the only home

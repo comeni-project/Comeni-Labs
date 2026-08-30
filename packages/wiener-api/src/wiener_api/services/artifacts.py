@@ -49,6 +49,39 @@ def store(bundle: bytes) -> tuple[str, str, int]:
     return artifact_id, digest, size
 
 
+def pipeline_digest(artifact_id: str) -> str | None:
+    """Which *pipeline* this artifact is — **the join key between the two halves.**
+
+    `RunArtifact.pipeline_digest` was declared in W1 and **never written**: a column with the
+    right type, the right nullability, and no assignment anywhere in the repository. Plan 4
+    phase 2 is what needed it, twice — *runs per pipeline* on the front door and *vs usual* on
+    the board — and both are impossible without a key that survives the trip.
+
+    **Not the tree digest.** `store()` already returns one, and it covers the whole uploaded
+    directory including the vendored `modules/` tree — so re-vendoring a module makes the same
+    pipeline look like a different one. `Pipeline.content_digest()` is over the artifact's own
+    document, which is what *the same pipeline* means.
+
+    **Neither server has to learn the other's identifiers.** Mendel reports the same value in
+    `GET /api/pipeline/drafts`, computed by the same method over the same file, so the browser
+    joins them on content alone — `wiener.md` §12's whole shape, and the reason `useSubmit.ts`
+    can be the only place that touches both.
+
+    `None` when the artifact carries no readable `pipeline.yml`. **A wrong key is worse than an
+    absent one**, and the column is already nullable: a run that cannot be attributed to a
+    pipeline shows under *every run* without one, which is true, rather than under somebody
+    else's, which is not.
+    """
+    from comeni_core import yaml_strict
+    from comeni_core.artifact.pipeline import Pipeline
+
+    path = settings.artifact_root / artifact_id / "pipeline.yml"
+    try:
+        return Pipeline.model_validate(yaml_strict.load(path)).content_digest()
+    except Exception:  # noqa: BLE001 — an unreadable artifact is not a reason to refuse a run
+        return None
+
+
 SUPPLIED_BY_WIENER = frozenset({"outdir"})
 """Nulls in the artifact that are **site facts Wiener fills**, not questions for a laboratory.
 

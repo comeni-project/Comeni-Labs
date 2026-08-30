@@ -39,27 +39,51 @@ it demotes certainty to metadata. Drawing incompleteness as incompleteness is th
 screens ([`forge-review.md`](forge-review.md)). There is one copy of the system and it lives
 here, because this is where it was first written.
 
-### Colour
+### Colour — Observatory, and it became the default on 2026-08-30
 
-Neutrals are biased toward the accent rather than pure grey — a pure mid-grey reads as
-unconsidered.
+**The redesign canvas drew twenty-four artboards and every one is dark.** Its Themes page
+settled **Observatory** — Console's density inside Deep Field's breathing arcs — and until Plan 4
+phase 2 the product was light-first, so the screens and the design disagreed about the first
+thing a reader notices.
 
-| Token | Light | Dark | Use |
+Observatory is now `:root`. **The light palette is not deleted, it is re-homed** to
+`[data-theme="light"]` and `prefers-color-scheme: light`, unchanged: nothing that was legible
+stops being legible, and inventing a *light Observatory* would be designing a theme nobody drew.
+
+| Token | Observatory (default) | Light | Use |
 |---|---|---|---|
-| `--paper` | `#F4F6F5` | `#0E1113` | canvas ground |
-| `--surface` | `#FFFFFF` | `#171B1D` | panels, nodes, cards |
-| `--surface-2` | `#EDF0EE` | `#1F2426` | hover, chat bubbles |
-| `--ink` | `#12151A` | `#E8EDEA` | primary text |
-| `--ink-2` | `#4A5350` | `#A3AEAA` | secondary text |
-| `--ink-3` | `#7C8783` | `#6E7A76` | captions, disabled |
-| `--line` | `#DCE2DF` | `#2A3134` | dividers, grid dots |
-| `--line-2` | `#C4CDC8` | `#3A4347` | borders, inactive wires |
-| `--pea` | `#2C6E49` | `#5FAE80` | **primary** — brand, tier 1–2 |
-| `--pea-soft` | `#E4EEE8` | `#1B2A22` | goal card, accent fills |
-| `--on-pea` | `#FFFFFF` | `#0E1113` | text on primary |
-| `--measured` | `#B77B2B` | `#D9A458` | tier 3 |
-| `--undecided` | `#CC4B2C` | `#E87352` | tier 4 |
-| `--fault` | `#8B1E1E` | `#D96B6B` | **build failures only** |
+| `--paper` | `#080B0D` | `#F4F6F5` | canvas ground |
+| `--surface` | `#0E1418` | `#FFFFFF` | panels, nodes, cards |
+| `--surface-2` | `#1E282C` | `#EDF0EE` | hover, raised regions |
+| `--ink` | `#DFE6E6` | `#12151A` | primary text |
+| `--ink-2` | `#889699` | `#4A5350` | secondary text |
+| `--ink-3` | `#67757A` | `#7C8783` | captions, disabled |
+| `--line` | `#172025` | `#DCE2DF` | dividers, panel hairlines |
+| `--line-2` | `#2A3438` | `#C4CDC8` | borders, inactive wires |
+| `--pea` | `#10AA91` | `#2C6E49` | **primary** — tiers 1–2, done |
+| `--pea-soft` | `#0C2A28` | `#E4EEE8` | accent fills |
+| `--on-pea` | `#041014` | `#FFFFFF` | text on primary |
+| `--measured` | `#C1B508` | `#B77B2B` | tier 3 |
+| `--undecided` | `#E3674E` | `#CC4B2C` | tier 4 |
+| `--fault` | `#E3674E` | `#8B1E1E` | **build failures only** |
+| `--running` | `#BD6DCD` | `#7B3FA0` | **new** — something is happening right now |
+| `--link` | `#6CB7FF` | `#1F5FA8` | **new** — you can click this |
+
+**`--running` and `--link` are new because the boards use two colours the product had no word
+for.** The second is a promise: `rn-settled` is explicit that **a bar wearing `--link` is a
+promise the page does not keep**, so it belongs on things that navigate and on nothing else.
+
+**What this supersedes, recorded rather than dropped.** This section argued *deep botanical green
+as primary — Mendel's peas; subject-derived rather than SaaS-blue-by-default, and desaturated
+enough to coexist with amber and coral without fighting them.* Observatory's primary is a teal
+and that argument does not carry over. It is a real loss, taken knowingly: the canvas is the
+spec, one palette across twenty-four boards beats a good story about one colour, and **`--pea`
+keeps its name** so every call site and every sentence about tiers still reads.
+
+**What did not change.** Neutrals are still biased toward the accent rather than pure grey — a
+pure mid-grey reads as unconsidered. Tier 4 is still coral rather than red, because an undecided
+choice is not an error and sharing a colour with genuine build failures teaches people to ignore
+both.
 
 ### Interaction and depth
 

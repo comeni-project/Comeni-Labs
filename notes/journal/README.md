@@ -27,6 +27,10 @@ earlier one — the same discipline as `audits/` and for the same reason.
 > [`2026-08-29-the-screens-redesigned.md`](2026-08-29-the-screens-redesigned.md), which is the
 > design session that answers them and carries the canvas the rework builds from.
 >
+> **2026-08-30 has ONE entry** — [`2026-08-30-the-overview.md`](2026-08-30-the-overview.md) —
+> and it covers three phases: the shared floor, `publishDir`, and the front door. It is the
+> session where the 2026-08-29 canvas started becoming code.
+>
 > **When a day has several entries, name the entry point here.** A directory listing cannot say
 > which of nine is the summary, and "most recent" below means *most recent by date*, not by
 > filename.

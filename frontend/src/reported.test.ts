@@ -37,17 +37,30 @@ function walk(): [string, string][] {
   return out;
 }
 
-const hooks = () => walk().filter(([, text]) => text.includes("useMutation("));
+/** Source with comments removed.
+ *
+ * **The third scan in this codebase to need this, on the same day.** `tokens.test.ts` tripped on
+ * a comment quoting the curve it had just replaced, `test_emit.py` on a comment quoting the
+ * broken `enabled:` form, and this one on `home/Work.tsx` citing `useSubmit.ts` by name in a
+ * sentence about the courier.
+ *
+ * The pattern is worth stating once: **a scan that cannot tell code from prose punishes writing
+ * down why**, and this repository asks for that everywhere. Strip first, then match.
+ */
+const code = (text: string) =>
+  text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+const hooks = () => walk().filter(([, text]) => code(text).includes("useMutation("));
 
 /** A hook hands its caller an error either by returning the mutation result whole — which
  *  carries `.error` — or by mapping it onto a field of its own return. Both are reporting. */
 const handsBackAnError = (text: string) =>
-  /return\s+useMutation\(/.test(text) || /\berror:\s*\w/.test(text);
+  /return\s+useMutation\(/.test(code(text)) || /\berror:\s*\w/.test(code(text));
 
 /** The names of the mutation hooks, so a consumer can be found by what it imports. */
 function hookNames(): string[] {
   return hooks().flatMap(([, text]) =>
-    [...text.matchAll(/export function (use\w+)/g)].map((m) => m[1]),
+    [...code(text).matchAll(/export function (use\w+)/g)].map((m) => m[1]),
   );
 }
 
@@ -66,8 +79,8 @@ it("references that error in every component that calls one", () => {
   const names = hookNames();
   const deaf = walk()
     .filter(([path]) => !path.includes("/api/") && !path.endsWith("queryClient.ts"))
-    .filter(([, text]) => names.some((name) => new RegExp(`\\b${name}\\b`).test(text)))
-    .filter(([, text]) => !/\.error\b|\berror\b|isError/.test(text))
+    .filter(([, text]) => names.some((name) => new RegExp(`\\b${name}\\b`).test(code(text))))
+    .filter(([, text]) => !/\.error\b|\berror\b|isError/.test(code(text)))
     .map(([path]) => rel(path));
   expect(deaf).toEqual([]);
 });

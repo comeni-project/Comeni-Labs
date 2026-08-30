@@ -144,6 +144,30 @@ class Kept(BaseModel):
     an input may carry, and a server saying where it put something is the opposite direction."""
 
 
+class DraftsPage(BaseModel):
+    """A page of the lab's pipelines, and the total behind it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    drafts: list[draft_service.DraftRow]
+    total: int
+
+
+@router.get("/drafts", operation_id="listDrafts", summary="Every pipeline this lab has")
+def list_drafts(after: int = 0, limit: int = 50) -> DraftsPage:
+    """The *by pipeline* half of the front door — and **it had no query at all** until Plan 4
+    phase 2. The build router carried create, read, save, keep and bundle, every one addressed
+    by a known id; nothing could answer *what do we have*.
+
+    **Readiness, never history.** A run's outcome belongs to `wiener-api` and to the *by run*
+    view; leaking one onto a pipeline row is the defect `ov-work` names by hand.
+
+    **Nothing here resolves.** Provenance is read off the artifact `keep` wrote.
+    """
+    drafts, total = draft_service.list_drafts(after=after, limit=limit)
+    return DraftsPage(drafts=drafts, total=total)
+
+
 @router.post(
     "/drafts",
     operation_id="createDraft",

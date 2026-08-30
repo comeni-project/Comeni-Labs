@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
 from wiener_api.services import launcher, stream
-from wiener_api.services.artifacts import declared_holes, store
+from wiener_api.services.artifacts import declared_holes, pipeline_digest, store
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
 
@@ -91,6 +91,14 @@ class RunRow(BaseModel):
     """**Tasks, not steps.** `steps_declared` is in the artifact and reading one per row is
     what the board could never afford; how many tasks a run has seen is one GROUP BY over the
     `run_task` projection W2 built."""
+    pipeline_digest: str | None = None
+    """Which pipeline this run is of — **the join key the browser reads.**
+
+    Mendel reports the same value for every pipeline it holds, computed by the same method over
+    the same bytes, so a page can put the two beside each other without either server learning
+    the other's identifiers (`wiener.md` §12). `None` for an artifact uploaded before this was
+    recorded, which shows as a run without a pipeline rather than as somebody else's.
+    """
 
 
 class RunsPage(BaseModel):
@@ -118,6 +126,20 @@ class BoardSummary(BaseModel):
     median_ms: int | None
     p95_ms: int | None
     days: list[DayCount]
+    by_pipeline: dict[str, int] = {}
+    """`{pipeline_digest: median_ms}` — what *vs usual* is measured against.
+
+    **A median in the abstract is trivia; the same median beside a run is a judgement.** That is
+    `rn-board`'s argument for why this is the board's best number and why it only earned a place
+    by moving onto a row.
+
+    A pipeline with fewer than a floor of finished runs is **absent**, not zero: *usually 38m*
+    over two runs is one number wearing the clothes of a distribution.
+
+    **A delta needs a finished run.** `-43% vs usual` under a live bar reads as *it was faster*,
+    which is the opposite of what it means — a running row says `of ~38m` instead. That rule is
+    the page's to keep; this field only supplies the number.
+    """
 
 
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
@@ -132,6 +154,10 @@ async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
         repository.add(session, settings.lab_id, RunArtifact(
             id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
             digest=digest, size_bytes=size,
+            # **The column stopped being decoration here.** Declared in W1 and never assigned;
+            # it is the key that lets the browser put runs beside pipelines without either
+            # server learning the other exists.
+            pipeline_digest=pipeline_digest(artifact_id),
         ))
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
                           declared=sorted(declared_holes(artifact_id)))
@@ -169,13 +195,18 @@ def board(phase: str | None = None, who: str | None = None, executor: str | None
         page, total = repository.runs_page(session, settings.lab_id, phase=phase, who=who,
                                            executor=executor, after=after, limit=limit)
         counts = repository.task_counts(session, settings.lab_id, [r.id for r in page])
+        # One statement for the page, like the tallies above — never one lookup per row.
+        digests = repository.pipeline_digests(
+            session, settings.lab_id, [r.artifact_id for r in page]
+        )
         return RunsPage(
             runs=[
                 RunRow(id=r.id, phase=r.phase, executor=r.executor,
                        submitted_by=r.submitted_by, submitted_at=r.submitted_at,
                        ended_at=r.ended_at,
                        tasks_done=counts.get(r.id, (0, 0))[0],
-                       tasks_seen=counts.get(r.id, (0, 0))[1])
+                       tasks_seen=counts.get(r.id, (0, 0))[1],
+                       pipeline_digest=digests.get(r.artifact_id))
                 for r in page
             ],
             total=total,
@@ -189,8 +220,11 @@ def board_summary(days: int = 14) -> BoardSummary:
     request 404s on a run nobody asked for. A literal path and a parameterised one that can
     both match are ordered, never disambiguated."""
     with db.session_scope() as session:
-        return BoardSummary(**repository.board_summary(session, settings.lab_id,
-                                                       days=max(1, min(days, 90))))
+        window = max(1, min(days, 90))
+        return BoardSummary(
+            **repository.board_summary(session, settings.lab_id, days=window),
+            by_pipeline=repository.durations_by_pipeline(session, settings.lab_id, days=window),
+        )
 
 
 @router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")

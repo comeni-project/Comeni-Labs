@@ -89,6 +89,37 @@ it("finds something, so it cannot pass by reaching nothing", () => {
   expect(referenced().has("hover")).toBe(true);
 });
 
+it("names no colour outside the token file", () => {
+  // **This is what made swapping the whole palette cheap**, and until 2026-08-30 it held by
+  // convention alone. Migrating the product to Observatory touched `tokens.css` and one
+  // `@theme` mirror and nothing else, because not one component names a colour: no hex, no
+  // `rgba(`, no `bg-slate-700`. A single `#fff` would have been invisible on a light ground
+  // and a hole in a dark one.
+  //
+  // Three spellings, because a palette leaks in three ways and blocking two of them just moves
+  // the leak. `test_egress.py` learned the same thing — the rule became an allowlist because a
+  // blocklist can only forbid what somebody already thought of.
+  const TAILWIND_HUES =
+    "white|black|slate|gray|grey|zinc|neutral|stone|red|orange|amber|yellow|lime|green|" +
+    "emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+  const leaks = sources()
+    .filter(([path]) => !path.endsWith("tokens.css"))
+    .flatMap(([path, text]) => {
+      const code = text
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1");
+      return [
+        ...[...code.matchAll(/#[0-9A-Fa-f]{3,8}\b/g)].map((m) => `${m[0]} in ${path}`),
+        ...[...code.matchAll(/\b(?:rgba?|hsla?)\(/g)].map((m) => `${m[0]} in ${path}`),
+        ...[...code.matchAll(
+          new RegExp(`\\b(?:bg|text|border|fill|stroke)-(?:${TAILWIND_HUES})\\b`, "g"),
+        )].map((m) => `${m[0]} in ${path}`),
+      ];
+    });
+
+  expect(leaks).toEqual([]);
+});
+
 it("declares one easing curve, in the source", () => {
   // **This is the half a source scan can prove, and it is not the whole claim.** The shipped
   // stylesheet is where "one curve" is true or false, and it was FALSE the first time it was

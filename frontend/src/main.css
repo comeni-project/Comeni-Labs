@@ -82,6 +82,10 @@
   --color-fault: var(--fault);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
+  --color-running: var(--running);
+  --color-running-soft: var(--running-soft);
+  --color-link: var(--link);
+  --color-link-soft: var(--link-soft);
 
   /* Depth, as utilities. `shadow-e2` on a card rather than a hand-written `box-shadow`, for
      the same reason the colours are mirrored: one definition, and a seventh elevation cannot

@@ -73,6 +73,69 @@ def task_counts(session: Session, lab_id: str, run_ids: list[str]) -> dict[str, 
     return {run_id: (int(finished or 0), int(seen or 0)) for run_id, finished, seen in rows}
 
 
+def pipeline_digests(session: Session, lab_id: str, artifact_ids: list[str]) -> dict[str, str]:
+    """`{artifact_id: pipeline_digest}` for a page of runs, in one query.
+
+    **The join key, fetched the way `task_counts` fetches tallies** — one statement for the
+    page rather than one per row. A run knows its artifact; the artifact knows which pipeline it
+    is; the browser puts the run beside the pipeline. Neither server learns the other's
+    identifiers, which is `wiener.md` §12's whole shape.
+
+    Artifacts uploaded before 2026-08-30 have no digest recorded and are simply absent from the
+    map. That is the honest answer — they show under *every run* without a pipeline rather than
+    being guessed into somebody else's.
+    """
+    if not artifact_ids:
+        return {}
+    rows = session.execute(
+        select(RunArtifact.id, RunArtifact.pipeline_digest).where(
+            RunArtifact.lab_id == lab_id,
+            RunArtifact.id.in_(artifact_ids),
+            RunArtifact.pipeline_digest.isnot(None),
+        )
+    ).all()
+    return {artifact_id: digest for artifact_id, digest in rows}
+
+
+def durations_by_pipeline(session: Session, lab_id: str, *, days: int = 14,
+                          floor: int = 3) -> dict[str, int]:
+    """`{pipeline_digest: median_ms}` over finished runs — what *vs usual* is measured against.
+
+    **`GROUP BY` the pipeline, which the repository could not do** until `pipeline_digest` was
+    written. `rn-board` calls this the board's best number, and the reason is that a median in
+    the abstract is trivia while the same median beside a run is a judgement.
+
+    **Folded in Python, deliberately**, following `board_summary`'s stated argument rather than
+    reopening it: a median has no portable SQL spelling across SQLite and Postgres, and the
+    window is hundreds of runs.
+
+    **A group below `floor` returns no median at all.** *Usually 38m* over two runs is not a
+    usual — it is one number wearing the clothes of a distribution, and a page that showed it
+    would invite a reader to treat noise as a baseline.
+    """
+    since = datetime.now(UTC) - timedelta(days=days)
+    rows = session.execute(
+        select(RunArtifact.pipeline_digest, Run.submitted_at, Run.ended_at)
+        .join(RunArtifact, RunArtifact.id == Run.artifact_id)
+        .where(
+            Run.lab_id == lab_id,
+            Run.submitted_at >= since,
+            Run.ended_at.isnot(None),
+            RunArtifact.pipeline_digest.isnot(None),
+        )
+    ).all()
+
+    spans: dict[str, list[int]] = {}
+    for digest, started, ended in rows:
+        spans.setdefault(digest, []).append(int((ended - started).total_seconds() * 1000))
+
+    return {
+        digest: sorted(values)[len(values) // 2]
+        for digest, values in spans.items()
+        if len(values) >= floor
+    }
+
+
 def board_summary(session: Session, lab_id: str, *, days: int = 14) -> dict:
     """What the board's tiles and its fortnight of columns are counting.
 

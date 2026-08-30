@@ -23,7 +23,8 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-08-29-the-screens-redesigned.md`](notes/journal/2026-08-29-the-screens-redesigned.md).
+> [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
+> phases 0, 1 and 2: the shared floor, `publishDir`, and the front door.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
 > [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,

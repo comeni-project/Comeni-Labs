@@ -3049,3 +3049,65 @@ both branches right. Verified: `--outdir` publishes 41 files, and no destination
 **Every revert above was verified to land** — `grep -c` on the edited file before the run was
 believed. Two of them did not land on the first attempt, which is the miss this ledger recorded
 earlier the same day.
+
+## The front door, and a bar that cried wolf — 2026-08-30
+
+Plan 4 phase 2. The Overview rebuilt, plus a palette migration the plan did not contain.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_drafts_service.py` "a choice a person made is not a choice waiting on one" | deleted the `why.source` branches from `_provenance_of`, so tier 4 is counted raw | failed | `assert 0 >= 4`, printing `Provenance(... open=5, by_person=0)` |
+| 2026-08-30 | `test_drafts.py` "the listing never resolves" | held green with `materialise.ir_of` / `goal_of` patched to raise | passed, which IS the assertion | the listing reads the stored artifact |
+| 2026-08-30 | `test_runs_routes.py` "an uploaded artifact records which pipeline it is" | removed `pipeline_digest=pipeline_digest(artifact_id)` from the upload | failed | `the column is decoration again` |
+| 2026-08-30 | `test_runs_routes.py` "the board hands back the join key" | the same revert | failed | `the board cannot join a run to its pipeline` |
+| 2026-08-30 | `test_by_pipeline.py` "a median needs enough runs to be one" | replaced `len(values) >= floor` with `if values` | failed | names the digest and the median it should not have reported |
+| 2026-08-30 | `test_attention.py` "the mendel half reports the lab's own pipelines" | pointed a `Call` at `/forge/contracts/nf-core/star/align@1.11.0` | failed | `it leads to the page that can answer it` |
+| 2026-08-30 | `Home.test.tsx` "is SHORTER when nothing is happening" | restored a *"Nothing is waiting on you — the instance is idle"* card to the NOW band | failed | `expected <p …(1)></p> to be null` |
+| 2026-08-30 | `tokens.test.ts` "names no colour outside the token file" | wrote `bg-white border-[#DCE2DF]` into `Shell.tsx` | failed | names **both** spellings and the file |
+
+### The bar cried wolf, and only the data showed it
+
+**Counting raw tier 4 reported five things needing a person on a pipeline where one did.** A
+hand-drawn graph records every step as `tier: 4, source: human` — a person chose it, and
+`MD0220` says `source: human` is precisely what CLEARS a review. The artboard's three-band bar
+was drawn against pipelines the *resolver* built, where that case does not arise.
+
+Crying wolf is the same failure as hiding. Invariant 6 flags tier 4 so that a flag means
+something, and a bar that flags four settled choices teaches people to ignore the one that
+matters. The service now reports five numbers — `settled`, `measured`, `open`, `by_person`,
+`by_model` — and keeps the last two apart because the 4→5 schema bump exists so an
+agent-assembled pipeline does not read as one a person drew by hand.
+
+Found by writing a test against a real kept artifact and reading what came back, not by argument.
+
+### Three defects that only rendering could find
+
+The page was built, served against fixtures and **looked at**. Three defects survived a green
+suite:
+
+- **The `flow` marker had `grow`, so it filled the whole remainder** — saying *everything not yet
+  done is running right now*. 9 of 24 done means 15 remain and a handful are in flight. The bar
+  was claiming to know something it does not.
+- **The running row was titled by its run id.** A run id is how the machine addresses it; what a
+  reader recognises is the pipeline it is a run of.
+- **No elapsed time**, which the artboard makes the second-largest thing on the band.
+
+None is expressible as an assertion anybody would have thought to write in advance.
+
+### A scan read prose as code, for the third time in one day
+
+`reported.test.ts` failed on `home/Work.tsx` because a **comment** there cites `useSubmit.ts` by
+name. That is the third occurrence on 2026-08-30 — `tokens.test.ts` tripped on a comment quoting
+the curve it had replaced, `test_emit.py` on one quoting the broken `enabled:` form.
+
+**A scan that cannot tell code from prose punishes writing down why**, and this repository asks
+for that everywhere. Every scan added since strips comments before matching, and the rule is in
+`reported.test.ts`'s own header so the fourth one starts there.
+
+### What made the palette migration cheap, now guarded
+
+Moving the whole product to Observatory touched `tokens.css`, one `@theme` mirror and **nothing
+else** — because not one component names a colour. No hex, no `rgba(`, no `bg-slate-700`. That
+held by convention alone; a single `#fff` would have been invisible on a light ground and a hole
+in a dark one. `tokens.test.ts` now checks all three spellings, because a palette leaks in three
+ways and blocking two just moves the leak.

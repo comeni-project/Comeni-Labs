@@ -252,6 +252,13 @@ export interface components {
             p95_ms: number | null;
             /** Days */
             days: components["schemas"]["DayCount"][];
+            /**
+             * By Pipeline
+             * @default {}
+             */
+            by_pipeline: {
+                [key: string]: number;
+            };
         };
         /** Body_uploadArtifact */
         Body_uploadArtifact: {
@@ -548,6 +555,8 @@ export interface components {
              * @default 0
              */
             tasks_seen: number;
+            /** Pipeline Digest */
+            pipeline_digest?: string | null;
         };
         /**
          * RunsPage
