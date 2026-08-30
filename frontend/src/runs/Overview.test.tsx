@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
-import { Overview, OverviewPanel, type OverviewData, type Row } from "./Overview";
+import { OverviewPanel, Table, type OverviewData, type Row } from "./Overview";
 
 const ROW: Row = {
   process: "STAR_ALIGN", declared: true, reached: true,
@@ -28,14 +28,14 @@ const NO_TRACE: Row = { ...ROW, memory_peak_bytes: null, cpu_used_pct: null };
 const LIVE: Row = { ...ROW, process: "FEATURECOUNTS", tasks: 12, done: 3, running: 9 };
 
 it("gives a declared process a row before the run reaches it", () => {
-  render(<Overview data={{ ...OK, rows: [NOT_STARTED] }} />);
+  render(<Table data={{ ...OK, rows: [NOT_STARTED] }} />);
   expect(screen.getByTestId("row-MULTIQC")).toHaveTextContent("not started");
 });
 
 it("scales every bar in a column against the same maximum", () => {
   // A small multiple is only a comparison if the axes agree. Two bars scaled to their own
   // row say nothing about each other, which is the entire point of putting them in a column.
-  render(<Overview data={{ ...OK, rows: [SLOW, FAST] }} />);
+  render(<Table data={{ ...OK, rows: [SLOW, FAST] }} />);
   // **Addressed per row.** This read `getAllByTestId("bar-time")` and took [0] and [1], which
   // worked only because every row rendered the same bare `bar-time` — the one bar in the table
   // whose testid was not suffixed with its process. Two rows, one id: the test passed on an
@@ -46,20 +46,20 @@ it("scales every bar in a column against the same maximum", () => {
 });
 
 it("renders an absent measurement as a dash and never as zero", () => {
-  render(<Overview data={{ ...OK, rows: [NO_TRACE] }} />);
+  render(<Table data={{ ...OK, rows: [NO_TRACE] }} />);
   expect(screen.getByTestId("mem-STAR_ALIGN")).toHaveTextContent("—");
   expect(screen.getByTestId("mem-STAR_ALIGN")).not.toHaveTextContent("0%");
 });
 
 it("claims no total while a process is live", () => {
-  render(<Overview data={{ ...OK, rows: [LIVE] }} />);
+  render(<Table data={{ ...OK, rows: [LIVE] }} />);
   expect(screen.getByTestId("count-FEATURECOUNTS")).toHaveTextContent("3 done");
   expect(screen.getByTestId("count-FEATURECOUNTS")).toHaveTextContent("9 more seen");
   expect(screen.getByTestId("count-FEATURECOUNTS")).not.toHaveTextContent("3 / 12");
 });
 
 it("puts retries on the row rather than behind an expand", () => {
-  render(<Overview data={{ ...OK, rows: [{ ...ROW, attempts_max: 3 }] }} />);
+  render(<Table data={{ ...OK, rows: [{ ...ROW, attempts_max: 3 }] }} />);
   expect(screen.getByTestId("row-STAR_ALIGN")).toHaveTextContent("↻");
 });
 

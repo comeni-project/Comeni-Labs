@@ -119,8 +119,8 @@ tests are not that pass and must not be reported as it.
 
 ## Task 4 — the run page's shape
 
-- [ ] The redraw against the canvas, with `Overview`'s declared-row property intact.
-- [ ] Dead code from the W2 layout removed rather than left beside the new one.
+- [x] The redraw against the canvas, with `Overview`'s declared-row property intact.
+- [x] Dead code from the W2 layout removed rather than left beside the new one.
 
 ## Task 5 — write it down, then look at it
 

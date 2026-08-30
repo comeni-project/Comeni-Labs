@@ -306,10 +306,6 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
   );
 }
 
-export function Overview(props: Parameters<typeof Table>[0]) {
-  return <Table {...props} />;
-}
-
 export function OverviewPanel({ runId, openOn, onOpenConsole, onOpenGraph }: {
   runId: string; openOn?: string;
   onOpenConsole?: (process: string) => void;
