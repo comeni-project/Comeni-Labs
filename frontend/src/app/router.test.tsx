@@ -54,6 +54,37 @@ describe("routing", () => {
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);
   });
 
+  it("offers no way into the forge from the frame", async () => {
+    // **Hidden, not removed** — Plan 4 phase 0, operator's decision 2026-08-30. The forge is
+    // carried as needing testing and rework, so the frame stops advertising it. This half of
+    // the pair asserts the advertising is gone; the next one asserts the destinations are not.
+    at("/build");
+    await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
+    const into = Array.from(screen.getByRole("navigation").querySelectorAll("a"))
+      .map((a) => a.getAttribute("href") ?? "")
+      .filter((href) => href.startsWith("/forge"));
+    expect(into).toEqual([]);
+  });
+
+  it.each([
+    ["/forge/queue"],
+    ["/forge/tools"],
+    ["/forge/queue/question/consumes%5B0%5D.type_id"],
+    ["/forge/contracts/nf-core/fastqc@0.12.1"],
+  ])("keeps %s resolvable after the tabs came out", async (path) => {
+    // **The other half.** A route nobody can see is a route somebody deletes, and the operator,
+    // `make dev`'s banner and three journal entries all still reach these by URL. The
+    // `ErrorBoundary` is what a broken route renders, so its absence is the assertion.
+    const router = at(path);
+    await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
+    // Compared as given: react-router keeps the pathname percent-encoded, which is the whole
+    // reason `/forge/contracts/*` is a splat — a contract id contains slashes and brackets.
+    expect(router.state.location.pathname).toBe(path);
+    // `ErrorBoundary` renders this heading and nothing else does — asserted on its own words
+    // rather than on a testid, so the guard does not need the component to cooperate.
+    expect(screen.queryByText("Something broke")).toBeNull();
+  });
+
   it("puts a question's identity in the path so it can be linked", () => {
     const router = at("/forge/queue/question/consumes%5B0%5D.type_id");
     expect(router.state.location.pathname).toContain("consumes");

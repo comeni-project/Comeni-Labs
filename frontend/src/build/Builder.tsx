@@ -484,15 +484,30 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
               stale: keeper.blocked,
               busy: keeper.keeping,
               onKeep: () => keeper.keep(),
+              // **THE SILENT 500.** On 2026-08-29 this call sent `keep` and dropped its error:
+              // the API answered 500, the rail sat there still offering *Keep*, and `docker
+              // logs` was the only way to find out. `useKeep` had returned `error` all along,
+              // documented as "Shown, not swallowed" — nothing read it. Keep has no panel, so
+              // this step is the surface.
+              error: keeper.error,
             }}
             gate={{
               passed: gate.passed && !keeper.blocked,
               blocked: keeper.blocked ? "A gate has to pass on the version you kept." : null,
+              // **Reported by the panel, not here** — `GatePanel` renders `gate.error` under
+              // its own `gate-error`, with the tool output beside it. Filling the slot too
+              // would print the same refusal twice, one line apart, which is the duplicated
+              // control the same walk found on *Send to Wiener* wearing different clothes.
+              error: null,
               panel: <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />,
             }}
             run={{
               sent: false,
               blocked: gate.passed ? null : "A gate has to pass on the version you kept.",
+              // Reported by the panel, as above: `SubmitPanel` renders `submit.error`, and
+              // hands an `Unauthorized` to `TokenPrompt` rather than printing it — which is a
+              // better answer than any message, and one this step could not give.
+              error: null,
               panel: <SubmitPanel draftId={keeper.draftId}
                                   gated={gate.passed && !keeper.blocked} />,
             }}

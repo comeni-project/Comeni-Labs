@@ -17,12 +17,25 @@
   --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
 
   /* Interaction. Both DERIVED, like the elevation ramp: --hover is --ink at 5%, so it tints
-     whatever surface it lands on and inverts for free in dark mode where --ink is light.
-     --t is not a new number either — it is what Tailwind's `transition-colors` already
-     resolves to in the seven places this product uses it. */
+     whatever surface it lands on and inverts for free in dark mode where --ink is light. */
   --hover: color-mix(in oklab, var(--ink) 5%, transparent);
   --hover-strong: color-mix(in oklab, var(--ink) 9%, transparent);
-  --t: 140ms cubic-bezier(.4, 0, .2, 1);
+
+  /* ONE CURVE. Every transition and all five movements in `main.css` use it, because a second
+     easing curve is a second personality.
+
+     **This value changed on 2026-08-30 and the argument for the old one is deliberately gone.**
+     `--t` was `140ms cubic-bezier(.4, 0, .2, 1)` and this comment used to say the number was
+     not new — it was whatever Tailwind's `transition-colors` resolves to. That was a good
+     reason to pick a value and it is not a reason to keep it: the redesign canvas specifies one
+     curve for the whole product, `.design/runs_boards.py` is its reference implementation, and
+     a token whose justification is *another framework happened to choose it* loses to a token
+     whose justification is *this is the product's curve*. Plan 4 phase 0.
+
+     There were three curves the day this landed — this one, an inline `.2,.7,.3,1` in
+     `Home.tsx`, and the boards'. The duration stays 140ms. */
+  --ease: cubic-bezier(.32, .72, 0, 1);
+  --t: 140ms var(--ease);
   --ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--pea);
 
   /* The elevation ramp — `wiener.md` §9.5, deferred since 2026-08-23. No new hue: every step

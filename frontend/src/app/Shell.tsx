@@ -25,6 +25,23 @@ import { useKeys } from "./useKeys";
  * interface. It lives in the shell rather than on a page so it is reachable from the screen you
  * are confused by rather than from a screen you have to go and find.
  *
+ * **The forge left this nav on 2026-08-30 — hidden, not removed.** Operator's decision, Plan 4
+ * phase 0. `Forge`, `Queue` and `Tools` were three of the five tabs here; every one of their
+ * routes still resolves and `frontend/src/forge/` is untouched. The reason is not that the
+ * screens are bad: the forge is carried as needing testing and general rework, nothing in 3E,
+ * Wiener or this plan touches it, and a link into a surface nobody is maintaining teaches a
+ * person that the product has a half that does not work. It is reachable by URL, which is what
+ * the operator and three journal entries actually use.
+ *
+ * **`router.test.tsx` holds both halves** — that the frame offers no way in, and that every
+ * forge URL still mounts — because *hidden* rots into *broken* the first time somebody deletes
+ * a route nobody can see any more.
+ *
+ * **This is not the `Registry` section.** `ov-blocked` on the redesign canvas asks for
+ * `Builder / Runs / Registry` with the forge inside Registry, and that is right — but Registry
+ * does not exist, and inventing a section to hold one hidden thing is worse than a nav with two
+ * tabs. Raise it when Registry has a second occupant.
+ *
  * **There is no Registry box.** It was a text input in the nav that took a type id from memory
  * and opened a panel — the operator's verdict was *ugly, unintuitive and useless*, and the
  * design argument behind it does not survive contact: `forge-review.md` §3 wanted the registry
@@ -67,18 +84,7 @@ export function Shell() {
 
         <div className="flex gap-[2px] ml-2">
           <Tab to="/build">Builder</Tab>
-          <Tab to="/forge/queue">Forge</Tab>
           <Tab to="/runs">Runs</Tab>
-        </div>
-
-        <span className="w-px h-5 bg-line" />
-
-        <div className="flex gap-[2px]">
-          {/* **Two, not three.** `Contracts` and `Sources` were the same list at two stages of
-              one tool's life, and naming them separately is what taught a person that a tool is
-              one thing here and another thing there — spec §1.3. */}
-          <Tab to="/forge/queue">Queue</Tab>
-          <Tab to="/forge/tools">Tools</Tab>
         </div>
 
         <button

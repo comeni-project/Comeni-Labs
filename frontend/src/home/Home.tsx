@@ -113,8 +113,7 @@ export function Home() {
       <div className="max-w-[1040px] mx-auto px-6 pb-16">
         <header
           className="grid gap-9 items-center py-12 md:py-16
-                     md:grid-cols-[minmax(0,1fr)_minmax(0,420px)]
-                     motion-safe:animate-[rise_.5s_cubic-bezier(.2,.7,.3,1)_both]"
+                     md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] settle"
         >
           <div>
             <p className={eyebrow}>Mendel · pipeline construction</p>

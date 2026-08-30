@@ -72,7 +72,8 @@ elevation ramp is `--shadow` at four spreads.
 |---|---|---|
 | `--hover` | `--ink` at 5% | any row, cell or control under the pointer |
 | `--hover-strong` | `--ink` at 9% | the same, where a row is already tinted |
-| `--t` | `140ms cubic-bezier(.4, 0, .2, 1)` | every colour and elevation transition |
+| `--ease` | `cubic-bezier(.32, .72, 0, 1)` | **the product's one curve** — every transition and all five movements |
+| `--t` | `140ms var(--ease)` | every colour and elevation transition |
 | `--ring` | `0 0 0 2px --paper, 0 0 0 4px --pea` | focus, and only focus |
 | `--e1` | `0 1px 1px --shadow` | chips, controls, table headers |
 | `--e2` | two-layer | cards |
@@ -218,6 +219,36 @@ key on screen is evidence of.
   sentence, and it sits beside the panel rather than under the cursor so it never covers the rows
   you are scanning.
 
+### Responsiveness — three rules, added 2026-08-30 (Plan 4 phase 0)
+
+**The reference implementation is the `<style>` block in `.design/runs_boards.py`**, and
+`frontend/src/main.css` is that block lifted. Lift it rather than re-deriving it.
+
+1. **Every band is `auto-fit minmax()`, never a fixed column count** (`.band`). Four tiles become
+   two, then one. **Nothing is ever dropped to fit** — dropping a tile drops a question, and a
+   reader cannot tell a missing panel from a panel with nothing to say. That is the same
+   distinction the absence rule makes elsewhere: a section with nothing to say does not render,
+   and a section that failed to *fit* is a lie wearing the same clothes.
+2. **A table scrolls inside itself** (`.tbl`, `overflow-x: auto` with a `min-width` on the row).
+   **This is the only horizontal scrolling allowed anywhere; the page body never scrolls
+   sideways.** The heading grid and the row grid are one declaration, which is what stops them
+   drifting apart. A component scrolling its own `<pre>` is this rule working, not a breach of it.
+3. **A side rail stacks, it does not overlay** (`.withRail`). One column at 1180 with the rail
+   underneath. An overlay drawer hides the thing the rail is discussing.
+
+**The breakpoints are 1180 and 760, and they are content breakpoints rather than device ones.**
+1180 is where a rail stops fitting beside the page; 760 is where a two-up band stops being
+two-up. Do not add a third without a piece of content that needs it.
+
+**A phone is deliberately not designed for.** These are desk screens — a 5,000-task timeline on a
+390px viewport is not a layout problem, it is a different product. The rules degrade gracefully to
+a tablet and stop there.
+
+**What no test can check:** whether a rendered page actually overflows. There is no layout engine
+in the test environment, so `tokens.test.ts` asserts what it can see — that `.tbl` is the only
+rule in the design system declaring `overflow-x`, and that the `Shell` declares none — and claims
+nothing more.
+
 ### Canvas
 
 Pan by dragging empty space; wheel zooms toward the cursor, clamped 30%–220%. The dot grid
@@ -294,9 +325,69 @@ plain scrolling bodies, because neither has a control to hold down.
 
 ## 8. Motion
 
-One orchestrated moment: nodes settle in sequence on load, 45ms stagger down the pipeline,
-reading as "this was composed". Everything else is functional — 120ms port scale on hover,
-150ms node shadow. `prefers-reduced-motion` disables all of it.
+**Five movements, one curve. Nothing else moves.** `cubic-bezier(.32, .72, 0, 1)`, as `--ease`.
+A second easing curve is a second personality.
+
+**The reference implementation is the `<style>` block in `.design/runs_boards.py`, and
+`frontend/src/main.css` is that block lifted.** Lift it rather than re-deriving it — the boards
+are generated from one shell and one task list precisely so nothing can drift from the thing
+beside it, and the same argument applies to the CSS the boards are drawn with.
+
+| movement | duration | what wears it |
+|---|---|---|
+| `settle` | 200ms | rows and cards arriving, staggered 30ms — **capped at eight**, then the rest at once |
+| `grow-x` | 520ms | bars drawing from zero, **first paint only** |
+| `flow` | 1.1s | the running bar, and a live wire (`.live`) — the page's one claim that something is happening *now* |
+| `blink` | 1.1s | the live cursor, and only it |
+| `lift` | 140ms | hover on anything clickable |
+
+**`lift` is a contract**: if it lifts it is clickable, and if it is clickable it lifts.
+
+**The stagger cap is structural**, written as eight `:nth-child` rules rather than computed — a
+400-row table at 30ms takes twelve seconds, and a helper that computes the delay is a helper
+somebody can call without a cap.
+
+**`grow-x` is first paint only**, which CSS gives for free with `backwards` and React can undo
+for free: key a bar on its **identity**, never on its **value**. A bar that re-animates on every
+poll is a bar nobody can read, and a filter change becomes a light show.
+
+**Numbers never tween.** Elapsed time, task counts and byte figures snap, in `.tnum`. A counter
+rolling toward its value is illegible at exactly the moment somebody is reading it, and on a live
+page it never settles.
+
+**`prefers-reduced-motion: reduce` kills all five and the transition**, not only the decorative
+ones. The page must be fully legible with every animation off — which is also how it renders in a
+screenshot and in a PDF. It is implemented as `.01ms !important` rather than `animation: none`,
+so an animation still fires `animationend` and a component waiting on one cannot hang.
+
+**A sixth movement is a design decision, not an implementation one.** There are **two** today
+and both are known tensions rather than oversights: `breathe`, on a running task dot in
+`runs/Console.tsx`, and Tailwind's `animate-pulse` on a mid-run gate in `build/Gate.tsx`. By the
+argument above each dilutes `flow`; by their own each encodes state. Plan 4 phases 3 and 5 own
+the verdicts, because that is where retiring one is a visible change to the screen it belongs to.
+
+### Checking that there really is one curve
+
+**A source scan is not enough, and the first check proved it.** `tokens.css` said one curve while
+the *shipped stylesheet* carried three: eleven components use Tailwind's `transition-colors` and
+one uses `animate-pulse`, and each emitted Tailwind's own easing. The fix is two theme overrides
+in `main.css` — `--default-transition-timing-function` and `--animate-pulse` — rather than
+rewriting twelve call sites, so the next `transition-colors` somebody types is right without them
+knowing this happened.
+
+`tokens.test.ts` holds the source half. The compiled half needs a production build and is a
+command rather than a test:
+
+```bash
+cd frontend && npm run build && grep -o 'cubic-bezier([^)]*)' dist/assets/*.css | sort -u
+```
+
+One line out means one curve. Run it after anything that adds a transition utility.
+
+**Superseded, 2026-08-30 (Plan 4 phase 0).** This section previously read: *"One orchestrated
+moment: nodes settle in sequence on load, 45ms stagger down the pipeline… Everything else is
+functional — 120ms port scale on hover, 150ms node shadow."* It described a different system and
+nothing implemented it.
 
 ---
 

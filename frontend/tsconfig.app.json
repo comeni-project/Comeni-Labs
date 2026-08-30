@@ -23,5 +23,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/tokens.test.ts", "src/runs/TaskRow.callers.test.ts"]
+  "exclude": ["src/tokens.test.ts", "src/reported.test.ts", "src/runs/TaskRow.callers.test.ts"]
 }

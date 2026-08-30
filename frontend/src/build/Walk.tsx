@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Failed } from "../ui/States";
+
 /** Draw → Keep → Gate → Run, as one visible sequence.
  *
  * **Named `Walk`, not `Rail`.** `Rail.tsx` is Plan 3C's side rail — Ask, Step, Review — and the
@@ -13,11 +15,23 @@ import type { ReactNode } from "react";
  *
  * **Why a control is off is written under it, never in a tooltip.** A disabled button with a
  * hidden reason is a dead end; the reason is the only thing that makes it a step.
+ *
+ * **Every step's `error` is REQUIRED, and that is the whole of the fix** — Plan 4 phase 0.
+ * On 2026-08-29 the walk found *Keep* answering 500 with nothing on screen, nothing in the
+ * console, and `docker logs` the only way to learn that the page's central action had failed.
+ * `useKeep` was not the bug: it returned `error` then, with a comment reading *"Shown, not
+ * swallowed."* `Builder.tsx` simply never passed it, and `keep` had no slot to pass it into.
+ *
+ * So the guard is the **type**, not a wrapper around `useMutation`: a hook that returns an error
+ * cannot stop a caller from ignoring it, and a required prop can. Omitting one is a compile
+ * error. `null` is the way to say *nothing failed*, and it has to be said.
  */
 export type StepState = "done" | "now" | "waiting";
 
-function Step({ name, state, note, children, panel }: {
+function Step({ name, state, note, error, children, panel }: {
   name: string; state: StepState; note?: string | null;
+  /** What went wrong here, or `null`. **Required** — see the header. */
+  error: string | null;
   children?: ReactNode;
   /** **Expanded in place, not in a tab.** Gate output and submit errors belong under the step
    *  that produced them — a tab elsewhere is what made this two journeys instead of one. */
@@ -41,6 +55,14 @@ function Step({ name, state, note, children, panel }: {
       </span>
       {children && <span className="flex items-center gap-2 pl-4">{children}</span>}
       {note && <span className="pl-4 text-label text-ink-3">{note}</span>}
+      {/* **Under the control that failed, and shown whatever the step's state is.** A failed
+          mutation does not advance the walk, so the step it broke is still `now` or even
+          `waiting` — gating this on `state` is how it would go quiet again. */}
+      {error && (
+        <div data-testid={`step-${name.toLowerCase()}-error`} className="pl-4">
+          <Failed error={error} padded={false} />
+        </div>
+      )}
       {state !== "waiting" && panel && <div className="pl-4">{panel}</div>}
     </div>
   );
@@ -48,11 +70,12 @@ function Step({ name, state, note, children, panel }: {
 
 export function Walk({ draw, keep, gate, run }: {
   draw: { steps: number; problems: number };
-  keep: { keptAt?: string | null; stale?: string | null; onKeep?: () => void; busy?: boolean };
+  keep: { keptAt?: string | null; stale?: string | null; onKeep?: () => void; busy?: boolean;
+          error: string | null };
   gate: { passed: boolean; note?: string | null; blocked?: string | null;
-          panel?: ReactNode };
+          panel?: ReactNode; error: string | null };
   run: { sent: boolean; note?: string | null; blocked?: string | null;
-         onSend?: () => void; panel?: ReactNode };
+         onSend?: () => void; panel?: ReactNode; error: string | null };
 }) {
   const drawn = draw.steps > 0;
   const kept = Boolean(keep.keptAt) && !keep.stale;
@@ -67,6 +90,10 @@ export function Walk({ draw, keep, gate, run }: {
       <Step
         name="Draw"
         state={drawn ? "done" : "now"}
+        // Drawing is local state and reaches no server, so there is nothing here to fail.
+        // Written as an explicit `null` rather than an optional prop: the point of the slot is
+        // that every step has to answer the question.
+        error={null}
         note={drawn
           ? `${draw.steps} steps · ${draw.problems ? `${draw.problems} problems` : "no problems"}`
           : "nothing drawn yet"}
@@ -74,6 +101,7 @@ export function Walk({ draw, keep, gate, run }: {
 
       <Step
         name="Keep"
+        error={keep.error}
         state={kept ? "done" : drawn ? "now" : "waiting"}
         note={keep.stale ?? (keep.keptAt ? `kept ${keep.keptAt}` : "not kept yet")}
       >
@@ -85,6 +113,7 @@ export function Walk({ draw, keep, gate, run }: {
 
       <Step
         name="Gate"
+        error={gate.error}
         state={gate.passed ? "done" : kept ? "now" : "waiting"}
         note={gate.blocked ?? gate.note}
         panel={gate.panel}
@@ -97,6 +126,7 @@ export function Walk({ draw, keep, gate, run }: {
 
       <Step
         name="Run"
+        error={run.error}
         state={run.sent ? "done" : gate.passed ? "now" : "waiting"}
         note={run.blocked ?? run.note}
         panel={run.panel}

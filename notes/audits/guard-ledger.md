@@ -2856,3 +2856,151 @@ inherited: the paging loop's `setEvents` updater closed over the loop's mutable 
 variable, and React runs a functional update *later* — so page one's updater read whichever
 page had arrived by then. 437 events came back as 237, page two vanished, page three merged
 twice. `const arrived = page.events` inside the loop body is the whole fix.
+
+---
+
+## Hidden must not rot into broken — 2026-08-30
+
+Plan 4 phase 0, task 1. The forge left the navigation by the operator's decision and **stayed in
+the router**, which is two claims rather than one — and a pair of claims needs a pair of guards,
+because each is exactly the failure mode of satisfying the other.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `router.test.tsx` "keeps %s resolvable after the tabs came out" | deleted `{ path: "/forge/tools", element: <Tools /> }` from `routes` — the smallest edit somebody would make to a route they can no longer see in the nav | failed on `/forge/tools` only; the other three paths held | `TestingLibraryElementError: Unable to find role="navigation"` — the route falls through to the `ErrorBoundary`, which renders outside the `Shell`, so the missing landmark is what names it |
+| 2026-08-30 | `router.test.tsx` "offers no way into the forge from the frame" | restored one `<Tab to="/forge/queue">Forge</Tab>` to `Shell.tsx` | failed | `AssertionError: expected [ '/forge/queue' ] to deeply equal []` — names the href that came back |
+
+**Why two.** Deleting the tabs and deleting the routes both produce a green suite under either
+guard alone: with only the no-way-in guard, removing the forge entirely passes; with only the
+resolvability guard, leaving the tabs in place passes. The decision was *hidden, not removed*,
+and it takes both to say so.
+
+**The second guard's message is the better one**, and the first is worth a note. `Unable to find
+role="navigation"` does not say *the route is gone* — it says the `Shell` did not render, and the
+reason is one inference away (a route with no match renders `ErrorBoundary` as the layout's
+`errorElement`, outside the nav). It was left as it is rather than given a `data-testid`, because
+the alternative was making a component this phase does not own cooperate with a test; the
+assertion on `ErrorBoundary`'s own heading text is in the same test and catches the case where a
+route resolves to a *broken* component rather than to none.
+
+## A class that animates nothing — 2026-08-30
+
+Plan 4 phase 0, task 3. `tokens.test.ts` already caught an undefined `var()`; this is the same
+silence one layer up. **The plan was wrong about what was missing.** It said the token guard
+needed generalising from a `--hover` grep — it does not, it has walked every file and every
+`var()` including fallback chains since 2026-08-24. What was missing was this.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "defines every motion class the app wears" | renamed `.settle` to `.settled` in `main.css` — the rule stays, the name it is worn under does not | failed | `expected [ Array(1) ] to deeply equal []`, listing `".settle (src/home/Home.tsx)"` — names the class **and** the file wearing it |
+| 2026-08-30 | `tokens.test.ts` "watches classes that are actually worn…" | made `wearing()`'s walk `continue` on every file, so it returns an empty map | failed | `AssertionError: expected 0 to be greater than 0` |
+
+**The second row is the load-bearing one and the first is why.** When the walk was broken, the
+guard above it **passed** — an empty map has nothing missing, so it reported green having checked
+nothing. That is A67 exactly, and it is the shape W2 found in its batching test: a guard that
+passes on the code it was written to reject is a green tick over an open hole. A scan-based guard
+needs its anti-vacuity partner or it is decoration.
+
+**Why an undefined class is worse than an undefined token.** A missing `var()` renders as
+inherited and looks deliberate. A missing animation class renders as *nothing moves*, which looks
+exactly like `prefers-reduced-motion` working correctly — so it is invisible to the one reader
+most likely to check.
+
+**What this guard cannot do**, recorded so nobody trusts it further than it goes: `MOVEMENTS` is a
+closed list, so it catches a **deleted rule** and misses an **invented class**. That is deliberate
+— `dashboard.md` §8 makes a sixth movement a design decision, and a guard that silently blessed
+any new name would be arguing the opposite.
+
+## The page body never scrolls sideways — 2026-08-30
+
+Plan 4 phase 0, task 4.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "keeps sideways scrolling inside the one container allowed to have it" | added `overflow-x: auto` to `body` in `main.css` — the well-meant fix somebody makes when one wide table clips | failed | `AssertionError: expected [ 'body', '.tbl' ] to deeply equal [ '.tbl' ]` — names the offending selector |
+
+**The plan asked for a guard this environment cannot give, and the narrower one shipped instead.**
+The step read *"assert `overflow-x` is not `auto` or `scroll` on any ancestor the Shell renders"* —
+which sounds like a rendered-DOM assertion and would be one. There is no layout engine in
+happy-dom, so a test phrased that way would compute nothing and pass, which is the exact shape
+this ledger's 2026-08-24 entry warns about. What it checks instead is the declarations it can
+see: `.tbl` is the only rule in the design system that declares `overflow-x`, and `Shell.tsx`
+declares none.
+
+**What it deliberately does not police:** a component scrolling its own `<pre>`. Three do — a
+drift excerpt, gate output, an artifact excerpt — and that is rule 2 working rather than a breach
+of it, because wide content is supposed to scroll in its own container.
+
+## The silent 500, and a revert that proved nothing — 2026-08-30
+
+Plan 4 phase 0, task 5. The defect the whole phase exists for: on 2026-08-29 a hand-drawn
+pipeline was walked end to end, *Keep* answered 500, and **the rail did not change** — nothing on
+screen, nothing in the console, `docker logs` the only way to learn the page's central action had
+failed.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Walk.test.tsx` "says so when a step's mutation failed…" + "keeps a coded refusal lookup-able…" | deleted the `{error && …}` block and its `Failed` import from `Walk.tsx` — the surface, restoring the 2026-08-29 state exactly | both failed | `expect(element).toHaveTextContent()` naming the missing string |
+| 2026-08-30 | `Walk.tsx`'s required `error` prop (type, not test) | — nothing; making it required was itself the experiment | `tsc` named **all three** forgetful call sites in `Builder.tsx` plus eight fixtures | `TS2741: Property 'error' is missing in type … but required in type …` |
+| 2026-08-30 | `reported.test.ts` "hands an error back from every mutation hook" | rewrote `usePropose` to `const m = useMutation(…); return { propose: m.mutate }` — a hook that keeps the error to itself | failed | `expected [ 'api/usePropose.ts' ] to deeply equal []` |
+| 2026-08-30 | `reported.test.ts` "references that error in every component that calls one" | renamed every `error` to `refusal` in `forge/Decide.tsx`, leaving zero references | failed | `expected [ 'forge/Decide.tsx' ] to deeply equal []` |
+
+**The second row is the real fix and it is not a test.** A hook that returns an error cannot make
+a caller read it; a required prop can. `useKeep` had returned `error` since 3E with a docstring
+reading *"Shown, not swallowed"* — and `Builder.tsx` never passed it, into a `keep` prop that had
+no slot for it. One call site, one dropped field, and no scan could have seen it.
+
+### The miss, which is worth more than the four rows above
+
+**A revert was run that did not reach the code the guard names, and the guard passed.** That is
+question 3 of this file's own three, and it was answered wrongly for a full cycle.
+
+The first version of this guard asserted a *string* — that each hook's source contained `error:`
+— and carried an `UNREPORTED` debt list of six forge hooks it claimed were silent. To watch it
+fail, `usePropose` was edited by `s.replace('  return {', …)`. **`usePropose` contains no
+`return {`**: it returns `useMutation(…)` directly. The edit applied nowhere, the file was
+unchanged, the test passed, and it was very nearly recorded as watched-failing.
+
+Two things came out of catching it:
+
+- **The finding it was built on was false.** All six "silent" hooks return the `useMutation`
+  result *whole*, which carries `.error` to the caller, and every forge consumer references one.
+  There was never a debt list — the six were classified by grepping for a string rather than by
+  reading what the function returns. `CLAUDE.md` already records this exact habit costing a bug:
+  *in the same audit I verified one fact by reading the generator and took the other from a
+  comment, and only one of those habits found a bug.*
+- **A debt list built on a bad measurement is worse than no guard**, because it would have shipped
+  six files permanently labelled broken and exempted from the check that says so.
+
+The guard was rewritten to test the property that actually holds — a hook hands back an error
+either by returning the mutation or by mapping it onto a field — and both reverts above were
+verified to land (`grep -c` on the edited file) **before** the run was believed.
+
+## One curve was three, and only the build could say so — 2026-08-30
+
+Plan 4 phase 0, task 2, found during final verification rather than while writing the task.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "declares one easing curve, in the source" | replaced `transition-colors` in `Shell.tsx` with an explicit `ease-[cubic-bezier(.4,0,.2,1)]` — verified landed with `grep -c` before believing the run | failed | names the curve **and** the file: `"cubic-bezier(.4,0,.2,1) (src/app/Shell.tsx)"` |
+
+**The phase's own headline constraint was false in the shipped artifact while every test was
+green.** `tokens.css` declared one curve. `dist/assets/*.css` carried three: eleven components
+reach for Tailwind's `transition-colors` and one for `animate-pulse`, and each emits Tailwind's
+own easing rather than ours. Nothing in the repository compiles the stylesheet — not `vitest`,
+not `tsc` — so there was no test that could have been wrong about this, which is a different
+thing from a test being wrong.
+
+Found by `npm run build` followed by `grep -o 'cubic-bezier([^)]*)' dist/assets/*.css | sort -u`.
+That command is now in `dashboard.md` §8, because it is the only place the claim is checkable and
+it needs a production build, so it cannot live in the unit suite.
+
+Fixed with two `@theme` overrides — `--default-transition-timing-function` and `--animate-pulse`
+— rather than by rewriting twelve call sites, so the next `transition-colors` somebody types is
+right without them knowing any of this happened.
+
+**The guard needed comment-stripping on its first run**, and that is worth a line. Both initial
+failures were the guard catching the *documentation* of the curves that had just been replaced —
+this file's own comments quote the old values, which is the habit the rest of this repository
+asks for. A scan that cannot tell a declaration from prose punishes writing down what you
+changed.
