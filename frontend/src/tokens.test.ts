@@ -189,6 +189,49 @@ it("defines every motion class the app wears", () => {
   expect(missing).toEqual([]);
 });
 
+it("sets every face in the family the artboards use, and bundles it", () => {
+  // **The defect this exists for.** The app declared `--font-display: Georgia, … serif` and
+  // loaded no webfont at all, so the front door's headline — the first thing anybody sees —
+  // rendered in a serif that appears nowhere in the design, and every other screen fell back to
+  // the system sans. **314 tests passed throughout**: a typeface is invisible to a suite that
+  // only ever reads text content, which is why this reads the stylesheet instead.
+  const tokens = readFileSync(join(SRC, "tokens.css"), "utf8");
+  const main = readFileSync(join(SRC, "main.css"), "utf8");
+
+  for (const role of ["--font-ui", "--font-display", "--font-data"]) {
+    const line = tokens.split("\n").find((l) => l.trimStart().startsWith(`${role}:`));
+    expect(line, `${role} is not declared`).toBeTruthy();
+    expect(line, `${role} names a face the artboards do not use`).toMatch(/Geist/);
+  }
+
+  // No serif anywhere: the artboards are one family in two cuts. **`sans-serif` is not a
+  // serif**, and the first version of this line matched it — a scan whose own trailing fallback
+  // trips it is a scan that gets deleted rather than obeyed, which is the third time that shape
+  // has turned up in two days. Named families and a `serif` that stands on its own.
+  expect(tokens).not.toMatch(/--font-[a-z-]+:[^;]*(?:Georgia|Times|Iowan|ui-serif|[ ,]serif)/);
+
+  // **Bundled, not fetched** — invariant 13. A Google Fonts `<link>` would render the design on
+  // the hosted instance and the fallback stack in an air-gapped laboratory, which is
+  // "self-hosted is a degraded tier" arriving as a stylesheet.
+  expect(main).toMatch(/@import "@fontsource-variable\/geist"/);
+  expect(main).toMatch(/@import "@fontsource-variable\/geist-mono"/);
+  expect(main).not.toMatch(/fonts\.googleapis\.com/);
+});
+
+it("draws the ground the artboards sit on", () => {
+  // The field was deferred through all of Plan 4 as "the three-layer arc field — decorative
+  // ambience". It is the page's **ground**: without it `body` is a flat black rectangle and
+  // every panel reads as a grey box floating on nothing, which is most of why the built screens
+  // did not look like the drawings they came from.
+  const shell = readFileSync(join(SRC, "app/Shell.tsx"), "utf8");
+  const main = readFileSync(join(SRC, "main.css"), "utf8");
+
+  expect(shell, "the shell mounts no field").toMatch(/<Field\s/);
+  for (const layer of ["field-breathe", "field-spin", "field-scan", "field-vignette"]) {
+    expect(main, `${layer} is used and never defined`).toMatch(new RegExp(`\\.${layer}[\\s,{:]`));
+  }
+});
+
 it("watches classes that are actually worn, so it cannot pass by finding none", () => {
   // A67 again, and it matters more here than above: `wearing()` returns only the classes it
   // FOUND, so a broken walk yields an empty map and the test above passes with nothing checked.

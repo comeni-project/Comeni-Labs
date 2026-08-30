@@ -1,4 +1,16 @@
 @import "tailwindcss";
+
+/* ═══ GEIST, BUNDLED — NOT FETCHED ════════════════════════════════════════════════════════
+   The artboards are set in Geist and Geist Mono, and until 2026-08-30 the app loaded neither:
+   `--font-ui` was the system sans and `--font-display` was **Georgia**, a serif that appears
+   nowhere in the design. The headline on the front door rendered in it.
+
+   **`@fontsource`, not a Google Fonts `<link>`**, and that is invariant 13 rather than a
+   preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
+   would have got the fallback stack while the hosted instance got the design. Vite bundles
+   these, so both installs render the same page. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "./tokens.css";
 
 /* Tailwind MIRRORS the tokens; it does not redefine them.
@@ -124,6 +136,39 @@ body {
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ THE FIELD ═══════════════════════════════════════════════════════════════════════════
+
+   The ground `Field.tsx` draws, and the two textures it lays over the arcs. Every artboard
+   opens with these three layers; the app had none of them and rendered a flat black rectangle.
+
+   **These two animations are not a sixth and seventh movement.** The five movements are about
+   how an ELEMENT arrives or changes; these are a texture that never resolves and is never
+   caught moving — 46s and 680s are both far below the threshold at which anything reads as
+   motion. The reduced-motion block above reaches them, because it reaches everything. */
+.field-breathe { animation: field-breathe 46s ease-in-out infinite alternate; }
+@keyframes field-breathe { to { opacity: 1.85; } }
+
+.field-spin { transform-box: view-box; animation: field-spin 680s linear infinite; }
+@keyframes field-spin { to { transform: rotate(360deg); } }
+
+/* 1px on, 2px off, at 1% white. The CRT reference, and what stops the ground looking printed. */
+.field-scan {
+  background-image: repeating-linear-gradient(
+    180deg, var(--scan-line) 0 1px, transparent 1px 3px);
+}
+
+/* **A terminal cursor snaps; it does not fade.** `steps(1)` rather than an eased opacity, which
+   is the artboard's own spelling and the difference between a cursor and a pulsing dot. It is
+   not a sixth movement: nothing arrives, changes state or encodes a quantity — it is the same
+   texture argument as the field. */
+.blink { animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Darkens toward the edges so a page holds the eye in the middle without needing a border. */
+.field-vignette {
+  background: radial-gradient(130% 92% at 50% 3%, transparent 46%, var(--paper) 100%);
 }
 
 /* ═══ FIVE MOVEMENTS, ONE CURVE. NOTHING ELSE MOVES. ═══════════════════════════════════════

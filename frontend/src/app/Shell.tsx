@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+
+import { Field } from "../ui/Field";
 
 import { Glossary } from "../ui/Glossary";
 import { useKeys } from "./useKeys";
@@ -67,11 +69,25 @@ function Tab({ to, children }: { to: string; children: string }) {
 
 export function Shell() {
   const [helping, setHelping] = useState(false);
+  // **One field for the whole application, and the route picks where it is thrown from.**
+  // The front door's arcs bloom from below the prompt (`OverviewFirst`); every other board
+  // throws them from the lower-left corner (`_field.html`). Two mounted fields stacked their
+  // gradients into a grey wash, which is exactly what the first attempt looked like.
+  const bloom = useLocation().pathname === "/";
   useKeys({ "?": () => setHelping(true), escape: () => setHelping(false) });
 
   return (
     <div className="grid grid-rows-[54px_1fr] h-dvh">
-      <nav className="flex items-center gap-7 px-6 bg-surface border-b border-line">
+      {/* **Behind everything, and it is the page's ground rather than a decoration.** Every
+          artboard opens on an arc field, a scan texture and a vignette; the app had none of
+          them and drew a flat black rectangle, which is most of why the built screens did not
+          look like the drawings they came from. */}
+      <Field origin={bloom ? "bottom" : "corner"} />
+
+      {/* **Transparent, not `bg-surface`.** The artboards' shell is a hairline bottom border
+          over the field — a filled bar cuts the ground off at the top of the page and makes
+          the header read as a separate product from everything under it. */}
+      <nav className="flex items-center gap-7 px-6 border-b border-line">
         <Link
           to="/"
           aria-label="Comeni Labs — home"

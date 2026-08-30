@@ -30,9 +30,12 @@
 :root {
   /* Observatory. The ground is nearly black and the surfaces step up from it, so a panel is
      a bounded region of the page rather than a floating card. */
-  --paper: #080B0D; --surface: #0E1418; --surface-2: #1E282C;
-  --ink: #DFE6E6; --ink-2: #889699; --ink-3: #67757A;
-  --line: #172025; --line-2: #2A3438;
+  --paper: #080B0D; --paper-2: #0B1013; --surface: #0E1418; --surface-2: #1E282C;
+  --ink: #DFE6E6; --ink-2: #889699; --ink-3: #67757A; --ink-4: #455257;
+  --line: #172025; --line-2: #2A3438; --link-line: #1E3A4E;
+  /* The field's CRT scan line. A texture rather than a surface, which is why it is
+     an alpha over whatever it lands on and not a colour. */
+  --scan-line: rgba(255, 255, 255, .010);
   --pea: #10AA91; --pea-soft: #0C2A28; --on-pea: #041014;
   --measured: #C1B508; --measured-soft: #2A2708;
   --undecided: #E3674E; --undecided-soft: #2C1712; --fault: #E3674E;
@@ -40,9 +43,14 @@
   --link: #6CB7FF; --link-soft: #122029;
   --shadow: rgba(0, 0, 0, .6);
   --r: 3px;
-  --font-display: Georgia, "Iowan Old Style", "Times New Roman", ui-serif, serif;
-  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
+  /* **One family, two cuts** — the artboards use Geist for everything and Geist Mono for data.
+     `--font-display` was a Georgia SERIF, which is not in the design at any size: the front
+     door's headline rendered in it, and that is most of why the built page did not look like
+     the artboard it was drawn from. Display is Geist at a heavier weight and a tighter track,
+     not a different family. */
+  --font-display: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-ui: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
 
   /* Interaction. Both DERIVED, like the elevation ramp: --hover is --ink at 5%, so it tints
      whatever surface it lands on — and because --ink is light here and dark in the light
@@ -82,9 +90,11 @@
    sit against a light ground at the same roles they hold above. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
-    --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
-    --line: #DCE2DF; --line-2: #C4CDC8;
+    --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
+    --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
+    --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+    --scan-line: rgba(0, 0, 0, .012);
+  --scan-line: rgba(0, 0, 0, .012);
     --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
     --measured: #B77B2B; --measured-soft: #F6EBD8;
     --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
@@ -95,9 +105,10 @@
 }
 
 :root[data-theme="light"] {
-  --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
-  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
-  --line: #DCE2DF; --line-2: #C4CDC8;
+  --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
+  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
+  --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+  --scan-line: rgba(0, 0, 0, .012);
   --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
   --measured: #B77B2B; --measured-soft: #F6EBD8;
   --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
