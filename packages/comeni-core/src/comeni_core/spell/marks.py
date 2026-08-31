@@ -57,6 +57,16 @@ class Mark(StrEnum):
     ROLE_NAME = "role-name"
     SPDX_ID = "spdx-id"
 
+    SOCKET_KEY = "socket-key"
+    """`<node>.<port>` — one end of one wire, on a **draft**.
+
+    Distinct from `DECISION_KEY`, which is `<node>.<subject>` and names something that was
+    decided. This names a place on a drawing: the socket a person can put a label on. It is
+    not a `NodeId`, and that is the whole point of it — a label should survive its node being
+    dragged and not survive its port being rewired, which is a property only a key naming
+    both can have.
+    """
+
     NF_IDENTIFIER = "nf-identifier"
     """A name emitted into a Nextflow or Groovy *declaration* — a process name, a channel,
     a port. There is no escaping option for a declaration site, so an identifier is
@@ -536,6 +546,14 @@ StateName = Annotated[str, Mark.STATE_NAME, AfterValidator(_identifier("state na
 DecisionKey = Annotated[
     str, Mark.DECISION_KEY, AfterValidator(_joined_identifier("decision key"))
 ]
+SocketKey = Annotated[
+    str, Mark.SOCKET_KEY, AfterValidator(_joined_identifier("socket key", "."))
+]
+"""`<node>.<port>`, and a dot is the only separator it permits.
+
+Narrower than `DecisionKey`, which also allows `:` because a `Subject` carries one. A socket
+key never does, so permitting it would be permission granted for nothing.
+"""
 ResolverId = Annotated[str, Mark.RESOLVER_ID, AfterValidator(_single_line)]
 """Who answered a tier-4 question — `flag-only`, `replay`, `human`, or a model adapter's
 own name. Single-line, because it is supplied by whatever implements the port (an impure

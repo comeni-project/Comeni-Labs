@@ -6,7 +6,9 @@ saying at which tier it was chosen. A person dragging a wire has computed nothin
 nothing at any tier, and a draft carrying those fields could *disagree* with the contract it
 points at — which would make the validator's first job checking the input against itself.
 
-Four names per edge, two per node. Everything else is derived by `mendel_resolver.validate`.
+Four names per edge, two per node, and one label per socket. Everything else is derived by
+`mendel_resolver.validate` — and the label is derived by nothing, which is `DraftLabel`'s
+whole subject.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,9 +21,10 @@ from comeni_core.spell.marks import (
     NfIdentifier,
     NodeId,
     PortName,
+    SocketKey,
 )
 
-__all__ = ["DraftEdge", "DraftGraph", "DraftNode", "DraftParam"]
+__all__ = ["DraftEdge", "DraftGraph", "DraftLabel", "DraftNode", "DraftParam"]
 
 
 class DraftParam(BaseModel):
@@ -60,6 +63,49 @@ class DraftEdge(BaseModel):
     to_port: PortName
 
 
+class DraftLabel(BaseModel):
+    """What a person calls one socket. **On the draft, and nowhere else.**
+
+    ═══ WHAT IS DERIVED AND WHAT IS TYPED ════════════════════════════════════════════════════
+
+    The operator's constraint on 2026-08-31 was one sentence — *"yes it's a label, does not
+    change the actual keys"* — and the table it implies is the whole safety argument:
+
+    | | derived | typed by a person |
+    |---|---|---|
+    | the channel name (`gtf_2`) | ✓ | |
+    | the param (`params.gtf_2`) | ✓ | |
+    | the samplesheet column | ✓ | |
+    | the Nextflow variable | ✓ | |
+    | what the canvas shows | | ✓ |
+
+    So `materialise` does not read this field, nothing derived from it reaches `pipeline.yml`,
+    and no resolver sees it. A guard holds that rather than this docstring:
+    `test_a_label_reaches_nothing` builds two drafts differing only in their labels and asserts
+    the emitted `.nf` and the artifact are identical.
+
+    ═══ WHY A LABEL IS WORTH THIS MUCH CARE ══════════════════════════════════════════════════
+
+    **Invariant 15.** A field a person types into, which names an input, is one rename away
+    from `/data/patients/PT-4471023/`. Keeping it off the key and out of the artifact means the
+    worst case is a private note in a Postgres row rather than a patient identifier in a
+    published pipeline.
+
+    It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
+    door payload and `tests/test_egress.py` is untouched by this change, which is the assertion
+    rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
+    fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: SocketKey
+    """`<node>.<port>`. **Not a `NodeId`** — a port is not a node, and a label should survive
+    its node being dragged and not survive its port being rewired."""
+
+    label: Line = ""
+
+
 class DraftNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -73,6 +119,9 @@ class DraftGraph(BaseModel):
 
     nodes: list[DraftNode] = Field(default_factory=list)
     edges: list[DraftEdge] = Field(default_factory=list)
+    labels: list[DraftLabel] = Field(default_factory=list)
+    """What a person called each socket. **Read by the canvas and by nothing else** — see
+    `DraftLabel`, which carries the argument for why that boundary is worth a guard."""
     profile: DataProfile = Field(default_factory=DataProfile)
     """Carried because an advisory check may want to say *the rule that would have fired here
     read a measurement you have not supplied*. `validate` never resolves; it only reports."""

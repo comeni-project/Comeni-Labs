@@ -3631,3 +3631,40 @@ exactly when a suite deserves to be doubted. Reverting each check in turn — `f
 recording which tests noticed produced a clean diagonal: every check has one test, no test
 covers two checks, and no check is unwatched. That is a stronger statement than "the tests pass",
 and it took one script.
+
+### `test_draft_labels.py` — a label reaches nothing (Plan 5B phase 1.2)
+
+**The revert.** `materialise.ir_of` composes each node's `selection.reason`. Threading the
+drawing's labels into it —
+
+```python
+reason=f"{who} in the builder rather than resolved from a goal"
++ "".join(f" ({l.label})" for l in graph.labels if l.key.startswith(node.id + ".")),
+```
+
+— is the smallest change that makes a label matter, and it is the shape somebody would actually
+write while meaning well: a reason that quotes what the person called the thing.
+
+**What printed.** Two of the six failed and four passed, which is the right diagonal:
+
+```
+FAILED tests/test_draft_labels.py::test_the_artifact_is_byte_identical_too
+FAILED tests/test_draft_labels.py::test_no_label_text_appears_anywhere_in_either_output
+E  'the matrix we are after' is contained here:
+E    otation) (the matrix we are after)
+```
+
+**What did NOT fail, and why that is recorded rather than fixed.**
+`test_two_drafts_differing_only_in_labels_emit_the_same_nextflow` passed under this revert,
+correctly: a `reason` reaches `pipeline.yml` and never the workflow. The leak that test exists
+for — a label reaching a *channel name* — **cannot be built in phase 1**, because `Pipeline` has
+no field to carry a label at all, which is what
+`test_the_label_is_not_on_the_artifact_s_type_at_all` asserts. It becomes constructible in phase
+2, when `Channel.name` arrives.
+
+So it was watched a weaker way, and the weakness is stated rather than glossed: a probe replaced
+`emit._channel_name` between the two emissions and the comparison went `True` → `False`. That
+proves the assertion is live rather than comparing two constants — it does not prove the guard
+catches the defect, and it will not until phase 2 can produce one. **A guard that has only been
+shown capable of failing is not a guard that has been watched failing**, and conflating the two
+is how `test_the_batching_is_real` shipped green over an open hole in W2.

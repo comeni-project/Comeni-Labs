@@ -166,3 +166,41 @@ describe("what the server may rearrange", () => {
     expect(result.current.offsets.a).toEqual({ x: 0, y: 170 });
   });
 });
+
+/** Spec §5. *"Yes it's a label, does not change the actual keys."* The Python half is
+ *  `tests/test_draft_labels.py`; this is the half that has to put one on the draft at all. */
+describe("naming a socket", () => {
+  it("keys the label on the socket, not on the node", () => {
+    // A label should survive its node being dragged and not survive its port being rewired,
+    // and only a key naming both can have that property.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.setLabel("star_align_1.gtf", "liver annotation"));
+    expect(result.current.graph.labels).toEqual([
+      { key: "star_align_1.gtf", label: "liver annotation" },
+    ]);
+  });
+
+  it("replaces rather than appends when the same socket is renamed", () => {
+    // Typing is a keystroke per edit. Appending would put one row per character into the draft,
+    // and the last writer would win only by accident of ordering.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.setLabel("a.b", "liv"));
+    act(() => result.current.setLabel("a.b", "liver"));
+    expect(result.current.graph.labels).toEqual([{ key: "a.b", label: "liver" }]);
+  });
+
+  it("removes the entry when the field is cleared", () => {
+    // A socket somebody cleared and one they never touched are the same socket. Storing an
+    // empty string would put a row in the draft for every field anybody clicked into.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.setLabel("a.b", "liver"));
+    act(() => result.current.setLabel("a.b", ""));
+    expect(result.current.graph.labels).toEqual([]);
+  });
+
+  it("marks the draft dirty, so a label is saved like any other edit", () => {
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.setLabel("a.b", "liver"));
+    expect(result.current.dirty).toBe(true);
+  });
+});

@@ -23,34 +23,34 @@ and it puts the drawing into a shape the later phases read.*
 
 ### 1.1 Outputs are drawn — spec §4.1
 
-- [ ] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
+- [x] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
       There is no output node on the builder at all; a terminal `counts.matrix` is an unwired port
       with nothing marking it as the thing the pipeline is *for*.
-- [ ] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
+- [x] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
       no settings, `impl-inv`'s shape for a thing that carries a type and never a path.
-- [ ] **Several of them where there are several.** The operator asked for it and `want` has always
+- [x] **Several of them where there are several.** The operator asked for it and `want` has always
       supported it.
-- [ ] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
+- [x] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
       its **right**, and a node at the last rank has it by construction.
 
 ### 1.2 Labels — spec §5
 
-- [ ] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
+- [x] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
       `NodeId`**: a port is not a node, and a label should survive its node being dragged but not
       its port being rewired.
-- [ ] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
+- [x] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
       does not reach `pipeline.yml`, and no resolver sees it — the operator's constraint was *"yes
       it's a label, does not change the actual keys."*
-- [ ] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
-- [ ] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
+- [x] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
+- [x] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
       byte-identical `.nf` and identical `pipeline.yml`. Watched failing against a version that
       threads the label into the channel name.
-- [ ] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
+- [x] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
       fields, still fourteen. A `DraftGraph` is not a door payload.
 
 ### 1.3 Checkpoint
 
-- [ ] `make verify` green, frontend suite green.
+- [x] `make verify` green, frontend suite green.
 - [ ] On screen: a pipeline with several named inputs and several named outputs, and an emitted
       `.nf` byte-identical to the one before the labels were typed.
 
@@ -314,8 +314,47 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
+| 1 | Yes, with six | See below |
 | 2 | | |
 | 3 | | |
 | 4 | | |
 | 5 | | |
+
+
+### Phase 1 — the six deviations
+
+1. **INPUT and OUTPUT are one component, not two.** The plan says the gutter arithmetic "applies
+   in reverse"; writing it twice is how the two gutters come to disagree, so `place(kind, …)`
+   holds it once and `Socket` renders either side. The only thing that differs is which edge of
+   the box the stub leaves from and which corner is rounded.
+
+2. **`terminals()` was written, exported, and then folded back into the component.** It was the
+   mirror of `entryChannels`, which is exported because the run sheet is a second reader — and an
+   output is bound by nobody, so the mirror had no second reader at all. Shipping it would have
+   been `OpenQuestion.suggested`'s shape in reverse: a producer with no consumer. Spec §12.3
+   deletes `entryChannels` in phase 2 anyway.
+
+3. **`Mark.SOCKET_KEY` and `SocketKey` are new.** The plan says `key` is `<node>.<port>` and not a
+   `NodeId`; it does not say what type carries it, and a bare `str` is what `marks.py` exists to
+   prevent. `SocketKey` is `_joined_identifier` restricted to `.` — narrower than `DecisionKey`,
+   which also permits `:` because a `Subject` carries one.
+
+4. **`Minimap.bounds` gained a `GUTTER`, which is a pre-existing defect this phase made visible.**
+   `SOCKETS = 96` accounted for the socket overhang *below* and nothing accounted for the 240px
+   gutter to the left, so *Fit* had always cut the INPUT sockets off the left edge. Nothing was
+   drawn on the right, so the asymmetry was invisible until an OUTPUT socket went there.
+
+5. **The `.nf` half of the label guard could not be watched failing against a real defect, and the
+   ledger says so.** Threading a label into `ir_of`'s `selection.reason` — the smallest leak
+   somebody would actually write — failed two of the six tests and correctly did not fail the
+   emission one: a reason reaches `pipeline.yml` and never the workflow. The leak that test exists
+   for needs `Channel.name`, which is phase 2. A probe showed the comparison is live (`True` →
+   `False` when `_channel_name` changes between the two emissions), and the ledger records that
+   *capable of failing* is not *watched failing*.
+
+6. **A real bug, found by the first test written against an output.** `place()` returned a key
+   called `port` holding a coordinate, spread beside the `PortView` it belonged to — so every
+   socket rendered its kind and nothing else. It is `tip` now.
+
+**The checkpoint's second half is open.** `make verify` and the frontend suite are green; nobody
+has looked at the screen. That is the gap Plan 4 phase 6 exists because of.

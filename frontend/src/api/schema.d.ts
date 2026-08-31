@@ -1081,6 +1081,8 @@ export interface components {
             nodes?: components["schemas"]["DraftNode"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
+            /** Labels */
+            labels?: components["schemas"]["DraftLabel"][];
             profile?: components["schemas"]["DataProfile"];
         };
         /**
@@ -1094,6 +1096,49 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * DraftLabel
+         * @description What a person calls one socket. **On the draft, and nowhere else.**
+         *
+         *     ═══ WHAT IS DERIVED AND WHAT IS TYPED ════════════════════════════════════════════════════
+         *
+         *     The operator's constraint on 2026-08-31 was one sentence — *"yes it's a label, does not
+         *     change the actual keys"* — and the table it implies is the whole safety argument:
+         *
+         *     | | derived | typed by a person |
+         *     |---|---|---|
+         *     | the channel name (`gtf_2`) | ✓ | |
+         *     | the param (`params.gtf_2`) | ✓ | |
+         *     | the samplesheet column | ✓ | |
+         *     | the Nextflow variable | ✓ | |
+         *     | what the canvas shows | | ✓ |
+         *
+         *     So `materialise` does not read this field, nothing derived from it reaches `pipeline.yml`,
+         *     and no resolver sees it. A guard holds that rather than this docstring:
+         *     `test_a_label_reaches_nothing` builds two drafts differing only in their labels and asserts
+         *     the emitted `.nf` and the artifact are identical.
+         *
+         *     ═══ WHY A LABEL IS WORTH THIS MUCH CARE ══════════════════════════════════════════════════
+         *
+         *     **Invariant 15.** A field a person types into, which names an input, is one rename away
+         *     from `/data/patients/PT-4471023/`. Keeping it off the key and out of the artifact means the
+         *     worst case is a private note in a Postgres row rather than a patient identifier in a
+         *     published pipeline.
+         *
+         *     It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
+         *     door payload and `tests/test_egress.py` is untouched by this change, which is the assertion
+         *     rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
+         *     fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
+         */
+        DraftLabel: {
+            /** Key */
+            key: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
         };
         /** DraftNode */
         DraftNode: {

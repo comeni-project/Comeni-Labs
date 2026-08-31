@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Sources } from "./Sources";
 
@@ -23,6 +23,8 @@ const DATA = {
       { name: "reads", type_id: "fastq.reads", side: "in", met: true, states: ["trimmed"] },
       // Unmet — that is the hollow port's job to say, not a socket's.
       { name: "index", type_id: "genome.index.star", side: "in", met: false, states: [] },
+      // Nothing consumes it, so it is what the pipeline is FOR — spec §4.1.
+      { name: "bam", type_id: "alignment.bam", side: "out", met: true, states: ["sorted"] },
     ],
   }],
   layout: {
@@ -60,12 +62,21 @@ describe("what the pipeline needs from you", () => {
     expect(container.textContent).not.toMatch(/\//);
   });
 
-  it("renders nothing at all when the pipeline needs nothing", () => {
-    // Absence is absence. A pipeline with no entry channels gets no empty column.
+  it("renders nothing at all when the pipeline neither needs nor produces anything", () => {
+    // Absence is absence. A closed graph gets no empty column on either side.
+    //
+    // **This fixture had to get stricter when outputs arrived**, and that is the test doing its
+    // job. It used to be a lone step with one unwired OUTPUT port, which was "needs nothing" and
+    // is now "produces exactly one thing" — so a version of it that still passed would have been
+    // a version where `terminals` drew nothing.
     const closed = {
       ...DATA,
-      steps: [{ ...DATA.steps[0], ports: [DATA.steps[0].ports[1]] }],
-      layout: { ...DATA.layout, nodes: [DATA.layout.nodes[0]], wires: [] },
+      steps: [
+        // Only the out port, which `align` consumes.
+        { ...DATA.steps[0], ports: [DATA.steps[0].ports[1]] },
+        // Both ins covered — one wired, one unmet — and no outs at all.
+        { ...DATA.steps[1], ports: DATA.steps[1].ports.slice(0, 2) },
+      ],
     };
     const { container } = render(<Sources data={closed as never} offsets={{}} />);
     expect(container.innerHTML).toBe("");
@@ -79,5 +90,116 @@ describe("what the pipeline needs from you", () => {
     );
     const box = container.querySelector('[data-testid="source"] > div:last-child') as HTMLElement;
     expect(parseInt(box.style.left, 10)).toBe(500 - 150 - 90);
+  });
+});
+
+/** Spec §4.1. `goal_of` has computed `want` since Plan 3E and **the canvas drew none of it** —
+ *  a terminal `counts.matrix` was an unwired port with nothing saying it was the point. */
+describe("what the pipeline is for", () => {
+  it("draws an output for a port nothing consumes, and only for that", () => {
+    // Two out ports on the canvas: `trimgalore.reads` feeds `align`, so it is a step in the
+    // middle of a pipeline; `align.bam` feeds nothing, so it is the pipeline's product.
+    render(<Sources data={DATA as never} offsets={{}} />);
+    const outs = screen.getAllByTestId("terminal");
+    expect(outs.length).toBe(1);
+    expect(outs[0].textContent).toContain("bam");
+    expect(outs[0].textContent).toContain("alignment.bam");
+    expect(outs[0].textContent).toContain("Output");
+  });
+
+  it("draws one per terminal port where there are several", () => {
+    // **The operator asked for this in these words** — *"there can be multiple outputs"* — and
+    // `want` has always been a list. A single-output canvas over a multi-output goal is the
+    // interface asserting something the artifact does not say.
+    const forked = {
+      ...DATA,
+      steps: [DATA.steps[0], {
+        ...DATA.steps[1],
+        ports: [...DATA.steps[1].ports, {
+          name: "log", type_id: "qc.report", side: "out", met: true, states: [],
+        }],
+      }],
+    };
+    render(<Sources data={forked as never} offsets={{}} />);
+    expect(screen.getAllByTestId("terminal").length).toBe(2);
+  });
+
+  it("sits in the gutter to the RIGHT, which the last rank has by construction", () => {
+    // The mirror of the input gutter, and the same arithmetic — `place`. A socket needs
+    // `SOCKET_W + GAP` = 240px of clear space and a rank is `RANK_PITCH` = 224px wide, so the
+    // space beside a node that is not at the end is already occupied by the node it feeds.
+    const { container } = render(<Sources data={DATA as never} offsets={{}} />);
+    const box = container
+      .querySelector('[data-testid="terminal"] > div:last-child') as HTMLElement;
+    // `align` is at rank 1, which is the last: x + NODE_W + GAP.
+    expect(parseInt(box.style.left, 10)).toBe(360 + 172 + 90);
+  });
+
+  it("carries a TYPE and offers nothing to type into", () => {
+    // Invariant 15 reaches both sides. An output socket is as un-bindable as an input one:
+    // where the results are written is `params.outdir`, a SITE fact Wiener supplies, and it is
+    // no more a pipeline's business than where the reads came from.
+    const { container } = render(<Sources data={DATA as never} offsets={{}} />);
+    const out = container.querySelector('[data-testid="terminal"]') as HTMLElement;
+    expect(out.querySelectorAll("input, textarea, select").length).toBe(0);
+    expect(out.textContent).not.toMatch(/\//);
+  });
+});
+
+/** Spec §5, the visible half. What a person types is a **label**: the channel name, the param,
+ *  the samplesheet column and the Nextflow variable are all derived and this reaches none of
+ *  them. `tests/test_draft_labels.py` is what holds that; these hold that it is reachable. */
+describe("naming a socket on the canvas", () => {
+  it("renames an input in place, and reports the socket it renamed", () => {
+    const renamed = vi.fn();
+    render(<Sources data={DATA as never} offsets={{}} onRename={renamed} />);
+    const field = screen.getByLabelText("name for reads");
+    fireEvent.change(field, { target: { value: "liver reads" } });
+    // `<node>.<port>`, which is what `DraftLabel.key` is validated as.
+    expect(renamed).toHaveBeenCalledWith("trimgalore.reads", "liver reads");
+  });
+
+  it("renames an output too", () => {
+    // **Both, and the plan says both in those words.** An output you cannot name is half a
+    // feature on the screen where the operator asked for multiple outputs.
+    const renamed = vi.fn();
+    render(<Sources data={DATA as never} offsets={{}} onRename={renamed} />);
+    fireEvent.change(screen.getByLabelText("name for bam"), { target: { value: "liver bam" } });
+    expect(renamed).toHaveBeenCalledWith("align.bam", "liver bam");
+  });
+
+  it("shows the port's own name as a placeholder rather than as a value", () => {
+    // An unnamed socket reads as its port, and the field is empty — so a person who types
+    // replaces nothing, and one who clears it gets the derived name back rather than a blank
+    // box. Storing the port name as a value would make "never touched" indistinguishable from
+    // "named it after itself".
+    render(<Sources data={DATA as never} offsets={{}} onRename={vi.fn()} />);
+    const field = screen.getByLabelText("name for reads") as HTMLInputElement;
+    expect(field.value).toBe("");
+    expect(field.placeholder).toBe("reads");
+  });
+
+  it("shows the label where there is one, and still shows the type", () => {
+    // The type is what the socket is; the label is what this pipeline calls it. Replacing the
+    // type with a person's words is how a screen comes to assert something the artifact cannot
+    // back up — spec §0.1, and the reason the label sits above the type rather than over it.
+    render(
+      <Sources
+        data={DATA as never}
+        offsets={{}}
+        labels={{ "trimgalore.reads": "liver reads" }}
+        onRename={vi.fn()}
+      />,
+    );
+    expect((screen.getByLabelText("name for reads") as HTMLInputElement).value)
+      .toBe("liver reads");
+    expect(screen.getAllByTestId("source")[0].textContent).toContain("fastq.reads");
+  });
+
+  it("offers no field at all where the canvas is read-only", () => {
+    // The run graph draws the same sockets and renames none — `onRename` omitted is the whole
+    // of that, so a read-only canvas cannot grow an editable field by accident.
+    const { container } = render(<Sources data={DATA as never} offsets={{}} />);
+    expect(container.querySelectorAll("input").length).toBe(0);
   });
 });

@@ -164,6 +164,30 @@ export function useGraph(
     [edit],
   );
 
+  /** Name one socket. **A label, and it names nothing.**
+   *
+   * The channel name, the param, the samplesheet column and the Nextflow variable are all
+   * derived from types and graph shape; this reaches none of them. `test_draft_labels.py` is
+   * the guard and `DraftLabel`'s docstring is the argument — the short version is invariant 15:
+   * a field a person types an input's name into is one rename away from a patient identifier,
+   * so the worst case has to be a private note in a Postgres row.
+   *
+   * **Keyed on `<node>.<port>`, not on a node.** A label should survive its node being dragged
+   * and not survive its port being rewired.
+   *
+   * **Empty removes the entry** rather than storing `""`. A socket a person cleared and one
+   * they never touched are the same socket, and keeping the difference would put a row in the
+   * draft for every field anybody clicked into.
+   */
+  const setLabel = useCallback(
+    (key: string, label: string) =>
+      edit((g) => {
+        const rest = (g.labels ?? []).filter((l) => l.key !== key);
+        return { ...g, labels: label ? [...rest, { key, label }] : rest };
+      }),
+    [edit],
+  );
+
   /** Swap one node's contract, keeping its id and therefore its wires.
    *
    * Adopting the resolver's choice for a step means *this step, that tool* — removing and
@@ -263,6 +287,7 @@ export function useGraph(
     removeNode,
     replaceContract,
     setParam,
+    setLabel,
     connect,
     disconnect,
     moveNode,
