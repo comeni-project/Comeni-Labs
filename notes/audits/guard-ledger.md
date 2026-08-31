@@ -3589,3 +3589,45 @@ bare containers, the case `MD0100` is actually for, and closer to real than what
 **Neither was repointed.** A guard whose premise has been deleted and whose call is patched to
 compile again is a guard that has stopped watching anything, and this repository has now found
 three of those in a week.
+
+
+## The layer is arranged the way it says it is — Plan 5A phases A3 and A4, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_dockerfile.py` "every workspace member reaches the image" | removed the `comeni-vendor` COPY line | failed | named the package and the `Distribution not found at: file:///app/packages/<x>` the build would print |
+| 2026-08-31 | `test_registry_layer.py` "the manifest places every kind that exists" | removed `rule:` from `layout:` | failed | `declared and unplaced: ['rule']` |
+| 2026-08-31 | `test_registry_lint.py` × 7 | each of the seven checks in `lint()` replaced with `[]`, one at a time | failed | **one test each, no overlap, nothing inert** |
+| 2026-08-31 | `test_module_kind.py` "the layer that wins the contract wins the module" | keyed `Module` on id+sha instead of the module key | failed | `KeyError: 'nf-core/star/align'` |
+
+### The Dockerfile had been broken since A1, and `make check` cannot see it
+
+`docker build` died on `Distribution not found at: file:///app/packages/comeni-vendor` — a
+package added in A1 and never added to a hand-maintained COPY block. The file's own comment
+says *"a missing line here fails the build with `Distribution not found`, which is how this was
+found"*; that was `dag-core`, and `mendel-ai` before it. **Third occurrence**, and the reason it
+recurs is that the CI lane builds no image, so the only thing that has ever caught it is a person
+running the build.
+
+It is a guard now, in both directions, with a guard-of-the-guard for a regex that matches
+nothing — the `test_every_package_is_classified` shape applied to a second hand-maintained list.
+
+### A guard that would have been inert, caught before it shipped
+
+`registry_lint` was written with a `Finding` class of its own. `test_diagnostics_ownership.py`
+matches exactly two emission shapes and says so — *"there are only two"* — so a positional
+`Finding("MD0014", …)` was **invisible to it**, and six codes were declared, documented,
+answerable by `mendel explain`, and emitted by nothing the scan could see.
+
+That scan caught it, which is the system working: `test_every_declared_code_is_emitted` failed
+naming all six. `Finding` was deleted rather than the scan widened — `Diagnostic` already exists,
+already validates its `code` against the registry at construction, and a third shape would have
+put the next author back in the same position.
+
+### Seven checks, seven reverts, one test each
+
+`lint()` composes seven independent checks and all eleven tests passed on the first run, which is
+exactly when a suite deserves to be doubted. Reverting each check in turn — `found += []` — and
+recording which tests noticed produced a clean diagonal: every check has one test, no test
+covers two checks, and no check is unwatched. That is a stronger statement than "the tests pass",
+and it took one script.

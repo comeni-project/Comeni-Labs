@@ -169,11 +169,11 @@ rather than as silently stale content read from a directory nobody updates any m
 
 ### A4.1 The remaining layout fixes
 
-- [ ] `roles.yml` → `roles/<id>.yml`, one per file. It held **every** role in one file at the
+- [x] `roles.yml` → `roles/<id>.yml`, one per file. It held **every** role in one file at the
       layer root — one of the four different granularities §4.1 counts.
-- [ ] `rules/` one rule per file, named for its id.
-- [ ] Contracts renamed to `contract.yml` inside the subtool directory.
-- [ ] `registry.yml` rewritten as **the lint's input** (§4.4). Its `kinds:` list is *"read by
+- [x] `rules/` one rule per file, named for its id.
+- [x] Contracts renamed to `contract.yml` inside the subtool directory.
+- [x] `registry.yml` rewritten as **the lint's input** (§4.4). Its `kinds:` list is *"read by
       nobody"* by its own comment today — a self-description that can only rot. A manifest that is
       the lint's argument cannot drift.
 
@@ -182,52 +182,52 @@ rather than as silently stale content read from a directory nobody updates any m
 *The loader stays free — invariant 11 is unchanged and an overlay keeps its freedom. The curated
 registry holds itself to a layout **its own CI** enforces, which is nixpkgs's `pkgs/by-name` move.*
 
-- [ ] Refuses: a file in the wrong directory for its kind; a filename that is not its id; a
+- [x] Refuses: a file in the wrong directory for its kind; a filename that is not its id; a
       `roles.yml` holding more than one role; a type under `tools/` whose id is not namespaced by
       that tool; a `module/` with no `module.yml`.
-- [ ] Refuses **a relative path crossing out of a tool's own directory** — this is what makes
+- [x] Refuses **a relative path crossing out of a tool's own directory** — this is what makes
       §3.1's *self-isolated* a checked property rather than a hope.
-- [ ] Refuses **a second contract version in one layer** (§9.3), naming that section. One
+- [x] Refuses **a second contract version in one layer** (§9.3), naming that section. One
       `module/` per directory cannot hold two SHAs, and the case is bounded rather than designed
       around on the strength of a need nobody has.
-- [ ] Runs in `comeni-registry`'s CI beside `mendel docs --check`, which already runs there.
-- [ ] **Watched failing** — misfile a document and see the message.
+- [x] Runs in `comeni-registry`'s CI beside `mendel docs --check`, which already runs there.
+- [x] **Watched failing** — misfile a document and see the message.
 
 ### A4.3 What a reviewer may skip — spec §8.4
 
-- [ ] `.gitattributes` marks `module/**` and `docs.md` `linguist-generated`.
-- [ ] `CODEOWNERS` so a contract gets review and a vendored `main.nf` does not.
-- [ ] `comeni-vendor check` in CI, so *"do not hand-edit this"* is enforced rather than asked.
+- [x] `.gitattributes` marks `module/**` and `docs.md` `linguist-generated`.
+- [x] `CODEOWNERS` so a contract gets review and a vendored `main.nf` does not.
+- [x] `comeni-vendor check` in CI, so *"do not hand-edit this"* is enforced rather than asked.
 
 ### A4.4 Module displacement — spec §8.5
 
-- [ ] **The layer that wins the contract wins the module.** Invariant 11's displacement is defined
+- [x] **The layer that wins the contract wins the module.** Invariant 11's displacement is defined
       for contracts on the module key; module source did not exist inside a layer before this plan.
-- [ ] A displaced module is one more `Displacement` row, **not a new mechanism**. Anything else
+- [x] A displaced module is one more `Displacement` row, **not a new mechanism**. Anything else
       lets a laboratory's contract run against the public layer's source — the drift `MD0104`
       exists to catch, reintroduced between layers instead of between repositories.
 
 ### A4.5 The threat model, said out loud — spec §10.1
 
-- [ ] `docs/design/federation.md` §6 gains a paragraph: **`--registry X` used to mean *parse this
+- [x] `docs/design/federation.md` §6 gains a paragraph: **`--registry X` used to mean *parse this
       person's YAML* and now means *execute this person's Groovy*.** A layer carries `main.nf`,
       which Nextflow runs.
-- [ ] It is **not a reason to reverse the decision** — it is exactly nf-core's property, and a
+- [x] It is **not a reason to reverse the decision** — it is exactly nf-core's property, and a
       pipeline is code. What changes is that **signed tags stop being a nicety**: federation §3.4
       already specifies tag signature plus a content digest, and that verification is now the only
       thing between a third-party overlay and arbitrary execution. It becomes a **prerequisite for
       publishing overlays** rather than a later refinement.
-- [ ] **No sandbox is invented.** Nextflow runs containers; the trust boundary is the container
+- [x] **No sandbox is invented.** Nextflow runs containers; the trust boundary is the container
       runtime, and a half-measure that looked like isolation would be worse than a sentence that
       tells the truth.
-- [ ] `comeni-registry`'s `CONTRIBUTING.md` says the same thing where a contributor will see it.
+- [x] `comeni-registry`'s `CONTRIBUTING.md` says the same thing where a contributor will see it.
 
 ### A4.6 Two things recorded rather than fixed
 
-- [ ] **The shard threshold** (§8.3): shard `tools/<org>/` at ~300 entries. It has 8. Nothing
+- [x] **The shard threshold** (§8.3): shard `tools/<org>/` at ~300 entries. It has 8. Nothing
       addresses a tool by path — `ModuleContract.id` is `nf-core/star/align` and the loader globs —
       so sharding stays a mechanical move the lint can perform later.
-- [ ] **Two digests that should disagree** (§10.2): `wiener_api.services.artifacts` identifies an
+- [x] **Two digests that should disagree** (§10.2): `wiener_api.services.artifacts` identifies an
       artifact by `Pipeline.content_digest()` and says explicitly that it is *not* the tree digest,
       because re-vendoring a module would make the same pipeline look like a different one. That is
       the **opposite** of A1.2's conclusion for the layer digest, and both are right — *is this the
@@ -244,4 +244,4 @@ registry holds itself to a layout **its own CI** enforces, which is nixpkgs's `p
 | A2 | Yes, plus three things the plan did not name | **A contract's module source is not derivable from a root**, and the plan reads as five bullets because it did not notice. `conformance.module_path` computed `module_root / f"{nf_include}.nf"`; with the source *in* the layer there is no root to compute against, so it became a lookup by module key — `key_of`, one derivation from `nf_include`, rather than a second field a lint would have to check agreed with the first. That changed `check`, `_meta_keys`, `orchestrate.build`, `diagnostics_for`, the API and three forge sites, and **154 tests** with them. Reported to the operator with the number and three options before sweeping; they chose the sweep. **`mendel_compiler.staging` is new**: both `mendel build` and the API's `keep` wrote `out/modules/` with their own `copytree` — the shape `MD0210` already found a bug in — and it now copies what the pipeline *includes*, five modules for the spine where the sweep shipped all thirteen. **`mendel conformance` is new**, and it is A2's payoff: the registry's CI could not ask whether its own contracts agree with their own modules, and its `CONTRIBUTING.md` said so. Contracts moved to `contract.yml` in A2 rather than A4 — A2.1's own diagram shows it, and leaving `align.contract.yml` beside `align/module/` for a phase is a state nobody should review |
 | — | **The stated order was impossible** | A2.1 says the registry PR merges first. It cannot: the layer will not load under an engine that has never heard of the `module` kind, and the engine's suite will not pass against a layer with no modules in it. `ENGINE_REF` in the registry's CI is what breaks the cycle — it pins a Comeni-Labs *commit*, which only has to exist on a pushed branch. Sequence that works: push the engine branch, bump `ENGINE_REF`, merge the registry PR, bump the submodule |
 | A3 | Yes, and it found a live break | **The Dockerfile still copied `vendor/`, and it also never copied `comeni-vendor`.** The second is A1's break, not A3's, and nothing caught it for two phases: `make check` builds no image, so the only thing that has ever found a missing package line is somebody running `docker build`. Its own comment says *"a missing line here fails the build with `Distribution not found`, which is how this was found"* — that was `dag-core`, and before it `mendel-ai`. Third time. `tests/test_dockerfile.py` now checks the COPY block against `packages/`, watched failing against exactly the missing line. **Three test files read `vendor/` directly** and were repointed at the layer before the delete — `test_modulespec.py`, `test_modulespec_lines.py`, and A32's strict-loader sweep, which now reads `registry/**/module/**`. `.env.example` set `MENDEL_SOURCE_ROOT` (accepted and ignored, so harmless, but a stale instruction to a new developer). `MD0100`'s `fix:` now names `comeni-vendor add` and the explanation records why the old advice pointed away from the layer the contract lives in |
-| A4 | | |
+| A4 | Yes, and one thing was deleted before it shipped | **`Finding` was a third emission shape and had to go.** `test_diagnostics_ownership.py` matches exactly two — `coded("X", …)` and `Diagnostic(code="X", …)` — and its docstring says *"there are only two"*. A positional `Finding("MD0014", …)` was invisible to it, so six declared codes were emitted by nothing the scan could find: declared, documented, answerable by `mendel explain`, and unreachable by the guard that exists to catch exactly that. `Diagnostic` already validates its code at construction, which `Finding` did not — smaller *and* stronger. **A4.5's registry half landed in A2** (`CONTRIBUTING.md`), so A4 wrote the `federation.md` half, plus §3.6 for A4.6's two-digests note — recorded on both functions rather than in one place, since the risk is somebody reconciling them. **A4.1's contract rename happened in A2** for the reason A2's row gives. `roles/<id>.yml` files carry the job as a *comment* rather than a field: the parse reads `roles:` and a `description:` it ignored would be a key that can be misspelled in silence (A10) — so role descriptions **as data** are unaddressed and belong to whoever next touches that kind |

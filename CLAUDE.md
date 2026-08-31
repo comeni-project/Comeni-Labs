@@ -738,6 +738,16 @@ mounted at the path it already occupied — so every test that loads `ROOT / "re
 unchanged, and `git clone --recurse-submodules` is how you get it. Forget, and `make check` and
 `layers.load()` each refuse in one sentence naming `git submodule update --init`.
 
+**The modules moved in on 2026-08-31 (Plan 5A).** A layer carries `tools/<org>/<tool>/module/`
+beside the contract that is a binding for it, and `vendor/` is deleted from this repository.
+`--registry X` is now the whole input to a build, which is what makes an air-gapped site a
+first-class customer rather than a footnote — and it is what let **three checks exist that could
+not before**: `mendel conformance` (every contract against its own module, all of them rather
+than only the ones a goal routes to), `comeni-vendor check` (has a `module/` been hand-edited —
+offline, so it runs in CI), and `mendel lint` (is the layer arranged the way its manifest says).
+All three run in `comeni-registry`'s own CI, whose `CONTRIBUTING.md` previously carried a
+paragraph beginning *"Not checked, and it cannot be here"*.
+
 **It was predicted to be "a path change and nothing else", and it was not.** The submodule puts
 `LICENSE`, `README.md` and a `.git` *file* beside the declared kinds, and `.git` holds
 `gitdir: …/worktrees/<name>/modules/registry` — so `digest_of_directory`, which walked
@@ -943,6 +953,14 @@ uv run mendel profile --have fastq.reads --out profile-build/
 # one Markdown page per tool, from the registry data alone. --check is what
 # comeni-registry's CI runs; it writes nothing and exits 1 on a stale page.
 uv run mendel docs --registry registry/ --out /tmp/tool-docs
+
+# is the layer arranged the way its own registry.yml says? `layout:` is this verb's
+# ARGUMENT, which is why that field replaced `kinds:` — a manifest with no consumer
+# can only rot, and that one had. THE LOADER READS NONE OF IT: invariant 11 says a
+# file declares its own kind, so a private overlay arranges itself however it likes
+# and declaring no `layout:` means unenforced. This is the curated registry holding
+# itself to a standard in its own CI — nixpkgs's `pkgs/by-name` move.
+uv run mendel lint --registry registry/
 
 # regenerate the measurement type stub; --check is what CI runs
 uv run python tools/generate_types.py
