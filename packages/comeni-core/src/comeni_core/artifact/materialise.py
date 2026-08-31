@@ -59,6 +59,12 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
     lock = Lockfile.of(ir, registry, layers)
     pinned = {entry.id: entry for entry in lock.contracts}
 
+    # **Channels first, because a port now names one.** `StepInput.channel` was a `TypeId`, so
+    # a port could say where it read from without anything having decided what the channels
+    # were; it is a `ChannelName` now, and a name that no channel declares is `MD0227`.
+    channels = _channels(ir, registry, vocab, measurements)
+    named = {channel.type_id: channel.name for channel in channels}
+
     steps = []
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
@@ -76,7 +82,7 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
                 why=_why(node.selection),
                 presence=_why(node.presence),
                 ext_args=_ext_args(contract),
-                inputs=_inputs(ir, node, contract),
+                inputs=_inputs(ir, node, contract, named),
                 call=_call(contract),
                 settings=_settings(node, contract),
             )
@@ -101,7 +107,7 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
         # default: `None` means a file written before the question existed.
         ai=AiProvenance(available=[], used=[]),
         steps=steps,
-        channels=_channels(ir, registry, vocab, measurements),
+        channels=channels,
         decisions=list(ir.decisions),
     )
 
@@ -252,7 +258,7 @@ def _call(contract: ModuleContract) -> list[CallArg]:
     ]
 
 
-def _inputs(ir, node, contract) -> list[StepInput]:
+def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
     """Every consumed port and where it comes from, keyed under the consumer.
 
     Entry ports are listed too. Without them a `Step` would not know which channel a port
@@ -274,7 +280,10 @@ def _inputs(ir, node, contract) -> list[StepInput]:
                 )
             )
         else:
-            inputs.append(StepInput(port=port.name, channel=port.type_id))
+            # **The channel's NAME, not its type.** One channel per type today, so the
+            # lookup is total — and it stops being total in phase 3, which is where the
+            # drawing starts saying which of two same-type channels a port reads.
+            inputs.append(StepInput(port=port.name, channel=named[port.type_id]))
     return inputs
 
 
@@ -293,12 +302,39 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
                 needed[port.type_id] = None
 
     channels = []
+    # **Sorted by type id, which is a property of the SHAPE and not of anybody's clicking.**
+    #
+    # Spec §11.2 asks for `(rank, order-within-rank, port index)` and explains why: node ids are
+    # minted from what is currently *taken*, so deleting a node and adding another gives two
+    # structurally identical graphs different ids, and any order keyed on them makes a person's
+    # `params.*` depend on the order they clicked.
+    #
+    # **`sorted(needed)` already has that property and is not a weaker version of it.** `needed`
+    # is keyed by type id, so while there is one channel per type the order is a pure function
+    # of the SET of types the graph consumes — no node id reaches it, and two identical drawings
+    # sort identically however they were built. The `(rank, order, port index)` key becomes
+    # necessary in **phase 3**, when two channels may share a type and the type id stops being a
+    # unique key; phase 3 owns it, and owns the determinism test that fails without it.
+    #
+    # **Two counters, not one.** They were one, and it produced `ch_star` reading
+    # `params.star_2`: the name took `star` and the param — the same word, for the same
+    # channel — found it taken and suffixed itself. A name and a param are different
+    # namespaces (a Groovy variable against a `params.*` key), and only a *cross-channel*
+    # collision is a collision. Caught by reading the golden diff rather than regenerating it,
+    # which is the third time that has been the thing that caught it.
+    names: dict[str, None] = {}
+    params: dict[str, None] = {}
     for type_id in sorted(needed):
         sourced = measurements.meta_sources_for(type_id, ir.profile) if measurements else {}
-        expression = vocab.entry_channels.get(type_id) or _default_entry(type_id)
+        template = vocab.entry_channels.get(type_id) or _default_entry()
+        name = _unique(_stem(type_id), names)
+        param = _unique(vocab.params.get(type_id) or _param_of(template, type_id), params)
+        expression = _substitute(template, param)
         declared = vocab.test_data.get(type_id)
         channels.append(
             Channel(
+                name=name,
+                param=param,
                 type_id=type_id,
                 params=_param_refs(expression),
                 expression=expression,
@@ -311,7 +347,86 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
     return channels
 
 
-def _default_entry(type_id: str) -> str:
+def _stem(type_id: str) -> str:
+    """`annotation.gtf` -> `gtf`. The type id's last segment, and nothing else.
+
+    **Not injective, and the suffix is what fixes it rather than a longer name.** `qc.report`
+    and `multiqc.report` both end in `report` — a collision `_channel_name`'s docstring already
+    recorded costing two ports the same channel silently. `_unique` assigns the second one
+    `report_2`, in an order that is a function of the graph's shape, and `MD0226` refuses the
+    pipeline if two ever come out equal anyway.
+    """
+    return type_id.rsplit(".", 1)[-1].replace("-", "_")
+
+
+def _param_of(template: str, type_id: str) -> str:
+    """Which param a channel of this type reads, when the type does not say.
+
+    **Transitional, and it is what keeps `param` honest while a registry still ships
+    literals.** A templated `entry_channel` has a `{param}` and the answer is the derived
+    stem. A version-5 one has `params.input` written into it — so deriving the stem would put
+    `param: reads` on a channel whose expression demonstrably reads `params.input`, and
+    `Channel.param` would be a field that disagrees with the string beside it.
+
+    So a literal expression is *asked*. Exactly one reference is the only answerable case:
+    `params:` is plural by design (`MD0211`), and a channel reading two params has no single
+    hole to name.
+
+    This branch goes when `MD0228` refuses a literal, together with the registry that stops
+    writing them.
+    """
+    if PLACEHOLDER not in template:
+        referenced = _param_refs(template)
+        if len(referenced) == 1:
+            return referenced[0]
+    return _stem(type_id)
+
+
+def _unique(stem: str, taken: dict[str, None]) -> str:
+    """`stem`, or `stem_2`, `stem_3` … — whichever is free, recorded as taken.
+
+    Called with a **separate** set for names and for params — see `_channels` for why sharing
+    one produced `ch_star = … params.star_2`.
+    """
+    #
+    # **A `while` rather than `itertools.count`**, and the guard is why: `itertools` is not on
+    # `comeni-core`'s purity allowlist, and that allowlist is worth more than the import. The
+    # same trade `_joined_identifier` records for `re` — *widening the allowlist for a two-line
+    # loop is a worse trade than the loop* — reached the same way, by the scan refusing it.
+    if stem not in taken:
+        taken[stem] = None
+        return stem
+    n = 2
+    while True:
+        candidate = f"{stem}_{n}"
+        if candidate not in taken:
+            taken[candidate] = None
+            return candidate
+        n += 1
+
+
+PLACEHOLDER = "{param}"
+"""The one substitution an `entry_channel` may carry. **Seven literal characters.**
+
+Not a template language — the same argument as Plan 1.15's `transform`: no parser, no
+precedence, no second name. `{` is legal Groovy and appears throughout these expressions
+(`.map { gtf -> … }`), so this is matched literally and everything else is left alone.
+"""
+
+
+def _substitute(expression: str, param: str) -> str:
+    """Put this channel's param into the type's template.
+
+    **Transitional: a literal `params.gtf` with no placeholder passes through unchanged.** The
+    engine has to understand the template before any registry can ship one — a compatibility
+    check that arrives with the change it guards is a check every older install has already
+    failed to run — so this commit reads both and the next one refuses a literal with `MD0228`,
+    together with the registry that stops writing them.
+    """
+    return expression.replace(PLACEHOLDER, param)
+
+
+def _default_entry() -> str:
     """How a type arrives when its vocabulary declares no `entry_channel`.
 
     Materialised here rather than left to the emitter, because emission must not need the
@@ -319,5 +434,6 @@ def _default_entry(type_id: str) -> str:
     with nothing after it — valid-looking Groovy that dies at parse, caught by reading the
     golden diff rather than by regenerating it and moving on.
     """
-    param = type_id.rsplit(".", 1)[-1]
-    return f"Channel.fromPath(params.{param}, checkIfExists: true).map {{ f -> [ [:], f ] }}"
+    return (
+        "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [:], f ] }"
+    )

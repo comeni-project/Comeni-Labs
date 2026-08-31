@@ -72,10 +72,10 @@ what makes the diff readable.*
 
 ### 2.2 The types
 
-- [ ] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
-- [ ] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
+- [x] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
+- [x] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
       that makes two same-type inputs addressable.**
-- [ ] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
+- [x] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
       language** — one substitution, the same argument as Plan 1.15's `transform`. `{` is legal
       Groovy and appears throughout these expressions, so the placeholder is matched as the
       literal seven characters `{param}`.
@@ -88,29 +88,29 @@ what makes the diff readable.*
 
 - [ ] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
       layout arithmetic, and **no node id anywhere**.
-- [ ] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
+- [x] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
       *taken*. Add two STAR nodes and delete the first and the survivor is `star_align_2`; draw one
       and it is `star_align_1`. Two structurally identical graphs, two different node ids — so any
       ordering keyed on them makes a person's `params.*` depend on the order they clicked.
-- [ ] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
+- [x] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
       `qc.report` and `multiqc.report` both end in `report`, and `_channel_name`'s docstring
       records that collision costing two ports the same channel silently.
-- [ ] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
+- [x] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
       collide needs a check, not a convention.**
 
 ### 2.4 `SCHEMA_VERSION` 5 → 6, and the migration decides — spec §12.2
 
-- [ ] The loader migrates: an old file names its channels by type, one channel per type, so
+- [x] The loader migrates: an old file names its channels by type, one channel per type, so
       `annotation.gtf` → `gtf`. In the loader beside the other version branches, **not a script
       somebody has to remember to run.**
 - [ ] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
       name derived from the type, which is what this pipeline's behaviour already was.*
-- [ ] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
+- [x] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
       current registry and replays every recorded decision so only what you touched can move —
       issue #10 closed on that property. If the migration's names and a fresh derivation's names
       differ by one, every `params.*` in a laboratory's command line renames itself on an upgrade
       they asked for to pick up a registry fix.
-- [ ] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
+- [x] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
       emitted `.nf` is byte-identical to the v5 artifact's. Watched failing against a migration
       that assigns silently.
 
@@ -377,3 +377,66 @@ annotation.gtf` once** — three rows for what the artifact merges into one `par
 the canvas and the goal disagreeing, on the one screen where the disagreement costs a laboratory
 something: bind those three separately and two of the answers go nowhere. The labels correctly do
 **not** appear here — the sheet reads the artifact's holes, and a label is not in the artifact.
+
+
+### Phase 2.1–2.4 — carried out, with four deviations
+
+**2.1 is a format level, not a Mendel version.** §2.1 asks the layer to declare *"the minimum
+Mendel it needs"* and there is no such number — releases here are per package and independent, so
+a registry would have to name a minimum `mendel-resolver` **and** a minimum `mendel-compiler` and
+get both right. The layer declares what it uses, Mendel declares what it understands. The
+sentence a person reads is still §2.1's.
+
+**A type declares its `param`, which neither spec nor plan mentions.** `fastq.reads` reads
+`params.input` and every other shipped type reads its last segment. Deriving the param from the
+channel name would have renamed it to `params.reads` — a change to *what a laboratory types*,
+inside the phase described as *"the rename, with no behaviour change"* — and would have dissolved
+the very ambiguity §12.1 says phase 5 has to solve. `nextflow.config` is byte-identical across
+the whole phase, which is that decision paying off.
+
+**2.3's `(rank, order-within-rank, port index)` key is deferred to phase 3, and the reason is
+that it is not yet needed.** §11.2's defect is an order keyed on *node ids*, which are minted
+from what is currently taken. `_channels` sorts by **type id**, which is a property of the shape:
+while there is one channel per type the order is a pure function of the set of types the graph
+consumes, and no node id reaches it. It stops being a unique key in phase 3, which is where two
+channels may share a type — and phase 3 already owns the determinism test that fails without it.
+
+**2.4's `Why` is deferred to phase 4, and this one is a disagreement with §12.2 rather than a
+postponement.** §12.2 wants the migration to record that it decided, so `upgrade` replays rather
+than re-derives. That is exactly right for **scope**: a v5 file has none, taking the type's
+default is a genuinely new decision, and a decision appearing in a pipeline nobody re-decided is
+what replay exists to prevent. **A name is not that.** A v5 file has one channel per type, so
+`annotation.gtf` → `gtf` restates what the file already said; recording a `DecisionRecord` for it
+would put a decision nobody made into the artifact — §12.2's own failure mode from the other
+side — and `mendel explain` would owe an answer for a question that was never open.
+
+What the property actually needs is that the migration and a fresh derivation *cannot* disagree,
+and `test_the_migration_names_channels_the_way_a_fresh_build_does` asserts it by comparing them
+against **each other** rather than each against a literal. That test earned its shape
+immediately: the migration was written with one `taken` counter shared between names and params —
+the identical bug that had just been found and fixed in `_channels` — and gave `annotation.gtf`
+the param `gtf_2` while a fresh build gave it `gtf`. A test comparing either one to a hardcoded
+list would have been written against whichever was in front of the author.
+
+**What is NOT done in this commit**, and why it cannot be yet:
+
+- **`MD0228`** — an `entry_channel` with no `{param}`. The substitution reads a template *and*
+  today's literal, because the engine has to understand templates before any registry can ship
+  one. It tightens in the commit that bumps the submodule.
+- **A test over every registry type that a substituted expression still parses** (`nextflow
+  lint` on a generated stub). Nothing to substitute until 2.6 writes the templates.
+- **2.5**, the API's `channels` and deleting `Sources.entryChannels()`.
+
+### The two bugs the goldens caught, both by reading rather than regenerating
+
+`params.star` became `params.star_2`, because names and params shared one uniqueness counter and
+`genome.index.star`'s name took `star` before its own param could. They are different namespaces
+— a Groovy variable against a `params.*` key — and only a cross-channel collision is one.
+
+And `Channel.param` said `reads` for a channel whose expression demonstrably read `params.input`,
+because the param was derived while the expression was still a literal. `_param_of` asks a
+literal expression what it reads, so the field and the string beside it cannot disagree.
+
+**Both were found by reading the golden diff**, which is now the third time in this repository
+that has been what caught it rather than the suite. `nextflow.config` not moving at all is the
+single most useful line in that diff: it is the whole command-line interface, unchanged.

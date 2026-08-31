@@ -487,9 +487,14 @@ def test_a_contract_missing_via_emits_MD0200_and_blames_the_contract(tmp_path, c
 def test_a_step_input_naming_both_a_source_and_a_channel_is_refused():
     """MD0215. A `StepInput` is one edge: it comes from an upstream step (`source`) or an entry
     channel (`channel`), never both. Both set is a wiring that reads two ways — root G's defect
-    in a new type — so it is refused rather than resolved by field order."""
+    in a new type — so it is refused rather than resolved by field order.
+
+    **`channel="reads"`, not `"fastq.reads"`.** Since schema 6 a port names a channel by name
+    rather than by type, and `ChannelName` is a plain identifier — so the old spelling now fails
+    on the field before MD0215 is reached. Updating the fixture is the type having actually
+    narrowed rather than merely being renamed."""
     with pytest.raises(ValueError, match="MD0215"):
-        StepInput(port="reads", source="trimgalore.reads", channel="fastq.reads")
+        StepInput(port="reads", source="trimgalore.reads", channel="reads")
 
 
 def test_a_step_input_naming_neither_a_source_nor_a_channel_is_refused():
@@ -1028,8 +1033,17 @@ def test_an_archived_document_backfills_an_empty_premise(tmp_path):
     asserts the premise is *missing* rather than *never recorded* — Plan 1.14 Task 0's
     lesson, which cost a plan the first time."""
     raw = yaml.safe_load(ARCHIVED.read_text())
+    # **The FILE is old; the loaded object is not.** This asserted `loaded.version <
+    # SCHEMA_VERSION`, which held only while migrations left the version alone. A migration
+    # that rewrites the shape and not the number would produce an object claiming to be
+    # version 5 with version-6 content, so the 5 → 6 branch stamps it — and the claim this
+    # test is actually making belongs on the bytes.
+    #
+    # `MD0213` is unaffected, and by an existing design rather than by luck:
+    # `Emitted.schema_version` records the version `from_digest` was taken under, precisely so
+    # `is_stale` can tell *you edited this* from *the schema moved*. Nothing here touches it.
+    assert raw["version"] < SCHEMA_VERSION
     loaded = Pipeline.model_validate(raw)
-    assert loaded.version < SCHEMA_VERSION
     assert all(step.why.premise == [] for step in loaded.steps)
 
 

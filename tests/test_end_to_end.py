@@ -69,7 +69,7 @@ def test_the_measured_strandedness_reaches_the_tool(tmp_path):
         "--root", str(ROOT),
     ])
     source = (tmp_path / "pipeline" / "main.nf").read_text()
-    reads = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    reads = next(ln for ln in source.splitlines() if "ch_reads =" in ln)
     assert "strandedness: 'reverse'" in reads, reads
     assert "single_end: false" in reads, reads
 

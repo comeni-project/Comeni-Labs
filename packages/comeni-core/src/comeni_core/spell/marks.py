@@ -57,6 +57,18 @@ class Mark(StrEnum):
     ROLE_NAME = "role-name"
     SPDX_ID = "spdx-id"
 
+    CHANNEL_NAME = "channel-name"
+    """A pipeline's own name for one channel — `gtf`, `gtf_2`, `reads`.
+
+    **Derived, never typed.** The operator's constraint on 2026-08-31 was *"yes it's a label,
+    does not change the actual keys"*, so a person's words never reach one of these; `DraftLabel`
+    is where they go instead.
+
+    Distinct from `TYPE_ID`, which is what a channel *carries*, and from `NF_IDENTIFIER`, which
+    is what it is *spelled* as in Groovy. Two channels of one type have one type id and two
+    names, and that difference is the whole of what Plan 5B exists to make expressible.
+    """
+
     SOCKET_KEY = "socket-key"
     """`<node>.<port>` — one end of one wire, on a **draft**.
 
@@ -546,6 +558,11 @@ StateName = Annotated[str, Mark.STATE_NAME, AfterValidator(_identifier("state na
 DecisionKey = Annotated[
     str, Mark.DECISION_KEY, AfterValidator(_joined_identifier("decision key"))
 ]
+ChannelName = Annotated[
+    str, Mark.CHANNEL_NAME, AfterValidator(_identifier("channel name"))
+]
+"""A plain identifier: it is spelled into Groovy as `ch_<name>` and read from
+`params.<param>`, and a declaration site has no escaping option (A34)."""
 SocketKey = Annotated[
     str, Mark.SOCKET_KEY, AfterValidator(_joined_identifier("socket key", "."))
 ]

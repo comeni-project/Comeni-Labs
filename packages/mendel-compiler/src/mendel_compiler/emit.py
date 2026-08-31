@@ -72,14 +72,23 @@ def _render_process_name(name: str) -> str:
     return name
 
 
-def _channel_name(type_id: str) -> str:
-    """`fastq.reads` -> `ch_fastq_reads`.
+def _channel_name(name: str) -> str:
+    """`gtf` -> `ch_gtf`. A prefix, and nothing else.
 
-    The last segment alone reads better but is not injective: `qc.report` and
-    `multiqc.report` both became `ch_report`, so one assignment shadowed the other and
-    two ports were fed the same channel, silently.
+    ═══ IT USED TO DERIVE THE NAME AND THAT WAS THE DEFECT ═══════════════════════════════════
+
+    This took a **type id** and built `ch_fastq_reads` from it, with a docstring explaining
+    that the last segment alone was not injective — `qc.report` and `multiqc.report` both
+    became `ch_report`, so one assignment shadowed the other and two ports were fed the same
+    channel, silently.
+
+    That docstring was right about the collision and wrong about where the fix belonged.
+    Deriving a channel's identity **here** is what made a channel a property of the type: two
+    channels of one type had one name, one `params.*` and one hole, whatever the drawing said.
+    The name is derived once, at materialisation, recorded on `Channel.name`, and checked for
+    uniqueness by `MD0226`. This function adds `ch_`.
     """
-    return "ch_" + type_id.replace(".", "_").replace("-", "_")
+    return "ch_" + name
 
 
 def _process_of(pipeline: Pipeline, node_id: str) -> str:
@@ -162,7 +171,7 @@ def _with_meta(expression: str, entries: list) -> str:
 
 def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     return [
-        (_channel_name(channel.type_id), _with_meta(channel.expression, channel.meta))
+        (_channel_name(channel.name), _with_meta(channel.expression, channel.meta))
         for channel in pipeline.channels
     ]
 

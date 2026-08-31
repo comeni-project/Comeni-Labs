@@ -103,6 +103,8 @@ decline to curate one.
 | `MD0223` | a value was edited and the reason beside it still describes the value it replaced |
 | `MD0224` | a setting fills a positional argument and is unanswered, so the call would read `null` |
 | `MD0225` | a value records a model settled it, and the build records that none was available |
+| `MD0226` | two channels share a name |
+| `MD0227` | a port names a channel the pipeline does not declare |
 
 ## Routing and resolution
 

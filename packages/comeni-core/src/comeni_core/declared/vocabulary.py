@@ -17,7 +17,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.diagnostics import coded
-from comeni_core.spell.marks import GroovyExpression, TypeId
+from comeni_core.spell.marks import GroovyExpression, NfIdentifier, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
     from comeni_core.declared.measurement import MeasurementRegistry
@@ -58,7 +58,37 @@ class TypeDeclaration(BaseModel):
     file, and it is emitted as a channel name — root C, A34."""
     states: frozenset[str] = frozenset()
     entry_channel: GroovyExpression | None = None
-    """Unbounded Groovy, emitted verbatim — the designed exception, marked as such."""
+    """Unbounded Groovy, emitted verbatim — the designed exception, marked as such.
+
+    **A one-placeholder template since Plan 5B:** `params.{param}`, substituted at
+    materialisation with the channel's own param. Not a template language — one substitution,
+    the same argument as Plan 1.15's `transform`. `{` is legal Groovy and appears throughout
+    these expressions (`.map { gtf -> … }`), so the placeholder is matched as the literal seven
+    characters `{param}` and everything else is left alone.
+
+    **Why it stopped being a literal.** `params.gtf` written into the type fuses three things
+    that belong to a *pipeline* rather than to a type: the param name, the cardinality, and the
+    fan-out. The first is what made two `annotation.gtf` inputs one hole — spec §0's table.
+    """
+    param: NfIdentifier | None = None
+    """The param a channel of this type reads **by default**. `None` derives it from the type
+    id's last segment, which is right for `annotation.gtf` → `gtf` and `genome.fasta` → `fasta`.
+
+    ═══ IT EXISTS BECAUSE `fastq.reads` READS `params.input` ══════════════════════════════════
+
+    Every other type in the shipped registry reads `params.<last segment>`; `fastq.reads` reads
+    `params.input`, and has since the spine was first emitted. Deriving the param from the
+    channel name alone would rename it to `params.reads` — a change to **what a laboratory
+    types**, arriving inside a phase the plan describes as *"the rename, with no behaviour
+    change"*.
+
+    It would also delete the problem spec §12.1 says phase 5 has to solve: *`params.input` is
+    one null whether it is a fastq glob or a CSV path*. A spec that reasons about a live
+    ambiguity is a spec whose author expects it to still be there.
+
+    So the type declares the name and the pipeline suffixes it — `gtf`, `gtf_2` — which is the
+    same split as `name` and keeps both facts where they can be read.
+    """
     test_data: str | list[str] | None = None
 
 
@@ -141,6 +171,10 @@ class Vocabulary(BaseModel):
     result against next year, which is the entire point of having one.
     """
 
+    params: dict[str, str] = {}
+    """The default param name for each type that declares one. See `TypeDeclaration.param` —
+    absent means the type id's last segment, which is every type but `fastq.reads`."""
+
     entry_channels: dict[str, str] = {}
     """How a type enters a pipeline when nothing upstream produces it.
 
@@ -180,6 +214,7 @@ class Vocabulary(BaseModel):
         types: dict[str, frozenset[str]] = {}
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
+        params: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
                 raise ValueError(
@@ -188,11 +223,14 @@ class Vocabulary(BaseModel):
             types[type_id] = entry.states
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
+            if entry.param:
+                params[type_id] = entry.param
             if entry.test_data:
                 test_data[type_id] = entry.test_data
         return cls(
             types=types,
             entry_channels=entry_channels,
+            params=params,
             test_data=test_data,
             displaced=list(stacked.displaced),
         )
@@ -248,6 +286,7 @@ class Vocabulary(BaseModel):
         return Vocabulary(
             types=types,
             entry_channels=dict(self.entry_channels),
+            params=dict(self.params),
             test_data=dict(self.test_data),
             displaced=list(self.displaced),
         )

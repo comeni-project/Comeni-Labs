@@ -102,4 +102,4 @@ def test_the_schema_version_moved():
     """A new field on a record that lands in `pipeline.yml` is a break for `comeni-core`."""
     from comeni_core.artifact.pipeline import SCHEMA_VERSION
 
-    assert SCHEMA_VERSION == 5
+    assert SCHEMA_VERSION == 6

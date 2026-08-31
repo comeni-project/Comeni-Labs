@@ -1777,6 +1777,64 @@ MD0020:
     **It had to ship before any registry could use the feature it protects**, which is the
     part worth remembering: a compatibility check that arrives with the change it guards is
     a check every older install has already failed to run.
+MD0226:
+  emitted_by: core
+  concern: pipeline-file
+  says: "two channels share a name"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    A channel name is derived rather than typed, so a duplicate is a bug in the derivation
+    or a hand-edit. Give one of them a suffix:
+
+        channels:
+          - name: report
+            type_id: qc.report
+          - name: report_2
+            type_id: multiqc.report
+
+    The suffix belongs to the pipeline, not to the type — `materialise._unique` assigns it in
+    a stable order over the types the graph consumes.
+  explanation: |
+    A channel's name is the type id's last segment, and the last segment is not injective:
+    `qc.report` and `multiqc.report` both end in `report`. `_channel_name`'s own docstring
+    recorded that exact collision costing two ports the same channel **silently** — one
+    assignment shadowed the other and a port was fed the wrong data with nothing to read.
+
+    **A derived value that can collide needs a check, not a convention.** The derivation
+    suffixes collisions; this refuses the file if two names come out equal anyway, so the
+    derivation cannot quietly regress into the bug it was written to replace.
+
+    The name is also what `inputs[].channel` points at and what becomes `ch_<name>` in the
+    emitted workflow, so a duplicate is not a cosmetic problem: it is two ports reading one
+    channel and one channel's data going nowhere.
+MD0227:
+  emitted_by: core
+  concern: pipeline-file
+  says: "a port names a channel the pipeline does not declare"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Name a channel that exists. Since schema 6 a port reads a channel by **name**, where it
+    used to name a **type**:
+
+        # schema 5                    # schema 6
+        inputs:                       inputs:
+          - port: gtf                   - port: gtf
+            channel: annotation.gtf       channel: gtf
+
+    A file written by this Mendel cannot get this wrong; a hand-edited one, or one migrated
+    from an older layout by something other than the loader, can.
+  explanation: |
+    `StepInput.channel` was a `TypeId` and is a `ChannelName`. That change is what makes two
+    same-type inputs *addressable* — a port naming its source by type cannot distinguish the
+    liver annotation from the reference one, so `pipeline.yml` could not express what the
+    canvas was already drawing (spec §0).
+
+    The cost of that expressiveness is that the reference can now dangle, which the type
+    version could not: every type in a well-formed file had exactly one channel. This is that
+    cost, paid where it is loud. The loader's 5 → 6 migration rewrites the references, so a
+    file that reaches this has been edited by hand or produced by something else.
 MV0001:
   emitted_by: vendor
   concern: vendoring
