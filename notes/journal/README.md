@@ -16,6 +16,9 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
+> **2026-09-01** is [`2026-09-01-a-channel-gets-a-name.md`](2026-09-01-a-channel-gets-a-name.md)
+> — Plan 5B phases 1 to 3, and the live fan-out defect phase 4 has to fix.
+>
 > **2026-08-18 has NINE entries and alphabetical order lies.** The one to read first is
 > [`2026-08-18-the-day.md`](2026-08-18-the-day.md) — five phases of the forge interface, what is
 > true, what a fresh reader will wrongly assume, and what is next. `the-shared-question.md` sorts
