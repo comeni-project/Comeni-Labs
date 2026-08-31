@@ -392,10 +392,26 @@ Sized so that each one ends with `make verify` green and something visible.
 | **1** | **Outputs on the canvas, and labels.** `DraftLabel`, `DraftChannel` with the default one-channel-per-type, OUTPUT nodes, renaming both. No resolver change. | Visible immediately, and it is the half that cannot break an emitted pipeline. It also puts the *drawing* in a shape the later phases can read. |
 | **2** | **A channel is named.** `Channel.name` + `param`, `StepInput.channel` → `ChannelName`, `_channel_name` off the name, `entry_channel` templates, `SCHEMA_VERSION` 5 → 6 with the loader migration, `MD0226`–`MD0228`. Still one channel per type. | The rename, with no behaviour change. Every golden file moves and nothing else does, which makes the diff readable. |
 | **3** | **Two channels of one type.** `goal_of` stops deduplicating, `GoalInput.name`, the canvas's split/merge control, the ordering rule and its determinism test. | Ask (2), and the first phase where a drawing can express something it could not before. |
-| **4** | **Scope.** `Scope`, the type's default, the pipeline's override with a `Why` and a tier, run-scoped and sample-scoped emission unchanged for one channel. | Ask (3), first half. The spine must emit byte-identically here — that is the phase's own check. |
+| **4** | **Scope, and the two channel bugs it fixes.** `Scope`, the type's default, the pipeline's override with a `Why` and a tier. **A `run`-scoped channel emits as a VALUE channel** (`.first()` for one file, `.collect()` for a set) — §10.1, the live defect where a queue-channel reference makes the whole spine run once. **And `cardinality: "*"` reaches the emitter as `.collect()`** — §10.2, fan-in, so MULTIQC produces one report rather than one per sample. Same arithmetic, same phase. | Ask (3) first half, and correctness. **The check is a stub run with two sample pairs asserting the process ran twice**, watched failing against today's emitter — not a determinism test over the spine, which passes either way on a one-sample fixture. |
 | **5** | **The samplesheet.** Two or more sample-scoped channels, `splitCsv`, the column derivation, `params.input`'s declared form, `MD0229`. | Ask (3), second half, and the only phase that changes what a laboratory types on the command line. |
 
 **Phase 1 is independent of 2–5** and can land on its own if the rest is deferred.
+
+**§10.1 is a live defect and it is deliberately NOT pulled forward.** It was offered as a
+standalone fix ahead of the plan — a type-level `scope` and `.first()` emission is much smaller
+than phase 4 — and the operator declined on 2026-08-31: *"no that's fine, no one is using this,
+keep it organized and efficient."*
+
+That is the right call and it is worth writing down rather than leaving as a gap somebody
+rediscovers. **Nothing is in production**, so the cost of the bug is zero today and the cost of
+an out-of-order fix is not: it would put a type-level `scope` into the registry in phase 0 and
+then move it again in phase 4 when the pipeline-level override arrives, which is two registry
+releases and two migrations for one idea. The bug is real, it is recorded in §10.1 with the
+evidence, and it is fixed where the model that fixes it properly is built.
+
+**What this does mean:** the spine must not be run on real multi-sample data before phase 4
+lands. That is not a caveat on a shipped product; it is a note for whoever first points this at
+more than one sample.
 
 ---
 
