@@ -43,11 +43,11 @@ def _declared(path, body: str) -> str:
         header += f"id: {path.name.removesuffix('.yml').removesuffix('.yaml')}\n"
     return header + body
 
-VENDOR = pathlib.Path(__file__).parent.parent / "vendor"
+TOOLS = pathlib.Path(__file__).parent.parent / "registry" / "tools" / "nf-core"
 
 
 def spec(path: str) -> ModuleSpec:
-    return ModuleSpec.parse(VENDOR / "modules/nf-core" / path / "main.nf")
+    return ModuleSpec.parse(TOOLS / path / "module" / "main.nf")
 
 
 def test_it_reads_the_process_name():
@@ -132,7 +132,7 @@ def test_it_reads_input_documentation_from_meta_yml():
 
 def test_every_vendored_module_parses():
     """A parser that works on the six modules someone tested it against is not a parser."""
-    found = sorted(VENDOR.rglob("modules/nf-core/**/main.nf"))
+    found = sorted(TOOLS.rglob("module/main.nf"))
     # Without a floor this test passes when the glob matches nothing, which is how a parser
     # comes to be "verified" against an empty tree.
     #
@@ -156,7 +156,7 @@ def test_every_vendored_module_parses():
 
 def test_a_missing_module_raises_rather_than_returning_empty():
     with pytest.raises(FileNotFoundError):
-        ModuleSpec.parse(VENDOR / "modules/nf-core/nope/main.nf")
+        ModuleSpec.parse(TOOLS / "nope" / "module" / "main.nf")
 
 
 def test_a_container_named_directly_parses(tmp_path):

@@ -152,16 +152,16 @@ check is a count.*
 *Separate from A2 on purpose: if something still reads it, that shows up here as a missing path
 rather than as silently stale content read from a directory nobody updates any more.*
 
-- [ ] `vendor/` deleted, **including `vendor/conf/`** — eight nf-core container-config files and
+- [x] `vendor/` deleted, **including `vendor/conf/`** — eight nf-core container-config files and
       **no code path opens any of them** (§1.2). The label→resource mappings Mendel emits are
       transcribed into `emit.py` as a quoted convention.
-- [ ] `vendor/modules.json` goes with it. Its pins now live in `module.yml`, where our own code
+- [x] `vendor/modules.json` goes with it. Its pins now live in `module.yml`, where our own code
       reads them — they were written by `nf-core modules install` and read by nothing we own.
-- [ ] `MD0100`'s `fix:` changes from *"vendor the module"* to naming the layer and
+- [x] `MD0100`'s `fix:` changes from *"vendor the module"* to naming the layer and
       `comeni-vendor add`.
-- [ ] `Makefile`, `docker-compose.yml`, `.github/workflows/` and `CLAUDE.md`'s vendoring line all
+- [x] `Makefile`, `docker-compose.yml`, `.github/workflows/` and `CLAUDE.md`'s vendoring line all
       stop mentioning `vendor/`.
-- [ ] **Nightly stub gate is the real checkpoint.** `make check` has no Nextflow and no Docker.
+- [x] **Nightly stub gate is the real checkpoint.** `make check` has no Nextflow and no Docker.
 
 ---
 
@@ -243,5 +243,5 @@ registry holds itself to a layout **its own CI** enforces, which is nixpkgs's `p
 | A1 | Yes, with three additions | **The kind is loaded, not merely declared.** `layers.load` stacks `Module.kind()` into `Layers.modules`, read by nothing — otherwise a `module.yml` in a layer is bucketed and then dropped, and A4.4's displacement would need a second mechanism later. Nothing in the build path consumes it. **`_in_module` is checked *before* the dot rule**, which running `comeni-vendor add` found: nf-core ships `.conda-lock/` inside a module and it pins which build of the tool runs, so the dot rule written for `.git` at a layer root would have left the digest blind to it. **`check` is offline by default** — it compares each `module/` against the digest `module.yml` records, which is the hand-edit question and needs no network, so it can run in CI; `--upstream` re-fetches and is the other question. A1.4's `LICENSES/` files land with the modules in A2; what A1 adds is the refusal — `add` will not vendor under a licence the layer carries no text for, checked *before* the fetch |
 | A2 | Yes, plus three things the plan did not name | **A contract's module source is not derivable from a root**, and the plan reads as five bullets because it did not notice. `conformance.module_path` computed `module_root / f"{nf_include}.nf"`; with the source *in* the layer there is no root to compute against, so it became a lookup by module key — `key_of`, one derivation from `nf_include`, rather than a second field a lint would have to check agreed with the first. That changed `check`, `_meta_keys`, `orchestrate.build`, `diagnostics_for`, the API and three forge sites, and **154 tests** with them. Reported to the operator with the number and three options before sweeping; they chose the sweep. **`mendel_compiler.staging` is new**: both `mendel build` and the API's `keep` wrote `out/modules/` with their own `copytree` — the shape `MD0210` already found a bug in — and it now copies what the pipeline *includes*, five modules for the spine where the sweep shipped all thirteen. **`mendel conformance` is new**, and it is A2's payoff: the registry's CI could not ask whether its own contracts agree with their own modules, and its `CONTRIBUTING.md` said so. Contracts moved to `contract.yml` in A2 rather than A4 — A2.1's own diagram shows it, and leaving `align.contract.yml` beside `align/module/` for a phase is a state nobody should review |
 | — | **The stated order was impossible** | A2.1 says the registry PR merges first. It cannot: the layer will not load under an engine that has never heard of the `module` kind, and the engine's suite will not pass against a layer with no modules in it. `ENGINE_REF` in the registry's CI is what breaks the cycle — it pins a Comeni-Labs *commit*, which only has to exist on a pushed branch. Sequence that works: push the engine branch, bump `ENGINE_REF`, merge the registry PR, bump the submodule |
-| A3 | | |
+| A3 | Yes, and it found a live break | **The Dockerfile still copied `vendor/`, and it also never copied `comeni-vendor`.** The second is A1's break, not A3's, and nothing caught it for two phases: `make check` builds no image, so the only thing that has ever found a missing package line is somebody running `docker build`. Its own comment says *"a missing line here fails the build with `Distribution not found`, which is how this was found"* — that was `dag-core`, and before it `mendel-ai`. Third time. `tests/test_dockerfile.py` now checks the COPY block against `packages/`, watched failing against exactly the missing line. **Three test files read `vendor/` directly** and were repointed at the layer before the delete — `test_modulespec.py`, `test_modulespec_lines.py`, and A32's strict-loader sweep, which now reads `registry/**/module/**`. `.env.example` set `MENDEL_SOURCE_ROOT` (accepted and ignored, so harmless, but a stale instruction to a new developer). `MD0100`'s `fix:` now names `comeni-vendor add` and the explanation records why the old advice pointed away from the layer the contract lives in |
 | A4 | | |

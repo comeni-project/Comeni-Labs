@@ -34,17 +34,35 @@ MD0100:
   emitted_by: compiler
   concern: conformance
   says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified`"
-  fires_on: [build]
+  fires_on: [build, conformance]
   refuses: false
   fix: |
-    Vendor the module under `vendor/modules/` if you have it, or accept the contract as
-    unverified — which is legitimate for a laboratory wrapping a bare container.
+    Vendor the module into the layer, beside the contract that is a binding for it:
+
+        comeni-vendor add nf-core:star/align --sha <commit> --registry <layer>
+
+    That writes `tools/nf-core/star/align/module/` and the `module.yml` declaring it.
+    Or accept the contract as unverified — which is legitimate for a laboratory
+    wrapping a bare container, and is why this warns rather than refusing.
   explanation: |
-    The contract names a module whose source is not present, so nothing could check
-    it. The build continues and the contract is marked unverified, which is recorded
-    on the IR and reaches a publish bundle. A curator may refuse to curate an
-    unverified contract: a claim about a module, with no module to check it against,
-    is a claim without evidence.
+    No layer in the stack declares the module this contract is a binding for, so
+    nothing could check the two against each other. The build continues and the
+    contract is marked unverified, which is recorded in `pipeline.yml` under
+    `registry.unverified`. A curator may refuse to curate an unverified contract: a
+    claim about a module, with no module to check it against, is a claim without
+    evidence.
+
+    **This used to say "vendor the module under `vendor/modules/`", and that
+    directory was in the engine's repository** — a different repository on a
+    different release cadence from the registry the contract came out of. So the
+    check that exists to catch a contract drifting from its module was comparing two
+    things nothing kept in step, and its own advice pointed away from the layer the
+    contract lives in. Plan 5A moved the module in; `vendor/` is deleted.
+
+    The module is found by **key** — `nf-core/star/align`, derived from the contract's
+    own `nf_include` — and not by joining a path onto a root. A laboratory arranging
+    its layer differently is fine: invariant 11 says the layout is the author's
+    business, and nothing here reads a path.
 
 MD0101:
   emitted_by: compiler

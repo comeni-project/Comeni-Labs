@@ -1524,8 +1524,12 @@ def test_a31_every_file_this_project_owns_reads_one_way():
     owned = [
         *Path("registry").rglob("*.yml"),
         *Path("examples").rglob("*.yml"),
-        *Path("vendor").rglob("meta.yml"),
-        *Path("vendor").rglob("*.yaml"),
+        # Upstream's own `meta.yml` and `environment.yml`, which live in the layer since
+        # Plan 5A. They carry no `declares:` line and are not layer data — but a strict loader
+        # still has to be able to *read* them, and a duplicate key in one is a finding about
+        # that module rather than something to exempt.
+        *Path("registry").rglob("module/**/*.yml"),
+        *Path("registry").rglob("module/**/*.yaml"),
     ]
     assert len(owned) > 20, "this test is only meaningful if it reads something"
     for path in owned:

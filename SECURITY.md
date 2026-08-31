@@ -54,7 +54,7 @@ bare `user_note: str` passed every rule it had.
 
 ## What does not count
 
-- Vulnerabilities in vendored `nf-core` modules under `vendor/` — report those to
+- Vulnerabilities in vendored `nf-core` modules, which live in the registry layer under `tools/<org>/<tool>/module/` — report those to
   [nf-core](https://github.com/nf-core/modules).
 - Vulnerabilities in Nextflow, Docker, or container images.
 - A pipeline producing scientifically wrong results. Real and important, but it is a bug —

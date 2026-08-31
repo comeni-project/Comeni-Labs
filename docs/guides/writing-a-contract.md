@@ -110,7 +110,8 @@ Two rules, both learned the expensive way:
 `container` ternary. nf-core 4.x mostly uses `community.wave.seqera.io`, not `quay.io`.
 
 ```bash
-grep -A2 "process SUBREAD_FEATURECOUNTS" vendor/modules/nf-core/subread/featurecounts/main.nf
+grep -A2 "process SUBREAD_FEATURECOUNTS" \
+  registry/tools/nf-core/subread/featurecounts/module/main.nf
 ```
 
 `tests/test_spine_contracts.py` compares every contract against the module on disk, so a

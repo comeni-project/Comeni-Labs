@@ -186,7 +186,7 @@ holds an example goal and nothing else.
   [`comeni-registry`](https://github.com/comeni-project/comeni-registry), under CC-BY-4.0 with
   its own `LICENSE`. `registry/` here is that repository as a git submodule. Contracts and rules
   cite papers; attribution is the currency of the field.
-- **Vendored `nf-core` modules** under `vendor/` retain their own licences and notices.
+- **Vendored `nf-core` modules** live in the registry layer, under `tools/<org>/<tool>/module/`, and retain their own licences — each `module.yml` names an SPDX identifier and `LICENSES/<id>.txt` there carries the text.
 
 ---
 

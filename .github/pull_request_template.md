@@ -38,7 +38,7 @@ n/a
 - [ ] New behaviour has a test, written before the code
 - [ ] Comments explain *why*, not *what*
 - [ ] Process names and container URIs, if touched, were read out of
-      `vendor/modules/**/main.nf` rather than out of a plan
+      `registry/tools/**/module/main.nf` rather than out of a plan
 - [ ] Generated or golden files, if touched, were read before committing
 - [ ] `docs/` updated if this changes a schema, a flag, or observable behaviour
 

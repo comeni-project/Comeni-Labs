@@ -28,6 +28,10 @@ COPY packages/mendel-api/pyproject.toml ./packages/mendel-api/
 COPY packages/dag-core/pyproject.toml ./packages/dag-core/
 COPY packages/wiener-core/pyproject.toml ./packages/wiener-core/
 COPY packages/wiener-api/pyproject.toml ./packages/wiener-api/
+# Plan 5A, 2026-08-31. **The third time a missing line here failed the build**, after
+# `dag-core` and before it `mendel-ai` — a hand-maintained list of every workspace member,
+# with nothing checking it against the directory. `tests/test_dockerfile.py` checks it now.
+COPY packages/comeni-vendor/pyproject.toml packages/comeni-vendor/README.md packages/comeni-vendor/LICENSE ./packages/comeni-vendor/
 
 # **`--package mendel-api`, not the root project.** The root depends on `mendel-ai`, and the
 # served API cannot reach the model path — invariant 3's three runtime AI points are all
@@ -72,13 +76,16 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY packages/ ./packages/
 
-# **The declared data is part of what this serves.** `settings.registry_root` and `source_root`
-# are read by the queue, the contracts list, the drift report and the source catalogue —
-# measured at 224K and 788K, so baking them costs a megabyte and removes a whole class of
-# "works on my host" failure. Both compose files mount a writable registry CLONE over this
-# one, because a copy of files cannot take a commit.
+# **The declared data is part of what this serves.** `settings.registry_root` is read by the
+# queue, the contracts list, the drift report and the source catalogue — about a megabyte, so
+# baking it removes a whole class of "works on my host" failure for the price of nothing. Both
+# compose files mount a writable registry CLONE over this one, because a copy of files cannot
+# take a commit.
+#
+# **One COPY since Plan 5A, where there were two.** `vendor/` held the module code the
+# registry's contracts describe, in this repository, on a different release cadence. An image
+# that has the layer now has everything, and there is no way to bake one without the other.
 COPY registry/ ./registry/
-COPY vendor/ ./vendor/
 
 # **Created and chowned, because the worker does not run as root.** `docker-compose.yml` sets
 # `user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"` and nothing here chowns `/app`, so a

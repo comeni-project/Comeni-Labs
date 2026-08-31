@@ -709,9 +709,11 @@ packages/
   wiener-core/       run state: admit, fold, decide, spans, stats           PURE
   wiener-api/        launch, ingest, project, stream, export                impure
   dag-core/          where to draw a graph. Both canvases, one arithmetic   PURE
-registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
+  comeni-vendor/     fetch a tool's source into a layer, and check it against its pin  impure
+registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER.
+               It carries the MODULES TOO since Plan 5A: `tools/<org>/<tool>/module/` beside
+               the contract that is a binding for it. There is no `vendor/`.
 examples/      rnaseq-goal.yml — an example goal, and nothing else
-vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
 frontend/      React 19 + TS + Vite + Tailwind 4. src/api/ is GENERATED from openapi.json
@@ -907,8 +909,19 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
 # emitted. Never write a code into a string by hand.
 uv run mendel explain MD0104
 
-# vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
-uvx nf-core modules install --dir vendor samtools/sort
+# vendor an nf-core module INTO THE LAYER, at a pinned commit. Not `mendel vendor`:
+# `mendel` is mendel_compiler.cli:main and mendel-compiler may not reach the network.
+uv run comeni-vendor add nf-core:samtools/sort \
+  --sha 9339809fcb90af8a8b7051e6cd914894d5c52002 --licence MIT --registry registry/
+
+# has a module/ been hand-edited? Offline, and what comeni-registry's CI runs.
+uv run comeni-vendor check --registry registry/
+# has UPSTREAM moved? Needs the network. A different question — issue #64.
+uv run comeni-vendor check --registry registry/ --upstream
+
+# does every contract agree with the module it is a binding for? All of them, not
+# only the ones a goal happens to route to. Runs in comeni-registry's own CI.
+uv run mendel conformance --registry registry/
 
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
@@ -1021,7 +1034,7 @@ already been wrong once, when it named a gate that could not pass.
   of which two model nothing. `ModuleContract.nf_inputs` declares the real signature, and
   `NfInput.empty` carries the **tuple width**, because Nextflow matches arity and a 2-tuple in a
   3-tuple slot dies on "Path value cannot be null".
-- **Read process names and containers out of `vendor/modules/**/main.nf`, never out of a plan.**
+- **Read process names and containers out of `registry/tools/**/module/main.nf`, never out of a plan.**
   It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`. nf-core 4.x mostly uses
   `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
   ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
@@ -1060,6 +1073,9 @@ already been wrong once, when it named a gate that could not pass.
   output directory and also matched `vendor/modules/nf-core/hisat2/build/`, so the module every
   short-read decision depends on was never committed and no test noticed — the main checkout had
   the files untracked on disk. A worktree is what surfaced it. Anchor such patterns: `/build/`.
+  **That directory moved in Plan 5A** — it is `registry/tools/nf-core/hisat2/build/` now, in a
+  repository with no `.gitignore` at all, and `git status --ignored` was run before the commit
+  rather than after. A move is exactly when this class of defect recurs.
 - **`-stub-run` cannot see a hollow input.** nf-core stubs never read their inputs, so a
   process handed `Channel.value([[:], []])` where a genome belongs is exactly as green as one
   handed a genome. Two shipped that way — STAR built an index from nothing and aligned against
