@@ -17,6 +17,78 @@ Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
 
 ## [Unreleased]
 
+### comeni-vendor
+
+- **The package exists.** `comeni-vendor add` fetches a tool's source into a registry layer at a
+  pinned commit; `comeni-vendor check` asks whether a `module/` has been hand-edited (offline,
+  against the digest its own `module.yml` records) or whether upstream has moved (`--upstream`,
+  which needs the network and is a different question). A module declaring `upstream: null` is a
+  laboratory's own process and reports `unpinned` rather than `ok`: there is nothing to compare
+  it against, and reporting a pass would claim a check that never ran.
+
+  **It is not `mendel vendor`, and the name is the point.** `mendel` is
+  `mendel_compiler.cli:main` and `mendel-compiler` is one of the packages invariant 1 keeps off
+  the network, so a subcommand that fetches from GitHub could not live there — and should not
+  look as though it could, because this tool is not part of the deterministic build path.
+
+### comeni-core
+
+- **`DeclaredKind` gains `MODULES`** — the sixth kind, and the first whose declaration is *about*
+  a directory rather than being the whole of what it declares. `module.yml` states where the
+  `module/` beside it came from, at which commit, under which licence, and what was deliberately
+  not copied; the code is upstream's and is never hand-edited. It stacks on the **module key**,
+  which is the key contracts already group on, so a laboratory's overlay displacing a contract
+  displaces its module with it through one mechanism.
+
+- **The layer digest covers a tool's own source.** A `pipeline.yml` pins a layer, and a digest
+  covering `meta.yml` but not `main.nf` is partial coverage — which reads as a guarantee and is
+  not one, so re-vendoring at a different commit would leave the pinned digest untouched while
+  the emitted pipeline changed behaviour. Covered **by directory** and not by extension: nf-core
+  ships `.py`, `.sh`, `.R` and `.conda-lock/` beside `main.nf`, and an extension allowlist covers
+  today's corpus and misses the next one.
+
+- **`registry.yml` replaces `kinds:` with `layout:`.** The old field said in its own comment that
+  it was *"read by nobody"*, and it had drifted exactly as that invites. The new one is
+  `mendel lint`'s argument, so if it is wrong the lint refuses correctly-placed files, which is
+  loud. The loader reads neither: invariant 11 says a file declares its own kind.
+
+### mendel-compiler
+
+- **`mendel conformance --registry X`** — does every contract agree with the module it is a
+  binding for? **All of them**, where `mendel build --gate lint` only ever reaches the contracts
+  a goal happens to route to. `MD0100` (no module source) is reported and does not fail the run,
+  because a laboratory wrapping bare containers is legitimate.
+
+- **`mendel lint --registry X`** — is the layer arranged the way its own manifest says? Seven
+  refusals, `MD0013`–`MD0019`, including **a relative path leaving a tool's own directory**,
+  which is what makes *self-isolated* a checked property rather than a hope. comeni-registry#1
+  traded a guarantee for a freedom — a misfiled document used to be impossible by construction —
+  and this is the other half of that trade.
+
+- **Conformance reads the layer, not a separate root.** `check()` and `module_path()` take the
+  stack's modules and look one up by **key**, derived from the contract's own `nf_include`. They
+  computed `module_root / f"{nf_include}.nf"` before, over a directory in *this* repository on a
+  different release cadence from the registry the contract came out of — so `MD0104`, the check
+  that exists to catch a contract drifting from its module, was comparing two things nothing kept
+  in step. `orchestrate.build` loses `vendor_root`.
+
+- **`mendel_compiler.staging`** puts the module source a pipeline needs beside the artifact — one
+  implementation where `mendel build` and the API's `keep` each had their own `copytree`, which is
+  the shape a bug hides in (`keep` had no copy at all until `MD0210` found it). It stages **what
+  the pipeline includes**: five modules for the spine, where the old sweep shipped all thirteen.
+
+### mendel-api
+
+- **`settings.source_root` is retired.** One root: a container that has the registry now has
+  everything, and `docker-compose.yml` loses a bind mount from two services.
+
+### Removed
+
+- **`vendor/`**, and `vendor/modules.json` and `vendor/conf/` with it. The modules live in the
+  registry layer beside the contracts that bind them. `vendor/conf/` held eight nf-core
+  container-config files that no code path ever opened; the label→resource mappings Mendel emits
+  are transcribed into `emit.py` as a quoted convention.
+
 ### wiener-core
 
 - **The package exists, and it is pure.** `wiener-core` joins invariant 1 — the static scan and

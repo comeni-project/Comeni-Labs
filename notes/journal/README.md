@@ -27,6 +27,10 @@ earlier one — the same discipline as `audits/` and for the same reason.
 > [`2026-08-29-the-screens-redesigned.md`](2026-08-29-the-screens-redesigned.md), which is the
 > design session that answers them and carries the canvas the rework builds from.
 >
+> **2026-08-31 has ONE entry** — [`2026-08-31-the-modules-move-in.md`](2026-08-31-the-modules-move-in.md) — and it is the
+> newest. Plan 5A: the modules moved into the registry layer, `vendor/` is deleted, and
+> `--registry X` is the whole input to a build.
+>
 > **2026-08-30 has ONE entry** — [`2026-08-30-the-overview.md`](2026-08-30-the-overview.md) —
 > and it covers three phases: the shared floor, `publishDir`, and the front door. It is the
 > session where the 2026-08-29 canvas started becoming code.
@@ -78,6 +82,7 @@ for the things that are not in the code: intent, sequencing, and what was ruled 
 
 | Date | Session |
 |---|---|
+| [2026-08-31](2026-08-31-the-modules-move-in.md) | **Plan 5A — the modules move into the layer.** All four phases; `vendor/` deleted, 16,024 lines. `--registry X` is the whole input, and **three checks now exist that could not before** — conformance over every contract, the hand-edit check, and a layout lint, all running in comeni-registry's own CI. **The measurement that mattered was not a test**: 12 verified before and after, because `MD0100` is a diagnostic and losing every module would have been a green suite with every contract quietly downgraded. **The plan's stated merge order was impossible** — neither repository can go first, and `ENGINE_REF` pinning a pushed commit is what breaks the cycle |
 | [2026-08-19 night](2026-08-19-plan-3c-the-builder.md) | **Plan 3C — Mendel's builder.** Nine phases. Layout computed in Python so the canvas is as deterministic as the `.nf`; the graph flows **downward** and the plan assumed sideways. **The checkpoints found three defects the suite structurally cannot** — a container-only 500, a zero-height canvas jsdom cannot see, and two worktrees fighting over port 5173. The provenance bar was counting steps and understating |
 | [2026-08-19 later still](2026-08-19-plan-3d-the-forge-answerable.md) | **Plan 3D, all six phases.** The forge was unusable and it was not a looks problem: seven `type_id` holes per tool, each offering the whole vocabulary alphabetically — the right type ranked first in **1 of 30** holes, now **25 of 30**. `suggested` had every consumer and no producer. Sources + Contracts became one Tools board; eight words finally have definitions |
 | [2026-08-19 later](2026-08-19-the-front-door-redesigned.md) | The front door redesigned after the operator looked at it. **The hero is a real `pipeline.yml` excerpt** — a tier-3 decision citing a DOI beside a tier-4 one saying *please review*. Wordmark names the site; the Registry box and Lookup panel deleted |

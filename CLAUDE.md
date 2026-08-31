@@ -23,7 +23,15 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
+> [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
+> covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
+> `--registry X` is the whole input to a build, and three checks exist that could not before.
+> Read it before touching the registry, conformance, or anything that used to join a path onto
+> a module root. **The forge is deprecated** — `make forge-rework` is the list. **Plan 5B is
+> written and unstarted**, and its phase B4 fixes a live fan-out bug: with 24 samples
+> `STAR_ALIGN` runs **once** and 23 are silently dropped.
+>
+> Before it, [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
 > phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
 > to 5 shipped with every suite green; opening the pages found that the fonts were never loaded,
 > the arc field every artboard sits on was never built, and the builder's canvas flowed the wrong
