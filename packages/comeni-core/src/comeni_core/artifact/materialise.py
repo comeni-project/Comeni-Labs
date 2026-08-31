@@ -360,25 +360,16 @@ def _stem(type_id: str) -> str:
 
 
 def _param_of(template: str, type_id: str) -> str:
-    """Which param a channel of this type reads, when the type does not say.
+    """Which param a channel of this type reads, when the type does not declare one.
 
-    **Transitional, and it is what keeps `param` honest while a registry still ships
-    literals.** A templated `entry_channel` has a `{param}` and the answer is the derived
-    stem. A version-5 one has `params.input` written into it — so deriving the stem would put
-    `param: reads` on a channel whose expression demonstrably reads `params.input`, and
-    `Channel.param` would be a field that disagrees with the string beside it.
+    The type id's last segment: `annotation.gtf` → `gtf`, `genome.fasta` → `fasta`. Every
+    shipped type but `fastq.reads` gets its param this way, and that one declares `param: input`
+    rather than being renamed to `params.reads` by a derivation.
 
-    So a literal expression is *asked*. Exactly one reference is the only answerable case:
-    `params:` is plural by design (`MD0211`), and a channel reading two params has no single
-    hole to name.
-
-    This branch goes when `MD0228` refuses a literal, together with the registry that stops
-    writing them.
+    **It used to ask a literal expression what it read**, for the one commit between the engine
+    learning `{param}` and the registry writing it. `MD0228` refuses a literal now, so there is
+    no expression left to ask.
     """
-    if PLACEHOLDER not in template:
-        referenced = _param_refs(template)
-        if len(referenced) == 1:
-            return referenced[0]
     return _stem(type_id)
 
 
@@ -417,11 +408,11 @@ precedence, no second name. `{` is legal Groovy and appears throughout these exp
 def _substitute(expression: str, param: str) -> str:
     """Put this channel's param into the type's template.
 
-    **Transitional: a literal `params.gtf` with no placeholder passes through unchanged.** The
-    engine has to understand the template before any registry can ship one — a compatibility
-    check that arrives with the change it guards is a check every older install has already
-    failed to run — so this commit reads both and the next one refuses a literal with `MD0228`,
-    together with the registry that stops writing them.
+    **One `str.replace` is the whole implementation, and that is the design.** `MD0228` has
+    already refused a template with no placeholder by the time anything reaches here, and
+    `PLACEHOLDER` is seven literal characters — so there is no parser, no precedence and no
+    second name a type could reference. Plan 1.15's `transform` made the same trade for the
+    same reason.
     """
     return expression.replace(PLACEHOLDER, param)
 

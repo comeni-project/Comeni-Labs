@@ -4,9 +4,10 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer, model_validator
 
 from comeni_core import yaml_strict
+from comeni_core.artifact.load import _param_refs
 from comeni_core.declared.layered import (
     DeclaredKind,
     Displacement,
@@ -90,6 +91,51 @@ class TypeDeclaration(BaseModel):
     same split as `name` and keeps both facts where they can be read.
     """
     test_data: str | list[str] | None = None
+
+    @model_validator(mode="after")
+    def _an_entry_channel_names_no_param_of_its_own(self) -> "TypeDeclaration":
+        """MD0228. A literal `params.gtf` is refused; `params.{param}` is what to write.
+
+        ═══ THE TWO DIRECTIONS ARE DELIBERATELY NOT SYMMETRIC — spec §1.3 ════════════════════
+
+        - **A new registry read by an OLD Mendel** is the version floor's job: `requires_format`
+          on the layer, `MD0020`, so an engine that does no substitution says *this registry
+          needs a newer Mendel* instead of writing `params.{param}` into Groovy.
+        - **An old registry read by a NEW resolver** is this, and it is a refusal rather than a
+          tolerance. A registry whose channel names cannot be controlled is one that silently
+          merges two inputs of one type into one hole — the defect this whole plan exists to
+          remove — and carrying on quietly would be worse than stopping.
+
+        So `requires_format: 1` does **not** buy a layer a literal entry channel. It is not
+        meant to: the floor protects old *engines* from new *layers*, and this protects new
+        engines from old layers.
+
+        ═══ IT CHECKS FOR A HARDCODED NAME, NOT FOR A MISSING PLACEHOLDER ════════════════════
+
+        The first version refused any `entry_channel` without `{param}` and was too broad by
+        exactly one case: a channel that reads **no** param at all. `Channel.empty()` hardcodes
+        nothing, so there is nothing for a pipeline to have taken away from it — and several
+        test fixtures use precisely that to exercise other diagnostics, which is how the
+        over-reach surfaced.
+
+        The spec's own words are *"a literal `params.gtf`"*, and that is the thing being
+        refused: a param name written into a type. An expression that names none is fine, and
+        one that names only `{param}` is the point.
+        """
+        if self.entry_channel is None:
+            return self
+        hardcoded = _param_refs(self.entry_channel.replace("params.{param}", ""))
+        if hardcoded:
+            raise ValueError(
+                coded(
+                    "MD0228",
+                    f"type {self.id!r} names {', '.join('params.' + p for p in hardcoded)} in "
+                    f"its `entry_channel`. A channel's param belongs to the pipeline, not to "
+                    f"the type — write `params.{{param}}`, and declare `param:` beside it if "
+                    f"this type needs a particular name. `mendel explain MD0228`.",
+                )
+            )
+        return self
 
 
 class TypeExtension(BaseModel):

@@ -915,7 +915,13 @@ def test_a35_add_states_extends_and_the_base_survives(tmp_path):
     assert loaded.vocabulary.states_for("fastq.reads") == frozenset(
         {"trimmed", "deduplicated", "subsampled", "phix_removed"}
     )
-    assert "params.input" in loaded.vocabulary.entry_channels["fastq.reads"]
+    # **The TEMPLATE survives, and so does the `param:` beside it.** This asserted
+    # `params.input` was in the stored expression, which stopped being true when the entry
+    # channel became `params.{param}` — the literal moved to its own field. Both halves are
+    # checked now, because an extension dropping `param:` would silently rename `params.input`
+    # to `params.reads`, which is A35's exact shape one field along.
+    assert "params.{param}" in loaded.vocabulary.entry_channels["fastq.reads"]
+    assert loaded.vocabulary.params["fastq.reads"] == "input"
     assert loaded.vocabulary.test_data["fastq.reads"], "the base's test data survives too"
 
 

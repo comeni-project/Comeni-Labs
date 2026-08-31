@@ -79,9 +79,9 @@ what makes the diff readable.*
       language** — one substitution, the same argument as Plan 1.15's `transform`. `{` is legal
       Groovy and appears throughout these expressions, so the placeholder is matched as the
       literal seven characters `{param}`.
-- [ ] `MD0226` two channels sharing a name · `MD0227` a `StepInput.channel` naming no declared
+- [x] `MD0226` two channels sharing a name · `MD0227` a `StepInput.channel` naming no declared
       channel · `MD0228` an `entry_channel` with no `{param}`.
-- [ ] A test over every type in the registry: substituting a known param yields Groovy that still
+- [x] A test over every type in the registry: substituting a known param yields Groovy that still
       parses, via `nextflow lint` on a generated stub.
 
 ### 2.3 Ordering is on SHAPE, never on identity — spec §11.2
@@ -129,9 +129,9 @@ what makes the diff readable.*
 
 ### 2.6 The registry side
 
-- [ ] Three type files change — `fastq.reads`, `annotation.gtf`, `genome.fasta`. A
+- [x] Three type files change — `fastq.reads`, `annotation.gtf`, `genome.fasta`. A
       `comeni-registry` PR plus a submodule bump, **registry PR first**.
-- [ ] An **old registry read by a new resolver** — a literal `params.gtf`, no `{param}` — is a
+- [x] An **old registry read by a new resolver** — a literal `params.gtf`, no `{param}` — is a
       clean refusal, `MD0228`. Carrying on quietly would silently merge two inputs, which is the
       defect this plan exists to remove.
 
@@ -474,3 +474,49 @@ three different names on one box — and phase 3's `DraftChannel` is where a sta
 **Outputs are still derived in the browser**, and the asymmetry is deliberate rather than
 half-finished: a channel is a named object because a laboratory *binds* one, and an output is
 bound by nobody. When phase 4 gives outputs an identity, that side reads the server's answer too.
+
+
+### Phase 2.6 — done, and the ordering it forced
+
+Three commits across two repositories, and none of them leaves either repository red:
+
+1. **Comeni-Labs #90** (merged, `532ce0b`) — phases 1–2.5 plus `REGISTRY_FORMAT = 2`. The bump
+   lands *before* any registry declares `requires_format: 2`, because the registry's own CI pins
+   an engine commit and would otherwise refuse its own layer with `MD0020`.
+2. **comeni-registry #7** (merged, `5719fa3`) — the three type files, `requires_format: 2`, and
+   `ENGINE_REF` → `532ce0b` in the same commit, because those two are one fact.
+3. **This one** — the submodule bump and `MD0228`, which tightens the transitional substitution
+   that read both a template and a literal.
+
+**The `ENGINE_REF` mechanism is what made the ordering solvable at all**, and it was not in the
+plan: `comeni-registry/.github/workflows/ci.yml` pins Mendel by commit SHA, so "which engine does
+this layer need" is already a reviewable line in that repository rather than an implicit
+dependency on whatever is released.
+
+**Verified before pushing anything**: `mendel build` against the templated layer emits a
+`main.nf` and a `nextflow.config` **byte-identical** to the ones built against the literal layer,
+and `mendel lint`, `mendel conformance` and `comeni-vendor check` all pass. The registry's CI then
+ran all five of its steps against the pinned engine and agreed.
+
+### MD0228 was too broad on its first draft, and the fixtures caught it
+
+It refused any `entry_channel` without `{param}` — including `Channel.empty()`, which hardcodes
+nothing and therefore has nothing a pipeline could have been deprived of. Ten tests across four
+files failed, every one of them a fixture using a param-free channel to exercise some *other*
+diagnostic.
+
+The spec's own words are *"a literal `params.gtf`"*, and the check now looks for a hardcoded name
+rather than for a missing placeholder. **That is the second time in this plan that an over-reach
+was caught by an existing test using the feature incidentally**, rather than by a test written to
+police it.
+
+### The plan's `nextflow lint` check became something cheaper, deliberately
+
+§2.2 asks for *"a test over every type in the registry: substituting a known param yields Groovy
+that still parses, via `nextflow lint` on a generated stub"*. `make check`'s lane installs neither
+Nextflow nor Docker — `CLAUDE.md` names that trap explicitly, and a test shelling out to the
+linter would be green on a developer machine and red in CI.
+
+So the test substitutes into every declared template and asserts the result is balanced and has no
+placeholder left, and the **real** linter covers the same expressions where it already runs: the
+spine's emitted `main.nf`, through `make static` and the nightly stub gate.

@@ -22,6 +22,7 @@
 #   MD0500-MD0599  validating a hand-built graph
 #   MD0013-MD0019  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
+#   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
@@ -1835,6 +1836,53 @@ MD0227:
     version could not: every type in a well-formed file had exactly one channel. This is that
     cost, paid where it is loud. The loader's 5 → 6 migration rewrites the references, so a
     file that reaches this has been edited by hand or produced by something else.
+MD0228:
+  emitted_by: core
+  concern: loading
+  says: "a type names a param literally in its `entry_channel`"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint, docs]
+  refuses: true
+  fix: |
+    Write `params.{param}` where the literal param name is:
+
+        # before
+        entry_channel: "Channel.fromPath(params.gtf, checkIfExists: true)..."
+        # after
+        entry_channel: "Channel.fromPath(params.{param}, checkIfExists: true)..."
+
+    If this type must keep a particular param name — `fastq.reads` reads `params.input`
+    and always has — declare it beside the template rather than writing it in:
+
+        param: input
+
+    A type that declares no `entry_channel` at all is unaffected and is the common case, and
+    so is one whose expression reads no param — `Channel.empty()` hardcodes nothing, so there
+    is nothing for a pipeline to have been deprived of.
+  explanation: |
+    A literal param name inside a type fuses three decisions that belong to a **pipeline**
+    into a **type**: which param this channel reads, what its cardinality is, and how it
+    fans out. The first is the one that costs something — two channels of one type had one
+    param and were therefore one hole, whatever the pipeline said, so the RNA-seq spine's
+    three `annotation.gtf` consumers were a single input nobody could address separately.
+
+    **The two directions of compatibility are deliberately not symmetric.**
+
+    - A **new registry read by an old Mendel** is the version floor's job: `requires_format`
+      on the layer and `MD0020`, so an engine that does no substitution says *this registry
+      needs a newer Mendel* rather than writing `params.{param}` into Groovy.
+    - An **old registry read by a new resolver** is this, and it refuses rather than
+      tolerates. A registry whose channel names cannot be controlled is one that silently
+      merges two inputs of one type, which is the defect this change exists to remove;
+      carrying on quietly would be worse than stopping.
+
+    So `requires_format: 1` does **not** buy a layer a literal entry channel, and it is not
+    meant to. The floor protects old engines from new layers; this protects new engines from
+    old layers.
+
+    `{param}` is matched as the literal seven characters and is the only substitution. `{` is
+    legal Groovy and appears throughout these expressions — `.map { gtf -> … }` — so
+    everything else is left exactly as written. There is no template language here, for the
+    same reason Plan 1.15's `transform` is not one: no parser, no precedence, no second name.
 MV0001:
   emitted_by: vendor
   concern: vendoring
