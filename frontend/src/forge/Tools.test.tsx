@@ -85,7 +85,8 @@ describe("the tools board", () => {
   });
 
   it("renders the catalogue total as an absence, never as a zero", async () => {
-    // #77 — discovery reads `vendor/modules/`, so the size of the known world is unknown.
+    // #77 — FORGE-REWORK: discovery reads the layer since Plan 5A, not `vendor/modules/`.
+    // Either way it is the size of what somebody vendored, not of the known world.
     at();
     await waitFor(() => expect(screen.getByTestId("known").textContent).toBe("—"));
   });

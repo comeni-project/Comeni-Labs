@@ -175,7 +175,8 @@ export function StatusBoard({ board }: { board: Board }) {
           />
         )}
         <span className="ml-auto text-secondary text-ink-3">
-          {/* **An absence, not a zero** — #77. Discovery reads `vendor/modules/`, so what it
+          {/* **An absence, not a zero** — #77. FORGE-REWORK: discovery reads the registry
+              layer's `module.yml` declarations since Plan 5A, not `vendor/modules/`, so what it
               sees is the size of what somebody already vendored rather than the size of the
               known world. Expected near 1,600 once #77 closes. */}
           <b data-testid="known" className="font-data text-ink">

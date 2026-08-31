@@ -12,10 +12,19 @@ Both edit `registry/`; the other order edits the same files twice.
 A2 and A4 are a pull request there plus a submodule bump here, **and the registry PR merges
 first** — until it does, `make check` refuses in one sentence naming `git submodule update --init`.
 
-**The forge is deferred** by the operator's decision of 2026-08-31. Spec §5 lists what a registry
-change does to it. The rule for this plan: leave every forge code path alone and point
-`source_root` at the layer, so the forge is *no more broken than it is today* rather than newly
-broken.
+**The forge is DEPRECATED** by the operator's decision of 2026-08-31 — not merely deferred. It is
+not in use and the product is deployed nowhere, so **nothing is invested in making its code or
+its tests correct** until the redesign says what it is. Spec §5 lists what a registry change does
+to it. The rule for this plan: leave every forge code path alone and point `source_root` at the
+layer, so the forge is *no more broken than it is today* rather than newly broken.
+
+**What that rule could not cover, and what replaced it:** three forge files had to change anyway
+(A2's record says which), because `assemble._target` and `land` would otherwise write into a
+layout the registry no longer uses — more broken, not equally broken. Everything Plan 5A touched
+or invalidated in the forge now carries a **`FORGE-REWORK`** marker, and **`make forge-rework`**
+is the list. One frontend test is skipped rather than repointed; it is `it.skip` rather than a
+comment, so it typechecks and prints in every run. **Do not repoint a forge fixture** — a fixture
+updated against a layout that will change again is a fixture updated twice.
 
 **`make check` is not verification for any of this.** Every phase touches `emit.py`,
 `pipeline.py` or the loader — the six files `CLAUDE.md` names. Run **`make verify`**.

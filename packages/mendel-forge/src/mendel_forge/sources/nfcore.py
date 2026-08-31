@@ -29,6 +29,11 @@ class NfCoreSource:
         now. **Both halves of the forge's `root` moved together** — `--source-root` is the
         layer — and the forge is otherwise untouched, which is spec §5's rule for this plan.
 
+        FORGE-REWORK — Plan 5A repointed this at the layer. Issue #64 (check against
+        *upstream* rather than the vendored copy) and issue #77 (a real catalogue total) both
+        live here, and `comeni-vendor` now owns fetching, which is most of what a `Source`
+        was for.
+
         **It reads `module.yml`, not a path.** The obvious translation was to glob
         `tools/nf-core/*/module/main.nf`, and that would have written the curated registry's
         *convention* into the engine: invariant 11 says a layer's layout is the author's

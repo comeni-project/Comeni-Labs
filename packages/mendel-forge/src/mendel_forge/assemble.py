@@ -283,9 +283,10 @@ def _target(ident: str) -> str:
     carries its `module/` and its `module.yml` too, so the directory is earned rather than
     contrived, and **a contract sits beside the module it is a binding for**.
 
-    The forge is deferred until its own rework (spec §5) and this is a path constant rather
-    than a code path: without it `forge land` writes into a layout the registry no longer uses,
-    which is *more* broken than leaving it alone rather than equally broken.
+    FORGE-REWORK — the forge is deferred until its own rework (spec §5) and this is a path
+    constant rather than a code path: without it `forge land` writes into a layout the registry
+    no longer uses, which is *more* broken than leaving it alone rather than equally broken.
+    Whether a landed contract belongs at this path at all is the rework's question.
     """
     source, _, tool = ident.partition("/")
     return f"tools/{source}/{tool}/contract.yml"

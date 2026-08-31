@@ -250,8 +250,18 @@ never existed in the palette.
 halves and verified them; W2's checkpoints 3, 4, 5 and 6 are owed for the same reason. The
 browser half is unrun, which is exactly the gap 3E's lesson names.
 
-**The entire forge still needs testing and general rework**, and the operator is rethinking its
-design (2026-08-23). Nothing in 3E or Wiener touches `mendel-forge`.
+**The forge is DEPRECATED pending its own rework** — the operator's decision, 2026-08-31, and it
+is stronger than the "needs testing and general rework" this said before. **It is not in use and
+the product is deployed nowhere**, so nothing should be invested in making its code or its tests
+correct until the redesign says what it is. Plan 5A moved the registry out from under it and
+changed three of its files anyway, because leaving them would have made `forge land` write into a
+layout the registry no longer uses — *more* broken rather than equally broken.
+
+**`make forge-rework` lists what the rework has to revisit.** Everything Plan 5A touched or
+invalidated carries a `FORGE-REWORK` marker, including one skipped frontend test — skipped rather
+than commented out, so it typechecks and prints in every run, because commented code rots
+invisibly and is what nobody greps for. Add a marker rather than repointing a forge fixture: a
+fixture updated against a layout that will change again is a fixture updated twice.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.

@@ -101,6 +101,11 @@ def land(
         _write(registry / module_path, draft.module)
         written.append(str(module_path))
 
+        # FORGE-REWORK — Plan 5A added this write. A hand-drafted module has no `upstream:`
+        # and names no `licence:`, and whether the forge should be authoring registry *modules*
+        # at all — as opposed to contracts over modules `comeni-vendor` fetched — is a question
+        # the rework has to answer rather than inherit.
+        #
         # **The declaration, or the code is invisible.** A `module/` with no `module.yml`
         # beside it is not in the stack's modules, so `MD0100` would report the contract
         # unverified while the source sat right there. `upstream: null` and no `licence:` are
