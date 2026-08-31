@@ -11,11 +11,24 @@ import { useCallback, useRef, useState } from "react";
  */
 export const MIN_K = 0.3;
 export const MAX_K = 2.2;
-export const GRID = 22;
 
 export type View = { x: number; y: number; k: number };
 
-const START: View = { x: 0, y: 0, k: 1 };
+/** **The canvas opens with room for what feeds the pipeline.**
+ *
+ * `dag-core` lays the graph out from x≈40, and an input socket is drawn to the LEFT of the step
+ * it feeds — at roughly x = −200, which is off-screen at `x: 0`. The pipeline looked complete and
+ * its inputs were simply not on the canvas; the only hint was a dashed line disappearing at the
+ * left edge, which is worse than drawing nothing.
+ *
+ * A pan offset rather than a layout change: an entry channel is not a node, and giving one a
+ * position in `dag-core` would make the canvas and the emitted `.nf` disagree about what a step
+ * is. This moves the camera, which is what was wrong.
+ *
+ * 250 = the socket's 150 plus its 90 gap, plus a little air. `reset` returns here, not to
+ * origin, so the same thing is true after somebody presses it.
+ */
+const START: View = { x: 250, y: 20, k: 1 };
 
 export function useView() {
   const [view, setView] = useState<View>(START);
@@ -73,11 +86,23 @@ export function useView() {
   }), []);
 
   /** Fit the graph in the viewport, with a margin, never zoomed past 1. */
-  const fit = useCallback((w: number, h: number, vw: number, vh: number) => {
-    if (!w || !h || !vw || !vh) return;
-    const k = Math.min(1, Math.max(MIN_K, Math.min((vw - 48) / w, (vh - 48) / h)));
-    setView({ k, x: (vw - w * k) / 2, y: 24 });
-  }, []);
+  /** Put the whole graph on screen, centred on **both** axes.
+   *
+   * It pinned `y: 24` — so a graph taller than the frame was scaled to fit vertically and then
+   * hung off the bottom anyway, because the scale and the position disagreed about which axis
+   * mattered. `x` was already centred; this is the same arithmetic, applied twice.
+   *
+   * `w` and `h` are the DRAWN bounds, not `layout.width`/`layout.height` — see `Minimap.bounds`
+   * for why those two are different, and `at` for the origin, which a dragged graph moves.
+   */
+  const fit = useCallback(
+    (w: number, h: number, vw: number, vh: number, at = { x: 0, y: 0 }) => {
+      if (!w || !h || !vw || !vh) return;
+      const k = Math.min(1, Math.max(MIN_K, Math.min((vw - 48) / w, (vh - 48) / h)));
+      setView({ k, x: (vw - w * k) / 2 - at.x * k, y: (vh - h * k) / 2 - at.y * k });
+    },
+    [],
+  );
 
   return { view, onWheel, onPointerDown, zoomAt, reset, nudge, fit };
 }

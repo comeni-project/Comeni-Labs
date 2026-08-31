@@ -167,13 +167,24 @@ CLOSED_PACKAGES = {
 
 BANLIST_PACKAGES = ["mendel-compiler"]
 
-IMPURE_PACKAGES: list[str] = ["mendel-forge", "mendel-ai", "mendel-api", "wiener-api"]
+IMPURE_PACKAGES: list[str] = [
+    "mendel-forge",
+    "mendel-ai",
+    "mendel-api",
+    "wiener-api",
+    "comeni-vendor",
+]
 """Packages this file deliberately does not guard, named so that *not* guarding them is a
 decision rather than an omission.
 
 `mendel-forge` ingests tool sources and, from Phase 2, calls a model. Invariant 1 names
 three packages and this is not one of them — the arrow points mendel-forge -> the pure
 packages, and `test_no_pure_package_imports_an_impure_one` is what holds that direction.
+
+`comeni-vendor` arrived with Plan 5A and is the reason it is not `mendel vendor`: fetching a
+module from GitHub is a network client, and `mendel` is `mendel_compiler.cli:main`. Putting the
+verb in its own package is what lets this file keep rejecting the import in the package that
+must not have it, rather than carving an exemption into the guard.
 
 `mendel-ai` arrived with forge Phase 2 and is where the network lives — it is the package
 the purity guards exist to keep the pure three away from. `mendel-api` is still absent, and

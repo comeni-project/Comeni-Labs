@@ -19,7 +19,17 @@ def parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mendel")
     parser.add_argument(
         "command",
-        choices=["build", "profile", "publish", "upgrade", "emit", "explain", "docs"],
+        choices=[
+            "build",
+            "profile",
+            "publish",
+            "upgrade",
+            "emit",
+            "explain",
+            "docs",
+            "conformance",
+            "lint",
+        ],
     )
     parser.add_argument(
         "target",

@@ -20,10 +20,12 @@
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
+#   MD0013-MD0019  a layer is not arranged the way its own manifest says
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MW0001-MW0099  wiener: ingesting a run's events
+#   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -33,17 +35,35 @@ MD0100:
   emitted_by: compiler
   concern: conformance
   says: "no module source to check against — **warns, never blocks**; recorded in `pipeline.yml` under `registry.unverified`"
-  fires_on: [build]
+  fires_on: [build, conformance]
   refuses: false
   fix: |
-    Vendor the module under `vendor/modules/` if you have it, or accept the contract as
-    unverified — which is legitimate for a laboratory wrapping a bare container.
+    Vendor the module into the layer, beside the contract that is a binding for it:
+
+        comeni-vendor add nf-core:star/align --sha <commit> --registry <layer>
+
+    That writes `tools/nf-core/star/align/module/` and the `module.yml` declaring it.
+    Or accept the contract as unverified — which is legitimate for a laboratory
+    wrapping a bare container, and is why this warns rather than refusing.
   explanation: |
-    The contract names a module whose source is not present, so nothing could check
-    it. The build continues and the contract is marked unverified, which is recorded
-    on the IR and reaches a publish bundle. A curator may refuse to curate an
-    unverified contract: a claim about a module, with no module to check it against,
-    is a claim without evidence.
+    No layer in the stack declares the module this contract is a binding for, so
+    nothing could check the two against each other. The build continues and the
+    contract is marked unverified, which is recorded in `pipeline.yml` under
+    `registry.unverified`. A curator may refuse to curate an unverified contract: a
+    claim about a module, with no module to check it against, is a claim without
+    evidence.
+
+    **This used to say "vendor the module under `vendor/modules/`", and that
+    directory was in the engine's repository** — a different repository on a
+    different release cadence from the registry the contract came out of. So the
+    check that exists to catch a contract drifting from its module was comparing two
+    things nothing kept in step, and its own advice pointed away from the layer the
+    contract lives in. Plan 5A moved the module in; `vendor/` is deleted.
+
+    The module is found by **key** — `nf-core/star/align`, derived from the contract's
+    own `nf_include` — and not by joining a path onto a root. A laboratory arranging
+    its layer differently is fine: invariant 11 says the layout is the author's
+    business, and nothing here reads a path.
 
 MD0101:
   emitted_by: compiler
@@ -1592,6 +1612,189 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MD0013:
+  emitted_by: compiler
+  concern: layout
+  says: "a declared file is not under the directory its layer says that kind goes in"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it, or widen `layout.<kind>` in the layer's `registry.yml`. The manifest is the
+    lint's argument, so whichever of the two is wrong, saying so is a one-line change.
+  explanation: |
+    **The loader does not care and never will.** Invariant 11 says a file declares its own
+    kind, so a layer may be one flat folder and `mendel build` will read it. This is the
+    *curated* registry holding itself to a layout its own CI enforces, which is nixpkgs's
+    `pkgs/by-name` move — and a layer whose `registry.yml` declares no `layout:` is
+    unenforced, which is every private overlay.
+
+    comeni-registry#1 traded a guarantee for a freedom. A contract used to live in
+    `contracts/`, so a misfiled document was impossible **by construction**: a misspelled
+    `contract/` was caught by `MD0003` because nothing read it. A `declares:` line can only
+    be *detected*. This is the other half of that trade — what a directory used to prevent,
+    a lint now refuses — and it is why `MD0003` was retired rather than emptied.
+MD0014:
+  emitted_by: compiler
+  concern: layout
+  says: "a declared file's name is not the id it declares"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Rename the file to the `id:` it declares. For a role, name it for the role.
+  explanation: |
+    Identity is the `id:` since `MD0012`, so the filename carries no meaning to the loader
+    and is free. That is exactly why it has to be right: a file called one thing that
+    declares another cannot be found by searching for what it declares, and a reviewer
+    reading a diff sees a path that does not name its subject.
+
+    Contracts and modules are exempt. A contract is `contract.yml` beside the `module.yml`
+    it is a binding for, which names the pair by their directory rather than by themselves.
+MD0015:
+  emitted_by: compiler
+  concern: layout
+  says: "one file declares several roles"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    One role per file, named for the role.
+  explanation: |
+    `roles.yml` held all nine at the layer root, and a diff touching it said only that
+    *some* job changed. One file each means the path names the subject.
+
+    **The format permits several and always will.** An overlay may keep its roles however
+    it likes, because invariant 11 says the layout is the author's business. What this
+    refuses is a layer that declared a `layout:` and then ignored it.
+MD0016:
+  emitted_by: compiler
+  concern: layout
+  says: "a `module/` directory has no `module.yml` declaring it"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Add a `module.yml` beside it. `comeni-vendor add` writes both, and writing one by hand
+    means recording where the code came from:
+
+        declares: module
+        id: nf-core/star/align
+        licence: MIT
+        upstream: {repo: ..., sha: ..., path: ...}
+  explanation: |
+    **The code would be invisible.** Nothing under `module/` is read as layer data — it is
+    upstream's tree, and upstream ships a `meta.yml` with no `declares:` line — so a
+    directory nothing declares is not in the stack's modules at all.
+
+    The failure is quiet in the worst way: `MD0100` reports every contract binding to that
+    module as *unverified*, which is a diagnostic rather than a refusal, so the build goes
+    green with the source sitting right there unread.
+MD0017:
+  emitted_by: compiler
+  concern: layout
+  says: "a type filed under a tool is not namespaced by that tool"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it to `types/` if several tools touch it, or name it for the tool it belongs to —
+    `genome.index.star`, under `tools/nf-core/star/`.
+  explanation: |
+    A thing belongs at the shallowest level that owns it. `genome.index.star` is produced by
+    `star/genomegenerate` and consumed by `star/align`, so it is the *tool's* and sits at the
+    tool level; `alignment.bam` is touched by six contracts and belongs at the root.
+
+    A shared type hidden inside one tool's directory is the arrangement the tool/subtool
+    layout exists to prevent: the next person to move or delete that tool takes a type six
+    other contracts depend on with it.
+MD0018:
+  emitted_by: compiler
+  concern: layout
+  says: "two contract versions for one module, in one layer"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Keep one. Pinning a different version is what a **higher layer** is for — invariant 11's
+    module-key displacement exists precisely so a lab can pin `@1.22.0` over `@1.21.0`
+    without the two tying.
+  explanation: |
+    **Bounded rather than designed around.** One `module/` directory holds one commit, so a
+    layer carrying `star/align@1.11.0` and `star/align@2.0.0` has one of them checked against
+    source that is not its own — which is the drift `MD0104` exists to catch, arriving by a
+    route `MD0104` cannot see.
+
+    Supporting it would mean a `module/` per contract version, and the case for that is a
+    need nobody has yet. This is refused now so that the day somebody does need it, the
+    decision is made deliberately rather than discovered in a build.
+MD0019:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool's file holds a relative path leaving that tool's directory"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Reference a type by its `id:`, not by a path. Nothing in a layer is addressed by path —
+    the loader globs and reads `declares:`.
+  explanation: |
+    **This is what makes "self-isolated" a checked property rather than a hope.** The whole
+    argument for the tool/subtool layout is that everything about one tool is in one place
+    and can be reviewed, moved or deleted as a unit. A `../../other-tool/thing` makes that
+    false quietly, and the next person to move a directory finds out at build time.
+
+    Deliberately a scan for `..` in declared files rather than a resolver of every path
+    field: which fields hold paths is the author's to extend, so a check that knew the field
+    names would go blind the day a new one arrives.
+MV0001:
+  emitted_by: vendor
+  concern: vendoring
+  says: "a module could not be fetched at the commit it was pinned to"
+  fires_on: [comeni-vendor add, comeni-vendor check --upstream]
+  refuses: true
+  fix: |
+    Check the three parts of the pin, which are all in `module.yml`:
+
+        upstream:
+          repo: https://github.com/nf-core/modules.git
+          sha:  6d46786420b4d7bc88eba026eb389c0c5535d120
+          path: modules/nf-core/star/align
+
+    A `sha` that no longer exists means the branch was force-pushed or the fork
+    was deleted; a `path` that does not exist *at that commit* means the module
+    was added or moved later. Both are questions about the commit, not about the
+    branch it is on.
+  explanation: |
+    Vendoring pins a **commit**, never a branch. `vendor/modules.json` recorded both
+    and nf-core's own tooling reads the branch — but a branch moves, so a check
+    against it answers *does this match whatever upstream looks like today*, which is
+    a different question from *is this still the code we reviewed*.
+
+    Nothing in the build path emits this. A build reads a layer that is already on
+    disk, which is what keeps `make check` offline and an air-gapped site a
+    first-class customer (invariant 13).
+MV0002:
+  emitted_by: vendor
+  concern: vendoring
+  says: "a vendored module no longer matches what its module.yml declares"
+  fires_on: [comeni-vendor check]
+  refuses: true
+  fix: |
+    Do not edit `module/` — it is upstream's tree and `comeni-vendor add` replaces
+    it wholesale. If the change was deliberate, re-vendor at the commit that carries
+    it:
+
+        comeni-vendor add nf-core:star/align --sha <sha> --registry ../comeni-registry
+
+    If it was not, `git checkout` the directory.
+  explanation: |
+    `module/` is vendored source and is never hand-edited. That used to be a comment
+    somebody read after they had already edited it; this is what makes it enforceable,
+    and it runs in `comeni-registry`'s CI.
+
+    The default check is **offline**: it recomputes the directory's digest and compares
+    it to the one `module.yml` records, which is the question about a hand-edit. The
+    question about a bad `add` — does this still match upstream — needs the network and
+    is `--upstream`.
+
+    A module declaring `upstream: null` is a laboratory's own process. It reports
+    `unpinned` rather than `ok`, because there is nothing to compare it against and
+    reporting a pass would be claiming a check that never ran — the same reason
+    `MD0100` marks a contract `unverified` rather than trusting it.
 MF0001:
   emitted_by: forge
   concern: scaffolding

@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 
 from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.layered import MODULE_DIR
+from comeni_core.declared.module import key_of
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict
@@ -91,13 +93,30 @@ def land(
     written.append(str(target))
 
     if draft.module is not None:
-        # Beside the contract, following the convention the public registry uses for a
-        # tool's files. It is deliberately *not* `nf_include`, which says where a module
+        # In `module/` beside the contract, following the convention the public registry uses
+        # for a tool's files. It is deliberately *not* `nf_include`, which says where a module
         # lands in a generated pipeline rather than where its source lives — the same
         # distinction `conformance.module_path` is built on.
-        module_path = target.parent / "main.nf"
+        module_path = target.parent / MODULE_DIR / "main.nf"
         _write(registry / module_path, draft.module)
         written.append(str(module_path))
+
+        # FORGE-REWORK — Plan 5A added this write. A hand-drafted module has no `upstream:`
+        # and names no `licence:`, and whether the forge should be authoring registry *modules*
+        # at all — as opposed to contracts over modules `comeni-vendor` fetched — is a question
+        # the rework has to answer rather than inherit.
+        #
+        # **The declaration, or the code is invisible.** A `module/` with no `module.yml`
+        # beside it is not in the stack's modules, so `MD0100` would report the contract
+        # unverified while the source sat right there. `upstream: null` and no `licence:` are
+        # both honest: this module was written here rather than copied, so there is nothing to
+        # check it against and nobody else's terms to name.
+        declaration = target.parent / "module.yml"
+        _write(
+            registry / declaration,
+            f"declares: module\nid: {key_of(str(draft.scaffold.filled['nf_include'].value))}\n",
+        )
+        written.append(str(declaration))
 
     for type_id in sorted(set(draft.scaffold.approved().values())):
         # Three lines, matching what the registry already holds — see

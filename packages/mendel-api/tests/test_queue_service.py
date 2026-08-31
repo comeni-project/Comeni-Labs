@@ -126,8 +126,8 @@ def _drifted(monkeypatch, broken_registry_copy):
     checked._run.cache_clear()
 
 
-FASTQC = "tools/nf-core/fastqc/fastqc.contract.yml"
-MULTIQC = "tools/nf-core/multiqc/multiqc.contract.yml"
+FASTQC = "tools/nf-core/fastqc/contract.yml"
+MULTIQC = "tools/nf-core/multiqc/contract.yml"
 
 
 def test_a_drifted_contract_is_the_first_row_in_the_queue(two_drafts, _drifted):

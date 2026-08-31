@@ -32,7 +32,7 @@ def _run(digest: str) -> ops.CheckResult:
     return ops.check(
         ops.CheckRequest(
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
             # The cached stack, or this verb reloads the registry underneath the cache and
             # the endpoint the cache exists for is the one it cannot reach.
             stack=registry.stack(),

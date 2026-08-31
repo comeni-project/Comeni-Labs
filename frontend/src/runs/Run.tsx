@@ -7,9 +7,10 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 import { Console } from "./Console";
+import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
-import { Failure, type Failed as FailureDetail } from "./Failure";
+import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
@@ -20,6 +21,8 @@ const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
 type FailedTask = {
   process: string; tag?: string | null; latest_exit?: number | null;
   attempts: number; peak_rss_bytes?: number | null;
+  /** New as of phase 4 — what each try asked for beside what it touched. */
+  history?: Attempt[];
 };
 
 type RunState = {
@@ -120,8 +123,15 @@ export function Run() {
         exit: worst.latest_exit ?? null,
         attempts: worst.attempts,
         peak_rss_bytes: worst.peak_rss_bytes ?? null,
-        asked_bytes: (overview.data?.rows ?? []).find((row) => row.process === worst.process)
-          ?.memory_asked_bytes ?? null,
+        // **The ask comes from the failing ATTEMPT now, and falls back to the process row.**
+        // The comment above used to read "`TaskOut` has no asked half", which was true until
+        // phase 4 projected it — and the process row is an aggregate, so on a task that
+        // escalated 36 → 48 → 72 it reported a ceiling that no single attempt was given. The
+        // fallback stays for a run whose record predates the projection.
+        asked_bytes: worst.history?.[worst.history.length - 1]?.memory_bytes
+          ?? (overview.data?.rows ?? []).find((row) => row.process === worst.process)
+            ?.memory_asked_bytes ?? null,
+        history: worst.history,
         report,
       }
     // No task failed, but the run did. Say so with what the record has.
@@ -134,12 +144,12 @@ export function Run() {
   const finished = overview.data?.steps_finished ?? 0;
 
   return (
-    <div className="p-6 flex flex-col gap-4">
+    <div className="gutter py-6 flex flex-col gap-4">
       {/* **The artboard's shelf.** Every run screen opens on a `--surface-2` band with an
           `--e1` lip, and the header was sitting bare on `--paper` — which is most of why the
           top of the page read as a different product from the panel below it. Three rows,
           the artboard's: where you came from, what this is, and how far along. */}
-      <header className="-mx-6 -mt-6 mb-2 px-6 pt-4 pb-3.5 bg-surface-2 border-b border-line
+      <header className="-mx-[24px] md:-mx-[44px] -mt-6 mb-2 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
                          shadow-e1 relative z-[2] flex flex-col">
         <span className="flex items-center gap-3 mb-[3px]">
           <Link to="/runs" className="text-secondary text-ink-3 no-underline hover:text-ink">
@@ -215,6 +225,13 @@ export function Run() {
           failed process is what the table opens on beneath it, because the comparison is the
           diagnosis: one task at 63.8 GB beside eleven at 58 says what a single number cannot. */}
       {run.phase === "failed" && failed && <Failure failed={failed} />}
+
+      {/* **What the run held, above the panel and outside the tabs.** It is not a fifth view:
+          the envelope answers *how much of the machine was in use* and every tab answers a
+          question about a step or a task, so putting it behind a segment would hide the one
+          panel that is about the run as a whole. It renders nothing when the record is empty
+          — absence is absence — so a stub run's page is simply shorter. */}
+      <Envelope runId={run.run_id} live={!TERMINAL.has(run.phase)} />
 
       {/* **`flex flex-col flex-1 min-h-0`, and the graph is why.** The canvas inside asks for
           `flex-1 min-h-0` to fill the panel; this section was neither a flex column nor

@@ -11,6 +11,7 @@ were stale for three plans because nothing counted them (A71, A72).
 from pathlib import Path
 
 import pytest
+from mendel_compiler.conformance import module_path
 from mendel_forge.assemble import scaffold_for
 from mendel_forge.sources import ToolRef
 from mendel_forge.sources.nfcore import NfCoreSource
@@ -21,13 +22,18 @@ STACK = layers.load(ROOT / "registry")
 PAIRS = [
     (contract, ToolRef(source="nf-core", ident=contract.id.split("@")[0].removeprefix("nf-core/")))
     for contract in STACK.registry.all()
-    if contract.id.startswith("nf-core/")
-    and (ROOT / "vendor" / f"{contract.nf_include}.nf").exists()
+    if contract.id.startswith("nf-core/") and module_path(contract, STACK.modules) is not None
 ]
+"""Every nf-core contract whose module the layer actually carries.
+
+The filter was `(ROOT / "registry" / f"{nf_include}.nf").exists()` — a path join over two
+repositories — until Plan 5A put the module in the layer. It is a lookup now, through the same
+`module_path` conformance uses, so this list and the thing it is testing cannot disagree about
+which modules are readable."""
 
 
 def _scaffold(contract, ref):
-    obs = NfCoreSource().ingest(ref, ROOT / "vendor")
+    obs = NfCoreSource().ingest(ref, ROOT / "registry")
     return scaffold_for(
         obs, STACK, ident=contract.id.split("@")[0], version=contract.id.split("@")[1]
     )

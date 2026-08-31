@@ -67,6 +67,7 @@ decline to curate one.
 HEADINGS: dict[str, str] = {
     "loading": "Loading declared registry data",
     "conformance": "A contract disagrees with its module",
+    "layout": "A layer is not arranged the way its manifest says",
     "pipeline-file": "The pipeline file — a setting, an override, or the format",
     "routing": "Routing and resolution",
     "gates": "Gates and emission",
@@ -78,6 +79,7 @@ HEADINGS: dict[str, str] = {
     "model-access": "Reaching a model",
     "model-output": "What a model answered",
     "ingest": "Wiener — what may enter",
+    "vendoring": "comeni-vendor — a tool's source in a layer",
 }
 """Section titles per `concern`, in the order they are rendered.
 

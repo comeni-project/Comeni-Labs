@@ -24,7 +24,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -87,7 +87,7 @@ def test_an_overlay_displaces_and_says_so(tmp_path, capsys):
     (overlay / "contracts").mkdir(parents=True)
     (overlay / "rules").mkdir()
     (overlay / "vocabularies").mkdir()
-    base = ROOT / "registry" / "tools" / "nf-core" / "samtools" / "sort.contract.yml"
+    base = ROOT / "registry" / "tools" / "nf-core" / "samtools" / "sort/contract.yml"
     (overlay / "contracts" / "sort.yml").write_text(
         _declared(
             overlay / "contracts" / "sort.yml",

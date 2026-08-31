@@ -108,7 +108,7 @@ def test_the_type_and_the_contract_are_one_commit(tmp_path, landable_draft):
     ).stdout.split()
 
     assert any(f.startswith("types/") for f in files)
-    assert any(f.endswith(".contract.yml") for f in files)
+    assert any(f.endswith("/contract.yml") for f in files)
 
 
 def test_a_rejected_proposal_is_not_written(tmp_path, draft_with_rejection):

@@ -1,9 +1,11 @@
 """Conformance at the command line: what `mendel build` refuses, and what it records."""
 
 import pathlib
+import shutil
 import subprocess
 import sys
 
+from comeni_core.declared.module import Module
 from mendel_compiler.cli import main
 
 _KIND_OF_DIR = {
@@ -27,7 +29,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -40,6 +42,8 @@ def _declared(path, body: str) -> str:
     return header + body
 
 ROOT = pathlib.Path(__file__).parent.parent
+MODULES = dict(Module.load(ROOT / "registry").entries)
+
 
 
 def test_a_conformant_build_succeeds(tmp_path):
@@ -65,7 +69,7 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    star = next(layer.rglob("align.contract.yml"))
+    star = next(layer.rglob("align/contract.yml"))
     star.write_text(
         _declared(
             star,
@@ -92,12 +96,17 @@ def test_a_nonconformant_contract_refuses_to_build(tmp_path, capsys):
 
 
 def _build_with_no_module_source(tmp_path) -> int:
-    """The real registry, and a --root holding no `vendor/`.
+    """A layer holding every declaration and **no `module/`** — a lab wrapping bare containers.
 
-    `--root` is where module *source* lives; `--registry` is where contracts live. They
-    are separate flags because they are separate things, and a lab wrapping bare
-    containers has the second without the first.
+    This used to pass `--root` at an empty directory, because module source lived under
+    `<root>/vendor` while the contracts came from `--registry`: two flags, because they were
+    two things. Since Plan 5A they are one thing — the layer carries both — so the way to
+    produce an unverified contract is to build a layer with the declarations and without the
+    code, which is exactly the case the diagnostic is *for* and is closer to what a laboratory
+    actually has.
     """
+    layer = tmp_path / "bare"
+    shutil.copytree(ROOT / "registry", layer, ignore=shutil.ignore_patterns("module*"))
     return main(
         [
             "build",
@@ -106,9 +115,7 @@ def _build_with_no_module_source(tmp_path) -> int:
             "--out",
             str(tmp_path / "p"),
             "--registry",
-            str(ROOT / "registry"),
-            "--root",
-            str(tmp_path),
+            str(layer),
         ]
     )
 
@@ -197,7 +204,7 @@ def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
     from mendel_resolver import layers
 
     def add_a_dead_route(layer):
-        path = next(layer.rglob("genomegenerate.contract.yml"))
+        path = next(layer.rglob("genomegenerate/contract.yml"))
         path.write_text(
             _declared(path, path.read_text().replace(
                 "params: []",
@@ -206,7 +213,7 @@ def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
         )
 
     registry = layers.load(_layer_with(tmp_path, add_a_dead_route)).registry
-    found = check(registry, ROOT / "vendor")
+    found = check(registry, MODULES)
     dead = [d for d in found if d.code == "MD0108"]
     assert dead, [d.code for d in found]
     assert "label" in dead[0].where
@@ -222,7 +229,7 @@ def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
     from mendel_resolver import layers
 
     def add_a_live_route(layer):
-        path = next(layer.rglob("sort.contract.yml"))
+        path = next(layer.rglob("sort/contract.yml"))
         path.write_text(
             _declared(path, path.read_text().replace(
                 "params: []",
@@ -231,7 +238,7 @@ def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
         )
 
     registry = layers.load(_layer_with(tmp_path, add_a_live_route)).registry
-    assert not [d for d in check(registry, ROOT / "vendor") if d.code == "MD0108"]
+    assert not [d for d in check(registry, MODULES) if d.code == "MD0108"]
 
 
 def test_the_shipped_registry_routes_nothing_to_a_key_its_module_ignores():
@@ -244,4 +251,4 @@ def test_the_shipped_registry_routes_nothing_to_a_key_its_module_ignores():
     from mendel_resolver import layers
 
     registry = layers.load(ROOT / "registry").registry
-    assert not [d for d in check(registry, ROOT / "vendor") if d.code == "MD0108"]
+    assert not [d for d in check(registry, MODULES) if d.code == "MD0108"]

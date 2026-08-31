@@ -11,6 +11,9 @@ const PAGE = {
   container: "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
   consumes: [{ name: "reads", type_id: "fastq.reads" }],
   produces: [{ name: "html", type_id: "qc.report" }],
+  // FORGE-REWORK — Plan 5A: this is `registry/tools/nf-core/fastqc/module/main.nf` now.
+  // No test reads the value (only that `null` hides the block), so this is stale prose
+  // rather than a false assertion — but it is the string a reader copies.
   source_path: "vendor/modules/nf-core/fastqc/main.nf",
   emits_total: 3,
   emits_declared: 1,

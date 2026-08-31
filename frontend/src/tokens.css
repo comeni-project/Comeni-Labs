@@ -2,56 +2,147 @@
 
    `docs/design/dashboard.md` §2 is AUTHORITATIVE and this file mirrors it — if the two
    disagree, that document is right. It governs both halves of the product: the Mendel
-   canvas and the forge's screens. */
+   canvas and the forge's screens.
+
+   ═══ OBSERVATORY IS THE DEFAULT, as of 2026-08-30 (Plan 4 phase 2) ═══════════════════════
+
+   The redesign canvas drew twenty-four artboards and every one of them is dark; its Themes
+   page settled **Observatory** — Console's density inside Deep Field's breathing arcs — as
+   the direction. The product was light-first, so the screens and the design disagreed about
+   the most basic thing a reader notices.
+
+   **The light palette is not deleted, it is re-homed.** It moves to `[data-theme="light"]`
+   and to `prefers-color-scheme: light`, unchanged, so nothing that was legible stops being
+   legible and nobody's preference is overridden — what changes is which one is the default
+   and therefore which one the design is drawn against.
+
+   **What this supersedes, recorded rather than dropped.** §2 argued *deep botanical green as
+   primary — Mendel's peas, subject-derived rather than SaaS-blue-by-default.* Observatory's
+   primary is a teal, `#10AA91`, and that argument does not carry over. It is a real loss and
+   it was made knowingly: the canvas is the spec, one palette across twenty-four boards beats
+   a nice story about one colour, and `--pea` keeps its NAME so every call site and every
+   sentence about tiers still reads.
+
+   **Two tokens are new**, because the boards use two colours the product had no word for:
+   `--running` (a purple that says *this is happening now*) and `--link` (a blue that means
+   *you can click this*). `rn-settled` is explicit that the second is a promise: a bar wearing
+   `--link` is a promise the page does not keep. */
 :root {
-  --paper: #F4F6F5; --surface: #FFFFFF; --surface-2: #EDF0EE;
-  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783;
-  --line: #DCE2DF; --line-2: #C4CDC8;
-  --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
-  --measured: #B77B2B; --measured-soft: #F6EBD8;
-  --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
-  --shadow: rgba(18, 21, 26, .14);
+  /* Observatory. The ground is nearly black and the surfaces step up from it, so a panel is
+     a bounded region of the page rather than a floating card. */
+  --paper: #080B0D; --paper-2: #0B1013; --surface: #0E1418; --surface-2: #1E282C;
+  --ink: #DFE6E6; --ink-2: #889699; --ink-3: #67757A; --ink-4: #455257;
+  --line: #172025; --line-2: #2A3438; --link-line: #1E3A4E;
+  /* The field's CRT scan line. A texture rather than a surface, which is why it is
+     an alpha over whatever it lands on and not a colour. */
+  --scan-line: rgba(255, 255, 255, .010);
+  /* The field's rule grid — `--link` at 2.6%, masked. Structure, not a surface. */
+  --rule-line: rgba(108, 183, 255, .026);
+  --pea: #10AA91; --pea-soft: #0C2A28; --on-pea: #041014;
+  --measured: #C1B508; --measured-soft: #2A2708;
+  --undecided: #E3674E; --undecided-soft: #2C1712; --fault: #E3674E;
+  --running: #BD6DCD; --running-soft: #241428;
+  --link: #6CB7FF; --link-soft: #122029;
+  /* ── The canvas symbol, from `BuilderCanvas.dc.html`'s own `.node` ────────────────────────
+     A node is darker than a panel and outlined rather than filled, which is what makes a graph
+     of them read as a schematic instead of a stack of cards. `--rail` is the SETTLED tier and
+     it is deliberately a neutral slate: `impl-inv` — *settled gets NO COLOUR AT ALL. Only
+     measured (amber) and open (red) spend any.* */
+  --node: #0C1216; --node-line: #253239; --node-rule: #1A252A;
+  --rail: #2C3E45; --port-line: #4A5C64;
+  /* The measuring grid, three rulings at 1:5:10 — 80 / 40 / 8. The coarsest is loudest, so the
+     eye lands on it first and reads the fine one only when it needs to. */
+  --grid-1: rgba(108, 183, 255, .115);
+  --grid-2: rgba(108, 183, 255, .060);
+  --grid-3: rgba(108, 183, 255, .028);
+  /* The frame's corner registration marks. */
+  --mark: #28353C;
+  --shadow: rgba(0, 0, 0, .6);
   --r: 3px;
-  --font-display: Georgia, "Iowan Old Style", "Times New Roman", ui-serif, serif;
-  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-data: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, monospace;
+  /* **One family, two cuts** — the artboards use Geist for everything and Geist Mono for data.
+     `--font-display` was a Georgia SERIF, which is not in the design at any size: the front
+     door's headline rendered in it, and that is most of why the built page did not look like
+     the artboard it was drawn from. Display is Geist at a heavier weight and a tighter track,
+     not a different family. */
+  --font-display: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-ui: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
 
   /* Interaction. Both DERIVED, like the elevation ramp: --hover is --ink at 5%, so it tints
-     whatever surface it lands on and inverts for free in dark mode where --ink is light.
-     --t is not a new number either — it is what Tailwind's `transition-colors` already
-     resolves to in the seven places this product uses it. */
+     whatever surface it lands on — and because --ink is light here and dark in the light
+     theme, it inverts for free rather than needing a second value. */
   --hover: color-mix(in oklab, var(--ink) 5%, transparent);
   --hover-strong: color-mix(in oklab, var(--ink) 9%, transparent);
-  --t: 140ms cubic-bezier(.4, 0, .2, 1);
-  --ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--pea);
 
-  /* The elevation ramp — `wiener.md` §9.5, deferred since 2026-08-23. No new hue: every step
-     is --shadow, which is already themed, at a different spread. Depth is the visual
-     direction and it costs no palette. */
+  /* ONE CURVE. Every transition and all five movements in `main.css` use it, because a second
+     easing curve is a second personality.
+
+     **This value changed on 2026-08-30 and the argument for the old one is deliberately gone.**
+     `--t` was `140ms cubic-bezier(.4, 0, .2, 1)` and this comment used to say the number was
+     not new — it was whatever Tailwind's `transition-colors` resolves to. That was a good
+     reason to pick a value and it is not a reason to keep it: the redesign canvas specifies one
+     curve for the whole product, `.design/runs_boards.py` is its reference implementation, and
+     a token whose justification is *another framework happened to choose it* loses to a token
+     whose justification is *this is the product's curve*. Plan 4 phase 0.
+
+     There were three curves the day this landed — this one, an inline `.2,.7,.3,1` in
+     `Home.tsx`, and the boards'. The duration stays 140ms. */
+  --ease: cubic-bezier(.32, .72, 0, 1);
+  --t: 140ms var(--ease);
+  --ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--link);
+
+  /* The elevation ramp — `wiener.md` §9.5. No new hue: every step is --shadow, which is
+     already themed, at a different spread. Depth is the visual direction and it costs no
+     palette. */
   --e1: 0 1px 1px var(--shadow);
   --e2: 0 1px 2px var(--shadow), 0 6px 16px -10px var(--shadow);
   --e3: 0 1px 2px var(--shadow), 0 14px 34px -18px var(--shadow);
   --well: inset 0 1px 2px var(--shadow);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
-    --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
-    --line: #2A3134; --line-2: #3A4347;
-    --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
-    --measured: #D9A458; --measured-soft: #2C2416;
-    --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
-    --shadow: rgba(0, 0, 0, .5);
+/* The light palette, unchanged and no longer the default. It is what shipped from Plan 3A to
+   2026-08-30, kept because re-homing costs nothing and inventing a light Observatory would be
+   designing a theme nobody drew. `--running` and `--link` are the only additions, chosen to
+   sit against a light ground at the same roles they hold above. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
+    --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
+    --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+    --scan-line: rgba(0, 0, 0, .012);
+    --rule-line: rgba(60, 110, 160, .045);
+  --rule-line: rgba(60, 110, 160, .045);
+  --scan-line: rgba(0, 0, 0, .012);
+  --rule-line: rgba(60, 110, 160, .045);
+    --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
+    --measured: #B77B2B; --measured-soft: #F6EBD8;
+    --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
+    --running: #7B3FA0; --running-soft: #F0E6F5;
+    --link: #1F5FA8; --link-soft: #E6EEF8;
+    --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
+    --rail: #9AA5A1; --port-line: #8F9A95;
+    --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+    --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
+  --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+  --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
+    --shadow: rgba(18, 21, 26, .14);
   }
 }
 
-:root[data-theme="dark"] {
-  --paper: #0E1113; --surface: #171B1D; --surface-2: #1F2426;
-  --ink: #E8EDEA; --ink-2: #A3AEAA; --ink-3: #6E7A76;
-  --line: #2A3134; --line-2: #3A4347;
-  --pea: #5FAE80; --pea-soft: #1B2A22; --on-pea: #0E1113;
-  --measured: #D9A458; --measured-soft: #2C2416;
-  --undecided: #E87352; --undecided-soft: #30201B; --fault: #D96B6B;
-  --shadow: rgba(0, 0, 0, .5);
+:root[data-theme="light"] {
+  --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
+  --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
+  --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+  --scan-line: rgba(0, 0, 0, .012);
+  --rule-line: rgba(60, 110, 160, .045);
+  --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;
+  --measured: #B77B2B; --measured-soft: #F6EBD8;
+  --undecided: #CC4B2C; --undecided-soft: #FAE4DD; --fault: #8B1E1E;
+  --running: #7B3FA0; --running-soft: #F0E6F5;
+  --link: #1F5FA8; --link-soft: #E6EEF8;
+  --node: #FFFFFF; --node-line: #C4CDC8; --node-rule: #E4E9E6;
+  --rail: #9AA5A1; --port-line: #8F9A95;
+  --grid-1: rgba(40, 90, 150, .16); --grid-2: rgba(40, 90, 150, .09);
+  --grid-3: rgba(40, 90, 150, .05); --mark: #C4CDC8;
+  --shadow: rgba(18, 21, 26, .14);
 }

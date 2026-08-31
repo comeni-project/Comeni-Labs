@@ -30,6 +30,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.module import Module
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
@@ -49,6 +50,17 @@ class Layers(BaseModel):
     registry: Registry
     roles: RoleVocabulary
     rules: RuleTable
+
+    modules: dict[str, Module] = Field(default_factory=dict)
+    """The tool source this stack carries, by module key — Plan 5A.
+
+    **Loaded here and read by nothing in this file**, which is the point: a module is declared
+    data and stacks like every other kind (invariant 11), so it is loaded where every other
+    kind is loaded rather than by a hand-written walk beside conformance. Whoever needs the
+    source — the conformance check, the bundle — asks the layers, and a laboratory's overlay
+    displacing a contract displaces its module with it, on the same key, through the same
+    mechanism.
+    """
 
     paths: list[Path] = Field(default_factory=list)
     """The layer directories this was loaded from, in order.
@@ -131,6 +143,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
     named_roles = stack(stacked, RoleVocabulary.kind(), buckets=buckets)
+    vendored = stack(stacked, Module.kind(), buckets=buckets)
     roles = RoleVocabulary(names=frozenset(named_roles.entries))
     try:
         contracts = stack(stacked, Registry.kind(vocabulary), buckets=buckets)
@@ -161,11 +174,13 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         registry=registry,
         roles=roles,
         rules=rules,
+        modules=dict(vendored.entries),
         paths=list(layers),
         displaced=[
             *measured.displaced,
             *declared_types.displaced,
             *named_roles.displaced,
+            *vendored.displaced,
             *contracts.displaced,
             *decided.displaced,
         ],

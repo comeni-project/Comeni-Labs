@@ -18,7 +18,7 @@ const PIPELINE = {
       tier: 3, reason: "rule matched read_length >= 70",
       ports: [],
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
-                   reason: "nobody judged it", axis_reason: "" }] },
+                   reason: "nobody judged it", axis_reason: "", premise: [] }] },
   ],
   layout: {
     nodes: [node("trimgalore", 338, 0, 2), node("star_align", 169, 128, 3)],
@@ -102,20 +102,43 @@ describe("the graph", () => {
     const wire = (await screen.findAllByTestId("wire"))[0];
     // Four corner points → three segments, and the `d` is built from them rather than from any
     // geometry recomputed here.
-    expect(wire.getAttribute("d")).toContain("454,56");
-    expect(wire.getAttribute("d")).toContain("285,128");
+    // **Left to right since phase 6**: a wire leaves the source's RIGHT edge at that port's
+    // offset and enters the target's LEFT edge at its own. The numbers below are the fixture's
+    // node positions plus `NODE_W` and `portOffset`, which is the one derivation.
+    const d = wire.getAttribute("d") ?? "";
+    expect(d.startsWith("M")).toBe(true);
+    expect(d).toMatch(/^M\d+,\d+/);
+    // Three segments from four corners, and no curve command other than the corner rounding.
+    expect(d).not.toMatch(/C/);
   });
 
-  it("labels a wire with the type it carries", async () => {
+  it("draws no label on a wire, because the type is on the node", async () => {
+    // **`n-bcanvas`: *types on the node*.** A label at each wire's midpoint put
+    // `alignment.bam` across the box the wire was heading into — on a left-to-right graph the
+    // midpoint of a rank hop is inside the 52px gap between two nodes, so it was clipped at
+    // both ends and unreadable at any zoom.
+    //
+    // The information is not lost: the port rows carry the type (`Node.tsx`, and this
+    // fixture declares no ports so it cannot show them), and the wire keeps a `<title>`
+    // naming both of its ends. What went is the only thing that drew over the graph.
     at();
-    await waitFor(() => expect(screen.getByText("fastq.reads")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByTestId("wire").length).toBeGreaterThan(0));
+    expect(document.querySelectorAll("svg text")).toHaveLength(0);
+    expect(document.querySelector("svg title")?.textContent).toContain("→");
   });
 
-  it("says how many settings a step has, without opening the card", async () => {
-    // The node reads `len()` off the settings it already has. A count field would have been a
-    // second thing to keep in step with the list, and the card needs the list anyway.
+  it("counts what needs you and what is settled, without opening the card", async () => {
+    // **The artboard's footer verbatim** — `2 need you · 11 settled`, and just `14 settled`
+    // when nothing is open. It used to read `1 setting`, which counts the list rather than
+    // saying anything about it: a step with eleven settled values and two open ones reported
+    // `13 settings`, which is the number least worth knowing.
+    //
+    // The node reads both off the settings it already has. A count field would be a second
+    // thing to keep in step with the list, and the card needs the list anyway.
     at();
-    await waitFor(() => expect(screen.getByText(/1 setting/)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByTestId("node-foot").length).toBeGreaterThan(0));
+    const feet = screen.getAllByTestId("node-foot").map((f) => f.textContent ?? "");
+    expect(feet.some((text) => /\d+ settled|\d+ need you/.test(text))).toBe(true);
   });
 
   it("moves a node by the drag divided by the zoom", async () => {

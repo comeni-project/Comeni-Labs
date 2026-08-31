@@ -22,6 +22,20 @@ def work_dir(run_id: str) -> Path:
     return settings.work_root / run_id
 
 
+def results_dir(run_id: str) -> Path:
+    """Where this run's published outputs land — **a site fact, chosen here.**
+
+    The emitted pipeline publishes to `params.outdir` and declares it `null`, because where a
+    laboratory keeps its results is not a property of the pipeline (`emit.py`'s `PUBLISH_DIR`).
+    Wiener supplies the value, from the same server-chosen opaque id `work_dir` uses, so no path
+    is ever accepted from a client.
+
+    Inside the run's own directory rather than beside it: a run's outputs, its work directory,
+    its `site.config` and its `params.json` are one thing to keep or delete.
+    """
+    return work_dir(run_id) / "results"
+
+
 def _resource_limits() -> str:
     """How big this machine is — **the definitive site fact**, and the reason the emitted
     config may state what a process *asks for* without knowing what it can *have*.
@@ -77,6 +91,14 @@ def command(run: Run, workdir: str, has_params: bool = False) -> list[str]:
         "-profile", f"{run.executor},{settings.container_profile}",
         "-c", f"{workdir}/site.config",
         "-w", f"{workdir}/work",
+        # **`--outdir` here and NOT in `site.config`, and it is not a preference.**
+        # `publishDir`'s `enabled:` is an expression Nextflow evaluates while reading the
+        # `process {` scope. A `-c` file is layered on top, and a `profiles {` block is read
+        # after — so neither can switch publishing on, while a command-line param can, because
+        # those are injected before parsing. Measured against a real stub run on 2026-08-30: a
+        # profile-set `outdir` published nothing with every process green; the same config with
+        # `--outdir` published 41 files. `gates.py` carries the same line for the same reason.
+        "--outdir", str(results_dir(run.id)),
         "-name", f"wiener-{run.id}",
     ]
     if has_params:
@@ -107,6 +129,11 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
 
         workdir = work_dir(run_id)
         workdir.mkdir(parents=True, exist_ok=True)
+        # Made now rather than left to Nextflow, so a run that publishes nothing has an empty
+        # directory rather than none. `/results` can then answer *this run produced no output*
+        # instead of 404ing, which reads as *no such run* — absence is absence, and the two
+        # absences are different facts.
+        results_dir(run_id).mkdir(parents=True, exist_ok=True)
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         if params:

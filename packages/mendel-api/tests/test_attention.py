@@ -9,20 +9,44 @@ from mendel_api.services import attention
 from mendel_api.services.attention import Urgency
 
 
-def test_it_reports_what_is_open_without_listing_it():
+def test_it_points_at_a_screen_and_never_at_a_registry_subject():
+    """**Restated, not deleted** — Plan 4 phase 2, and `ov-settled` says to do exactly that.
+
+    This asserted that `/` *counts and links and never renders an item*, which is the discipline
+    `forge-review.md` §3 demanded: an Overview page was designed and CUT once for answering the
+    same question as the forge Queue, and rendering one row here was how that decision would get
+    undone by forgetting it.
+
+    **The operator has ruled that constraint dead.** The page renders items now — pipelines and
+    runs. So the rule narrows to the part that is still true and still worth keeping: it may
+    never render a *registry* subject. A contract id, a question subject or a drift row on this
+    page is the moment it has become the Queue a second time.
+    """
     got = attention.whats_open()
     assert got.forge, "nothing at all is open — this test is measuring nothing"
     for call in got.forge:
         assert call.count >= 0
-        assert call.where.startswith("/forge/"), "every call leads to the screen that owns it"
         assert call.what, "a count with no sentence is a number nobody can act on"
+        assert call.where.startswith("/forge/"), "every call leads to the screen that owns it"
+        # The narrowed rule: a call names a SCREEN and a filter, never a subject.
+        assert "@" not in call.where, "a contract id in the link is a registry item on the page"
 
 
-def test_the_mendel_half_is_absent_rather_than_zero():
-    """Nothing stores pipelines, so there is nothing true to say. *0 pipelines need review*
-    would claim that pipelines were looked at — the same falsehood as *0 of 0 emit channels*
-    and *0 match their source*, both of which shipped once and were corrected."""
-    assert attention.whats_open().mendel == []
+def test_the_mendel_half_reports_the_lab_s_own_pipelines():
+    """**This test asserted `mendel == []` and its docstring said "nothing stores pipelines".**
+
+    That had been false since Plan 3E — drafts have been rows in Postgres since the builder
+    became a builder, and nobody came back to the sentence. It is the drift `CLAUDE.md` warns
+    about in prose that has no counter behind it, caught here by needing the field.
+    """
+    calls = attention.whats_open().mendel
+    for call in calls:
+        assert call.urgency is Urgency.WAITING, "an open value holds somebody up; it breaks nothing"
+        assert call.where.startswith("/build"), "it leads to the page that can answer it"
+        assert not call.what.endswith("items"), (
+            "waiting on a person NAMES the values — a count is what you write when you have "
+            "not looked"
+        )
 
 
 def test_drift_outranks_an_undrafted_tool():
@@ -41,14 +65,19 @@ def test_the_calls_come_back_worst_first():
     assert ranks == sorted(ranks), f"not in consequence order: {ranks}"
 
 
-def test_the_standing_says_what_the_registry_holds():
-    """Not what it needs — that is the other half of the page. This is the half that makes a
-    front door a place rather than an inbox."""
-    standing = attention.whats_open().standing
-    assert standing.contracts == 12
-    assert standing.types == 22
-    assert standing.matching + standing.unverifiable + standing.drifted == standing.contracts
-    assert standing.sources == ["nf-core"]
+def test_the_front_door_does_not_report_the_registry_s_inventory():
+    """**Deleted deliberately, and this is what replaced it.**
+
+    `test_the_standing_says_what_the_registry_holds` asserted 12 contracts, 22 types and one
+    source, and defended the block as *the half a dashboard usually omits*. `ov-settled` is the
+    counter-argument and the operator's ruling: that is the PRODUCT's state, not YOURS, and it
+    is why the old page read as slop — information with no question behind it.
+
+    An assertion that the field is gone, rather than no assertion at all, because the block is
+    exactly the kind of thing that comes back when somebody wants the page to look fuller.
+    """
+    assert not hasattr(attention.whats_open(), "standing")
+    assert not hasattr(attention, "Standing")
 
 
 def test_an_undrafted_tool_is_an_invitation_not_a_warning():
@@ -74,3 +103,26 @@ def test_nothing_open_is_a_state_it_can_report():
     got = attention.whats_open()
     blocking = [call for call in got.forge if call.urgency is Urgency.BLOCKING]
     assert blocking == [], "the shipped registry has drift — the empty state is not reachable"
+
+
+def test_the_front_door_survives_a_store_it_cannot_reach(monkeypatch):
+    """**A192's argument, on the other half of the product.**
+
+    `/overview` was required to degrade where `/graph` 404s, because *a 404 on the default view
+    turns a readable run into a blank page*. The same holds here and the failure modes differ:
+    the forge half reads FILES and the mendel half reads ROWS, so the one that can be
+    unavailable must not take the other down with it.
+
+    This is also why `whats_open()` stays testable in CI, which has no Postgres — a consequence
+    rather than the reason.
+    """
+    from mendel_api.services import drafts
+
+    def unreachable(**kwargs):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(drafts, "list_drafts", unreachable)
+
+    got = attention.whats_open()
+    assert got.mendel == [], "an unreachable store reports nothing, rather than raising"
+    assert got.forge, "the half that reads files must still answer"

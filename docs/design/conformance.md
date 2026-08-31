@@ -336,4 +336,4 @@ The ladder has a top, and naming it is part of staying honest.
 - [Nextflow: migrating to static types](https://www.nextflow.io/docs/latest/tutorials/static-types.html)
 - [Nextflow: strict syntax and `nextflow lint`](https://nextflow.io/docs/latest/strict-syntax.html)
 - [Make illegal states unrepresentable](https://deviq.com/principles/make-illegal-states-unrepresentable/)
-- The vendored tree in `vendor/modules/`, and two measurements recorded in §5.
+- The vendored tree, which lives in the registry layer under `tools/**/module/` since Plan 5A, and two measurements recorded in §5.

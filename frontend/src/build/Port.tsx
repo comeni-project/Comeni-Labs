@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { components } from "../api/schema";
 
@@ -11,9 +11,14 @@ type PortView = components["schemas"]["PortView"];
  * works on a mock where you already know the graph, and asks you to infer direction from position
  * on a real one you are reading for the first time.
  *
- * - **input** — a chevron pointing *into* the node. The graph flows down, so it sits on the top
- *   edge and points the way the data goes.
- * - **output** — a circle on the bottom edge, where a wire leaves.
+ * **Since Plan 4 phase 6 it is the artboard's square** — `.port { width:7px; height:7px }`,
+ * sitting ON the edge at `left:-4px` or `right:-4px`. The graph flows LEFT TO RIGHT, so an
+ * input is on the left edge and an output on the right, and *direction is where it is* rather
+ * than something a shape has to encode. The chevron and the circle are gone with the downward
+ * flow that made them mean anything.
+ *
+ * The direction is still drawn, once, **inside** the node: `◀ fastq.reads` on a port row. That
+ * is `n-bcanvas`'s *types on the node*, and it puts the arrow beside the word it describes.
  *
  * **The two binary channels from `dashboard.md` §3 survive unchanged**, because each means
  * something a reader acts on: **hollow** is a required input nothing feeds, **filled** is met.
@@ -36,31 +41,44 @@ type PortView = components["schemas"]["PortView"];
  * **Hover names it on the canvas**, rather than only in a `title`. A native tooltip waits a
  * second, renders outside the design, and cannot be read at a glance while tracing a wire.
  */
+/** How far the pointer may travel and still count as a click rather than the start of a drag.
+ *
+ * Four device pixels is the usual figure and it is what a native `click` uses in practice. It
+ * exists because an output port has to do BOTH: press-and-move draws a wire, press-and-release
+ * asks what could go here. */
+const SLOP = 4;
+
 export function Port({
   port,
-  x,
+  side,
+  y,
   verdict,
   onStartWire,
+  onExplore,
   onFinishWire,
 }: {
   port: PortView;
-  x: number;
+  /** Which edge it sits on. The graph flows left to right, so this IS the direction. */
+  side: "in" | "out";
+  /** Where along the edge, from `portOffset`. Never computed here. */
+  y: number;
   /** How this port looks while a wire is being dragged from somewhere else. `undefined` when
    *  nothing is being dragged, which is most of the time. */
   verdict?: "yes" | "conventional-no" | "no";
   onStartWire?: () => void;
+  /** Open the picker for this port — what could sit on the other end of a wire. */
+  onExplore?: () => void;
   onFinishWire?: () => void;
 }) {
   const [over, setOver] = useState(false);
-  const size = 16;
-  const c = size / 2;
-  const r = size * 0.28;
-  const inbound = port.side === "in";
+  // Where the press landed, so release can tell a click from a drag.
+  const down = useRef<{ x: number; y: number } | null>(null);
+  const inbound = side === "in";
 
   return (
     <button
       data-testid="port"
-      data-side={port.side}
+      data-side={side}
       data-met={port.met}
       aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${port.type_id}${
         port.met ? "" : " — nothing feeds this"
@@ -68,6 +86,7 @@ export function Port({
       data-verdict={verdict ?? ""}
       onPointerDown={(e) => {
         e.stopPropagation();
+        down.current = { x: e.clientX, y: e.clientY };
         // An output starts a wire; an input cannot. The direction is the port's, not the
         // gesture's, which is what makes MD0502 unreachable from the canvas rather than merely
         // reported by it.
@@ -75,61 +94,72 @@ export function Port({
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
+
+        // ═══ A CLICK IS A PRESS THAT DID NOT TRAVEL ════════════════════════════════════════
+        //
+        // **`n-bport` says *click* an output and this needed a DOUBLE click**, on a 7px square,
+        // which is why the operator's verdict was that the feature *does not exist*. It was not
+        // missing — `Picker` and `GET /pipeline/candidates` have shipped since phase 3b — it was
+        // bound to a gesture nobody would find.
+        //
+        // The comment that chose the double click was honest about the obstacle: `onPointerDown`
+        // already starts a wire, and telling a click from the beginning of a drag "needs movement
+        // tracking this component does not have". It has it now, and it is four lines: remember
+        // where the press landed, and on release ask whether the pointer moved. Anything under
+        // `SLOP` was a click.
+        //
+        // A wire begun and abandoned costs nothing — the canvas clears `dragging` on any
+        // `pointerup`, so the press that opens this popover tidies itself up.
+        const from = down.current;
+        down.current = null;
+        const still =
+          from && Math.abs(e.clientX - from.x) < SLOP && Math.abs(e.clientY - from.y) < SLOP;
+
+        if (still) {
+          onExplore?.();
+          return;
+        }
         if (inbound) onFinishWire?.();
       }}
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}
       onFocus={() => setOver(true)}
       onBlur={() => setOver(false)}
-      style={{ left: x - size / 2, [inbound ? "top" : "bottom"]: -8 }}
-      className={`absolute w-4 h-4 p-0 border-0 bg-transparent leading-none z-10
+      // **On the edge, at the one derivation.** `y` is `portOffset(index)` — the caller does not
+      // compute it and neither does this component, which is `impl-geom`'s *never write a
+      // coordinate twice*. `-4px` centres a 7px square on a 1px border.
+      style={{ top: y - 3.5, [inbound ? "left" : "right"]: -4 }}
+      className={`absolute w-[7px] h-[7px] p-0 leading-none z-10 transition-transform
                   ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
-                  ${
-                    verdict === "no"
-                      ? "opacity-25"
-                      : verdict === "conventional-no"
-                        ? "text-[var(--measured)]"
-                        : verdict === "yes"
-                          ? "text-[var(--pea)]"
-                          : port.met
-                            ? "text-ink-3"
-                            : "text-[var(--undecided)]"
-                  }
-                  hover:[&>svg]:scale-125 focus-visible:[&>svg]:scale-125`}
+                  hover:scale-150 focus-visible:scale-150
+                  focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--link)]`}
     >
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        aria-hidden
-        className="transition-transform"
-      >
-        {inbound ? (
-          // A chevron pointing down — into the node, the way the graph flows.
-          <path
-            d={`M${c - r - 1},${c - r} L${c},${c + r} L${c + r + 1},${c - r}`}
-            fill={port.met ? "currentColor" : "var(--surface)"}
-            stroke="currentColor"
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-          />
-        ) : (
-          <circle
-            cx={c}
-            cy={c}
-            r={r}
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          />
-        )}
-      </svg>
+      <span aria-hidden className="block w-full h-full" style={{
+        // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--link`. An
+        // unmet input is the one that spends `--undecided`, because it is the one that needs
+        // somebody — invariant 6, on the smallest element that can carry it.
+        background: verdict === "yes" || verdict === "conventional-no"
+          ? "var(--link-soft)"
+          : "var(--node)",
+        border: `1px solid ${
+          verdict === "no"
+            ? "var(--port-line)"
+            : verdict === "conventional-no"
+              ? "var(--measured)"
+              : verdict === "yes"
+                ? "var(--link)"
+                : port.met
+                  ? "var(--port-line)"
+                  : "var(--undecided)"
+        }`,
+        opacity: verdict === "no" ? 0.25 : 1,
+      }} />
 
       {over && (
         <span
           data-testid="port-label"
-          style={{ [inbound ? "bottom" : "top"]: "18px" }}
-          className="absolute left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded-r
+          style={{ [inbound ? "right" : "left"]: "12px" }}
+          className="absolute top-1/2 -translate-y-1/2 z-20 whitespace-nowrap
                      border border-line bg-surface px-2 py-1 font-data text-label
                      text-ink shadow-e2 pointer-events-none"
         >
@@ -142,8 +172,3 @@ export function Port({
   );
 }
 
-/** Ports spread evenly across a node's edge — `portX(count, i) = NW * (i + 1) / (count + 1)`,
- *  the same formula `layout.py` uses to anchor wires, so a wire lands on its dot. */
-export function portX(width: number, count: number, index: number): number {
-  return (width * (index + 1)) / (count + 1);
-}

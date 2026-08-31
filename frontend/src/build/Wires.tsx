@@ -2,7 +2,8 @@ import type { components } from "../api/schema";
 
 type Wire = components["schemas"]["PlacedWire"];
 
-import { elbow, heightFor, path, portX, type Point, type Positions } from "./geometry";
+import { elbow, NODE_W, path, portOffset, SPINE, type Point, type Positions }
+  from "./geometry";
 
 /** Which ports a node declares, in the order the canvas draws them. */
 export type PortIndex = Record<string, { ins: string[]; outs: string[]; width: number }>;
@@ -29,21 +30,17 @@ function ends(
   // `validate` reports that as MD0501, and a picture is not the place to refuse a graph.
   const outAt = source.outs.indexOf(wire.from_port);
   const inAt = target.ins.indexOf(wire.to_port);
+  // **Out of the right edge, into the left edge**, and the offset along the edge is
+  // `portOffset` — the single derivation `impl-geom` names. Nothing here recomputes a node's
+  // size, which is what put every wire 6px above its port on the walk.
   return [
-    {
-      x: from.x + (outAt < 0 ? source.width / 2 : portX(source.width, source.outs.length, outAt)),
-      y: from.y + heightFor(source.ins.length, source.outs.length),
-    },
-    {
-      x: to.x + (inAt < 0 ? target.width / 2 : portX(target.width, target.ins.length, inAt)),
-      y: to.y,
-    },
+    { x: from.x + NODE_W, y: from.y + (outAt < 0 ? SPINE : portOffset(outAt)) },
+    { x: to.x, y: to.y + (inAt < 0 ? SPINE : portOffset(inAt)) },
   ];
 }
 
 export function Wires({
   wires,
-  tierOf,
   at,
   ports,
   width,
@@ -52,7 +49,6 @@ export function Wires({
   onDetach,
 }: {
   wires: Wire[];
-  tierOf: (id: string) => number;
   /** Where every node is, right now. The client owns these. */
   at: Positions;
   /** What each node declares, so a wire lands on the chevron the canvas drew. */
@@ -97,11 +93,6 @@ export function Wires({
         const pair = ends(wire, at, ports);
         if (pair === null) return null;
         const points = elbow(pair[0], pair[1]);
-        const label = {
-          x: Math.round((pair[0].x + pair[1].x) / 2),
-          y: Math.round((pair[0].y + pair[1].y) / 2) - 6,
-        };
-        const tier = tierOf(wire.from_node);
         return (
           <g
             key={`${wire.from_node}.${wire.from_port}-${wire.to_node}.${wire.to_port}`}
@@ -138,28 +129,25 @@ export function Wires({
               d={path(points)}
               fill="none"
               strokeWidth={1.5}
-              stroke={
-                tier === 4
-                  ? "var(--undecided)"
-                  : tier === 3
-                    ? "var(--measured)"
-                    : "var(--line-2)"
-              }
-              strokeDasharray={tier === 4 ? "3 8" : tier === 3 ? "5 4" : undefined}
+              // **A wire has no tier.** It was drawn in the colour of the node it leaves —
+              // so a graph drawn by hand, where every step exits at tier 4, was a web of red
+              // dashes with the nodes' own red edges lost inside it. `impl-inv`: *colour where
+              // something needs you, nowhere else*, and a wire is not a decision anybody has
+              // to make. Every artboard draws them as one thin neutral line.
+              stroke="var(--line-2)"
               // Thickens under the cursor so the thing you are about to remove is the thing
               // you can see you are about to remove.
               className={onDetach ? "group-hover:[stroke-width:3] transition-[stroke-width]" : undefined}
             />
-            <text
-              x={label.x}
-              y={label.y}
-              textAnchor="middle"
-              className="font-data"
-              fontSize="10"
-              fill="var(--ink-3)"
-            >
-              {wire.type_id}
-            </text>
+            {/* **No label on the wire.** Every artboard draws the graph with bare wires and
+                puts the type on the NODE, in its port rows — `n-bcanvas`: *types on the node*.
+                A label at each wire's midpoint put `alignment.bam` across the box the wire was
+                heading into, clipped by the next node and unreadable at any zoom; on a
+                left-to-right graph the midpoint of a short rank hop is inside the gap between
+                two nodes, which is 52px wide.
+
+                The wire keeps its `<title>`, so hovering still names both ends — the
+                information is not lost, only the thing that was drawing over the graph. */}
           </g>
         );
       })}

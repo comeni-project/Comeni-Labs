@@ -10,7 +10,6 @@ from mendel_compiler.modulespec import ModuleSpec
 from pydantic import BaseModel
 
 from mendel_api.services import registry
-from mendel_api.settings import settings
 
 
 class Port(BaseModel):
@@ -55,8 +54,8 @@ def read(id: str) -> ModulePage:
     if contract is None:
         raise ValueError(f"{id!r} is not in this registry")
 
-    path = conformance.module_path(contract, settings.source_root)
-    spec = ModuleSpec.parse(path) if path.exists() else None
+    path = conformance.module_path(contract, stack.modules)
+    spec = ModuleSpec.parse(path) if path is not None and path.exists() else None
 
     roles = set(contract.roles)
     consumed = {c.type_id for c in contract.consumes}

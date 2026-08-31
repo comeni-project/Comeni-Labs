@@ -14,7 +14,10 @@ class Settings(BaseSettings):
 
     workspace_root: Path = Path("./workspace")
     registry_root: Path = Path("./registry")
-    source_root: Path = Path("./vendor")
+    """The layer. **One root** since Plan 5A — it used to be two, `registry_root` for the
+    declarations and `source_root` for the module code they describe, on two release cadences
+    in two repositories. `MD0104` exists to catch a contract drifting from its module and was
+    comparing two things nothing kept in step."""
     draft_root: Path = Path("./build/drafts")
     """Where `keep` writes a draft's `pipeline.yml`.
 

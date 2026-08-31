@@ -12,16 +12,24 @@ Mendel's items without changing shape. A flat list would make `mendel` a filter 
 the day pipelines exist somebody would have to decide what that field is called; a section that
 is empty today is a section that fills.
 
-**Two halves, and only one of them is about need.** `forge`/`mendel` say what wants a person;
-`standing` says what the registry *holds*. The second is the half a dashboard usually omits, and
-it is what makes a front door a place rather than an inbox.
+**One question now, and it is about need.** `forge` and `mendel` say what wants a person.
+
+**There used to be a second half** — `standing`, what the registry *holds*: 12 contracts, 22
+types, 3 rules. It was defended here as *the half a dashboard usually omits, and what makes a
+front door a place rather than an inbox*. Plan 4 phase 2 deleted it on the operator's reading,
+and the counter-argument is worth keeping because it is short: that is the PRODUCT's state, not
+YOURS, and it is why the old page read as slop — information with no question behind it.
 """
 
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from mendel_api.services import checked, queue, registry, tools
+from mendel_api.services import checked, drafts, queue, tools
+
+_PIPELINES_AT_MOST = 25
+"""The front door counts and points; it is not the pipelines table. Past this many, the *Work*
+block below is where somebody is actually looking."""
 
 
 class Urgency(StrEnum):
@@ -58,28 +66,33 @@ class Call(BaseModel):
     urgency: Urgency
 
 
-class Standing(BaseModel):
-    """What the registry holds. Not what it needs."""
-
-    contracts: int
-    matching: int
-    unverifiable: int
-    drifted: int
-    types: int
-    roles: int
-    rules: int
-    measurements: int
-    sources: list[str]
-    undrafted: int
-
-
 class Attention(BaseModel):
-    forge: list[Call]
-    mendel: list[Call]
-    """**Empty today, and that is a section rather than a zero.** Nothing stores pipelines, so
-    the page renders no Mendel block at all — `0 pipelines need review` would claim that
-    pipelines were looked at."""
-    standing: Standing
+    """What needs a person, now.
+
+    **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
+    12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
+    state, not YOURS, and it is why the old page read as slop — information with no question
+    behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
+    a model with no consumer is a model that comes back.
+    """
+
+    forge: list[Call] = Field(default_factory=list)
+    """**Not rendered while the forge is hidden**, and not deleted either.
+
+    Phase 0 took the forge out of the navigation by the operator's decision of 2026-08-30 — it
+    is carried as needing testing and rework — and left every route resolving. A call to action
+    pointing at a screen the frame offers no way into is worse than no call at all, so the page
+    stops showing these; the day the forge comes back, so do they.
+
+    Computed rather than skipped, because a value nobody asks for silently stops being correct.
+    """
+    mendel: list[Call] = Field(default_factory=list)
+    """What the lab's own pipelines need.
+
+    **This said "empty today, nothing stores pipelines" and that had been false since Plan 3E.**
+    Drafts have been rows in Postgres since the builder became a builder; nobody came back to
+    the sentence. It is filled now, from the same listing the *by pipeline* table reads.
+    """
 
 
 def whats_open() -> Attention:
@@ -95,7 +108,6 @@ def whats_open() -> Attention:
     # answer from one composition.
     board = tools.board()
     open_work = queue.read()
-    stack = registry.stack()
     drift = {found.contract_id for found in checked.result().drift}
 
     # **Straight at `/forge/tools`, not at the redirect.** `/forge/sources` and
@@ -135,23 +147,53 @@ def whats_open() -> Attention:
         )
 
     calls.sort(key=lambda call: call.urgency.rank)
+    return Attention(forge=calls, mendel=_waiting_on_a_person())
 
-    return Attention(
-        forge=calls,
-        mendel=[],
-        standing=Standing(
-            contracts=board.counts.get("landed", 0),
-            matching=board.status_counts.get("matching", 0),
-            unverifiable=board.status_counts.get("unverifiable", 0),
-            drifted=board.status_counts.get("drifted", 0),
-            types=len(stack.vocabulary.types),
-            roles=len(stack.roles.names),
-            rules=len(stack.rules.decisions),
-            measurements=len(stack.measurements.ids()),
-            sources=board.sources,
-            undrafted=undrafted,
-        ),
-    )
+
+def _waiting_on_a_person() -> list[Call]:
+    """The lab's own pipelines with a value nobody has answered.
+
+    **It names the values.** *"strandedness and fragment size"*, not *"2 items"* — `ov-settled`,
+    and the reason is that a count is what you write when you have not looked.
+
+    **Only genuinely open ones.** A hand-drawn pipeline records every step as `tier: 4,
+    source: human`, because a person chose it and `MD0220` says `source: human` is exactly what
+    clears a review. `drafts._provenance_of` is where that distinction lives; counting raw tier 4
+    reported five things needing attention on a pipeline where one did.
+
+    One `Call` per pipeline rather than one for all of them: *which* pipeline is the first thing
+    somebody needs, and a single row reading "3 pipelines need you" is a count again.
+    """
+    # **The front door must not go blank because the database is down**, and this is A192's
+    # argument arriving on the other half of the product: `/overview` was required to degrade
+    # where `/graph` 404s, because *a 404 on the default view turns a readable run into a blank
+    # page*. The two halves here have different failure modes — the forge half reads FILES and
+    # the mendel half reads ROWS — so the one that can be unavailable must not take the other
+    # with it.
+    #
+    # It is also what keeps `whats_open()` testable in CI, which has no Postgres. That is a
+    # consequence rather than the reason; the reason is the page.
+    try:
+        rows, _ = drafts.list_drafts(limit=_PIPELINES_AT_MOST)
+    except Exception:  # noqa: BLE001 — an unreachable store is not a reason to lose the page
+        return []
+    calls: list[Call] = []
+    for row in rows:
+        if not row.open_values and not row.open_not_named:
+            continue
+        named = ", ".join(value.setting for value in row.open_values)
+        if row.open_not_named:
+            named += f" and {row.open_not_named} more"
+        verb = "has" if len(row.open_values) + row.open_not_named == 1 else "have"
+        calls.append(
+            Call(
+                what=f"{row.name or row.id[:8]}: {named} {verb} no rule",
+                where=f"/build?draft={row.id}",
+                count=len(row.open_values) + row.open_not_named,
+                urgency=Urgency.WAITING,
+            )
+        )
+    return calls
 
 
 def _contracts(n: int) -> str:

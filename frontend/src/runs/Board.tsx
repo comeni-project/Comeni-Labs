@@ -141,7 +141,47 @@ function Swatch({ colour, label }: { colour: string; label: string }) {
  * `steps_declared` lives in the artifact: reading one per row is the expensive thing this
  * board could never afford, and how many tasks a run has seen is one GROUP BY.
  */
-function Row({ run }: { run: RunRow }) {
+/** *usually 38m* under a row, and **only where that word is earned.**
+ *
+ * `BoardSummary.by_pipeline` is `{pipeline_digest: median_ms}` over finished runs, and the
+ * repository already refuses a group below a floor — *usually 38m* over two runs is one number
+ * wearing the clothes of a distribution. So an absent median means **no comparison at all**,
+ * never a zero and never a dash pretending to be one.
+ *
+ * **A delta needs a finished run**, which is the rule the page owns rather than the endpoint.
+ * `-43% vs usual` under a live bar reads as *it was faster* — the opposite of what it means,
+ * since a run 43% through its usual duration has not been fast at anything yet. A running row
+ * gets the bare expectation, `of ~38m`, which is the same number saying something true.
+ */
+function VsUsual({ run, medianMs }: { run: RunRow; medianMs?: number }) {
+  if (medianMs === undefined) return null;
+
+  if (!run.ended_at) {
+    return (
+      <span data-testid="vs-usual" className="text-label text-ink-3 tabular-nums">
+        of ~{seconds(medianMs)}
+      </span>
+    );
+  }
+
+  const took = new Date(run.ended_at).getTime() - new Date(run.submitted_at).getTime();
+  const delta = Math.round(((took - medianMs) / medianMs) * 100);
+  // Within a tenth of usual is *usual*. A row reading `+3% vs usual` on every run trains a
+  // reader to stop looking at the column that is supposed to catch the outlier.
+  if (Math.abs(delta) < 10) {
+    return (
+      <span data-testid="vs-usual" className="text-label text-ink-3">as usual</span>
+    );
+  }
+  return (
+    <span data-testid="vs-usual" className="text-label tabular-nums"
+          style={{ color: delta > 0 ? "var(--measured)" : "var(--ink-3)" }}>
+      {delta > 0 ? "+" : ""}{delta}% vs usual
+    </span>
+  );
+}
+
+function Row({ run, medianMs }: { run: RunRow; medianMs?: number }) {
   const phase = isPhase(run.phase) ? run.phase : "queued";
   const menu = useContextMenu();
   const link = `${window.location.origin}/runs/${run.id}`;
@@ -190,10 +230,14 @@ function Row({ run }: { run: RunRow }) {
           {run.tasks_seen ? `${run.tasks_done} of ${run.tasks_seen}` : "—"}
         </span>
       </span>
-      <span className="font-data text-secondary text-ink-2 tabular-nums">
+      <span className="flex flex-col font-data text-secondary text-ink-2 tabular-nums">
         {run.ended_at
           ? elapsed(new Date(run.submitted_at).getTime(), new Date(run.ended_at).getTime(), 0)
           : "—"}
+        {/* **A median in the abstract is trivia; the same median beside a run is a judgement.**
+            `rn-board`'s argument for why this is the board's best number, and why it only
+            earned a place by moving onto a row. It was fetched and drawn nowhere. */}
+        <VsUsual run={run} medianMs={medianMs} />
       </span>
       <span className="flex flex-col">
         <span className="text-secondary text-ink-2">{run.submitted_by}</span>
@@ -212,11 +256,9 @@ export function Board() {
   useTitle("Runs");
   const [page, setPage] = useState(0);
   const [phase, setPhase] = useState("");
-  const [who, setWho] = useState("");
 
   const query = new URLSearchParams({ after: String(page * PER_PAGE), limit: String(PER_PAGE) });
   if (phase) query.set("phase", phase);
-  if (who) query.set("who", who);
 
   const runs = useQuery({
     queryKey: ["runs", query.toString()],
@@ -254,13 +296,12 @@ export function Board() {
     : null;
   const pages = Math.max(1, Math.ceil(runs.data.total / PER_PAGE));
   const lo = page * PER_PAGE + 1;
-  const people = [...new Set(runs.data.runs.map((r) => r.submitted_by))].sort();
 
   return (
-    <div className="p-6 flex flex-col gap-3.5 h-full">
+    <div className="gutter py-6 flex flex-col gap-3.5 h-full">
       {/* The same `--surface-2` shelf every run page opens with, so the board and the run are
           one product rather than two designs. */}
-      <header className="-mx-6 -mt-6 px-6 pt-4 pb-3.5 bg-surface-2 border-b border-line
+      <header className="-mx-[24px] md:-mx-[44px] -mt-6 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
                          shadow-e1 relative z-[2] flex items-baseline gap-3.5">
         <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">runs</h1>
         <p className="text-body text-ink-2 m-0">every pipeline this instance has executed</p>
@@ -305,14 +346,11 @@ export function Board() {
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-1.5 text-label text-ink-3">
-            who
-            <select aria-label="who" className={control} value={who}
-                    onChange={(e) => { setWho(e.target.value); setPage(0); }}>
-              <option value="">all</option>
-              {people.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
-          </label>
+          {/* **`submitted_by` is a slot, not a filter** — the operator's decision. The column
+              still says who submitted each run, because that is what a reader asks of a row;
+              what was cut is the *control*, which on a single-operator instance offered one
+              name and narrowed a board of 49 rows to 49. It is written here rather than simply
+              deleted, so the next person reads a decision instead of an omission. */}
           <span data-testid="runs-count" className="ml-auto text-label text-ink-3">
             {runs.data.total} {runs.data.total === 1 ? "run" : "runs"}
           </span>
@@ -331,14 +369,19 @@ export function Board() {
               what you asked for — and telling somebody to "run a gated pipeline" when they
               have forty runs and a filter on is telling them to fix the wrong thing. */}
           {runs.data.runs.length === 0 ? (
-            phase || who ? (
+            phase ? (
               <Empty title="No runs match." next="Widen the filters to see the rest." />
             ) : (
               <Empty title="No runs yet."
                      next="Wiener runs a pipeline the Builder has gated." />
             )
           ) : (
-            runs.data.runs.map((run) => <Row key={run.id} run={run} />)
+            runs.data.runs.map((run) => (
+              <Row key={run.id} run={run}
+                   medianMs={run.pipeline_digest
+                     ? s?.by_pipeline?.[run.pipeline_digest]
+                     : undefined} />
+            ))
           )}
         </div>
 

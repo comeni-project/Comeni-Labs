@@ -161,7 +161,11 @@ def test_the_graph_is_the_pipelines_own_layout(client, session):
     graph = client.get(f"/api/runs/{run_id}/graph").json()
     assert len(graph["nodes"]) == 5 and graph["wires"]
     by_id = {node["id"]: node for node in graph["nodes"]}
-    assert by_id["trimgalore"]["y"] < by_id["star_align"]["y"] < by_id["samtools_sort"]["y"]
+    # **Left to right, since Plan 4 phase 6.** `dag-core` is one implementation for both
+    # canvases — `impl-reuse`: *both canvases, one arithmetic* — so flipping the builder's
+    # orientation turned this graph with it. That is the intended consequence rather than a side
+    # effect somebody has to discover.
+    assert by_id["trimgalore"]["x"] < by_id["star_align"]["x"] < by_id["samtools_sort"]["x"]
     assert graph["width"] > 0 and graph["height"] > 0
 
 
@@ -194,3 +198,57 @@ def test_the_graph_carries_no_lab_string(client):
 
 def test_an_unknown_run_has_no_graph(client):
     assert client.get("/api/runs/nope/graph").status_code == 404
+
+
+# --- the join key, which was a declared column with no assignment until 2026-08-30 -------
+
+
+def test_an_uploaded_artifact_records_which_pipeline_it_is(client, a_real_bundle, session):
+    """`RunArtifact.pipeline_digest` was declared in W1 and **never written** — the right type,
+    the right nullability, and no assignment anywhere in the repository.
+
+    It is what lets a page put runs beside pipelines. Mendel reports the same value for every
+    pipeline it holds, computed by the same method over the same bytes, so **neither server
+    learns the other's identifiers** — `wiener.md` §12's whole shape.
+    """
+    from wiener_api.models import RunArtifact
+
+    stored = client.post("/api/artifacts", files={"bundle": ("p.zip", a_real_bundle)}).json()
+    row = session.get(RunArtifact, stored["artifact_id"])
+
+    assert row.pipeline_digest, "the column is decoration again"
+    assert row.pipeline_digest.startswith("sha256:")
+    assert row.pipeline_digest != row.digest, (
+        "the TREE digest covers the vendored modules, so re-vendoring one would make the same "
+        "pipeline look like a different pipeline. This must be the artifact's own document."
+    )
+
+
+def test_an_artifact_without_a_readable_pipeline_records_no_key(client):
+    """**A wrong key is worse than an absent one.** A run that cannot be attributed shows under
+    *every run* without a pipeline, which is true, rather than under somebody else's."""
+    import io
+    import zipfile
+
+    from wiener_api import db
+    from wiener_api.models import RunArtifact
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("nextflow.config", "params {\n    input = null\n}\n")
+        archive.writestr("main.nf", "workflow {}\n")
+
+    stored = client.post("/api/artifacts", files={"bundle": ("p.zip", buf.getvalue())}).json()
+    with db.session_scope() as check:
+        assert check.get(RunArtifact, stored["artifact_id"]).pipeline_digest is None
+
+
+def test_the_board_hands_back_the_join_key(client, a_run, a_real_bundle, session):
+    """One statement for the page, like the task tallies — never a lookup per row."""
+    stored = client.post("/api/artifacts", files={"bundle": ("p.zip", a_real_bundle)}).json()
+    a_run.artifact_id = stored["artifact_id"]
+    session.commit()
+
+    row = next(r for r in client.get("/api/runs").json()["runs"] if r["id"] == a_run.id)
+    assert row["pipeline_digest"], "the board cannot join a run to its pipeline"
+    assert row["pipeline_digest"].startswith("sha256:")

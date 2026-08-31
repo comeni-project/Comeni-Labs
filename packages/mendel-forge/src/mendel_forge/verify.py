@@ -16,11 +16,13 @@ Two weaknesses, recorded rather than left to be found:
 """
 
 import re
+from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path
 
 from comeni_core import diagnostics
 from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.module import Module, key_of
 from comeni_core.declared.roles import UnknownRoleError
 from comeni_core.declared.vocabulary import (
     UnknownStateError,
@@ -93,7 +95,7 @@ def verify(scaffold: Scaffold, *, registry_root: Path, source_root: Path) -> lis
     if loads.refused:
         return verdicts
 
-    verdicts.append(_conforms(contract, source_root))
+    verdicts.append(_conforms(contract, stack.modules))
     verdicts.append(_routes(contract, stack))
     return verdicts
 
@@ -196,9 +198,13 @@ def _loads(contract: ModuleContract, stack: Layers, vocabulary: Vocabulary) -> V
     return Verdict(rung=Rung.LOADS, diagnostics=found, refused=bool(found))
 
 
-def _conforms(contract: ModuleContract, source_root: Path) -> Verdict:
-    path = conformance.module_path(contract, source_root)
-    if not path.exists():
+def _conforms(contract: ModuleContract, modules: Mapping[str, Module]) -> Verdict:
+    """**The layer carries the module now** (Plan 5A), so this reads the stack rather than a
+    separate `source_root`. It is the same change `orchestrate.build` made, and for the same
+    reason: a contract and the thing it is a binding for are versioned together or they drift.
+    """
+    path = conformance.module_path(contract, modules)
+    if path is None or not path.exists():
         return Verdict(
             rung=Rung.CONFORMS,
             diagnostics=[
@@ -206,8 +212,12 @@ def _conforms(contract: ModuleContract, source_root: Path) -> Verdict:
                     code="MD0100",
                     where=contract.id,
                     summary="unverified: no module source to check this contract against",
-                    detail=f"    looked for {path}",
-                    fix="vendor the module, or accept that this contract cannot be curated",
+                    detail=(
+                        "    no layer in this stack declares module "
+                        f"{key_of(contract.nf_include)}"
+                    ),
+                    fix="vendor it with `comeni-vendor add`, or accept that this contract "
+                    "cannot be curated",
                 )
             ],
         )

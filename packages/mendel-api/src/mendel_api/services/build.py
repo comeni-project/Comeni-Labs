@@ -117,6 +117,22 @@ class SettingView(BaseModel):
     Plan 1.14 split them because one field was answering both, which is how the registry came to
     cite the STAR paper as the reason HISAT2 was chosen."""
 
+    premise: list[str] = []
+    """The facts this decision rested on, each as its own sentence.
+
+    **`PremiseRecord.prose()`, not the record.** That method exists because spec §6.1 says no
+    structured value is a reader's only account of itself, and it puts the VALUE first — what a
+    reviewer checks against the sample sheet — and the ORIGIN second — what tells them whether
+    checking is worth the time. `read_length is 150, measured` versus `strandedness is reverse,
+    asserted, not measured` is the whole difference, and it is the difference the card exists to
+    show.
+
+    **This is what tier 3 is yellow FOR.** `CLAUDE.md`: *yellow means the machinery worked, check
+    the premise* — and until Plan 4 phase 3b the card said a rule matched and never said what it
+    matched on, so there was nothing to check. Empty for tiers 1, 2 and 4, which rest on no
+    measurement.
+    """
+
 
 class PortView(BaseModel):
     """One port of a step, as the canvas draws it.
@@ -135,6 +151,20 @@ class PortView(BaseModel):
     met: bool
     """False when nothing in this pipeline feeds it — the hollow dot. Always true for an
     output, which cannot be unmet."""
+    states: list[str] = []
+    """The states this port asks for, or produces. **Sorted**, because a `frozenset` has no
+    stable order and this reaches a canvas that must be byte-identical between renders — the
+    same reason `IREdge.states` carries a `field_serializer`.
+
+    **Added for the port picker**, Plan 4 phase 3b. Without it the picker can only ask *what
+    produces a BAM*, and the answer to that is three contracts; featureCounts asks for
+    `alignment.bam[coordinate_sorted]` and the answer to THAT is one. The states are the
+    difference between a filtered list and an answer, which is the whole point of the picker.
+
+    An input declaring alternatives reports the **conventional** one — `alternatives()[0]`, the
+    contract author's own first choice, which is the same convention the compatibility index's
+    `requires` ordering carries.
+    """
 
 
 class ModuleView(BaseModel):
@@ -267,10 +297,14 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                 type_id=port.type_id,
                 side="in",
                 met=(node_id, port.name) in fed or port.type_id in entered,
+                # The conventional alternative — index 0 is the contract author's own first
+                # choice, the same ordering `compatibility.requires` carries.
+                states=sorted(port.alternatives()[0].states) if port.alternatives() else [],
             )
             for port in contract.consumes
         ] + [
-            PortView(name=port.name, type_id=port.type_id, side="out", met=True)
+            PortView(name=port.name, type_id=port.type_id, side="out", met=True,
+                     states=sorted(port.state))
             for port in contract.produces
         ]
 
@@ -292,6 +326,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
                     axis_reason=setting.why.axis_reason,
                     domain=_domain(layers, by_id[node.id].module.contract_id, setting.name),
                     because=_because(layers, by_id[node.id].module.contract_id, setting.name),
+                    premise=[record.prose() for record in setting.why.premise],
                 )
                 for setting in (by_id[node.id].settings if node.id in by_id else [])
             ],
@@ -353,7 +388,6 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
         registry_root=settings.registry_root,
-        vendor_root=settings.source_root,
     )
     return _view(built.ir, built.pipeline, built.layers)
 

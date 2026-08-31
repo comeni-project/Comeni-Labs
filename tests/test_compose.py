@@ -148,12 +148,22 @@ def test_the_api_and_the_worker_share_one_image(base):
 
 
 def test_the_registry_and_the_vendored_modules_reach_the_api(base):
-    """**The one worth having.** `settings.registry_root` and `source_root` are read by the
-    queue, the contracts list, the drift report and the source catalogue. A container that
-    cannot see them answers 500 on every screen, and nothing else here would notice."""
+    """**The one worth having.** `settings.registry_root` is read by the queue, the contracts
+    list, the drift report and the source catalogue. A container that cannot see it answers 500
+    on every screen, and nothing else here would notice.
+
+    **One mount since Plan 5A, where there were two.** `MENDEL_SOURCE_ROOT: /app/vendor` was a
+    second bind of a second directory holding the code the first one's contracts describe — on
+    a different release cadence, in a different repository. The layer carries both now, so a
+    container that has the registry has everything, and there is no way to mount one without
+    the other.
+    """
     mounts = " ".join(base["services"]["api"]["volumes"])
     assert "/app/registry" in mounts
-    assert "/app/vendor" in mounts
+    assert "/app/vendor" not in mounts, (
+        "the vendor mount is back — module source lives in the layer, and a second root is "
+        "how a contract and its module came to be versioned apart"
+    )
 
 
 def test_the_api_gets_a_registry_it_can_commit_to(base):

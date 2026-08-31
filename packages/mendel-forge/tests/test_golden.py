@@ -12,7 +12,7 @@ GOLDEN = Path(__file__).parent / "golden" / "nf-core-fastqc.scaffold.json"
 
 
 def _scaffold():
-    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:fastqc"), ROOT / "vendor")
+    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:fastqc"), ROOT / "registry")
     return scaffold_for(
         obs, layers.load(ROOT / "registry"), ident="nf-core/fastqc", version="0.12.1"
     )

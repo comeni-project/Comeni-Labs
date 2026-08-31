@@ -2856,3 +2856,778 @@ inherited: the paging loop's `setEvents` updater closed over the loop's mutable 
 variable, and React runs a functional update *later* — so page one's updater read whichever
 page had arrived by then. 437 events came back as 237, page two vanished, page three merged
 twice. `const arrived = page.events` inside the loop body is the whole fix.
+
+---
+
+## Hidden must not rot into broken — 2026-08-30
+
+Plan 4 phase 0, task 1. The forge left the navigation by the operator's decision and **stayed in
+the router**, which is two claims rather than one — and a pair of claims needs a pair of guards,
+because each is exactly the failure mode of satisfying the other.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `router.test.tsx` "keeps %s resolvable after the tabs came out" | deleted `{ path: "/forge/tools", element: <Tools /> }` from `routes` — the smallest edit somebody would make to a route they can no longer see in the nav | failed on `/forge/tools` only; the other three paths held | `TestingLibraryElementError: Unable to find role="navigation"` — the route falls through to the `ErrorBoundary`, which renders outside the `Shell`, so the missing landmark is what names it |
+| 2026-08-30 | `router.test.tsx` "offers no way into the forge from the frame" | restored one `<Tab to="/forge/queue">Forge</Tab>` to `Shell.tsx` | failed | `AssertionError: expected [ '/forge/queue' ] to deeply equal []` — names the href that came back |
+
+**Why two.** Deleting the tabs and deleting the routes both produce a green suite under either
+guard alone: with only the no-way-in guard, removing the forge entirely passes; with only the
+resolvability guard, leaving the tabs in place passes. The decision was *hidden, not removed*,
+and it takes both to say so.
+
+**The second guard's message is the better one**, and the first is worth a note. `Unable to find
+role="navigation"` does not say *the route is gone* — it says the `Shell` did not render, and the
+reason is one inference away (a route with no match renders `ErrorBoundary` as the layout's
+`errorElement`, outside the nav). It was left as it is rather than given a `data-testid`, because
+the alternative was making a component this phase does not own cooperate with a test; the
+assertion on `ErrorBoundary`'s own heading text is in the same test and catches the case where a
+route resolves to a *broken* component rather than to none.
+
+## A class that animates nothing — 2026-08-30
+
+Plan 4 phase 0, task 3. `tokens.test.ts` already caught an undefined `var()`; this is the same
+silence one layer up. **The plan was wrong about what was missing.** It said the token guard
+needed generalising from a `--hover` grep — it does not, it has walked every file and every
+`var()` including fallback chains since 2026-08-24. What was missing was this.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "defines every motion class the app wears" | renamed `.settle` to `.settled` in `main.css` — the rule stays, the name it is worn under does not | failed | `expected [ Array(1) ] to deeply equal []`, listing `".settle (src/home/Home.tsx)"` — names the class **and** the file wearing it |
+| 2026-08-30 | `tokens.test.ts` "watches classes that are actually worn…" | made `wearing()`'s walk `continue` on every file, so it returns an empty map | failed | `AssertionError: expected 0 to be greater than 0` |
+
+**The second row is the load-bearing one and the first is why.** When the walk was broken, the
+guard above it **passed** — an empty map has nothing missing, so it reported green having checked
+nothing. That is A67 exactly, and it is the shape W2 found in its batching test: a guard that
+passes on the code it was written to reject is a green tick over an open hole. A scan-based guard
+needs its anti-vacuity partner or it is decoration.
+
+**Why an undefined class is worse than an undefined token.** A missing `var()` renders as
+inherited and looks deliberate. A missing animation class renders as *nothing moves*, which looks
+exactly like `prefers-reduced-motion` working correctly — so it is invisible to the one reader
+most likely to check.
+
+**What this guard cannot do**, recorded so nobody trusts it further than it goes: `MOVEMENTS` is a
+closed list, so it catches a **deleted rule** and misses an **invented class**. That is deliberate
+— `dashboard.md` §8 makes a sixth movement a design decision, and a guard that silently blessed
+any new name would be arguing the opposite.
+
+## The page body never scrolls sideways — 2026-08-30
+
+Plan 4 phase 0, task 4.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "keeps sideways scrolling inside the one container allowed to have it" | added `overflow-x: auto` to `body` in `main.css` — the well-meant fix somebody makes when one wide table clips | failed | `AssertionError: expected [ 'body', '.tbl' ] to deeply equal [ '.tbl' ]` — names the offending selector |
+
+**The plan asked for a guard this environment cannot give, and the narrower one shipped instead.**
+The step read *"assert `overflow-x` is not `auto` or `scroll` on any ancestor the Shell renders"* —
+which sounds like a rendered-DOM assertion and would be one. There is no layout engine in
+happy-dom, so a test phrased that way would compute nothing and pass, which is the exact shape
+this ledger's 2026-08-24 entry warns about. What it checks instead is the declarations it can
+see: `.tbl` is the only rule in the design system that declares `overflow-x`, and `Shell.tsx`
+declares none.
+
+**What it deliberately does not police:** a component scrolling its own `<pre>`. Three do — a
+drift excerpt, gate output, an artifact excerpt — and that is rule 2 working rather than a breach
+of it, because wide content is supposed to scroll in its own container.
+
+## The silent 500, and a revert that proved nothing — 2026-08-30
+
+Plan 4 phase 0, task 5. The defect the whole phase exists for: on 2026-08-29 a hand-drawn
+pipeline was walked end to end, *Keep* answered 500, and **the rail did not change** — nothing on
+screen, nothing in the console, `docker logs` the only way to learn the page's central action had
+failed.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Walk.test.tsx` "says so when a step's mutation failed…" + "keeps a coded refusal lookup-able…" | deleted the `{error && …}` block and its `Failed` import from `Walk.tsx` — the surface, restoring the 2026-08-29 state exactly | both failed | `expect(element).toHaveTextContent()` naming the missing string |
+| 2026-08-30 | `Walk.tsx`'s required `error` prop (type, not test) | — nothing; making it required was itself the experiment | `tsc` named **all three** forgetful call sites in `Builder.tsx` plus eight fixtures | `TS2741: Property 'error' is missing in type … but required in type …` |
+| 2026-08-30 | `reported.test.ts` "hands an error back from every mutation hook" | rewrote `usePropose` to `const m = useMutation(…); return { propose: m.mutate }` — a hook that keeps the error to itself | failed | `expected [ 'api/usePropose.ts' ] to deeply equal []` |
+| 2026-08-30 | `reported.test.ts` "references that error in every component that calls one" | renamed every `error` to `refusal` in `forge/Decide.tsx`, leaving zero references | failed | `expected [ 'forge/Decide.tsx' ] to deeply equal []` |
+
+**The second row is the real fix and it is not a test.** A hook that returns an error cannot make
+a caller read it; a required prop can. `useKeep` had returned `error` since 3E with a docstring
+reading *"Shown, not swallowed"* — and `Builder.tsx` never passed it, into a `keep` prop that had
+no slot for it. One call site, one dropped field, and no scan could have seen it.
+
+### The miss, which is worth more than the four rows above
+
+**A revert was run that did not reach the code the guard names, and the guard passed.** That is
+question 3 of this file's own three, and it was answered wrongly for a full cycle.
+
+The first version of this guard asserted a *string* — that each hook's source contained `error:`
+— and carried an `UNREPORTED` debt list of six forge hooks it claimed were silent. To watch it
+fail, `usePropose` was edited by `s.replace('  return {', …)`. **`usePropose` contains no
+`return {`**: it returns `useMutation(…)` directly. The edit applied nowhere, the file was
+unchanged, the test passed, and it was very nearly recorded as watched-failing.
+
+Two things came out of catching it:
+
+- **The finding it was built on was false.** All six "silent" hooks return the `useMutation`
+  result *whole*, which carries `.error` to the caller, and every forge consumer references one.
+  There was never a debt list — the six were classified by grepping for a string rather than by
+  reading what the function returns. `CLAUDE.md` already records this exact habit costing a bug:
+  *in the same audit I verified one fact by reading the generator and took the other from a
+  comment, and only one of those habits found a bug.*
+- **A debt list built on a bad measurement is worse than no guard**, because it would have shipped
+  six files permanently labelled broken and exempted from the check that says so.
+
+The guard was rewritten to test the property that actually holds — a hook hands back an error
+either by returning the mutation or by mapping it onto a field — and both reverts above were
+verified to land (`grep -c` on the edited file) **before** the run was believed.
+
+## One curve was three, and only the build could say so — 2026-08-30
+
+Plan 4 phase 0, task 2, found during final verification rather than while writing the task.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `tokens.test.ts` "declares one easing curve, in the source" | replaced `transition-colors` in `Shell.tsx` with an explicit `ease-[cubic-bezier(.4,0,.2,1)]` — verified landed with `grep -c` before believing the run | failed | names the curve **and** the file: `"cubic-bezier(.4,0,.2,1) (src/app/Shell.tsx)"` |
+
+**The phase's own headline constraint was false in the shipped artifact while every test was
+green.** `tokens.css` declared one curve. `dist/assets/*.css` carried three: eleven components
+reach for Tailwind's `transition-colors` and one for `animate-pulse`, and each emits Tailwind's
+own easing rather than ours. Nothing in the repository compiles the stylesheet — not `vitest`,
+not `tsc` — so there was no test that could have been wrong about this, which is a different
+thing from a test being wrong.
+
+Found by `npm run build` followed by `grep -o 'cubic-bezier([^)]*)' dist/assets/*.css | sort -u`.
+That command is now in `dashboard.md` §8, because it is the only place the claim is checkable and
+it needs a production build, so it cannot live in the unit suite.
+
+Fixed with two `@theme` overrides — `--default-transition-timing-function` and `--animate-pulse`
+— rather than by rewriting twelve call sites, so the next `transition-colors` somebody types is
+right without them knowing any of this happened.
+
+**The guard needed comment-stripping on its first run**, and that is worth a line. Both initial
+failures were the guard catching the *documentation* of the curves that had just been replaced —
+this file's own comments quote the old values, which is the habit the rest of this repository
+asks for. A scan that cannot tell a declaration from prose punishes writing down what you
+changed.
+
+## Publishing nothing, with every process green — 2026-08-30
+
+Plan 4 phase 1. Six guards across three files, and the entry worth reading is the one at the
+bottom about what none of them could have caught.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_emit.py` "the artifact never names an output directory" | `outdir = null` → `outdir = 'results'` — the cheap, tempting default almost every nf-core pipeline ships | failed | `the artifact must declare the hole`, plus the golden diff showing the exact line |
+| 2026-08-30 | `test_emit.py` "publishing is off when nobody said where" | restored `enabled: { params.outdir != null }`, the closure form that shipped first | failed | `assert 'enabled: params.outdir != null,' in …` |
+| 2026-08-30 | `test_launcher.py` "the launcher says where outputs go" | deleted `--outdir` from `command()`'s argv | failed | `nothing would be published at all` |
+| 2026-08-30 | `test_launcher.py` "the destination is a command line param and not the site config" | moved `params.outdir` into `site_config()` — the form that reads correctly and does not work | failed | `in site.config this is read too late to enable publishing, and it fails silently` |
+| 2026-08-30 | `test_launcher.py` "wiener never asks a person for an output directory" | dropped `- SUPPLIED_BY_WIENER` from `declared_holes` | failed | `assert {'gtf', 'input', 'outdir'} == {'gtf', 'input'}` |
+| 2026-08-30 | `test_results_route.py` "a run that published nothing is not a run that cannot publish" | made `published` always `True`, collapsing three absences into one | failed | `nothing has been launched, so nothing can be said` |
+| 2026-08-30 | `test_results_route.py` "results are scoped to a lab" | removed the `repository.run(...)` lookup that enforces `lab_id` | failed | `assert 200 == 404` |
+
+### What no test caught, and what did
+
+**`publishDir` shipped with `enabled: { params.outdir != null }` and published NOTHING.** All five
+processes ran green, the stub gate reported PASS, every unit test passed, `nextflow config`
+printed the directive correctly, and `.nextflow.log` contained no mention of publishing at all.
+Nextflow evaluates `enabled` when it reads the config and never calls a closure handed to it.
+
+**What found it was `ls results/`.** Not a test — there is no test in this repository that could
+have had an opinion, because the behaviour lives in Nextflow. This is the W1/W2 pattern for the
+third time: defects found by running the thing and looking at the output, none by a test written
+to pass.
+
+**Then the fix was wrong too, in a way only a second run could show.** `enabled: params.outdir
+!= null` is an expression evaluated while the `process {` scope is read — so it sees a
+command-line `--outdir` (injected before parsing) and **not** a `profiles { stub_data { params
+.outdir = … } }` (read afterwards). The first correction moved the destination into the two gate
+profiles, which is where it reads most naturally and where it silently does nothing. Measured:
+profile + expression published nothing with every process green; CLI + expression published 41
+files. The destination now lives on the command line in both `gates.py` and Wiener's launcher.
+
+**Three experiments, written down so nobody repeats them:** a closure `enabled` never fires; a
+lazy `saveAs` guard publishes correctly *but still creates a directory called `null`*, because
+Nextflow resolves the path before calling it; only an expression `enabled` plus a CLI param gets
+both branches right. Verified: `--outdir` publishes 41 files, and no destination at all leaves no
+`results/` and no `null/`.
+
+**Every revert above was verified to land** — `grep -c` on the edited file before the run was
+believed. Two of them did not land on the first attempt, which is the miss this ledger recorded
+earlier the same day.
+
+## The front door, and a bar that cried wolf — 2026-08-30
+
+Plan 4 phase 2. The Overview rebuilt, plus a palette migration the plan did not contain.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_drafts_service.py` "a choice a person made is not a choice waiting on one" | deleted the `why.source` branches from `_provenance_of`, so tier 4 is counted raw | failed | `assert 0 >= 4`, printing `Provenance(... open=5, by_person=0)` |
+| 2026-08-30 | `test_drafts.py` "the listing never resolves" | held green with `materialise.ir_of` / `goal_of` patched to raise | passed, which IS the assertion | the listing reads the stored artifact |
+| 2026-08-30 | `test_runs_routes.py` "an uploaded artifact records which pipeline it is" | removed `pipeline_digest=pipeline_digest(artifact_id)` from the upload | failed | `the column is decoration again` |
+| 2026-08-30 | `test_runs_routes.py` "the board hands back the join key" | the same revert | failed | `the board cannot join a run to its pipeline` |
+| 2026-08-30 | `test_by_pipeline.py` "a median needs enough runs to be one" | replaced `len(values) >= floor` with `if values` | failed | names the digest and the median it should not have reported |
+| 2026-08-30 | `test_attention.py` "the mendel half reports the lab's own pipelines" | pointed a `Call` at `/forge/contracts/nf-core/star/align@1.11.0` | failed | `it leads to the page that can answer it` |
+| 2026-08-30 | `Home.test.tsx` "is SHORTER when nothing is happening" | restored a *"Nothing is waiting on you — the instance is idle"* card to the NOW band | failed | `expected <p …(1)></p> to be null` |
+| 2026-08-30 | `tokens.test.ts` "names no colour outside the token file" | wrote `bg-white border-[#DCE2DF]` into `Shell.tsx` | failed | names **both** spellings and the file |
+
+### The bar cried wolf, and only the data showed it
+
+**Counting raw tier 4 reported five things needing a person on a pipeline where one did.** A
+hand-drawn graph records every step as `tier: 4, source: human` — a person chose it, and
+`MD0220` says `source: human` is precisely what CLEARS a review. The artboard's three-band bar
+was drawn against pipelines the *resolver* built, where that case does not arise.
+
+Crying wolf is the same failure as hiding. Invariant 6 flags tier 4 so that a flag means
+something, and a bar that flags four settled choices teaches people to ignore the one that
+matters. The service now reports five numbers — `settled`, `measured`, `open`, `by_person`,
+`by_model` — and keeps the last two apart because the 4→5 schema bump exists so an
+agent-assembled pipeline does not read as one a person drew by hand.
+
+Found by writing a test against a real kept artifact and reading what came back, not by argument.
+
+### Three defects that only rendering could find
+
+The page was built, served against fixtures and **looked at**. Three defects survived a green
+suite:
+
+- **The `flow` marker had `grow`, so it filled the whole remainder** — saying *everything not yet
+  done is running right now*. 9 of 24 done means 15 remain and a handful are in flight. The bar
+  was claiming to know something it does not.
+- **The running row was titled by its run id.** A run id is how the machine addresses it; what a
+  reader recognises is the pipeline it is a run of.
+- **No elapsed time**, which the artboard makes the second-largest thing on the band.
+
+None is expressible as an assertion anybody would have thought to write in advance.
+
+### A scan read prose as code, for the third time in one day
+
+`reported.test.ts` failed on `home/Work.tsx` because a **comment** there cites `useSubmit.ts` by
+name. That is the third occurrence on 2026-08-30 — `tokens.test.ts` tripped on a comment quoting
+the curve it had replaced, `test_emit.py` on one quoting the broken `enabled:` form.
+
+**A scan that cannot tell code from prose punishes writing down why**, and this repository asks
+for that everywhere. Every scan added since strips comments before matching, and the rule is in
+`reported.test.ts`'s own header so the fourth one starts there.
+
+### What made the palette migration cheap, now guarded
+
+Moving the whole product to Observatory touched `tokens.css`, one `@theme` mirror and **nothing
+else** — because not one component names a colour. No hex, no `rgba(`, no `bg-slate-700`. That
+held by convention alone; a single `#fff` would have been invisible on a light ground and a hole
+in a dark one. `tokens.test.ts` now checks all three spellings, because a palette leaks in three
+ways and blocking two just moves the leak.
+
+## The builder's shell, and a rename that would have deleted the pipeline — 2026-08-30
+
+Plan 4 phase 3a. The 2026-08-29 walk's conclusion was that *the modelling is sound and the
+surface is not*; these guards hold the surface.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Shell.test.tsx` "names the pipeline you opened, never another one" | put the literal `RNA-seq spine` back in the header | failed | `expected 'RNA-seq spine' to be 'atac-peaks'` |
+| 2026-08-30 | `Shell.test.tsx` "can add a step without a pointer" | removed `role` and `tabIndex` from the palette row | failed | `expected null to be 'button'` |
+| 2026-08-30 | `Shell.test.tsx` "says the verdict is being rechecked…" | made the stale branch unreachable in `Status` | failed | `expected 'valid' to match /checking/i` |
+| 2026-08-30 | `Shell.test.tsx` "offers exactly one control per action" | — held green; it is the GENERAL form of a defect this screen had twice | passed | two enabled controls sharing a name is the assertion |
+
+### A rename that would have deleted the pipeline
+
+**Caught while writing it, not by a test.** `PUT /drafts/{id}` writes `{graph, name}` as one
+document, and the first `rename()` sent `{ nodes: [], edges: [] }` because the hook did not have
+the graph to hand. It would have **saved an empty graph** — deleting somebody's pipeline while
+appearing to relabel it.
+
+No test would have caught it, because nobody writes a test asserting that renaming does not
+delete. The signature now takes the graph, and the reason is on the function.
+
+### Three things that were true in a comment and false in the product
+
+Each had been written down, correctly, and nothing checked it:
+
+- **`useGraph` has taken a `save` callback since 3E and no caller ever passed one**, so the
+  5-second autosave had never fired. `useKeep`'s docstring said exactly this. It matters more
+  than a missing feature: the argument for collapsing Draw → Keep → Gate → Run into one *Run* is
+  *drafts already autosave, so Keep is an implementation detail wearing a button* — a **false
+  premise** until this phase made it true.
+- **`useBuilder` has returned `settling` since 3E**, documented as *only for a quiet indicator*,
+  and no surface ever rendered it. That is the marker the walk found missing when the verdict
+  described a deleted node for 2–3s.
+- **`/build?draft=<id>` was ignored.** Phase 2 linked to it from every row of the front door's
+  *by pipeline* table, and every one of those links opened the canonical spine.
+
+### `freeSpot` was correct and deleted anyway
+
+The walk found two steps landing on identical coordinates. `freeSpot` looked guilty — and its
+docstring promised *two additions never land on top of each other*, which was true of what it
+was given. It was **guessing**: it walked a grid for a cell nothing had claimed *yet* and wrote
+the guess in before `dag-core` had ever seen the new node.
+
+`dag-core` already places the whole graph without overlap, by construction. So `addAt` stopped
+guessing rather than being handed better arguments, and `freeSpot` went with its three tests —
+`useBuilder`'s own header says layout stays in Python *so the canvas is as deterministic as the
+emitted `.nf`*, and a client-side placement guess was the one thing on that screen quietly
+contradicting it.
+
+### Four defects that only rendering could find
+
+Built, served against fixtures, and looked at — at 1400px and at 900px:
+
+- **An empty pipeline reported *100% settled without judgement*.** `EMPTY_VIEW` carries
+  `settled_share: 1`, which is arithmetically defensible and reads as congratulation above a
+  blank canvas. A proportion of nothing is not a proportion.
+- **`1 to decide` was rendered twice**, eighteen characters from a status line saying `1 value
+  needs you`. One fact, two renderings, and a reader has to work out which is authoritative.
+- **The grid was permanent.** `Canvas` defaulted `grid={true}` with an argument for it — *a grid
+  is an invitation* — and `impl-geom` answers it: the invitation belongs to the gesture. It now
+  appears while a node is moving, and the run graph still gets none.
+- **Stacked, both panels kept their desktop widths**, leaving a 232px palette with 660px of dead
+  space beside it, and the canvas collapsed to no height at all. `Side` sets its width as an
+  inline style because it is drag-resizable, and an inline style beats a class.
+
+### One caught by React's rules rather than by a tool
+
+The empty-pipeline guard was first written as an early `return null` **above** a `useTiers()`
+call — a rules-of-hooks violation `tsc` does not catch and `oxlint` did not flag. Moved below
+the hook. Worth a line because the failure it produces is a crash on a state nobody tests: the
+*second* render after the graph empties.
+
+## The picker's order is the resolver's — 2026-08-30
+
+Plan 4 phase 3b, tasks 1 and 2.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_candidates.py` "the order is the resolver's own" | sorted `producers_of`'s result by contract id | failed | `STAR carries the higher registry priority and must come first`, printing the alphabetical order it got |
+| 2026-08-30 | `test_candidates.py` "the closest fit comes first in both directions" | restored `-row.surplus` on the consuming sort | failed | names the rule it broke |
+| 2026-08-30 | `Picker.test.tsx` "asks the question the port actually asks, states included" | dropped `states` from the query | failed | the URL no longer carries `states=coordinate_sorted` |
+| 2026-08-30 | `norule.test.ts` "never parses a type signature in the browser" | replaced the server's `why` with `row.tool.split("[")[0] + " fits"` | failed | `expected [ 'Picker.tsx: splits a signature' ] to deeply equal []` |
+
+### The guard `useCompatibility` asked for, in prose, for a week
+
+That file's header says: *if a line here ever parses a signature — splits on `[`, compares type
+ids, subtracts state sets — the rule that decides whether a BAM can feed featureCounts lives in
+two places, and the second one is invisible to the agreement test. That is the drift this
+repository has paid for twice.* It ends **"A test asserts the absence."**
+
+No test asserted the absence. `norule.test.ts` does now, over every non-test file in `build/`,
+comment-stripped — and it caught the shape immediately when one was introduced deliberately.
+
+This is the same finding as 3a's three comments-that-were-true-about-code-that-did-not-run,
+arriving from the other side: **a comment that claims a guard exists is worse than one that does
+not**, because it stops the next person looking.
+
+### I sorted it backwards and my own docstring caught it
+
+`consuming()` orders by how specifically an input asks. `surplus` there is how much **looser**
+the input is than what you have — an input naming `[trimmed]` scores 0 against trimmed reads, one
+taking anything scores 1 — so the closest fit is the smallest number, and `-row.surplus` put the
+vaguest first.
+
+Found by printing the real registry's answer and reading it, against a docstring written minutes
+earlier that said the opposite. Not by a test; the test came after.
+
+### Two identical-looking rows were both correct
+
+The probe printed `FASTQC` twice for *what accepts fastq.reads*. It reads as a deduplication bug —
+`registry.producers_of` carries a comment about exactly that failure on the other side — and it is
+not: `comeni/profile/fastqc` and `nf-core/fastqc` are two contracts declaring one process name.
+
+The finding is for the **picker**, not the service: a row cannot be identified by its process, so
+it shows the contract id beside the tool. A test holds it, because the next reader will see two
+identical lines and reach for a `set()`.
+
+## The builder's surfaces, and a boundary drawn by a guard that fired — 2026-08-30
+
+Plan 4 phase 3b, tasks 3–7.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Browse.test.tsx` "shows a tool under EVERY role it declares" | grouped by `m.roles[0]` again | failed | cannot find `qc per sample · 1` — the second role's whole group is gone |
+| 2026-08-30 | `Swap.test.tsx` "shows the consequences before anything is applied" (and two more) | made choosing a candidate call `onApply` directly | 3 of 4 failed | *shows, then asks* collapses to *does* |
+| 2026-08-30 | `norule.test.ts` "offers no control that takes a filesystem path" | gave the picker's search a `placeholder="a path to the reference file"` — verified landed with `grep -c` | failed | `"Picker.tsx: a control asking for a path"` |
+
+### The guard fired on real code, and that is how the boundary got drawn
+
+The invariant-15 guard's first run caught **`Submit.tsx`** — `placeholder="a path on the machine
+that runs this"`. It reads like a violation of *no input accepts a sample identifier, filename or
+path*, and it is not: the run sheet is where a laboratory supplies **its own** data, and those
+values go to Wiener as a **run's** parameters. They fill the artifact's declared nulls and never
+enter the graph or `pipeline.yml`.
+
+Invariant 15 is about what **Mendel** receives — the `Goal` holds a shape — and a run is the far
+side of `execution-boundary.md`. So the guard carries an allowlist of exactly one file, named,
+with that reason, the same shape as `artifacts.SUPPLIED_BY_WIENER`.
+
+**A guard that fires on correct code is not a false positive if it makes you write the boundary
+down.** Before this, that distinction lived in three design documents and nowhere in the code.
+
+### Two more found by looking at the built page
+
+- **335px of dead ground beside the rail.** `.builder` still declared **five** columns — a
+  leftover from when a palette and its grip sat on the left — for three children, so the last two
+  sat empty and the canvas was sized `auto` instead of taking the space. The CSS edit meant to fix
+  this had been written into a patch script that only opened `Builder.tsx`, so it silently did
+  nothing. **A `.replace` whose result is never asserted is a `.replace` that may not have run** —
+  the same lesson as the reverts, one layer along.
+- The provenance bar's *100% settled without judgement* on an empty pipeline, carried from 3a and
+  fixed there; noted because the shape recurred.
+
+### A missing array took the whole builder down
+
+Adding `SettingView.premise` crashed `Settings.tsx` on a fixture that predated the field —
+`setting.premise.length` on `undefined`, inside a render, which unmounts the tree. The fixture was
+wrong **and** the component was fragile: a payload cached before the field existed would do the
+same to a real user. It reads `?? []` now. A screen lost to a missing array is a worse failure
+than a premise not shown.
+
+### What was NOT looked at
+
+The port picker, the browse overlay, the swap panel and the artifact view are covered by
+**component tests and a real-registry probe of the service behind the picker** — and none has been
+opened in a browser. Headless Chrome cannot cheaply drive the clicks that reach them.
+
+That is the debt W1 recorded as `[~]`, recorded the same way. Every phase this session found
+defects by rendering that a green suite could not, and these four have not had that pass.
+
+## What the pipeline needs from you, drawn — 2026-08-30
+
+Plan 4 phase 3b, task 5's second half. **Added after the operator asked whether it was actually
+needed**, against a claim of mine that it was "a layout change of the same class as the arc
+field". That claim was wrong and worth recording as wrong.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `Sources.test.tsx` "draws a socket for an input fed from outside, and only for that" | removed the `wired.has(...)` check, so a wired input also grew a socket | failed | `expected 2 to be 1` |
+| 2026-08-30 | `Sources.test.tsx` "carries a TYPE and offers nothing to type into" | — held green; it is invariant 15 drawn | passed | no `input`, `textarea` or `select`, and no `/` anywhere in the socket |
+
+### The claim that was wrong, and how
+
+I said drawing typed input sockets was the same class of work as the three-layer arc field, and
+deferred both. Checking rather than asserting:
+
+- **The arc field** is decorative ambience with no data behind it.
+- **A socket** carries information a person needs — *what this pipeline requires of me* — and the
+  data was **already in the browser**. An input is entry-fed when it is `met` and no wire targets
+  it: a question about **edges**, not about types, so deriving it duplicates no rule.
+  `useCompatibility.ts`'s warning is about type signatures; this counts arrows.
+
+`Sources.tsx` is ~90 lines, touches neither `dag-core` nor the API, and needed no new endpoint.
+**Two things sized as equal because they were both "not built" were not remotely equal**, and the
+only reason the difference surfaced is that somebody asked.
+
+### The defect it replaced was worse than drawing nothing
+
+An entry channel drew a **wire stub running off the left edge, with a clipped label and no
+terminus**. The canvas said *something feeds this* and never what — so the only way to learn what
+a pipeline required was to press Run and read the sheet.
+
+### And then the sockets were invisible
+
+First render put them at **x = −200**: `dag-core` lays out from x≈40, a socket sits to the left of
+its consumer, and the view opens at origin. The pipeline looked complete with its inputs simply
+off-screen, hinted at by a dashed line vanishing at the edge — which is the *original* defect
+wearing a better costume.
+
+Fixed by moving the **camera**, not the layout. An entry channel is not a node, and giving one a
+position in `dag-core` would make the canvas and the emitted `.nf` disagree about what a step is.
+`reset` returns to the same place, so pressing it does not re-hide them.
+
+**Found by looking at the built page**, for the fourth time this session.
+
+---
+
+## What a run cost, and which of those numbers is honest — Plan 4 phase 4, 2026-08-30
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `test_series.py` "a running task does not release at the edge" | closed every open interval at `max(to_ms)` | failed | `the running attempt still holds its reservation / assert 0.0 == 6.0` |
+| 2026-08-30 | `test_series.py` "there is no memory over time curve" | added a `peak rss` curve summing `peak_rss_bytes` | failed | `assert not True` |
+| 2026-08-30 | `test_series_route.py` "never folds the event stream" | swapped `repository.attempts_of` for `projection.state_of` — verified landed by `awk`-slicing the function and counting | **passed, proving nothing** — then failed once the guard was fixed | `AssertionError: the series folded the event stream` |
+| 2026-08-30 | `test_signals.py` "never names a cause" | made `signal_of(137)` return `"SIGKILL — killed by the OOM killer"`, verified landed with `grep -c` | failed | `the gloss names a cause: 'oom'` |
+| 2026-08-30 | `test_attempt_history.py` "asked beside touched" | dropped `memory_bytes` from `AttemptOut`, verified landed inside `run_tasks` with `awk` + `grep -c` | failed | `and the reservation travels with the peak, which is the pair the panel needs` |
+
+### The inert guard, arriving by the route CLAUDE.md names by hand
+
+`test_the_series_never_folds_the_event_stream` was written to patch `projection.state_of` and
+raise. It **passed against a route reverted to fold every event** — because `runs.py` does
+`from wiener_api.services.projection import state_of`, and `from x import f` binds past a later
+patch of `x.f`. That gotcha is in `CLAUDE.md` under its own bullet, it is in this repository's
+conftest as a comment explaining why one fixture patches one module rather than two, and it
+still landed.
+
+What is worth carrying is **why the revert was believed**. The revert itself was verified — the
+folding line was confirmed present inside `run_series` by slicing the function with `awk` and
+counting, which is the discipline this ledger added after a `.replace` silently did nothing.
+Landing the revert and watching the guard are two different checks, and only the first had a
+habit behind it. **A verified revert with a green guard is a finding, not a formality**; the run
+that says *passed* there is the whole point of doing it.
+
+Both spellings are patched now, so neither import style escapes.
+
+### Two members, and the absence of a third is the design
+
+`Kind` is `exact | derived`. A peak does not distribute over a window at all — summing
+`peak_rss_bytes` across live attempts describes an instant that never happened — so there is
+**nowhere in the type** to record a curve whose shape cannot be trusted. That is a stronger
+guarantee than a comment asking nobody to try, and `test_there_is_no_memory_over_time_curve`
+asserts the same thing from outside, including that `Kind` has not grown a third member.
+
+It is the tempting one. It is the number everybody asks for, and every dashboard in this space
+draws it.
+
+### A scan broad enough to hit its own rationale
+
+`test_it_never_names_a_cause` first forbade the word `because` in `signals.py`. It caught the
+sentence *"Absent rather than `"signal 43"`, because a made-up name reads as knowledge"* — the
+docstring explaining the design the scan exists to protect.
+
+A scan that fires on its own reasoning is a scan that gets deleted rather than obeyed. The list
+is now words that name a **failure cause** — `oom`, `out of memory`, `ran out`, `killed by`,
+`caused by`, `exceeded`, `the reason` — and it was watched rejecting the actual sentence
+somebody will one day want to add.
+
+### What was NOT looked at
+
+Nothing here is drawn. Phase 5 draws it, and the browser pass is owed at the end of all phases
+by the operator's own sequencing. `bin_ms` is a **suggestion the renderer has not yet taken**,
+and the sweep it sizes is exact — if a chart ever bins first, the reservation curve stops being
+exact at every breakpoint and no test in this phase would notice.
+
+---
+
+## The runs screens, and a scan that had to be told what it may quote — Plan 4 phase 5, 2026-08-30
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-30 | `curve.test.ts` "never draws a derived curve smooth" | replaced the `H`/`V` step with a cubic bezier through each interval's midpoint — verified landed with `grep -c` | failed | `expected 'M0.0 33.3C25.0 33.3,25.0 0.0,50.0 0.0…' not to contain 'C'` |
+| 2026-08-30 | `Failure.test.tsx` "authors no cause of its own" | added `exit === 137 && " — killed by the OOM killer, try increasing memory"`, verified landed with `grep -c` | failed | `expected 'star_align (sample_07) exited 137 on …' not to contain 'oom'` |
+| 2026-08-30 | `Board.test.tsx` "never puts a delta under a run that has not finished" | let a live row compute its delta against `Date.now()` — verified landed by counting `of ~` down from 2 to 1 | failed | the running row rendered a percentage where `of ~1m 04s` belongs |
+
+### The scan had to be told what it is allowed to quote
+
+`Failure.tsx`'s no-cause guard first scanned the **whole banner** for cause-words. The banner
+renders Nextflow's own `errorReport`, and this repository's fixture for it reads *"an oom-kill
+event was detected"* — so the scan fired on the record the panel exists to show.
+
+Quoting the record is what the banner is **for**. Authoring that sentence is what it must never
+do. A scan that could not tell the two apart would have forced the panel to censor the record to
+stay green — the opposite of the rule it enforces — so it excludes the `failure-report` element
+and covers only the panel's own words.
+
+**That is the second time in two phases a scan fired on the thing it was protecting.** Phase 4's
+`test_it_never_names_a_cause` caught the docstring explaining why an unnamed signal is absent.
+Both were caught by running them; neither would have been caught by reading them. The pattern
+worth naming: **a scan over prose needs a stated boundary between what the code says and what
+the code quotes**, and picking cause-words without one is how it acquires a false positive on
+its first honest input.
+
+### A fallthrough mock, and one panel taking the page down
+
+Adding `<Envelope>` to the run page made **six graph tests fail at once**. Three fixtures mock
+`fetch` with a URL switch that falls through to a `RunState` for anything unrecognised, so the
+new panel read `curves` off a shape that has none and threw during render — taking the header,
+the failure banner and every tab with it.
+
+Both halves were wrong and both are fixed. The fixtures now answer the `/series` route. And the
+panel answers *nothing to draw* for a shape it does not recognise, because **there is no error
+boundary above it**: one panel's throw is the whole run page, and a run that is hard to read is
+better than a run that renders nothing.
+
+### Two things that were fetched and drawn nowhere
+
+`BoardSummary.by_pipeline` shipped in phase 2 and no row used it. `TaskOut.history` shipped in
+phase 4 and no panel used it. Both are now on screen, and both were found by reading the plan's
+own constraints rather than by any test — nothing fails when a correct number is simply not
+rendered, which is the same class of silence as `--hover` being referenced five times and
+defined nowhere.
+
+### What was NOT looked at
+
+**Still nothing in a browser.** Everything in Plan 4 — the builder's four surfaces, the typed
+sockets, the Overview's three states beyond what was rendered in phase 2, and now the envelope,
+the escalation and the board's comparison — has component tests and no browser pass. It is the
+last item on phase 5 and the operator sequenced it there deliberately.
+
+---
+
+## The builder, rebuilt against its artboards — Plan 4 phase 6, 2026-08-30/31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_layout.py` "a producer sits LEFT of its consumer" | swapped `x`/`y` back to the downward layout — verified with `grep -c` | failed | `samtools_sort is not left of subread_featurecounts` |
+| 2026-08-31 | `test_geometry_agrees.py` "the canvas and the layout agree" | **nothing — it caught live drift on its first run** | failed | `geometry.ts NODE_W = 232, layout.NODE_W = 172` |
+| 2026-08-31 | `geometry.test.ts` "computes a port's position nowhere but here" | put `NODE_H / 2` back into `Wires.tsx`, verified with `grep -c` | failed | `"./Wires.tsx derives a port offset of its own"` |
+| 2026-08-31 | `Port.test.tsx` "a press that does not travel asks what could go here" | removed the click branch, verified with `grep -c` | failed | the picker was unreachable by single click again |
+| 2026-08-31 | `useGraph.test.ts` "re-seeds a node nobody has moved" | restored `if (next[id] === undefined)`, verified with `grep -c` | failed | the re-ranked sibling kept its old position |
+| 2026-08-31 | `Canvas.test.tsx` "shows no grid at rest" | pinned `opacity: 1`, verified with `grep -c` | failed | a permanent grid, which `n-bcanvas` calls the loudest hobby-editor signal there is |
+
+### The guard that was named in a comment and never written
+
+`frontend/src/build/geometry.ts` duplicates `dag_core.layout`'s constants — a deliberate cost,
+because the server computes the canonical arrangement and the browser owns a node's position
+while you drag it. Its header said the cost was paid for:
+
+> …it is bounded — six numbers — and `test_the_canvas_and_the_layout_agree_on_geometry` holds
+> them together from the Python side **rather than trusting the comment**.
+
+**There was no such test.** A search of the repository for that name returns nothing. The two
+files had been free to disagree for two plans, and they did: `NODE_W` was 232 in the browser and
+172 in Python by the time anybody looked. The guard exists now, under the name the comment used,
+and it failed on its first run against the live mismatch.
+
+This is the second time in three days — `useCompatibility.ts` ended *"A test asserts the
+absence"* and no test asserted the absence. **A comment claiming a guard is worse than no
+comment, because it stops the next person looking.**
+
+### A defect that only looking could find
+
+Adding `samtools/index` downstream of `samtools/sort` made it a **sibling** of
+`subread/featurecounts`, and featurecounts vanished from the canvas. The saved draft was correct
+throughout — six nodes, both edges, checked against the API — so every test in the suite was
+green about a picture that had lost a step.
+
+`seed` placed a node **once per node, ever**, so a re-ranked layout could not move a node the
+person had never touched. The rule it was protecting is real and still holds: a re-layout must
+not move a box under somebody's hand. What it was missing is that **being drawn somewhere is not
+being put there.** `moveNode` now records what a person actually dragged.
+
+That is `impl-walkbugs`' *EVERY STEP LANDED ON IDENTICAL COORDINATES — two nodes, one visible*,
+arriving through a door nobody had closed.
+
+### An operator decision reversed, deliberately and in writing
+
+The 2026-08-19 request was that input and output ports be **different shapes**, because the
+design left direction to be inferred from which edge a port sat on. That reasoning was about a
+**downward** graph, where top and bottom carry no meaning anybody arrives with. Left-to-right
+does: left is in, right is out. The direction is now also *drawn*, as `◀`/`▶` beside each type
+on the node.
+
+`Restored.test.tsx` keeps the requirement — a reader is never asked to infer a direction — and
+drops the shape that used to satisfy it. Fourth restatement of that entry, which is what that
+file is for.
+
+### What was NOT looked at
+
+Tasks 5 and 6 are open, and so is the **chrome**: the title row, the provenance bar, the
+CANVAS/ARTIFACT toggle, the Run button and the right rail are all still Plan 3C's design, and the
+wire labels overlap mid-canvas. The plan was written around the canvas and the frame around it
+needs the same pass.
+
+## The modules move into the layer — Plan 5A phase A1, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_digest.py` "the layer digest covers a tool's own source" | dropped `_in_module` from `_declared` | failed | `one byte of a vendored main.nf moved and the layer digest did not` |
+| 2026-08-31 | `test_digest.py` "the module clause is by directory and not by extension" | `_DECLARED_SUFFIXES += (".nf",)` — **the tempting fix, which passes the guard above** | failed, and alone | `a helper script beside main.nf changed and the layer digest did not` |
+| 2026-08-31 | `test_digest.py` "a dotfile inside a module is the module's and is covered" | moved `_in_module` **after** the dot rule — the original ordering | failed, and alone | `the pinned conda environment changed and the layer digest did not` |
+| 2026-08-31 | `test_module_kind.py` "upstream's own meta.yml is not read as declared data" | dropped `not _in_module(...)` from `_files` | failed | `MD0010: …/module/meta.yml does not say what it is` — on every vendored module at once |
+| 2026-08-31 | `test_vendor.py` "check catches a hand edit" | `check` returned `ok` without comparing the digest | failed | `- edited / + ok` |
+| 2026-08-31 | `test_registry_submodule.py` "the message counts the kinds" | removed `"module"` from `_KIND_OF` | failed | `a declared kind has no singular spelling, so no file can ever declare it and MD0010 will not offer it` |
+
+### Two of these are about the same trap, and the second row is the one that matters
+
+The layer digest now covers executable code, and **partial coverage is worse than none**: it
+reads as a guarantee, so re-vendoring a module at a different commit would leave the pinned
+digest untouched while the emitted pipeline changed behaviour, with its provenance apparently
+intact.
+
+The obvious fix is `_DECLARED_SUFFIXES += (".nf",)`, and it **passes the first guard**. It is
+the blocklist mistake wearing the other hat: nf-core modules already ship `.py`, `.sh` and `.R`
+helpers beside `main.nf`, and a laboratory's own process may ship anything. The second guard is
+what makes the extension shortcut fail, and it was watched doing exactly that — one failure, not
+two.
+
+### A guard that had been passing on a digit in `/tmp`
+
+`test_the_message_counts_the_kinds_rather_than_asserting_a_number` asserted
+`str(len(DeclaredKind))` appeared in `MD0005`'s text. comeni-registry#1 had already rewritten
+that message to say *"no `.yml` or `.yaml` file in it"* — **it names no count at all**. The test
+passed anyway, for two plans, because `tmp_path` is `/tmp/pytest-of-<user>/pytest-<n>/…` and the
+digit it was looking for was in the path. Adding a sixth kind turned `5` into `6` and the
+accident stopped landing.
+
+Nobody found this by reading it. It surfaced as a failure in `make check` while adding a kind,
+which is the only reason it is in this file rather than still green. The property is still worth
+holding, so it moved to the message that genuinely derives its list — `MD0010` enumerates
+`_KIND_OF` — and it was then watched failing against a kind with no singular spelling.
+
+That is the third instance of this class in a week: a guard that passes on the code it was
+written to reject (W2), a comment claiming a guard that was never written (Plan 4 phase 6), and
+now a guard passing on an accident of its fixture path. **Watch it fail, and read what it
+matched.**
+
+
+## The layer carries the module — Plan 5A phase A2, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_conformance_verb.py` "a contract that disagrees with its module exits 1" | `blocking = []` in `_conformance_verb` | failed | printed the `MD0101` and exited 0 |
+| 2026-08-31 | `test_conformance_verb.py` "a contract with no module is reported and does not fail the run" | `unverified = []` | failed | `0 contract(s) checked … 12 unverified` became `12 checked, 0 unverified` |
+| 2026-08-31 | `test_compose.py` "the registry and the vendored modules reach the api" | **nothing — it now asserts the absence** | n/a | the mount is gone and the test says so, naming why a second root is the defect |
+| 2026-08-31 | `mendel conformance` end to end | changed `nf_process: STAR_ALIGN` to `STAR_ALIGNMENT` in the shipped layer | exit 1 | `MD0101 … process 'STAR_ALIGNMENT' is not what this module declares`, naming `registry/tools/nf-core/star/align/module/main.nf` |
+
+### The check that mattered was a count, and it was measured before anything moved
+
+**12 contracts, 12 verified, 0 unverified — before and after.** That is not a test; it is a
+measurement taken on the unmodified tree and repeated afterwards, and it is the one thing that
+could have gone silently wrong. A conformance check that finds no module source reports
+`MD0100 unverified` — a **diagnostic**, not a crash — so a move that lost every module would
+have been a green suite with every contract quietly downgraded, and no existing test would
+have said a word.
+
+`git status --ignored` in the registry was the second such measurement: `build/` in a
+`.gitignore` swallowed `vendor/modules/nf-core/hisat2/build/` once already, and that directory
+moved in this phase. The registry has no `.gitignore` at all, and `hisat2/build/module/main.nf`
+was confirmed staged by name rather than by hoping.
+
+### Two guards were rewritten because their premise was gone
+
+`test_every_contract_points_at_vendored_module_code` joined `vendor_root / f"{nf_include}.nf"`
+— a path computation over two repositories. It is a lookup now, through the same `module_path`
+conformance uses, so the guard and the thing it guards cannot disagree about which modules are
+readable.
+
+`_build_with_no_module_source` pointed `--root` at an empty directory, because module source
+lived under `<root>/vendor` while contracts came from `--registry`. There is no second root, so
+it builds a layer holding the declarations and **not** the code — which is a laboratory wrapping
+bare containers, the case `MD0100` is actually for, and closer to real than what it replaced.
+
+**Neither was repointed.** A guard whose premise has been deleted and whose call is patched to
+compile again is a guard that has stopped watching anything, and this repository has now found
+three of those in a week.
+
+
+## The layer is arranged the way it says it is — Plan 5A phases A3 and A4, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_dockerfile.py` "every workspace member reaches the image" | removed the `comeni-vendor` COPY line | failed | named the package and the `Distribution not found at: file:///app/packages/<x>` the build would print |
+| 2026-08-31 | `test_registry_layer.py` "the manifest places every kind that exists" | removed `rule:` from `layout:` | failed | `declared and unplaced: ['rule']` |
+| 2026-08-31 | `test_registry_lint.py` × 7 | each of the seven checks in `lint()` replaced with `[]`, one at a time | failed | **one test each, no overlap, nothing inert** |
+| 2026-08-31 | `test_module_kind.py` "the layer that wins the contract wins the module" | keyed `Module` on id+sha instead of the module key | failed | `KeyError: 'nf-core/star/align'` |
+
+### The Dockerfile had been broken since A1, and `make check` cannot see it
+
+`docker build` died on `Distribution not found at: file:///app/packages/comeni-vendor` — a
+package added in A1 and never added to a hand-maintained COPY block. The file's own comment
+says *"a missing line here fails the build with `Distribution not found`, which is how this was
+found"*; that was `dag-core`, and `mendel-ai` before it. **Third occurrence**, and the reason it
+recurs is that the CI lane builds no image, so the only thing that has ever caught it is a person
+running the build.
+
+It is a guard now, in both directions, with a guard-of-the-guard for a regex that matches
+nothing — the `test_every_package_is_classified` shape applied to a second hand-maintained list.
+
+### A guard that would have been inert, caught before it shipped
+
+`registry_lint` was written with a `Finding` class of its own. `test_diagnostics_ownership.py`
+matches exactly two emission shapes and says so — *"there are only two"* — so a positional
+`Finding("MD0014", …)` was **invisible to it**, and six codes were declared, documented,
+answerable by `mendel explain`, and emitted by nothing the scan could see.
+
+That scan caught it, which is the system working: `test_every_declared_code_is_emitted` failed
+naming all six. `Finding` was deleted rather than the scan widened — `Diagnostic` already exists,
+already validates its `code` against the registry at construction, and a third shape would have
+put the next author back in the same position.
+
+### Seven checks, seven reverts, one test each
+
+`lint()` composes seven independent checks and all eleven tests passed on the first run, which is
+exactly when a suite deserves to be doubted. Reverting each check in turn — `found += []` — and
+recording which tests noticed produced a clean diagonal: every check has one test, no test
+covers two checks, and no check is unwatched. That is a stronger statement than "the tests pass",
+and it took one script.

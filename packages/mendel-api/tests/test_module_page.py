@@ -1,7 +1,14 @@
 """One contract, the module it describes, and everything pointing at it."""
 
 import pytest
-from mendel_api.services import module_page
+from mendel_api.services import module_page, registry
+
+
+def _without_modules():
+    """The real stack with its modules taken away — declarations that load, code that is not
+    there. That is a laboratory wrapping bare containers, and it is the only way to reach this
+    state now that one layer carries both."""
+    return registry.stack().model_copy(update={"modules": {}})
 
 
 def _fastqc():
@@ -27,8 +34,13 @@ def test_a_module_that_cannot_be_read_reports_nothing_rather_than_zero(monkeypat
     vendored `main.nf`, and the two `comeni/` ones are `unverifiable` because no *source
     adapter* can re-fetch them — which is a different condition from the module file being
     absent. An earlier draft of this test asserted they were the same and would have failed.
+
+    Since Plan 5A the way to produce that state is a stack whose contracts load and whose
+    **modules do not** — a lab wrapping bare containers — rather than a `source_root` pointed
+    at an empty directory. There is no `source_root` any more: the layer carries both.
     """
-    monkeypatch.setattr(module_page.settings, "source_root", tmp_path)
+    bare = _without_modules()
+    monkeypatch.setattr(module_page.registry, "stack", lambda: bare)
 
     page = _fastqc()
 

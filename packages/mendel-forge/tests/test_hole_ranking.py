@@ -20,7 +20,7 @@ def _scaffold(ident: str, version: str):
     takes a `ToolRef` plus a root, and `scaffold_for` names its keyword `ident`, not `name`.
     """
     ref = ToolRef(source="nf-core", ident=ident)
-    observation = sources.get(ref.source).ingest(ref, ROOT / "vendor")
+    observation = sources.get(ref.source).ingest(ref, ROOT / "registry")
     stack = load([ROOT / "registry"])
     return assemble.scaffold_for(
         observation, stack, ident=f"{ref.source}/{ref.ident}", version=version

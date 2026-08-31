@@ -1,4 +1,5 @@
 import pathlib
+import re
 
 import pytest
 from comeni_core.artifact.pipeline import ExtArgs, Pipeline
@@ -122,6 +123,76 @@ def test_the_config_matches_its_golden_file():
 
     golden = ROOT / "tests" / "golden" / "spine" / "nextflow.config"
     assert emit_config(_pipeline()) == golden.read_text()
+
+
+def test_the_artifact_never_names_an_output_directory():
+    """Where results go is a SITE fact, and the artifact must not decide it.
+
+    `params.outdir` is emitted `null`, exactly as `params.input` is, and Wiener's launcher
+    supplies the value through `site.config` — the same posture `process.resourceLimits`
+    already takes for how big the machine is (`docs/design/wiener.md` §12).
+
+    **Baking a default here would be cheap and wrong.** `mendel emit` would produce a different
+    file per deployment, so `Pipeline.emitted`'s digests would stop reproducing and invariant 10
+    would be gone — not loosened, gone. The temptation is real because `outdir = 'results'` is
+    what almost every nf-core pipeline ships, which is why this is a test and not a comment.
+
+    **Not even a profile may set it.** A first version gave `stub_data` and `test` a
+    `params.outdir` so a gate would publish, which looked harmless and was two things wrong at
+    once: it put a destination in the artifact, and it did not even work — `enabled:` is
+    evaluated when the `process {` scope is read, which is *before* `profiles {`. The gates pass
+    `--outdir` on the command line instead (`gates.py`), so the artifact declares the hole and
+    nothing in it fills the hole.
+    """
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(_pipeline())
+    assert "    outdir = null" in config, "the artifact must declare the hole"
+
+    # **Assignments only.** The first version of this checked every line MENTIONING `outdir`
+    # and tripped on `publishDir`'s own `path:`, which *reads* `${params.outdir}` — reading the
+    # hole is the entire mechanism, and a guard that forbids it forbids the feature.
+    assignments = [
+        line.strip()
+        for line in config.splitlines()
+        if re.match(r"\s*(params\.)?outdir\s*=", line)
+    ]
+    assert assignments == ["outdir = null"], (
+        f"the only thing the artifact may say about a destination is that it has none: "
+        f"{assignments!r}"
+    )
+
+
+def test_publishing_is_off_when_nobody_said_where():
+    """Absent is absent — a null destination publishes nothing, not into a folder called null.
+
+    Without the guard Nextflow interpolates `null` into the path and an un-configured run
+    scatters its outputs into a directory named after the absence. Same class of error as a zero
+    standing in for a missing measurement, and worse, because it looks like it worked.
+
+    **`enabled` must be an EXPRESSION, and this assertion is that shape rather than the
+    behaviour.** It shipped as `enabled: { params.outdir != null }` and published NOTHING with
+    all five processes green: Nextflow evaluates `enabled` when it reads the config and never
+    calls a closure handed to it, so the closure was merely truthy — no, worse, it silently
+    disabled nothing and yet no file appeared. `nextflow config` printed the directive correctly
+    and the log said nothing at all. Only looking in `results/` after a stub run found it.
+
+    `path` stays a closure, and must: it is called per task, which is the only way it can read
+    `task.process`. The two are different evaluation times in one literal, which is exactly why
+    it is worth a test rather than a comment.
+    """
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(_pipeline())
+    # Comment lines are dropped first: the emitted config EXPLAINS this bug in prose, so a scan
+    # that cannot tell a directive from the comment above it punishes writing the reason down.
+    # `tokens.test.ts` needed the same fix for the same reason on the same day.
+    directives = "\n".join(
+        line for line in config.splitlines() if not line.lstrip().startswith("//")
+    )
+    assert "enabled: params.outdir != null," in directives
+    assert "enabled: {" not in directives, "a closure here is never called and publishes nothing"
+    assert "path:    { " in directives, "path must stay lazy — it reads task.process"
 
 
 def test_call_arity_follows_the_declared_signature():

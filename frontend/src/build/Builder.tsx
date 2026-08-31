@@ -5,22 +5,26 @@ import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { Canvas } from "./Canvas";
 import { Node } from "./Node";
-import { LeftPanel } from "./LeftPanel";
 import { Settings } from "./Settings";
 import { Grip, RAIL, useWidth } from "./Panels";
-import { Provenance } from "./Provenance";
-import { Compare } from "./Compare";
-import { GatePanel } from "./Gate";
-import { SubmitPanel } from "./Submit";
+import { ArtifactView } from "./ArtifactView";
+import { Browse } from "./Browse";
+import { Picker } from "./Picker";
+import { entryChannels, Sources } from "./Sources";
+import { Status } from "./Status";
+import { Swap } from "./Swap";
+import { useRun } from "./useRun";
+import { usePipelineDraft } from "./usePipelineDraft";
 import { Findings } from "./Findings";
+import { bounds, Minimap } from "./Minimap";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
-import { Walk } from "./Walk";
-import { heightFor, portX } from "./geometry";
-import { MODULE_DND } from "./Modules";
-import { Rail } from "./Rail";
+import { NODE_W, portOffset } from "./geometry";
+import { Assistant, StepChoice } from "./Rail";
+import { RunSheet } from "./RunSheet";
 import { Wires } from "./Wires";
-import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
+import type { AnsweredStep } from "./useBuilder";
+import { graphOf, unanswered, useBuilder, useExample, withTypedValues } from "./useBuilder";
 import { accepts, useCompatibility } from "./useCompatibility";
 import { useView } from "./useView";
 
@@ -36,6 +40,7 @@ function Side({
   collapsed,
   onExpand,
   badge,
+  header = true,
   children,
 }: {
   side: "left" | "right";
@@ -44,6 +49,11 @@ function Side({
   collapsed: boolean;
   onExpand: () => void;
   badge?: number;
+  /** Draw the panel's own title bar. **False for the right column**, whose tab strip is its
+   *  top edge — a header above the tabs was one more band of chrome saying a word the tabs
+   *  already say. The collapsed stub still uses `title`, which is the only place it earns
+   *  its keep. */
+  header?: boolean;
   children?: React.ReactNode;
 }) {
   const testid = side === "left" ? "modules" : "rail";
@@ -54,7 +64,7 @@ function Side({
         data-collapsed="true"
         onClick={onExpand}
         style={{ width: RAIL }}
-        className="shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
+        className="side shrink-0 flex flex-col items-center gap-3 py-4 bg-surface cursor-pointer
                    border-0 border-l border-line text-ink-3 hover:text-ink"
       >
         <span className="[writing-mode:vertical-rl] text-label uppercase tracking-[.13em]">
@@ -73,15 +83,27 @@ function Side({
       data-testid={testid}
       data-collapsed="false"
       style={{ width }}
-      className="shrink-0 flex flex-col bg-surface overflow-hidden"
+      className="side shrink-0 flex flex-col bg-surface overflow-hidden"
     >
-      <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
-        <span className={label}>{title}</span>
-        {badge !== undefined && badge > 0 && (
-          <span className="ml-auto font-data text-secondary text-[var(--undecided)]">{badge}</span>
-        )}
-      </div>
-      <div className="flex-1 overflow-auto">{children}</div>
+      {header && (
+        <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
+          <span className={label}>{title}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className="ml-auto font-data text-secondary text-[var(--undecided)]">
+              {badge}
+            </span>
+          )}
+        </div>
+      )}
+      {/* **Not a scroller.** `Rail` owns a `flex-1 min-h-0 overflow-auto` of its own,
+          so this made two nested scroll containers around one list — which is a well-known way
+          to lose a scroll position: the outer one scrolls, the inner content changes height, and
+          the outer clamps back to zero. The 2026-08-29 walk lost a half-filled parameter form to
+          exactly that.
+
+          `min-h-0` is load-bearing beside `flex-1`: without it a flex child refuses to shrink
+          below its content and the child's own scroller never engages. */}
+      <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
     </div>
   );
 }
@@ -98,21 +120,43 @@ function Side({
  */
 export function Builder() {
   useTitle("Builder");
-  const left = useWidth(232, 190, 430);
   const right = useWidth(320, 280, 560);
   const { view, onWheel, onPointerDown, reset, nudge, fit } = useView();
   const box = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [isolated, setIsolated] = useState<string | null>(null);
   const [carded, setCarded] = useState<string | null>(null);
   /** Which output port a wire is being dragged from. `null` most of the time. */
   const [dragging, setDragging] = useState<{ node: string; port: string } | null>(null);
 
+  // **`/build?draft=<id>` opens THAT pipeline.** It always opened the example before Plan 4
+  // phase 3a, which meant every link on the front door — one per row of the *by pipeline*
+  // table — went to the canonical spine instead of the thing you clicked.
+  const draft = usePipelineDraft();
   const example = useExample();
+
+  // A named draft that cannot be read is an ERROR, never a quiet fallback to the example. The
+  // failure mode being avoided is the worst kind: you edit for an hour, and you were editing a
+  // different pipeline the whole time.
+  if (draft.openError) {
+    return (
+      <div className="grid place-items-center h-full">
+        <Failed error={draft.openError} />
+      </div>
+    );
+  }
+  if (draft.loading) {
+    return (
+      <div className="grid place-items-center h-full">
+        <Loading what="the pipeline" />
+      </div>
+    );
+  }
+
   return example.data ? (
-    <Editing built={example.data} view={view} onWheel={onWheel} onPointerDown={onPointerDown}
-      reset={reset} nudge={nudge} fit={fit} box={box} left={left} right={right}
-      selected={selected} setSelected={setSelected} isolated={isolated} setIsolated={setIsolated}
+    <Editing built={example.data} opened={draft.opened} draft={draft}
+      view={view} onWheel={onWheel} onPointerDown={onPointerDown}
+      reset={reset} nudge={nudge} fit={fit} box={box} right={right}
+      selected={selected} setSelected={setSelected}
       carded={carded} setCarded={setCarded} dragging={dragging} setDragging={setDragging} />
   ) : (
     <div className="grid place-items-center h-full">
@@ -122,6 +166,32 @@ export function Builder() {
   );
 }
 
+/** Canvas coordinates → screen coordinates, for the two popovers that mount outside the stage.
+ *
+ * **Two corrections, and leaving either out is visible immediately.** The port picker and the
+ * settings card are rendered at the builder's root rather than inside the transformed stage,
+ * because the canvas clips its own overflow and a card that vanished at the edge of the frame
+ * would be unreachable. So a canvas coordinate needs:
+ *
+ * 1. **the view transform, applied forward** — `translate(view.x, view.y)` then `scale(view.k)`.
+ *    Without it the popover opens in the page's top-left corner at any zoom but 1:1, which is
+ *    what the picker did until phase 6 task 3.
+ * 2. **the canvas's own offset in the page.** Without it every card sits exactly the height of
+ *    the header and the provenance bar too high — which is what the settings card did the first
+ *    time it was anchored, and it is why this is a function rather than the same two lines
+ *    written twice.
+ *
+ * `useView`'s pointer handler undoes the same transform to put the cursor into canvas space.
+ * Three places, one transform, written the same way round each time.
+ */
+function onScreen(at: { x: number; y: number }, view: { x: number; y: number; k: number }) {
+  const r = document.querySelector('[data-testid="canvas"]')?.getBoundingClientRect();
+  return {
+    x: (r?.left ?? 0) + at.x * view.k + view.x,
+    y: (r?.top ?? 0) + at.y * view.k + view.y,
+  };
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** The screen, once there is something to edit.
  *
@@ -129,28 +199,29 @@ export function Builder() {
  * query. The alternative — a hook that tolerates `undefined` — would put "is there a pipeline
  * yet" into every line below.
  */
-const GOAL = {
-  have: [
-    { type_id: "fastq.reads", states: [] },
-    { type_id: "annotation.gtf", states: [] },
-    { type_id: "genome.fasta", states: [] },
-  ],
-  want: ["counts.matrix"],
-};
-
-function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, left, right,
-  selected, setSelected, isolated, setIsolated, carded, setCarded, dragging, setDragging }: any) {
+function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nudge, fit, box,
+  right,
+  selected, setSelected, carded, setCarded, dragging, setDragging }: any) {
   // **Node offsets live in `useGraph`, not in each node.** They were local state, which meant a
   // dragged node left its wires behind — the graph broke the moment you touched it.
-  const builder = useBuilder(graphOf(built));
+  //
+  // **`draft.save` is passed, and until Plan 4 phase 3a nothing ever was.** `useGraph` has taken
+  // an optional `save` and debounced it at 5s since 3E, and no caller supplied one — so the
+  // autosave had never fired in production. That is not a missing feature so much as a missing
+  // premise: the argument for collapsing four buttons into one *Run* is that drafts already
+  // save themselves.
+  const builder = useBuilder(opened ?? graphOf(built), draft.save);
   const index = useCompatibility();
   const data: Built | null = builder.drawn;
   const offsets = builder.offsets;
   const isLoading = data === null;
   const error = builder.drawnError;
-  const [panel, setPanel] = useState<"review" | "problems" | "compare" | "gate" | "run">(
-    "review",
-  );
+  const [panel, setPanel] = useState<"step" | "ask" | "problems">("step");
+  /** Whether the run sheet is open. **It was `panel: "run"` and nothing rendered it** — so the
+   *  fourth verb of `Run` set a tab that did not exist and the rail went blank. A sheet is not
+   *  a tab: it is the modal step where a person says where their data is, and `n-brun` draws it
+   *  over the canvas. */
+  const [sheet, setSheet] = useState(false);
   // **The draft lifecycle, finally connected.** 3E built create/save/keep on the server and
   // wired none of it; a gate needs an artifact on disk, which is what surfaced that.
   const keeper = useKeep(builder.graph);
@@ -158,6 +229,41 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
   // so this is the same gate the toolbar button and the gate tab are looking at — which is
   // what makes "a gate passed" mean the one a person just watched.
   const gate = useGate(keeper.draftId);
+  // **One control, four verbs** — `impl-walk`. The rail is gone; this is what it did.
+  const runner = useRun({
+    keep: keeper.keepAsync,
+    lint: () => gate.start("lint"),
+    gatePassed: gate.passed,
+    openSheet: () => setSheet(true),
+  });
+
+  /** Canvas or artifact. **`pipeline.yml` IS the pipeline**, so the second view of the canvas
+   *  is the artifact itself rather than a list (`n-bartifact`). */
+  const [view2, setView2] = useState<"canvas" | "artifact">("canvas");
+
+  /** Which step is being swapped, if any. **Shown, then asked** — nothing is applied while
+   *  this is open (`n-bswap`). */
+  const [swapping, setSwapping] = useState<string | null>(null);
+
+  /** Whether the browse overlay is open. It replaced the permanent left palette — creation is
+   *  monthly, checking a run is daily, so a third column was rent paid every day for a thing
+   *  used monthly (`impl-settled`). */
+  const [browsing, setBrowsing] = useState(false);
+
+  /** Which port's picker is open, and where to draw it. `null` most of the time. */
+  const [picking, setPicking] = useState<
+    { node: string; port: any; at: { x: number; y: number } } | null
+  >(null);
+
+  /** Whether a node is being dragged. **The grid exists only while it is.**
+   *
+   * `impl-geom`: *a permanent grid is the loudest hobby-editor signal there is.* `Canvas` had
+   * it on by default with an argument for it — *a grid is an invitation; it says things can be
+   * placed here* — and that argument is answered rather than ignored: the invitation is real
+   * and it belongs to the gesture, not to the resting screen. Galaxy's idea, scoped.
+   */
+  const [moving, setMoving] = useState(false);
+
   /** Where the cursor is while a wire is being dragged, in canvas coordinates. */
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   /** Where a right-click opened a menu, and on what. */
@@ -216,60 +322,116 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, builder, setSelected]);
-  const [kept, setKept] = useState<{ row: any; reason: string }[]>([]);
-  void kept;
 
-  const blocking = data?.needs_review.length ?? 0;
+  /** Every step with **what this person answered** laid over it — computed once, because three
+   *  things read it: the status line's count, the rail's sentence, and the settings card. */
+  const answered: AnsweredStep[] = (data?.steps ?? []).map((step: any) =>
+    withTypedValues(step, builder.graph),
+  );
+
+  /** **Values, not steps.** `Status.open` is documented as *how many values nobody has
+   *  answered*, and it was handed `data.needs_review.length` — which is a list of STEP ids. On
+   *  the spine that is 5 either way, so the two lines agreed by coincidence and the provenance
+   *  bar beside it already said `5 steps need your decision` off the same number: two sentences,
+   *  one fact, one of them mislabelled. It also never moved when you answered something, because
+   *  a step with one open value has a step id whatever you do to the value. */
+  const blocking = unanswered(answered);
 
   return (
-    <div className="grid grid-rows-[38px_1fr] h-full overflow-hidden">
-      <div className="flex items-center gap-4 px-6 border-b border-line bg-surface">
-        <span className="text-label uppercase tracking-[.13em] font-semibold text-ink-3">
-          RNA-seq spine
-        </span>
-        {/* **Keep, Gate and Run left this toolbar for `Walk`** — W2 §13. They were three
-            controls in three places for one sequence, and the rail is that sequence said
-            once. `execution-boundary.md` §3's rule that a gate and a run must never share a
-            label is kept there rather than here. */}
-        {blocking > 0 && (
-          <span data-testid="blocking" className="text-secondary text-[var(--undecided)]">
-            <b className="font-data">{blocking}</b> to decide
+    <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden">
+      {/* **A title row, not a toolbar.** It was a 38px strip with the name set at 15px beside
+          three controls, which reads as a browser chrome bar; every artboard opens with the
+          pipeline's name at 26px and the status line beside it, and the toggle and Run at the
+          far right. The name is the largest thing on the screen because it is what the screen
+          is about. */}
+      <div className="flex items-baseline gap-4 px-6 pt-5 pb-4">
+        {/* **The name is the draft's own.** It was the literal string `RNA-seq spine`, which is
+            why the 2026-08-29 walk deleted every step, replaced them, and still had the old
+            name on screen. `PipelineDraft.name` had existed since 3E with nothing setting it. */}
+        <input
+          data-testid="pipeline-name"
+          aria-label="pipeline name"
+          value={draft.name}
+          placeholder={draft.draftId ? draft.draftId.slice(0, 8) : "untitled pipeline"}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            draft.rename(e.target.value, builder.graph)}
+          className="bg-transparent border-0 outline-none text-ink min-w-[8ch] w-[16ch]
+                     text-title font-semibold tracking-[-.03em]
+                     focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1
+                     [field-sizing:content]"
+        />
+        <Status
+          savedAt={draft.savedAt}
+          saving={draft.saving}
+          dirty={builder.dirty}
+          error={draft.error}
+          valid={builder.findings.length === 0}
+          open={blocking}
+          stale={builder.stale}
+        />
+
+        <div className="ml-auto flex border border-line-2">
+          {(["canvas", "artifact"] as const).map((which) => (
+            <button
+              key={which}
+              type="button"
+              data-testid={`view-${which}`}
+              onClick={() => setView2(which)}
+              aria-pressed={view2 === which}
+              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em]
+                          border-0 cursor-pointer transition-colors
+                          ${view2 === which
+                            ? "bg-[var(--link-soft)] text-link"
+                            : "bg-transparent text-ink-3 hover:text-ink"}`}
+            >
+              {which}
+            </button>
+          ))}
+        </div>
+
+        {/* **The one action, and it does the whole sequence.** Keep, lint, open the run sheet,
+            submit. It is disabled only while it is working — never because a step somebody
+            cannot see has not happened yet. */}
+        <button
+          data-testid="run"
+          type="button"
+          disabled={runner.busy || builder.graph.nodes.length === 0}
+          onClick={() => void runner.run()}
+          className="px-[26px] py-[9px] border-0 cursor-pointer lift font-semibold
+                     text-[13.5px] bg-[var(--link)] text-paper
+                     disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {runner.stage === "keeping" ? "Keeping…"
+            : runner.stage === "linting" ? "Checking…"
+            : "Run"}
+        </button>
+        {runner.error && (
+          <span data-testid="run-error" className="text-secondary">
+            <Failed error={runner.error} padded={false} />
           </span>
         )}
+        {/* **Keep, Gate and Run left this toolbar for `Walk`, and `Walk` has now left too.**
+            W2 §13 moved three controls into one rail; Plan 4 phase 3a removed the rail. One
+            **Run** in the header orchestrates all of it, and the status line says what is
+            true. `execution-boundary.md` §3's rule — that a gate and a run never share a
+            label — is kept in the BACKEND, which is where it was always load-bearing. */}
+        {/* **`N to decide` is deleted, because the status line already says it.** It read
+            `1 to decide` beside a status line reading `1 value needs you` — one fact, two
+            renderings, eighteen characters apart. Found by looking at the built page.
+
+            This is the same discipline as *one control per action*: two places that say the
+            same thing are two places that can come to disagree, and the reader has to work out
+            which is authoritative. `Status` owns it. */}
       </div>
       <div
         ref={box}
         data-testid="builder"
-        className="grid grid-cols-[auto_5px_1fr_5px_auto] overflow-hidden"
+        className="builder overflow-hidden"
       >
-      <Side
-        side="left"
-        title="Modules"
-        width={left.width}
-        collapsed={left.collapsed}
-        onExpand={() => left.setCollapsed(false)}
-      >
-        {data && (
-          <LeftPanel
-            data={data}
-            selected={selected}
-            onSelect={setSelected}
-            onAdd={builder.addNode}
-          />
-        )}
-      </Side>
-      <Grip
-        side="left"
-        onPointerDown={(e) => left.onPointerDown(e, "left")}
-        onCollapse={() => left.setCollapsed(true)}
-        onNudge={() => {}}
-      />
-
-      <div className="flex flex-col overflow-hidden">
-        {data && (
-          <Provenance data={data} isolated={isolated} onIsolate={setIsolated} />
-        )}
+      <div className="stage flex flex-col overflow-hidden">
+        {view2 === "artifact" && <ArtifactView draftId={draft.draftId} />}
         <Canvas
+        grid={moving}
         view={view}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
@@ -296,55 +458,93 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
           setSelected(null);
           setCarded(null);
         }}
-        onDragOver={(e: React.DragEvent) => {
-          if (e.dataTransfer.types.includes(MODULE_DND)) e.preventDefault();
-        }}
-        onDrop={(e: React.DragEvent) => {
-          const contractId = e.dataTransfer.getData(MODULE_DND);
-          if (contractId) {
-            e.preventDefault();
-            builder.addNode(contractId);
-          }
+        // **The drop handlers are deleted with the palette that dragged onto them.** They were
+        // half of a gesture whose other half no longer exists, and a drop target with no drag
+        // source is dead code that reads as a feature. The three ways in are now the port
+        // picker, the browse overlay, and this canvas's own context menu.
+        onContextMenu={(e: React.MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-testid="node"]')) return;
+          e.preventDefault();
+          setBrowsing(true);
         }}
         footer={
-          <div
-            data-zoomer
-            className="absolute right-4 bottom-4 flex items-center gap-1 rounded-r
-                       border border-line bg-surface px-1 py-1 shadow-e1"
-          >
-            <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
-              −
-            </button>
-            <span
-              data-testid="zoom"
-              data-k={view.k}
-              className="font-data text-secondary text-ink-3 w-11 text-center tabular-nums"
+          <>
+            {/* **Bottom left: `Fit` and `+ Add step`** — the artboard's two, in the artboard's
+                corner. `+ Add step` is the browse overlay's only visible affordance; before
+                this it opened on a right-click and by ⌘K, which the 2026-08-29 walk already
+                found unreachable once. A gesture with no visible handle is a gesture nobody
+                uses. */}
+            <div data-zoomer className="absolute left-[22px] bottom-[18px] flex gap-2">
+              <button
+                data-testid="fit"
+                aria-label="fit the pipeline"
+                onClick={() => {
+                  const r = box.current?.getBoundingClientRect();
+                  if (!data || !r || data.layout.nodes.length === 0) return;
+                  const b = bounds(data.layout.nodes, offsets);
+                  fit(b.width, b.height, r.width, r.height, { x: b.left, y: b.top });
+                }}
+                className="font-data text-label text-ink-3 border border-line-2 px-[11px]
+                           py-[6px] bg-transparent cursor-pointer lift hover:text-ink"
+              >
+                Fit
+              </button>
+              <button
+                data-testid="add-step"
+                onClick={() => setBrowsing(true)}
+                className="font-data text-label text-link border border-[var(--link-line)]
+                           px-[11px] py-[6px] bg-transparent cursor-pointer lift"
+              >
+                + Add step
+              </button>
+            </div>
+
+            {/* **Bottom right: the minimap, and it is load-bearing.** `impl-settled` deletes
+                the left steps list and says *orientation is the minimap's job* — so this is
+                what pays for that deletion rather than a decoration. It is drawn from the same
+                `offsets` the canvas is, at whatever scale fits the graph, and each mark takes
+                its node's tier colour so *where is the thing that needs me* is answerable
+                without panning. */}
+            {data && data.layout.nodes.length > 0 && (
+              <Minimap nodes={data.layout.nodes} offsets={offsets} />
+            )}
+
+            <div
+              data-zoomer
+              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-r
+                         border border-line bg-surface px-1 py-1 shadow-e1"
             >
-              {Math.round(view.k * 100)}%
-            </span>
-            <button onClick={() => nudge(0.1)} aria-label="zoom in" className={zoomBtn}>
-              +
-            </button>
-            <button onClick={reset} aria-label="reset the view" className={zoomBtn}>
-              reset
-            </button>
-            <button
-              aria-label="fit the pipeline"
-              className={zoomBtn}
-              onClick={() => {
-                const r = box.current?.getBoundingClientRect();
-                if (data && r) fit(data.layout.width, data.layout.height, r.width, r.height);
-              }}
-            >
-              fit
-            </button>
-          </div>
+              <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
+                −
+              </button>
+              <span
+                data-testid="zoom"
+                data-k={view.k}
+                className="font-data text-secondary text-ink-3 w-11 text-center tabular-nums"
+              >
+                {Math.round(view.k * 100)}%
+              </span>
+              <button onClick={() => nudge(0.1)} aria-label="zoom in" className={zoomBtn}>
+                +
+              </button>
+              <button onClick={reset} aria-label="reset the view" className={zoomBtn}>
+                reset
+              </button>
+            </div>
+          </>
         }
       >
         {isLoading && <Loading what="the pipeline" />}
         {error && <Failed error={error} />}
         {data && (
           <>
+            {/* **What this pipeline needs from you**, before the wires so a node draws over
+                both. An entry channel used to draw a stub running off to the left with a
+                clipped label and no terminus: the canvas said *something feeds this* and never
+                what, so the only way to learn what the pipeline required was to press Run. */}
+            <Sources data={data} offsets={offsets} />
+
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}
             <Wires
               // The client's edges, not the server's — same reason as the nodes.
@@ -361,7 +561,6 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                 points: [],
                 label_at: { x: 0, y: 0 },
               }))}
-              tierOf={(id) => data.layout.nodes.find((n) => n.id === id)?.tier ?? 2}
               at={offsets}
               ports={portIndex}
               width={data.layout.width}
@@ -369,19 +568,14 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
               pending={
                 dragging && cursor && portIndex[dragging.node]
                   ? {
+                      // Left to right: a wire in flight leaves the RIGHT edge, at the port's
+                      // own offset. Same derivation the settled wires use — `portOffset`.
                       from: {
-                        x:
-                          (offsets[dragging.node]?.x ?? 0) +
-                          portX(
-                            portIndex[dragging.node].width,
-                            portIndex[dragging.node].outs.length,
-                            Math.max(0, portIndex[dragging.node].outs.indexOf(dragging.port)),
-                          ),
+                        x: (offsets[dragging.node]?.x ?? 0) + NODE_W,
                         y:
                           (offsets[dragging.node]?.y ?? 0) +
-                          heightFor(
-                            portIndex[dragging.node].ins.length,
-                            portIndex[dragging.node].outs.length,
+                          portOffset(
+                            Math.max(0, portIndex[dragging.node].outs.indexOf(dragging.port)),
                           ),
                       },
                       to: cursor,
@@ -411,9 +605,8 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
               <Node
                 key={placed.id}
                 placed={placed}
-                step={data.steps.find((s) => s.id === placed.id)}
+                step={answered.find((s) => s.id === placed.id)}
                 zoom={view.k}
-                dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
                 onContextMenu={(e: React.MouseEvent) => {
@@ -423,6 +616,31 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
                 }}
                 onOpenSettings={() => setCarded(placed.id)}
                 offset={offsets[placed.id] ?? { x: 0, y: 0 }}
+                onMoving={setMoving}
+                onExplore={(port: any) =>
+                  setPicking({
+                    node: placed.id,
+                    port,
+                    // **In CONTAINER coordinates, not canvas ones.** The popover mounts
+                    // outside the transformed stage, so a canvas coordinate handed to it
+                    // ignores pan and zoom entirely — it opened in the top-left corner of the
+                    // page, over the header, whichever port you clicked.
+                    //
+                    // The transform is `translate(view.x, view.y)` then `scale(view.k)`, and
+                    // this is it applied forward; line ~400 undoes the same one to put the
+                    // cursor into canvas space. Two places, one transform, written the same
+                    // way round each time.
+                    //
+                    // Beside the node rather than exactly on the port: at low zoom an exact
+                    // anchor puts a 340px panel on top of the thing it is describing.
+                    at: onScreen(
+                      {
+                        x: (offsets[placed.id]?.x ?? 0) + NODE_W + 16,
+                        y: offsets[placed.id]?.y ?? 0,
+                      },
+                      view,
+                    ),
+                  })}
                 onDrag={(by) => builder.moveNode(placed.id, by)}
                 dragging={dragging}
                 onStartWire={(port: string) => setDragging({ node: placed.id, port })}
@@ -464,99 +682,79 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         collapsed={right.collapsed}
         onExpand={() => right.setCollapsed(false)}
         badge={blocking}
+        header={false}
       >
-        {/* **Three tabs, and the order is the order you need them in.** What is wrong with
-            what you drew comes before what Mendel would have done differently, because a graph
-            that cannot be emitted is not yet worth diffing. */}
-        {/* Draw → Keep → Gate → Run, above the tabs, because it is the sequence and they are
-            the detail. **The only place that leaves Mendel** is its last step — A179,
-            `wiener.md` §12 — and it stays a distinct step rather than a second gate button,
-            because `execution-boundary.md` §3 keeps those two words apart everywhere else. */}
-        <div className="p-2">
-          <Walk
-            draw={{ steps: builder.graph.nodes?.length ?? 0,
-                    problems: builder.findings.length }}
-            keep={{
-              // `keptAt` is a **time**, and the rail prints `kept ${keptAt}` — the literal
-              // "kept" here rendered `kept kept` on screen. A draft id also is not the same
-              // fact: a draft is *saved* from the first edit and only `keep` certifies it.
-              keptAt: keeper.keptAt,
-              stale: keeper.blocked,
-              busy: keeper.keeping,
-              onKeep: () => keeper.keep(),
-            }}
-            gate={{
-              passed: gate.passed && !keeper.blocked,
-              blocked: keeper.blocked ? "A gate has to pass on the version you kept." : null,
-              panel: <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />,
-            }}
-            run={{
-              sent: false,
-              blocked: gate.passed ? null : "A gate has to pass on the version you kept.",
-              panel: <SubmitPanel draftId={keeper.draftId}
-                                  gated={gate.passed && !keeper.blocked} />,
-            }}
-          />
-        </div>
+        {/* **ONE strip of tabs.** There were four stacked bands of chrome above the first
+            sentence anybody wanted to read: the `Side` header, the gate panel, `Builder`'s
+            three tabs, and `Rail`'s own three under those.
 
-        <div className="flex gap-1 border-b border-line px-2 pt-2">
-          {(["review", "problems", "compare"] as const).map((t) => (
+            **Lint, Preview and Send to Wiener are not in any artboard, and they are gone from
+            here.** `impl-walk` says where they went: *Run = keep -> lint -> open the run sheet
+            -> submit*. They are steps in one action, not three buttons beside the canvas —
+            and the backend split `execution-boundary.md` §3 protects is a split between two
+            SERVER verbs, never between two controls a person has to press in order. */}
+        <div
+          data-testid="rail-tabs"
+          className="flex gap-0.5 px-4 pt-3.5 border-b border-line"
+        >
+          {(["step", "ask", "problems"] as const).map((t) => (
             <button
               key={t}
               data-testid={`tab-${t}`}
-              data-active={panel === t}
+              data-active={panel === t || undefined}
               onClick={() => setPanel(t)}
-              className={`px-2 py-1 text-label uppercase tracking-[.1em] font-semibold rounded-t
-                          ${panel === t ? "text-ink border-b-2 border-pea" : "text-ink-3"}`}
+              className="font-data text-label uppercase tracking-[.09em] px-[11px] py-1.5
+                         bg-transparent border-0 cursor-pointer text-ink-3 hover:text-ink
+                         data-[active]:text-ink
+                         data-[active]:shadow-[inset_0_-2px_0_var(--link)]"
             >
-              {t}
+              {t === "ask" ? "Assistant" : t}
               {t === "problems" && builder.findings.length > 0 && (
-                <span className="ml-1 font-data text-[var(--undecided)]">
-                  {builder.findings.length}
-                </span>
+                <span className="ml-1.5 text-[var(--undecided)]">{builder.findings.length}</span>
               )}
             </button>
           ))}
+          {/* **A chevron, not the word `collapse`.** Three tabs plus the word overflowed a
+              320px rail and clipped it — and a rail with no visible way to collapse is one the
+              Grip's double-click is the only route into, which is the palette-with-no-keyboard
+              defect wearing different clothes. */}
+          <button
+            data-testid="collapse-right"
+            aria-label="collapse the rail"
+            onClick={() => right.setCollapsed(true)}
+            className="ml-auto text-body text-ink-3 bg-transparent border-0 cursor-pointer px-1
+                       hover:text-ink"
+          >
+            ›
+          </button>
         </div>
 
-        {panel === "problems" && (
-          <Findings findings={builder.findings} onSelect={setSelected} />
-        )}
+        <div className="flex-1 min-h-0 overflow-auto">
+          {panel === "ask" && <Assistant />}
 
+          {panel === "problems" && (
+            <Findings findings={builder.findings} onSelect={setSelected} />
+          )}
 
-        {panel === "compare" && (
-          <>
-            <div className="p-3 pb-0">
-              <button
-                data-testid="run-compare"
-                disabled={builder.comparing}
-                onClick={() => void builder.compare(GOAL)}
-                className="px-3 py-1 rounded-r border-0 bg-pea text-[var(--on-pea)] text-body
-                           font-semibold disabled:opacity-40"
-              >
-                {builder.comparing ? "Resolving…" : "Compare with Mendel"}
-              </button>
-            </div>
-            <Compare
-              alignment={builder.alignment}
-              onAdopt={builder.adopt}
-              onKeep={(row, reason) => {
-                // **Keeping yours is an override and needs a reason** — the defect A77 was.
-                // Recording it against the artifact waits on the keep/override endpoint;
-                // until then the reason is held with the row rather than silently dropped.
-                setKept((all) => [...all, { row, reason }]);
+          {panel === "step" && data && swapping && (
+            <Swap
+              step={data.steps.find((one: any) => one.id === swapping)!}
+              graph={builder.graph}
+              onClose={() => setSwapping(null)}
+              onApply={(contractId: string) => {
+                builder.replaceContract(swapping, contractId);
+                setSwapping(null);
               }}
             />
-          </>
-        )}
-        {panel === "review" && data && (
-          <Rail
-            data={data}
-            selected={selected}
-            onSelect={setSelected}
-            onCollapse={() => right.setCollapsed(true)}
-          />
-        )}
+          )}
+          {panel === "step" && data && !swapping && (
+            <StepChoice
+              step={answered.find((one) => one.id === selected)}
+              onSwap={setSwapping}
+              onOpenSettings={setCarded}
+            />
+          )}
+        </div>
       </Side>
       </div>
 
@@ -609,25 +807,93 @@ function Editing({ built, view, onWheel, onPointerDown, reset, nudge, fit, box, 
         </>
       )}
 
+      {sheet && (
+        <RunSheet
+          name={draft.name || "this pipeline"}
+          steps={answered}
+          sources={data ? entryChannels(data) : []}
+          draftId={keeper.draftId}
+          blocked={keeper.blocked}
+          gated={gate.passed && !keeper.blocked}
+          onClose={() => setSheet(false)}
+          onOpenSettings={(id: string) => {
+            setSheet(false);
+            setSelected(id);
+            setCarded(id);
+          }}
+        />
+      )}
+
+      {browsing && (
+        <Browse
+          onClose={() => setBrowsing(false)}
+          onAdd={(contractId: string) => { builder.addAt(contractId); setBrowsing(false); }}
+        />
+      )}
+
+      {picking && (
+        <Picker
+          port={picking.port}
+          node={picking.node}
+          at={picking.at}
+          onClose={() => setPicking(null)}
+          onPick={(contractId: string, theirPort: string) => {
+            // **Add the step AND draw the wire.** Adding from a port is the whole point — and
+            // it is also what fixes placement by construction, because the new node has a place
+            // to go rather than a guessed grid cell.
+            const id = builder.addAt(contractId);
+            if (id) {
+              // The direction is the CLICKED port's, not the gesture's. An output feeds the new
+              // node; an input is fed by it. Getting this backwards would draw an MD0502 wire —
+              // which `validate` would report, correctly, about a graph the canvas built wrong.
+              if (picking.port.side === "out") {
+                builder.connect(picking.node, picking.port.name, id, theirPort);
+              } else {
+                builder.connect(id, theirPort, picking.node, picking.port.name);
+              }
+            }
+            setPicking(null);
+          }}
+        />
+      )}
+
+      {/* **A card ON the node, not a modal over the page** — `n-bsettings`.
+          *SETTINGS — a card on the node, opened from the ... in its header. Not a giant list.*
+
+          It shipped as a centred dialog with a dimming backdrop, which is a different claim:
+          a modal says *stop what you are doing*, and a card beside the step says *here is what
+          this one is set to*. The whole reason the settings moved off the rail was to put them
+          next to the thing they describe, and a backdrop that hides the canvas undoes that.
+
+          The anchor is the **picker's transform, written the same way round** — `translate`
+          then `scale`, applied forward from canvas space. Recomputed on render rather than
+          frozen on open, so the card travels with its node when you pan.
+
+          **`settle`, not the artboard's `pop`.** `BuilderSettings.dc.html` defines a sixth
+          keyframe for this one card; `mo-page-1` says five movements and nothing else moves,
+          and `settle` is already opacity plus a 4px rise. A sixth easing for one popover is how
+          a house style becomes a collection. */}
       {carded && data && (
         <div
-          className="fixed inset-0 z-40 flex items-start justify-center pt-[10vh] px-6
-                     bg-[color-mix(in_srgb,var(--ink)_35%,transparent)]"
-          onClick={() => setCarded(null)}
+          role="dialog"
+          data-testid="settings-anchored"
+          aria-label={`settings for ${answered.find((s) => s.id === carded)?.process ?? carded}`}
+          style={(() => {
+            const a = onScreen(
+              { x: (offsets[carded]?.x ?? 0) + NODE_W + 16, y: offsets[carded]?.y ?? 0 },
+              view,
+            );
+            return { left: a.x, top: a.y };
+          })()}
+          onClick={(e) => e.stopPropagation()}
+          className="settle fixed z-40 w-[352px] max-h-[70vh] overflow-auto border border-line-2
+                     bg-[var(--paper-2)] shadow-e3"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[560px] max-h-[70vh] overflow-auto rounded-r border
-                       border-line bg-surface shadow-e3"
-          >
-            <Settings
-              step={withTypedValues(data.steps.find((s) => s.id === carded)!, builder.graph)}
-              onClose={() => setCarded(null)}
-              onSet={(name, value) => builder.setParam(carded, name, value)}
-            />
-          </div>
+          <Settings
+            step={answered.find((s) => s.id === carded)!}
+            onClose={() => setCarded(null)}
+            onSet={(name, value) => builder.setParam(carded, name, value)}
+          />
         </div>
       )}
     </div>

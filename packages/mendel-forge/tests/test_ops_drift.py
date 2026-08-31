@@ -9,13 +9,13 @@ from pathlib import Path
 from mendel_forge import drift, ops
 
 ROOT = Path(__file__).resolve().parents[3]
-FASTQC = "tools/nf-core/fastqc/fastqc.contract.yml"
+FASTQC = "tools/nf-core/fastqc/contract.yml"
 
 
 def _report(registry: Path, contract_id: str = "nf-core/fastqc@0.12.1") -> ops.DriftReport:
     return ops.drift(
         ops.DriftRequest(
-            contract_id=contract_id, registry_root=registry, source_root=ROOT / "vendor"
+            contract_id=contract_id, registry_root=registry, source_root=ROOT / "registry"
         )
     )
 
@@ -49,7 +49,7 @@ def test_a_value_drift_is_reported_with_both_values_and_the_source_line(broken_r
     assert [c.field for c in moved] == ["nf_process"]
     assert moved[0].registry_says == "WRONG"
     assert moved[0].source_says == "FASTQC"
-    assert moved[0].locator == "modules/nf-core/fastqc/main.nf:1"
+    assert moved[0].locator == "tools/nf-core/fastqc/module/main.nf:1"
     assert moved[0].impact is drift.Impact.BUILDS
 
 

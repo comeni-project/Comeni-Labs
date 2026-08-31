@@ -23,7 +23,19 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-08-29-the-screens-redesigned.md`](notes/journal/2026-08-29-the-screens-redesigned.md).
+> [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
+> covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
+> `--registry X` is the whole input to a build, and three checks exist that could not before.
+> Read it before touching the registry, conformance, or anything that used to join a path onto
+> a module root. **The forge is deprecated** — `make forge-rework` is the list. **Plan 5B is
+> written and unstarted**, and its phase B4 fixes a live fan-out bug: with 24 samples
+> `STAR_ALIGN` runs **once** and 23 are silently dropped.
+>
+> Before it, [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
+> phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
+> to 5 shipped with every suite green; opening the pages found that the fonts were never loaded,
+> the arc field every artboard sits on was never built, and the builder's canvas flowed the wrong
+> way. **The guards here are good at behaviour and blind to appearance** — plan for that.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
 > [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
@@ -133,6 +145,73 @@ judgement invented — and a cap is kept separate from a request: `process.resou
 *site* fact written by Wiener's launcher, never a number in the artifact. Both were found by a
 board with one half of every comparison empty.
 
+**The emitted pipeline publishes its results, as of 2026-08-30** — Plan 4 phase 1, and until
+then it published nothing at all, so a finished run left its outputs in `work/<hash>/` under
+names nobody can read. `params.outdir` is `null` in the artifact and Wiener supplies it, a third
+site fact beside `resourceLimits`; it goes on Nextflow's **command line** and not in `site.config`,
+because `publishDir`'s `enabled:` is evaluated while the `process {` scope is read and a `-c` file
+is layered after it. That distinction was found by running a stub gate and looking in `results/`:
+the closure form published nothing with all five processes green, no error and no log line.
+
+**A scalar becomes an honest curve or it does not, and `Kind` has two members** — Plan 4 phase 4,
+`wiener_core/series.py`. Wiener has no samples: the trace gives one summary row per attempt, so
+every series is derived from task *windows*, and whether that is honest depends on how the scalar
+distributes over its window. A **reservation** is constant across it, so summing `cpus` over live
+attempts is exact and not synthetic at all. A **total** spread uniformly is area-true and
+shape-false — drawable, drawn stepped, labelled `derived`. A **peak** does not distribute at all:
+summing `peak_rss_bytes` across live attempts describes an instant that never happened, so
+**there is no memory-over-time curve at any fidelity and no third `Kind` to put one in**. That is
+the tempting one — it is the chart everybody asks for. The sweep is `+delta`/`−delta`, sort,
+prefix-sum: exact at every breakpoint, and **binning is the renderer's job**, with `bin_ms` sized
+off the run's own recorded span rather than a constant. **A running attempt keeps its reservation
+to the right edge**, because `wiener-core` reads no clock and closing an open interval at one made
+the exact curve fall to zero exactly where the derived curve is hatched to avoid saying anything.
+
+**`137` is glossed as `SIGKILL` and nothing more.** `wiener_core/signals.py` knows the 128+n
+convention and refuses a cause: a preemption, a `kill -9` and a cgroup limit are the same code, so
+*the OOM killer did it* is an inference and §18.1 says nothing explains a failure until W3. A scan
+holds the line by naming the words. `TaskOut.history` carries what each attempt **asked for**
+beside what it **touched**, which is the 36 → 48 → 72 GB escalation that lived in a JSON column
+where no reader could reach it.
+
+**A derived curve is drawn stepped, and a scan refuses a bezier** — Plan 4 phase 5,
+`frontend/src/runs/curve.ts`. Phase 4 decided which curves are honest and labelled them; this is
+where that labelling survives a renderer, and the failure mode is one word in somebody else's
+library: `curveMonotoneX` turns an area-true, shape-false curve into a picture of measurements
+nobody took, with no effect on the data. **The exact curves are steps too, and not as a house
+style** — a reservation genuinely is a step function, and a line sloping between two breakpoints
+draws an instant at which nothing was ever reserved. Each curve keeps its own y-axis and they
+share the x-axis, because `cpus`, `bytes` and `bytes/s` have no shared scale and time is the
+comparison that matters.
+
+**A scan over prose needs a boundary between what the code says and what it quotes.** The failure
+banner may not author *the OOM killer did it*; it must show Nextflow's `errorReport`, which says
+exactly that. The first version of the guard scanned the whole banner and fired on the record the
+panel exists to show — it now excludes the report and covers only the panel's own words. That is
+the second scan in two phases to fire on the thing it was protecting, and both were found by
+running them rather than reading them.
+
+**The builder was rebuilt against its artboards, and the canvas annotations are the
+specification** — Plan 4 phase 6, four tasks of six. Read them before touching that screen:
+`python3 -c "import json; [print(a['text']) for a in
+json.load(open('.design/canvas.json'))['annotations'] if a['page']=='page-1']"`. The graph runs
+**left to right** (`impl-settled`, under *do not re-litigate*) — reversing a considered Plan 3C
+decision whose own test file warned that *a sideways graph would pass every assertion here*, and
+it did: one test asserted `rank` ordering and passed on both. `dag-core` is one implementation
+for both canvases, so the runs graph turned with it. Every symbol is **172×112** and settled
+spends **no colour at all**; only measured and open do.
+
+**A comment claiming a guard exists is worse than no comment**, and this is the second instance
+in three days. `geometry.ts` said its constants were held to `layout.py`'s by a named test
+"rather than trusting the comment" — no such test existed, and by the time anybody looked
+`NODE_W` was 232 in the browser and 172 in Python. Before trusting a sentence like that, grep
+for the name.
+
+**Fonts and the field were missing outright.** `--font-display` was a Georgia serif and no
+webfont was loaded; `body` was a flat colour where every artboard has arcs, a scan texture and a
+vignette. Both shipped through five phases and 316 green tests, because a typeface and a missing
+background are invisible to a suite that only reads text content.
+
 **The whole stack comes up with one `docker compose up`**, which was the operator's constraint
 rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
 ClickHouse and Grafana. Two consequences are worth knowing before touching it. **The worker holds
@@ -179,8 +258,18 @@ never existed in the palette.
 halves and verified them; W2's checkpoints 3, 4, 5 and 6 are owed for the same reason. The
 browser half is unrun, which is exactly the gap 3E's lesson names.
 
-**The entire forge still needs testing and general rework**, and the operator is rethinking its
-design (2026-08-23). Nothing in 3E or Wiener touches `mendel-forge`.
+**The forge is DEPRECATED pending its own rework** — the operator's decision, 2026-08-31, and it
+is stronger than the "needs testing and general rework" this said before. **It is not in use and
+the product is deployed nowhere**, so nothing should be invested in making its code or its tests
+correct until the redesign says what it is. Plan 5A moved the registry out from under it and
+changed three of its files anyway, because leaving them would have made `forge land` write into a
+layout the registry no longer uses — *more* broken rather than equally broken.
+
+**`make forge-rework` lists what the rework has to revisit.** Everything Plan 5A touched or
+invalidated carries a `FORGE-REWORK` marker, including one skipped frontend test — skipped rather
+than commented out, so it typechecks and prints in every run, because commented code rots
+invisibly and is what nobody greps for. Add a marker rather than repointing a forge fixture: a
+fixture updated against a layout that will change again is a fixture updated twice.
 The ordered list of every plan, with its status and the argument for its position, is
 [`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
@@ -628,9 +717,11 @@ packages/
   wiener-core/       run state: admit, fold, decide, spans, stats           PURE
   wiener-api/        launch, ingest, project, stream, export                impure
   dag-core/          where to draw a graph. Both canvases, one arithmetic   PURE
-registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER
+  comeni-vendor/     fetch a tool's source into a layer, and check it against its pin  impure
+registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER.
+               It carries the MODULES TOO since Plan 5A: `tools/<org>/<tool>/module/` beside
+               the contract that is a binding for it. There is no `vendor/`.
 examples/      rnaseq-goal.yml — an example goal, and nothing else
-vendor/        nf-core modules, modules.json, .nf-core.yml, conf/ — vendored source
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
 notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
 frontend/      React 19 + TS + Vite + Tailwind 4. src/api/ is GENERATED from openapi.json
@@ -654,6 +745,16 @@ surface rather than a second spelling of something else's.
 mounted at the path it already occupied — so every test that loads `ROOT / "registry"` is
 unchanged, and `git clone --recurse-submodules` is how you get it. Forget, and `make check` and
 `layers.load()` each refuse in one sentence naming `git submodule update --init`.
+
+**The modules moved in on 2026-08-31 (Plan 5A).** A layer carries `tools/<org>/<tool>/module/`
+beside the contract that is a binding for it, and `vendor/` is deleted from this repository.
+`--registry X` is now the whole input to a build, which is what makes an air-gapped site a
+first-class customer rather than a footnote — and it is what let **three checks exist that could
+not before**: `mendel conformance` (every contract against its own module, all of them rather
+than only the ones a goal routes to), `comeni-vendor check` (has a `module/` been hand-edited —
+offline, so it runs in CI), and `mendel lint` (is the layer arranged the way its manifest says).
+All three run in `comeni-registry`'s own CI, whose `CONTRIBUTING.md` previously carried a
+paragraph beginning *"Not checked, and it cannot be here"*.
 
 **It was predicted to be "a path change and nothing else", and it was not.** The submodule puts
 `LICENSE`, `README.md` and a `.git` *file* beside the declared kinds, and `.git` holds
@@ -826,8 +927,19 @@ uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
 # emitted. Never write a code into a string by hand.
 uv run mendel explain MD0104
 
-# vendor an nf-core module (needs vendor/.nf-core.yml, vendor/modules/, vendor/conf/)
-uvx nf-core modules install --dir vendor samtools/sort
+# vendor an nf-core module INTO THE LAYER, at a pinned commit. Not `mendel vendor`:
+# `mendel` is mendel_compiler.cli:main and mendel-compiler may not reach the network.
+uv run comeni-vendor add nf-core:samtools/sort \
+  --sha 9339809fcb90af8a8b7051e6cd914894d5c52002 --licence MIT --registry registry/
+
+# has a module/ been hand-edited? Offline, and what comeni-registry's CI runs.
+uv run comeni-vendor check --registry registry/
+# has UPSTREAM moved? Needs the network. A different question — issue #64.
+uv run comeni-vendor check --registry registry/ --upstream
+
+# does every contract agree with the module it is a binding for? All of them, not
+# only the ones a goal happens to route to. Runs in comeni-registry's own CI.
+uv run mendel conformance --registry registry/
 
 # build a pipeline from a typed goal, no AI involved
 uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
@@ -849,6 +961,14 @@ uv run mendel profile --have fastq.reads --out profile-build/
 # one Markdown page per tool, from the registry data alone. --check is what
 # comeni-registry's CI runs; it writes nothing and exits 1 on a stale page.
 uv run mendel docs --registry registry/ --out /tmp/tool-docs
+
+# is the layer arranged the way its own registry.yml says? `layout:` is this verb's
+# ARGUMENT, which is why that field replaced `kinds:` — a manifest with no consumer
+# can only rot, and that one had. THE LOADER READS NONE OF IT: invariant 11 says a
+# file declares its own kind, so a private overlay arranges itself however it likes
+# and declaring no `layout:` means unenforced. This is the curated registry holding
+# itself to a standard in its own CI — nixpkgs's `pkgs/by-name` move.
+uv run mendel lint --registry registry/
 
 # regenerate the measurement type stub; --check is what CI runs
 uv run python tools/generate_types.py
@@ -940,7 +1060,7 @@ already been wrong once, when it named a gate that could not pass.
   of which two model nothing. `ModuleContract.nf_inputs` declares the real signature, and
   `NfInput.empty` carries the **tuple width**, because Nextflow matches arity and a 2-tuple in a
   3-tuple slot dies on "Path value cannot be null".
-- **Read process names and containers out of `vendor/modules/**/main.nf`, never out of a plan.**
+- **Read process names and containers out of `registry/tools/**/module/main.nf`, never out of a plan.**
   It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`. nf-core 4.x mostly uses
   `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
   ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
@@ -979,6 +1099,9 @@ already been wrong once, when it named a gate that could not pass.
   output directory and also matched `vendor/modules/nf-core/hisat2/build/`, so the module every
   short-read decision depends on was never committed and no test noticed — the main checkout had
   the files untracked on disk. A worktree is what surfaced it. Anchor such patterns: `/build/`.
+  **That directory moved in Plan 5A** — it is `registry/tools/nf-core/hisat2/build/` now, in a
+  repository with no `.gitignore` at all, and `git status --ignored` was run before the commit
+  rather than after. A move is exactly when this class of defect recurs.
 - **`-stub-run` cannot see a hollow input.** nf-core stubs never read their inputs, so a
   process handed `Channel.value([[:], []])` where a genome belongs is exactly as green as one
   handed a genome. Two shipped that way — STAR built an index from nothing and aligned against

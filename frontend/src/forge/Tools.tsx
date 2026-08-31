@@ -215,6 +215,7 @@ export function Tools() {
           next={
             q || state || against
               ? "Clear the filter above. This page lists every tool a source can read, at whatever stage it has reached — nobody has drafted it, somebody is drafting it, or it has landed in the registry."
+              // FORGE-REWORK — a source reads the layer's modules since Plan 5A.
               : "A source reads tools out of vendored modules. Until one does, there is nothing to draft."
           }
         />

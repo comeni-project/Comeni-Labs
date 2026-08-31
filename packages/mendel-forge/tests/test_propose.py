@@ -19,7 +19,7 @@ def _ctx(tmp_path):
     depends on it."""
     return {
         "registry_root": ROOT / "registry",
-        "source_root": ROOT / "vendor",
+        "source_root": ROOT / "registry",
         "workspace_root": tmp_path,
     }
 

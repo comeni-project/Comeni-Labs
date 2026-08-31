@@ -1,231 +1,168 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router";
 
-import { useTitle } from "../app/useTitle";
 import { get } from "../api/client";
 import type { components } from "../api/schema";
+import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
-import { Artifact } from "./Artifact";
-import { StandingBlock } from "./Standing";
+import { get as fromWiener } from "../wiener/api/client";
+import type { components as wiener } from "../wiener/api/schema";
+import { First } from "./First";
+import { Now } from "./Now";
+import { ByPipeline, ByRun } from "./Work";
 
 type Attention = components["schemas"]["Attention"];
-type Call = components["schemas"]["Call"];
+type DraftsPage = components["schemas"]["DraftsPage"];
+type RunsPage = wiener["schemas"]["RunsPage"];
 
-const eyebrow = "font-ui text-label uppercase tracking-[.14em] font-semibold text-ink-3";
-
-/** One thing asking for a person: how much, said plainly, and where it lives.
+/** The front door: **the lab's work**, not the product's inventory.
  *
- * **A count and a link, never a row.** Spec §1 — the Queue owns questions and Contracts owns
- * drift; this points at them. An Overview page that listed the items was designed and cut once
- * for answering the Queue's question, and rendering one item here would undo that by
- * forgetting it.
+ * ═══ WHAT THIS PAGE REPLACED, AND WHY ═════════════════════════════════════════════════════
  *
- * Urgency is carried as a left rail rather than a badge, for the same reason the tiers are: the
- * page has one visual language for *how sure / how urgent*, and adding a second vocabulary of
- * coloured pills would mean a reader has two things to learn instead of one.
- */
-function CallRow({ call }: { call: Call }) {
-  return (
-    <Link
-      data-testid="call"
-      data-urgency={call.urgency}
-      to={call.where}
-      className="group flex items-center gap-4 px-4 py-3.5 no-underline text-ink
-                 border-b border-line last:border-b-0 border-l-2 border-l-transparent
-                 transition-colors hover:bg-surface-2
-                 data-[urgency=blocking]:border-l-[var(--undecided)]
-                 data-[urgency=waiting]:border-l-[var(--measured)]"
-    >
-      <span className="text-body">{call.what}</span>
-      <span
-        className="ml-auto shrink-0 text-secondary text-pea opacity-0 translate-x-[-4px]
-                   transition group-hover:opacity-100 group-hover:translate-x-0
-                   group-focus-visible:opacity-100 motion-reduce:transition-none
-                   motion-reduce:opacity-100 motion-reduce:translate-x-0"
-        aria-hidden
-      >
-        open →
-      </span>
-    </Link>
-  );
-}
-
-/** Where to go, named for the work each one holds rather than for its contents. */
-function Way({ to, name, holds }: { to: string; name: string; holds: string }) {
-  return (
-    <Link
-      to={to}
-      className="group block p-4 no-underline rounded-r border border-line bg-surface
-                 transition-colors hover:border-line-2 hover:bg-surface-2"
-    >
-      <div className="font-display text-object text-ink group-hover:text-pea transition-colors">
-        {name}
-      </div>
-      <div className="text-secondary text-ink-3 mt-1">{holds}</div>
-    </Link>
-  );
-}
-
-function Section({
-  title,
-  note,
-  children,
-}: {
-  title: string;
-  note?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-9">
-      <div className="flex items-baseline gap-4 border-b border-line pb-2">
-        <h2 className={`${eyebrow} m-0`}>{title}</h2>
-        {note && <span className="ml-auto text-secondary text-ink-3">{note}</span>}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-/** The front door.
+ * Until 2026-08-30 this was a landing page — a hero, a tagline, *Open the forge*, *Browse the
+ * tools*, and a `standing` block reporting 12 contracts and 22 types. Every one of its calls to
+ * action pointed at the forge, which phase 0 removed from the navigation, and the block that
+ * made it feel substantial was reporting **the product's state rather than the reader's**.
+ * `ov-settled` is blunt about it: *that is why the old page read as slop — information with no
+ * question behind it.*
  *
- * **Four blocks, in the order of a person's questions**: what is this, what needs me, what is
- * here, where do I go. The third is the one a dashboard usually omits and the one that makes
- * this a place rather than an inbox.
+ * **`forge-review.md` §3 said this page may not exist.** An Overview was designed and CUT once
+ * for answering the same question as the forge Queue, and two tests held the rule that `/`
+ * counts and links and never renders an item. The operator ruled that constraint dead; §3 now
+ * records the lift, and the **narrower** rule survives and is still enforced — this page renders
+ * pipelines and runs, and may never render a contract id, a question subject or a drift row.
  *
- * **The hero is a thesis, not a banner.** Left, the claim in one sentence; right, the file that
- * makes the claim checkable. `Artifact` says why it is quoted rather than fetched.
+ * ═══ THE ONE RULE THAT GOVERNS EVERY BLOCK ════════════════════════════════════════════════
  *
- * **`/` redirected to the queue for the whole of 3A**, marked temporary in writing since phase
- * 0. This is what it was waiting for.
+ * **ABSENCE IS ABSENCE.** Compare the `Overview` and `OverviewQuiet` artboards: the difference
+ * is not a different empty state, it is that the NOW band **does not exist**. The page is simply
+ * shorter. If every block is empty, the page is the shell plus Work plus *New pipeline* — a
+ * legitimate page, not a broken one.
+ *
+ * ═══ THE BROWSER IS THE COURIER ═══════════════════════════════════════════════════════════
+ *
+ * This is the **second** place in the product that touches both halves — `useSubmit.ts` was the
+ * first, and its header carries the argument. Neither API learns the other exists; the join is
+ * done here, on the **pipeline digest**, which is content-addressed and therefore the only key
+ * that does not require one server to know the other's identifiers (`wiener.md` §12).
  */
 export function Home() {
-  useTitle(); // the front door is the product
-  const { data, isLoading, error } = useQuery({
+  useTitle();
+  const [view, setView] = useState<"pipeline" | "run">("pipeline");
+
+  const attention = useQuery({
     queryKey: ["attention"],
     queryFn: () => get<Attention>("/attention"),
   });
+  const drafts = useQuery({
+    queryKey: ["drafts"],
+    queryFn: () => get<DraftsPage>("/pipeline/drafts"),
+  });
+  // **Wiener may simply not be there**, and that must not take the page down: a laboratory
+  // reading which pipelines it has does not need the execution half to be up. `retry: false` so
+  // an absent Wiener costs one request rather than four.
+  const runs = useQuery({
+    queryKey: ["runs", "board"],
+    queryFn: () => fromWiener<RunsPage>("/api/runs?limit=25"),
+    retry: false,
+  });
 
-  const waiting = data ? data.forge.filter((c) => c.urgency !== "idle") : [];
-  const available = data ? data.forge.filter((c) => c.urgency === "idle") : [];
+  if (attention.isLoading || drafts.isLoading) return <Loading what="the lab's work" />;
+  if (attention.error) return <Failed error={attention.error} />;
+  if (drafts.error) return <Failed error={drafts.error} />;
+
+  const pipelines = drafts.data?.drafts ?? [];
+  const board = runs.data?.runs ?? [];
+  // **What makes the page the ACTIVE one rather than the QUIET one**, read once so the rule,
+  // the spacing and the band itself can never disagree about whether there is anything to
+  // separate. `Now` returns null on the same condition.
+  const band = board.some((run) => run.phase === "running")
+    || (attention.data?.mendel ?? []).length > 0;
+
+  // **The first-run state is its own composition**, not this page with everything hidden and
+  // not a page of onboarding cards.
+  if (pipelines.length === 0) return <First />;
+
+  const named = new Map(
+    pipelines.filter((p) => p.digest).map((p) => [p.digest!, p.name || p.id.slice(0, 8)]),
+  );
+
 
   return (
     <div className="overflow-auto">
-      <div className="max-w-[1040px] mx-auto px-6 pb-16">
-        <header
-          className="grid gap-9 items-center py-12 md:py-16
-                     md:grid-cols-[minmax(0,1fr)_minmax(0,420px)]
-                     motion-safe:animate-[rise_.5s_cubic-bezier(.2,.7,.3,1)_both]"
-        >
-          <div>
-            <p className={eyebrow}>Mendel · pipeline construction</p>
-            <h1
-              className="font-display text-hero leading-[1.08] tracking-[-.02em]
-                         text-ink mt-3 mb-0 text-balance"
-            >
-              Every decision in the pipeline says who made it.
-            </h1>
-            <p className="text-lede text-ink-2 mt-5 max-w-[52ch] leading-[1.6]">
-              Describe an analysis, and every decision in the Nextflow that comes out traces to a
-              constraint, a convention, a measurement, or a judgement somebody was asked to make.
-            </p>
+      {/* **Full-bleed at 44px, which is the artboards' page inset** — `padding: 28px 44px 40px`
+          on every board. It was a centred `max-w-[1180px]` column, so on a wide screen the
+          wordmark sat at x=44 and the table it belongs to started at x=318: the shell and the
+          page read as two documents. */}
+      <div className="gutter pt-7 pb-10">
+        <Now
+          running={board.filter((run) => run.phase === "running")}
+          waiting={attention.data?.mendel ?? []}
+          named={named}
+        />
 
-            <p className="font-data text-secondary text-ink-3 mt-6 mb-0">
-              Same goal in <span className="text-pea">→</span> same pipeline out.
-              <br />
-              Nothing was guessed silently.
-            </p>
+        {/* **A hairline between what is happening and what you have.** The artboard rules the
+            two apart — `height:1px; background:#141C20; margin:28px 0 0` — and without it the
+            Work block reads as a continuation of the running run rather than as the other half
+            of the page. It renders only when there IS a NOW band: a rule under nothing is a
+            line drawn for its own sake, and the quiet page is meant to be shorter. */}
+        {band && <div className="mt-7 h-px bg-line" />}
 
-            <div className="flex flex-wrap items-center gap-3 mt-7">
-              <Link
-                to="/forge/queue"
-                className="px-4 py-2 rounded-r no-underline text-body font-semibold
-                           bg-pea text-[var(--on-pea)] transition-opacity hover:opacity-90"
-              >
-                Open the forge
-              </Link>
-              <Link
-                to="/forge/tools"
-                className="px-4 py-2 rounded-r no-underline text-body text-ink-2
-                           border border-line-2 transition-colors
-                           hover:text-ink hover:bg-surface-2"
-              >
-                Browse the tools
-              </Link>
+        {/* **24px under the rule, 34px without one** — the ACTIVE and QUIET artboards differ by
+            exactly that, because on the quiet page there is no rule to separate Work from and
+            the space has to do the separating on its own. */}
+        <section className={band ? "mt-6" : "mt-[34px]"}>
+          <div className="flex items-center gap-5 flex-wrap">
+            <p className="font-data text-[9.5px] uppercase tracking-[.15em] text-ink-3 m-0">
+              Work
+            </p>
+            {/* **A segmented control in a hairline box, and the live half is TINTED rather than
+                filled.** `--link-soft` behind `--link` is the artboard's pairing; it shipped as
+                `--surface-2` behind `--ink`, which is a grey chip that reads as pressed rather
+                than as selected. Square, because nothing in this row has a radius. */}
+            <div className="flex border border-surface-2">
+              {(["pipeline", "run"] as const).map((which) => (
+                <button
+                  key={which}
+                  type="button"
+                  onClick={() => setView(which)}
+                  aria-pressed={view === which}
+                  className={`font-data text-[10px] uppercase tracking-[.08em] px-[13px] py-1.5
+                              border-0 cursor-pointer transition-colors
+                              ${view === which
+                                ? "bg-[var(--link-soft)] text-[var(--link)]"
+                                : "bg-transparent text-ink-3 hover:text-ink"}`}
+                >
+                  By {which}
+                </button>
+              ))}
             </div>
-          </div>
 
-          <Artifact />
-        </header>
-
-        {isLoading && <Loading what="what needs you" />}
-        {error && <Failed error={error} />}
-        {!isLoading && !error && !data && <Failed error="nothing came back" />}
-
-        {data && (
-          <>
-            <Section title="What needs you">
-              {waiting.length > 0 ? (
-                <div className="rounded-r border border-line bg-surface overflow-hidden">
-                  {waiting.map((call) => (
-                    <CallRow key={call.where} call={call} />
-                  ))}
-                  {available.map((call) => (
-                    <CallRow key={call.where} call={call} />
-                  ))}
-                </div>
-              ) : (
-                // `dashboard.md` §7: an empty state directs rather than apologises. This is the
-                // largest empty state in the product, and today it is the screen that ships.
-                <p className="text-body text-ink m-0">
-                  Nothing is waiting on you.{" "}
-                  {available.length > 0 && (
-                    <>
-                      There {available[0].count === 1 ? "is" : "are"}{" "}
-                      <Link to={available[0].where} className="text-pea">
-                        {available[0].what.replace(/^\d+ /, "")}
-                      </Link>
-                      , if you want somewhere to start.
-                    </>
-                  )}
-                </p>
-              )}
-            </Section>
-
-            <Section
-              title="What is here"
-              note={`read from ${data.standing.sources.join(", ")}`}
+            {/* **One action, top right. The same button whether you have none or fifty.** */}
+            <Link
+              to="/build"
+              className="ml-auto px-[13px] py-1.5 no-underline text-[12.5px]
+                         border border-[var(--link-line)] text-[var(--link)] lift"
             >
-              <p className="text-secondary text-ink-3 mt-0 mb-5 max-w-[58ch]">
-                How each line is drawn says how well-founded it is — the same language the
-                pipeline canvas uses for a decision that was forced, measured or guessed.
-              </p>
-              <StandingBlock standing={data.standing} />
-            </Section>
-          </>
-        )}
-
-        <Section title="Where to go">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {/* **Two, not three.** `Contracts` and `Sources` were the same list at two stages
-                of one tool's life and became `Tools` in phase 3. They still resolve as
-                redirects so old links survive — but naming a redirect on the front door would
-                be teaching a stranger a route that exists only for people who learned the old
-                one. */}
-            <Way to="/forge/queue" name="Queue" holds="Questions waiting on a decision" />
-            <Way
-              to="/forge/tools"
-              name="Tools"
-              holds="Every tool — what has landed, what is being drafted, what nobody has started"
-            />
+              New pipeline
+            </Link>
           </div>
-          <p className="text-secondary text-ink-3 mt-5 mb-0 max-w-[58ch]">
-            {/* An absence, not a zero. Nothing stores pipelines, so there is no Mendel
-                section — `0 pipelines need review` would claim that pipelines were looked
-                at. The same discipline as `pipeline_pins: None` on the module page. */}
-            The pipeline builder is <b className="font-normal text-ink-2">not built yet</b>. When
-            it is, what it needs from you appears here beside the forge's work.
-          </p>
-        </Section>
+
+          <div className="mt-5">
+            {view === "pipeline"
+              ? <ByPipeline rows={pipelines} runs={board} />
+              : <ByRun runs={board} named={named} />}
+          </div>
+
+          {/* **Wiener being unreachable is said once, quietly, and never as a broken page.**
+              The pipelines half is complete without it; what is missing is history. */}
+          {runs.error && (
+            <p className="text-secondary text-ink-3 mt-4 mb-0">
+              Run history is unavailable — Wiener did not answer.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   );

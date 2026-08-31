@@ -32,7 +32,7 @@ const PIPELINE = {
         { name: "bam", type_id: "alignment.bam", side: "out", met: true },
       ],
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
-                   reason: "nobody judged it", axis_reason: "" }],
+                   reason: "nobody judged it", axis_reason: "", premise: [] }],
     },
   ],
   layout: {
@@ -76,71 +76,72 @@ function at() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("what the design asked for", () => {
-  it("keeps both lists — the pipeline's steps and every module", async () => {
-    // **Two questions, two tabs.** `In pipeline` answers *where is that step*; `All modules`
-    // answers *what could I add*. 3C shipped only the first, which is a table of contents rather
-    // than a picker — and the fix is not to replace it, because both are asked.
-    at();
-    await screen.findAllByTestId("step-row");
-    fireEvent.click(screen.getByTestId("left-tab-all"));
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows.length).toBe(3);
-    fireEvent.click(screen.getByTestId("left-tab-pipeline"));
-    expect(screen.getAllByTestId("step-row").length).toBeGreaterThan(0);
-  });
-
-  it("offers every module, not only the ones already in the pipeline", async () => {
-    at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows.length).toBe(3);
-    expect(rows.some((r) => r.textContent?.includes("hisat2/align"))).toBe(true);
-  });
-
-  it("a module can be dragged in, and the list no longer calls itself a placeholder", async () => {
-    // **The premise of this test changed; the rule behind it did not.**
+  it("answers what could I add, and now does it better than the palette did", async () => {
+    // ═══ THE THIRD RESTATEMENT OF THIS TEST, AND THE LOUDEST ═══════════════════════════
     //
-    // It read "does not pretend a module can be dragged in", because 3C had `draggable` with an
-    // `onDragStart` that set data nothing read — a control that moves under your hand and does
-    // nothing. Its note said *a `Goal` cannot pin a module, so "add this to the pipeline" is not
-    // expressible in the engine today*, and that was true.
+    // This file exists so four things the plan cut and the operator put back could not go
+    // missing quietly again. **Three of the four were about the left palette**, and the palette
+    // is now deleted. That is not the plan cutting them again — it is the browse overlay
+    // answering each better, and the honest way to record it is here, in the test that held
+    // them, rather than by deleting the file.
     //
-    // A `DraftGraph` makes it false: a drawn graph pins whatever you put in it. So the rule —
-    // never offer a control that does nothing — now points the other way, and what it demands is
-    // that the affordance be REAL. `Modules.test.tsx` holds the other half: with no `onAdd`, the
-    // rows are not draggable and the list still calls itself reference-only.
+    // What each restored thing was protecting, and where it lives now:
+    //
+    // - *`All modules` answers what could I add* — the picker half of the original pair. The
+    //   overlay answers it with search, every role, and the type signature.
+    // - *A module can be dragged in; the affordance must be REAL* — the rule was never about
+    //   dragging, it was **never offer a control that does nothing**. Adding is now a click, a
+    //   keypress, or a port picker, and the drag handlers were deleted WITH their source rather
+    //   than left as a drop target nothing can drag onto.
+    // - *A card beside the panel, because the content is a sentence* — there is no sentence.
+    //   #78: `ModuleContract` has no prose field, `impl-reuse` forbids inventing one, and the
+    //   overlay shows the type signature, which is what a contract actually knows.
+    //
+    // `Browse.test.tsx` holds the overlay's own behaviour. This holds that the QUESTION is
+    // still answered somewhere, which is what the operator was protecting.
     at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
-    const rows = await screen.findAllByTestId("module-row");
-    expect(rows[0].getAttribute("draggable")).toBe("true");
-    expect(screen.queryByText(/reference only — placeholder/i)).toBeNull();
-    expect(screen.getByText(/double-click, to add a step/i)).toBeTruthy();
+    await screen.findAllByTestId("node");
+    expect(screen.queryByTestId("module-row")).toBeNull();
+    expect(screen.queryByTestId("step-row")).toBeNull();
+
+    fireEvent.contextMenu(screen.getByTestId("canvas"));
+    const cards = await screen.findAllByTestId("browse-card");
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.some((c) => c.textContent?.includes("HISAT2_ALIGN"))).toBe(true);
   });
 
-  it("opens a card beside the panel when a module is hovered", async () => {
-    // `dashboard.md` §4 — beside the panel, not under the cursor, because the content is a
-    // sentence and it must not cover the rows you are scanning.
-    at();
-    fireEvent.click(await screen.findByTestId("left-tab-all"));
-    const rows = await screen.findAllByTestId("module-row");
-    fireEvent.mouseEnter(rows[0]);
-    const card = await screen.findByTestId("module-card");
-    expect(card.textContent).toContain("Needs");
-    expect(card.textContent).toContain("Makes");
-  });
-
-  it("draws a port for each side, in different shapes", async () => {
-    // **Inputs and outputs are different shapes**, at the operator's request. The design gives
-    // both the same circle and leaves direction to be inferred from which edge it sits on, which
-    // works on a mock you already know and not on a graph you are reading for the first time.
+  it("says which way a port points, without asking you to infer it", async () => {
+    // **The operator's question, restated a FOURTH time** — and this file's own header says that
+    // is exactly what it is for: the question survives, the answer moves.
+    //
+    // The 2026-08-19 request was that inputs and outputs be *different shapes*, because the
+    // design gave both the same circle and left direction to be inferred from which edge it sat
+    // on — which works on a mock you already know and not on a graph you are reading for the
+    // first time. **That reasoning was about a graph flowing DOWNWARD**, where top and bottom
+    // carry no meaning anybody arrives with.
+    //
+    // Phase 6 turned the flow left to right, so the edge itself says it: left is in, right is
+    // out, which is the convention every schematic already uses. And the direction is now
+    // *drawn* as well as positional — each port row inside the node carries `◀` or `▶` beside
+    // the type it describes, which is `n-bcanvas`'s *types on the node*.
+    //
+    // So the request is met twice over, and chevron-versus-circle went with the downward flow
+    // that made it necessary. This asserts the REQUIREMENT — that a reader is never asked to
+    // infer a direction — rather than the shape that used to satisfy it.
     at();
     const ports = await screen.findAllByTestId("port");
     expect(ports).toHaveLength(3);
-    const shape = (p: HTMLElement) => (p.querySelector("path") ? "chevron" : "circle");
-    expect(ports.filter((p) => p.dataset.side === "in").every((p) => shape(p) === "chevron"))
-      .toBe(true);
-    expect(ports.filter((p) => p.dataset.side === "out").every((p) => shape(p) === "circle"))
-      .toBe(true);
+
+    // Every port declares its side, and sits on the edge that side means.
+    for (const port of ports) {
+      expect(port.dataset.side === "in" || port.dataset.side === "out").toBe(true);
+      const style = port.getAttribute("style") ?? "";
+      expect(style).toContain(port.dataset.side === "in" ? "left" : "right");
+    }
+
+    // And the node names the direction in words rather than leaving it to geometry alone.
+    const node = (await screen.findAllByTestId("node"))[0];
+    expect(node.textContent).toMatch(/[◀▶]/);
   });
 
   it("keeps hollow for an input nothing feeds", async () => {
@@ -176,7 +177,10 @@ describe("what the design asked for", () => {
     // `dashboard.md` §5 — from the node's "N settings" button, which is where a person is when
     // they wonder what a step is set to.
     at();
-    fireEvent.click(await screen.findByTestId("open-settings"));
+    // **By its label, not its testid.** `⋯` is on every node now — the artboard
+    // puts it in each header — so the testid names several buttons and the label
+    // names one. It is also what a person would click by.
+    fireEvent.click(await screen.findByLabelText("settings for STAR_ALIGN"));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
     expect(screen.getByTestId("settings-card").textContent).toContain("seq_platform");
   });

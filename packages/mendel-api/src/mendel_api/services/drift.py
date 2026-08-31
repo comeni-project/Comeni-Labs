@@ -24,7 +24,7 @@ def report(contract_id: str) -> ops.DriftReport:
         ops.DriftRequest(
             contract_id=contract_id,
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
             stack=registry.stack(),
         )
     )
@@ -40,7 +40,7 @@ def accept(contract_id: str, body: AcceptBody) -> ops.AcceptResult:
             contract_id=contract_id,
             field=body.field,
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
             by=body.by,
             why=body.why,
         )

@@ -272,18 +272,24 @@ def _target(ident: str) -> str:
     """Where the file lands, following the convention the public registry already uses.
 
     A layer's layout is free — invariant 11 says a file declares its own kind, so nothing
-    reads the path. The convention groups a tool's files together, and it is **not uniform**:
+    reads the path. The convention groups a tool's files together, and since Plan 5A it is
+    **uniform**, which it was not before:
 
-        nf-core/fastqc         -> tools/nf-core/fastqc/fastqc.contract.yml
-        nf-core/samtools/sort  -> tools/nf-core/samtools/sort.contract.yml
+        nf-core/fastqc         -> tools/nf-core/fastqc/contract.yml
+        nf-core/samtools/sort  -> tools/nf-core/samtools/sort/contract.yml
 
-    A single-segment tool doubles its name to get a directory of its own; a multi-segment
-    one already has one. Read off the shipped registry rather than invented — every id in
-    it was checked when this was written.
+    It used to double a single-segment tool's name — `fastqc/fastqc.contract.yml` — because a
+    tool needed a directory of its own and the contract was the only thing in it. A tool now
+    carries its `module/` and its `module.yml` too, so the directory is earned rather than
+    contrived, and **a contract sits beside the module it is a binding for**.
+
+    FORGE-REWORK — the forge is deferred until its own rework (spec §5) and this is a path
+    constant rather than a code path: without it `forge land` writes into a layout the registry
+    no longer uses, which is *more* broken than leaving it alone rather than equally broken.
+    Whether a landed contract belongs at this path at all is the rework's question.
     """
     source, _, tool = ident.partition("/")
-    tail = tool if "/" in tool else f"{tool}/{tool}"
-    return f"tools/{source}/{tail}.contract.yml"
+    return f"tools/{source}/{tool}/contract.yml"
 
 
 _PORT_KEY = re.compile(r"^(consumes|produces)\[(\d+)\]\.(\w+)$")

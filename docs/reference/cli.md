@@ -13,7 +13,7 @@ module.
 | Option | Default | Meaning |
 |---|---|---|
 | `--out PATH` | *required for `build` and `profile`* | output directory, created if absent |
-| `--root PATH` | current directory | repository root — used to find `examples/` and `vendor/` |
+| `--root PATH` | current directory | repository root — only supplies the default `--registry` of `<root>/registry` |
 | `--registry PATH` | `<root>/examples` | a registry layer; **repeatable**, later layers win |
 | `--gate {lint,preview,stub,test}` | none | run a validation gate after emitting |
 
@@ -41,7 +41,7 @@ Writes:
 | `main.nf` | the Nextflow DSL2 workflow |
 | `nextflow.config` | every input parameter declared `null`, plus `docker`, `singularity` and `stub_data` profiles |
 | `pipeline.yml` | **the pipeline** — every step, setting, decision and provenance. See [pipeline-schema.md](pipeline-schema.md) |
-| `modules/` | the vendored module tree, copied from `<root>/vendor/modules` if present |
+| `modules/` | the module source each step includes, copied out of the layer. **What the pipeline uses, not the whole layer** |
 
 `pipeline.yml` replaced `pipeline.ir.json`, `mendel.lock.yml` and a publish bundle. Read that
 one file to answer "what settings does this pipeline use, and why".
@@ -105,7 +105,7 @@ Any disagreement exits `2` and emits nothing at all:
 ```
 MD0101  nf-core/star/align@1.11.0
   process 'STAR_ALIGNN' is not what this module declares
-    vendor/modules/nf-core/star/align/main.nf   process STAR_ALIGN {
+    registry/tools/nf-core/star/align/module/main.nf   process STAR_ALIGN {
   → nf_process: STAR_ALIGN
 
 mendel: 1 contract(s) disagree with their modules. Nothing was emitted.

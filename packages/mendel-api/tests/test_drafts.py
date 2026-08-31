@@ -148,3 +148,86 @@ def test_a_kept_draft_reads_back_as_a_pipeline(client, tmp_path):
     doc = yaml.safe_load(path.read_text())
     assert doc["goal"]["want"] == ["counts.matrix"]
     assert len(doc["steps"]) == 4
+
+
+# --- the listing, which had no query at all until Plan 4 phase 2 -------------------------
+
+
+def test_the_listing_answers_what_do_we_have(client):
+    """`GET /api/pipeline/drafts`. The build router carried create, read, save, keep and bundle
+    — every one addressed by a known id — so nothing could answer the question the front door
+    opens with."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE, "name": "rnaseq"}).json()
+
+    page = client.get("/api/pipeline/drafts").json()
+    row = next(r for r in page["drafts"] if r["id"] == made["id"])
+
+    assert row["name"] == "rnaseq"
+    assert row["steps"] == 4
+    assert row["who"], "every row carries a person, or the personal view becomes a rewrite"
+    assert page["total"] >= 1
+
+
+def test_an_unkept_draft_has_no_provenance(client):
+    """**Absent, not three zeroes.** A bar of empty segments claims a pipeline with nothing
+    open, which is the opposite of *we have not looked* — the same rule as
+    `ProcessRow.reported_resources`, and a dash never means zero."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+
+    row = next(r for r in client.get("/api/pipeline/drafts").json()["drafts"]
+               if r["id"] == made["id"])
+
+    assert row["kept"] is False
+    assert row["provenance"] is None
+    assert row["digest"] is None
+    assert row["open_values"] == []
+
+
+def test_a_kept_draft_carries_its_provenance_and_its_join_key(client):
+    """The digest is `content_digest()`, which Wiener computes from the same bytes — so the
+    browser can put runs beside pipelines without either server learning the other exists."""
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+
+    row = next(r for r in client.get("/api/pipeline/drafts").json()["drafts"]
+               if r["id"] == made["id"])
+
+    assert row["kept"] is True
+    assert row["digest"] and row["digest"].startswith("sha256:")
+    assert row["provenance"]["settled"] > 0
+    assert [(v["step"], v["setting"]) for v in row["open_values"]] == [("align", "seq_platform")]
+
+
+def test_the_listing_never_resolves(client, monkeypatch):
+    """**The performance rule, made structural.** The 2026-08-19 audit found every
+    registry-touching screen cost ~250ms warm and one function was responsible; this is the page
+    a person opens first, and rebuilding four pipelines to draw four bars would be that finding
+    arriving again where it costs the most.
+
+    Provenance comes off the artifact `keep` already wrote. Breaking the resolver must not break
+    the listing — if it does, something is rebuilding what it should be reading.
+    """
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+
+    from mendel_resolver import materialise
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the listing resolved; it must read the stored artifact")
+
+    monkeypatch.setattr(materialise, "ir_of", refuse)
+    monkeypatch.setattr(materialise, "goal_of", refuse)
+
+    page = client.get("/api/pipeline/drafts")
+    assert page.status_code == 200
+    assert any(r["id"] == made["id"] and r["kept"] for r in page.json()["drafts"])
+
+
+def test_the_listing_is_newest_edit_first_and_pages(client):
+    ids = [client.post("/api/pipeline/drafts", json={"graph": GRAPH, "name": f"p{n}"}).json()["id"]
+           for n in range(3)]
+
+    page = client.get("/api/pipeline/drafts?limit=2").json()
+    assert len(page["drafts"]) == 2
+    assert page["total"] >= 3, "total counts what matched, never what is on the page"
+    assert page["drafts"][0]["id"] == ids[-1], "newest edit first"

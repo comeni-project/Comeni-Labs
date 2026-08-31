@@ -10,8 +10,11 @@ import pytest
 from mendel_compiler.modulespec import ModuleSpec
 
 ROOT = Path(__file__).resolve().parents[3]
-FASTQC = ROOT / "vendor" / "modules" / "nf-core" / "fastqc" / "main.nf"
-SAMTOOLS_INDEX = ROOT / "vendor" / "modules" / "nf-core" / "samtools" / "index" / "main.nf"
+# The layer, since Plan 5A. `vendor/` was a copy of this in the engine's repository, on a
+# different release cadence from the contracts describing it.
+TOOLS = ROOT / "registry" / "tools" / "nf-core"
+FASTQC = TOOLS / "fastqc" / "module" / "main.nf"
+SAMTOOLS_INDEX = TOOLS / "samtools" / "index" / "module" / "main.nf"
 
 
 @pytest.fixture(scope="module")

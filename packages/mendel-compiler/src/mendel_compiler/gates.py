@@ -19,7 +19,18 @@ __all__ = ["Gate", "GateResult", "materialise_stub_data", "run_gate"]
 _ARGS: dict[Gate, list[str]] = {
     Gate.LINT: ["nextflow", "lint", "main.nf"],
     Gate.PREVIEW: ["nextflow", "run", "main.nf", "-preview", "-profile", "stub_data"],
-    Gate.STUB: ["nextflow", "run", "main.nf", "-stub-run", "-profile", "stub_data,docker"],
+    # `--outdir results` rather than a `params.outdir` in the `stub_data` profile, and the
+    # difference is not cosmetic. `publishDir`'s `enabled:` is an EXPRESSION evaluated when
+    # Nextflow reads the config, and the `process {` scope is read BEFORE `profiles {` — so a
+    # profile setting `outdir` cannot switch publishing on, while a command-line `--outdir` can,
+    # because CLI params are injected before parsing. Measured on 2026-08-30 against a real stub
+    # run: profile + expression published nothing, CLI + expression published 41 files.
+    #
+    # It also keeps *where results go* out of the artifact entirely, including out of its
+    # profiles — which is what the site-fact argument asks for and what a profile default was
+    # quietly undermining.
+    Gate.STUB: ["nextflow", "run", "main.nf", "-stub-run", "-profile", "stub_data,docker",
+                "--outdir", "results"],
     # `test,docker` for the same reason STUB uses `stub_data,docker`: without it Nextflow
     # runs the tools on the host and every process dies with `command not found` (exit
     # 127). This gate was defined without it and could therefore never have passed, which
@@ -29,7 +40,7 @@ _ARGS: dict[Gate, list[str]] = {
     # commit. It is a smoke test on a public dataset: it proves the pipeline runs and
     # produces output on data somebody else curated. It does not demonstrate biological
     # correctness, and the laboratory still supplies its own reference material.
-    Gate.TEST: ["nextflow", "run", "main.nf", "-profile", "test,docker"],
+    Gate.TEST: ["nextflow", "run", "main.nf", "-profile", "test,docker", "--outdir", "results"],
 }
 
 _TIMEOUTS: dict[Gate, int] = {

@@ -83,7 +83,7 @@ def answer_all(*, subject: str, value: Any, why: str, by: str | None) -> Answere
             ops.ShowRequest(
                 name=name,
                 registry_root=settings.registry_root,
-                source_root=settings.source_root,
+                source_root=settings.registry_root,
                 workspace_root=settings.workspace_root,
             )
         )

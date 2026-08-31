@@ -168,6 +168,49 @@ Contributing back is a proposal into the forge queue already designed in
 [the forge review design](forge-review.md): a lab approves a
 contract locally, then opens it upstream, where it meets the same curator screens.
 
+### 3.5 A layer carries code now, and that changes what `--registry` means
+
+**`--registry X` used to mean *parse this person's YAML*. Since Plan 5A it means *execute this
+person's Groovy*.** A layer carries `main.nf` — the module source moved in beside the contracts
+describing it — and Nextflow runs what a pipeline includes.
+
+**This is not a reason to reverse the decision.** It is exactly nf-core's property: installing a
+module is installing code, `nf-core/modules` is a git repository anybody can point a pipeline at,
+and a pipeline *is* code. The alternative — contracts here, code somewhere else — is what Plan 5A
+removed, and it was worse in the way that matters: a contract and the thing it is a binding for
+were versioned in two repositories on two release cadences, so `MD0104`, the check that exists to
+catch a contract drifting from its module, was comparing two things nothing kept in step.
+
+What changes is the weight on §3.4's verification. **Tag signature plus content digest stops
+being a nicety and becomes a prerequisite for publishing an overlay.** It was already specified;
+it was reasonable to treat it as a later refinement while a layer held only declarations, and it
+is not reasonable now. Verifying the signature is the only thing standing between a third-party
+overlay and arbitrary execution on the cluster that installs it.
+
+**No sandbox is invented, and none is claimed.** Nextflow runs containers and the trust boundary
+is the container runtime; a half-measure that looked like isolation would be worse than a
+sentence that tells the truth, because somebody would rely on it. The honest statement is that
+installing a registry layer is as consequential as installing a pipeline, and that the mechanism
+for deciding whether to is a signature.
+
+`comeni-registry`'s own `CONTRIBUTING.md` says the same thing where a contributor meets it,
+rather than only here where a designer does.
+
+### 3.6 Two digests that should disagree, and both are right
+
+`digest_of_directory` covers a layer's `module/` trees — a byte of a vendored `main.nf` moves the
+**layer** digest, because a `pipeline.yml` pins a layer and a digest that covered the declarations
+and not the code they describe would be a guarantee that is not one.
+
+`wiener_api.services.artifacts.pipeline_digest` is the **opposite**, and says so on the function:
+it identifies an artifact by `Pipeline.content_digest()` — the artifact's own document — and
+explicitly *not* by the tree digest, because re-vendoring a module must not make the same pipeline
+look like a different one.
+
+They answer different questions. *Is this the same layer* has to move when the code moves. *Is
+this the same pipeline* must not. Written down in both places so that nobody "fixes" either into
+the other.
+
 ---
 
 ## 4. Pipelines as artifacts
@@ -259,11 +302,21 @@ AGPL was considered. It would protect the hosted business from a third party run
 Mendel-as-a-service. For a research tool that risk is small, the adoption cost is not, and
 the moat is the curated registry rather than the code.
 
-**Registry data: CC-BY-4.0**, applying to `contracts/`, `rules/`, `vocabularies/` and
-published pipelines. Contracts and tier-3 rules cite papers; attribution is the currency of
-the field. CC0 would discard it.
+**Registry declarations: CC-BY-4.0** — contracts, rules, vocabularies, roles, measurements and
+published pipelines. Contracts and tier-3 rules cite papers; attribution is the currency of the
+field. CC0 would discard it.
 
-**Vendored nf-core modules** under `modules/` retain their own licences and notices.
+**Vendored modules retain their own licences**, and since Plan 5A they are *in* the layer, under
+`tools/<org>/<tool>/module/`. This section already said they would be — it read *"under
+`modules/`"* while the code kept them in the engine's repository, which is one of the places the
+design was ahead of the implementation rather than the other way round.
+
+Each `module.yml` names an **SPDX identifier** and `LICENSES/<identifier>.txt` at the layer root
+carries the text: the REUSE convention, which existing tooling understands. **One file per
+licence, never one notice per module** — a `NOTICE` per tool was the first proposal and at ~1,600
+tools it is that many near-identical copies of the MIT text, in every diff, that nobody reads.
+`comeni-vendor add` refuses before fetching if the layer carries no text for the licence it was
+told, so a layer cannot come to hold code under terms it does not ship.
 
 ---
 

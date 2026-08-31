@@ -17,24 +17,42 @@ from dataclasses import dataclass, field
 
 from dag_core.graph import Graph
 
-NODE_W = 232
-"""`NW` in `dashboard.html`. The node is a fixed width so a rank is a predictable pitch."""
+NODE_W = 172
+NODE_H = 112
+"""**One symbol, and its size is load-bearing** — `impl-geom` on the redesign canvas.
 
-COL_PITCH = 276
-"""`14 → 290` between the design's own nodes, so the gutter is 44px.
-
-**This said 338 for one phase, measured off the wrong elements.** The two things at `left:14`
-and `left:352` in `dashboard.html` are the *input chips* — `12 × fastq.reads`, `GRCh38.gtf` —
-not modules, and a chip is not 232 wide. The claim "the geometry is the design's to the pixel"
-was made in the same commit that got one of the pixels from a different kind of object. Reading
-`NODES` is what fixed it: `fastqc` at 14 and `trimgalore` at 290, both at `y:130`.
+`BuilderCanvas.dc.html` declares `.node { width:172px; height:112px }` for every process, and
+the reason is not tidiness: variable heights put a jog between every pair of nodes and the main
+chain stops reading as a chain. The height used to be derived from the port count, which meant
+a node's size advertised how many ports its CONTRACT declares — a fact nobody is reading the
+canvas to learn.
 """
 
-HEAD_H = 34
-PORT_ROW = 22
-MIN_H = 56
-RANK_GAP = 72
-"""Vertical room for the elbow's horizontal run to sit clear of both nodes."""
+RANK_PITCH = 224
+"""Between one rank and the next, along the flow. `194 → 418 → 642 → 866` in the artboard, so
+the gutter either side of a 172-wide symbol is 52."""
+
+SIBLING_PITCH = 170
+"""Between two nodes sharing a rank, across the flow. `top:150` and `top:320` in the artboard."""
+
+HEAD_H = 28
+"""`.node .hd { height:28px }` — the header the `⋯` and the name sit in."""
+
+PORT_ROW = 19
+"""`.node .pr { height:19px }`. It no longer sizes the node; it spaces the rows inside one."""
+
+SPINE = NODE_H // 2
+"""**Every symbol connects here** — `impl-geom`, and it is the one derivation.
+
+> Port positions are DERIVED from node geometry in one place. Never write a coordinate twice.
+
+That rule was written after the 2026-08-29 walk found every wire sitting 6px above its port and
+every source wire starting 27px short of the box it left, because the endpoints had been typed
+separately from the node positions.
+"""
+
+SECOND = SPINE + 22
+"""A secondary input sits 22px below the spine. `impl-geom` again, and the same rule: derived."""
 
 CORNER = 7
 """`CR`. Rounded so the graph reads as drawn rather than as a schematic — `dashboard.md` §4."""
@@ -191,17 +209,20 @@ def _order(
     return position
 
 
-def _x_of(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[str, int]:
-    """Horizontal placement: **centre a node under what feeds it.**
+def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[str, int]:
+    """Placement ACROSS the flow: **centre a node against what feeds it.**
+
+    Left-to-right since Plan 4 phase 6, so "across" is now the y axis — the function is unchanged
+    arithmetic on a renamed axis, which is why it is `_across` rather than `_x_of`.
 
     Ordering alone is not placement, and the difference is visible rather than theoretical. With
-    `x = order * COL_PITCH`, `star_align` — the one node both roots converge on — landed at x=0
-    while its feeders sat at 0 and 338, so the whole spine hung off the left edge and one wire
-    travelled the full width to reach it. Every structural assertion passed on that graph. Reading
-    the golden file is what found it.
+    `across = order * SIBLING_PITCH`, `star_align` — the one node both roots converge on —
+    landed at 0 while its feeders sat at 0 and 338, so the whole spine hung off one edge and a
+    wire travelled the full extent to reach it. Every structural assertion passed on that graph.
+    Reading the golden file is what found it.
 
     A node's wanted x is the **median** of its feeders' centres; ties and collisions are then
-    packed left to right at `COL_PITCH`, which keeps the ordering the crossing pass chose while
+    packed in order at `SIBLING_PITCH`, which keeps the ordering the crossing pass chose while
     letting a rank sit where its parents are. Sugiyama's fourth step, in the smallest form that
     is honest for a pipeline.
     """
@@ -220,18 +241,18 @@ def _x_of(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[str
         ids = by_rank[depth]
         if depth == 0:
             for i, nid in enumerate(ids):
-                x[nid] = i * COL_PITCH
+                x[nid] = i * SIBLING_PITCH
             continue
         wanted = []
         for nid in ids:
-            centres = sorted(x[p] + NODE_W // 2 for p in incoming[nid] if p in x)
+            centres = sorted(x[p] + NODE_H // 2 for p in incoming[nid] if p in x)
             # **The mean of the middle two when the count is even**, not the upper one. With two
             # feeders a bare median picks one of them and the node hangs under it: `star_align`
             # sat directly below `trimgalore` while `star_genomegenerate`'s wire crossed the full
             # width to reach it. Averaging puts it between them and halves both runs. For odd
             # counts this is the plain median, which is what the heuristic is.
             if not centres:
-                middle = NODE_W // 2
+                middle = NODE_H // 2
             else:
                 half = len(centres) // 2
                 middle = (
@@ -239,28 +260,17 @@ def _x_of(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[str
                     if len(centres) % 2
                     else (centres[half - 1] + centres[half]) // 2
                 )
-            wanted.append((middle - NODE_W // 2, nid))
+            wanted.append((middle - NODE_H // 2, nid))
         # Pack in the order the crossing pass chose, never below the previous node's right edge.
         edge_x = None
         for want, nid in wanted:
             x[nid] = want if edge_x is None else max(want, edge_x)
-            edge_x = x[nid] + COL_PITCH
+            edge_x = x[nid] + SIBLING_PITCH
 
-    # Normalise so the leftmost node sits at 0 — a canvas should not open on empty space, and a
+    # Normalise so the first node sits at 0 — a canvas should not open on empty space, and a
     # median can go negative when a rank is wider than the one that feeds it.
     shift = min(x.values(), default=0)
     return {nid: value - shift for nid, value in x.items()}
-
-
-def _height(counts: tuple[int, int]) -> int:
-    """Tall enough for its ports, so a rank of wide-fanned nodes cannot overlap the next.
-
-    **Counts DECLARED ports, not wired ones.** It counted edges, so a node with three declared
-    inputs and one wire was sized for one port row and the other two chevrons sat on top of the
-    node's own text.
-    """
-    ins, outs = counts
-    return max(MIN_H, HEAD_H + max(ins, outs, 1) * PORT_ROW)
 
 
 def _ports_of(graph: Graph) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
@@ -282,16 +292,33 @@ def _ports_of(graph: Graph) -> tuple[dict[str, list[str]], dict[str, list[str]]]
     )
 
 
-def _anchor(ports: list[str], name: str, width: int) -> int:
-    """Where a wire meets a node, in the node's own coordinates."""
+def _anchor(ports: list[str], name: str) -> int:
+    """Where a wire meets a node, **along its edge, in the node's own coordinates.**
+
+    A port the graph names but the contract does not falls back to the spine rather than
+    raising: `validate` reports that as MD0501, and a layout is not the place to refuse it.
+    """
     if name not in ports:
-        return width // 2
-    return _port_x(len(ports), ports.index(name))
+        return SPINE
+    return _port_offset(ports.index(name))
 
 
-def _port_x(count: int, index: int) -> int:
-    """`portX` in `dashboard.html`: ports spread evenly across the node's edge."""
-    return round(NODE_W * (index + 1) / (count + 1))
+PORT_GAP = 22
+"""Between one port and the next along an edge. `impl-geom`: `second = spine + 22`."""
+
+
+def _port_offset(index: int) -> int:
+    """**The one derivation, and the whole of it** — `impl-geom`:
+
+    > spine  = node.y + NODE_H/2        every symbol connects here
+    > second = node.y + NODE_H/2 + 22   a secondary input sits below it
+
+    It used to spread ports evenly across the edge, which made a port's position depend on how
+    many siblings it had — so adding a declared input moved every existing wire. Anchoring the
+    first on the spine means the main chain is dead straight and a second input hangs off it,
+    which is what the artboard draws and what makes the chain readable.
+    """
+    return SPINE + index * PORT_GAP
 
 
 def of(graph: Graph = None) -> Layout:
@@ -303,31 +330,25 @@ def of(graph: Graph = None) -> Layout:
     ins, outs = _ports_of(graph)
     rank = _ranks(graph)
     order = _order(graph, rank, ins)
-    across = _x_of(graph, rank, order)
+    across = _across(graph, rank, order)
 
-    heights = {
-        node.id: _height((len(ins.get(node.id, [])), len(outs.get(node.id, []))))
-        for node in graph.nodes
-    }
-    tall: dict[int, int] = defaultdict(int)
-    for node in graph.nodes:
-        tall[rank[node.id]] = max(tall[rank[node.id]], heights[node.id])
-
-    top: dict[int, int] = {}
-    y = 0
-    for depth in sorted(tall):
-        top[depth] = y
-        y += tall[depth] + RANK_GAP
-
+    # **Left to right** — `impl-settled` on the redesign canvas, under *do not re-litigate*.
+    #
+    # It flowed DOWNWARD from Plan 3C until 2026-08-30, and that was a considered decision read
+    # off `dashboard.html`'s hand-placed nodes; `test_layout.py`'s header still records the
+    # reasoning. The 2026-08-29 canvas supersedes it, and `BuilderCanvas.dc.html` is unambiguous:
+    # four ranks at x = 194, 418, 642, 866, siblings at the same x with tops 150 and 320.
+    #
+    # **Every symbol is the same size**, so a rank's extent is arithmetic rather than a maximum.
     placed = tuple(
         Placed(
             id=node.id,
             rank=rank[node.id],
             order=order[node.id],
-            x=across[node.id],
-            y=top[rank[node.id]],
+            x=rank[node.id] * RANK_PITCH,
+            y=across[node.id],
             width=NODE_W,
-            height=heights[node.id],
+            height=NODE_H,
             tier=node.tier,
         )
         # Sorted so the tuple itself is stable, not merely its contents.
@@ -344,25 +365,29 @@ def of(graph: Graph = None) -> Layout:
         # to refuse it.
         source_ports = outs.get(edge.from_node, [])
         target_ports = ins.get(edge.to_node, [])
+        # **Out of the right edge, into the left edge**, and the offset ALONG the edge is the
+        # one derivation `impl-geom` names: a single port sits on the spine, and additional
+        # ports are spread from it. Nothing here recomputes a node's geometry.
         start = Point(
-            source.x + _anchor(source_ports, edge.from_port, source.width),
-            source.y + source.height,
+            source.x + source.width,
+            source.y + _anchor(source_ports, edge.from_port),
         )
         end = Point(
-            target.x + _anchor(target_ports, edge.to_port, target.width),
-            target.y,
+            target.x,
+            target.y + _anchor(target_ports, edge.to_port),
         )
-        # Vertical, across at the midpoint, vertical — `elbow()` in the design, and orthogonal
-        # because two curves meeting at a shallow angle are indistinguishable at the crossing.
-        mid = (start.y + end.y) // 2
-        # **A straight drop is two points, not four.** When the ports line up the two elbow
+        # Horizontal, across at the midpoint, horizontal — `impl-geom`: **right angles read
+        # engineered; beziers read playful.** Two curves meeting at a shallow angle are also
+        # indistinguishable at the crossing, which matters on a graph that fans in.
+        mid = (start.x + end.x) // 2
+        # **A straight run is two points, not four.** When the ports line up the two elbow
         # corners are the same coordinate, and emitting them anyway gives the renderer a
         # zero-length segment to round — which is how a 7px corner becomes a visible nick on a
         # wire that should be plumb.
         points = (
             (start, end)
-            if start.x == end.x
-            else (start, Point(start.x, mid), Point(end.x, mid), end)
+            if start.y == end.y
+            else (start, Point(mid, start.y), Point(mid, end.y), end)
         )
         wires.append(
             Wire(
@@ -372,7 +397,7 @@ def of(graph: Graph = None) -> Layout:
                 to_port=edge.to_port,
                 type_id=edge.type_id,
                 points=points,
-                label_at=Point((start.x + end.x) // 2, mid - 6),
+                label_at=Point(mid, (start.y + end.y) // 2 - 6),
             )
         )
 

@@ -12,7 +12,7 @@ else's machine. Producing it here is the only way the message is ever read.
 import pathlib
 
 import pytest
-from comeni_core.declared.layered import DeclaredKind
+from comeni_core.declared.layered import _KIND_OF, DeclaredKind, declared_kind
 from mendel_resolver import layers
 
 _KIND_OF_DIR = {
@@ -88,9 +88,41 @@ def test_the_message_counts_the_kinds_rather_than_asserting_a_number(tmp_path):
     """`len(DeclaredKind)` rather than a literal — invariant 11's stated reason.
 
     The count said "four" in prose for six plans and was wrong the day `roles/` arrived.
+
+    **This test was itself vacuous for two plans, and Plan 5A is what found it.** It asserted
+    `str(len(DeclaredKind))` appeared in `MD0005` — and comeni-registry#1 had already rewritten
+    that message to say *"no `.yml` or `.yaml` file in it"*, which names no count at all. It
+    passed anyway because `tmp_path` is `/tmp/pytest-of-<user>/pytest-<n>/…`, so the digit it
+    was looking for was in the path. Adding a sixth kind turned `5` into `6` and the accident
+    stopped landing.
+
+    A guard that passes on the code it was written to reject is a green tick over an open hole
+    (W2's lesson). The property is still worth holding, so it moves to the message that
+    genuinely derives its list: `MD0010` enumerates `_KIND_OF`, so a kind added today appears
+    in the refusal today.
     """
+    where = tmp_path / "nothing.yml"
+    where.write_text("id: something\n")
+    with pytest.raises(ValueError) as caught:
+        declared_kind(where)
+
+    said = str(caught.value)
+    assert "MD0010" in said
+    # `_KIND_OF` is derived from `DeclaredKind` **by hand** — `vocabularies` is not
+    # `vocabularys` — so the drift this guards is a kind added to the enum and not to the map.
+    assert set(_KIND_OF.values()) == set(DeclaredKind), (
+        "a declared kind has no singular spelling, so no file can ever declare it and "
+        "MD0010 will not offer it"
+    )
+    for singular in _KIND_OF:
+        assert singular in said, (
+            f"{singular!r} is a kind a file may declare and the refusal does not offer it"
+        )
+
+
+def test_an_empty_layer_is_refused_by_name(tmp_path):
+    """The other half of what the test above used to cover: the submodule case still fires."""
     empty = tmp_path / "registry"
     empty.mkdir()
-    with pytest.raises(ValueError) as caught:
+    with pytest.raises(ValueError, match="submodule"):
         layers.load(empty)
-    assert str(len(DeclaredKind)) in str(caught.value)

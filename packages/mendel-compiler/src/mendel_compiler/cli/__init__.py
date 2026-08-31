@@ -29,7 +29,7 @@ from mendel_resolver.router import UnroutableError
 from mendel_resolver.rules import RuleValidationError
 from pydantic import ValidationError
 
-from mendel_compiler import conformance
+from mendel_compiler import conformance, registry_lint
 from mendel_compiler.cli import artifact_verbs, layer_verbs, parse, resolve_verbs
 
 _CODE = re.compile(r"\bMD0\d{3}\b")
@@ -148,6 +148,25 @@ def _build(argv: list[str] | None = None) -> int:
         if not args.registry:
             parser.error("docs needs at least one --registry")
         return layer_verbs._docs_verb(args.registry, args.out, args.check)
+
+    # `conformance` acts on a layer too, and produces no pipeline. It exists because
+    # `comeni-registry`'s CI could not ask whether its own contracts agree with their own
+    # modules until Plan 5A put both in the layer — before that the check needed a goal, a
+    # build and a checkout holding two repositories.
+    if args.command == "conformance":
+        if not args.registry:
+            parser.error("conformance needs at least one --registry")
+        return layer_verbs._conformance_verb(args.registry)
+
+    # `lint` acts on a layer and reads its manifest. It is the *curated* registry holding
+    # itself to a layout its own CI enforces — the loader stays free, because invariant 11 says
+    # a file declares its own kind and the arrangement is the author's business.
+    if args.command == "lint":
+        if not args.registry:
+            parser.error("lint needs at least one --registry")
+        if len(args.registry) > 1:
+            parser.error("lint checks one layer at a time; a stack has no single arrangement")
+        return registry_lint.report(args.registry[0])
 
     # `--check` belongs to `docs` alone. On any other verb it would be a flag that silently
     # means nothing, which is the defect `--dry-run` and `--force` each carry a guard for.

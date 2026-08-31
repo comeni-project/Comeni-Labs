@@ -15,9 +15,15 @@ import { useNavigate } from "react-router";
 import { TokenPrompt } from "../wiener/Token";
 import { useSubmit } from "./useSubmit";
 
+/** **The run sheet's primary, in `--link` and not `--pea`.** `_run_sheet.html` ends on one blue
+ *  `Start run`; green is this product's *settled / passed* colour and a green primary here reads
+ *  as a verdict rather than an action. The label stays `Send to Wiener` because that is what the
+ *  click does — the browser is the courier and neither API learns the other exists — and calling
+ *  it `Start run` would hide the second click that `docs/design/wiener.md` §12 says is the point:
+ *  uploading is what discovers the parameters. */
 const button =
-  "px-3 py-1 rounded-r text-body font-semibold bg-pea text-[var(--on-pea)] border-0 " +
-  "disabled:opacity-40 disabled:cursor-not-allowed";
+  "px-[24px] py-[9px] text-[13.5px] font-semibold bg-[var(--link)] text-paper border-0 " +
+  "cursor-pointer lift disabled:opacity-40 disabled:cursor-not-allowed";
 
 export function SubmitPanel({
   draftId,

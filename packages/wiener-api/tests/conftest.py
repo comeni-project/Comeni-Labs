@@ -124,7 +124,14 @@ def client(session, tmp_path, monkeypatch) -> TestClient:
 
 @pytest.fixture
 def a_bundle() -> bytes:
-    """A minimal pipeline directory, zipped in memory."""
+    """A minimal pipeline directory, zipped in memory.
+
+    **Its `pipeline.yml` is a stub and not a `Pipeline`** — `schema_version: 5` parses as YAML
+    and fails `Pipeline.model_validate`. That is fine for everything that only needs an upload
+    with a stable tree digest, and it is exactly wrong for anything reading the artifact's own
+    document. Use `a_real_bundle` for that, and do not "fix" this one: two tests compare digests
+    against a literal copy of these bytes.
+    """
     import io
     import zipfile
 
@@ -133,5 +140,30 @@ def a_bundle() -> bytes:
         archive.writestr("main.nf", "workflow {}\n")
         archive.writestr("pipeline.yml", "schema_version: 5\n")
         # The holes this artifact declares — what a submission must fill, exactly.
+        archive.writestr("nextflow.config", "params {\n    input = null\n    fasta = null\n}\n")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def a_real_bundle() -> bytes:
+    """A bundle whose `pipeline.yml` is an actual `Pipeline`, so it has a content digest.
+
+    Needed once `RunArtifact.pipeline_digest` started being written (2026-08-30): the key is
+    `Pipeline.content_digest()` over the artifact's own document, so an artifact whose document
+    does not parse honestly has none.
+    """
+    import io
+    import zipfile
+
+    import yaml
+    from comeni_core.artifact.pipeline import Pipeline
+    from comeni_core.goal.asked import Goal
+
+    document = yaml.safe_dump(Pipeline(goal=Goal()).model_dump(mode="json"), sort_keys=False)
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("main.nf", "workflow {}\n")
+        archive.writestr("pipeline.yml", document)
         archive.writestr("nextflow.config", "params {\n    input = null\n    fasta = null\n}\n")
     return buffer.getvalue()

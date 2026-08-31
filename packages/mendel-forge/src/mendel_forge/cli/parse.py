@@ -14,7 +14,15 @@ import argparse
 from pathlib import Path
 
 _REGISTRY = Path("registry")
-_VENDOR = Path("vendor")
+_VENDOR = _REGISTRY
+"""`--source-root` defaults to the layer since Plan 5A, because the layer *is* where module
+source lives now — it was `vendor/`, a directory in the engine's repository on a different
+release cadence from the registry the contracts came out of.
+
+The flag is kept rather than deleted: the forge is deferred until its own rework (spec §5) and
+its request models take a `source_root` in six places, so retiring the concept is that rework's
+job. What this plan changes is where it points.
+"""
 _WORKSPACE = Path(".forge")
 
 

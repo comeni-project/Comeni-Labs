@@ -83,7 +83,7 @@ serialises a `frozenset` needs a `field_serializer` that sorts — `frozenset` i
 hash order, and hash order varies with `PYTHONHASHSEED`.
 
 **Read the module, not the plan.** Process names and container URIs come from
-`vendor/modules/**/main.nf`. It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`, and
+`registry/tools/**/module/main.nf`. It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`, and
 nf-core 4.x mostly uses `community.wave.seqera.io`. `tests/test_spine_contracts.py` checks
 contracts against the modules on disk so a guess fails in milliseconds rather than at
 pipeline launch.
@@ -124,7 +124,7 @@ The PR template asks two questions, and they are the ones that matter:
   resolution. Institutional memory here is the declared registry data and
   decision records — versioned, approved, diffable and citable. A fuzzy layer beside them
   could change a pipeline without passing review.
-- `nf-core` module edits. Those belong upstream; `vendor/` is a copy.
+- `nf-core` module edits. Those belong upstream; `tools/**/module/` in the registry is a verbatim copy, replaced wholesale by `comeni-vendor add`, and `comeni-vendor check` fails CI on a hand-edit.
 
 ## Reporting a security or privacy issue
 

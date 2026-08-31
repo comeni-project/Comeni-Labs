@@ -62,7 +62,7 @@ export function Grip({
         if (e.key === "ArrowLeft") onNudge(side === "left" ? -16 : 16);
         if (e.key === "ArrowRight") onNudge(side === "left" ? 16 : -16);
       }}
-      className="w-[5px] shrink-0 cursor-col-resize bg-transparent hover:bg-line-2
+      className="grip w-[5px] shrink-0 cursor-col-resize bg-transparent hover:bg-line-2
                  focus-visible:bg-pea focus-visible:outline-none transition-colors"
     />
   );

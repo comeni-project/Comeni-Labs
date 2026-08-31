@@ -52,6 +52,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline", "post"): "buildPipeline",
         ("/api/pipeline/example", "get"): "examplePipeline",
         ("/api/pipeline/compatibility", "get"): "compatibilityIndex",
+        ("/api/pipeline/candidates", "get"): "listCandidates",
         # Every landed contract, for the builder's picker. Distinct from `listTools`, which
         # answers *what is the state of everything* and carries drafts and undrafted tools —
         # neither of which can be dragged onto a canvas.
@@ -59,10 +60,12 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/validate", "post"): "validatePipeline",
         ("/api/pipeline/compare", "post"): "comparePipeline",
         ("/api/pipeline/draw", "post"): "drawPipeline",
+        ("/api/pipeline/drafts", "get"): "listDrafts",
         ("/api/pipeline/drafts", "post"): "createDraft",
         ("/api/pipeline/drafts/{draft_id}", "get"): "readDraft",
         ("/api/pipeline/drafts/{draft_id}", "put"): "saveDraft",
         ("/api/pipeline/drafts/{draft_id}/keep", "post"): "keepDraft",
+        ("/api/pipeline/drafts/{draft_id}/artifact", "get"): "readArtifact",
         # **The only route that answers with bytes** — the courier's Mendel half, A179. It
         # serves a zip, so the generated client's return type is not a schema; `client.ts`
         # has a `blob()` for exactly this one and nothing else.

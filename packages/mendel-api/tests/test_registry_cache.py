@@ -41,7 +41,7 @@ def test_a_changed_registry_invalidates_it(monkeypatch, broken_registry_copy):
     assert first.registry.contracts["nf-core/fastqc@0.12.1"].nf_process == "FASTQC"
 
     changed = broken_registry_copy(
-        "tools/nf-core/fastqc/fastqc.contract.yml", "nf_process: FASTQC", "nf_process: OTHER"
+        "tools/nf-core/fastqc/contract.yml", "nf_process: FASTQC", "nf_process: OTHER"
     )
     monkeypatch.setattr(settings, "registry_root", changed)
 

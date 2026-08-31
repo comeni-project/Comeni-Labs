@@ -442,8 +442,61 @@ causes one. Emitting the first without the second is what shipped on 2026-08-24 
 found by a board panel that was empty because nothing in any run had ever reached attempt 2."""
 
 
+PUBLISH_DIR = [
+    "    // WHERE THE RESULTS GO. A CONVENTION, quoted from nf-core's own modules.config: one",
+    "    // directory per process, named after the process, under whatever `params.outdir` is.",
+    "    // It depends on no step — `task.process` is what Nextflow already knows — so this sits",
+    "    // beside the labels rather than being emitted per `withName:`.",
+    "    //",
+    "    // **`params.outdir` is null in the artifact, and that is the whole design.** WHERE a",
+    "    // laboratory keeps its results is a fact about a SITE, not about a pipeline — the same",
+    "    // argument `process.resourceLimits` already makes about how big the machine is. A path",
+    "    // baked in here would make `mendel emit` produce a different file per deployment, which",
+    "    // breaks invariant 10 and invariant 13 at once. Wiener's launcher supplies it; a person",
+    "    // running this by hand passes `--outdir`.",
+    "    //",
+    "    // `mode: 'copy'` rather than the default symlink: a link into a work directory that",
+    "    // gets cleaned is a result that evaporates, and these are the files somebody keeps.",
+    "    //",
+    "    // `enabled` is an EXPRESSION and `path` is a CLOSURE, and the difference is not style:",
+    "    // Nextflow evaluates `enabled` when it reads this file and never calls a closure given",
+    "    // to it, so `enabled: { ... }` is an object that is merely truthy and publishes always.",
+    "    // `path` is called per task, which is the only way it can see `task.process`.",
+    "    publishDir = [",
+    "        path:    { \"${params.outdir}/${task.process.tokenize(':').last().toLowerCase()}\" },",
+    "        mode:    'copy',",
+    "        enabled: params.outdir != null,",
+    "    ]",
+]
+"""Every process publishes what it makes, under a directory named for the process.
+
+**Until 2026-08-30 nothing did**, and a finished run left its outputs in `work/<hash>/` under
+names nobody can read — which had blocked three separate screens by the time it was written:
+the overview's *Results ready*, the run page's results link, and the loop's own ending. A grep
+for `publishDir` across the whole repository returned one hit, in the list of directive names a
+setting is *allowed* to route to.
+
+**`enabled` is what keeps it honest when nobody said where.** `params.outdir` is `null` in the
+artifact, so without the guard Nextflow would publish into a directory literally called `null`.
+Absent is absent: no destination means nothing is published, not published somewhere wrong.
+
+**It shipped as a closure first and published NOTHING, with all five processes green.**
+`enabled: { params.outdir != null }` hands Nextflow a `Closure` where it expects a value; it is
+never called. Found by running the stub gate and looking in `results/` rather than by reading the
+config — every test passed, `nextflow config` printed the directive correctly, and the log said
+nothing at all. A plain expression is evaluated when the config is read, and **a command-line
+`--outdir` is visible by then**, which was the worry that made the closure look necessary. Both
+branches were then checked against a real run: `--outdir` publishes, and no `outdir` leaves no
+`results/` and no directory called `null`.
+"""
+
+
 def _label_scope() -> list[str]:
+    # Publishing first, because it is what a reader of the emitted config wants to find and
+    # because it is the one directive here that answers "where did my results go".
     lines = [
+        *PUBLISH_DIR,
+        "",
         "    // Resource requests by label, from nf-core's conf/base.config. A CONVENTION:",
         "    // every nf-core module declares `label 'process_*'` and this is what the",
         "    // ecosystem reads it against. Nextflow matches these against the module's own",
@@ -483,6 +536,11 @@ def emit_config(pipeline: Pipeline) -> str:
         "params {",
     ]
     lines += [f"    {name} = null" for name in params]
+    # **After the entry params, and outside their loop.** `outdir` is not an entry channel — it
+    # is where results go, which is a site fact — so it must not join the loops below that give
+    # every entry param a stub file and a test URL. Emitted last so the diff against a
+    # pre-2026-08-30 config is one line in one place.
+    lines += ["    outdir = null"]
     lines += ["}", ""]
     lines += _process_scope(pipeline)
     lines += ["profiles {", "    stub_data {", SMOKE_LIMITS]

@@ -55,6 +55,7 @@ class Mark(StrEnum):
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
     ROLE_NAME = "role-name"
+    SPDX_ID = "spdx-id"
 
     NF_IDENTIFIER = "nf-identifier"
     """A name emitted into a Nextflow or Groovy *declaration* — a process name, a channel,
@@ -638,6 +639,40 @@ the two lists mean different things and the egress guard reads both literally.
 """
 
 ModuleKey = Annotated[str, Mark.MODULE_KEY, AfterValidator(_slashed("module key"))]
+
+def _spdx_id(value: str) -> str:
+    """One SPDX licence identifier — `MIT`, `Apache-2.0`, `GPL-3.0-or-later`.
+
+    An identifier, deliberately **not** an SPDX licence *expression*. `MIT OR Apache-2.0` and
+    `Apache-2.0 WITH LLVM-exception` are legal SPDX and are refused here, because the field
+    they sit on points at `LICENSES/<id>.txt` — one file per licence, the REUSE convention —
+    and an expression names no single file. A module needing an expression is a module needing
+    a decision from a person, which is the right place for it.
+
+    That also keeps the shape narrow enough to refuse prose, which is the reason every alias
+    in this module has a validator (A64).
+    """
+    if not value:
+        raise ValueError("a licence identifier cannot be empty")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.+-")
+    bad = sorted(set(value) - allowed)
+    if bad:
+        raise ValueError(
+            f"{value!r} is not an SPDX licence identifier: it may not contain "
+            f"{', '.join(map(repr, bad))}. An SPDX *expression* — `MIT OR Apache-2.0` — is "
+            f"refused on purpose; `LICENSES/<id>.txt` names one file."
+        )
+    return value
+
+
+SpdxId = Annotated[str, Mark.SPDX_ID, AfterValidator(_spdx_id)]
+"""The licence a vendored module arrives under, as an SPDX identifier.
+
+Registry data with a shape rather than prose: it is the pointer from a `module.yml` to the
+`LICENSES/<id>.txt` the registry ships, so a laboratory receiving a layer can tell what it may
+do with the code in it without opening 1,600 near-identical NOTICE files.
+"""
+
 
 RoleName = Annotated[str, Mark.ROLE_NAME, AfterValidator(_role_name)]
 """The job a contract does, and the only thing a tier-3 rule may target.

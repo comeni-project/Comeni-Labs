@@ -22,12 +22,13 @@ from mendel_api import identity, jobs
 from mendel_api.refusals import REFUSES
 from mendel_api.services import build as service
 from mendel_api.services import bundle as bundle_service
+from mendel_api.services import candidates, registry
 from mendel_api.services import compare as compare_service
 from mendel_api.services import drafts as draft_service
 from mendel_api.services import gates as gate_service
-from mendel_api.services import registry
 from mendel_api.services import validate as validation
 from mendel_api.services.build import BuiltPipeline, ModuleView
+from mendel_api.services.candidates import Candidates
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -119,6 +120,32 @@ def compatibility_index(request: Request, response: Response) -> Compatibility |
     return validation.index()
 
 
+@router.get(
+    "/candidates",
+    operation_id="listCandidates",
+    summary="What could sit on the other end of a wire, in the resolver's own order",
+)
+def list_candidates(type_id: str, states: str = "", side: str = "producing") -> Candidates:
+    """The port picker's ordering, and the reason beside each row.
+
+    **Filtering is the browser's; ordering is not.** `GET /pipeline/compatibility` already tells a
+    client what fits — that is a lookup it can do without a round trip, and `useCompatibility`
+    does. What it cannot know is which candidate `resolve()` would reach for, and that is what
+    makes the picker an answer rather than a filtered list.
+
+    `states` is a comma-separated list, empty for none. A **query** rather than a path segment
+    because a state set is unordered and a path implies one.
+
+    `side=producing` asks *what could feed this input*; `side=consuming` asks *what would accept
+    this output*. Only the first has the resolver's authority behind its order, and
+    `services/candidates.py` says so rather than pretending otherwise.
+    """
+    wanted = frozenset(part for part in states.split(",") if part)
+    if side == "consuming":
+        return candidates.consuming(type_id, wanted)
+    return candidates.producing(type_id, wanted)
+
+
 class DraftIn(BaseModel):
     """What a client sends to open or update a draft."""
 
@@ -142,6 +169,30 @@ class Kept(BaseModel):
     path: str
     """Where the server wrote it. **Returned, never accepted** — invariant 15 is about what
     an input may carry, and a server saying where it put something is the opposite direction."""
+
+
+class DraftsPage(BaseModel):
+    """A page of the lab's pipelines, and the total behind it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    drafts: list[draft_service.DraftRow]
+    total: int
+
+
+@router.get("/drafts", operation_id="listDrafts", summary="Every pipeline this lab has")
+def list_drafts(after: int = 0, limit: int = 50) -> DraftsPage:
+    """The *by pipeline* half of the front door — and **it had no query at all** until Plan 4
+    phase 2. The build router carried create, read, save, keep and bundle, every one addressed
+    by a known id; nothing could answer *what do we have*.
+
+    **Readiness, never history.** A run's outcome belongs to `wiener-api` and to the *by run*
+    view; leaking one onto a pipeline row is the defect `ov-work` names by hand.
+
+    **Nothing here resolves.** Provenance is read off the artifact `keep` wrote.
+    """
+    drafts, total = draft_service.list_drafts(after=after, limit=limit)
+    return DraftsPage(drafts=drafts, total=total)
 
 
 @router.post(
@@ -191,6 +242,53 @@ def keep_draft(draft_id: str) -> Kept:
         return Kept(path=str(draft_service.keep(draft_id)))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
+
+
+class Artifact(BaseModel):
+    """A kept pipeline, as the document it is."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    """The `pipeline.yml` verbatim.
+
+    **Not a projection of it.** `CLAUDE.md`: *`pipeline.yml` IS the pipeline* — one artifact
+    carrying the goal, every step and setting with a `why:`, every contract pinned by digest.
+    The builder's second view is that file, so sending a re-serialised model would mean the
+    screen showed something structurally similar to what `mendel emit` reads, which is exactly
+    the gap a reader opens this view to close.
+    """
+    sections: list[str] = []
+    """Top-level keys, in the order they appear, so the view can offer jumps without parsing
+    YAML in the browser. A row of chips, not another left-hand list (`n-bartifact`)."""
+
+
+@router.get(
+    "/drafts/{draft_id}/artifact",
+    operation_id="readArtifact",
+    summary="The kept pipeline.yml, as text",
+    responses=REFUSES,
+)
+def read_artifact(draft_id: str) -> Artifact:
+    """**The other view of the canvas.** `n-bartifact`: *pipeline.yml is the pipeline, so the
+    other view of the canvas is the artifact itself.*
+
+    404 when the draft has never been kept — a draft has no artifact until `keep` writes one,
+    and inventing an empty document would claim otherwise.
+    """
+    path = draft_service.artifact_path(draft_id)
+    if path is None or not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="this pipeline has not been kept yet, so there is no artifact to read",
+        )
+    text = path.read_text()
+    sections = [
+        line.split(":", 1)[0]
+        for line in text.splitlines()
+        if line and not line[0].isspace() and not line.startswith("#") and ":" in line
+    ]
+    return Artifact(text=text, sections=sections)
 
 
 @router.get(
