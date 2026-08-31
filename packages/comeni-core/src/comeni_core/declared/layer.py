@@ -12,10 +12,48 @@ changed"* against a pipeline that had not moved a byte. Audit 2026-08-06, A12 an
 
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core import yaml_strict
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import LayerName
+
+REGISTRY_FORMAT = 1
+"""The highest registry format this Mendel understands.
+
+═══ WHY A FORMAT LEVEL AND NOT A MENDEL VERSION ══════════════════════════════════════════════
+
+Plan 5B §2.1 asks for *"a version floor on the layer: `registry.yml` declares the minimum Mendel
+it needs"*, and **there is no such number to declare.** `CLAUDE.md`: *releases are per package,
+and versions are independent* — `comeni-core-v0.2.0` is not a Mendel version, and a registry
+author asking *which release learned `{param}`?* would have to answer it for `mendel-resolver`
+and `mendel-compiler` separately and get both right.
+
+So the layer declares what it **uses** and Mendel declares what it **understands**, which is one
+integer on each side and no cross-repository release archaeology. It is `metadata_version` in a
+Python wheel and `version` in a Nextflow DSL directive: the same problem, solved the same way,
+for the same reason.
+
+The message a person sees is still §2.1's — *this registry needs a newer Mendel* — because that
+is the sentence that has to be true, and it is true of either mechanism.
+
+═══ WHEN TO BUMP IT ══════════════════════════════════════════════════════════════════════════
+
+**When an older Mendel would read a new layer WRONGLY rather than not at all.** That is a
+narrower test than "the format changed", and it is the whole value of the number:
+
+- A new *optional* field an old Mendel ignores is not a bump. `extra="forbid"` already refuses
+  it on the manifest, and elsewhere an ignored key is a key that can be misspelled in silence
+  (A10) — which is a different problem with a different answer.
+- **`entry_channel` gaining `{param}` IS a bump**, and it is why this exists. An old Mendel does
+  no substitution, so it writes the seven literal characters `{param}` into Groovy and emits a
+  pipeline that dies at launch. A refusal that names the cause is strictly better than a
+  `.nf` nobody can read.
+
+Level 1 is everything up to and including Plan 5A. Level 2 is the `{param}` template, and it is
+declared by the registry in phase 2.6 — **after** this floor ships, which is what makes the
+floor worth anything at all.
+"""
 
 
 class LayerManifest(BaseModel):
@@ -32,6 +70,15 @@ class LayerManifest(BaseModel):
     version: str = ""
     licence: str = ""
     description: str = ""
+
+    requires_format: int = 1
+    """The registry format level this layer uses. **Defaults to 1, which is every layer that
+    exists today** — so no manifest has to be edited to keep working, and a layer that never
+    uses a new feature never declares one.
+
+    `REGISTRY_FORMAT` above is the other half and carries the argument, including the test for
+    when this is worth bumping: an older Mendel reading the layer **wrongly**, not merely a
+    format that changed."""
 
     layout: dict[str, list[str]] = Field(default_factory=dict)
     """Where this layer keeps each kind — `{"contract": ["tools/"], "role": ["roles/"]}`.
@@ -52,6 +99,30 @@ class LayerManifest(BaseModel):
     CI enforces, which is nixpkgs's `pkgs/by-name` move. Empty means unenforced, which is every
     private overlay.
     """
+
+    @model_validator(mode="after")
+    def _this_mendel_can_read_it(self) -> "LayerManifest":
+        """MD0020. **Refuse a layer from the future rather than misread it.**
+
+        On the model rather than in `layers.load`, so every reader is covered by construction:
+        `layer_name`, `mendel lint`, `Lockfile.of` and the loader all go through
+        `LayerManifest.of`, and a check in one of them is a check the other three do not have.
+
+        `REGISTRY_FORMAT` carries the argument for the number. What belongs here is why this is
+        a **refusal**: the alternative is emitting a `.nf` with `params.{param}` in it, which
+        fails inside Nextflow minutes later with a message about Groovy syntax, on a machine
+        that has no idea a registry was ever involved.
+        """
+        if self.requires_format > REGISTRY_FORMAT:
+            raise ValueError(
+                coded(
+                    "MD0020",
+                    f"layer {self.name!r} needs registry format {self.requires_format} and this "
+                    f"Mendel understands {REGISTRY_FORMAT}. This registry needs a newer Mendel — "
+                    f"upgrade it, or pin the layer to an older commit.",
+                )
+            )
+        return self
 
     @classmethod
     def of(cls, layer: Path) -> "LayerManifest | None":

@@ -63,12 +63,12 @@ what makes the diff readable.*
 
 ### 2.1 The version floor, and it lands FIRST — spec §1.3
 
-- [ ] **Before any registry ships a template**, the *current* release must refuse one. A new
+- [x] **Before any registry ships a template**, the *current* release must refuse one. A new
       registry's `params.{param}` reaching an emitter that does no substitution would write
       `params.{param}` into Groovy.
-- [ ] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
+- [x] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
       an older Mendel says *this registry needs a newer Mendel* instead of emitting broken Nextflow.
-- [ ] It is a small change and **it has to land first or it cannot land at all.**
+- [x] It is a small change and **it has to land first or it cannot land at all.**
 
 ### 2.2 The types
 

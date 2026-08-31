@@ -21,6 +21,7 @@
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
 #   MD0013-MD0019  a layer is not arranged the way its own manifest says
+#   MD0020         a layer needs a newer Mendel than this one
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
@@ -1740,6 +1741,42 @@ MD0019:
     Deliberately a scan for `..` in declared files rather than a resolver of every path
     field: which fields hold paths is the author's to extend, so a check that knew the field
     names would go blind the day a new one arrives.
+MD0020:
+  emitted_by: core
+  concern: loading
+  says: "a layer declares a registry format this Mendel does not understand"
+  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  refuses: true
+  fix: |
+    Upgrade Mendel. Or, if the layer is a submodule you control, pin it back to a
+    commit whose `registry.yml` declares a format this Mendel understands:
+
+        # registry.yml
+        requires_format: 1
+
+    A layer that never uses a new feature never declares one, so the field is absent
+    from every manifest written before it existed and defaults to 1.
+  explanation: |
+    A registry layer says which format level it uses; `REGISTRY_FORMAT` in
+    `comeni_core.declared.layer` says which is the highest this build understands. Reading
+    a layer from the future is refused here rather than attempted.
+
+    **The alternative is worse than a refusal, and that is the whole argument.** The first
+    format bump is `entry_channel` gaining a `{param}` placeholder. An older Mendel does no
+    substitution, so it would emit the seven literal characters `params.{param}` into
+    Groovy — a pipeline that passes every check on this side and dies at launch with a
+    syntax error on a machine that has no idea a registry was involved. A message naming
+    the cause is strictly better than a `.nf` nobody can read.
+
+    **This is a floor on the FORMAT, not on a Mendel version**, and the difference is not a
+    detail. Releases here are per package and independent, so there is no "Mendel version"
+    for a registry to name — a layer would have to declare a minimum `mendel-resolver` and
+    a minimum `mendel-compiler` and get both right. One integer on each side is the same
+    trade `metadata_version` makes in a Python wheel.
+
+    **It had to ship before any registry could use the feature it protects**, which is the
+    part worth remembering: a compatibility check that arrives with the change it guards is
+    a check every older install has already failed to run.
 MV0001:
   emitted_by: vendor
   concern: vendoring

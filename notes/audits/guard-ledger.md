@@ -3668,3 +3668,27 @@ proves the assertion is live rather than comparing two constants — it does not
 catches the defect, and it will not until phase 2 can produce one. **A guard that has only been
 shown capable of failing is not a guard that has been watched failing**, and conflating the two
 is how `test_the_batching_is_real` shipped green over an open hole in W2.
+
+### `MD0020`, the registry version floor (Plan 5B phase 2.1)
+
+**The revert.** `if self.requires_format > REGISTRY_FORMAT:` → `if False:` in
+`LayerManifest._this_mendel_can_read_it`.
+
+**What printed.** Two of eleven failed and nine passed — the diagonal a floor should have:
+
+```
+FAILED tests/test_registry_layer.py::test_a_layer_from_the_future_is_refused_by_name
+FAILED tests/test_registry_layer.py::test_the_check_is_on_the_MODEL_so_every_reader_gets_it
+E   Failed: DID NOT RAISE ValueError
+```
+
+The second is the one worth keeping. It writes `requires_format: 2` into a *copy of the shipped
+registry* and calls `layers.load` on it — the reader that would otherwise emit the broken `.nf`
+— so it fails if the check is ever moved from the model onto one call site. `layer_name`,
+`mendel lint`, `Lockfile.of` and the loader all read the manifest through `LayerManifest.of`,
+and a check in one of them is a check the other three do not have.
+
+`test_the_shipped_registry_still_loads` and `test_an_equal_format_is_fine` passed under the
+revert and are meant to: they hold the floor **down**. A floor set one too high is
+indistinguishable from a broken loader at every call site, and neither test can catch that by
+failing when the check is absent — only by failing when it is wrong.
