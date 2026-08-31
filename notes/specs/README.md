@@ -114,5 +114,44 @@ Three kinds live here:
   It also carries two defects the design pass found — the events page loads once and silently
   drops the rest, and `--hover` is referenced five times in the builder and defined nowhere.
 
+  [`2026-08-31-the-registry-and-the-modules.md`](2026-08-31-the-registry-and-the-modules.md),
+  **Plan 5 Part A**, written at the operator's instruction that `vendor/` does not belong in this
+  repository and that the registry is confusing to use. Both premises hold and the first one's
+  conclusion needed a correction: **three things are conflated, not two** — our declarations,
+  nf-core's source, and the copy the emitted artifact ships. The research is the argument:
+  nixpkgs, Homebrew, Bioconda, Galaxy, Terraform and crates.io all separate declarations from
+  artifact bytes and link them by pinned revision, and **nf-core is the one counterexample and
+  says the opposite of what it looks like** — a *pipeline* vendors modules, the *catalogue* does
+  not. So the **pin** moves into the registry, where it is version-locked to the contract
+  `MD0104` already checks it against, and the **bytes** leave git for a SHA-keyed cache filled by
+  `mendel vendor sync` — an impure CLI verb, because invariant 1 forbids the fetch anywhere it
+  could otherwise go. `vendor/conf/` is deleted rather than moved: eight files, and **no code
+  path opens any of them**. The second half is the layout, and the precedent is nixpkgs again —
+  its free-form tree became unnavigable and it imposed `pkgs/by-name` with CI behind it. Here
+  **the loader stays free (invariant 11 is unchanged) and the curated registry holds itself to a
+  stated layout its own CI lints**, which buys back most of what retiring `MD0003` gave away.
+  `registry.yml`'s `kinds:` list — *"read by nobody"* by its own comment — becomes the lint's
+  input, so a manifest that could only rot cannot. **The forge is deferred** and §5 records what
+  a registry change does to it rather than leaving it to be discovered.
+
+  [`2026-08-31-what-a-pipeline-takes.md`](2026-08-31-what-a-pipeline-takes.md), **Plan 5 Part B**, and
+  it exists because three requests on the builder canvas turned out to be one blocker: *a
+  channel's identity and its cardinality are properties of the TYPE, not of the pipeline.* A
+  type's `entry_channel` has the param name baked into its Groovy, so two `annotation.gtf`
+  inputs are one `params.gtf`; `goal_of` deduplicates `have` by `type_id`; and
+  `StepInput.channel` is a `TypeId`, so two channels of one type are unaddressable in
+  `pipeline.yml`. **The canvas already disagreed with all of it** — it draws one socket per
+  unwired port, five on the spine, where the goal holds three — and nothing looked wrong until
+  somebody tried to name them. The spec gives a `Channel` a `name`, a `param` and a `scope`,
+  turns `entry_channel` into a one-placeholder template, and adds **exactly two scopes** —
+  `run` and `sample` — refusing a third for the reason `Kind` refused one in Plan 4 phase 4.
+  Two sample-scoped channels are *reads with their respective annotations*, emitted as a
+  samplesheet. Three things it will not do: read a samplesheet (invariant 15 is unmoved —
+  Mendel emits a pipeline that references `params.input` and never receives one), let a typed
+  label reach a key (the operator's constraint, and §5's table is the safety argument), or
+  claim `params.input` has one meaning when it has two (`MD0229`). Phase 1 — outputs on the
+  canvas, which are computed today and **drawn nowhere**, plus labels — is independent of the
+  rest and can land alone.
+
 **Read the relevant spec before starting the part that implements it.** The plan argues from the
 spec, and a plan read alone loses the reasons.
