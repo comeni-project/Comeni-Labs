@@ -212,8 +212,50 @@ class StepView(BaseModel):
     round trip for data the build already had in hand."""
 
 
+class ChannelView(BaseModel):
+    """One channel the pipeline reads from outside, as the canvas draws it.
+
+    ═══ THE SEAM SPEC §12.3 FOUND, AND WHY IT IS A TASK ══════════════════════════════════════
+
+    §0's finding was that **the canvas already disagreed with the artifact**: it derived one
+    socket per unwired *port* — five on the spine, three of them `annotation.gtf` — while
+    `goal_of` deduplicated by type and the emitted workflow had one `params.gtf`. Nothing was
+    wrong on screen until somebody tried to name them.
+
+    Part A fixed the registry and Part B fixes the resolver, and **nothing said the API
+    changed** — so `Sources.entryChannels()` in the browser would have gone on computing its own
+    answer from unwired ports, and the canvas and the resolver would disagree *again*, in a new
+    way, because now there genuinely are named channels for it to disagree with.
+
+    So the browser stops deriving and starts reading. `entryChannels` is **deleted**, not left
+    beside this: two derivations of one fact is the defect this whole plan started from, and
+    keeping the old one "for now" is how it survives.
+
+    **It is also what makes phase 3's split/merge possible at all** — you cannot split a thing
+    that is recomputed from scratch on every render.
+    """
+
+    name: str
+    """The channel's own id — `gtf`, `gtf_2`. Derived; see `Channel.name`."""
+    param: str
+    """The hole a laboratory fills: `params.<param>`. Not always the name — `fastq.reads` is
+    named `reads` and reads `params.input`."""
+    type_id: str
+    states: list[str] = []
+    """What the first port reading this channel asks for, so a socket can show
+    `annotation.gtf[…]` the way a port does. Empty where nothing is required."""
+    ports: list[str]
+    """`<node>.<port>`, every port this channel feeds. **This is what the canvas draws against**
+    — a socket is placed relative to a consumer, so a channel with no ports has nowhere to go,
+    and a channel with three is drawn once rather than three times. That difference is the
+    whole of §0."""
+
+
 class BuiltPipeline(BaseModel):
     steps: list[StepView]
+    channels: list[ChannelView]
+    """What this pipeline reads from outside. **The server's answer, not the browser's** — see
+    `ChannelView`."""
     layout: Placement
     provenance: dict[str, int]
     """Tier → how many steps exited at it. **Keyed by string** because JSON object keys are
@@ -351,8 +393,34 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     decisions = sum(provenance.values())
     settled = sum(n for tier, n in provenance.items() if tier in {"1", "2"})
 
+    # **Read off the artifact, which is the point.** A port names a channel by name now, so
+    # the mapping the canvas needs is already recorded rather than recomputable — and the
+    # states come from the consuming port, which is the same place `ports_of` reads them.
+    port_states = {
+        f"{step.id}.{port.name}": port.states
+        for step in steps
+        for port in step.ports
+        if port.side == "in"
+    }
+    feeds: dict[str, list[str]] = {channel.name: [] for channel in pipeline.channels}
+    for step in pipeline.steps:
+        for item in step.inputs:
+            if item.channel is not None and item.channel in feeds:
+                feeds[item.channel].append(f"{step.id}.{item.port}")
+    channels = [
+        ChannelView(
+            name=channel.name,
+            param=channel.param,
+            type_id=channel.type_id,
+            states=port_states.get(feeds[channel.name][0], []) if feeds[channel.name] else [],
+            ports=feeds[channel.name],
+        )
+        for channel in pipeline.channels
+    ]
+
     return BuiltPipeline(
         steps=steps,
+        channels=channels,
         layout=Placement(
             nodes=[PlacedNode(**vars(n)) for n in placed.nodes],
             wires=[

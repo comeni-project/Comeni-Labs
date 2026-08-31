@@ -74,7 +74,7 @@ def test_emits_include_statements_for_every_node():
 def test_emits_workflow_block_wiring_edges():
     source = emit(_pipeline())
     assert "workflow {" in source
-    assert "TRIMGALORE(ch_fastq_reads)" in source
+    assert "TRIMGALORE(ch_reads)" in source
     assert "STAR_ALIGN(TRIMGALORE.out.reads" in source
 
 
@@ -209,7 +209,7 @@ def test_call_arity_follows_the_declared_signature():
     source = emit(_pipeline())
     call = next(line for line in source.splitlines() if "STAR_ALIGN(" in line).strip()
     assert call == (
-        "STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, ch_annotation_gtf, false)"
+        "STAR_ALIGN(TRIMGALORE.out.reads, ch_star, ch_gtf, false)"
     ), call
 
 

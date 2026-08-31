@@ -10,10 +10,10 @@ include { TRIMGALORE } from './modules/nf-core/trimgalore/main'
 include { STAR_ALIGN } from './modules/nf-core/star/align/main'
 
 workflow {
-    ch_annotation_gtf = Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName], gtf ] }
-    ch_fastq_reads = ( params.input instanceof List ? Channel.of([ [id: 'test'], params.input.collect { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] } )
-    ch_genome_index_star = Channel.fromPath(params.star, checkIfExists: true).map { f -> [ [:], f ] }
+    ch_gtf = Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName], gtf ] }
+    ch_reads = ( params.input instanceof List ? Channel.of([ [id: 'test'], params.input.collect { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] } )
+    ch_star = Channel.fromPath(params.star, checkIfExists: true).map { f -> [ [:], f ] }
 
-    TRIMGALORE(ch_fastq_reads)
-    STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, ch_annotation_gtf, false)
+    TRIMGALORE(ch_reads)
+    STAR_ALIGN(TRIMGALORE.out.reads, ch_star, ch_gtf, false)
 }

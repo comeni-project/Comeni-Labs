@@ -19,6 +19,7 @@ describe("recovering the graph from a built view", () => {
         { id: "sort", contract_id: SORT, process: "SAMTOOLS_SORT", tier: 2, reason: "",
           ports: [], settings: [] },
       ],
+      channels: [],
       layout: {
         nodes: [], width: 0, height: 0,
         wires: [

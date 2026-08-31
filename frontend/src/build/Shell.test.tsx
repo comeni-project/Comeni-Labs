@@ -27,6 +27,7 @@ const PIPELINE = {
     ports: [{ name: "bam", type_id: "alignment.bam", side: "out", met: true }],
     settings: [],
   }],
+  channels: [],
   layout: {
     nodes: [{ id: "star_align", rank: 0, order: 0, x: 0, y: 0, width: 232, height: 78, tier: 3 }],
     wires: [], width: 232, height: 78,

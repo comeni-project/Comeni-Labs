@@ -891,6 +891,8 @@ export interface components {
         BuiltPipeline: {
             /** Steps */
             steps: components["schemas"]["StepView"][];
+            /** Channels */
+            channels: components["schemas"]["ChannelView"][];
             layout: components["schemas"]["Placement"];
             /** Provenance */
             provenance: {
@@ -926,6 +928,44 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /**
+         * ChannelView
+         * @description One channel the pipeline reads from outside, as the canvas draws it.
+         *
+         *     ═══ THE SEAM SPEC §12.3 FOUND, AND WHY IT IS A TASK ══════════════════════════════════════
+         *
+         *     §0's finding was that **the canvas already disagreed with the artifact**: it derived one
+         *     socket per unwired *port* — five on the spine, three of them `annotation.gtf` — while
+         *     `goal_of` deduplicated by type and the emitted workflow had one `params.gtf`. Nothing was
+         *     wrong on screen until somebody tried to name them.
+         *
+         *     Part A fixed the registry and Part B fixes the resolver, and **nothing said the API
+         *     changed** — so `Sources.entryChannels()` in the browser would have gone on computing its own
+         *     answer from unwired ports, and the canvas and the resolver would disagree *again*, in a new
+         *     way, because now there genuinely are named channels for it to disagree with.
+         *
+         *     So the browser stops deriving and starts reading. `entryChannels` is **deleted**, not left
+         *     beside this: two derivations of one fact is the defect this whole plan started from, and
+         *     keeping the old one "for now" is how it survives.
+         *
+         *     **It is also what makes phase 3's split/merge possible at all** — you cannot split a thing
+         *     that is recomputed from scratch on every render.
+         */
+        ChannelView: {
+            /** Name */
+            name: string;
+            /** Param */
+            param: string;
+            /** Type Id */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            /** Ports */
+            ports: string[];
         };
         /** CompareIn */
         CompareIn: {
@@ -1081,6 +1121,8 @@ export interface components {
             nodes?: components["schemas"]["DraftNode"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
+            /** Labels */
+            labels?: components["schemas"]["DraftLabel"][];
             profile?: components["schemas"]["DataProfile"];
         };
         /**
@@ -1094,6 +1136,49 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * DraftLabel
+         * @description What a person calls one socket. **On the draft, and nowhere else.**
+         *
+         *     ═══ WHAT IS DERIVED AND WHAT IS TYPED ════════════════════════════════════════════════════
+         *
+         *     The operator's constraint on 2026-08-31 was one sentence — *"yes it's a label, does not
+         *     change the actual keys"* — and the table it implies is the whole safety argument:
+         *
+         *     | | derived | typed by a person |
+         *     |---|---|---|
+         *     | the channel name (`gtf_2`) | ✓ | |
+         *     | the param (`params.gtf_2`) | ✓ | |
+         *     | the samplesheet column | ✓ | |
+         *     | the Nextflow variable | ✓ | |
+         *     | what the canvas shows | | ✓ |
+         *
+         *     So `materialise` does not read this field, nothing derived from it reaches `pipeline.yml`,
+         *     and no resolver sees it. A guard holds that rather than this docstring:
+         *     `test_a_label_reaches_nothing` builds two drafts differing only in their labels and asserts
+         *     the emitted `.nf` and the artifact are identical.
+         *
+         *     ═══ WHY A LABEL IS WORTH THIS MUCH CARE ══════════════════════════════════════════════════
+         *
+         *     **Invariant 15.** A field a person types into, which names an input, is one rename away
+         *     from `/data/patients/PT-4471023/`. Keeping it off the key and out of the artifact means the
+         *     worst case is a private note in a Postgres row rather than a patient identifier in a
+         *     published pipeline.
+         *
+         *     It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
+         *     door payload and `tests/test_egress.py` is untouched by this change, which is the assertion
+         *     rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
+         *     fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
+         */
+        DraftLabel: {
+            /** Key */
+            key: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
         };
         /** DraftNode */
         DraftNode: {

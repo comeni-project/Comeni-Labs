@@ -10,6 +10,7 @@ import type { Built, DraftGraph, Step, Verdict } from "../api/types";
 /** What the canvas draws before anything is on it. Not a loading state and not an error. */
 const EMPTY_VIEW: Built = {
   steps: [],
+  channels: [],
   layout: { nodes: [], wires: [], width: 0, height: 0 },
   provenance: {},
   settled_share: 1,

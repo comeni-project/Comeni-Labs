@@ -6,6 +6,8 @@ it to make a screen easier is the sort of decision that should be made when some
 So: a goal goes in, a resolved and laid-out pipeline comes back, and nothing is written.
 """
 
+import pathlib
+
 from mendel_api.services import build
 
 
@@ -114,3 +116,75 @@ def test_every_configured_root_is_absolute_in_the_compose_file():
         found = re.search(rf"{key}: *(\S+)", compose)
         assert found, f"{key} is a path setting that docker-compose.yml never sets"
         assert found.group(1).startswith("/"), f"{key} is relative in the container"
+
+
+# ═══ CHANNELS — spec §12.3, the seam neither spec covered ═════════════════════════════════
+#
+# §0's finding was that the canvas derives its own answer and disagrees with the artifact:
+# `Sources.entryChannels()` returned one entry per unwired input PORT — five on the spine,
+# three of them `annotation.gtf` — while the resolver deduplicated by type and the emitted
+# workflow had one `params.gtf`. The run sheet listed three things to bind where the pipeline
+# had one hole, and two of the three answers went nowhere.
+
+
+def test_the_spine_reports_one_channel_per_hole_and_not_one_per_port():
+    """**The number is the whole point.** Five unwired input ports, three channels.
+
+    Asserted as an inequality against the ports rather than as a literal `3`, because a literal
+    would pass just as happily against a derivation that had gone back to counting ports on a
+    registry where the two numbers happened to agree.
+    """
+    got = build.example()
+    fed = {f"{w.to_node}.{w.to_port}" for w in got.layout.wires}
+    unwired = [
+        f"{step.id}.{port.name}"
+        for step in got.steps
+        for port in step.ports
+        if port.side == "in" and port.met and f"{step.id}.{port.name}" not in fed
+    ]
+    assert len(got.channels) < len(unwired), (
+        f"{len(unwired)} unwired ports collapse to {len(got.channels)} channels; "
+        "one socket per port is the defect spec section 0 is about"
+    )
+    assert sum(len(c.ports) for c in got.channels) == len(unwired)
+
+
+def test_a_channel_names_every_port_it_feeds():
+    """This is what the canvas draws against: a socket is placed relative to a consumer, so a
+    channel with no ports has nowhere to go and a channel with three is drawn once with three
+    stubs rather than three times."""
+    got = build.example()
+    for channel in got.channels:
+        assert channel.ports, f"channel {channel.name} feeds nothing"
+    gtf = next(c for c in got.channels if c.type_id == "annotation.gtf")
+    assert len(gtf.ports) > 1, "the spine's GTF feeds both the aligner and featureCounts"
+
+
+def test_a_channel_carries_the_param_a_laboratory_fills_and_it_is_not_always_the_name():
+    """`fastq.reads` is named `reads` and reads `params.input`.
+
+    The run sheet asks for a channel's `param`, so collapsing the two fields would have it ask
+    for `params.reads` on a pipeline whose workflow reads `params.input` — the interface and the
+    artifact disagreeing again, in a new place.
+    """
+    got = build.example()
+    reads = next(c for c in got.channels if c.type_id == "fastq.reads")
+    assert reads.name == "reads"
+    assert reads.param == "input"
+
+
+def test_the_browser_derives_no_channel_of_its_own():
+    """`Sources.entryChannels()` is deleted, not left beside `BuiltPipeline.channels`.
+
+    Two derivations of one fact is the defect this whole plan started from, and keeping the old
+    one "for now" is how it survives. Checked from the Python side because the TypeScript half
+    cannot see whether the function it calls is reading or computing — the honest assertion is
+    that the browser's copy of the rule is gone, and this is where the rule now lives.
+    """
+    source = (
+        pathlib.Path(__file__).parents[3] / "frontend" / "src" / "build" / "Sources.tsx"
+    ).read_text()
+    body = source[source.index("export function entryChannels") :]
+    body = body[: body.index("\n}")]
+    assert "data.channels" in body, "entryChannels must read the server's answer"
+    assert "port.side" not in body, "entryChannels must not walk the ports again"

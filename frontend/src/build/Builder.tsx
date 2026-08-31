@@ -214,6 +214,13 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
   const index = useCompatibility();
   const data: Built | null = builder.drawn;
   const offsets = builder.offsets;
+  /** The draft's labels, by socket key. A list on the wire because order is a list's to keep
+   *  and a `dict[str, str]` in a Pydantic model is a `Mark.ANY_KEY` the egress guard would have
+   *  to reason about; a record here because the canvas looks one up per socket. */
+  const labels = useMemo(
+    () => Object.fromEntries((builder.graph.labels ?? []).map((l) => [l.key, l.label])),
+    [builder.graph.labels],
+  );
   const isLoading = data === null;
   const error = builder.drawnError;
   const [panel, setPanel] = useState<"step" | "ask" | "problems">("step");
@@ -543,7 +550,12 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 both. An entry channel used to draw a stub running off to the left with a
                 clipped label and no terminus: the canvas said *something feeds this* and never
                 what, so the only way to learn what the pipeline required was to press Run. */}
-            <Sources data={data} offsets={offsets} />
+            <Sources
+              data={data}
+              offsets={offsets}
+              labels={labels}
+              onRename={builder.setLabel}
+            />
 
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}
             <Wires

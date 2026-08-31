@@ -40,6 +40,7 @@ from comeni_core.plan.tiers import (
     review_level_for,
 )
 from comeni_core.spell.marks import (
+    ChannelName,
     ContainerRef,
     ContractId,
     Digest,
@@ -60,7 +61,7 @@ from comeni_core.spell.marks import (
 )
 from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 """What this Mendel writes and the highest it will read.
 
 The rule was "bumped only by a change that an older Mendel would misread — a section it would
@@ -403,8 +404,14 @@ class StepInput(BaseModel):
     an `EdgeRef` — its validator requires two Groovy identifiers, which `channel:annotation.gtf`
     is not. Encoding a union in a string is also root G's problem: a field that reads two ways.
     """
-    channel: TypeId | None = None
-    """The entry channel this port reads, when nothing upstream produces it."""
+    channel: ChannelName | None = None
+    """The entry channel this port reads, when nothing upstream produces it.
+
+    **A `ChannelName` since Plan 5B; it was a `TypeId`.** That is the change that makes two
+    same-type inputs *addressable*: a port naming its source by type cannot distinguish the
+    liver annotation from the reference one, so `pipeline.yml` could not express what the
+    canvas was already drawing. `MD0227` refuses a name no channel declares.
+    """
     states: list[StateName] = Field(default_factory=list)
     """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
     order — `digest_of` hashes the JSON, so this must not be one."""
@@ -510,10 +517,35 @@ class Step(BaseModel):
 
 
 class Channel(BaseModel):
-    """What the laboratory supplies, and the measured facts that ride with it."""
+    """What the laboratory supplies, and the measured facts that ride with it.
+
+    **A channel has a name and a param since Plan 5B**, and the reason is spec §0's one
+    sentence: *a channel's identity and its cardinality were properties of the TYPE, not of the
+    pipeline.* `entry_channel: "…params.gtf…"` in a type file fused three pipeline decisions
+    into one string, and the first of them is why the spine's three `annotation.gtf` consumers
+    were one hole nobody could address.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    name: ChannelName
+    """This pipeline's own id for the channel — `gtf`, `gtf_2`, `reads`.
+
+    **Derived, never typed.** *"Yes it's a label, does not change the actual keys"* — a person's
+    words reach `DraftLabel` and stop there. The derivation is the type id's last segment, with
+    `_2`, `_3` on collision: `qc.report` and `multiqc.report` both end in `report`, which
+    `_channel_name`'s docstring already recorded costing two ports the same channel silently.
+    A derived value that can collide needs a check rather than a convention, so `MD0226`
+    refuses a pipeline whose channel names are not unique.
+    """
+    param: NfIdentifier
+    """The hole this reads: `params.<param>`.
+
+    **Separate from `name`, and `fastq.reads` is why.** Every other shipped type reads
+    `params.<last segment>`; that one reads `params.input` and always has. Collapsing the two
+    fields would rename it inside a phase that is supposed to change no behaviour, and would
+    dissolve the ambiguity spec §12.1 says phase 5 must solve.
+    """
     type_id: TypeId
     params: list[PortName] = Field(default_factory=list)
     """Which `params.<name>` the expression references. Plural: one expression may reference
@@ -630,7 +662,25 @@ class Pipeline(EgressPayload):
 
     @model_validator(mode="before")
     @classmethod
-    def _backfill_provenance_a_v1_file_never_had(cls, data: object) -> object:
+    def _migrate(cls, data: object) -> object:
+        """Every version branch, applied in ascending order. **One validator, on purpose.**
+
+        Pydantic runs several `mode="before"` model validators bottom-up, so two of them are
+        ordered by where they sit in the class body — which is invisible, and got this wrong on
+        the first attempt: the 5 → 6 branch stamped `version: 6` and the 1 → 2 branch, which
+        guards on `version < 2`, then declined to run. A version-1 document stopped loading, and
+        the error named a missing `why` three types away from the cause.
+
+        A list read top to bottom cannot have that bug. Add a branch by appending to it.
+        """
+        if not isinstance(data, dict):
+            return data
+        for migration in (cls._v1_to_v2, cls._v5_to_v6):
+            data = migration(data)
+        return data
+
+    @classmethod
+    def _v1_to_v2(cls, data: dict) -> dict:
         """An archived pipeline has no `channels[].meta[].why`, and must still load.
 
         Plan 1.14 makes that field required — the A48 principle, so nothing can construct a
@@ -645,7 +695,7 @@ class Pipeline(EgressPayload):
         mode `Constraints._accept_mapping` avoids by keeping the ergonomic form and the safe
         representation separate decisions.
         """
-        if not isinstance(data, dict) or data.get("version", SCHEMA_VERSION) >= 2:
+        if data.get("version", SCHEMA_VERSION) >= 2:
             return data
         legacy = {
             "tier": Tier.STRUCTURAL,
@@ -661,6 +711,93 @@ class Pipeline(EgressPayload):
                                  for entry in channel.get("meta") or []]}
             for channel in data.get("channels") or []
         ]
+        return data
+
+    @classmethod
+    def _v5_to_v6(cls, data: dict) -> dict:
+        """Schema 5 → 6. A channel gains a `name` and a `param`; a port names one.
+
+        ═══ IT IS A SPELLING, NOT A DECISION, AND THAT IS THE WHOLE ARGUMENT ══════════════════
+
+        A version-5 file has **one channel per type** — `goal_of` deduplicated by `type_id` and
+        `StepInput.channel` *was* a `TypeId`. So `annotation.gtf` → `gtf` restates what the file
+        already said; nothing is chosen, and the mapping is total and unambiguous.
+
+        Spec §12.2 asks the migration to write a `Why` saying it decided, so that `upgrade`
+        **replays** rather than re-derives. That is exactly right for **scope**, which phase 4
+        adds: a v5 file has no scope on any channel, taking the type's default is a genuinely
+        new decision, and a decision appearing in a pipeline nobody re-decided is what replay
+        exists to prevent.
+
+        **A name is not that.** Recording a `DecisionRecord` for a rename would put a decision
+        nobody made into the artifact — §12.2's own failure mode, arriving from the other side —
+        and `mendel explain` would owe an answer for a question that was never open. What the
+        property needs instead is that the migration and a fresh derivation *cannot* disagree,
+        and they cannot because they are the same two functions: `materialise._stem` and
+        `materialise._unique`, in the same `sorted(type_id)` order over the same channel list.
+
+        `test_a_migrated_v5_pipeline_upgrades_to_the_same_nextflow` is that claim as a test,
+        and it is the phase's real check. Phase 4 owes the `Why`.
+
+        **`param` comes out of the expression, not out of the name.** A v5 `entry_channel` is a
+        literal — `Channel.fromPath(params.gtf, …)` — and `params:` beside it already lists what
+        it references, put there by `MD0211` and checked on every load. So the param a migrated
+        channel reads is the one the file itself records, which is how `fastq.reads` keeps
+        `params.input` across the migration rather than being renamed by a derivation.
+        """
+        if data.get("version", SCHEMA_VERSION) >= 6:
+            return data
+
+        from comeni_core.artifact import materialise
+
+        data = dict(data)
+        # **Two counters, exactly as `_channels` uses two.** One shared set gave
+        # `annotation.gtf` the param `gtf_2`: the name took `gtf` and the param, the same word
+        # for the same channel, found it taken. A name and a param are different namespaces and
+        # only a cross-channel collision is one.
+        #
+        # It was written with one set here *after* the same bug had been found and fixed in
+        # `_channels` — the two are the same arithmetic in two places, which is why
+        # `test_the_migration_names_channels_the_way_a_fresh_build_does` compares them against
+        # each other rather than each against a literal.
+        names: dict[str, None] = {}
+        params: dict[str, None] = {}
+        named: dict[str, str] = {}
+        channels = []
+        # Sorted by type id, which is the order `_channels` assigns in — so a migrated file and
+        # a rebuilt one number a collision the same way round.
+        for channel in sorted(
+            data.get("channels") or [], key=lambda c: c.get("type_id", "")
+        ):
+            type_id = channel.get("type_id", "")
+            name = materialise._unique(materialise._stem(type_id), names)
+            # One param per v5 channel in every file this can be handed; the fallback keeps a
+            # hand-written fixture with no `params:` loadable rather than raising an IndexError
+            # from inside a migration, where a stack trace explains nothing.
+            declared = list(channel.get("params") or [])
+            param = materialise._unique(
+                declared[0] if declared else materialise._stem(type_id), params
+            )
+            named[type_id] = name
+            channels.append({**channel, "name": name, "param": param})
+        data["channels"] = channels
+
+        data["steps"] = [
+            {
+                **step,
+                "inputs": [
+                    item
+                    if item.get("channel") is None
+                    # `.get(…, …)` rather than `[…]`: a port naming a type no channel declares
+                    # is a broken v5 file, and `MD0227` is a better place to say so than a
+                    # `KeyError` raised while migrating it.
+                    else {**item, "channel": named.get(item["channel"], item["channel"])}
+                    for item in step.get("inputs") or []
+                ],
+            }
+            for step in data.get("steps") or []
+        ]
+        data["version"] = SCHEMA_VERSION
         return data
 
     version: int = SCHEMA_VERSION
@@ -734,6 +871,45 @@ class Pipeline(EgressPayload):
                     "`ai.available: []` means nothing was wired to a model, so nothing could "
                     "have been consulted.")
                 )
+        # ═══ MD0226 AND MD0227 — Plan 5B §2.2 ═══════════════════════════════════════════════
+        #
+        # **A derived value that can collide needs a check, not a convention.** A channel's
+        # name is derived from its type id's last segment, which is not injective: `qc.report`
+        # and `multiqc.report` both end in `report`, and `_channel_name`'s own docstring
+        # recorded that collision costing two ports the same channel *silently*.
+        # `materialise._unique` suffixes them; this refuses the file if two ever come out equal
+        # anyway, so the derivation cannot regress into the bug it replaced.
+        names = [channel.name for channel in self.channels]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(
+                coded(
+                    "MD0226",
+                    f"two channels share the name {', '.join(repeated)}. A channel name is what "
+                    f"`inputs[].channel` points at and what becomes `ch_{repeated[0]}` in the "
+                    f"workflow, so a duplicate feeds two ports from one channel and drops the "
+                    f"other. `mendel explain MD0226`.",
+                )
+            )
+        declared = set(names)
+        dangling = sorted(
+            {
+                f"{step.id}.{item.port} -> {item.channel}"
+                for step in self.steps
+                for item in step.inputs
+                if item.channel is not None and item.channel not in declared
+            }
+        )
+        if dangling:
+            raise ValueError(
+                coded(
+                    "MD0227",
+                    f"{dangling[0]} names a channel this pipeline does not declare. "
+                    f"{len(dangling)} port(s) in total. A port reads a channel by NAME since "
+                    f"schema 6 — by type before it — so a file hand-edited from an older one "
+                    f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
+                )
+            )
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:
             shadow = sorted(

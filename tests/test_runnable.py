@@ -130,7 +130,7 @@ def test_the_emitted_workflow_feeds_the_genome_to_star(spine, loaded):
 
     source = emit(_pipe(spine, loaded))
     call = next(line for line in source.splitlines() if "STAR_GENOMEGENERATE(" in line)
-    assert "ch_genome_fasta" in call, call
+    assert "ch_fasta" in call, call
     assert "[[:], []]" not in call, call
 
 
@@ -139,7 +139,7 @@ def test_the_emitted_workflow_feeds_the_annotation_to_star_align(spine, loaded):
 
     source = emit(_pipe(spine, loaded))
     call = next(line for line in source.splitlines() if "STAR_ALIGN(" in line)
-    assert "ch_annotation_gtf" in call, call
+    assert "ch_gtf" in call, call
 
 
 def test_the_config_asks_the_laboratory_for_a_genome(spine, loaded):
@@ -243,7 +243,7 @@ def test_the_emitted_entry_channel_carries_the_meta(spine_with_profile, loaded):
     from mendel_compiler.emit import emit
 
     source = emit(_pipe(spine_with_profile, loaded))
-    line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    line = next(ln for ln in source.splitlines() if "ch_reads =" in ln)
     assert "strandedness: 'reverse'" in line, line
     assert "single_end: false" in line, line
 
@@ -265,7 +265,7 @@ def test_an_unmeasured_profile_emits_no_meta_wrapper(loaded):
         vocabulary=loaded.vocabulary,
     )
     source = emit(_pipe(ir, loaded))
-    line = next(ln for ln in source.splitlines() if "ch_fastq_reads =" in ln)
+    line = next(ln for ln in source.splitlines() if "ch_reads =" in ln)
     assert "meta +" not in line, line
 
 

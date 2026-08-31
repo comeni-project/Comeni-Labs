@@ -43,19 +43,28 @@ const COLOUR: Record<number, string> = {
  * off the screen — the thing it exists to prevent.
  *
  * `SOCKETS` is that overhang: one socket's height plus its gap, added below.
+ *
+ * **And `GUTTER` is the other one, which was missing.** A rank-0 input socket sits at
+ * `x - SOCKET_W - GAP` = 240px left of the node it feeds, and `left` was `min(xs)` — so *Fit*
+ * cut the inputs off the left edge in exactly the way it cut the sockets off the bottom. That
+ * went unnoticed because nothing was drawn on the right at all; Plan 5B phase 1 puts an OUTPUT
+ * socket there and makes the asymmetry visible. Both gutters are added here, unconditionally
+ * and for the same reason `SOCKETS` is: a graph with no sockets loses 240px of margin, and a
+ * graph with them stays on screen.
  */
 const SOCKETS = 96;
+const GUTTER = 240;
 
 export function bounds(nodes: Placed[], offsets: Record<string, { x: number; y: number }>) {
   const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
   const xs = nodes.map((n) => at(n).x);
   const ys = nodes.map((n) => at(n).y);
-  const left = Math.min(...xs);
+  const left = Math.min(...xs) - GUTTER;
   const top = Math.min(...ys);
   return {
     left,
     top,
-    width: Math.max(...xs) + NODE_W - left,
+    width: Math.max(...xs) + NODE_W + GUTTER - left,
     height: Math.max(...ys) + NODE_H + SOCKETS - top,
   };
 }

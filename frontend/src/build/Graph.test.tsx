@@ -20,6 +20,7 @@ const PIPELINE = {
       settings: [{ name: "seq_platform", value: null, via: "ext", tier: 4,
                    reason: "nobody judged it", axis_reason: "", premise: [] }] },
   ],
+  channels: [],
   layout: {
     nodes: [node("trimgalore", 338, 0, 2), node("star_align", 169, 128, 3)],
     wires: [{

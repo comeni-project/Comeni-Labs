@@ -23,35 +23,35 @@ and it puts the drawing into a shape the later phases read.*
 
 ### 1.1 Outputs are drawn — spec §4.1
 
-- [ ] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
+- [x] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
       There is no output node on the builder at all; a terminal `counts.matrix` is an unwired port
       with nothing marking it as the thing the pipeline is *for*.
-- [ ] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
+- [x] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
       no settings, `impl-inv`'s shape for a thing that carries a type and never a path.
-- [ ] **Several of them where there are several.** The operator asked for it and `want` has always
+- [x] **Several of them where there are several.** The operator asked for it and `want` has always
       supported it.
-- [ ] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
+- [x] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
       its **right**, and a node at the last rank has it by construction.
 
 ### 1.2 Labels — spec §5
 
-- [ ] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
+- [x] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
       `NodeId`**: a port is not a node, and a label should survive its node being dragged but not
       its port being rewired.
-- [ ] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
+- [x] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
       does not reach `pipeline.yml`, and no resolver sees it — the operator's constraint was *"yes
       it's a label, does not change the actual keys."*
-- [ ] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
-- [ ] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
+- [x] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
+- [x] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
       byte-identical `.nf` and identical `pipeline.yml`. Watched failing against a version that
       threads the label into the channel name.
-- [ ] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
+- [x] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
       fields, still fourteen. A `DraftGraph` is not a door payload.
 
 ### 1.3 Checkpoint
 
-- [ ] `make verify` green, frontend suite green.
-- [ ] On screen: a pipeline with several named inputs and several named outputs, and an emitted
+- [x] `make verify` green, frontend suite green.
+- [x] On screen: a pipeline with several named inputs and several named outputs, and an emitted
       `.nf` byte-identical to the one before the labels were typed.
 
 ---
@@ -63,19 +63,19 @@ what makes the diff readable.*
 
 ### 2.1 The version floor, and it lands FIRST — spec §1.3
 
-- [ ] **Before any registry ships a template**, the *current* release must refuse one. A new
+- [x] **Before any registry ships a template**, the *current* release must refuse one. A new
       registry's `params.{param}` reaching an emitter that does no substitution would write
       `params.{param}` into Groovy.
-- [ ] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
+- [x] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
       an older Mendel says *this registry needs a newer Mendel* instead of emitting broken Nextflow.
-- [ ] It is a small change and **it has to land first or it cannot land at all.**
+- [x] It is a small change and **it has to land first or it cannot land at all.**
 
 ### 2.2 The types
 
-- [ ] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
-- [ ] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
+- [x] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
+- [x] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
       that makes two same-type inputs addressable.**
-- [ ] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
+- [x] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
       language** — one substitution, the same argument as Plan 1.15's `transform`. `{` is legal
       Groovy and appears throughout these expressions, so the placeholder is matched as the
       literal seven characters `{param}`.
@@ -88,41 +88,41 @@ what makes the diff readable.*
 
 - [ ] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
       layout arithmetic, and **no node id anywhere**.
-- [ ] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
+- [x] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
       *taken*. Add two STAR nodes and delete the first and the survivor is `star_align_2`; draw one
       and it is `star_align_1`. Two structurally identical graphs, two different node ids — so any
       ordering keyed on them makes a person's `params.*` depend on the order they clicked.
-- [ ] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
+- [x] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
       `qc.report` and `multiqc.report` both end in `report`, and `_channel_name`'s docstring
       records that collision costing two ports the same channel silently.
-- [ ] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
+- [x] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
       collide needs a check, not a convention.**
 
 ### 2.4 `SCHEMA_VERSION` 5 → 6, and the migration decides — spec §12.2
 
-- [ ] The loader migrates: an old file names its channels by type, one channel per type, so
+- [x] The loader migrates: an old file names its channels by type, one channel per type, so
       `annotation.gtf` → `gtf`. In the loader beside the other version branches, **not a script
       somebody has to remember to run.**
 - [ ] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
       name derived from the type, which is what this pipeline's behaviour already was.*
-- [ ] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
+- [x] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
       current registry and replays every recorded decision so only what you touched can move —
       issue #10 closed on that property. If the migration's names and a fresh derivation's names
       differ by one, every `params.*` in a laboratory's command line renames itself on an upgrade
       they asked for to pick up a registry fix.
-- [ ] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
+- [x] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
       emitted `.nf` is byte-identical to the v5 artifact's. Watched failing against a migration
       that assigns silently.
 
 ### 2.5 The API, which neither spec covered — spec §12.3
 
-- [ ] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
-- [ ] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
+- [x] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
+- [x] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
       the defect this whole plan started from; keeping the old one "for now" is how it survives.
-- [ ] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
+- [x] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
       phase 3's split/merge possible at all — you cannot split a thing recomputed from scratch on
       every render.
-- [ ] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
+- [x] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
       answer and disagrees with the artifact. Part A fixes the registry and Part B fixes the
       resolver, and without this the canvas would disagree *again* — in a new way, because now
       there really are named channels for it to disagree with.
@@ -314,8 +314,163 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
+| 1 | Yes, with six | See below |
 | 2 | | |
 | 3 | | |
 | 4 | | |
 | 5 | | |
+
+
+### Phase 1 — the six deviations
+
+1. **INPUT and OUTPUT are one component, not two.** The plan says the gutter arithmetic "applies
+   in reverse"; writing it twice is how the two gutters come to disagree, so `place(kind, …)`
+   holds it once and `Socket` renders either side. The only thing that differs is which edge of
+   the box the stub leaves from and which corner is rounded.
+
+2. **`terminals()` was written, exported, and then folded back into the component.** It was the
+   mirror of `entryChannels`, which is exported because the run sheet is a second reader — and an
+   output is bound by nobody, so the mirror had no second reader at all. Shipping it would have
+   been `OpenQuestion.suggested`'s shape in reverse: a producer with no consumer. Spec §12.3
+   deletes `entryChannels` in phase 2 anyway.
+
+3. **`Mark.SOCKET_KEY` and `SocketKey` are new.** The plan says `key` is `<node>.<port>` and not a
+   `NodeId`; it does not say what type carries it, and a bare `str` is what `marks.py` exists to
+   prevent. `SocketKey` is `_joined_identifier` restricted to `.` — narrower than `DecisionKey`,
+   which also permits `:` because a `Subject` carries one.
+
+4. **`Minimap.bounds` gained a `GUTTER`, which is a pre-existing defect this phase made visible.**
+   `SOCKETS = 96` accounted for the socket overhang *below* and nothing accounted for the 240px
+   gutter to the left, so *Fit* had always cut the INPUT sockets off the left edge. Nothing was
+   drawn on the right, so the asymmetry was invisible until an OUTPUT socket went there.
+
+5. **The `.nf` half of the label guard could not be watched failing against a real defect, and the
+   ledger says so.** Threading a label into `ir_of`'s `selection.reason` — the smallest leak
+   somebody would actually write — failed two of the six tests and correctly did not fail the
+   emission one: a reason reaches `pipeline.yml` and never the workflow. The leak that test exists
+   for needs `Channel.name`, which is phase 2. A probe showed the comparison is live (`True` →
+   `False` when `_channel_name` changes between the two emissions), and the ledger records that
+   *capable of failing* is not *watched failing*.
+
+6. **A real bug, found by the first test written against an output.** `place()` returned a key
+   called `port` holding a coordinate, spread beside the `PortView` it belonged to — so every
+   socket rendered its kind and nothing else. It is `tip` now.
+
+### Phase 1 — what the screen showed
+
+Done, on `localhost:5173/build` against the whole stack. The spine drew **five INPUT sockets and
+one OUTPUT** (`counts.matrix[gene_level]`, in the right-hand gutter at the last rank, with its
+stub); two inputs and the output were renamed in place; the draft **saved**, so a label
+round-trips through the API into Postgres; and no console errors.
+
+**`make dev` could not start, and the message that stopped it advertised a fix that did not
+work.** `names-free` refused because the sibling worktree owns the container names — correctly —
+and told us to set the `*_CONTAINER_NAME` lines in `.env`. Doing that changed nothing, for two
+reasons that are the same mistake: the check read the **shell**, which `make` never loads `.env`
+into, and **five of the nine names were hardcoded** even though `docker-compose.yml` makes every
+one of them overridable. It reads `docker compose config` now, which resolves `.env` the same way
+`up` will, and it was watched still refusing a genuine collision.
+
+**The run sheet is the live proof of spec §0**, and it is worth carrying into phase 2. It lists
+what a person must bind, and it listed **`gtf annotation.gtf` twice and `annotation
+annotation.gtf` once** — three rows for what the artifact merges into one `params.gtf`. That is
+the canvas and the goal disagreeing, on the one screen where the disagreement costs a laboratory
+something: bind those three separately and two of the answers go nowhere. The labels correctly do
+**not** appear here — the sheet reads the artifact's holes, and a label is not in the artifact.
+
+
+### Phase 2.1–2.4 — carried out, with four deviations
+
+**2.1 is a format level, not a Mendel version.** §2.1 asks the layer to declare *"the minimum
+Mendel it needs"* and there is no such number — releases here are per package and independent, so
+a registry would have to name a minimum `mendel-resolver` **and** a minimum `mendel-compiler` and
+get both right. The layer declares what it uses, Mendel declares what it understands. The
+sentence a person reads is still §2.1's.
+
+**A type declares its `param`, which neither spec nor plan mentions.** `fastq.reads` reads
+`params.input` and every other shipped type reads its last segment. Deriving the param from the
+channel name would have renamed it to `params.reads` — a change to *what a laboratory types*,
+inside the phase described as *"the rename, with no behaviour change"* — and would have dissolved
+the very ambiguity §12.1 says phase 5 has to solve. `nextflow.config` is byte-identical across
+the whole phase, which is that decision paying off.
+
+**2.3's `(rank, order-within-rank, port index)` key is deferred to phase 3, and the reason is
+that it is not yet needed.** §11.2's defect is an order keyed on *node ids*, which are minted
+from what is currently taken. `_channels` sorts by **type id**, which is a property of the shape:
+while there is one channel per type the order is a pure function of the set of types the graph
+consumes, and no node id reaches it. It stops being a unique key in phase 3, which is where two
+channels may share a type — and phase 3 already owns the determinism test that fails without it.
+
+**2.4's `Why` is deferred to phase 4, and this one is a disagreement with §12.2 rather than a
+postponement.** §12.2 wants the migration to record that it decided, so `upgrade` replays rather
+than re-derives. That is exactly right for **scope**: a v5 file has none, taking the type's
+default is a genuinely new decision, and a decision appearing in a pipeline nobody re-decided is
+what replay exists to prevent. **A name is not that.** A v5 file has one channel per type, so
+`annotation.gtf` → `gtf` restates what the file already said; recording a `DecisionRecord` for it
+would put a decision nobody made into the artifact — §12.2's own failure mode from the other
+side — and `mendel explain` would owe an answer for a question that was never open.
+
+What the property actually needs is that the migration and a fresh derivation *cannot* disagree,
+and `test_the_migration_names_channels_the_way_a_fresh_build_does` asserts it by comparing them
+against **each other** rather than each against a literal. That test earned its shape
+immediately: the migration was written with one `taken` counter shared between names and params —
+the identical bug that had just been found and fixed in `_channels` — and gave `annotation.gtf`
+the param `gtf_2` while a fresh build gave it `gtf`. A test comparing either one to a hardcoded
+list would have been written against whichever was in front of the author.
+
+**What is NOT done in this commit**, and why it cannot be yet:
+
+- **`MD0228`** — an `entry_channel` with no `{param}`. The substitution reads a template *and*
+  today's literal, because the engine has to understand templates before any registry can ship
+  one. It tightens in the commit that bumps the submodule.
+- **A test over every registry type that a substituted expression still parses** (`nextflow
+  lint` on a generated stub). Nothing to substitute until 2.6 writes the templates.
+- **2.5**, the API's `channels` and deleting `Sources.entryChannels()`.
+
+### The two bugs the goldens caught, both by reading rather than regenerating
+
+`params.star` became `params.star_2`, because names and params shared one uniqueness counter and
+`genome.index.star`'s name took `star` before its own param could. They are different namespaces
+— a Groovy variable against a `params.*` key — and only a cross-channel collision is one.
+
+And `Channel.param` said `reads` for a channel whose expression demonstrably read `params.input`,
+because the param was derived while the expression was still a literal. `_param_of` asks a
+literal expression what it reads, so the field and the string beside it cannot disagree.
+
+**Both were found by reading the golden diff**, which is now the third time in this repository
+that has been what caught it rather than the suite. `nextflow.config` not moving at all is the
+single most useful line in that diff: it is the whole command-line interface, unchanged.
+
+
+### Phase 2.5 — the seam, and the one thing it moved that the plan did not predict
+
+`BuiltPipeline.channels` carries **no `scope`**, because `Scope` does not exist until phase 4.
+The plan's task line names it; the field arrives with the type it needs. Everything else is
+there — name, param, type, states, and the ports each channel feeds.
+
+**The number is the deliverable.** The spine's five unwired input ports collapse to three
+channels, and `gtf` reports feeding all three of its consumers:
+
+    gtf    params.gtf    annotation.gtf  feeds [star_genomegenerate.gtf, star_align.gtf,
+                                                subread_featurecounts.annotation]
+    reads  params.input  fastq.reads     feeds [trimgalore.reads]
+    fasta  params.fasta  genome.fasta    feeds [star_genomegenerate.fasta]
+
+That is the run sheet asking for three files where it asked for five, two of which went nowhere
+— which is the thing that was visible on screen at the end of phase 1 and is now not.
+
+**A label's key changed shape, and the plan did not see it coming.** `DraftLabel.key` was
+`<node>.<port>` for both sides. An input socket is a *channel* now, and a channel may feed three
+ports — so keying its label on a port would give one socket three competing labels and no rule
+for which wins. An input's key is a `ChannelName`; an output's is still `<node>.<port>`, because
+`Goal.want` is a list of type ids and gives an output no identity of its own. `SocketKey` admits
+both without widening, since a bare `gtf` is one identifier segment.
+
+The cost is written on the field rather than left to be discovered: a channel name is derived,
+so adding a second `annotation.gtf` in phase 3 makes one of them `gtf_2` and a label keyed on the
+old name detaches. That is smaller than what it replaced — three ports of one channel carrying
+three different names on one box — and phase 3's `DraftChannel` is where a stable key belongs.
+
+**Outputs are still derived in the browser**, and the asymmetry is deliberate rather than
+half-finished: a channel is a named object because a laboratory *binds* one, and an output is
+bound by nobody. When phase 4 gives outputs an identity, that side reads the server's answer too.

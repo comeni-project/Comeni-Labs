@@ -21,6 +21,7 @@ type S = components["schemas"];
 export type DraftGraph = S["DraftGraph"];
 export type DraftEdge = S["DraftEdge"];
 export type DraftNode = S["DraftNode"];
+export type DraftLabel = S["DraftLabel"];
 export type DraftParam = S["DraftParam"];
 
 export type Built = S["BuiltPipeline"];

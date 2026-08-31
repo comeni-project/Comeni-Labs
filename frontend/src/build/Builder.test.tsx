@@ -21,6 +21,7 @@ const PIPELINE = {
     { id: "samtools_sort", contract_id: "nf-core/samtools/sort@1.21.0", process: "SAMTOOLS_SORT",
       tier: 4, reason: "", ports: [], settings: [] },
   ],
+  channels: [],
   layout: {
     nodes: [
       { id: "star_align", rank: 0, order: 0, x: 0, y: 0, width: 180, height: 64, tier: 4 },
