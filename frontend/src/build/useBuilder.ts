@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { get, post } from "../api/client";
 import { useGraph } from "./useGraph";
-import type { AlignedStep, Built, Comparison, DraftGraph, Step, Verdict } from "../api/types";
+import type { Built, DraftGraph, Step, Verdict } from "../api/types";
 
 
 /** What the canvas draws before anything is on it. Not a loading state and not an error. */
@@ -99,13 +99,18 @@ export function withTypedValues(step: Step, graph: DraftGraph): AnsweredStep {
 
 /** Everything the builder screen does, minus how it looks.
  *
- * **Three network calls and no more.** `draw` lays the graph out — layout stays in Python so the
- * canvas is as deterministic as the emitted `.nf` — `validate` says what is wrong, and `compare`
- * is a button. Dragging, wiring and deleting are local, which is `useGraph`'s job.
+ * **Two network calls and no more.** `draw` lays the graph out — layout stays in Python so the
+ * canvas is as deterministic as the emitted `.nf` — and `validate` says what is wrong. Dragging,
+ * wiring and deleting are local, which is `useGraph`'s job.
  *
- * `validate` and `draw` are keyed on the graph itself, so they refetch when it changes and not
- * while a mouse is moving. `compare` is deliberately *not* a query: it runs a full resolve and
- * must happen when somebody asks, not when something changed.
+ * Both are keyed on the graph itself, so they refetch when it changes and not while a mouse is
+ * moving.
+ *
+ * **`compare` was the third and it is gone**, with the tab that called it. `POST
+ * /pipeline/compare` stays on the server — putting your graph beside the resolver's, with the
+ * resolver's own reason for every difference, is a real thing Plan 3E built and `impl-reuse`
+ * expects the swap panel to reuse. What it is not is a tab on a screen whose artboards draw two:
+ * *Assistant* and *Step*. Asking the assistant is where that question belongs.
  */
 export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promise<unknown>) {
   const graphState = useGraph(initial, { save });
@@ -145,28 +150,6 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
     seed(from);
   }, [drawn.data, seed]);
 
-  const [alignment, setAlignment] = useState<AlignedStep[] | null>(null);
-  const [comparing, setComparing] = useState(false);
-
-  const compare = useCallback(
-    async (goal: unknown) => {
-      setComparing(true);
-      try {
-        const result = await post<Comparison>("/pipeline/compare", { graph, goal });
-        setAlignment(result.alignment);
-        return result;
-      } finally {
-        setComparing(false);
-      }
-    },
-    [graph],
-  );
-
-  /** Take the resolver's half of a row.
-   *
-   * Local: adopting rewrites the graph in the browser and the next `draw`/`validate` follows
-   * from it. Nothing is sent — a round trip per click would make the diff feel like a form.
-   */
   /** Add a node, and let the layout place it unless somebody dropped it somewhere.
    *
    * ═══ WHY THIS STOPPED CALLING `freeSpot` ═══════════════════════════════════════════════
@@ -200,25 +183,6 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
     [graphState],
   );
 
-  const adopt = useCallback(
-    (row: AlignedStep) => {
-      if (row.state === "yours-only" && row.yours_node) {
-        graphState.removeNode(row.yours_node);
-        return;
-      }
-      if (row.state === "mendel-only" && row.mendel_contract) {
-        graphState.addNode(row.mendel_contract);
-        return;
-      }
-      if (row.state === "differs" && row.yours_node && row.mendel_contract) {
-        // **Swap in place.** Removing and adding would drop every wire the step had, which is
-        // the opposite of what "adopt Mendel's choice for this step" means.
-        graphState.replaceContract(row.yours_node, row.mendel_contract);
-      }
-    },
-    [graphState],
-  );
-
   return {
     ...graphState,
     drawn: empty ? EMPTY_VIEW : (drawn.data ?? null),
@@ -236,11 +200,6 @@ export function useBuilder(initial: DraftGraph, save?: (g: DraftGraph) => Promis
     stale: key !== JSON.stringify(graph) || drawn.isFetching || verdict.isFetching,
     drawnError: drawn.error,
     findings: verdict.data?.findings ?? [],
-    alignment,
-    comparing,
-    compare,
-    adopt,
-    clearComparison: () => setAlignment(null),
   };
 }
 

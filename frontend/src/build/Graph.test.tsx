@@ -112,9 +112,19 @@ describe("the graph", () => {
     expect(d).not.toMatch(/C/);
   });
 
-  it("labels a wire with the type it carries", async () => {
+  it("draws no label on a wire, because the type is on the node", async () => {
+    // **`n-bcanvas`: *types on the node*.** A label at each wire's midpoint put
+    // `alignment.bam` across the box the wire was heading into — on a left-to-right graph the
+    // midpoint of a rank hop is inside the 52px gap between two nodes, so it was clipped at
+    // both ends and unreadable at any zoom.
+    //
+    // The information is not lost: the port rows carry the type (`Node.tsx`, and this
+    // fixture declares no ports so it cannot show them), and the wire keeps a `<title>`
+    // naming both of its ends. What went is the only thing that drew over the graph.
     at();
-    await waitFor(() => expect(screen.getByText("fastq.reads")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByTestId("wire").length).toBeGreaterThan(0));
+    expect(document.querySelectorAll("svg text")).toHaveLength(0);
+    expect(document.querySelector("svg title")?.textContent).toContain("→");
   });
 
   it("counts what needs you and what is settled, without opening the card", async () => {

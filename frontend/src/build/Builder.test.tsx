@@ -190,35 +190,6 @@ describe("the builder shell", () => {
   });
 });
 
-describe("the builder is a builder", () => {
-  it("offers problems and compare beside the review rail", async () => {
-    // Plan 3C shipped a visualiser: a goal in, the resolver searches, nothing on the canvas can
-    // be changed. These three tabs are the difference — what is wrong with what YOU drew, and
-    // what Mendel would have done instead.
-    at();
-    expect(await screen.findByTestId("tab-problems")).toBeInTheDocument();
-    expect(screen.getByTestId("tab-compare")).toBeInTheDocument();
-    expect(screen.getByTestId("tab-review")).toBeInTheDocument();
-  });
-
-  it("problems comes before compare, because an illegal graph is not worth diffing", async () => {
-    at();
-    const tabs = await screen.findByTestId("tab-problems");
-    const rail = tabs.parentElement!;
-    const order = Array.from(rail.children).map((c) => c.getAttribute("data-testid"));
-    expect(order.indexOf("tab-problems")).toBeLessThan(order.indexOf("tab-compare"));
-  });
-
-  it("does not render a diff until one is asked for", async () => {
-    // `compare` runs a full resolve. It is a button, not a reaction — and an empty table would
-    // read as "you and Mendel agree", which is a claim nothing has checked.
-    at();
-    fireEvent.click(await screen.findByTestId("tab-compare"));
-    expect(screen.getByTestId("compare-idle")).toBeInTheDocument();
-    expect(screen.getByTestId("run-compare")).toBeInTheDocument();
-  });
-});
-
 describe("interacting without the server in the way", () => {
   it("right-click opens a menu with delete on it", async () => {
     at();

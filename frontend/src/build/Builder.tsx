@@ -10,20 +10,18 @@ import { Grip, RAIL, useWidth } from "./Panels";
 import { ArtifactView } from "./ArtifactView";
 import { Browse } from "./Browse";
 import { Picker } from "./Picker";
-import { Provenance } from "./Provenance";
-import { Sources } from "./Sources";
+import { entryChannels, Sources } from "./Sources";
 import { Status } from "./Status";
 import { Swap } from "./Swap";
 import { useRun } from "./useRun";
 import { usePipelineDraft } from "./usePipelineDraft";
-import { Compare } from "./Compare";
-import { GatePanel } from "./Gate";
-import { SubmitPanel } from "./Submit";
 import { Findings } from "./Findings";
+import { bounds, Minimap } from "./Minimap";
 import { useGate } from "./useGate";
 import { useKeep } from "./useKeep";
 import { NODE_W, portOffset } from "./geometry";
-import { Rail } from "./Rail";
+import { Assistant, StepChoice } from "./Rail";
+import { RunSheet } from "./RunSheet";
 import { Wires } from "./Wires";
 import type { AnsweredStep } from "./useBuilder";
 import { graphOf, unanswered, useBuilder, useExample, withTypedValues } from "./useBuilder";
@@ -42,6 +40,7 @@ function Side({
   collapsed,
   onExpand,
   badge,
+  header = true,
   children,
 }: {
   side: "left" | "right";
@@ -50,6 +49,11 @@ function Side({
   collapsed: boolean;
   onExpand: () => void;
   badge?: number;
+  /** Draw the panel's own title bar. **False for the right column**, whose tab strip is its
+   *  top edge — a header above the tabs was one more band of chrome saying a word the tabs
+   *  already say. The collapsed stub still uses `title`, which is the only place it earns
+   *  its keep. */
+  header?: boolean;
   children?: React.ReactNode;
 }) {
   const testid = side === "left" ? "modules" : "rail";
@@ -81,12 +85,16 @@ function Side({
       style={{ width }}
       className="side shrink-0 flex flex-col bg-surface overflow-hidden"
     >
-      <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
-        <span className={label}>{title}</span>
-        {badge !== undefined && badge > 0 && (
-          <span className="ml-auto font-data text-secondary text-[var(--undecided)]">{badge}</span>
-        )}
-      </div>
+      {header && (
+        <div className="flex items-baseline gap-3 px-4 py-3 border-b border-line">
+          <span className={label}>{title}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className="ml-auto font-data text-secondary text-[var(--undecided)]">
+              {badge}
+            </span>
+          )}
+        </div>
+      )}
       {/* **Not a scroller.** `Rail` owns a `flex-1 min-h-0 overflow-auto` of its own,
           so this made two nested scroll containers around one list — which is a well-known way
           to lose a scroll position: the outer one scrolls, the inner content changes height, and
@@ -116,7 +124,6 @@ export function Builder() {
   const { view, onWheel, onPointerDown, reset, nudge, fit } = useView();
   const box = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [isolated, setIsolated] = useState<string | null>(null);
   const [carded, setCarded] = useState<string | null>(null);
   /** Which output port a wire is being dragged from. `null` most of the time. */
   const [dragging, setDragging] = useState<{ node: string; port: string } | null>(null);
@@ -149,7 +156,7 @@ export function Builder() {
     <Editing built={example.data} opened={draft.opened} draft={draft}
       view={view} onWheel={onWheel} onPointerDown={onPointerDown}
       reset={reset} nudge={nudge} fit={fit} box={box} right={right}
-      selected={selected} setSelected={setSelected} isolated={isolated} setIsolated={setIsolated}
+      selected={selected} setSelected={setSelected}
       carded={carded} setCarded={setCarded} dragging={dragging} setDragging={setDragging} />
   ) : (
     <div className="grid place-items-center h-full">
@@ -192,18 +199,9 @@ function onScreen(at: { x: number; y: number }, view: { x: number; y: number; k:
  * query. The alternative — a hook that tolerates `undefined` — would put "is there a pipeline
  * yet" into every line below.
  */
-const GOAL = {
-  have: [
-    { type_id: "fastq.reads", states: [] },
-    { type_id: "annotation.gtf", states: [] },
-    { type_id: "genome.fasta", states: [] },
-  ],
-  want: ["counts.matrix"],
-};
-
 function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nudge, fit, box,
   right,
-  selected, setSelected, isolated, setIsolated, carded, setCarded, dragging, setDragging }: any) {
+  selected, setSelected, carded, setCarded, dragging, setDragging }: any) {
   // **Node offsets live in `useGraph`, not in each node.** They were local state, which meant a
   // dragged node left its wires behind — the graph broke the moment you touched it.
   //
@@ -218,9 +216,12 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
   const offsets = builder.offsets;
   const isLoading = data === null;
   const error = builder.drawnError;
-  const [panel, setPanel] = useState<"review" | "problems" | "compare" | "gate" | "run">(
-    "review",
-  );
+  const [panel, setPanel] = useState<"step" | "ask" | "problems">("step");
+  /** Whether the run sheet is open. **It was `panel: "run"` and nothing rendered it** — so the
+   *  fourth verb of `Run` set a tab that did not exist and the rail went blank. A sheet is not
+   *  a tab: it is the modal step where a person says where their data is, and `n-brun` draws it
+   *  over the canvas. */
+  const [sheet, setSheet] = useState(false);
   // **The draft lifecycle, finally connected.** 3E built create/save/keep on the server and
   // wired none of it; a gate needs an artifact on disk, which is what surfaced that.
   const keeper = useKeep(builder.graph);
@@ -233,7 +234,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
     keep: keeper.keepAsync,
     lint: () => gate.start("lint"),
     gatePassed: gate.passed,
-    openSheet: () => setPanel("run"),
+    openSheet: () => setSheet(true),
   });
 
   /** Canvas or artifact. **`pipeline.yml` IS the pipeline**, so the second view of the canvas
@@ -321,8 +322,6 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, builder, setSelected]);
-  const [kept, setKept] = useState<{ row: any; reason: string }[]>([]);
-  void kept;
 
   /** Every step with **what this person answered** laid over it — computed once, because three
    *  things read it: the status line's count, the rail's sentence, and the settings card. */
@@ -339,8 +338,13 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
   const blocking = unanswered(answered);
 
   return (
-    <div className="grid grid-rows-[38px_1fr] h-full overflow-hidden">
-      <div className="flex items-center gap-4 px-6 border-b border-line bg-surface">
+    <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden">
+      {/* **A title row, not a toolbar.** It was a 38px strip with the name set at 15px beside
+          three controls, which reads as a browser chrome bar; every artboard opens with the
+          pipeline's name at 26px and the status line beside it, and the toggle and Run at the
+          far right. The name is the largest thing on the screen because it is what the screen
+          is about. */}
+      <div className="flex items-baseline gap-4 px-6 pt-5 pb-4">
         {/* **The name is the draft's own.** It was the literal string `RNA-seq spine`, which is
             why the 2026-08-29 walk deleted every step, replaced them, and still had the old
             name on screen. `PipelineDraft.name` had existed since 3E with nothing setting it. */}
@@ -351,8 +355,10 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           placeholder={draft.draftId ? draft.draftId.slice(0, 8) : "untitled pipeline"}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             draft.rename(e.target.value, builder.graph)}
-          className="bg-transparent border-0 outline-none text-object text-ink min-w-[8ch]
-                     w-[22ch] focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1"
+          className="bg-transparent border-0 outline-none text-ink min-w-[8ch] w-[16ch]
+                     text-title font-semibold tracking-[-.03em]
+                     focus-visible:shadow-[var(--ring)] rounded-r px-1 -mx-1
+                     [field-sizing:content]"
         />
         <Status
           savedAt={draft.savedAt}
@@ -364,7 +370,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           stale={builder.stale}
         />
 
-        <div className="ml-auto flex rounded-r overflow-hidden border border-line">
+        <div className="ml-auto flex border border-line-2">
           {(["canvas", "artifact"] as const).map((which) => (
             <button
               key={which}
@@ -372,10 +378,10 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               data-testid={`view-${which}`}
               onClick={() => setView2(which)}
               aria-pressed={view2 === which}
-              className={`px-3 py-1 text-label uppercase tracking-[.1em] border-0 cursor-pointer
-                          transition-colors
+              className={`font-data px-[15px] py-[7px] text-label uppercase tracking-[.09em]
+                          border-0 cursor-pointer transition-colors
                           ${view2 === which
-                            ? "bg-surface-2 text-ink"
+                            ? "bg-[var(--link-soft)] text-link"
                             : "bg-transparent text-ink-3 hover:text-ink"}`}
             >
               {which}
@@ -391,8 +397,8 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           type="button"
           disabled={runner.busy || builder.graph.nodes.length === 0}
           onClick={() => void runner.run()}
-          className="px-4 py-1.5 rounded-r text-body cursor-pointer
-                     border border-[var(--link)] text-[var(--link)] bg-transparent lift
+          className="px-[26px] py-[9px] border-0 cursor-pointer lift font-semibold
+                     text-[13.5px] bg-[var(--link)] text-paper
                      disabled:cursor-not-allowed disabled:opacity-40"
         >
           {runner.stage === "keeping" ? "Keeping…"
@@ -424,9 +430,6 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
       >
       <div className="stage flex flex-col overflow-hidden">
         {view2 === "artifact" && <ArtifactView draftId={draft.draftId} />}
-        {view2 === "canvas" && data && (
-          <Provenance data={data} isolated={isolated} onIsolate={setIsolated} />
-        )}
         <Canvas
         grid={moving}
         view={view}
@@ -466,38 +469,70 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
           setBrowsing(true);
         }}
         footer={
-          <div
-            data-zoomer
-            className="absolute right-4 bottom-4 flex items-center gap-1 rounded-r
-                       border border-line bg-surface px-1 py-1 shadow-e1"
-          >
-            <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
-              −
-            </button>
-            <span
-              data-testid="zoom"
-              data-k={view.k}
-              className="font-data text-secondary text-ink-3 w-11 text-center tabular-nums"
+          <>
+            {/* **Bottom left: `Fit` and `+ Add step`** — the artboard's two, in the artboard's
+                corner. `+ Add step` is the browse overlay's only visible affordance; before
+                this it opened on a right-click and by ⌘K, which the 2026-08-29 walk already
+                found unreachable once. A gesture with no visible handle is a gesture nobody
+                uses. */}
+            <div data-zoomer className="absolute left-[22px] bottom-[18px] flex gap-2">
+              <button
+                data-testid="fit"
+                aria-label="fit the pipeline"
+                onClick={() => {
+                  const r = box.current?.getBoundingClientRect();
+                  if (!data || !r || data.layout.nodes.length === 0) return;
+                  const b = bounds(data.layout.nodes, offsets);
+                  fit(b.width, b.height, r.width, r.height, { x: b.left, y: b.top });
+                }}
+                className="font-data text-label text-ink-3 border border-line-2 px-[11px]
+                           py-[6px] bg-transparent cursor-pointer lift hover:text-ink"
+              >
+                Fit
+              </button>
+              <button
+                data-testid="add-step"
+                onClick={() => setBrowsing(true)}
+                className="font-data text-label text-link border border-[var(--link-line)]
+                           px-[11px] py-[6px] bg-transparent cursor-pointer lift"
+              >
+                + Add step
+              </button>
+            </div>
+
+            {/* **Bottom right: the minimap, and it is load-bearing.** `impl-settled` deletes
+                the left steps list and says *orientation is the minimap's job* — so this is
+                what pays for that deletion rather than a decoration. It is drawn from the same
+                `offsets` the canvas is, at whatever scale fits the graph, and each mark takes
+                its node's tier colour so *where is the thing that needs me* is answerable
+                without panning. */}
+            {data && data.layout.nodes.length > 0 && (
+              <Minimap nodes={data.layout.nodes} offsets={offsets} />
+            )}
+
+            <div
+              data-zoomer
+              className="absolute right-4 bottom-[86px] flex items-center gap-1 rounded-r
+                         border border-line bg-surface px-1 py-1 shadow-e1"
             >
-              {Math.round(view.k * 100)}%
-            </span>
-            <button onClick={() => nudge(0.1)} aria-label="zoom in" className={zoomBtn}>
-              +
-            </button>
-            <button onClick={reset} aria-label="reset the view" className={zoomBtn}>
-              reset
-            </button>
-            <button
-              aria-label="fit the pipeline"
-              className={zoomBtn}
-              onClick={() => {
-                const r = box.current?.getBoundingClientRect();
-                if (data && r) fit(data.layout.width, data.layout.height, r.width, r.height);
-              }}
-            >
-              fit
-            </button>
-          </div>
+              <button onClick={() => nudge(-0.1)} aria-label="zoom out" className={zoomBtn}>
+                −
+              </button>
+              <span
+                data-testid="zoom"
+                data-k={view.k}
+                className="font-data text-secondary text-ink-3 w-11 text-center tabular-nums"
+              >
+                {Math.round(view.k * 100)}%
+              </span>
+              <button onClick={() => nudge(0.1)} aria-label="zoom in" className={zoomBtn}>
+                +
+              </button>
+              <button onClick={reset} aria-label="reset the view" className={zoomBtn}>
+                reset
+              </button>
+            </div>
+          </>
         }
       >
         {isLoading && <Loading what="the pipeline" />}
@@ -526,7 +561,6 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 points: [],
                 label_at: { x: 0, y: 0 },
               }))}
-              tierOf={(id) => data.layout.nodes.find((n) => n.id === id)?.tier ?? 2}
               at={offsets}
               ports={portIndex}
               width={data.layout.width}
@@ -573,7 +607,6 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 placed={placed}
                 step={answered.find((s) => s.id === placed.id)}
                 zoom={view.k}
-                dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
                 onSelect={() => setSelected(placed.id)}
                 onContextMenu={(e: React.MouseEvent) => {
@@ -649,97 +682,79 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         collapsed={right.collapsed}
         onExpand={() => right.setCollapsed(false)}
         badge={blocking}
+        header={false}
       >
-        {/* **Three tabs, and the order is the order you need them in.** What is wrong with
-            what you drew comes before what Mendel would have done differently, because a graph
-            that cannot be emitted is not yet worth diffing. */}
-        {/* **Draw → Keep → Gate → Run is gone, and the four verbs still happen.**
-            Plan 4 phase 3a, `impl-walk`. They stopped being UI: the header's **Run** does
-            keep → lint → the run sheet → submit → navigate, and the status line beside the
-            name says what is true — `saved 4s ago · valid · 2 values need you`.
+        {/* **ONE strip of tabs.** There were four stacked bands of chrome above the first
+            sentence anybody wanted to read: the `Side` header, the gate panel, `Builder`'s
+            three tabs, and `Rail`'s own three under those.
 
-            **The backend split stays.** `execution-boundary.md` §3 keeps gate and run apart
-            for a real reason: a gate proves an artifact on PUBLIC data, a run touches the
-            lab's OWN. That is two things the machine does, and it was never two buttons a
-            person should have had to press.
-
-            The gate's and the run's own panels keep their tabs below, because that is where
-            their output belongs — under the thing that produced it. */}
-        <div className="p-2 flex flex-col gap-2">
-          <GatePanel draftId={keeper.draftId} blocked={keeper.blocked} />
-          <SubmitPanel draftId={keeper.draftId} gated={gate.passed && !keeper.blocked} />
-        </div>
-
-        <div className="flex gap-1 border-b border-line px-2 pt-2">
-          {(["review", "problems", "compare"] as const).map((t) => (
+            **Lint, Preview and Send to Wiener are not in any artboard, and they are gone from
+            here.** `impl-walk` says where they went: *Run = keep -> lint -> open the run sheet
+            -> submit*. They are steps in one action, not three buttons beside the canvas —
+            and the backend split `execution-boundary.md` §3 protects is a split between two
+            SERVER verbs, never between two controls a person has to press in order. */}
+        <div
+          data-testid="rail-tabs"
+          className="flex gap-0.5 px-4 pt-3.5 border-b border-line"
+        >
+          {(["step", "ask", "problems"] as const).map((t) => (
             <button
               key={t}
               data-testid={`tab-${t}`}
-              data-active={panel === t}
+              data-active={panel === t || undefined}
               onClick={() => setPanel(t)}
-              className={`px-2 py-1 text-label uppercase tracking-[.1em] font-semibold rounded-t
-                          ${panel === t ? "text-ink border-b-2 border-pea" : "text-ink-3"}`}
+              className="font-data text-label uppercase tracking-[.09em] px-[11px] py-1.5
+                         bg-transparent border-0 cursor-pointer text-ink-3 hover:text-ink
+                         data-[active]:text-ink
+                         data-[active]:shadow-[inset_0_-2px_0_var(--link)]"
             >
-              {t}
+              {t === "ask" ? "Assistant" : t}
               {t === "problems" && builder.findings.length > 0 && (
-                <span className="ml-1 font-data text-[var(--undecided)]">
-                  {builder.findings.length}
-                </span>
+                <span className="ml-1.5 text-[var(--undecided)]">{builder.findings.length}</span>
               )}
             </button>
           ))}
+          {/* **A chevron, not the word `collapse`.** Three tabs plus the word overflowed a
+              320px rail and clipped it — and a rail with no visible way to collapse is one the
+              Grip's double-click is the only route into, which is the palette-with-no-keyboard
+              defect wearing different clothes. */}
+          <button
+            data-testid="collapse-right"
+            aria-label="collapse the rail"
+            onClick={() => right.setCollapsed(true)}
+            className="ml-auto text-body text-ink-3 bg-transparent border-0 cursor-pointer px-1
+                       hover:text-ink"
+          >
+            ›
+          </button>
         </div>
 
-        {panel === "problems" && (
-          <Findings findings={builder.findings} onSelect={setSelected} />
-        )}
+        <div className="flex-1 min-h-0 overflow-auto">
+          {panel === "ask" && <Assistant />}
 
+          {panel === "problems" && (
+            <Findings findings={builder.findings} onSelect={setSelected} />
+          )}
 
-        {panel === "compare" && (
-          <>
-            <div className="p-3 pb-0">
-              <button
-                data-testid="run-compare"
-                disabled={builder.comparing}
-                onClick={() => void builder.compare(GOAL)}
-                className="px-3 py-1 rounded-r border-0 bg-pea text-[var(--on-pea)] text-body
-                           font-semibold disabled:opacity-40"
-              >
-                {builder.comparing ? "Resolving…" : "Compare with Mendel"}
-              </button>
-            </div>
-            <Compare
-              alignment={builder.alignment}
-              onAdopt={builder.adopt}
-              onKeep={(row, reason) => {
-                // **Keeping yours is an override and needs a reason** — the defect A77 was.
-                // Recording it against the artifact waits on the keep/override endpoint;
-                // until then the reason is held with the row rather than silently dropped.
-                setKept((all) => [...all, { row, reason }]);
+          {panel === "step" && data && swapping && (
+            <Swap
+              step={data.steps.find((one: any) => one.id === swapping)!}
+              graph={builder.graph}
+              onClose={() => setSwapping(null)}
+              onApply={(contractId: string) => {
+                builder.replaceContract(swapping, contractId);
+                setSwapping(null);
               }}
             />
-          </>
-        )}
-        {panel === "review" && data && swapping && (
-          <Swap
-            step={data.steps.find((one: any) => one.id === swapping)!}
-            graph={builder.graph}
-            onClose={() => setSwapping(null)}
-            onApply={(contractId: string) => {
-              builder.replaceContract(swapping, contractId);
-              setSwapping(null);
-            }}
-          />
-        )}
-        {panel === "review" && data && !swapping && (
-          <Rail
-            steps={answered}
-            selected={selected}
-            onSwap={setSwapping}
-            onOpenSettings={setCarded}
-            onCollapse={() => right.setCollapsed(true)}
-          />
-        )}
+          )}
+          {panel === "step" && data && !swapping && (
+            <StepChoice
+              step={answered.find((one) => one.id === selected)}
+              onSwap={setSwapping}
+              onOpenSettings={setCarded}
+            />
+          )}
+        </div>
       </Side>
       </div>
 
@@ -790,6 +805,23 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
             </button>
           </div>
         </>
+      )}
+
+      {sheet && (
+        <RunSheet
+          name={draft.name || "this pipeline"}
+          steps={answered}
+          sources={data ? entryChannels(data) : []}
+          draftId={keeper.draftId}
+          blocked={keeper.blocked}
+          gated={gate.passed && !keeper.blocked}
+          onClose={() => setSheet(false)}
+          onOpenSettings={(id: string) => {
+            setSheet(false);
+            setSelected(id);
+            setCarded(id);
+          }}
+        />
       )}
 
       {browsing && (

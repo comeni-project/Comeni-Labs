@@ -43,6 +43,23 @@ const GAP = 90;
  * never what. A person could only learn what the pipeline required by pressing Run and reading
  * the sheet.
  */
+/** What this pipeline needs before it can run: every input port nothing on the canvas feeds.
+ *
+ * **One derivation, two readers.** The canvas draws these as `INPUT` sockets; the run sheet
+ * lists them as the things a person has to bind. Deriving it twice is how the two would come to
+ * disagree about what a pipeline needs — and the rule is subtle enough to be worth stating once:
+ * an input that is *unmet* is not an entry channel, it is a hole in the graph, and saying so is
+ * the hollow port's job.
+ */
+export function entryChannels(data: Built) {
+  const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
+  return data.steps.flatMap((step) =>
+    step.ports
+      .filter((port) => port.side === "in" && port.met && !wired.has(`${step.id}.${port.name}`))
+      .map((port) => ({ key: `${step.id}.${port.name}`, name: port.name, type_id: port.type_id })),
+  );
+}
+
 export function Sources({ data, offsets }: {
   data: Built;
   offsets: Record<string, { x: number; y: number }>;

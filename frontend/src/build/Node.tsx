@@ -38,7 +38,6 @@ export function Node({
   placed,
   step,
   zoom,
-  dim = false,
   selected,
   onSelect,
   onContextMenu,
@@ -55,7 +54,6 @@ export function Node({
   placed: Placed;
   step: Step | undefined;
   zoom: number;
-  dim?: boolean;
   selected: boolean;
   onSelect: () => void;
   /** Right-click. The canvas opens a menu; a read-only canvas passes nothing and the browser's
@@ -124,7 +122,6 @@ export function Node({
       data-id={placed.id}
       data-tier={placed.tier}
       data-selected={selected || undefined}
-      data-dim={dim || undefined}
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       onClick={onSelect}
@@ -154,7 +151,7 @@ export function Node({
       }}
       className="absolute flex flex-col cursor-grab active:cursor-grabbing
                  data-[selected]:shadow-[0_0_0_1px_var(--link)]
-                 data-[dim]:opacity-20 transition-[box-shadow,opacity]"
+                 transition-[box-shadow,opacity]"
     >
       {/* Ports sit ON the edges, at the one derivation — `portOffset`. An input on the left, an
           output on the right, because that is the way the graph flows. */}

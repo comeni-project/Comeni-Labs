@@ -86,11 +86,23 @@ export function useView() {
   }), []);
 
   /** Fit the graph in the viewport, with a margin, never zoomed past 1. */
-  const fit = useCallback((w: number, h: number, vw: number, vh: number) => {
-    if (!w || !h || !vw || !vh) return;
-    const k = Math.min(1, Math.max(MIN_K, Math.min((vw - 48) / w, (vh - 48) / h)));
-    setView({ k, x: (vw - w * k) / 2, y: 24 });
-  }, []);
+  /** Put the whole graph on screen, centred on **both** axes.
+   *
+   * It pinned `y: 24` — so a graph taller than the frame was scaled to fit vertically and then
+   * hung off the bottom anyway, because the scale and the position disagreed about which axis
+   * mattered. `x` was already centred; this is the same arithmetic, applied twice.
+   *
+   * `w` and `h` are the DRAWN bounds, not `layout.width`/`layout.height` — see `Minimap.bounds`
+   * for why those two are different, and `at` for the origin, which a dragged graph moves.
+   */
+  const fit = useCallback(
+    (w: number, h: number, vw: number, vh: number, at = { x: 0, y: 0 }) => {
+      if (!w || !h || !vw || !vh) return;
+      const k = Math.min(1, Math.max(MIN_K, Math.min((vw - 48) / w, (vh - 48) / h)));
+      setView({ k, x: (vw - w * k) / 2 - at.x * k, y: (vh - h * k) / 2 - at.y * k });
+    },
+    [],
+  );
 
   return { view, onWheel, onPointerDown, zoomAt, reset, nudge, fit };
 }
