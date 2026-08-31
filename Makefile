@@ -172,8 +172,31 @@ $(NODEDEPS): frontend/package-lock.json
 # side", but `make dev` copies that file with them still commented — so the default experience
 # is the conflict, and the message says nothing about the fix. This lists every colliding name
 # at once and names both ways out.
+#
+# ═══ AND THE FIX IT NAMED DID NOT WORK ════════════════════════════════════════════════════
+#
+# Found 2026-08-31 by taking the advice in the message. Two reasons, and both are the same
+# mistake: the check was written from the *sentence* rather than from `docker-compose.yml`.
+#
+#   → **It read the shell, not `.env`.** `make` does not load `.env`; compose does. So the
+#     overrides the message tells you to write were invisible to the check that printed the
+#     message, and following its advice changed nothing at all.
+#   → **Five of the nine names were hardcoded.** `mendel-db`, `mendel-redis`, `wiener-db`,
+#     `wiener-ingest` and `wiener-worker` had no override here, though `docker-compose.yml`
+#     makes every one of them a `$${..._CONTAINER_NAME:-default}`. So even exporting the
+#     variables first would still have collided on five names.
+#
+# The list is read from compose itself now — `config --format json` resolves `.env`, the
+# defaults and the overrides the same way `up` will — so there is one answer to *what will
+# this stack call its containers* rather than a copy here that goes stale on the next service.
 names-free:
-	@names="$${API_CONTAINER_NAME:-mendel-api} $${WORKER_CONTAINER_NAME:-mendel-worker} $${WEB_CONTAINER_NAME:-mendel-web} $${WIENER_API_CONTAINER_NAME:-wiener-api} mendel-db mendel-redis wiener-db wiener-ingest wiener-worker"; \
+	@names="$$(docker compose config --format json 2>/dev/null \
+	  | python3 -c 'import json,sys; print(" ".join(s.get("container_name","") for s in json.load(sys.stdin)["services"].values() if s.get("container_name")))' \
+	  2>/dev/null)"; \
+	if [ -z "$$names" ]; then \
+	  echo "could not read the container names from compose; skipping the collision check"; \
+	  exit 0; \
+	fi; \
 	mine="$${COMPOSE_PROJECT_NAME:-$$(basename "$$PWD" | tr '[:upper:]' '[:lower:]')}"; \
 	clash=""; \
 	for n in $$names; do \

@@ -51,7 +51,7 @@ and it puts the drawing into a shape the later phases read.*
 ### 1.3 Checkpoint
 
 - [x] `make verify` green, frontend suite green.
-- [ ] On screen: a pipeline with several named inputs and several named outputs, and an emitted
+- [x] On screen: a pipeline with several named inputs and several named outputs, and an emitted
       `.nf` byte-identical to the one before the labels were typed.
 
 ---
@@ -356,5 +356,24 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
    called `port` holding a coordinate, spread beside the `PortView` it belonged to — so every
    socket rendered its kind and nothing else. It is `tip` now.
 
-**The checkpoint's second half is open.** `make verify` and the frontend suite are green; nobody
-has looked at the screen. That is the gap Plan 4 phase 6 exists because of.
+### Phase 1 — what the screen showed
+
+Done, on `localhost:5173/build` against the whole stack. The spine drew **five INPUT sockets and
+one OUTPUT** (`counts.matrix[gene_level]`, in the right-hand gutter at the last rank, with its
+stub); two inputs and the output were renamed in place; the draft **saved**, so a label
+round-trips through the API into Postgres; and no console errors.
+
+**`make dev` could not start, and the message that stopped it advertised a fix that did not
+work.** `names-free` refused because the sibling worktree owns the container names — correctly —
+and told us to set the `*_CONTAINER_NAME` lines in `.env`. Doing that changed nothing, for two
+reasons that are the same mistake: the check read the **shell**, which `make` never loads `.env`
+into, and **five of the nine names were hardcoded** even though `docker-compose.yml` makes every
+one of them overridable. It reads `docker compose config` now, which resolves `.env` the same way
+`up` will, and it was watched still refusing a genuine collision.
+
+**The run sheet is the live proof of spec §0**, and it is worth carrying into phase 2. It lists
+what a person must bind, and it listed **`gtf annotation.gtf` twice and `annotation
+annotation.gtf` once** — three rows for what the artifact merges into one `params.gtf`. That is
+the canvas and the goal disagreeing, on the one screen where the disagreement costs a laboratory
+something: bind those three separately and two of the answers go nowhere. The labels correctly do
+**not** appear here — the sheet reads the artifact's holes, and a label is not in the artifact.
