@@ -519,3 +519,86 @@ open questions under any layout that scattered a tool's files by kind.
 (§8.1); §3.4's per-module `NOTICE` becomes `LICENSES/` plus an SPDX identifier (§8.2); phase A4
 gains the shard threshold (§8.3), the generated-file markers (§8.4) and the displacement rule
 (§8.5).
+
+---
+
+## 9. Attacking it again — the second pass
+
+*Three findings, and the first two are structural rather than cosmetic. Both were invisible from
+the design and needed the code.*
+
+### 9.1 The layer digest would not cover `main.nf`
+
+`comeni_core.declared.layered.declared_entries()` is what the **layer digest** and the symlink
+refusal both walk, and it is an **allowlist by file extension**:
+
+```python
+_DECLARED_SUFFIXES = (".yml", ".yaml")
+```
+
+After the move, a tool directory contains:
+
+| file | in the digest? |
+|---|---|
+| `contract.yml`, `module.yml`, `types/*.yml` | ✓ |
+| `module/meta.yml`, `module/environment.yml` | ✓ |
+| **`module/main.nf`** | **✗** |
+
+So a `pipeline.yml` pinning a layer digest would pin the module's *metadata* and not its
+**executable code**. Change one line of Groovy in a vendored `main.nf` and the layer digest does
+not move — while `meta.yml` beside it moves it every time. **Partial coverage is worse than
+none**, because the digest looks like it covers the module and a reader has no way to see that it
+does not.
+
+This is issue #46's defect in a new place, and its docstring says why the allowlist is by
+extension: *"a layer no longer has kind directories to enumerate"*. That premise changes here —
+`module/` is a kind directory, declared by the `module.yml` beside it.
+
+**The fix, and it is not "add `.nf` to the suffixes".** A module's contents are whatever upstream
+ships — `.nf`, `.py`, `.sh`, `.R`, a `Dockerfile`, a test fixture. The rule that holds is
+**everything under a `module/` directory is layer data**, full stop, because that directory's
+whole purpose is to be verbatim upstream content. So `_declared` gains one clause: a path with a
+`module/` component is declared regardless of extension. `.git` and `LICENSE` at the layer root
+stay excluded, unchanged.
+
+**Phase A2 owns this**, and it is watched failing the same way: change a byte in a vendored
+`main.nf`, and the layer digest must move.
+
+### 9.2 `mendel registry vendor` cannot live where §3.6 put it
+
+`mendel` is `mendel_compiler.cli:main` — **`mendel-compiler` is one of the four pure packages.**
+A subcommand that fetches from GitHub puts a network client in a package `tests/test_purity.py`
+rejects statically and `tests/test_purity_runtime.py` catches at runtime. Invariant 1 is not
+negotiable and §3.6 wrote a verb that violates it.
+
+Three ways out, and the third is the one:
+
+- **Put it in `mendel-forge`.** It is already impure and already the offline-authoring half of
+  invariant 2 — vendoring a module is exactly that. But the forge is **deferred by the operator's
+  decision** and this plan must not require touching it.
+- **Make it a `make` target over `nf-core modules install`.** Cheapest, and it gives up
+  `module.yml`, `excluded:` and the licence identifier — the whole reason for the verb.
+- **A new impure package, `mendel-vendor`, with its own console script.** One job: fetch at a
+  pinned SHA, write `module/`, `module.yml` and the SPDX id. It joins `IMPURE_PACKAGES`, and
+  `test_no_pure_package_imports_an_impure_one` holds the arrow the same way it does for
+  `mendel-ai` and `mendel-forge`. The command is `comeni-vendor …` rather than `mendel …`,
+  which is honest: it is not part of the deterministic build path and should not appear to be.
+
+**Phase A1 owns this**, and the phase's own check is that `make check` stays green — which it
+only does if the fetch is genuinely outside the four.
+
+### 9.3 One `module/` per directory cannot hold two contract versions
+
+Invariant 11 is explicit that a version bump is not ambiguity: a higher layer pinning
+`@1.22.0` over `@1.21.0` displaces on the **module key**, the id minus `@version`. That is
+between layers. **Within one layer, two versions of a contract are two ordinary candidates** —
+routing ranks them by `(surplus, -priority, id)` and nothing forbids it.
+
+`tools/nf-core/star/align/` has one `module/`. Two contract versions usually need two module
+SHAs, and there is nowhere to put the second.
+
+**Not solved here, and bounded rather than ignored:** the public registry ships one version per
+tool today and `mendel registry lint` **refuses a second**, naming this section. A layer that
+genuinely needs two gets `align@1.11.0/` and `align@1.12.0/` directories — a mechanical change
+the lint can perform later, and one that must not be *designed around* now on the strength of a
+case nobody has.

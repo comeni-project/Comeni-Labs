@@ -107,10 +107,11 @@ Groovy identifier, a param name or a file on disk. §5 is where their words do g
 Derivation: the type's last segment, then `_2`, `_3` … in channel order. `annotation.gtf` →
 `gtf`, `gtf_2`. Two rules make that safe:
 
-- **Order is the graph's, not the dictionary's.** Channels are numbered by
-  `(rank of the first consuming node, node id, port name)`, which is stable under everything
-  except a change to the graph that genuinely reorders them. Byte-identical emission for the
-  same drawing is a hard requirement (invariant 10) and this is the part of it at risk.
+- **Order is the graph's SHAPE, not its identities.** Channels are numbered by
+  `(rank, order-within-rank, port index)` — `dag-core`'s own layout arithmetic, and **no node id
+  anywhere**. §11.2 is why: node ids are minted from what is currently taken, so deleting a node
+  and adding another gives two structurally identical graphs different ids, and any ordering
+  keyed on them makes a person's `params.*` depend on the order they clicked.
 - **The last segment is not injective and the suffix does not fix that.** `qc.report` and
   `multiqc.report` both end in `report` — `_channel_name`'s docstring records that exact
   collision costing two ports the same channel silently. So the derivation is over the **full**
@@ -225,8 +226,9 @@ footgun aimed at a laboratory rather than at us. Two candidate answers, and §7 
 - **(a)** `params.input` is always a samplesheet, even for one channel. Uniform, and it breaks
   the one shape that works today for every existing user.
 - **(b)** `params.input` is a samplesheet **only** when there is more than one sample-scoped
-  channel, and `pipeline.yml` states which form this pipeline wants, in words, next to the
-  param. The artifact already carries a `why:` for everything; this is a `what:`.
+  channel, and `pipeline.yml` records which form this pipeline wants — as a **closed enum**,
+  `input_form: SAMPLESHEET | DIRECT`, with the sentence a reader sees *generated* from it and the
+  channel names. **Not prose**: §11.1 is why, and it is a rule worth carrying beyond this spec.
 
 **(b)**, and the reason is invariant 13's shape rather than convenience: the artifact must be
 readable on its own years later, and *"`params.input` is a samplesheet with columns sample,
@@ -563,3 +565,79 @@ samplesheet column can be, and it slots into the same table.
 **What changes in this spec as a result:** phase 4 absorbs `cardinality: "*"` (§10.2) and gains
 the two-sample check (§10.1); phase 5 gains the duplicate-sample refusal (§10.4); §2.3 gains the
 sentence about what a samplesheet may not carry (§10.3).
+
+---
+
+## 11. Attacking it again — the second pass
+
+*Two findings. The first contradicts this spec's own safety claim and the second breaks a test the
+spec asks for.*
+
+### 11.1 §2.2 adds a fifteenth free-text field, and §5 says it adds none
+
+§5's safety argument ends: *"a label never crosses an egress door … this adds none"* to the
+fourteen free-text fields `tests/test_egress.py` holds literally.
+
+§2.2 then chooses option (b) for `params.input`'s two meanings and says the artifact should state
+which form it wants **"in words, next to the param"**. `Pipeline` is door 4's payload. **Words
+next to a param is a free-text field crossing an egress door**, which is a fifteenth entry and
+exactly the widening invariant 14's literal list exists to force somebody to argue for.
+
+The two sentences are in one document and they contradict each other. The label is not the
+problem — the *explanation* is.
+
+**Resolved without a new field, because the fact is closed-vocabulary.** `params.input` is either
+a samplesheet or it is not, which is one bit:
+
+```python
+class Pipeline(BaseModel):
+    input_form: InputForm     # SAMPLESHEET | DIRECT — an enum, not prose
+```
+
+The **words** a reader needs — *"a samplesheet with columns sample, fastq_1, fastq_2, gtf"* — are
+then *generated* from `input_form` plus the channel names, which are themselves derived. Nobody
+authors a string, nothing crosses a door that did not already, and the artifact still reads as
+prose because `mendel emit` writes the comment. Fourteen stays fourteen.
+
+**That is the general rule this nearly broke**: when a fact is a closed choice, put the choice in
+the artifact and generate the sentence. A field that exists so a file can explain itself is how a
+boundary widens by one entry at a time.
+
+### 11.2 Channel names inherit node ids, and node ids are history-dependent
+
+§1.1 orders channels by `(rank of the first consuming node, node id, port name)`, and §3.2 owes a
+test: **same drawing in, same channel names out.** That test fails, and not because of a bug in
+it.
+
+`useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently **taken**:
+
+```ts
+for (let n = 1; ; n += 1) {
+  const candidate = `${base}_${n}`;
+  if (!existing.has(candidate)) return candidate;
+}
+```
+
+Add two STAR nodes and delete the first: the survivor is `star_align_2`. Draw one STAR node: it is
+`star_align_1`. **Two structurally identical graphs, two different node ids** — so two different
+channel orders, two different `params.*` names, two different emitted `.nf`.
+
+Invariant 10 is *same `Goal` in → byte-identical `.nf`*, and it survives: the goal carries channel
+names, so two goals differ and are allowed to emit differently. **What does not survive is the
+weaker claim §3.2 makes on the drawing**, and that claim is the one a person will actually notice
+— they will redraw a pipeline, get `params.gtf_2` where they had `params.gtf`, and their command
+line will break.
+
+**Two honest resolutions, and the second is the one:**
+
+- **Drop the claim.** Channel names follow node ids, which follow drawing history. Cheap, and it
+  makes a person's `params.*` depend on the order they clicked, which is indefensible in a
+  product whose entire claim is that the same input gives the same output.
+- **Key the order on structure, not on identity.** `dag-core` already computes `rank` and `order`
+  from the graph's shape. Order channels by `(rank, order-within-rank, port index)` — no node id
+  anywhere — so two graphs with the same shape produce the same names whatever their nodes are
+  called. `dag-core` is pure and already the one implementation both canvases share, so this adds
+  no new arithmetic.
+
+**Phase 3 owns it**, and the check is the one §3.2 already asks for, made to fail first: build the
+same pipeline twice by different routes and diff the emitted `.nf`.
