@@ -585,8 +585,8 @@ def check(req: CheckRequest) -> CheckResult:
         # about a missing source *adapter*; a module file is a separate fact, and the two
         # `comeni/` contracts have a readable module and nothing that can re-draft them
         # (phase 4 §3.4). So the structural half covers twelve where the value half covers ten.
-        module = conformance.module_path(contract, req.source_root)
-        if module.exists():
+        module = conformance.module_path(contract, stack.modules)
+        if module is not None and module.exists():
             found += [
                 Drift(
                     contract_id=contract.id,
@@ -726,8 +726,8 @@ def drift(req: DriftRequest) -> DriftReport:
                 )
             )
 
-    module = conformance.module_path(contract, req.source_root)
-    module_read = module.exists()
+    module = conformance.module_path(contract, stack.modules)
+    module_read = module is not None and module.exists()
     found = conformance.against(contract, ModuleSpec.parse(module), module) if module_read else []
 
     checked = {c.field for c in checks} | {

@@ -35,7 +35,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -143,7 +143,7 @@ def test_an_edited_contract_is_reported_as_drift(built, tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    sort = next(layer.rglob("sort.contract.yml"))
+    sort = next(layer.rglob("sort/contract.yml"))
     sort.write_text(_declared(sort, sort.read_text().replace("priority: 0", "priority: 7")))
     changed = layers.load(layer)
 
@@ -159,7 +159,7 @@ def test_a_missing_contract_is_reported_as_drift(built, tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    next(layer.rglob("sort.contract.yml")).unlink()
+    next(layer.rglob("sort/contract.yml")).unlink()
     changed = layers.load(layer)
 
     drift = lock.drift_against(ir, changed.registry, changed.paths)

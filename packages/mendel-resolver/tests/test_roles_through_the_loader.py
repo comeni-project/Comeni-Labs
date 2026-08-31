@@ -37,7 +37,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -68,7 +68,7 @@ def test_the_shipped_registry_loads_with_every_contract_classified():
 def test_a_contract_naming_an_undeclared_role_stops_the_build(tmp_path):
     """The typo a person actually makes: one transposed pair in a hand-typed key."""
     layer = _registry_copy(tmp_path)
-    star = next(layer.rglob("align.contract.yml"))
+    star = next(layer.rglob("align/contract.yml"))
     star.write_text(
         _declared(
             star,
@@ -90,7 +90,7 @@ def test_a_role_declared_only_by_an_overlay_satisfies_a_base_contract(tmp_path):
     a stack that is in fact consistent.
     """
     base = _registry_copy(tmp_path)
-    star = next(base.rglob("align.contract.yml"))
+    star = next(base.rglob("align/contract.yml"))
     # Added rather than substituted. Since Task 4 the shipped `implementation: alignment`
     # rule refuses a row naming a contract that does not fill that role, so replacing
     # STAR's role here would make the fixture inconsistent and this test would fail for

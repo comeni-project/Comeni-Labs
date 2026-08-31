@@ -28,7 +28,7 @@ def _goal() -> Goal:
 
 def test_the_seam_builds_the_spine_without_touching_disk(tmp_path):
     built = orchestrate.build(
-        _goal(), registry_root=ROOT / "registry", vendor_root=ROOT / "vendor"
+        _goal(), registry_root=ROOT / "registry"
     )
     assert built.pipeline.steps, "the spine has steps"
     assert list(tmp_path.iterdir()) == [], "the seam wrote nothing"
@@ -50,7 +50,7 @@ def test_the_seam_and_the_cli_agree_byte_for_byte(tmp_path):
     from_cli = (out / pipeline_file.FILENAME).read_text()
 
     built = orchestrate.build(
-        _goal(), registry_root=ROOT / "registry", vendor_root=ROOT / "vendor"
+        _goal(), registry_root=ROOT / "registry"
     )
     seam = tmp_path / "seam"
     seam.mkdir()

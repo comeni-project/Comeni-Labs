@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def _verify(scaffold):
-    return verify(scaffold, registry_root=ROOT / "registry", source_root=ROOT / "vendor")
+    return verify(scaffold, registry_root=ROOT / "registry", source_root=ROOT / "registry")
 
 
 def test_an_incomplete_scaffold_stops_at_the_first_rung(incomplete_scaffold):

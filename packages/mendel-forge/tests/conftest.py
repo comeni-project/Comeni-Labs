@@ -27,7 +27,7 @@ def _hand(value, why):
 def complete_scaffold() -> Scaffold:
     return Scaffold(
         kind=DeclaredKind.CONTRACTS,
-        target="tools/nf-core/fastqc/fastqc.contract.yml",
+        target="tools/nf-core/fastqc/contract.yml",
         observation=Observation(
             source="nf-core",
             ref_id="nf-core:fastqc",

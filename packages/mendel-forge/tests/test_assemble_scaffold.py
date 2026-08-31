@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def _scaffold():
-    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:fastqc"), ROOT / "vendor")
+    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:fastqc"), ROOT / "registry")
     return scaffold_for(
         obs, layers.load(ROOT / "registry"), ident="nf-core/fastqc", version="0.12.1"
     )
@@ -46,15 +46,15 @@ def test_a_hole_carries_the_prose_that_bears_on_it():
 
 
 def test_the_target_path_follows_the_registry_convention():
-    assert _scaffold().target == "tools/nf-core/fastqc/fastqc.contract.yml"
+    assert _scaffold().target == "tools/nf-core/fastqc/contract.yml"
 
 
 def test_a_multi_segment_tool_does_not_double_its_name():
-    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:samtools/sort"), ROOT / "vendor")
+    obs = NfCoreSource().ingest(ToolRef.parse("nf-core:samtools/sort"), ROOT / "registry")
     scaffold = scaffold_for(
         obs, layers.load(ROOT / "registry"), ident="nf-core/samtools/sort", version="1.21.0"
     )
-    assert scaffold.target == "tools/nf-core/samtools/sort.contract.yml"
+    assert scaffold.target == "tools/nf-core/samtools/sort/contract.yml"
 
 
 def test_a_source_with_no_module_holes_everything_the_module_would_have_given():

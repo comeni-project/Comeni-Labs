@@ -96,7 +96,7 @@ def test_a_conformance_failure_is_drift(monkeypatch, broken_registry_copy):
     from mendel_api.settings import settings
 
     registry = broken_registry_copy(
-        "tools/nf-core/fastqc/fastqc.contract.yml", "name: zip", "name: nonesuch"
+        "tools/nf-core/fastqc/contract.yml", "name: zip", "name: nonesuch"
     )
     monkeypatch.setattr(settings, "registry_root", registry)
     checked._run.cache_clear()

@@ -10,7 +10,6 @@ only a developer machine could check.
 """
 
 import secrets
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.ir import ValueSource
 from comeni_core.spell.marks import NodeId, PortName
-from mendel_compiler import pipeline_file
+from mendel_compiler import pipeline_file, staging
 from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -358,9 +357,9 @@ def keep(draft_id: str, *, by: str = "") -> Path:
     # `mendel emit` refused the file this had just written. A kept draft that cannot be emitted
     # is not a pipeline, whatever the header says.
     #
-    # `nf_include` is where a module lands in the GENERATED pipeline; `source_root` is where
-    # this installation keeps the source. Deliberately not the same path.
-    vendored = settings.source_root / "modules"
-    if vendored.exists():
-        shutil.copytree(vendored, out / "modules", dirs_exist_ok=True)
+    # `nf_include` is where a module lands in the GENERATED pipeline; the layer is where the
+    # source lives. Deliberately not the same path, and since Plan 5A the layer carries both —
+    # so `staging.stage` is one implementation shared with `mendel build` rather than a second
+    # `copytree` that can go missing again.
+    staging.stage(pipeline, stack.modules, out)
     return out / "pipeline.yml"

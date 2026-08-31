@@ -11,11 +11,13 @@ written, and what to write instead. The last one is not decoration — the rule 
 follows it.
 """
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from comeni_core import diagnostics
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.measurement import MeasurementRegistry
+from comeni_core.declared.module import ENTRY, Module, key_of
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
 from comeni_core.spell.routes import ExtKey, Via
@@ -67,15 +69,34 @@ class Diagnostic(BaseModel):
 __all__ = ["Diagnostic", "against", "check", "explain", "module_path"]
 
 
-def module_path(contract: ModuleContract, module_root: Path) -> Path:
-    """`nf_include` is where a module lands in the *generated* pipeline; `module_root` is
-    where the source lives. Deliberately not the same path."""
-    return module_root / f"{contract.nf_include}.nf"
+def module_path(contract: ModuleContract, modules: Mapping[str, Module]) -> Path | None:
+    """The `main.nf` this contract is a binding for, or `None` if the stack carries no such
+    module.
+
+    **This took a `module_root: Path` until Plan 5A, and the change is the whole point of that
+    plan.** Module source lived in `vendor/` in the *engine's* repository while the contracts
+    describing it lived in `registry/` — two repositories on two release cadences — so this
+    computed `module_root / f"{nf_include}.nf"` and a contract could drift from its module with
+    nothing keeping the two in step. `MD0104` exists to catch that drift and was comparing two
+    things nobody synchronised.
+
+    The source is now *in the layer*, so a location is no longer derivable from a root: the
+    module is looked up **by key**, which `comeni_core.declared.module.key_of` derives from the
+    contract's own `nf_include`. `nf_include` still means what it always meant — where a module
+    lands in the *generated* pipeline — and is still deliberately not where the source lives.
+
+    `None` rather than a non-existent path, because the two callers want different things from
+    the absence: `check` reports `MD0100`, and the forge skips.
+    """
+    found = modules.get(key_of(contract.nf_include))
+    if found is None or found.source is None:
+        return None
+    return found.source / f"{ENTRY}.nf"
 
 
 def check(
     registry: Registry,
-    module_root: Path,
+    modules: Mapping[str, Module],
     measurements: MeasurementRegistry | None = None,
 ) -> list[Diagnostic]:
     """Every way a contract disagrees with the module it claims to describe.
@@ -87,21 +108,25 @@ def check(
     """
     found: list[Diagnostic] = []
     for contract in registry.all():
-        path = module_path(contract, module_root)
-        if not path.exists():
+        path = module_path(contract, modules)
+        if path is None or not path.exists():
             found.append(
                 Diagnostic(
                     code="MD0100",
                     where=contract.id,
                     summary="unverified: no module source to check this contract against",
-                    detail=f"    looked for {path}",
-                    fix="vendor the module, or accept that this contract cannot be curated",
+                    detail=(
+                        "    no layer in this stack declares module "
+                        f"{key_of(contract.nf_include)}"
+                    ),
+                    fix="vendor it with `comeni-vendor add`, or accept that this contract "
+                    "cannot be curated",
                 )
             )
             continue
         found += against(contract, ModuleSpec.parse(path), path)
     if measurements is not None:
-        found += _meta_keys(registry, module_root, measurements)
+        found += _meta_keys(registry, modules, measurements)
     return sorted(found, key=lambda d: (d.where, d.code, d.detail))
 
 
@@ -243,7 +268,7 @@ _ALWAYS_SET = {"id"}
 # "fix" it while implementing this task — if you want it fixed, measure first and make it
 # its own commit, so the before and after are visible.
 def _meta_keys(
-    registry: Registry, module_root: Path, measurements: MeasurementRegistry
+    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry
 ) -> list[Diagnostic]:
     """Undefined- and unused-symbol analysis, over the meta map.
 
@@ -259,8 +284,8 @@ def _meta_keys(
     read: dict[str, str] = {}
     every_module_was_readable = True
     for contract in registry.all():
-        path = module_path(contract, module_root)
-        if not path.exists():
+        path = module_path(contract, modules)
+        if path is None or not path.exists():
             every_module_was_readable = False
             continue
         for entry in ModuleSpec.parse(path).meta_reads:

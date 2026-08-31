@@ -4,7 +4,7 @@ from mendel_forge.sources import ToolRef
 from mendel_forge.sources.nfcore import NfCoreSource
 
 ROOT = Path(__file__).resolve().parents[3]
-VENDOR = ROOT / "vendor"
+VENDOR = ROOT / "registry"
 
 
 def test_discover_finds_every_vendored_module():
@@ -20,7 +20,7 @@ def test_ingest_derives_the_process_name_with_evidence():
     assert obs.fact("process") == "FASTQC"
     # `main.nf:1`, not `main.nf`. Phase 1 asserted the file and Phase 2 made it the file and
     # the line, so this assertion moved to the stronger property rather than being loosened.
-    assert obs.facts["process"].evidence.locator.startswith("modules/nf-core/fastqc/main.nf:")
+    assert obs.facts["process"].evidence.locator.startswith("tools/nf-core/fastqc/module/main.nf:")
     assert obs.facts["process"].evidence.text == "process FASTQC {"
 
 

@@ -1,6 +1,6 @@
 {
   "kind": "contracts",
-  "target": "tools/nf-core/fastqc/fastqc.contract.yml",
+  "target": "tools/nf-core/fastqc/contract.yml",
   "observation": {
     "source": "nf-core",
     "ref_id": "nf-core:fastqc",
@@ -8,7 +8,7 @@
       "container": {
         "value": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:6",
+          "locator": "tools/nf-core/fastqc/module/main.nf:6",
           "text": "container \"${workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container"
         }
       },
@@ -18,8 +18,8 @@
           "reads"
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "read from modules/nf-core/fastqc/main.nf"
+          "locator": "tools/nf-core/fastqc/module/main.nf",
+          "text": "read from tools/nf-core/fastqc/module/main.nf"
         }
       },
       "emits": {
@@ -29,14 +29,14 @@
           "versions_fastqc"
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:13-16",
+          "locator": "tools/nf-core/fastqc/module/main.nf:13-16",
           "text": "output:\ntuple val(meta), path(\"*.html\"), emit: html\ntuple val(meta), path(\"*.zip\"), emit: zip\ntuple val(\"${task.process}\"), val('fastqc'), eval('fastqc --version | sed \"/FastQC v/!d; s/.*v//\"'), emit: versions_fastqc, topic: versions"
         }
       },
       "input_arity": {
         "value": 1,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "locator": "tools/nf-core/fastqc/module/main.nf:10-11",
           "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
@@ -48,7 +48,7 @@
           ]
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "locator": "tools/nf-core/fastqc/module/main.nf:10-11",
           "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
@@ -57,58 +57,58 @@
           "id"
         ],
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:10-11",
+          "locator": "tools/nf-core/fastqc/module/main.nf:10-11",
           "text": "input:\ntuple val(meta), path(reads, stageAs: '?/*')"
         }
       },
       "nf_include": {
         "value": "modules/nf-core/fastqc/main",
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf",
-          "text": "read from modules/nf-core/fastqc/main.nf"
+          "locator": "tools/nf-core/fastqc/module/main.nf",
+          "text": "read from tools/nf-core/fastqc/module/main.nf"
         }
       },
       "process": {
         "value": "FASTQC",
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:1",
+          "locator": "tools/nf-core/fastqc/module/main.nf:1",
           "text": "process FASTQC {"
         }
       },
       "reads_ext_args": {
         "value": true,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:22",
+          "locator": "tools/nf-core/fastqc/module/main.nf:22",
           "text": "def args = task.ext.args ?: ''"
         }
       },
       "reads_ext_prefix": {
         "value": true,
         "evidence": {
-          "locator": "modules/nf-core/fastqc/main.nf:23",
+          "locator": "tools/nf-core/fastqc/module/main.nf:23",
           "text": "def prefix = task.ext.prefix ?: \"${meta.id}\""
         }
       }
     },
     "prose": [
       {
-        "locator": "modules/nf-core/fastqc/meta.yml:description",
+        "locator": "tools/nf-core/fastqc/module/meta.yml:description",
         "text": "Run FastQC on sequenced reads"
       },
       {
-        "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
+        "locator": "tools/nf-core/fastqc/module/meta.yml:input.reads",
         "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
       },
       {
-        "locator": "modules/nf-core/fastqc/meta.yml:output.html",
+        "locator": "tools/nf-core/fastqc/module/meta.yml:output.html",
         "text": "*.html: FastQC report — *_{fastqc.html}"
       },
       {
-        "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
+        "locator": "tools/nf-core/fastqc/module/meta.yml:output.zip",
         "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
       },
       {
-        "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
+        "locator": "tools/nf-core/fastqc/module/meta.yml:output.versions_fastqc",
         "text": "${task.process}: The process the versions were collected from"
       }
     ]
@@ -118,7 +118,7 @@
       "value": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:6"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:6"
     },
     "id": {
       "value": "nf-core/fastqc@0.12.1",
@@ -130,37 +130,37 @@
       "value": "modules/nf-core/fastqc/main",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf"
+      "why": "read from tools/nf-core/fastqc/module/main.nf"
     },
     "nf_inputs.arity": {
       "value": 1,
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:10-11"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:10-11"
     },
     "nf_process": {
       "value": "FASTQC",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:1"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:1"
     },
     "produces[0].name": {
       "value": "html",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:13-16"
     },
     "produces[1].name": {
       "value": "zip",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:13-16"
     },
     "produces[2].name": {
       "value": "versions_fastqc",
       "by": "nf-core",
       "how": "derived",
-      "why": "read from modules/nf-core/fastqc/main.nf:13-16"
+      "why": "read from tools/nf-core/fastqc/module/main.nf:13-16"
     },
     "provenance.source": {
       "value": "nf-core",
@@ -183,11 +183,11 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
@@ -294,11 +294,11 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         }
       ],
@@ -314,23 +314,23 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.html",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.html",
           "text": "*.html: FastQC report — *_{fastqc.html}"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.zip",
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
@@ -435,11 +435,11 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.html",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.html",
           "text": "*.html: FastQC report — *_{fastqc.html}"
         }
       ],
@@ -544,11 +544,11 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.zip",
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         }
       ],
@@ -653,11 +653,11 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
       ],
@@ -710,23 +710,23 @@
       "closed": true,
       "evidence": [
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:description",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:description",
           "text": "Run FastQC on sequenced reads"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:input.reads",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:input.reads",
           "text": "List of input FastQ files of size 1 and 2 for single-end and paired-end data,\nrespectively."
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.html",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.html",
           "text": "*.html: FastQC report — *_{fastqc.html}"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.zip",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.zip",
           "text": "*.zip: FastQC report archive — *_{fastqc.zip}"
         },
         {
-          "locator": "modules/nf-core/fastqc/meta.yml:output.versions_fastqc",
+          "locator": "tools/nf-core/fastqc/module/meta.yml:output.versions_fastqc",
           "text": "${task.process}: The process the versions were collected from"
         }
       ],

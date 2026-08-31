@@ -170,9 +170,10 @@ def test_deeply_nested_is_just_as_good(tmp_path):
     (layer / "tools" / "nf-core" / "fastqc").mkdir(parents=True)
     (layer / "shared").mkdir()
     (layer / "registry.yml").write_text(_declared(layer / "registry.yml", "name: nested\n"))
-    (layer / "tools" / "nf-core" / "fastqc" / "align.contract.yml").write_text(
+    (layer / "tools" / "nf-core" / "fastqc" / "align").mkdir(parents=True, exist_ok=True)
+    (layer / "tools" / "nf-core" / "fastqc" / "align/contract.yml").write_text(
         _declared(
-            layer / "tools" / "nf-core" / "fastqc" / "align.contract.yml",
+            layer / "tools" / "nf-core" / "fastqc" / "align/contract.yml",
             CONTRACT))
     (layer / "shared" / "types.yml").write_text(_declared(layer / "shared" / "types.yml", TYPE))
     (layer / "shared" / "report.yml").write_text(_declared(layer / "shared" / "report.yml", REPORT))

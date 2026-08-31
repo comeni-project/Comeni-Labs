@@ -30,6 +30,7 @@ from pydantic import BaseModel, ConfigDict
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layered import (
+    MODULE_DIR,
     DeclaredKind,
     Kind,
     Policy,
@@ -38,6 +39,36 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.spell.marks import Digest, ModuleKey, NfPath, SpdxId
+
+EMITTED_UNDER = "modules"
+"""Where a module lands in the *generated* pipeline, and therefore what `nf_include` is
+prefixed with. `include { FASTQC } from './modules/nf-core/fastqc/main'`."""
+
+ENTRY = "main"
+"""The file `nf_include` names, without its `.nf`. nf-core's convention, and ours."""
+
+
+def key_of(nf_include: str) -> str:
+    """Which module a contract binds to, from the path it says its module is included at.
+
+    **This is a derivation and not a new field, and that is the decision worth stating.**
+    A contract already answers *which module does this describe* — `nf_include` is
+    `modules/nf-core/fastqc/main`, which is exactly `modules/<key>/main`. A second field
+    saying `module: nf-core/fastqc` would be a second source of truth that a lint would then
+    have to check agreed with the first, and two fields that must agree are a field that
+    will one day disagree.
+
+    Until Plan 5A this question had no answer because it had no question: module source lived
+    in `vendor/` in the engine's repository, and `conformance.module_path` computed a location
+    under that root from `nf_include` directly. Once the source is *in the layer*, a location
+    is no longer derivable — the module has to be looked up by key, and this is that key.
+
+    Permissive on purpose. A laboratory's own process may be included from anywhere, so what
+    is stripped is a leading `modules/` and a trailing `/main` if they are there, and what is
+    left is the key. `local/tidy` is a key; so is `nf-core/star/align`.
+    """
+    key = nf_include.removeprefix(f"{EMITTED_UNDER}/")
+    return key.removesuffix(f"/{ENTRY}")
 
 
 class Upstream(BaseModel):
@@ -74,10 +105,17 @@ class Module(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: ModuleKey
-    licence: SpdxId
+
+    licence: SpdxId | None = None
     """Points at `LICENSES/<id>.txt` at the layer root — the REUSE convention, one file per
     licence rather than one per module. At 1,600 tools a NOTICE per tool is that many
-    near-identical copies of the MIT text in every diff, which nobody reads."""
+    near-identical copies of the MIT text in every diff, which nobody reads.
+
+    **`None` means the layer's own terms**, and it goes with `upstream: None`: a process a
+    laboratory wrote here was not copied from anywhere, so there is nobody else's licence to
+    name and inventing one would be a false statement in a legal field. `comeni-vendor add`
+    always sets it, and refuses before fetching if the layer carries no text for it.
+    """
 
     upstream: Upstream | None = None
     """Where the code came from, or `None`.
@@ -94,6 +132,16 @@ class Module(BaseModel):
     Without it a drift check reports every module as differing from upstream forever: nf-core
     ships a `tests/` directory beside each module and we do not take it, so the honest
     comparison is *upstream minus what we said we would skip* rather than *upstream*.
+    """
+
+    at: Path | None = None
+    """The directory holding this `module.yml`, so `at / "module"` is the source.
+
+    Set by `kind()`'s parse from the file it read, not declared in the file — a path written
+    into a layer would name a machine, which is what invariant 15 keeps out of anything
+    shareable and what issue #46 found in `digest_of_directory`. It is `None` for a `Module`
+    constructed in a test or by hand, and every consumer has to cope with that rather than
+    assume a module came off disk.
     """
 
     digest: Digest | None = None
@@ -116,7 +164,7 @@ class Module(BaseModel):
         def parse(path: Path) -> list["Module"]:
             data = dict(yaml_strict.load(path) or {})
             data.pop("declares", None)
-            return [Module(**data)]
+            return [Module(**data, at=path.parent)]
 
         return Kind(
             DeclaredKind.MODULES,
@@ -124,6 +172,12 @@ class Module(BaseModel):
             key=lambda module: module.id,
             policy=Policy.REPLACE,
         )
+
+    @property
+    def source(self) -> Path | None:
+        """The directory upstream's tree was copied into, or `None` for a module not read
+        off disk. `module/` beside the declaration, never inside it."""
+        return None if self.at is None else self.at / MODULE_DIR
 
     @classmethod
     def load(cls, layers: Path | Sequence[Path]) -> Stacked[str, "Module"]:

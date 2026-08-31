@@ -75,7 +75,7 @@ def read(
             ops.ShowRequest(
                 name=name,
                 registry_root=settings.registry_root,
-                source_root=settings.source_root,
+                source_root=settings.registry_root,
                 workspace_root=settings.workspace_root,
             )
         )

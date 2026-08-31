@@ -48,7 +48,6 @@ services:
       MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_SOURCE_ROOT: /app/vendor
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
@@ -59,7 +58,6 @@ services:
       # resolves to nothing in here, so accepting a drift would refuse with MF0107 — and dev
       # must be able to do what prod can. `make dev` creates it.
       - ./.run/registry:/app/registry
-      - ./vendor:/app/vendor
       # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace
@@ -88,14 +86,12 @@ services:
       MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
       MENDEL_REDIS_URL: redis://redis:6379
       MENDEL_REGISTRY_ROOT: /app/registry
-      MENDEL_SOURCE_ROOT: /app/vendor
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
-      - ./vendor:/app/vendor
       # What the builder opens on. Read-only: a committed example, not state.
       - ./examples:/app/examples:ro
       - ./workspace:/app/workspace

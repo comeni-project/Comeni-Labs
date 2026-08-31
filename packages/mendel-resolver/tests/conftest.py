@@ -56,5 +56,5 @@ def spine_without_hisat2_index(tmp_path):
     """
     layer = tmp_path / "layer"
     shutil.copytree(EXAMPLES, layer)
-    next(layer.rglob("build.contract.yml")).unlink()
+    next(layer.rglob("build/contract.yml")).unlink()
     return _spine(layer)

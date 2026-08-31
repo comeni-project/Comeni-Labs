@@ -42,7 +42,7 @@ def test_drafted_is_derived_from_the_drafts_id_not_from_its_name(monkeypatch, tm
             ref="nf-core:samtools/faidx",
             name="mydraft",
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
             workspace_root=tmp_path / "workspace",
             version="1.24",
         )
@@ -65,7 +65,7 @@ def test_a_landed_tool_stays_landed_even_with_a_draft_open(monkeypatch, tmp_path
             ref="nf-core:fastqc",
             name="fastqc-again",
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
             workspace_root=tmp_path / "workspace",
             version="0.13.0",
         )

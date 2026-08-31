@@ -80,6 +80,7 @@ def test_the_yaml_round_trips_through_the_real_loader(tmp_path):
 
     root = Path(__file__).resolve().parents[3]
     stack = layers.load(root / "registry")
-    path = tmp_path / "fastqc.contract.yml"
+    path = tmp_path / "fastqc/contract.yml"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(to_yaml(_complete(), approved_by="rafael", approved_at="2026-08-20"))
     assert ModuleContract.load(path, stack.vocabulary).id == "nf-core/fastqc@0.12.1"

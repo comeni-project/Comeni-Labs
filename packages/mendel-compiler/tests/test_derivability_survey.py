@@ -8,13 +8,14 @@ notes/audits/2026-08-16-forge-derivability.md is stale and the forge's holes are
 from pathlib import Path
 
 from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.module import Module
 from comeni_core.spell.routes import Via
 from mendel_compiler.conformance import module_path
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver import layers
 
 ROOT = Path(__file__).resolve().parents[3]
-VENDOR = ROOT / "vendor"
+MODULES = dict(Module.load(ROOT / "registry").entries)
 
 
 def _pairs() -> list[tuple[ModuleContract, ModuleSpec]]:
@@ -26,7 +27,7 @@ def _pairs() -> list[tuple[ModuleContract, ModuleSpec]]:
     stack = layers.load(ROOT / "registry")
     found = []
     for contract in stack.registry.all():
-        main_nf = module_path(contract, VENDOR)
+        main_nf = module_path(contract, MODULES)
         if main_nf.exists():
             found.append((contract, ModuleSpec.parse(main_nf)))
     return found
@@ -71,7 +72,7 @@ def test_semantic_fields_are_not_in_the_module_at_all():
     derive more than it does and the hole list should shrink.
     """
     for contract, _spec in _pairs():
-        text = module_path(contract, VENDOR).read_text()
+        text = module_path(contract, MODULES).read_text()
         for port in contract.produces:
             assert port.type_id not in text, (
                 f"{contract.id}: {port.type_id} appears in main.nf — it may be derivable"

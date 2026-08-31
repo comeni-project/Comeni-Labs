@@ -11,10 +11,10 @@ import pytest
 from mendel_forge import ops
 
 ROOT = Path(__file__).resolve().parents[3]
-SOURCE = ROOT / "vendor"
+SOURCE = ROOT / "registry"
 
-FASTQC = "tools/nf-core/fastqc/fastqc.contract.yml"
-INDEX = "tools/nf-core/samtools/index.contract.yml"
+FASTQC = "tools/nf-core/fastqc/contract.yml"
+INDEX = "tools/nf-core/samtools/index/contract.yml"
 """Two fixtures, and the difference matters: FASTQC has no comments and `samtools/index` has
 eight. Both paths were read off disk — the layout is `tools/<ns>/<tool>.contract.yml` for one
 and `tools/<ns>/<tool>/<tool>.contract.yml` for the other, because a layer's layout is free."""
@@ -76,8 +76,8 @@ def test_the_commit_records_who_and_why(broken_registry):
 def test_the_comments_survive(broken_registry):
     """The whole reason accepting patches a line instead of re-serialising — spec §3.6.
 
-    **Not FASTQC.** Measured: `fastqc.contract.yml` carries ZERO comments, so this test would
-    pass over its own guard and prove nothing. `samtools/index.contract.yml` carries eight,
+    **Not FASTQC.** Measured: `fastqc/contract.yml` carries ZERO comments, so this test would
+    pass over its own guard and prove nothing. `samtools/index/contract.yml` carries eight,
     including the note about the port name that was latent until conformance caught it — which
     is exactly the reasoning a YAML dumper would delete.
     """

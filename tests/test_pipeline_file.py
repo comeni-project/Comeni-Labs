@@ -40,7 +40,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -371,11 +371,11 @@ def _overlay_with(tmp_path, extra_params: str) -> pathlib.Path:
     ov = tmp_path / "ov"
     ov.mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab\n"))
-    src = (ROOT / "registry/tools/nf-core/subread/featurecounts.contract.yml").read_text()
+    src = (ROOT / "registry/tools/nf-core/subread/featurecounts/contract.yml").read_text()
     src = src.replace("params:", "params:\n" + extra_params, 1)
-    (ov / "tools/nf-core/subread").mkdir(parents=True, exist_ok=True)
-    (ov / "tools/nf-core/subread/featurecounts.contract.yml").write_text(
-        _declared(ov / "tools/nf-core/subread/featurecounts.contract.yml", src)
+    (ov / "tools/nf-core/subread/featurecounts").mkdir(parents=True, exist_ok=True)
+    (ov / "tools/nf-core/subread/featurecounts/contract.yml").write_text(
+        _declared(ov / "tools/nf-core/subread/featurecounts/contract.yml", src)
     )
     return ov
 

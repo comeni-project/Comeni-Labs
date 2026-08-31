@@ -27,7 +27,7 @@ async def check_sources(ctx: dict) -> dict[str, int]:
     result = ops.check(
         ops.CheckRequest(
             registry_root=settings.registry_root,
-            source_root=settings.source_root,
+            source_root=settings.registry_root,
         )
     )
     with session_scope() as session:

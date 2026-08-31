@@ -76,7 +76,6 @@ def build(
     *,
     registry_root: Path | None = None,
     registry_roots: list[Path] | None = None,
-    vendor_root: Path,
     prior: list | None = None,
     resolver: AmbiguityResolver | None = None,
 ) -> Built:
@@ -96,10 +95,13 @@ def build(
     # nf-core stubs never read their inputs, so a process handed an empty tuple where a genome
     # belongs is exactly as green as one handed a genome.
     #
-    # `vendor_root` is the module *source*, not `nf_include`'s prefix: `nf_include` says where a
-    # module lands in the generated pipeline, and the two are deliberately different paths.
+    # **The layer carries the module now** (Plan 5A). It used to take a `vendor_root` — a
+    # directory in *this* repository, on a different release cadence from the registry the
+    # contracts came out of — so the check that exists to catch a contract drifting from its
+    # module was comparing two things nobody kept in step. `--registry X` is now the whole
+    # input, which is also what makes an air-gapped site a first-class customer (invariant 13).
     diagnostics = conformance.check(
-        loaded.registry, vendor_root, measurements=loaded.measurements
+        loaded.registry, loaded.modules, measurements=loaded.measurements
     )
     blocking = [d for d in diagnostics if d.code != "MD0100"]
     if blocking:
@@ -126,9 +128,7 @@ def build(
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)
 
 
-def diagnostics_for(
-    registry_roots: list[Path], vendor_root: Path
-) -> list:
+def diagnostics_for(registry_roots: list[Path]) -> list:
     """Conformance alone, for a caller that wants to report before it builds.
 
     The CLI prints **every** diagnostic including the non-blocking `MD0100`s, before deciding
@@ -136,4 +136,4 @@ def diagnostics_for(
     check instead of the CLI re-deriving one.
     """
     loaded = layers.load(registry_roots)
-    return conformance.check(loaded.registry, vendor_root, measurements=loaded.measurements)
+    return conformance.check(loaded.registry, loaded.modules, measurements=loaded.measurements)

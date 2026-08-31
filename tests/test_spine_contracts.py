@@ -1,12 +1,14 @@
 import pathlib
 
 import pytest
+from comeni_core.declared.module import Module
+from mendel_compiler.conformance import module_path
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.router import route
 
 ROOT = pathlib.Path(__file__).parent.parent
-VENDOR = ROOT / "vendor"
+MODULES = dict(Module.load(ROOT / "registry").entries)
 
 
 @pytest.fixture
@@ -19,8 +21,19 @@ def test_all_spine_contracts_load(registry):
 
 
 def test_every_contract_points_at_vendored_module_code(registry):
-    missing = [c.id for c in registry.all() if not (VENDOR / f"{c.nf_include}.nf").exists()]
-    assert missing == [], f"contracts without vendored module code: {missing}"
+    """Every contract in the shipped layer has the module it is a binding for, **in the layer**.
+
+    This joined `vendor_root / f"{nf_include}.nf"` until Plan 5A, which is a path computation
+    over two repositories on two release cadences. It is a **lookup** now — by the module key
+    `key_of` derives from the contract's own `nf_include` — so a contract whose module nobody
+    vendored is `None` here rather than a path that happens not to exist.
+
+    Two of the twelve are `comeni/` wrappers over an nf-core module (`profile/fastqc` includes
+    `modules/nf-core/fastqc/main`), and they resolve to the same key the nf-core contract does.
+    That is the case a per-contract directory of source would have got wrong.
+    """
+    missing = [c.id for c in registry.all() if module_path(c, MODULES) is None]
+    assert missing == [], f"contracts whose module no layer declares: {missing}"
 
 
 def test_counts_matrix_is_reachable_from_raw_reads(registry):
@@ -82,7 +95,7 @@ def test_contracts_agree_with_the_vendored_modules(registry):
     from mendel_compiler.conformance import check
 
     disagreements = [
-        d.render() for d in check(registry, VENDOR) if d.code in {"MD0102", "MD0103", "MD0107"}
+        d.render() for d in check(registry, MODULES) if d.code in {"MD0102", "MD0103", "MD0107"}
     ]
     assert disagreements == [], "\n".join(disagreements)
 

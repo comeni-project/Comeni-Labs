@@ -12,6 +12,7 @@ filename pattern; "sorted" exists only in an English description. The semantic o
 from pathlib import Path
 
 from comeni_core import yaml_strict
+from comeni_core.declared.module import Module
 from mendel_compiler.modulespec import ModuleSpec
 
 from mendel_forge.observe import Excerpt, Fact, Observation
@@ -22,17 +23,37 @@ class NfCoreSource:
     name = "nf-core"
 
     def discover(self, root: Path) -> list[ToolRef]:
-        found = [
-            ToolRef(
-                source=self.name,
-                ident=str(main_nf.parent.relative_to(root / "modules" / "nf-core")),
-            )
-            for main_nf in (root / "modules" / "nf-core").rglob("main.nf")
-        ]
-        return sorted(found, key=lambda r: r.ident)
+        """Every nf-core module the **layer** carries, read out of the declarations.
+
+        `root` was `vendor/` in the engine's repository until Plan 5A and is the registry layer
+        now. **Both halves of the forge's `root` moved together** — `--source-root` is the
+        layer — and the forge is otherwise untouched, which is spec §5's rule for this plan.
+
+        **It reads `module.yml`, not a path.** The obvious translation was to glob
+        `tools/nf-core/*/module/main.nf`, and that would have written the curated registry's
+        *convention* into the engine: invariant 11 says a layer's layout is the author's
+        business, and a laboratory arranging its overlay differently would have discovered
+        nothing while `mendel build` resolved against it perfectly. A module says where it is
+        by being declared, which is comeni-registry#1's whole argument applied one kind later.
+
+        Issue #77 is unchanged by any of this: discovery reads what somebody already vendored,
+        which is not the size of the known world.
+        """
+        return sorted(
+            (
+                ToolRef(source=self.name, ident=key.removeprefix(f"{self.name}/"))
+                for key in self._modules(root)
+            ),
+            key=lambda r: r.ident,
+        )
 
     def ingest(self, ref: ToolRef, root: Path) -> Observation:
-        module_dir = root / "modules" / "nf-core" / ref.ident
+        found = self._modules(root).get(f"{self.name}/{ref.ident}")
+        if found is None or found.source is None:
+            raise FileNotFoundError(
+                f"no layer under {root} declares module {self.name}/{ref.ident}"
+            )
+        module_dir = found.source
         main_nf = module_dir / "main.nf"
         spec = ModuleSpec.parse(main_nf)
         # **Relative to the source root, never absolute.** An absolute locator carries the
@@ -88,6 +109,12 @@ class NfCoreSource:
         return Observation(
             source=self.name, ref_id=str(ref), facts=facts, prose=_prose(module_dir, root)
         )
+
+    @staticmethod
+    def _modules(root: Path) -> dict[str, Module]:
+        """The layer's modules, by key. Stacked, so an overlay's copy wins — the same answer
+        `mendel build`'s conformance gets, rather than a second walk that could disagree."""
+        return dict(Module.load(root).entries)
 
 
 def _prose(module_dir: Path, root: Path) -> list[Excerpt]:

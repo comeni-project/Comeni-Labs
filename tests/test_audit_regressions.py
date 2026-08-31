@@ -37,7 +37,7 @@ def _declared(path, body: str) -> str:
     """
     path = pathlib.Path(path)
     # Walk *ancestors*, not just the immediate parent: real layers nest, and
-    # `tools/nf-core/fastqc/fastqc.contract.yml` sits two levels down from the directory that
+    # `tools/nf-core/fastqc/contract.yml` sits two levels down from the directory that
     # names it.
     kind = next(
         (_KIND_OF_DIR[p.name] for p in path.parents if p.name in _KIND_OF_DIR), None
@@ -314,7 +314,7 @@ def test_a9_a_symlinked_layer_is_refused_at_load(tmp_path):
 
     layer = tmp_path / "lab"
     shutil.copytree("registry", layer)
-    victim = next((layer / "tools").rglob("*.contract.yml"))
+    victim = next((layer / "tools").rglob("contract.yml"))
     (tmp_path / "elsewhere.yml").write_text(
         _declared(
             tmp_path / "elsewhere.yml",
@@ -526,7 +526,7 @@ def test_a5_an_overlay_that_displaces_nothing_is_not_reported(tmp_path):
     from mendel_resolver.resolve import resolve
 
     base, lab = _stacked(tmp_path)
-    (base / "tools" / "nf-core" / "samtools" / "sort.contract.yml").unlink()
+    (base / "tools" / "nf-core" / "samtools" / "sort/contract.yml").unlink()
     shutil.rmtree(lab / "rules")
 
     loaded = layers_mod.load([base, lab])
@@ -935,7 +935,7 @@ def test_a25_a_shadow_is_a_displacement_like_any_other(tmp_path):
     base, lab = _stacked(tmp_path)
     (lab / "contracts").mkdir(parents=True, exist_ok=True)
     shutil.copy(
-        base / "tools" / "nf-core" / "samtools" / "sort.contract.yml",
+        base / "tools" / "nf-core" / "samtools" / "sort/contract.yml",
         lab / "contracts" / "samtools-sort.yml",
     )
     shadowing = (lab / "contracts" / "samtools-sort.yml").read_text()
@@ -1583,12 +1583,12 @@ def test_a33_a_tier_4_reason_says_what_happened(tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree("registry", layer)
-    original = (layer / "tools" / "nf-core" / "trimgalore" / "trimgalore.contract.yml").read_text()
+    original = (layer / "tools" / "nf-core" / "trimgalore" / "contract.yml").read_text()
     # Same priority, same output, different module key: nothing distinguishes them.
     (layer / "tools" / "nf-core" / "fastp").mkdir(parents=True, exist_ok=True)
-    (layer / "tools" / "nf-core" / "fastp" / "fastp.contract.yml").write_text(
+    (layer / "tools" / "nf-core" / "fastp" / "contract.yml").write_text(
         _declared(
-            layer / "tools" / "nf-core" / "fastp" / "fastp.contract.yml",
+            layer / "tools" / "nf-core" / "fastp" / "contract.yml",
             original.replace("nf-core/trimgalore@0.6.10", "nf-core/fastp@0.24.0").replace(
             "TRIMGALORE", "FASTP"
         ))
@@ -1899,9 +1899,9 @@ def _tying_layer(tmp_path: Path) -> Path:
     not have to open a second file to see that. Audit A125.
     """
     layer = tmp_path / "tie-layer"
-    (layer / "tools" / "nf-core" / "minimap2").mkdir(parents=True)
-    (layer / "tools" / "nf-core" / "minimap2" / "align.contract.yml").write_text(
-        _declared(layer / "tools" / "nf-core" / "minimap2" / "align.contract.yml", MINIMAP2)
+    (layer / "tools" / "nf-core" / "minimap2" / "align").mkdir(parents=True)
+    (layer / "tools" / "nf-core" / "minimap2" / "align/contract.yml").write_text(
+        _declared(layer / "tools" / "nf-core" / "minimap2" / "align/contract.yml", MINIMAP2)
     )
     (layer / "registry.yml").write_text(
         _declared(
@@ -2199,14 +2199,17 @@ def _mapq_overlay(tmp_path: Path) -> Path:
     (layer / "tools" / "nf-core" / "subread").mkdir(parents=True, exist_ok=True)
     base = (
         Path(__file__).parent.parent
-        / "registry/tools/nf-core/subread/featurecounts.contract.yml"
+        / "registry/tools/nf-core/subread/featurecounts/contract.yml"
     ).read_text()
     body = base.replace("    default: 0", "    default: 30").replace(
         "featureCounts' own documented default",
         "lab SOP BIOINF-014",
     )
-    (layer / "tools" / "nf-core" / "subread" / "featurecounts.contract.yml").write_text(
-        _declared(layer / "tools" / "nf-core" / "subread" / "featurecounts.contract.yml", body)
+    (layer / "tools" / "nf-core" / "subread" / "featurecounts").mkdir(
+        parents=True, exist_ok=True
+    )
+    (layer / "tools" / "nf-core" / "subread" / "featurecounts/contract.yml").write_text(
+        _declared(layer / "tools" / "nf-core" / "subread" / "featurecounts/contract.yml", body)
     )
     (layer / "registry.yml").write_text(
         _declared(
@@ -2365,9 +2368,10 @@ def test_a91_a_meta_route_to_a_key_the_module_never_reads_is_refused():
     registry = loaded.registry
     registry.contracts[contract.id] = rerouted
 
-    # `module_root` is the vendor directory, not the repo root: `module_path` joins it with
-    # `nf_include`, which is where a module lands in the *generated* pipeline.
-    found = conformance.check(registry, root / "vendor")
+    # **The layer carries the module** since Plan 5A, so conformance is handed the stack's
+    # modules rather than a `vendor/` root — a contract and the thing it is a binding for are
+    # versioned together now, which is what `MD0104` needed all along.
+    found = conformance.check(registry, loaded.modules)
     codes = {(d.code, d.where) for d in found}
 
     assert any(

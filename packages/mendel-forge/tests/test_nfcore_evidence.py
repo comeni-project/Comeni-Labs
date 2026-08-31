@@ -10,7 +10,7 @@ import pytest
 from mendel_forge.sources import ToolRef, nfcore
 
 ROOT = Path(__file__).resolve().parents[3]
-VENDOR = ROOT / "vendor"
+VENDOR = ROOT / "registry"
 REF = ToolRef(source="nf-core", ident="fastqc")
 
 

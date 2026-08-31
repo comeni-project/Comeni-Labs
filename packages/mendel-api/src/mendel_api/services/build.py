@@ -388,7 +388,6 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
         registry_root=settings.registry_root,
-        vendor_root=settings.source_root,
     )
     return _view(built.ir, built.pipeline, built.layers)
 

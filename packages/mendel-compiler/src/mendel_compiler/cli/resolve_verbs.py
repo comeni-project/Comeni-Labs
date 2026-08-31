@@ -12,7 +12,6 @@ the same question.
 """
 
 import argparse
-import shutil
 import sys
 from pathlib import Path
 
@@ -24,7 +23,7 @@ from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.router import UnroutableError
 
-from mendel_compiler import orchestrate, pipeline_file
+from mendel_compiler import orchestrate, pipeline_file, staging
 from mendel_compiler.cli.artifact_verbs import _refuse_a_divergent_directory
 from mendel_compiler.cli.report import (
     _displacement_line,
@@ -54,7 +53,7 @@ def run(args, parser) -> int:
     # when the build proceeds — and then `orchestrate.build` raises on the blocking ones. The
     # printing is a transport's job and the refusal is not, which is the whole split phase 0
     # made: an HTTP caller needs the same no as a value, not as stderr and an exit code.
-    for diagnostic in orchestrate.diagnostics_for(roots, args.root / "vendor"):
+    for diagnostic in orchestrate.diagnostics_for(roots):
         print(diagnostic.render(), file=sys.stderr)
 
     previous: Pipeline | None = None
@@ -125,7 +124,6 @@ def run(args, parser) -> int:
         built = orchestrate.build(
             goal,
             registry_roots=roots,
-            vendor_root=args.root / "vendor",
             prior=prior,
             resolver=resolver,
         )
@@ -161,11 +159,11 @@ def run(args, parser) -> int:
     pipeline = pipeline_file.write(args.out, pipeline)
     (args.out / "main.nf").write_text(emit(pipeline))
     (args.out / "nextflow.config").write_text(emit_config(pipeline))
-    # `nf_include` is where a module lands in the *generated* pipeline; `vendor/` is
-    # where this repository keeps the source. Deliberately not the same path.
-    vendored = args.root / "vendor" / "modules"
-    if vendored.exists():
-        shutil.copytree(vendored, args.out / "modules", dirs_exist_ok=True)
+    # **The layer carries the module now** (Plan 5A), so the source comes out of the same
+    # `--registry` the contracts did rather than out of a `vendor/` in this repository. One
+    # implementation, shared with the API's `keep`, which had no copy at all until `MD0210`
+    # found it.
+    staging.stage(pipeline, built.layers.modules, args.out)
 
     if args.command == "profile":
         # Which contract measures what, read off the IR that was actually resolved rather
