@@ -6,6 +6,8 @@ and the registry itself is confusing to use. This spec is Part A of Plan 5;
 after it, because both change `registry/` and doing them in the other order edits the same files
 twice.*
 
+> **The plan is [`../plans/2026-08-31-plan-5a-the-registry-and-the-modules.md`](../plans/2026-08-31-plan-5a-the-registry-and-the-modules.md)** — Part A's phases as tasks, with every finding from the review passes attached to the task that closes it. This file is the argument; that one is the checklist.
+
 ---
 
 ## 1. The complaint, and what it turned out to be

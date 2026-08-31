@@ -20,6 +20,8 @@ three turned out to be one blocker.*
 > touch it. Part A §5 lists what a registry change does to it, so that it is a recorded
 > consequence rather than a later discovery.
 
+> **The plan is [`../plans/2026-08-31-plan-5b-what-a-pipeline-takes.md`](../plans/2026-08-31-plan-5b-what-a-pipeline-takes.md)** — Part B's phases as tasks, with every finding from the review passes attached to the task that closes it. This file is the argument; that one is the checklist.
+
 ---
 
 ## 0. The three asks, and the one sentence underneath them
