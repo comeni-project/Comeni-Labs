@@ -18,7 +18,7 @@ from comeni_core import yaml_strict
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import LayerName
 
-REGISTRY_FORMAT = 1
+REGISTRY_FORMAT = 2
 """The highest registry format this Mendel understands.
 
 ═══ WHY A FORMAT LEVEL AND NOT A MENDEL VERSION ══════════════════════════════════════════════
@@ -50,9 +50,13 @@ narrower test than "the format changed", and it is the whole value of the number
   pipeline that dies at launch. A refusal that names the cause is strictly better than a
   `.nf` nobody can read.
 
-Level 1 is everything up to and including Plan 5A. Level 2 is the `{param}` template, and it is
-declared by the registry in phase 2.6 — **after** this floor ships, which is what makes the
-floor worth anything at all.
+Level 1 is everything up to and including Plan 5A. **Level 2 is the `{param}` template.**
+
+The two halves land in this order and it is the only order that works: this constant rises
+*before* any registry declares `requires_format: 2`, because the registry's own CI pins an
+engine commit and would otherwise refuse its own layer. The floor itself shipped one commit
+earlier still, so that a Mendel predating the whole idea fails on the *field* rather than on
+the Groovy.
 """
 
 
