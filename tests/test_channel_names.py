@@ -19,8 +19,10 @@ import pathlib
 import pytest
 import yaml
 from comeni_core.artifact.pipeline import SCHEMA_VERSION, Channel, Pipeline, StepInput
+from comeni_core.declared.vocabulary import TypeDeclaration
 from mendel_compiler.cli import main
 from mendel_compiler.emit import emit, entry_params
+from mendel_resolver import layers
 
 ROOT = pathlib.Path(__file__).parent.parent
 V5 = ROOT / "tests" / "fixtures" / "pipeline-v5"
@@ -185,3 +187,83 @@ def test_the_emitted_variable_is_the_channel_s_own_name(tmp_path):
     source = emit(upgraded)
     for channel in upgraded.channels:
         assert f"ch_{channel.name} =" in source
+
+
+# ═══ MD0228 AND THE TEMPLATE — spec §1.3, plan §2.2 and §2.6 ══════════════════════════════
+
+
+def test_a_type_naming_a_param_literally_is_refused():
+    """MD0228, and the message names the param it found.
+
+    A literal fuses a PIPELINE decision into a TYPE: two channels of one type had one param
+    and were therefore one hole, whatever the drawing said.
+    """
+    with pytest.raises(ValueError, match="MD0228"):
+        TypeDeclaration(
+            id="annotation.gtf",
+            entry_channel="Channel.fromPath(params.gtf, checkIfExists: true)",
+        )
+
+
+def test_a_template_is_accepted_and_so_is_an_expression_reading_no_param():
+    """Two passing cases, and the second is the one the first draft got wrong.
+
+    `Channel.empty()` hardcodes nothing, so there is nothing for a pipeline to have been
+    deprived of. Refusing it was a check firing on the absence of a placeholder rather than on
+    the presence of a hardcoded name — which is not what the spec asks for and broke several
+    fixtures exercising other diagnostics.
+    """
+    assert TypeDeclaration(
+        id="annotation.gtf",
+        entry_channel="Channel.fromPath(params.{param}, checkIfExists: true)",
+    )
+    assert TypeDeclaration(id="qc.report", entry_channel="Channel.empty()")
+
+
+def test_a_template_that_also_names_one_literally_is_refused():
+    """Half-migrated is refused, and it is the shape a hand-edit actually takes.
+
+    `fastq.reads` reads its param three times in one expression. Converting two of them and
+    missing the third produces a channel that is partly addressable, which is worse than
+    either end state and would emit Groovy nobody could account for.
+    """
+    with pytest.raises(ValueError, match="MD0228"):
+        TypeDeclaration(
+            id="fastq.reads",
+            entry_channel=(
+                "( params.{param} instanceof List ? Channel.of(params.input) : "
+                "Channel.fromFilePairs(params.{param}) )"
+            ),
+        )
+
+
+def test_every_entry_channel_in_the_shipped_registry_is_a_template():
+    """The registry side of §2.6, asserted here rather than trusted.
+
+    The submodule is pinned, so this is a claim about the exact layer this build reads — and
+    it is the check that would have caught a submodule bumped to a commit that predates the
+    templates, which is a mistake with no other symptom until an emitted `.nf` is read.
+    """
+    loaded = layers.load(ROOT / "registry")
+    assert loaded.vocabulary.entry_channels, "the registry declares entry channels"
+    for type_id, expression in loaded.vocabulary.entry_channels.items():
+        assert "{param}" in expression, f"{type_id} still names its param literally"
+
+
+def test_substituting_every_type_yields_groovy_that_still_parses():
+    """The plan's own check, made cheap: substitute a known param into every declared template
+    and assert the result is balanced Groovy with no placeholder left in it.
+
+    **Not `nextflow lint` on a generated stub**, which the plan suggests. `make check`'s lane
+    installs neither Nextflow nor Docker — `CLAUDE.md` names that trap explicitly — so a test
+    that shelled out to it would be green on a developer machine and red in CI. The spine's
+    emitted `main.nf` IS run through the real linter, by `make static` and by the nightly stub
+    gate, and that covers the same expressions with a tool that actually parses Groovy.
+    """
+    loaded = layers.load(ROOT / "registry")
+    for type_id, expression in loaded.vocabulary.entry_channels.items():
+        got = expression.replace("{param}", "a_known_param")
+        assert "{param}" not in got, type_id
+        assert "params.a_known_param" in got, f"{type_id} substituted nothing"
+        for opener, closer in (("(", ")"), ("[", "]"), ("{", "}")):
+            assert got.count(opener) == got.count(closer), f"{type_id} unbalanced {opener}"

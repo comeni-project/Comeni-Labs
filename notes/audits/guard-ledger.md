@@ -3692,3 +3692,33 @@ and a check in one of them is a check the other three do not have.
 revert and are meant to: they hold the floor **down**. A floor set one too high is
 indistinguishable from a broken loader at every call site, and neither test can catch that by
 failing when the check is absent — only by failing when it is wrong.
+
+### `MD0228`, a type may not name its own param (Plan 5B phase 2.6)
+
+**The revert.** `if hardcoded:` → `if False:` in
+`TypeDeclaration._an_entry_channel_names_no_param_of_its_own`.
+
+**What printed.** Two of fourteen, and the other twelve are meant to survive it — they check the
+substitution, the shipped registry, and the schema-6 migration, none of which the refusal
+governs.
+
+```
+FAILED tests/test_channel_names.py::test_a_type_naming_a_param_literally_is_refused
+FAILED tests/test_channel_names.py::test_a_template_that_also_names_one_literally_is_refused
+E   Failed: DID NOT RAISE ValueError
+```
+
+**The second is the case worth having.** A half-migrated expression — `fastq.reads` reads its
+param three times and somebody converts two — produces a channel that is *partly* addressable,
+which is worse than either end state. A check written only against the fully-literal case would
+pass on it.
+
+**And the check was too broad on its first draft, which the existing fixtures caught rather than
+a new test.** It refused any `entry_channel` without `{param}`, including `Channel.empty()` —
+which hardcodes nothing, so there is nothing for a pipeline to have been deprived of. Ten tests
+across four files failed, all of them fixtures using a param-free channel to exercise some other
+diagnostic. The spec's words are *"a literal `params.gtf`"*, and the check now looks for a
+hardcoded name rather than for a missing placeholder.
+
+That is the second time in this plan that the thing which caught an over-reach was an existing
+test using the feature incidentally, rather than a test written to police it.

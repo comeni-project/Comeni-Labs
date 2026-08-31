@@ -46,6 +46,7 @@ decline to curate one.
 | `MD0011` | a declared file names a kind that does not exist |
 | `MD0012` | a vocabulary or measurement does not declare its id |
 | `MD0020` | a layer declares a registry format this Mendel does not understand |
+| `MD0228` | a type names a param literally in its `entry_channel` |
 
 ## A contract disagrees with its module
 
