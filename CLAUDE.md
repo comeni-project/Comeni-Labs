@@ -23,13 +23,25 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
+> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md),
+> covering **Plan 5B phases 1 to 3: a channel has a name, and a pipeline can take two of a
+> type.** `entry_channel` fused the param name, the cardinality and the fan-out into the *type*;
+> the spine's three `annotation.gtf` consumers were one hole nobody could address. Splitting one
+> now gives it `gtf_2`, `params.gtf_2` and its own line in the workflow. `SCHEMA_VERSION` is 6
+> and `REGISTRY_FORMAT` is 2 — the registry declares which engine it needs (`MD0020`) and the
+> engine refuses a layer that names its own param (`MD0228`).
+>
+> **Phase 4 carries a LIVE defect and it is not fixed**: the spine's reference channels are queue
+> channels, a process runs as many times as its shortest input, so **with 24 samples `STAR_ALIGN`
+> runs once and 23 are silently dropped**. The stub profile globs one sample pair, so N = 1 hides
+> it. Do not point the spine at real multi-sample data until phase 4 lands. **Nobody has looked
+> at the builder since phase 1** — the split/merge control has never been clicked.
+>
+> Before it, [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
 > `--registry X` is the whole input to a build, and three checks exist that could not before.
 > Read it before touching the registry, conformance, or anything that used to join a path onto
-> a module root. **The forge is deprecated** — `make forge-rework` is the list. **Plan 5B is
-> written and unstarted**, and its phase B4 fixes a live fan-out bug: with 24 samples
-> `STAR_ALIGN` runs **once** and 23 are silently dropped.
+> a module root. **The forge is deprecated** — `make forge-rework` is the list.
 >
 > Before it, [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
 > phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
