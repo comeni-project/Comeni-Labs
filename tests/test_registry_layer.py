@@ -8,6 +8,8 @@ move is a path change and nothing else.
 import pathlib
 
 import yaml
+from comeni_core.declared.layer import LayerManifest
+from comeni_core.declared.layered import _KIND_OF, DeclaredKind
 from mendel_resolver import layers
 
 ROOT = pathlib.Path(__file__).parent.parent
@@ -19,7 +21,33 @@ def test_the_layer_describes_itself():
     manifest = yaml.safe_load((ROOT / "registry" / "registry.yml").read_text())
     assert manifest["name"]
     assert manifest["licence"] == "CC-BY-4.0"
-    assert manifest["kinds"] == ["contracts", "measurements", "roles", "rules", "vocabularies"]
+
+
+def test_the_manifest_places_every_kind_that_exists():
+    """`layout:` is `mendel registry lint`'s argument, and a kind it does not mention is a kind
+    the lint cannot place — so a correctly filed file of that kind would be refused.
+
+    **This test used to pin `kinds:` against a hardcoded list**, and that was the whole problem:
+    `kinds:` had no consumer, its own comment said so, and pinning a literal is what let it name
+    four kinds for the whole of Plan 1.15 Task 0 — which shipped `roles/` beside it. A33 again.
+    The list is derived from `DeclaredKind` here, so a seventh kind fails this rather than
+    quietly not being linted.
+    """
+    manifest = LayerManifest.of(ROOT / "registry")
+    assert manifest is not None
+    placed = set(manifest.layout)
+    expected = {_KIND_OF_SINGULAR[kind] for kind in DeclaredKind}
+    assert placed == expected, (
+        "every declared kind needs a place in `layout:` or the lint cannot check it:\n"
+        f"  declared and unplaced: {sorted(expected - placed)}\n"
+        f"  placed and not a kind: {sorted(placed - expected)}"
+    )
+
+
+_KIND_OF_SINGULAR = {kind: singular for singular, kind in _KIND_OF.items()}
+"""`DeclaredKind.CONTRACTS` -> `"contract"`, inverted from the map a file's `declares:` line
+reads. Inverted rather than written out, because two spellings of one mapping is how they come
+to disagree — and `vocabularies` is not `vocabularys`."""
 
 
 def test_the_layer_loads_from_its_new_home():

@@ -110,7 +110,7 @@ def test_a_changed_rule_is_reported_with_its_tier_and_reason(tmp_path, capsys):
     """
 
     def swap_aligners(layer):
-        rules = layer / "rules" / "alignment.rule.yml"
+        rules = layer / "rules" / "alignment.yml"
         rules.write_text(
             _declared(rules, rules.read_text()
             .replace("then: nf-core/star/align@1.11.0", "then: PLACEHOLDER")

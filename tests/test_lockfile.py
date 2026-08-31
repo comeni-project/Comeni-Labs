@@ -267,7 +267,7 @@ def test_a_changed_layer_is_reported_as_drift(built, tmp_path):
 
     layer = tmp_path / "registry"
     shutil.copytree(ROOT / "registry", layer)
-    rules = layer / "rules" / "alignment.rule.yml"
+    rules = layer / "rules" / "alignment.yml"
     rules.write_text(_declared(rules, rules.read_text().replace('">= 70"', '">= 60"')))
     changed = layers.load(layer)
 

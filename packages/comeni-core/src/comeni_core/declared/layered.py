@@ -137,6 +137,12 @@ def _in_module(path: Path, root: Path) -> bool:
     beside `main.nf`, and a laboratory's own process may ship anything at all. An extension
     allowlist here is the blocklist mistake wearing the other hat.
 
+    **The opposite call is made about a PIPELINE digest, and both are right.**
+    `wiener_api.services.artifacts.pipeline_digest` identifies an artifact by the pipeline's own
+    document and explicitly *not* by its tree, because re-vendoring a module must not make the
+    same pipeline look like a different one. *Is this the same layer* has to move when the code
+    moves; *is this the same pipeline* must not. `docs/design/federation.md` §3.6.
+
     **The two callers want opposite answers, which is why this is its own predicate.**
     `declared_entries` — the digest — must cover everything under `module/`. `_files` — the
     loader — must cover *nothing* under it: upstream ships its own `meta.yml`, which has no

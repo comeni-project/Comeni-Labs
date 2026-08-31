@@ -60,6 +60,18 @@ decline to curate one.
 | `MD0107` | `container` has drifted from the module's directive |
 | `MD0108` | a setting routes to an `ext` key this module never reads |
 
+## A layer is not arranged the way its manifest says
+
+| Code | Says |
+|---|---|
+| `MD0013` | a declared file is not under the directory its layer says that kind goes in |
+| `MD0014` | a declared file's name is not the id it declares |
+| `MD0015` | one file declares several roles |
+| `MD0016` | a `module/` directory has no `module.yml` declaring it |
+| `MD0017` | a type filed under a tool is not namespaced by that tool |
+| `MD0018` | two contract versions for one module, in one layer |
+| `MD0019` | a tool's file holds a relative path leaving that tool's directory |
+
 ## The pipeline file — a setting, an override, or the format
 
 | Code | Says |

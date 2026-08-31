@@ -31,8 +31,27 @@ class LayerManifest(BaseModel):
     name: LayerName
     version: str = ""
     licence: str = ""
-    kinds: list[str] = Field(default_factory=list)
     description: str = ""
+
+    layout: dict[str, list[str]] = Field(default_factory=dict)
+    """Where this layer keeps each kind — `{"contract": ["tools/"], "role": ["roles/"]}`.
+
+    **This replaced `kinds:`, which was read by nobody.** That field listed the kinds the layer
+    held and its own comment said so: *"read by nobody and pinned by a test, which is the
+    point"*. A self-description with no consumer can only rot, and it did — it named four kinds
+    for the whole of Plan 1.15 Task 0, which shipped `roles/` beside it. A33's lesson in a file
+    whose entire job is to describe itself.
+
+    This one has a consumer: `mendel registry lint` refuses a file whose kind is not under one
+    of the directories declared here. **A manifest that is the lint's argument cannot drift** —
+    if it is wrong, the lint refuses files that are correctly placed, which is loud.
+
+    **The loader ignores it entirely, and that is invariant 11 holding.** A layer's layout is
+    the author's business: a file declares its own kind, so `layers.load` reads a flat folder
+    as happily as a tree. What the *curated* registry does is hold itself to a layout its own
+    CI enforces, which is nixpkgs's `pkgs/by-name` move. Empty means unenforced, which is every
+    private overlay.
+    """
 
     @classmethod
     def of(cls, layer: Path) -> "LayerManifest | None":

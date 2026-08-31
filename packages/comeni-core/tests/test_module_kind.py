@@ -106,3 +106,40 @@ def test_a_licence_expression_is_refused():
     """
     with pytest.raises(ValueError, match="expression"):
         Module(id="nf-core/star/align", licence="MIT OR Apache-2.0")
+
+
+def test_the_layer_that_wins_the_contract_wins_the_module(tmp_path):
+    """**A4.4, and the point is that it needs no new mechanism.**
+
+    Invariant 11 defines displacement for contracts on the *module key* — the contract id minus
+    its `@version` — which is what lets a laboratory pin `@1.22.0` over `@1.21.0` without the
+    two tying. A `Module` is keyed on exactly that, so an overlay supplying a contract and its
+    module displaces both together, through one `stack()` call each, and the record is one more
+    `Displacement` row.
+
+    Anything else lets a laboratory's contract run against the public layer's source — which is
+    the drift `MD0104` exists to catch, reintroduced *between layers* instead of between
+    repositories. That is the failure this test exists to make loud.
+    """
+    base = _layer(tmp_path / "base")
+    over = _layer(
+        tmp_path / "over",
+        MODULE.replace("sha: 6d46786420b4d7bc88eba026eb389c0c5535d120", "sha: " + "a" * 40),
+        name="lab",
+    )
+    (over / "tools" / "nf-core" / "star" / "align" / "module" / "main.nf").write_text(
+        "process STAR_ALIGN { /* the lab's patched copy */ }\n"
+    )
+
+    stacked = stack(layers_of([base, over]), Module.kind())
+    won = stacked.entries["nf-core/star/align"]
+
+    assert won.upstream is not None and won.upstream.sha == "a" * 40
+    assert won.source is not None
+    assert "patched" in (won.source / "main.nf").read_text(), (
+        "the overlay won the declaration and lost the source — a lab's contract would run "
+        "against the public layer's module, which is MD0104's drift between layers"
+    )
+    assert [(d.kind, d.key, d.winning_layer) for d in stacked.displaced] == [
+        (DeclaredKind.MODULES, "nf-core/star/align", "lab")
+    ]

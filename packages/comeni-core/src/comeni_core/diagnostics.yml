@@ -20,6 +20,7 @@
 #   MD0300-MD0399  routing and resolution                  (see issue #18)
 #   MD0400-MD0499  gates and emission                      (none yet)
 #   MD0500-MD0599  validating a hand-built graph
+#   MD0013-MD0019  a layer is not arranged the way its own manifest says
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
@@ -1611,6 +1612,134 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MD0013:
+  emitted_by: compiler
+  concern: layout
+  says: "a declared file is not under the directory its layer says that kind goes in"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it, or widen `layout.<kind>` in the layer's `registry.yml`. The manifest is the
+    lint's argument, so whichever of the two is wrong, saying so is a one-line change.
+  explanation: |
+    **The loader does not care and never will.** Invariant 11 says a file declares its own
+    kind, so a layer may be one flat folder and `mendel build` will read it. This is the
+    *curated* registry holding itself to a layout its own CI enforces, which is nixpkgs's
+    `pkgs/by-name` move — and a layer whose `registry.yml` declares no `layout:` is
+    unenforced, which is every private overlay.
+
+    comeni-registry#1 traded a guarantee for a freedom. A contract used to live in
+    `contracts/`, so a misfiled document was impossible **by construction**: a misspelled
+    `contract/` was caught by `MD0003` because nothing read it. A `declares:` line can only
+    be *detected*. This is the other half of that trade — what a directory used to prevent,
+    a lint now refuses — and it is why `MD0003` was retired rather than emptied.
+MD0014:
+  emitted_by: compiler
+  concern: layout
+  says: "a declared file's name is not the id it declares"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Rename the file to the `id:` it declares. For a role, name it for the role.
+  explanation: |
+    Identity is the `id:` since `MD0012`, so the filename carries no meaning to the loader
+    and is free. That is exactly why it has to be right: a file called one thing that
+    declares another cannot be found by searching for what it declares, and a reviewer
+    reading a diff sees a path that does not name its subject.
+
+    Contracts and modules are exempt. A contract is `contract.yml` beside the `module.yml`
+    it is a binding for, which names the pair by their directory rather than by themselves.
+MD0015:
+  emitted_by: compiler
+  concern: layout
+  says: "one file declares several roles"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    One role per file, named for the role.
+  explanation: |
+    `roles.yml` held all nine at the layer root, and a diff touching it said only that
+    *some* job changed. One file each means the path names the subject.
+
+    **The format permits several and always will.** An overlay may keep its roles however
+    it likes, because invariant 11 says the layout is the author's business. What this
+    refuses is a layer that declared a `layout:` and then ignored it.
+MD0016:
+  emitted_by: compiler
+  concern: layout
+  says: "a `module/` directory has no `module.yml` declaring it"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Add a `module.yml` beside it. `comeni-vendor add` writes both, and writing one by hand
+    means recording where the code came from:
+
+        declares: module
+        id: nf-core/star/align
+        licence: MIT
+        upstream: {repo: ..., sha: ..., path: ...}
+  explanation: |
+    **The code would be invisible.** Nothing under `module/` is read as layer data — it is
+    upstream's tree, and upstream ships a `meta.yml` with no `declares:` line — so a
+    directory nothing declares is not in the stack's modules at all.
+
+    The failure is quiet in the worst way: `MD0100` reports every contract binding to that
+    module as *unverified*, which is a diagnostic rather than a refusal, so the build goes
+    green with the source sitting right there unread.
+MD0017:
+  emitted_by: compiler
+  concern: layout
+  says: "a type filed under a tool is not namespaced by that tool"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Move it to `types/` if several tools touch it, or name it for the tool it belongs to —
+    `genome.index.star`, under `tools/nf-core/star/`.
+  explanation: |
+    A thing belongs at the shallowest level that owns it. `genome.index.star` is produced by
+    `star/genomegenerate` and consumed by `star/align`, so it is the *tool's* and sits at the
+    tool level; `alignment.bam` is touched by six contracts and belongs at the root.
+
+    A shared type hidden inside one tool's directory is the arrangement the tool/subtool
+    layout exists to prevent: the next person to move or delete that tool takes a type six
+    other contracts depend on with it.
+MD0018:
+  emitted_by: compiler
+  concern: layout
+  says: "two contract versions for one module, in one layer"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Keep one. Pinning a different version is what a **higher layer** is for — invariant 11's
+    module-key displacement exists precisely so a lab can pin `@1.22.0` over `@1.21.0`
+    without the two tying.
+  explanation: |
+    **Bounded rather than designed around.** One `module/` directory holds one commit, so a
+    layer carrying `star/align@1.11.0` and `star/align@2.0.0` has one of them checked against
+    source that is not its own — which is the drift `MD0104` exists to catch, arriving by a
+    route `MD0104` cannot see.
+
+    Supporting it would mean a `module/` per contract version, and the case for that is a
+    need nobody has yet. This is refused now so that the day somebody does need it, the
+    decision is made deliberately rather than discovered in a build.
+MD0019:
+  emitted_by: compiler
+  concern: layout
+  says: "a tool's file holds a relative path leaving that tool's directory"
+  fires_on: [registry lint]
+  refuses: true
+  fix: |
+    Reference a type by its `id:`, not by a path. Nothing in a layer is addressed by path —
+    the loader globs and reads `declares:`.
+  explanation: |
+    **This is what makes "self-isolated" a checked property rather than a hope.** The whole
+    argument for the tool/subtool layout is that everything about one tool is in one place
+    and can be reviewed, moved or deleted as a unit. A `../../other-tool/thing` makes that
+    false quietly, and the next person to move a directory finds out at build time.
+
+    Deliberately a scan for `..` in declared files rather than a resolver of every path
+    field: which fields hold paths is the author's to extend, so a check that knew the field
+    names would go blind the day a new one arrives.
 MV0001:
   emitted_by: vendor
   concern: vendoring

@@ -455,9 +455,9 @@ def test_a_rules_displacement_reaches_the_artifact(tmp_path):
     ov = tmp_path / "ov"
     (ov / "rules").mkdir(parents=True)
     (ov / "registry.yml").write_text(_declared(ov / "registry.yml", "name: lab-rules\n"))
-    base_rule = (ROOT / "registry/rules/alignment.rule.yml").read_text()
-    (ov / "rules" / "alignment.rule.yml").write_text(_declared(ov / "rules"
-        / "alignment.rule.yml", base_rule))
+    base_rule = (ROOT / "registry/rules/alignment.yml").read_text()
+    (ov / "rules" / "alignment.yml").write_text(_declared(ov / "rules"
+        / "alignment.yml", base_rule))
     out = _build_with_overlay(tmp_path, ov)
     assert "rules" in _displaced_kinds(out)
 

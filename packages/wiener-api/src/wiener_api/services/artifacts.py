@@ -62,6 +62,17 @@ def pipeline_digest(artifact_id: str) -> str | None:
     pipeline look like a different one. `Pipeline.content_digest()` is over the artifact's own
     document, which is what *the same pipeline* means.
 
+    **This is deliberately the opposite of what a LAYER digest does, and both are right.**
+    `comeni_core.artifact.digest.digest_of_directory` covers a layer's `module/` trees since
+    Plan 5A, so a byte of a vendored `main.nf` *does* move the layer digest — a `pipeline.yml`
+    pins a layer, and a digest covering the declarations but not the code they describe would
+    read as a guarantee and not be one.
+
+    The two answer different questions. *Is this the same layer* has to move when the code
+    moves; *is this the same pipeline* must not. Written down here as well as in
+    `docs/design/federation.md` §3.6, so that nobody reconciles one into the other on the
+    reasonable-sounding grounds that two digests over the same subject ought to agree.
+
     **Neither server has to learn the other's identifiers.** Mendel reports the same value in
     `GET /api/pipeline/drafts`, computed by the same method over the same file, so the browser
     joins them on content alone — `wiener.md` §12's whole shape, and the reason `useSubmit.ts`

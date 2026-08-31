@@ -28,6 +28,7 @@ def parser() -> argparse.ArgumentParser:
             "explain",
             "docs",
             "conformance",
+            "lint",
         ],
     )
     parser.add_argument(
