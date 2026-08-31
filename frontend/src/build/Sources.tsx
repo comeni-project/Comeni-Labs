@@ -118,12 +118,18 @@ function Stub({ from, to }: { from: Point; to: Point }) {
  *  The corner is the tell — an input is rounded on its right, an output on its left, so each
  *  reads as the terminus of a flow that runs left to right (`impl-settled`, phase 6).
  */
-function Socket({ kind, port, at, label, onRename }: {
+function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerge }: {
   kind: "Input" | "Output";
   port: { name: string; type_id: string; states?: string[] };
   at: Point;
   label?: string;
   onRename?: (to: string) => void;
+  /** `<node>.<port>` for every port this channel feeds. Empty for an output. */
+  feeds?: string[];
+  /** Whether a person put this channel here, rather than it being the type's default. */
+  split?: boolean;
+  onSplit?: (port: string) => void;
+  onMerge?: (port: string) => void;
 }) {
   return (
     <div
@@ -158,6 +164,42 @@ function Socket({ kind, port, at, label, onRename }: {
         {port.type_id}
         {(port.states ?? []).length > 0 && `[${(port.states ?? []).join(", ")}]`}
       </span>
+
+      {/* ═══ SPLIT AND MERGE — spec §4, the operator's "multiple of the same type" ═══════
+          **Offered only where there is a choice to make.** A channel feeding one port has
+          nothing to split off; a channel feeding three is the interesting case — one shared
+          reference annotation, or one per step. Both are legal pipelines and they analyse
+          different experiments, so the canvas asks rather than deciding, which is why the
+          grouping lives on the draft and not in a derivation.
+
+          A channel a person split shows *merge* instead: the same control in reverse. */}
+      {onSplit && (feeds?.length ?? 0) > 1 && (
+        <ul className="mt-1 pointer-events-auto list-none p-0 m-0">
+          {feeds?.map((key) => (
+            <li key={key} className="flex items-center justify-between gap-1">
+              <span className="font-data text-label text-ink-3 truncate">{key}</span>
+              <button
+                onClick={() => onSplit(key)}
+                aria-label={`give ${key} its own channel`}
+                className="text-label text-[var(--link)] bg-transparent border-0 cursor-pointer
+                           px-1 hover:bg-[var(--hover)]"
+              >
+                split
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {onMerge && split && feeds?.length === 1 && (
+        <button
+          onClick={() => onMerge(feeds[0])}
+          aria-label={`put ${feeds[0]} back on the shared channel`}
+          className="mt-1 pointer-events-auto text-label text-[var(--link)] bg-transparent
+                     border-0 cursor-pointer px-1 hover:bg-[var(--hover)]"
+        >
+          merge
+        </button>
+      )}
     </div>
   );
 }
@@ -214,13 +256,21 @@ function place(kind: "Input" | "Output", anchor: Point, index: number, clear: bo
  * The two are one component because they are one arithmetic seen from two sides — see `place`.
  * Splitting them is how the input gutter and the output gutter would come to disagree.
  */
-export function Sources({ data, offsets, labels, onRename }: {
+export function Sources({
+  data, offsets, labels, onRename, declared, onSplit, onMerge,
+}: {
   data: Built;
   offsets: Record<string, { x: number; y: number }>;
   /** `<node>.<port>` → what a person called it. Draft-only; see `DraftLabel`. */
   labels?: Record<string, string>;
   /** Omitted where the canvas is read-only — the run graph draws sockets and renames none. */
   onRename?: (key: string, to: string) => void;
+  /** `<node>.<port>` for every socket a person has given its own channel. The server's
+   *  `channels` say what the grouping IS; this says which of it was somebody's decision, which
+   *  is the difference between offering *split* and offering *merge*. */
+  declared?: string[];
+  onSplit?: (port: string) => void;
+  onMerge?: (port: string) => void;
 }) {
   const consumed = new Set(data.layout.wires.map((w) => `${w.from_node}.${w.from_port}`));
   const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
@@ -275,6 +325,7 @@ export function Sources({ data, offsets, labels, onRename }: {
       key: channel.name,
       kind,
       port: { name: channel.name, type_id: channel.type_id, states: channel.states },
+      feeds: channel.ports,
       box: geometry.box,
       edge: geometry.edge,
       // **Every port it feeds, not only the one it is anchored to.** A channel drawn once with
@@ -311,6 +362,7 @@ export function Sources({ data, offsets, labels, onRename }: {
           key: `${node.id}.${port.name}`,
           kind,
           port,
+          feeds: undefined,
           box: geometry.box,
           edge: geometry.edge,
           tips: [geometry.tip],
@@ -345,6 +397,10 @@ export function Sources({ data, offsets, labels, onRename }: {
             at={s.box}
             label={labels?.[s.key]}
             onRename={onRename && ((to: string) => onRename(s.key, to))}
+            feeds={s.kind === "Input" ? s.feeds : undefined}
+            split={s.kind === "Input" && (s.feeds ?? []).some((p) => declared?.includes(p))}
+            onSplit={s.kind === "Input" ? onSplit : undefined}
+            onMerge={s.kind === "Input" ? onMerge : undefined}
           />
         </div>
       ))}

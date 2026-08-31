@@ -221,6 +221,13 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
     () => Object.fromEntries((builder.graph.labels ?? []).map((l) => [l.key, l.label])),
     [builder.graph.labels],
   );
+  /** Every socket a person has given its own channel. The server says what the grouping IS;
+   *  this says which of it was somebody's decision — the difference between offering *split*
+   *  and offering *merge*. */
+  const declaredChannels = useMemo(
+    () => (builder.graph.channels ?? []).flatMap((c) => c.ports),
+    [builder.graph.channels],
+  );
   const isLoading = data === null;
   const error = builder.drawnError;
   const [panel, setPanel] = useState<"step" | "ask" | "problems">("step");
@@ -555,6 +562,9 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               offsets={offsets}
               labels={labels}
               onRename={builder.setLabel}
+              declared={declaredChannels}
+              onSplit={builder.splitChannel}
+              onMerge={builder.mergeChannel}
             />
 
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}

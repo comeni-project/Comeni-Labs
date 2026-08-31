@@ -15,12 +15,14 @@ from comeni_core.goal.profile import DataProfile
 from comeni_core.plan.decision import DecisionRecord
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.spell.marks import (
+    ChannelName,
     ContractId,
     LayerName,
     Line,
     NodeId,
     ParamValue,
     PortName,
+    SocketKey,
     StateName,
     TypeId,
 )
@@ -203,12 +205,45 @@ class IREdge(BaseModel):
         return sorted(states)
 
 
+class IRChannel(BaseModel):
+    """One channel and the sockets it feeds. The resolved form of a `DraftChannel`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: ChannelName
+    type_id: TypeId
+    ports: list[SocketKey] = Field(default_factory=list)
+    """`<node>.<port>`. Sorted at construction — a set has no stable order and this reaches a
+    digest, which is the same reason `IREdge.states` carries a serialiser."""
+
+
 class PipelineIR(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nodes: list[IRNode] = Field(default_factory=list)
     edges: list[IREdge] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
+
+    channels: list[IRChannel] = Field(default_factory=list)
+    """Which sockets the drawing grouped into each channel.
+
+    **Empty means one channel per type**, which is what every build meant before Plan 5B phase
+    3 and is still what a goal-driven `resolve()` produces. `materialise.channels_of` fills it
+    from the drawing's `DraftChannel` list, because whether two GTF ports are one channel or two
+    is a decision only a person can make.
+
+    On the IR rather than on the `Goal` because it is **wiring**, not shape. A goal says *I have
+    two annotations*; this says which of them a given port reads, and invariant 15's whole
+    argument is that a goal describes a shape and nothing else.
+
+    **A list of records rather than a `dict[socket, name]`**, which is what it was for one
+    commit. `tests/test_egress.py` refused it in two voices — *`dict` is not a declared
+    container* and *these fields are mappings; use a list of declared records instead* — and it
+    was right twice: a mapping's keys are unvalidated by construction, which is the hole the
+    egress boundary spent three audits closing. It also reads better beside `DraftChannel` and
+    `ChannelView`, which are the same fact at the other two layers.
+    """
+
     profile: DataProfile = Field(default_factory=DataProfile)
     """What was measured about the data this pipeline was built for.
 

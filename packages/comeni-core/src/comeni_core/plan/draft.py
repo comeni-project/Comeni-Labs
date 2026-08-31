@@ -24,7 +24,14 @@ from comeni_core.spell.marks import (
     SocketKey,
 )
 
-__all__ = ["DraftEdge", "DraftGraph", "DraftLabel", "DraftNode", "DraftParam"]
+__all__ = [
+    "DraftChannel",
+    "DraftEdge",
+    "DraftGraph",
+    "DraftLabel",
+    "DraftNode",
+    "DraftParam",
+]
 
 
 class DraftParam(BaseModel):
@@ -127,6 +134,32 @@ class DraftLabel(BaseModel):
     label: Line = ""
 
 
+class DraftChannel(BaseModel):
+    """Which sockets share one channel. **A decision only a person can make.**
+
+    Whether two GTF ports are fed by one file or by two is not derivable from the drawing: both
+    are legal pipelines and they analyse different experiments. So the drawing carries it.
+
+    **The default is one channel per type**, which is today's behaviour and the right answer for
+    the spine's shared reference annotation — an empty `channels` list means exactly that, so no
+    existing draft changes and nobody has to declare anything to keep working.
+
+    Splitting is the canvas control the operator asked for (*"a pipeline needs to have two same
+    type inputs"*), and merging two back is the same control in reverse.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ports: tuple[SocketKey, ...]
+    """`<node>.<port>`, the sockets this channel feeds. **A tuple, so the model is hashable and
+    frozen** — a draft is compared for equality on every render.
+
+    Only ports a person has *moved off* the default need naming: an unlisted port keeps the
+    one-channel-per-type behaviour. That keeps a draft's `channels` proportional to how much
+    somebody has customised rather than to how large the pipeline is.
+    """
+
+
 class DraftNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -140,6 +173,9 @@ class DraftGraph(BaseModel):
 
     nodes: list[DraftNode] = Field(default_factory=list)
     edges: list[DraftEdge] = Field(default_factory=list)
+    channels: list[DraftChannel] = Field(default_factory=list)
+    """Sockets a person has grouped into their own channel. **Empty is one channel per type**,
+    which is what every draft meant before this field existed — see `DraftChannel`."""
     labels: list[DraftLabel] = Field(default_factory=list)
     """What a person called each socket. **Read by the canvas and by nothing else** — see
     `DraftLabel`, which carries the argument for why that boundary is worth a guard."""

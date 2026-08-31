@@ -19,15 +19,42 @@ where most code meets one.
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from comeni_core.goal.profile import DataProfile, Measured  # noqa: F401  (re-exported)
-from comeni_core.spell.marks import HumanParamValue, PortName, StateName, TypeId
+from comeni_core.spell.marks import (
+    ChannelName,
+    HumanParamValue,
+    PortName,
+    StateName,
+    TypeId,
+)
 
 __all__ = ["Constraints", "DataProfile", "Goal", "GoalInput", "Measured", "ParamOverride"]
 
 
 class GoalInput(BaseModel):
+    """One thing the laboratory already has, as a **shape**.
+
+    **A goal names channels rather than types since Plan 5B phase 3**, and that is what lets a
+    goal say *I have two annotations* — one for the reference and one per sample — where before
+    it could only say *I have an annotation*. `materialise.goal_of` deduplicated by `type_id`
+    in one line, and that line was the whole of why two `annotation.gtf` inputs were one hole.
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_id: TypeId
+    name: ChannelName | None = None
+    """This input's channel. **`None` means "derive it"**, which is every goal file written by
+    hand and every goal written before phase 3 — the derivation is the type id's last segment
+    and is what one-channel-per-type has always produced.
+
+    A goal naming two inputs of one type must name both, because the deduplication that made
+    the second one vanish is gone and two unnamed inputs of a type would derive the same name.
+    `MD0226` refuses the resulting pipeline rather than letting them merge quietly.
+
+    **`None` rather than `""`.** `ChannelName` is an identifier and an empty one is not a name;
+    saying *absent* with a value the type refuses would mean widening the type to carry a
+    sentinel, which is how a validated alias stops validating.
+    """
     states: frozenset[StateName] = frozenset()
 
     @field_serializer("states")

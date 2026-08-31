@@ -214,3 +214,60 @@ describe("naming a socket on the canvas", () => {
     expect(container.querySelectorAll("input").length).toBe(0);
   });
 });
+
+
+/** Spec §4 on the canvas: the operator's *"multiple of the same type"*, as a control. */
+describe("splitting a channel on the canvas", () => {
+  const SHARED = {
+    ...DATA,
+    channels: [
+      { name: "gtf", param: "gtf", type_id: "annotation.gtf", states: [],
+        ports: ["trimgalore.reads", "align.index"] },
+      // A channel feeding exactly one port, so the negative half of the test has a subject.
+      { name: "fasta", param: "fasta", type_id: "genome.fasta", states: [],
+        ports: ["align.reads"] },
+    ],
+  };
+
+  it("offers split per port, and only where a channel feeds more than one", () => {
+    // A channel feeding one port has nothing to split off. Offering the control there would be
+    // a button that either does nothing or silently means something else.
+    const split = vi.fn();
+    render(<Sources data={SHARED as never} offsets={{}} onSplit={split} />);
+    fireEvent.click(screen.getByLabelText("give align.index its own channel"));
+    expect(split).toHaveBeenCalledWith("align.index");
+    // `fasta` feeds one port. Offering the control there would be a button that either does
+    // nothing or silently means something else.
+    expect(screen.queryByLabelText("give align.reads its own channel")).toBeNull();
+  });
+
+  it("offers merge on a channel a person split, and not on a type's default", () => {
+    // The same control in reverse, and the distinction it rests on is not derivable from the
+    // server's answer: `channels` says what the grouping IS, `declared` says whose decision it
+    // was. A default single-port channel must not offer to merge into nothing.
+    const merge = vi.fn();
+    const one = {
+      ...DATA,
+      channels: [
+        { name: "gtf_2", param: "gtf_2", type_id: "annotation.gtf", states: [],
+          ports: ["align.index"] },
+      ],
+    };
+    const { rerender } = render(
+      <Sources data={one as never} offsets={{}} declared={["align.index"]}
+               onMerge={merge} />,
+    );
+    fireEvent.click(screen.getByLabelText("put align.index back on the shared channel"));
+    expect(merge).toHaveBeenCalledWith("align.index");
+
+    rerender(<Sources data={one as never} offsets={{}} declared={[]} onMerge={merge} />);
+    expect(
+      screen.queryByLabelText("put align.index back on the shared channel"),
+    ).toBeNull();
+  });
+
+  it("offers neither where the canvas is read-only", () => {
+    render(<Sources data={SHARED as never} offsets={{}} />);
+    expect(screen.queryByLabelText("give align.index its own channel")).toBeNull();
+  });
+});

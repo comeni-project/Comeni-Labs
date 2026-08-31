@@ -30,11 +30,14 @@ person was certain. That is the honesty mechanism, and a builder is exactly wher
 tempting to skip.
 """
 
+from typing import NamedTuple
+
+from comeni_core.artifact.materialise import _stem, _unique
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph
-from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
+from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Tier, ValueSource
 
 from mendel_resolver.layers import Layers
@@ -42,7 +45,7 @@ from mendel_resolver.ports import FlagOnlyResolver
 from mendel_resolver.premises import build_premises
 from mendel_resolver.resolve import _layer_of, _resolve_param
 
-__all__ = ["goal_of", "ir_of"]
+__all__ = ["channels_of", "goal_of", "ir_of"]
 
 
 def _contracts(graph: DraftGraph, layers: Layers) -> dict[str, ModuleContract]:
@@ -60,30 +63,141 @@ def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
     """
     contracts = _contracts(graph, layers)
     wired_out = {(e.from_node, e.from_port) for e in graph.edges}
-    wired_in = {(e.to_node, e.to_port) for e in graph.edges}
 
     want: list[str] = []
-    have: list[GoalInput] = []
     for node in graph.nodes:
-        contract = contracts[node.id]
-        for port in contract.produces:
+        for port in contracts[node.id].produces:
             if (node.id, port.name) not in wired_out and port.type_id not in want:
                 want.append(port.type_id)
-        for port in contract.consumes:
+
+    # ═══ ONE INPUT PER CHANNEL, NOT PER TYPE — spec §3 ════════════════════════════════════
+    #
+    # This deduplicated by `type_id` in one line —
+    #
+    #     if all(i.type_id != alternative.type_id for i in have):
+    #
+    # — and that line was the whole of why the spine's three `annotation.gtf` consumers were a
+    # single hole nobody could address. A goal can say *I have two annotations* now.
+    have = [
+        GoalInput(type_id=channel.type_id, name=channel.name)
+        for channel in channels_of(graph, layers)
+    ]
+
+    # Sorted by `(type_id, name)`: a `Goal` reaches `pipeline.yml`, and byte-identical output is
+    # a hard requirement (invariant 10). It sorted by `type_id` alone, which stopped being a
+    # total order the moment two inputs could share one.
+    return Goal(
+        have=sorted(have, key=lambda i: (i.type_id, i.name)),
+        want=sorted(want),
+        profile=graph.profile,
+    )
+
+
+class DrawnChannel(NamedTuple):
+    """One channel a drawing implies: its name, its type, and the sockets it feeds."""
+
+    name: str
+    type_id: str
+    ports: tuple[str, ...]
+
+
+def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
+    """Every channel this drawing reads from outside, named.
+
+    ═══ THE GROUPING IS THE PERSON'S; THE ORDER AND THE NAMES ARE THE SHAPE'S ═══════════════
+
+    `DraftChannel` says which sockets share a channel — a decision only a person can make,
+    because one GTF feeding two steps and two GTFs feeding one each are both legal pipelines
+    that analyse different experiments. Everything unlisted keeps the default, **one channel per
+    type**, which is what every drawing meant before this existed.
+
+    ═══ ORDERED ON SHAPE, NEVER ON IDENTITY — spec §11.2 ════════════════════════════════════
+
+    `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently *taken*, so
+    adding two STAR nodes and deleting the first leaves `star_align_2` where drawing one fresh
+    gives `star_align_1`. **Two structurally identical graphs, two different node ids** — and an
+    order keyed on them would make a person's `params.*` depend on the order they clicked.
+
+    So a channel sorts on `(depth of its shallowest consumer, that consumer's contract, the port
+    name)`. Depth is computed from the edges here rather than taken from `dag_core.layout`:
+    the arithmetic is six lines, and the alternative is a dependency from `mendel-resolver` onto
+    a layout package for one integer.
+
+    **Two isomorphic consumers tie**, and the tie is broken by type id and then by the sorted
+    port keys — which does read a node id, and is the one place it can. Two graphs that differ
+    only by which of two *interchangeable* nodes came first are isomorphic: whichever way the
+    tie falls, the emitted workflow describes the same computation. That is a weaker claim than
+    the rest of this function makes and it is written down rather than buried.
+    """
+    contracts = _contracts(graph, layers)
+    wired_in = {(e.to_node, e.to_port) for e in graph.edges}
+    depth = _depths(graph)
+
+    # Every socket fed from outside, with the type it reads.
+    sockets: list[tuple[str, str]] = []
+    for node in graph.nodes:
+        for port in contracts[node.id].consumes:
             if (node.id, port.name) in wired_in:
                 continue
             for alternative in port.alternatives():
                 if alternative.type_id in layers.vocabulary.entry_channels:
-                    if all(i.type_id != alternative.type_id for i in have):
-                        have.append(GoalInput(type_id=alternative.type_id))
+                    sockets.append((f"{node.id}.{port.name}", alternative.type_id))
                     break
 
-    # Sorted: a `Goal` reaches `pipeline.yml`, and byte-identical output is a hard requirement.
-    return Goal(
-        have=sorted(have, key=lambda i: i.type_id),
-        want=sorted(want),
-        profile=graph.profile,
-    )
+    declared = {key: n for n, channel in enumerate(graph.channels) for key in channel.ports}
+    groups: dict[tuple, list[str]] = {}
+    types: dict[tuple, str] = {}
+    for key, type_id in sockets:
+        # A socket a person has grouped keys on that group; everything else keys on its type,
+        # which is the one-channel-per-type default.
+        group = ("drawn", declared[key]) if key in declared else ("type", type_id)
+        groups.setdefault(group, []).append(key)
+        types[group] = type_id
+
+    def rank(group: tuple) -> tuple:
+        ports = sorted(groups[group])
+        shallowest = min(
+            (depth[k.split(".", 1)[0]], contracts[k.split(".", 1)[0]].id, k.split(".", 1)[1])
+            for k in ports
+        )
+        return (*shallowest, types[group], tuple(ports))
+
+    taken: dict[str, None] = {}
+    return [
+        DrawnChannel(
+            name=_unique(_stem(types[group]), taken),
+            type_id=types[group],
+            ports=tuple(sorted(groups[group])),
+        )
+        for group in sorted(groups, key=rank)
+    ]
+
+
+def _depths(graph: DraftGraph) -> dict[str, int]:
+    """How far along the flow each node sits — longest path from a root.
+
+    Six lines rather than a dependency on `dag_core.layout`, which computes the same integer as
+    part of placing boxes on a screen. Cycles are `validate`'s to report (`MD0503`); this stops
+    rather than looping, so a cyclic draft gets a bad order rather than a hang.
+    """
+    into: dict[str, list[str]] = {node.id: [] for node in graph.nodes}
+    for edge in graph.edges:
+        if edge.to_node in into:
+            into[edge.to_node].append(edge.from_node)
+    depth: dict[str, int] = {}
+
+    def of(node: str, seen: frozenset[str]) -> int:
+        if node in depth:
+            return depth[node]
+        if node in seen:
+            return 0
+        got = max((of(p, seen | {node}) + 1 for p in into.get(node, [])), default=0)
+        depth[node] = got
+        return got
+
+    for node in graph.nodes:
+        of(node.id, frozenset())
+    return depth
 
 
 def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
@@ -234,6 +348,13 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         )
 
     return PipelineIR(
+        # **The wiring the drawing decided**, so materialisation does not have to re-derive it
+        # and cannot derive it differently. Empty for a goal-driven build, which is one channel
+        # per type and needs no map.
+        channels=[
+            IRChannel(name=c.name, type_id=c.type_id, ports=sorted(c.ports))
+            for c in channels_of(graph, layers)
+        ],
         nodes=nodes,
         edges=edges,
         decisions=decisions,

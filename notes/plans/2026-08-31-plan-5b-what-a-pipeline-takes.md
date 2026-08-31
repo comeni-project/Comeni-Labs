@@ -86,7 +86,7 @@ what makes the diff readable.*
 
 ### 2.3 Ordering is on SHAPE, never on identity — spec §11.2
 
-- [ ] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
+- [x] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
       layout arithmetic, and **no node id anywhere**.
 - [x] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
       *taken*. Add two STAR nodes and delete the first and the survivor is `star_align_2`; draw one
@@ -103,7 +103,7 @@ what makes the diff readable.*
 - [x] The loader migrates: an old file names its channels by type, one channel per type, so
       `annotation.gtf` → `gtf`. In the loader beside the other version branches, **not a script
       somebody has to remember to run.**
-- [ ] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
+- [x] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
       name derived from the type, which is what this pipeline's behaviour already was.*
 - [x] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
       current registry and replays every recorded decision so only what you touched can move —
@@ -141,20 +141,20 @@ what makes the diff readable.*
 
 *The first phase where a drawing can express something it could not before.*
 
-- [ ] `goal_of` stops deduplicating. It currently writes
+- [x] `goal_of` stops deduplicating. It currently writes
       `if all(i.type_id != alternative.type_id for i in have)` — that one line is the whole of it.
-- [ ] `GoalInput` gains `name: ChannelName` and `scope: Scope`.
-- [ ] `Goal.have` sorts by `(type_id, name)`. It sorts by `type_id` today because a `Goal` reaches
+- [x] `GoalInput` gains `name: ChannelName` and `scope: Scope`.
+- [x] `Goal.have` sorts by `(type_id, name)`. It sorts by `type_id` today because a `Goal` reaches
       `pipeline.yml` and byte-identical output is a hard requirement (invariant 10).
-- [ ] **`DraftChannel` on the draft**: whether two GTF ports are one channel or two is a decision
+- [x] **`DraftChannel` on the draft**: whether two GTF ports are one channel or two is a decision
       only a person can make. The **default is one channel per type**, which is today's behaviour
       and the right answer for the spine's shared reference annotation.
-- [ ] The canvas's **split / merge** control — the operator's *"multiple of the same type"* — and
+- [x] The canvas's **split / merge** control — the operator's *"multiple of the same type"* — and
       merging two back is the same control in reverse.
-- [ ] **Routing is unaffected, and that is checked rather than assumed** (§3.1): `producers_of`
+- [x] **Routing is unaffected, and that is checked rather than assumed** (§3.1): `producers_of`
       matches a requirement against `produces` by type and states; a channel is not a producer and
       never was, which `StepInput`'s `source`/`channel` split and `MD0215` already enforce.
-- [ ] **The determinism test §3.2 owes**: build the same pipeline twice by different routes — add
+- [x] **The determinism test §3.2 owes**: build the same pipeline twice by different routes — add
       and delete nodes on one path — and diff the emitted `.nf`. Watched failing against an
       ordering keyed on node ids.
 
@@ -520,3 +520,47 @@ linter would be green on a developer machine and red in CI.
 So the test substitutes into every declared template and asserts the result is balanced and has no
 placeholder left, and the **real** linter covers the same expressions where it already runs: the
 spine's emitted `main.nf`, through `make static` and the nightly stub gate.
+
+
+### Phase 3 — carried out, with three deviations
+
+**`GoalInput.scope` is not here.** The task line pairs it with `name`; `Scope` is phase 4's type
+and arrives with it. Adding a field now would mean choosing a default for every existing goal
+before the argument for what a scope *means* has been written, which is §12.2's mistake in
+advance.
+
+**The ordering key is `(depth, contract, port name)`, computed from the IR's own edges** rather
+than taken from `dag_core.layout`. §11.2 asks for `(rank, order-within-rank, port index)` and
+the reason it gives is what matters — *no node id anywhere* — which this satisfies. Taking it
+from `dag-core` would mean a dependency from `mendel-resolver` onto a layout package for one
+integer; `_depths` is six lines.
+
+**One place still reads a node id, and it is written on the function.** Two *isomorphic*
+consumers — two identical STAR nodes at one depth, both taking a GTF — tie on every shape fact,
+and the tie breaks on the sorted port keys. Whichever way it falls the two graphs describe the
+same computation, so the tie is arbitrary rather than wrong. That is a weaker claim than the rest
+of the ordering makes and it is stated rather than buried.
+
+### Two guards refused the first design, and both were right
+
+`PipelineIR.channel_of` started as a `dict[SocketKey, ChannelName]`, and `tests/test_egress.py`
+refused it in two voices: *`dict` is not a declared container* and *these fields are mappings; use
+a list of declared records instead*. A mapping's keys are unvalidated by construction, which is
+the hole the egress boundary spent three audits closing. `IRChannel` is the list of records, and
+it reads better beside `DraftChannel` and `ChannelView` — the same fact at the other two layers.
+
+Then `tests/test_pipeline_totality.py` refused it again for a different reason: a new field on a
+replaced type needs a stated home in `Pipeline`. It is `RETYPED` rather than `NOT_CARRIED`,
+because the name matches and the type does not — the IR records *which sockets share a channel*
+and the artifact records *what the channel is*, with the grouping surviving by inversion in
+`StepInput.channel`.
+
+### What the split actually produces
+
+    default:   gtf    params.gtf     annotation.gtf   feeds 3 ports
+    split:     gtf    params.gtf     annotation.gtf
+               gtf_2  params.gtf_2   annotation.gtf   ← the split port reads this one
+
+`ch_gtf_2` is a real line in the emitted workflow and `params.gtf_2` a real hole in
+`nextflow.config`, so a laboratory binds two annotations where it could bind one. That is ask (2)
+end to end.

@@ -1102,6 +1102,24 @@ export interface components {
             version: string;
         };
         /**
+         * DraftChannel
+         * @description Which sockets share one channel. **A decision only a person can make.**
+         *
+         *     Whether two GTF ports are fed by one file or by two is not derivable from the drawing: both
+         *     are legal pipelines and they analyse different experiments. So the drawing carries it.
+         *
+         *     **The default is one channel per type**, which is today's behaviour and the right answer for
+         *     the spine's shared reference annotation — an empty `channels` list means exactly that, so no
+         *     existing draft changes and nobody has to declare anything to keep working.
+         *
+         *     Splitting is the canvas control the operator asked for (*"a pipeline needs to have two same
+         *     type inputs"*), and merging two back is the same control in reverse.
+         */
+        DraftChannel: {
+            /** Ports */
+            ports: string[];
+        };
+        /**
          * DraftEdge
          * @description One wire: where it starts, where it ends. Nothing derived.
          */
@@ -1121,6 +1139,8 @@ export interface components {
             nodes?: components["schemas"]["DraftNode"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
+            /** Channels */
+            channels?: components["schemas"]["DraftChannel"][];
             /** Labels */
             labels?: components["schemas"]["DraftLabel"][];
             profile?: components["schemas"]["DataProfile"];
@@ -1445,10 +1465,20 @@ export interface components {
             constraints?: components["schemas"]["Constraints"];
             profile?: components["schemas"]["DataProfile"];
         };
-        /** GoalInput */
+        /**
+         * GoalInput
+         * @description One thing the laboratory already has, as a **shape**.
+         *
+         *     **A goal names channels rather than types since Plan 5B phase 3**, and that is what lets a
+         *     goal say *I have two annotations* — one for the reference and one per sample — where before
+         *     it could only say *I have an annotation*. `materialise.goal_of` deduplicated by `type_id`
+         *     in one line, and that line was the whole of why two `annotation.gtf` inputs were one hole.
+         */
         GoalInput: {
             /** Type Id */
             type_id: string;
+            /** Name */
+            name?: string | null;
             /**
              * States
              * @default []
