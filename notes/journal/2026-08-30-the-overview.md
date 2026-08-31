@@ -1,14 +1,15 @@
-# 2026-08-30 — the floor, the results, the front door, the builder, and the runs
+# 2026-08-30/31 — the floor, the results, the screens, and the builder rebuilt
 
-**Read this first if you are picking the project up. This is the newest entry.** It covers seven
-phases of Plan 4 executed in one day, on `worktree-plan-4-phase-0`.
+**Read this first if you are picking the project up. This is the newest entry.** It covers
+Plan 4 phases 0–5 in one day, and then **phase 6, which exists because the operator drove the
+result**. On `worktree-plan-4-phase-0`.
 
 The redesign of 2026-08-29 produced a canvas and nothing else — *"nothing in `packages/` or
 `frontend/` changed in this session"*. This is the session where it started becoming code.
 
 ## Where things stand
 
-**Plan 4 phases 0, 1, 2, 3a, 3b, 4 and 5 are complete.** The plans are in
+**Plan 4 phases 0–5 are complete; phase 6 is four tasks of six.** The plans are in
 [`../plans/`](../plans/), each with its steps ticked and an execution record naming every
 deviation.
 
@@ -335,15 +336,100 @@ The fixtures were wrong and so was the panel. **There is no error boundary above
 answers *nothing to draw* for a shape it does not recognise: a run that is hard to read beats a
 run that renders nothing.
 
+## Phase 6 — and the lesson is that none of the first five were looked at
+
+Phases 0 to 5 shipped with every suite green. Then the operator opened the pages, and the verdict
+on the front door was *font is wrong, no background, the prompt bar is very ugly*, and on the
+builder *incredibly different — treat it as a rebuild from scratch*.
+
+**Both were right, and both were invisible to 316 tests.** That is the entry's central point:
+this repository's guards are good at behaviour and blind to appearance, and five phases of work
+was signed off on suites that could not see the thing being complained about.
+
+### What the front door was actually doing
+
+Three causes, each verified in the source before anything was touched.
+
+**The fonts were never loaded.** `--font-display` was `Georgia, … serif` and no webfont was
+fetched at all — so the headline on the first screen anybody sees rendered in a serif that
+appears nowhere in the design, and every other screen fell back to the system sans. Geist now
+ships via `@fontsource`, **bundled rather than fetched**: a Google Fonts `<link>` would render
+the design on the hosted instance and the fallback stack in an air-gapped laboratory, which is
+invariant 13 arriving as a stylesheet.
+
+**There was no ground.** `body { background: var(--paper) }` and nothing else. Every artboard
+opens on an arc field, a scan texture and a vignette, and **all three were deferred through Plan
+4 as "decorative ambience"** — my judgement, and wrong. Without them a panel reads as a grey box
+floating on black. Later, the canvas needed its own field for the reason `n-bcanvas` had already
+written down: *the arcs were anchored bottom-left at page scale, so the canvas was showing the
+empty part of them.*
+
+**The prompt bar was not the drawing.** A rounded input at 55% opacity in an 880px column, where
+the artboard is a 660px square-cornered bar with a blue chevron and a snapping cursor. Measured
+against it rather than eyeballed: 660px, `15px 18px`, `#0B1013` on `#1E3A4E`, radius 0.
+
+### The builder, and the flow that was decided twice
+
+`impl-settled` says **CANVAS IS LEFT-TO-RIGHT** under a heading reading *please do not
+re-litigate*. It flowed downward. That was not an oversight either — Plan 3C read the direction
+off `dashboard.html`, and `test_layout.py`'s header records the reasoning **and the risk**:
+
+> The first draft of this plan assumed left-to-right and would have been wrong in a way no test
+> here would have caught — the assertions would all have passed on a sideways graph.
+
+That warning was exactly right, and it is why the flip touched eight tests: one of them asserted
+`rank` ordering and **passed on both layouts**. The 2026-08-29 canvas supersedes `dashboard.html`
+and the header now says so, rather than leaving two design sources contradicting each other.
+
+`dag-core` is one implementation for both canvases, so the **runs graph turned with it**. That is
+`impl-reuse`'s stated intent and it is asserted in Wiener's own route test rather than left to be
+discovered.
+
+### The guard that was named and never written
+
+`geometry.ts` duplicates the layout constants and its header said a test held them together
+*"rather than trusting the comment"*. **No test by that name exists.** The two had been free to
+diverge for two plans and had — `NODE_W` was 232 in the browser and 172 in Python. Written now,
+under the name the comment used; it failed on its first run.
+
+Second time in three days. `useCompatibility.ts` ended *"A test asserts the absence"* and nothing
+did. **A comment claiming a guard is worse than no comment, because it stops the next person
+looking.**
+
+### The picker was never missing
+
+`Picker.tsx` and `GET /pipeline/candidates` shipped in phase 3b — keyboard-first, ranked by
+`producers_of`'s key, with computed reasons. They were bound to a **double click on a 7px
+square**, which is why the operator's verdict was that the feature does not exist. The comment
+that chose the double click was honest about the obstacle and the obstacle was four lines of
+movement tracking.
+
+And driving it found the defect a suite could not: adding a step **appeared to lose one**. The
+saved draft was correct throughout, checked against the API. `seed` pinned a node to wherever it
+first appeared, so a re-ranked sibling never moved and two nodes drew on top of each other.
+**Being drawn somewhere is not being put there** — `moveNode` now records what a person actually
+dragged, which keeps the property the seed-once rule was written for.
+
 ## What is next
 
-**The browser pass over everything Plan 4 built** — the builder's four surfaces, the typed
-sockets, the envelope, the escalation and the board's comparison. It is the last item on phase 5's
-own plan, it is owed since phase 3a, and the operator sequenced it after the phases rather than
-between them. **Every session that skipped it found defects later that green suites had waved
-through** — seven across 3a and 3b, found by rendering a page and reading it.
+**Phase 6, tasks 5 and 6, and a chrome pass that is not yet in the plan.**
+[`../plans/2026-08-30-plan-4-phase-6-the-builder-rebuilt.md`](../plans/2026-08-30-plan-4-phase-6-the-builder-rebuilt.md)
+has four of six ticked. What remains:
+
+- **Task 5** — settings move from the rail to a card on the node, and the rail keeps only the
+  *choice*: what this step is, why this tool, swap it. `impl-settled`: *two lists of the same
+  thing is what we just removed.*
+- **The chrome, which the plan does not cover.** It was written around the CANVAS. The title
+  row, the provenance bar, the CANVAS/ARTIFACT toggle, the Run button and the right rail are all
+  still Plan 3C's design, and the wire labels overlap mid-canvas. The frame needs the same pass
+  the contents got. Raised with the operator on 2026-08-31 and not yet scheduled.
+- **Task 6** — write it down, then walk the whole thing by hand.
 
 Then **"Changed underneath you"**, which is its own phase by the operator's decision.
+
+**The browser pass is no longer a single item at the end.** It has become the way this work is
+done: every session that skipped it found defects later that green suites had waved through, and
+phase 6 exists entirely because somebody opened the pages.
 
 **What Plan 4 has not done, named rather than absorbed:**
 

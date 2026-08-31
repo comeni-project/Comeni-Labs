@@ -3441,3 +3441,68 @@ defined nowhere.
 sockets, the Overview's three states beyond what was rendered in phase 2, and now the envelope,
 the escalation and the board's comparison — has component tests and no browser pass. It is the
 last item on phase 5 and the operator sequenced it there deliberately.
+
+---
+
+## The builder, rebuilt against its artboards — Plan 4 phase 6, 2026-08-30/31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_layout.py` "a producer sits LEFT of its consumer" | swapped `x`/`y` back to the downward layout — verified with `grep -c` | failed | `samtools_sort is not left of subread_featurecounts` |
+| 2026-08-31 | `test_geometry_agrees.py` "the canvas and the layout agree" | **nothing — it caught live drift on its first run** | failed | `geometry.ts NODE_W = 232, layout.NODE_W = 172` |
+| 2026-08-31 | `geometry.test.ts` "computes a port's position nowhere but here" | put `NODE_H / 2` back into `Wires.tsx`, verified with `grep -c` | failed | `"./Wires.tsx derives a port offset of its own"` |
+| 2026-08-31 | `Port.test.tsx` "a press that does not travel asks what could go here" | removed the click branch, verified with `grep -c` | failed | the picker was unreachable by single click again |
+| 2026-08-31 | `useGraph.test.ts` "re-seeds a node nobody has moved" | restored `if (next[id] === undefined)`, verified with `grep -c` | failed | the re-ranked sibling kept its old position |
+| 2026-08-31 | `Canvas.test.tsx` "shows no grid at rest" | pinned `opacity: 1`, verified with `grep -c` | failed | a permanent grid, which `n-bcanvas` calls the loudest hobby-editor signal there is |
+
+### The guard that was named in a comment and never written
+
+`frontend/src/build/geometry.ts` duplicates `dag_core.layout`'s constants — a deliberate cost,
+because the server computes the canonical arrangement and the browser owns a node's position
+while you drag it. Its header said the cost was paid for:
+
+> …it is bounded — six numbers — and `test_the_canvas_and_the_layout_agree_on_geometry` holds
+> them together from the Python side **rather than trusting the comment**.
+
+**There was no such test.** A search of the repository for that name returns nothing. The two
+files had been free to disagree for two plans, and they did: `NODE_W` was 232 in the browser and
+172 in Python by the time anybody looked. The guard exists now, under the name the comment used,
+and it failed on its first run against the live mismatch.
+
+This is the second time in three days — `useCompatibility.ts` ended *"A test asserts the
+absence"* and no test asserted the absence. **A comment claiming a guard is worse than no
+comment, because it stops the next person looking.**
+
+### A defect that only looking could find
+
+Adding `samtools/index` downstream of `samtools/sort` made it a **sibling** of
+`subread/featurecounts`, and featurecounts vanished from the canvas. The saved draft was correct
+throughout — six nodes, both edges, checked against the API — so every test in the suite was
+green about a picture that had lost a step.
+
+`seed` placed a node **once per node, ever**, so a re-ranked layout could not move a node the
+person had never touched. The rule it was protecting is real and still holds: a re-layout must
+not move a box under somebody's hand. What it was missing is that **being drawn somewhere is not
+being put there.** `moveNode` now records what a person actually dragged.
+
+That is `impl-walkbugs`' *EVERY STEP LANDED ON IDENTICAL COORDINATES — two nodes, one visible*,
+arriving through a door nobody had closed.
+
+### An operator decision reversed, deliberately and in writing
+
+The 2026-08-19 request was that input and output ports be **different shapes**, because the
+design left direction to be inferred from which edge a port sat on. That reasoning was about a
+**downward** graph, where top and bottom carry no meaning anybody arrives with. Left-to-right
+does: left is in, right is out. The direction is now also *drawn*, as `◀`/`▶` beside each type
+on the node.
+
+`Restored.test.tsx` keeps the requirement — a reader is never asked to infer a direction — and
+drops the shape that used to satisfy it. Fourth restatement of that entry, which is what that
+file is for.
+
+### What was NOT looked at
+
+Tasks 5 and 6 are open, and so is the **chrome**: the title row, the provenance bar, the
+CANVAS/ARTIFACT toggle, the Run button and the right rail are all still Plan 3C's design, and the
+wire labels overlap mid-canvas. The plan was written around the canvas and the frame around it
+needs the same pass.

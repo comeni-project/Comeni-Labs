@@ -145,9 +145,16 @@ description. **Leave the slot empty; do not invent prose.**
 
 | Task | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
+| 1 | Yes, and it found a guard that did not exist | `geometry.ts` claimed its constants were held to `layout.py`'s by a named test "rather than trusting the comment". No such test existed, and `NODE_W` was 232 in the browser against 172 in Python. `dag-core/tests/test_geometry_agrees.py` is that test, written under the name the comment used; it failed on its first run. The plan said "turn the layout"; it was also a **de-drift**, and the runs graph turned with it because `dag-core` is one implementation for both canvases |
+| 2 | Yes, plus one reversal the plan did not authorise | The three-band symbol, the rail colours and the footer went in as written. **Ports became clickable**, which reverses an operator decision that they were drag-only — written up in the ledger rather than done quietly, because a drag-only port is a gesture with no discoverable affordance and the annotation `n-bport` asks for one. `Port.tsx` distinguishes click from drag with a 4px slop on `pointerdown`, so the drag gesture is unchanged |
+| 3 | Yes | The picker mounts outside the transformed stage, so its canvas coordinates need the view transform applied **forward** — without that it opened in the page's top-left on every zoom but 1:1. The socket gutter was 240px against a 224px rank pitch, which drew every non-root node's entry sockets on top of the node feeding it; roots keep theirs to the left and everything else drops below |
+| 4 | Yes, and it uncovered a defect no API test could see | The field, the three-ruling grid and the registration marks are as written. **Adding a step made its sibling vanish** — `seed` pinned every node once-ever, so a re-layout that moved an unmoved node was discarded. The saved draft was correct throughout (verified against the API), which is why only looking at it could find it. Fixed with a `moved` ref: *being drawn somewhere is not being put there* |
 | 5 | | |
 | 6 | | |
+
+**Two tasks are open and one thing is owed that the plan never listed.** Task 5 (settings move
+from the rail to a card on the node) and Task 6 (the write-up, then the hand-driven walk) are
+genuinely not done, and their boxes stay unticked. The unlisted thing is a **chrome pass**: this
+plan rebuilt the canvas, the symbol and the port gesture, and left the title row, the provenance
+bar, the CANVAS/ARTIFACT toggle, the Run button and the right rail exactly as Plan 3C drew them.
+They are now the least artboard-like part of the screen, and wire labels still collide mid-canvas.

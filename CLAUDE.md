@@ -24,10 +24,10 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
 > [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
-> phases 0, 1, 2, 3a, 3b, 4 and 5: the shared floor, `publishDir`, the front door, the builder,
-> what a run cost, and the runs screens. **What is next is the browser pass over all of it** —
-> nothing in Plan 4 has been driven by hand in a live stack, and the operator sequenced that
-> after the phases rather than between them.
+> phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
+> to 5 shipped with every suite green; opening the pages found that the fonts were never loaded,
+> the arc field every artboard sits on was never built, and the builder's canvas flowed the wrong
+> way. **The guards here are good at behaviour and blind to appearance** — plan for that.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
 > [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
@@ -182,6 +182,27 @@ exactly that. The first version of the guard scanned the whole banner and fired 
 panel exists to show — it now excludes the report and covers only the panel's own words. That is
 the second scan in two phases to fire on the thing it was protecting, and both were found by
 running them rather than reading them.
+
+**The builder was rebuilt against its artboards, and the canvas annotations are the
+specification** — Plan 4 phase 6, four tasks of six. Read them before touching that screen:
+`python3 -c "import json; [print(a['text']) for a in
+json.load(open('.design/canvas.json'))['annotations'] if a['page']=='page-1']"`. The graph runs
+**left to right** (`impl-settled`, under *do not re-litigate*) — reversing a considered Plan 3C
+decision whose own test file warned that *a sideways graph would pass every assertion here*, and
+it did: one test asserted `rank` ordering and passed on both. `dag-core` is one implementation
+for both canvases, so the runs graph turned with it. Every symbol is **172×112** and settled
+spends **no colour at all**; only measured and open do.
+
+**A comment claiming a guard exists is worse than no comment**, and this is the second instance
+in three days. `geometry.ts` said its constants were held to `layout.py`'s by a named test
+"rather than trusting the comment" — no such test existed, and by the time anybody looked
+`NODE_W` was 232 in the browser and 172 in Python. Before trusting a sentence like that, grep
+for the name.
+
+**Fonts and the field were missing outright.** `--font-display` was a Georgia serif and no
+webfont was loaded; `body` was a flat colour where every artboard has arcs, a scan texture and a
+vignette. Both shipped through five phases and 316 green tests, because a typeface and a missing
+background are invisible to a suite that only reads text content.
 
 **The whole stack comes up with one `docker compose up`**, which was the operator's constraint
 rather than a convenience: Postgres, Redis, both APIs, the worker, nginx, the OTel collector,
