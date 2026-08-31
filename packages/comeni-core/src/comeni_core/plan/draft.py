@@ -100,8 +100,29 @@ class DraftLabel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: SocketKey
-    """`<node>.<port>`. **Not a `NodeId`** — a port is not a node, and a label should survive
-    its node being dragged and not survive its port being rewired."""
+    """Which socket. **Two shapes, because the two sides of a pipeline have different
+    identities**, and this is what Plan 5B phase 2.5 changed:
+
+    - an **input** is a `ChannelName` — `gtf`, `reads`. A channel may feed three ports, so
+      keying its label on a port would give one socket three competing labels and no rule for
+      which wins. `BuiltPipeline.channels` is the server's list and the canvas draws one socket
+      per entry on it.
+    - an **output** is `<node>.<port>` — `counts.counts`. `Goal.want` is a list of type ids and
+      gives an output no identity of its own, so the port is the only thing there is to name.
+      When phase 4 gives outputs one, this becomes symmetric.
+
+    **Not a `NodeId` in either case**, which is the property worth keeping: a label survives its
+    node being dragged and does not survive the socket it names ceasing to exist.
+
+    `SocketKey` admits both without widening for the occasion — it is identifier segments joined
+    by dots, and a bare `gtf` is one segment.
+
+    **A channel name is derived, so it can move.** Add a second `annotation.gtf` channel in phase
+    3 and one of them becomes `gtf_2`; a label keyed on the old name detaches. That is a real
+    cost and it is smaller than the alternative it replaced, where three ports of one channel
+    could carry three different names on one box. Phase 3's `DraftChannel` gives a channel an
+    identity on the *draft*, which is where a stable key for this belongs.
+    """
 
     label: Line = ""
 

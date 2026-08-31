@@ -27,6 +27,12 @@ const DATA = {
       { name: "bam", type_id: "alignment.bam", side: "out", met: true, states: ["sorted"] },
     ],
   }],
+  // **The server's answer, one entry per CHANNEL** — spec §12.3. It used to be derived here
+  // from unwired ports, which is what put five sockets above one `params.gtf` (§0).
+  channels: [
+    { name: "reads", param: "input", type_id: "fastq.reads", states: [],
+      ports: ["trimgalore.reads"] },
+  ],
   layout: {
     nodes: [
       { id: "trimgalore", rank: 0, order: 0, x: 40, y: 60, width: 232, height: 78, tier: 2 },
@@ -155,8 +161,13 @@ describe("naming a socket on the canvas", () => {
     render(<Sources data={DATA as never} offsets={{}} onRename={renamed} />);
     const field = screen.getByLabelText("name for reads");
     fireEvent.change(field, { target: { value: "liver reads" } });
-    // `<node>.<port>`, which is what `DraftLabel.key` is validated as.
-    expect(renamed).toHaveBeenCalledWith("trimgalore.reads", "liver reads");
+    // **The CHANNEL's name, not `<node>.<port>`** — and that changed in phase 2.5.
+    //
+    // An input socket is a channel now, and a channel may feed three ports. Keying its label on
+    // a port would give one socket three competing labels and no rule for which wins; keying it
+    // on the channel is one label for the thing a person is actually naming. An OUTPUT keeps
+    // `<node>.<port>`, because `Goal.want` gives an output no identity of its own yet.
+    expect(renamed).toHaveBeenCalledWith("reads", "liver reads");
   });
 
   it("renames an output too", () => {
@@ -187,7 +198,7 @@ describe("naming a socket on the canvas", () => {
       <Sources
         data={DATA as never}
         offsets={{}}
-        labels={{ "trimgalore.reads": "liver reads" }}
+        labels={{ reads: "liver reads" }}
         onRename={vi.fn()}
       />,
     );

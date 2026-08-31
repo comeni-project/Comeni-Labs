@@ -116,13 +116,13 @@ what makes the diff readable.*
 
 ### 2.5 The API, which neither spec covered — spec §12.3
 
-- [ ] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
-- [ ] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
+- [x] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
+- [x] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
       the defect this whole plan started from; keeping the old one "for now" is how it survives.
-- [ ] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
+- [x] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
       phase 3's split/merge possible at all — you cannot split a thing recomputed from scratch on
       every render.
-- [ ] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
+- [x] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
       answer and disagrees with the artifact. Part A fixes the registry and Part B fixes the
       resolver, and without this the canvas would disagree *again* — in a new way, because now
       there really are named channels for it to disagree with.
@@ -440,3 +440,37 @@ literal expression what it reads, so the field and the string beside it cannot d
 **Both were found by reading the golden diff**, which is now the third time in this repository
 that has been what caught it rather than the suite. `nextflow.config` not moving at all is the
 single most useful line in that diff: it is the whole command-line interface, unchanged.
+
+
+### Phase 2.5 — the seam, and the one thing it moved that the plan did not predict
+
+`BuiltPipeline.channels` carries **no `scope`**, because `Scope` does not exist until phase 4.
+The plan's task line names it; the field arrives with the type it needs. Everything else is
+there — name, param, type, states, and the ports each channel feeds.
+
+**The number is the deliverable.** The spine's five unwired input ports collapse to three
+channels, and `gtf` reports feeding all three of its consumers:
+
+    gtf    params.gtf    annotation.gtf  feeds [star_genomegenerate.gtf, star_align.gtf,
+                                                subread_featurecounts.annotation]
+    reads  params.input  fastq.reads     feeds [trimgalore.reads]
+    fasta  params.fasta  genome.fasta    feeds [star_genomegenerate.fasta]
+
+That is the run sheet asking for three files where it asked for five, two of which went nowhere
+— which is the thing that was visible on screen at the end of phase 1 and is now not.
+
+**A label's key changed shape, and the plan did not see it coming.** `DraftLabel.key` was
+`<node>.<port>` for both sides. An input socket is a *channel* now, and a channel may feed three
+ports — so keying its label on a port would give one socket three competing labels and no rule
+for which wins. An input's key is a `ChannelName`; an output's is still `<node>.<port>`, because
+`Goal.want` is a list of type ids and gives an output no identity of its own. `SocketKey` admits
+both without widening, since a bare `gtf` is one identifier segment.
+
+The cost is written on the field rather than left to be discovered: a channel name is derived,
+so adding a second `annotation.gtf` in phase 3 makes one of them `gtf_2` and a label keyed on the
+old name detaches. That is smaller than what it replaced — three ports of one channel carrying
+three different names on one box — and phase 3's `DraftChannel` is where a stable key belongs.
+
+**Outputs are still derived in the browser**, and the asymmetry is deliberate rather than
+half-finished: a channel is a named object because a laboratory *binds* one, and an output is
+bound by nobody. When phase 4 gives outputs an identity, that side reads the server's answer too.

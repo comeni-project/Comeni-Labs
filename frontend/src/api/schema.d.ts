@@ -891,6 +891,8 @@ export interface components {
         BuiltPipeline: {
             /** Steps */
             steps: components["schemas"]["StepView"][];
+            /** Channels */
+            channels: components["schemas"]["ChannelView"][];
             layout: components["schemas"]["Placement"];
             /** Provenance */
             provenance: {
@@ -926,6 +928,44 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /**
+         * ChannelView
+         * @description One channel the pipeline reads from outside, as the canvas draws it.
+         *
+         *     ═══ THE SEAM SPEC §12.3 FOUND, AND WHY IT IS A TASK ══════════════════════════════════════
+         *
+         *     §0's finding was that **the canvas already disagreed with the artifact**: it derived one
+         *     socket per unwired *port* — five on the spine, three of them `annotation.gtf` — while
+         *     `goal_of` deduplicated by type and the emitted workflow had one `params.gtf`. Nothing was
+         *     wrong on screen until somebody tried to name them.
+         *
+         *     Part A fixed the registry and Part B fixes the resolver, and **nothing said the API
+         *     changed** — so `Sources.entryChannels()` in the browser would have gone on computing its own
+         *     answer from unwired ports, and the canvas and the resolver would disagree *again*, in a new
+         *     way, because now there genuinely are named channels for it to disagree with.
+         *
+         *     So the browser stops deriving and starts reading. `entryChannels` is **deleted**, not left
+         *     beside this: two derivations of one fact is the defect this whole plan started from, and
+         *     keeping the old one "for now" is how it survives.
+         *
+         *     **It is also what makes phase 3's split/merge possible at all** — you cannot split a thing
+         *     that is recomputed from scratch on every render.
+         */
+        ChannelView: {
+            /** Name */
+            name: string;
+            /** Param */
+            param: string;
+            /** Type Id */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            /** Ports */
+            ports: string[];
         };
         /** CompareIn */
         CompareIn: {

@@ -48,21 +48,35 @@ const GAP = 90;
  * never what. A person could only learn what the pipeline required by pressing Run and reading
  * the sheet.
  */
-/** What this pipeline needs before it can run: every input port nothing on the canvas feeds.
+/** What this pipeline needs before it can run — **read off `BuiltPipeline.channels`**.
  *
- * **One derivation, two readers.** The canvas draws these as `INPUT` sockets; the run sheet
- * lists them as the things a person has to bind. Deriving it twice is how the two would come to
- * disagree about what a pipeline needs — and the rule is subtle enough to be worth stating once:
- * an input that is *unmet* is not an entry channel, it is a hole in the graph, and saying so is
- * the hollow port's job.
+ * ═══ THIS USED TO DERIVE ITS OWN ANSWER, AND THAT WAS THE DEFECT ══════════════════════════
+ *
+ * `entryChannels()` walked the steps and returned one entry per unwired input **port**: five on
+ * the spine, three of them `annotation.gtf`. The resolver deduplicated by type and the emitted
+ * workflow had one `params.gtf`. So the run sheet listed three things to bind where the
+ * pipeline had one hole, and two of the three answers went nowhere.
+ *
+ * Spec §0: *the canvas already disagrees with all of this, and that is what made it visible.*
+ * Nothing was wrong on screen until somebody tried to name them.
+ *
+ * The fix is not a better derivation — it is **no derivation**. A channel is a named object in
+ * the artifact now, so the browser reads the answer instead of recomputing it. Keeping the old
+ * function "for now" is how two derivations of one fact survive, which is the defect this whole
+ * plan started from (§12.3).
+ *
+ * **One reader's rule is still worth stating**, because it moved rather than disappeared: an
+ * input that is *unmet* is not an entry channel, it is a hole in the graph. That is the hollow
+ * port's job to say, and the resolver already applies it — `_channels` collects ports nothing
+ * feeds, and a port with no producer and no channel is what `MD0506` reports.
  */
 export function entryChannels(data: Built) {
-  const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
-  return data.steps.flatMap((step) =>
-    step.ports
-      .filter((port) => port.side === "in" && port.met && !wired.has(`${step.id}.${port.name}`))
-      .map((port) => ({ key: `${step.id}.${port.name}`, name: port.name, type_id: port.type_id })),
-  );
+  return data.channels.map((channel) => ({
+    key: channel.name,
+    name: channel.name,
+    type_id: channel.type_id,
+    param: channel.param,
+  }));
 }
 
 /** The dashed run between a socket and the port it belongs to.
@@ -208,63 +222,103 @@ export function Sources({ data, offsets, labels, onRename }: {
   /** Omitted where the canvas is read-only — the run graph draws sockets and renames none. */
   onRename?: (key: string, to: string) => void;
 }) {
-  const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
   const consumed = new Set(data.layout.wires.map((w) => `${w.from_node}.${w.from_port}`));
   const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
+  const placed = new Map(data.layout.nodes.map((node) => [node.id, node]));
   // **The last rank, not a count.** Ranks need not be contiguous and a node's own `rank` is
   // what this compares against, so the maximum is the only honest reading of "furthest along".
   const last = data.layout.nodes.reduce((n, node) => Math.max(n, node.rank), 0);
 
-  const sockets = data.layout.nodes.flatMap((node) => {
+  /** Where a port sits on its node's edge, in canvas coordinates. `-1` when the node is not
+   *  laid out yet, which is a render between an edit and the server catching up. */
+  const tipOf = (key: string, side: "in" | "out") => {
+    const [nodeId, portName] = [key.slice(0, key.indexOf(".")), key.slice(key.indexOf(".") + 1)];
+    const node = placed.get(nodeId);
+    const step = data.steps.find((s) => s.id === nodeId);
+    if (!node || !step) return null;
+    const index = step.ports.filter((p) => p.side === side).findIndex((p) => p.name === portName);
+    if (index < 0) return null;
+    const anchor = at(node);
+    return {
+      node,
+      point: {
+        x: side === "in" ? anchor.x : anchor.x + NODE_W,
+        y: anchor.y + portOffset(index),
+      },
+    };
+  };
+
+  // ═══ ONE SOCKET PER CHANNEL — spec §0 AND §12.3 ═════════════════════════════════════════
+  //
+  // **This drew one per unwired PORT**, which is what made §0's defect visible: five sockets on
+  // the spine, three of them `annotation.gtf`, above an artifact with one `params.gtf`. The
+  // channel set is the server's answer now, so a channel feeding three ports is drawn **once**
+  // with three stubs — which is a picture that agrees with the emitted workflow rather than one
+  // that contradicts it.
+  //
+  // Anchored to its FIRST consumer, and the gutter arithmetic is unchanged: a socket needs
+  // 240px of clear space and only rank 0 has it, so the rest stack below. `index` is now the
+  // channel's position among those anchored at that node rather than a port index — the same
+  // stacking, counted over the thing actually being drawn.
+  const perNode = new Map<string, number>();
+  const inputs = data.channels.flatMap((channel) => {
+    const first = channel.ports.map((key) => tipOf(key, "in")).find((t) => t !== null);
+    // A channel nothing consumes has nowhere to be drawn. It cannot happen in a built
+    // pipeline — `_channels` collects the ports that need one — and returning nothing beats
+    // inventing a position for it.
+    if (!first) return [];
+    const index = perNode.get(first.node.id) ?? 0;
+    perNode.set(first.node.id, index + 1);
+    const kind = "Input" as const;
+    const geometry = place(kind, at(first.node), index, first.node.rank === 0);
+    return [{
+      key: channel.name,
+      kind,
+      port: { name: channel.name, type_id: channel.type_id, states: channel.states },
+      box: geometry.box,
+      edge: geometry.edge,
+      // **Every port it feeds, not only the one it is anchored to.** A channel drawn once with
+      // one line to one of its three consumers would be a different lie from the old one.
+      tips: channel.ports
+        .map((key) => tipOf(key, "in"))
+        .filter((t) => t !== null)
+        .map((t) => t.point),
+    }];
+  });
+
+  // ═══ WHAT THE PIPELINE IS FOR — spec §4.1 ═══════════════════════════════════════════════
+  //
+  // `materialise.goal_of` has computed exactly this since Plan 3E — `want` is every unwired
+  // `produces` — and **the canvas drew none of it.** A terminal `counts.matrix` was an unwired
+  // port with nothing marking it as the thing the whole graph exists to produce.
+  //
+  // **Still derived here, unlike the inputs, and the asymmetry is real rather than an
+  // oversight.** A channel is a named object in the artifact because a laboratory binds one; an
+  // output is bound by nobody and `Goal.want` is a list of type ids with no identity of its
+  // own. When phase 4 gives outputs somewhere to be named, this reads the server's answer too.
+  const outputs = data.layout.nodes.flatMap((node) => {
     const step = data.steps.find((s) => s.id === node.id);
     if (!step) return [];
     const anchor = at(node);
-    const ins = step.ports.filter((p) => p.side === "in");
-    const outs = step.ports.filter((p) => p.side === "out");
-    return [
-      ...ins.flatMap((port, index) => {
-        // Fed by a wire? Then it has a source on the canvas already.
-        if (wired.has(`${node.id}.${port.name}`)) return [];
-        // Unmet is the hollow port's job to say — an absent input is not an entry channel.
-        if (!port.met) return [];
-        const kind = "Input" as const;
-        return [{
-          key: `${node.id}.${port.name}`,
-          kind,
-          port,
-          ...place(kind, anchor, index, node.rank === 0),
-        }];
-      }),
-      // ═══ WHAT THE PIPELINE IS FOR — spec §4.1 ═════════════════════════════════════════════
-      //
-      // `materialise.goal_of` has computed exactly this since Plan 3E — `want` is every unwired
-      // `produces` — and **the canvas drew none of it.** A terminal `counts.matrix` was an
-      // unwired port with nothing marking it as the thing the whole graph exists to produce.
-      //
-      // **No `met` filter, and the asymmetry is the API's rather than a shortcut here.**
-      // `build.py` writes `met=True` for every `produces` port unconditionally: an output is
-      // produced by the step that declares it, so there is no such thing as an unmet one, and a
-      // condition that can never be false reads as a rule while being decoration.
-      //
-      // **Not lifted out as an exported `terminals()`** the way `entryChannels` was. That one
-      // has a second reader — the run sheet lists what a person has to bind — and an output is
-      // bound by nobody, so a second derivation would have had no consumer at all. Phase 2
-      // deletes `entryChannels` too, when `BuiltPipeline.channels` makes both of them the
-      // server's answer rather than the browser's (spec §12.3).
-      ...outs.flatMap((port, index) => {
+    return step.ports
+      .filter((p) => p.side === "out")
+      .flatMap((port, index) => {
         // Consumed by a step on the canvas? Then it is not what the pipeline is for.
         if (consumed.has(`${node.id}.${port.name}`)) return [];
         const kind = "Output" as const;
+        const geometry = place(kind, anchor, index, node.rank === last);
         return [{
           key: `${node.id}.${port.name}`,
           kind,
           port,
-          ...place(kind, anchor, index, node.rank === last),
+          box: geometry.box,
+          edge: geometry.edge,
+          tips: [geometry.tip],
         }];
-      }),
-    ];
+      });
   });
 
+  const sockets = [...inputs, ...outputs];
   if (sockets.length === 0) return null;
 
   return (
@@ -275,10 +329,16 @@ export function Sources({ data, offsets, labels, onRename }: {
           data-testid={s.kind === "Input" ? "source" : "terminal"}
           className="absolute pointer-events-none"
         >
-          <Stub
-            from={s.kind === "Input" ? s.edge : s.tip}
-            to={s.kind === "Input" ? s.tip : s.edge}
-          />
+          {/* **One stub per port, because a channel may feed several.** Three `annotation.gtf`
+              consumers get one socket and three lines — the picture §0 says was missing, where
+              five sockets sat above one `params.gtf`. */}
+          {s.tips.map((tip, n) => (
+            <Stub
+              key={n}
+              from={s.kind === "Input" ? s.edge : tip}
+              to={s.kind === "Input" ? tip : s.edge}
+            />
+          ))}
           <Socket
             kind={s.kind}
             port={s.port}
