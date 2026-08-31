@@ -3549,3 +3549,43 @@ That is the third instance of this class in a week: a guard that passes on the c
 written to reject (W2), a comment claiming a guard that was never written (Plan 4 phase 6), and
 now a guard passing on an accident of its fixture path. **Watch it fail, and read what it
 matched.**
+
+
+## The layer carries the module — Plan 5A phase A2, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_conformance_verb.py` "a contract that disagrees with its module exits 1" | `blocking = []` in `_conformance_verb` | failed | printed the `MD0101` and exited 0 |
+| 2026-08-31 | `test_conformance_verb.py` "a contract with no module is reported and does not fail the run" | `unverified = []` | failed | `0 contract(s) checked … 12 unverified` became `12 checked, 0 unverified` |
+| 2026-08-31 | `test_compose.py` "the registry and the vendored modules reach the api" | **nothing — it now asserts the absence** | n/a | the mount is gone and the test says so, naming why a second root is the defect |
+| 2026-08-31 | `mendel conformance` end to end | changed `nf_process: STAR_ALIGN` to `STAR_ALIGNMENT` in the shipped layer | exit 1 | `MD0101 … process 'STAR_ALIGNMENT' is not what this module declares`, naming `registry/tools/nf-core/star/align/module/main.nf` |
+
+### The check that mattered was a count, and it was measured before anything moved
+
+**12 contracts, 12 verified, 0 unverified — before and after.** That is not a test; it is a
+measurement taken on the unmodified tree and repeated afterwards, and it is the one thing that
+could have gone silently wrong. A conformance check that finds no module source reports
+`MD0100 unverified` — a **diagnostic**, not a crash — so a move that lost every module would
+have been a green suite with every contract quietly downgraded, and no existing test would
+have said a word.
+
+`git status --ignored` in the registry was the second such measurement: `build/` in a
+`.gitignore` swallowed `vendor/modules/nf-core/hisat2/build/` once already, and that directory
+moved in this phase. The registry has no `.gitignore` at all, and `hisat2/build/module/main.nf`
+was confirmed staged by name rather than by hoping.
+
+### Two guards were rewritten because their premise was gone
+
+`test_every_contract_points_at_vendored_module_code` joined `vendor_root / f"{nf_include}.nf"`
+— a path computation over two repositories. It is a lookup now, through the same `module_path`
+conformance uses, so the guard and the thing it guards cannot disagree about which modules are
+readable.
+
+`_build_with_no_module_source` pointed `--root` at an empty directory, because module source
+lived under `<root>/vendor` while contracts came from `--registry`. There is no second root, so
+it builds a layer holding the declarations and **not** the code — which is a laboratory wrapping
+bare containers, the case `MD0100` is actually for, and closer to real than what it replaced.
+
+**Neither was repointed.** A guard whose premise has been deleted and whose call is patched to
+compile again is a guard that has stopped watching anything, and this repository has now found
+three of those in a week.

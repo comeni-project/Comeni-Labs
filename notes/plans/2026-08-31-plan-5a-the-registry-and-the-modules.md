@@ -91,7 +91,7 @@ check is a count.*
 
 ### A2.1 The registry side — a `comeni-registry` pull request
 
-- [ ] The tool/subtool layout, **spec §8.1**, which the spec got wrong and this corrects:
+- [x] The tool/subtool layout, **spec §8.1**, which the spec got wrong and this corrects:
 
       ```
       tools/nf-core/star/
@@ -106,35 +106,35 @@ check is a count.*
       `star/genomegenerate` as separate modules, each needing its own `module/`. `genome.index.star`
       is produced by one and consumed by the other, so it sits at the tool level. `hisat2` has the
       identical shape.
-- [ ] **The rule, stated so A4's lint can hold it:** a thing belongs at the **shallowest level that
+- [x] **The rule, stated so A4's lint can hold it:** a thing belongs at the **shallowest level that
       owns it**.
-- [ ] All 13 modules vendored with `comeni-vendor add`, at the SHAs `vendor/modules.json` holds
+- [x] All 13 modules vendored with `comeni-vendor add`, at the SHAs `vendor/modules.json` holds
       today — so the move is a relocation and not a version bump. **One thing at a time.**
-- [ ] `LICENSES/MIT.txt` and the root `LICENSE` gaining its one sentence: the declarations are
+- [x] `LICENSES/MIT.txt` and the root `LICENSE` gaining its one sentence: the declarations are
       CC-BY-4.0, and `tools/**/module/` is upstream's under the identifier its `module.yml` names.
 
 ### A2.2 The code side
 
-- [ ] Conformance reads the **layer**, not a separate root.
-- [ ] `services/bundle.py` copies module source from the layer. **One path changes** and `MD0210`
+- [x] Conformance reads the **layer**, not a separate root.
+- [x] `services/bundle.py` copies module source from the layer. **One path changes** and `MD0210`
       is unaffected — a laboratory receiving a `pipeline.yml` still needs nothing but the artifact.
-- [ ] `settings.source_root` retired; `docker-compose.yml` loses a bind mount from two services.
-- [ ] `--vendor` retired from the CLI. **One root**: `mendel build --registry X`.
-- [ ] The forge's `source_root` points at the layer and **no forge code path is otherwise
+- [x] `settings.source_root` retired; `docker-compose.yml` loses a bind mount from two services.
+- [x] `--vendor` retired from the CLI. **One root**: `mendel build --registry X`.
+- [x] The forge's `source_root` points at the layer and **no forge code path is otherwise
       touched** (spec §5).
 
 ### A2.3 The checks that matter here — spec §7
 
-- [ ] **The count of verified contracts before and after the move is the same.** A conformance
+- [x] **The count of verified contracts before and after the move is the same.** A conformance
       check that finds no module source reports `MD0100 unverified` — a *diagnostic*, not a crash
       — so a move that silently loses every module is a **green suite with every contract quietly
       downgraded**. This is the single most important assertion in Part A.
-- [ ] **`git status --ignored` in `comeni-registry` after the move.** `build/` in `.gitignore`
+- [x] **`git status --ignored` in `comeni-registry` after the move.** `build/` in `.gitignore`
       swallowed `vendor/modules/nf-core/hisat2/build/` once already: the module every short-read
       decision depends on was never committed, no test noticed, and only a worktree surfaced it.
       **`hisat2/build/` moves in this phase.** Anchor every pattern (`/build/`, not `build/`).
-- [ ] The registry PR merges **before** the submodule bump.
-- [ ] `make verify` green, and the nightly stub gate green.
+- [x] The registry PR merges **before** the submodule bump.
+- [x] `make verify` green, and the nightly stub gate green.
 
 ---
 
@@ -232,6 +232,7 @@ registry holds itself to a layout **its own CI** enforces, which is nixpkgs's `p
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
 | A1 | Yes, with three additions | **The kind is loaded, not merely declared.** `layers.load` stacks `Module.kind()` into `Layers.modules`, read by nothing — otherwise a `module.yml` in a layer is bucketed and then dropped, and A4.4's displacement would need a second mechanism later. Nothing in the build path consumes it. **`_in_module` is checked *before* the dot rule**, which running `comeni-vendor add` found: nf-core ships `.conda-lock/` inside a module and it pins which build of the tool runs, so the dot rule written for `.git` at a layer root would have left the digest blind to it. **`check` is offline by default** — it compares each `module/` against the digest `module.yml` records, which is the hand-edit question and needs no network, so it can run in CI; `--upstream` re-fetches and is the other question. A1.4's `LICENSES/` files land with the modules in A2; what A1 adds is the refusal — `add` will not vendor under a licence the layer carries no text for, checked *before* the fetch |
-| A2 | | |
+| A2 | Yes, plus three things the plan did not name | **A contract's module source is not derivable from a root**, and the plan reads as five bullets because it did not notice. `conformance.module_path` computed `module_root / f"{nf_include}.nf"`; with the source *in* the layer there is no root to compute against, so it became a lookup by module key — `key_of`, one derivation from `nf_include`, rather than a second field a lint would have to check agreed with the first. That changed `check`, `_meta_keys`, `orchestrate.build`, `diagnostics_for`, the API and three forge sites, and **154 tests** with them. Reported to the operator with the number and three options before sweeping; they chose the sweep. **`mendel_compiler.staging` is new**: both `mendel build` and the API's `keep` wrote `out/modules/` with their own `copytree` — the shape `MD0210` already found a bug in — and it now copies what the pipeline *includes*, five modules for the spine where the sweep shipped all thirteen. **`mendel conformance` is new**, and it is A2's payoff: the registry's CI could not ask whether its own contracts agree with their own modules, and its `CONTRIBUTING.md` said so. Contracts moved to `contract.yml` in A2 rather than A4 — A2.1's own diagram shows it, and leaving `align.contract.yml` beside `align/module/` for a phase is a state nobody should review |
+| — | **The stated order was impossible** | A2.1 says the registry PR merges first. It cannot: the layer will not load under an engine that has never heard of the `module` kind, and the engine's suite will not pass against a layer with no modules in it. `ENGINE_REF` in the registry's CI is what breaks the cycle — it pins a Comeni-Labs *commit*, which only has to exist on a pushed branch. Sequence that works: push the engine branch, bump `ENGINE_REF`, merge the registry PR, bump the submodule |
 | A3 | | |
 | A4 | | |
