@@ -116,23 +116,30 @@ Three kinds live here:
 
   [`2026-08-31-the-registry-and-the-modules.md`](2026-08-31-the-registry-and-the-modules.md),
   **Plan 5 Part A**, written at the operator's instruction that `vendor/` does not belong in this
-  repository and that the registry is confusing to use. Both premises hold and the first one's
-  conclusion needed a correction: **three things are conflated, not two** — our declarations,
-  nf-core's source, and the copy the emitted artifact ships. The research is the argument:
-  nixpkgs, Homebrew, Bioconda, Galaxy, Terraform and crates.io all separate declarations from
-  artifact bytes and link them by pinned revision, and **nf-core is the one counterexample and
-  says the opposite of what it looks like** — a *pipeline* vendors modules, the *catalogue* does
-  not. So the **pin** moves into the registry, where it is version-locked to the contract
-  `MD0104` already checks it against, and the **bytes** leave git for a SHA-keyed cache filled by
-  `mendel vendor sync` — an impure CLI verb, because invariant 1 forbids the fetch anywhere it
-  could otherwise go. `vendor/conf/` is deleted rather than moved: eight files, and **no code
-  path opens any of them**. The second half is the layout, and the precedent is nixpkgs again —
-  its free-form tree became unnavigable and it imposed `pkgs/by-name` with CI behind it. Here
-  **the loader stays free (invariant 11 is unchanged) and the curated registry holds itself to a
-  stated layout its own CI lints**, which buys back most of what retiring `MD0003` gave away.
+  repository and that the registry is confusing to use. Both premises hold. **`vendor/` moves into
+  `comeni-registry`, beside the contracts that bind it, one self-isolated directory per tool** —
+  contract, upstream source verbatim, provenance, the types the tool introduces, its docs and its
+  licence notice. The research is in §2 and it argues the *other* way: nixpkgs, Homebrew, Bioconda,
+  Galaxy, Terraform and crates.io all separate declarations from artifact bytes, and nf-core's
+  catalogue vendors nothing. **§2.2 is why that does not decide it — a Comeni registry is not an
+  index, it is a LAYER, and a layer has to be self-sufficient.** The hole that settles it: an
+  overlay today can declare a contract for an in-house process and has **nowhere to put that
+  process's code**, so it ships a binding for a program it cannot ship. Co-location closes that,
+  collapses `--registry X --vendor Y` into one root, and puts the contract and the module
+  `MD0104` checks it against in one commit. §2.3 records the three objections raised against it
+  and why each was weaker than it looked — the licensing one was a **misread of
+  `federation.md` §6, which already puts vendored modules in the registry.** `vendor/conf/` is
+  deleted rather than moved: eight files, and **no code path opens any of them**;
+  `vendor/modules.json` is orphaned — the pins that guarantee our provenance are written by
+  somebody else's tool and read by none of our code — and becomes a declared `module` kind. The
+  second half is the layout, precedent nixpkgs again: its free-form tree became unnavigable and it
+  imposed `pkgs/by-name` with CI behind it. Here **the loader stays free (invariant 11 unchanged)
+  and the curated registry holds itself to a stated layout its own CI lints**, which buys back
+  most of what retiring `MD0003` gave away — including a check that no path crosses out of a
+  tool's directory, which is what makes *self-isolated* a property rather than a hope.
   `registry.yml`'s `kinds:` list — *"read by nobody"* by its own comment — becomes the lint's
-  input, so a manifest that could only rot cannot. **The forge is deferred** and §5 records what
-  a registry change does to it rather than leaving it to be discovered.
+  input. **The forge is deferred** and §5 records what a registry change does to it rather than
+  leaving it to be discovered.
 
   [`2026-08-31-what-a-pipeline-takes.md`](2026-08-31-what-a-pipeline-takes.md), **Plan 5 Part B**, and
   it exists because three requests on the builder canvas turned out to be one blocker: *a

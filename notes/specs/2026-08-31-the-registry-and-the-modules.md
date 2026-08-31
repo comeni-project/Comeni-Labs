@@ -22,9 +22,12 @@ not two:**
 | **module source** | the real `process STAR_ALIGN { … }` | nf-core's, verbatim | MIT | **`vendor/`, in this repo** |
 | **the shipped copy** | a snapshot beside the emitted artifact so it runs with no registry and no network | derived | inherited | written by `keep` |
 
-`vendor/` being in the code repository is wrong: nobody here maintains it, it is not code, and
-the only thing that ever writes to it is `uvx nf-core modules install`. But it does **not** follow
-that it belongs *inside* the registry, and §3 is why.
+`vendor/` being in the code repository is wrong on every count: nobody here maintains it, it is
+not code, and the only thing that ever writes to it is `uvx nf-core modules install`.
+
+**It moves into the registry, beside the contracts that bind it, one self-contained directory per
+tool.** §2.2 is the argument — a Comeni registry is a *layer* rather than an index, and a layer
+has to be self-sufficient — and §3 is the shape.
 
 ### 1.1 What reads it today
 
@@ -40,14 +43,23 @@ Worth stating, because it bounds the change:
 - **`mendel-api`** — `settings.source_root` defaults to `./vendor`, and `docker-compose.yml`
   bind-mounts it into two services.
 
-### 1.2 `vendor/conf/` is read by nothing at all
+### 1.2 Two things inside `vendor/` are read by nothing — and `vendor/modules/` is not one of them
 
-Eight nf-core container-config files, and **no code path opens any of them.** The label→resource
-mappings that Mendel emits are *transcribed* into `emit.py` as a quoted convention — its own
-docstring says so: *"nf-core's `conf/base.config`, quoted rather than a judgement invented"*. So
-`vendor/conf/` is 8 files of dead weight, and this spec deletes it rather than moving it. If a
-later change wants to read those mappings rather than quote them, it fetches them the same way
-§3 fetches everything else.
+Stated this way round because the first draft of this section was read as *vendor is unused*, and
+it is the opposite: `vendor/modules/` is load-bearing, and §1.1 lists the five readers.
+
+**What is dead is `vendor/conf/`**
+
+— eight nf-core container-config files, and **no code path opens any of them.** The
+label→resource mappings that Mendel emits are *transcribed* into `emit.py` as a quoted
+convention; its own docstring says so: *"nf-core's `conf/base.config`, quoted rather than a
+judgement invented"*. Deleted rather than moved.
+
+**And `vendor/modules.json` is orphaned**, which is the more interesting of the two. It holds the
+git SHA of every vendored module — the thing that makes `vendor/` reproducible — and it is
+written by `nf-core modules install` and **read by nothing we own**. The pins that guarantee our
+provenance are maintained by somebody else's tool and consulted by none of our code. §3.3 is
+where they end up.
 
 ---
 
@@ -74,7 +86,7 @@ precise about what it actually says. An nf-core **pipeline** vendors modules int
 the source. The thing that vendors is the artifact, not the index.
 
 Mendel has both roles and they are different objects: **`registry/` is the catalogue and the
-emitted pipeline is the artifact.** So the pattern that fits is *the registry declares, the
+emitted pipeline is the artifact.** So the general pattern says *the registry declares, the
 emitted pipeline vendors, and nothing in between keeps a mirror.*
 
 ### 2.1 The nixpkgs precedent matters twice
@@ -90,81 +102,161 @@ is a stated layout a machine can check.
 
 ---
 
-## 3. Where the modules go: the pin moves in, the bytes move out
+### 2.2 Why the general pattern does not decide this, and what does
 
-**`registry/` declares which module a contract binds, by immutable revision. Nothing keeps a
-checked-in copy. `mendel vendor sync` materialises them into a cache.**
+**A Comeni registry is not an index. It is a LAYER, and a layer has to be self-sufficient.**
+
+That is the difference from every row of the table above, and it is the argument that settles
+this — the operator's instruction on 2026-08-31 was *"the vendor folder needs to move to the
+registry, that code should not live in this repo"* and *"all the modules need to be
+self-isolated"*, and the design reason is stronger than the tidiness reason.
+
+Invariant 11: a layer is *a directory of declared files, each of which says what it is*, and
+every loader *"takes layer roots, never a directory of one kind"*. The module source is the one
+declared thing that lives **outside** the layer. Three consequences, and the third is a hole:
+
+- **Two roots where the design has one.** `mendel build --registry X --vendor Y`, and `mendel-api`
+  carries `registry_root` and `source_root` separately for the same reason.
+- **A layer's self-consistency is not checkable.** A registry tag and a vendor SHA live in
+  different repositories and can drift; `MD0104` only notices at build time.
+- **An overlay cannot ship its own tool.** A laboratory's private layer can declare a contract for
+  an in-house process and has **nowhere to put that process's code**. It can ship a binding for a
+  program it cannot ship. That is not an inconvenience — stacking is invariant 11 and this is a
+  case it cannot express.
+
+None of that is true of nixpkgs or Homebrew, because a nixpkgs *channel* is not something you
+hand to a colleague and expect to build offline. A Comeni layer is exactly that: invariant 13
+says self-hosted is not a degraded tier, and a clinical site with no route to github.com is a
+normal customer here rather than an edge case.
+
+### 2.3 The three objections, and why each is weaker than it looked
+
+Recorded because they were raised in the first draft of this spec and answered, rather than
+quietly dropped:
+
+- **Licences.** `docs/design/federation.md` §6 was cited against co-location. Read again, it says
+  *"Vendored nf-core modules under `modules/` retain their own licences and notices"* — and it
+  says it **inside the registry's own licensing section**. The design already put them there. The
+  mechanism is a per-tool notice file, not a repository split.
+- **Size.** 748 KB for 13 modules, so roughly 57 KB each: ~90 MB at the nf-core-plus-pegi3s
+  corpus of ~1,600. That is the order of nf-core/modules itself and a twentieth of a nixpkgs
+  checkout. It is a real cost and it is a partial-clone problem, not a design problem. **The
+  threshold to watch** is a fresh clone crossing ~30 s on a normal connection; `git sparse-checkout`
+  by namespace is the answer when it does, and nothing about this layout prevents it.
+- **Mirroring.** It is a mirror and it does have to be kept in step. That work is already
+  scheduled: issue #64 is `forge check` against **upstream** rather than against the vendored
+  copy, which is exactly the drift detector a mirror needs. The pin (§3.3) is what makes it
+  answerable.
+
+## 3. Where the modules go: into the layer, one self-contained directory per tool
+
+**`vendor/` moves into `comeni-registry` and is deleted from this repository. A tool is a
+directory holding everything about that tool and nothing about any other.**
+
+```
+registry/tools/nf-core/star/align/
+    contract.yml          the binding — ports, roles, routes, ext args
+    module/               UPSTREAM SOURCE, verbatim, unmodified
+        main.nf
+        meta.yml
+        environment.yml
+        NOTICE             upstream licence and attribution (§3.4)
+    module.yml            provenance: repo, sha, path, and what was excluded
+    types/                types this tool introduces — genome.index.star
+    docs.md               generated by `mendel docs`, never hand-written
+```
+
+### 3.1 Self-isolated, and what that has to mean to be worth saying
+
+The operator's word was **self-isolated**, and it is a stronger requirement than *co-located*.
+Four properties, each of which is checkable:
+
+- **Nothing outside the directory is needed to understand the tool.** Contract, source, the types
+  it introduces, its documentation and its licence.
+- **Nothing inside it is referenced from outside** except by id. No relative path from one tool's
+  files into another's, so a directory can be copied into another layer and still work.
+- **Deleting the directory removes the tool completely**, leaving no dangling reference the
+  loader does not report. `mendel registry lint` (§4.3) is what makes that true rather than
+  hoped-for.
+- **`module/` is upstream's, byte for byte.** Nothing in this repository or the registry edits a
+  vendored `main.nf`. That is what makes `forge check` against upstream a diff rather than a
+  judgement, and it is the same rule as invariant 5's *repair patches the IR and never edits
+  generated `.nf` text*, applied one level up.
+
+### 3.2 Why this is the design and not merely the instruction
+
+§2.2 is the argument: **a layer must be self-sufficient**, and the module is the one declared
+thing that was outside it. Three things fall out immediately and all three are simplifications:
+
+- **One root, not two.** `mendel build --registry X --vendor Y` becomes `--registry X`.
+  `mendel-api` loses `source_root` as a separate setting; `docker-compose.yml` loses a bind mount.
+- **A layer is internally consistent by construction.** The contract and the module it binds are
+  in the same commit of the same repository, so the drift `MD0104` catches at build time cannot
+  be introduced by a tag bump in one repository and not the other.
+- **An overlay can ship a private tool.** The hole §2.2 names closes: a laboratory's layer puts
+  its in-house process's `main.nf` in `module/` exactly as the public registry does, and the
+  stacking rules — module key, displacement, `Displacement` records — apply unchanged.
+
+### 3.3 `module.yml` — provenance, not a fetch instruction
+
+The pins that live in `vendor/modules.json` today are written by `nf-core modules install` and
+read by nothing we own (§1.2). They become a declared kind, one per tool, beside the source they
+describe:
 
 ```yaml
 # registry/tools/nf-core/star/align/module.yml
 declares: module
 id: nf-core/star/align
-repo: https://github.com/nf-core/modules.git
-sha: 6d46786420b4d7bc88eba026eb389c0c5535d120     # immutable, never a branch
-path: modules/nf-core/star/align
+upstream:
+  repo: https://github.com/nf-core/modules.git
+  sha: 6d46786420b4d7bc88eba026eb389c0c5535d120   # immutable, never a branch
+  path: modules/nf-core/star/align
+excluded: [tests]        # what was NOT copied, and therefore what a diff must ignore
+licence: MIT
 ```
 
-### 3.1 Why the pin belongs in the registry and not beside the code
+**It does not cause a fetch.** The source is already there; this says where it came from, so that
+`forge check` (issue #64) can ask *has upstream moved* and answer it with a diff rather than a
+guess. A tool with no upstream — a laboratory's own process — declares no `upstream:` block, and
+that absence is the honest statement that there is nothing to check it against.
 
-**A contract and its module are checked against each other.** `MD0104` refuses a build where they
-disagree, which means they are *version-locked* whether or not anything says so. Today the
-contract's version lives in a registry tag and the module's SHA lives in `vendor/modules.json` in
-a different repository, so those two can drift and nothing notices until a build fails.
+`excluded:` is load-bearing for the size question (§2.3): nf-core ships a `tests/` directory per
+module, and a mirror that copies them is carrying test data for tools it is not testing. Excluding
+them is a decision that has to be **recorded**, because otherwise a drift check reports every
+module as differing from upstream forever.
 
-Putting the pin in the same commit as the contract makes **"this registry layer is internally
-consistent"** a property of one revision. That is the same reason `modules.json` sits next to the
-pipeline that uses it, and it is a correctness argument rather than a tidiness one.
+### 3.4 Licences, concretely
 
-### 3.2 Why the bytes do not
+`docs/design/federation.md` §6 already provides for this — *"vendored nf-core modules retain their
+own licences and notices"* — and the mechanism is a `NOTICE` file per tool, carrying upstream's
+licence text and attribution, written by whatever vendors the module and never by hand.
 
-Three reasons, in order of weight:
+The registry's root `LICENSE` stays CC-BY-4.0 and gains one sentence: **it covers the
+declarations, and `tools/**/module/` is upstream's under the licence its `NOTICE` names.** That is
+the same shape every distribution uses for a vendored tree and it is less confusing than a second
+repository, which was the first draft's proposal.
 
-- **Licences.** `docs/design/federation.md` §6 already warns that *"one repository with two
-  licences invites exactly the confusion the licence files exist to prevent"*, which is why the
-  registry left this repository in the first place (issue #46). Registry data is CC-BY-4.0;
-  nf-core modules are MIT. Putting MIT source inside a CC-BY-4.0 repository recreates the problem
-  that split was for.
-- **Size.** 13 modules is 788 KB. The registry's target corpus is nf-core plus pegi3s, on the
-  order of 1,600 tools — call it 100 MB of somebody else's source in a repository whose stated
-  virtue is that *"pulling the registry should not mean cloning a Python workspace"*.
-- **Authority.** A mirror has to be kept in step with upstream forever, and a stale mirror is
-  indistinguishable from a deliberate pin. A SHA is not.
+### 3.5 What `keep` copies, unchanged
 
-### 3.3 The fetch, and invariant 1
+`services/bundle.py` copies module source next to the emitted artifact so a pipeline runs with no
+registry and no network. It copies from the layer instead of from `vendor/`, and **that is the
+whole of the change** — one path. `MD0210` is unaffected, and a laboratory receiving a
+`pipeline.yml` still needs nothing but the artifact.
 
-**`mendel vendor sync` is a CLI verb in an impure package.** `comeni-core`, `mendel-resolver`,
-`mendel-compiler` and `wiener-core` do not reach the network — the fetch cannot live in any of
-them, and this is the same shape as `uvx nf-core modules install`: an explicit command a person
-or a CI job runs, never something a build does behind your back.
+### 3.6 How a module gets in
 
 ```
-mendel vendor sync --registry registry/       # fetch every pinned module
-mendel vendor sync --check                    # is the cache complete? exit 1 if not
+mendel registry vendor nf-core:star/align --sha <sha> --registry ../comeni-registry
 ```
 
-Cache location: `${XDG_CACHE_HOME:-~/.cache}/comeni/modules/<sha>/<path>`, keyed by **SHA**, so
-two registry layers pinning the same module share one copy and a re-pin is additive rather than
-destructive. Overridable by `MENDEL_MODULE_CACHE` for an air-gapped site.
+An **impure CLI verb** — it reaches the network, so it cannot live in `comeni-core`,
+`mendel-resolver`, `mendel-compiler` or `wiener-core` (invariant 1). It fetches at the pinned SHA,
+writes `module/`, `module.yml` and `NOTICE`, and applies `excluded:`. It is the successor to
+`uvx nf-core modules install --dir vendor`, and unlike that command it writes a record of what it
+did.
 
-### 3.4 What breaks, and what does not
-
-- **Building a pipeline** needs the cache, so it needs one `sync` on a new machine.
-- **Running an emitted pipeline** needs nothing: the artifact already carries its modules
-  (`services/bundle.py`, `MD0210`). A laboratory that receives a `pipeline.yml` and runs it never
-  syncs anything, which is the case that matters most and the one this must not regress.
-- **CI has no network in the `make check` lane.** `mendel vendor sync` is a *setup* step, cached
-  on the registry digest — the same shape as `uv sync`. `make check` itself stays offline.
-- **`MD0104`'s message changes.** *"vendor the module"* becomes *"run `mendel vendor sync`"*, and
-  a **missing cache must be distinguishable from a mismatched module** — one is a setup problem
-  and the other is a real conformance failure. A new code rather than an overloaded one.
-
-### 3.5 Air-gapped sites, said explicitly
-
-`mendel vendor sync --from <tarball>` and a matching `--to`, because a site that cannot reach
-GitHub is a normal customer here, not an edge case. **Self-hosted is not a degraded tier**
-(invariant 13), and a design whose only path runs through github.com would make it one.
-
----
+**Nothing else in the system fetches.** A build reads a layer on disk, which is what keeps
+`make check` offline and an air-gapped site a first-class customer.
 
 ## 4. The registry's layout: free for the loader, strict for the curated one
 
@@ -202,9 +294,10 @@ kind, one file per thing, named for its id.**
 ```
 registry/
   registry.yml                          the layer's manifest — and now read (§4.4)
-  tools/<org>/<tool>[/<subtool>]/
-      contract.yml                      the contract
-      module.yml                        the pin (§3)
+  tools/<org>/<tool>[/<subtool>]/      SELF-ISOLATED — §3.1
+      contract.yml                      the binding
+      module/                           upstream source, verbatim: main.nf, meta.yml, NOTICE
+      module.yml                        provenance: repo, sha, path, what was excluded
       types/<id>.yml                    types this tool introduces — genome.index.star
       docs.md                           generated by `mendel docs`, never hand-written
   types/<id>.yml                        types no single tool owns — fastq.reads, alignment.bam
@@ -239,8 +332,9 @@ mendel registry lint --registry registry/
 ```
 
 refuses: a file in the wrong directory for its kind, a filename that is not its id, a `roles.yml`
-holding more than one role, a tool directory with a contract and no module pin, a type under
-`tools/` whose id is not namespaced by that tool. It runs in `comeni-registry`'s CI beside
+holding more than one role, a type under `tools/` whose id is not namespaced by that tool, a
+`module/` with no `module.yml` or no `NOTICE` — and **a relative path crossing out of a tool's own
+directory**, which is what makes §3.1's *self-isolated* a checked property rather than a hope. It runs in `comeni-registry`'s CI beside
 `mendel docs --check`, which already runs there.
 
 This is prevention-by-construction restored *where it is affordable*: the public registry is one
@@ -280,9 +374,10 @@ one.
 
 | Phase | What | Ends with |
 |---|---|---|
-| **A1** | **`module.yml` and the sync.** The pin as a declared kind, `mendel vendor sync` / `--check` / `--from`, the cache, conformance reading the cache, the new diagnostic for *cache missing* versus *module disagrees*. `vendor/` still present and unread. | `make verify` green with `vendor/` renamed away |
-| **A2** | **`vendor/` deleted.** Including `vendor/conf/`, which nothing reads. CI gains a sync step; `docker-compose.yml` and `settings.source_root` point at the cache; `MD0104`'s `fix:` changes. | `vendor/` gone, nightly stub gate green |
-| **A3** | **The layout.** `roles.yml` → `roles/`, rules one per file, contracts renamed to `contract.yml`, `registry.yml` rewritten as the lint's input, `mendel registry lint`, and comeni-registry's CI running it. A comeni-registry PR plus a submodule bump here. | the lint refuses a misfiled file, watched failing |
+| **A1** | **`module` as a declared kind, and the vendor verb.** `module.yml`, `NOTICE`, `mendel registry vendor`, and `DeclaredKind` gains a member — so `len(DeclaredKind)` is the count, as invariant 11 insists. Modules copied into a scratch layer; `vendor/` still present and still read. | the registry can hold a module, and nothing depends on it yet |
+| **A2** | **The move.** The 13 modules land in `comeni-registry` beside their contracts; conformance, `bundle.py` and `settings.source_root` read the layer; `--vendor` is retired; `docker-compose.yml` loses a mount. A comeni-registry PR plus a submodule bump here. | `mendel build --registry X` with no second root |
+| **A3** | **`vendor/` deleted**, including `vendor/conf/`, which nothing reads. `MD0100`'s `fix:` changes from *vendor the module* to naming the layer. | `vendor/` gone, nightly stub gate green |
+| **A4** | **The layout.** `roles.yml` → `roles/`, rules one per file, contracts renamed to `contract.yml`, `registry.yml` rewritten as the lint's input, `mendel registry lint`, and comeni-registry's CI running it. | the lint refuses a misfiled file, watched failing |
 
 Then Part B — [`2026-08-31-what-a-pipeline-takes.md`](2026-08-31-what-a-pipeline-takes.md) — lands
 `entry_channel` templates and `scope:` **into the new layout**, which is why this half runs first.
@@ -291,18 +386,24 @@ Then Part B — [`2026-08-31-what-a-pipeline-takes.md`](2026-08-31-what-a-pipeli
 
 ## 7. What to be suspicious of
 
-- **`make check` will pass while the world is broken.** It has no Nextflow and no Docker; the
-  conformance check reading an empty cache is exactly the kind of thing that goes green in CI and
-  red on a developer's machine, which is the inverse of the trap `CLAUDE.md` documents. **Run
-  `make verify`**, and treat A2's nightly stub gate as the real checkpoint.
-- **`.gitignore` has swallowed a module before.** `build/` matched
-  `vendor/modules/nf-core/hisat2/build/`, so the module every short-read decision depends on was
-  never committed and no test noticed. A gitignored cache is the same hazard wearing a different
-  hat: `--check` must fail loudly on an incomplete cache rather than a build failing obscurely
-  three steps later.
-- **A rename is not a migration.** A1 renaming `vendor/` rather than deleting it is deliberate:
-  if something still reads it, that is the phase where it shows up, and it shows up as a missing
-  path rather than as silently stale content.
+- **`make check` will pass while the world is broken.** It has no Nextflow and no Docker, and a
+  conformance check that finds no module source reports `MD0100 unverified` — a *diagnostic*,
+  not a crash. So a move that silently loses every module is a green suite with every contract
+  quietly downgraded. **Run `make verify`**, treat A3's nightly stub gate as the real checkpoint,
+  and add the check that has to exist either way: **the count of verified contracts before and
+  after the move is the same.**
+- **`.gitignore` has swallowed a module before, and this move walks straight into it.** `build/`
+  matched `vendor/modules/nf-core/hisat2/build/`, so the module every short-read decision depends
+  on was never committed, no test noticed, and the main checkout had the files untracked on disk
+  — a worktree is what surfaced it. **`hisat2/build/` moves in this plan**, into a repository with
+  its own `.gitignore`. Check `git status --ignored` in `comeni-registry` after A2, and anchor
+  every pattern there (`/build/`, not `build/`).
+- **A2 lands in two repositories and the order matters.** The registry PR must merge before the
+  submodule bump, and until it does `make check` refuses in one sentence naming
+  `git submodule update --init` — the honest failure, and a confusing one to hit mid-review.
+- **`vendor/` is deleted in A3, not A2.** If something still reads it after the move, that is the
+  phase where it shows up, and it shows up as a missing path rather than as silently stale
+  content read from a directory nobody is updating any more.
 - **The submodule bump is two repositories and one review.** A3's registry change and this
   repository's pin must land together or `make check` refuses in one sentence naming
   `git submodule update --init`, which is the honest failure but a confusing one mid-review.
