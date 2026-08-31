@@ -414,3 +414,136 @@ Sized so that each one ends with `make verify` green and something visible.
 - **A guard that passes on the code it was written to reject.** Phase 4's danger: a determinism
   test that passes whether or not scope is respected, because the spine has one sample-scoped
   channel either way. Watch it fail against the specific defect, not merely watch it fail.
+
+---
+
+## 10. Attacking this design — a bioinformatics review
+
+*Run 2026-08-31 at the operator's instruction: "will this be a viable shape? attack it from a
+bioinformatics standpoint — what a pipeline needs." Six findings. The first is a defect in the
+pipeline this repository emits **today**, and it converts `scope` from a feature into a fix.*
+
+### 10.1 A reference is a queue channel, so the spine analyses ONE sample
+
+**This is a live bug, not a design risk.** `tests/golden/spine/main.nf`:
+
+```groovy
+ch_annotation_gtf    = Channel.fromPath(params.gtf, checkIfExists: true).map { … }
+ch_genome_index_star = Channel.fromPath(params.star, checkIfExists: true).map { … }
+ch_fastq_reads       = ( … Channel.fromFilePairs(params.input, …) … )
+
+STAR_ALIGN(TRIMGALORE.out.reads, ch_genome_index_star, ch_annotation_gtf, false)
+```
+
+`Channel.fromPath` produces a **queue** channel. A Nextflow process with several queue-channel
+inputs runs as many times as the **shortest** of them. Reads has N items; the index has one; the
+GTF has one. So with twenty-four samples, **`STAR_ALIGN` runs once and twenty-three samples are
+silently dropped.** There is no `.collect()`, no `.first()` and no `Channel.value` anywhere in
+`emit.py` — grep confirms it.
+
+**Nobody noticed because the stub profile has one sample pair.** `params.input` is a glob over
+`stub-data/*_R{1,2}.fastq.gz`, so N = 1 and the shortest channel is every channel. The gate is
+green, `test_counts.py` gets its matrix, and the pipeline is wrong for every real dataset.
+
+That is *"same goal in → same pipeline out"* producing a pipeline that quietly analyses one
+sample, which is the worst shape a defect can take here.
+
+**The fix is exactly §2's `scope`, which is why this finding is the argument for it.** A
+`run`-scoped channel must be emitted as a **value channel** — `.collect()` for a set,
+`.first()` for a single file — so it can be consumed any number of times. `sample`-scoped stays
+a queue. The distinction is not a convenience for expressing per-sample references; it is what
+makes a shared reference correct at all.
+
+**It also has to be tested against the defect and not merely against itself.** A determinism test
+over the spine passes either way, because the spine has one sample-scoped channel and one sample
+in its fixture. **The check is a stub run with two sample pairs asserting the process ran twice**
+— watched failing against today's emitter first.
+
+### 10.2 There is no fan-in, and `cardinality` is declared but never emitted
+
+`MULTIQC`'s contract consumes `qc.report` from every sample and aggregates them:
+
+```yaml
+consumes: [{name: reports, type_id: qc.report, state_required: []}]
+produces: [{name: report, type_id: qc.report, state: [aggregated]}]
+```
+
+The emitter would write `MULTIQC(ch_qc_report)` — **one invocation per sample, producing N
+reports where the point of the tool is to produce one.** `InputPort.cardinality` exists, defaults
+to `"1"`, and has exactly one reader: `validate.py`, refusing more than one *wire*. It says
+nothing about how many *items* a port consumes and nothing reaches the emitter.
+
+This is the same axis as scope — **how many things arrive on this port** — and it belongs in the
+same work rather than being discovered when somebody adds MultiQC to the spine:
+
+- `cardinality: "1"` — one item per invocation, today's emission.
+- `cardinality: "*"` — the whole channel, emitted `.collect()`, one invocation.
+
+MultiQC is not in the spine, so nothing is broken right now; a contract for it is in the registry
+and would be wrong the moment it routed. **Phase 4 is where this lands**, beside `run` scope,
+because both are "make this port a value channel" with different arithmetic.
+
+### 10.3 A samplesheet has columns that are not files — and that is the MVP-shaped gap
+
+§2.2 derives samplesheet columns from **sample-scoped channels**, which are files. A real RNA-seq
+samplesheet is not:
+
+```csv
+sample,fastq_1,fastq_2,strandedness
+CONTROL_REP1,AEG588A1_S1_L002_R1.fastq.gz,AEG588A1_S1_L002_R2.fastq.gz,auto
+```
+
+`strandedness` is a **measurement**, and measurements live on `Goal.profile` — **one value for the
+whole run**. So is `paired`. A dataset mixing single- and paired-end samples, or reverse- and
+unstranded libraries, cannot be described, and those are ordinary rather than exotic.
+
+**This is the finding most likely to be hit during the MVP** and it is deliberately *not* solved
+here, because solving it means per-sample measurements, which means a tier-3 rule can fire
+differently per sample, which means `DecisionRecord` is no longer one record per decision. That is
+a larger change than this spec and it should not be smuggled in.
+
+**What this spec does instead is refuse to half-do it**: a samplesheet carries file columns only,
+`MD0229` states the form in the artifact, and the limitation is written on the run sheet where a
+person can see it — *these values apply to every sample*. A pipeline that silently applied one
+sample's strandedness to twenty-four would be §10.1 in a new costume.
+
+### 10.4 `meta.id` collides when a sample is sequenced more than once
+
+Two sample-scoped channels join on `meta.id`. A sample split across lanes or flowcells is several
+rows with one sample id — nf-core's answer is `cat_fastq`, a grouping step before anything else.
+Under this spec those rows collide and the join is wrong rather than refused.
+
+**Cheap partial answer, and it belongs in phase 5:** the samplesheet's key is `(sample, *)` and a
+duplicate sample id is a **refusal** with a message naming the rows. Refusing is honest and cheap;
+merging is a pipeline-shape decision that needs the grouping step §10.5 cannot express either.
+
+### 10.5 Scatter/gather is not expressible, and that is pre-existing
+
+Split a BAM by chromosome, call variants on each, merge. The contract model is *this consumes a
+type and produces a type* — there is no `groupTuple`, no `splitFastq`, no notion of a step that
+changes cardinality on its way through. That limits Mendel to pipelines that are one pass per
+sample plus aggregations.
+
+**Named rather than fixed.** It does not block the RNA-seq spine, it does block variant calling,
+and it is a plan of its own. What matters is that it is written down, because the difference
+between *"we decided not to"* and *"nobody thought of it"* is the difference between a roadmap and
+a surprise.
+
+### 10.6 Optional inputs are not modelled
+
+nf-core modules routinely take `path(bed), optional: true`. `NfInput.empty` exists for **tuple
+width** — a 2-tuple in a 3-tuple slot dies on *"Path value cannot be null"* — and it requires a
+`because`, which is adjacent to but not the same as a port that may legitimately have nothing on
+it. Minor next to the rest, and worth an issue rather than a section.
+
+### 10.7 What survives the attack
+
+The core shape holds. **A channel with a name, a param and a scope is the right object**, and
+§10.1 is the proof: the model without it emits pipelines that are wrong on real data. The two
+scopes are enough for everything examined here except §10.3 and §10.5, both of which are named
+and neither of which the design forecloses — a per-sample measurement is a third thing a
+samplesheet column can be, and it slots into the same table.
+
+**What changes in this spec as a result:** phase 4 absorbs `cardinality: "*"` (§10.2) and gains
+the two-sample check (§10.1); phase 5 gains the duplicate-sample refusal (§10.4); §2.3 gains the
+sentence about what a samplesheet may not carry (§10.3).
