@@ -73,6 +73,14 @@ class EmittedBy(StrEnum):
     `mendel explain` can answer for all of them. `MW` is the prefix; `W` was reserved for
     Wiener when the bands were laid out, before anything could emit one.
     """
+    VENDOR = "vendor"
+    """`comeni-vendor` — fetching a tool's source into a registry layer, and checking it.
+
+    Plan 5A. It is **not** part of the build path: nothing a build runs emits one of these, and
+    that is the whole reason the tool is spelled `comeni-vendor` rather than `mendel vendor` —
+    `mendel` is `mendel_compiler.cli:main` and `mendel-compiler` may not reach the network.
+    A maintainer runs these verbs once, before the layer is committed.
+    """
 
 
 class DiagnosticSpec(BaseModel):

@@ -78,6 +78,7 @@ HEADINGS: dict[str, str] = {
     "model-access": "Reaching a model",
     "model-output": "What a model answered",
     "ingest": "Wiener — what may enter",
+    "vendoring": "comeni-vendor — a tool's source in a layer",
 }
 """Section titles per `concern`, in the order they are rendered.
 

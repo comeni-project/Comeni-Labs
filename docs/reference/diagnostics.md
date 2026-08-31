@@ -193,3 +193,10 @@ decline to curate one.
 |---|---|
 | `MW0001` | `nf-weblog` sent an event kind Wiener does not declare — refused, never ignored |
 | `MW0002` | an event kind only Wiener may author arrived from the network — refused |
+
+## comeni-vendor — a tool's source in a layer
+
+| Code | Says |
+|---|---|
+| `MV0001` | a module could not be fetched at the commit it was pinned to |
+| `MV0002` | a vendored module no longer matches what its module.yml declares |

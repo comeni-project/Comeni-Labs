@@ -3506,3 +3506,46 @@ Tasks 5 and 6 are open, and so is the **chrome**: the title row, the provenance 
 CANVAS/ARTIFACT toggle, the Run button and the right rail are all still Plan 3C's design, and the
 wire labels overlap mid-canvas. The plan was written around the canvas and the frame around it
 needs the same pass.
+
+## The modules move into the layer — Plan 5A phase A1, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_digest.py` "the layer digest covers a tool's own source" | dropped `_in_module` from `_declared` | failed | `one byte of a vendored main.nf moved and the layer digest did not` |
+| 2026-08-31 | `test_digest.py` "the module clause is by directory and not by extension" | `_DECLARED_SUFFIXES += (".nf",)` — **the tempting fix, which passes the guard above** | failed, and alone | `a helper script beside main.nf changed and the layer digest did not` |
+| 2026-08-31 | `test_digest.py` "a dotfile inside a module is the module's and is covered" | moved `_in_module` **after** the dot rule — the original ordering | failed, and alone | `the pinned conda environment changed and the layer digest did not` |
+| 2026-08-31 | `test_module_kind.py` "upstream's own meta.yml is not read as declared data" | dropped `not _in_module(...)` from `_files` | failed | `MD0010: …/module/meta.yml does not say what it is` — on every vendored module at once |
+| 2026-08-31 | `test_vendor.py` "check catches a hand edit" | `check` returned `ok` without comparing the digest | failed | `- edited / + ok` |
+| 2026-08-31 | `test_registry_submodule.py` "the message counts the kinds" | removed `"module"` from `_KIND_OF` | failed | `a declared kind has no singular spelling, so no file can ever declare it and MD0010 will not offer it` |
+
+### Two of these are about the same trap, and the second row is the one that matters
+
+The layer digest now covers executable code, and **partial coverage is worse than none**: it
+reads as a guarantee, so re-vendoring a module at a different commit would leave the pinned
+digest untouched while the emitted pipeline changed behaviour, with its provenance apparently
+intact.
+
+The obvious fix is `_DECLARED_SUFFIXES += (".nf",)`, and it **passes the first guard**. It is
+the blocklist mistake wearing the other hat: nf-core modules already ship `.py`, `.sh` and `.R`
+helpers beside `main.nf`, and a laboratory's own process may ship anything. The second guard is
+what makes the extension shortcut fail, and it was watched doing exactly that — one failure, not
+two.
+
+### A guard that had been passing on a digit in `/tmp`
+
+`test_the_message_counts_the_kinds_rather_than_asserting_a_number` asserted
+`str(len(DeclaredKind))` appeared in `MD0005`'s text. comeni-registry#1 had already rewritten
+that message to say *"no `.yml` or `.yaml` file in it"* — **it names no count at all**. The test
+passed anyway, for two plans, because `tmp_path` is `/tmp/pytest-of-<user>/pytest-<n>/…` and the
+digit it was looking for was in the path. Adding a sixth kind turned `5` into `6` and the
+accident stopped landing.
+
+Nobody found this by reading it. It surfaced as a failure in `make check` while adding a kind,
+which is the only reason it is in this file rather than still green. The property is still worth
+holding, so it moved to the message that genuinely derives its list — `MD0010` enumerates
+`_KIND_OF` — and it was then watched failing against a kind with no singular spelling.
+
+That is the third instance of this class in a week: a guard that passes on the code it was
+written to reject (W2), a comment claiming a guard that was never written (Plan 4 phase 6), and
+now a guard passing on an accident of its fixture path. **Watch it fail, and read what it
+matched.**

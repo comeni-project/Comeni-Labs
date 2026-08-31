@@ -29,58 +29,58 @@ a build.*
 
 ### A1.1 The kind
 
-- [ ] `DeclaredKind` gains `MODULE`. **The count lives in `len(DeclaredKind)`** and nowhere in
+- [x] `DeclaredKind` gains `MODULE`. **The count lives in `len(DeclaredKind)`** and nowhere in
       prose — invariant 11, and A33's lesson about a number repeated in a sentence.
-- [ ] `Module` in `comeni_core.declared`: `id`, `upstream: {repo, sha, path} | None`, `excluded:
+- [x] `Module` in `comeni_core.declared`: `id`, `upstream: {repo, sha, path} | None`, `excluded:
       list[str]`, `licence: SpdxId`. It parses, keys and merges through `stack()` like every other
       kind — **not a hand-written loader**, which is what audit root B was.
-- [ ] `upstream: None` is legal and means **a tool nobody vendored** — a laboratory's own process.
+- [x] `upstream: None` is legal and means **a tool nobody vendored** — a laboratory's own process.
       The absence is the honest statement that there is nothing to check it against (§3.3).
-- [ ] `excluded:` records what was **not** copied. Without it a drift check reports every module as
+- [x] `excluded:` records what was **not** copied. Without it a drift check reports every module as
       differing from upstream forever, because nf-core ships a `tests/` directory we do not take.
 
 ### A1.2 The layer digest has to cover the code — spec §9.1
 
-- [ ] `comeni_core.declared.layered._declared()` gains one clause: **a path with a `module/`
+- [x] `comeni_core.declared.layered._declared()` gains one clause: **a path with a `module/`
       component is layer data regardless of extension.**
-- [ ] **Not** by adding `.nf` to `_DECLARED_SUFFIXES`. A module carries whatever upstream ships —
+- [x] **Not** by adding `.nf` to `_DECLARED_SUFFIXES`. A module carries whatever upstream ships —
       `.nf`, `.py`, `.sh`, `.R`, a Dockerfile — and an extension allowlist would cover today's
       corpus and silently miss the next one.
-- [ ] `.git`, `LICENSE` and `README.md` at the layer root stay excluded, unchanged. Issue #46's
+- [x] `.git`, `LICENSE` and `README.md` at the layer root stay excluded, unchanged. Issue #46's
       machine-dependent-digest defect must not come back through this door.
-- [ ] **Watched failing**: change one byte of a vendored `main.nf` and assert the layer digest
+- [x] **Watched failing**: change one byte of a vendored `main.nf` and assert the layer digest
       moves. Reverted, it must not — a digest that pins `meta.yml` and not `main.nf` is the
       partial coverage §9.1 calls worse than none.
 
 ### A1.3 The vendor tool, and why it is not `mendel` — spec §9.2
 
-- [ ] **New impure package `comeni-vendor`**, console script `comeni-vendor`. `mendel` is
+- [x] **New impure package `comeni-vendor`**, console script `comeni-vendor`. `mendel` is
       `mendel_compiler.cli:main` and **`mendel-compiler` is pure**; a subcommand that fetches from
       GitHub is a network client in a package `tests/test_purity.py` rejects.
-- [ ] It joins `IMPURE_PACKAGES`, and `test_no_pure_package_imports_an_impure_one` holds the arrow
+- [x] It joins `IMPURE_PACKAGES`, and `test_no_pure_package_imports_an_impure_one` holds the arrow
       the way it already does for `mendel-ai` and `mendel-forge`.
-- [ ] The name is `comeni-vendor` rather than `mendel vendor` **on purpose**: it is not part of the
+- [x] The name is `comeni-vendor` rather than `mendel vendor` **on purpose**: it is not part of the
       deterministic build path and must not appear to be.
-- [ ] `comeni-vendor add nf-core:star/align --sha <sha> --registry ../comeni-registry` fetches at
+- [x] `comeni-vendor add nf-core:star/align --sha <sha> --registry ../comeni-registry` fetches at
       the pin, writes `module/`, `module.yml` and the SPDX id, and applies `excluded:`.
-- [ ] `comeni-vendor check --registry X` — does every `module/` match its `upstream:` pin? Exit 1
+- [x] `comeni-vendor check --registry X` — does every `module/` match its `upstream:` pin? Exit 1
       if not. This is what makes *do not hand-edit this* enforceable rather than a comment (§8.4).
-- [ ] **Nothing else fetches.** A build reads a layer on disk, which is what keeps `make check`
+- [x] **Nothing else fetches.** A build reads a layer on disk, which is what keeps `make check`
       offline and an air-gapped site a first-class customer (invariant 13).
 
 ### A1.4 Licences — spec §8.2
 
-- [ ] `LICENSES/<spdx>.txt` at the registry root, **one file per licence, never one per module**.
+- [x] `LICENSES/<spdx>.txt` at the registry root, **one file per licence, never one per module**.
       A `NOTICE` per tool was the first proposal and at 1,600 tools it is that many near-identical
       copies of the MIT text, in every diff, that nobody reads.
-- [ ] `module.yml` carries `licence: MIT` as an SPDX identifier pointing at it — the **REUSE**
+- [x] `module.yml` carries `licence: MIT` as an SPDX identifier pointing at it — the **REUSE**
       convention, which tooling already understands.
 
 ### A1.5 Checkpoint
 
-- [ ] `make verify` green. `make check` **still green**, which it only is if the fetch genuinely
+- [x] `make verify` green. `make check` **still green**, which it only is if the fetch genuinely
       lives outside the four pure packages — that is A1.3's real test.
-- [ ] A module can be vendored into a scratch layer and nothing in the build path reads it yet.
+- [x] A module can be vendored into a scratch layer and nothing in the build path reads it yet.
 
 ---
 
@@ -231,7 +231,7 @@ registry holds itself to a layout **its own CI** enforces, which is nixpkgs's `p
 
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
-| A1 | | |
+| A1 | Yes, with three additions | **The kind is loaded, not merely declared.** `layers.load` stacks `Module.kind()` into `Layers.modules`, read by nothing — otherwise a `module.yml` in a layer is bucketed and then dropped, and A4.4's displacement would need a second mechanism later. Nothing in the build path consumes it. **`_in_module` is checked *before* the dot rule**, which running `comeni-vendor add` found: nf-core ships `.conda-lock/` inside a module and it pins which build of the tool runs, so the dot rule written for `.git` at a layer root would have left the digest blind to it. **`check` is offline by default** — it compares each `module/` against the digest `module.yml` records, which is the hand-edit question and needs no network, so it can run in CI; `--upstream` re-fetches and is the other question. A1.4's `LICENSES/` files land with the modules in A2; what A1 adds is the refusal — `add` will not vendor under a licence the layer carries no text for, checked *before* the fetch |
 | A2 | | |
 | A3 | | |
 | A4 | | |

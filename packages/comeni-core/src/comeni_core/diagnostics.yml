@@ -24,6 +24,7 @@
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MW0001-MW0099  wiener: ingesting a run's events
+#   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
 # something a laboratory runbook can cite. See docs/internal/specs/2026-08-07-the-pipeline-file.md
@@ -1592,6 +1593,61 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MV0001:
+  emitted_by: vendor
+  concern: vendoring
+  says: "a module could not be fetched at the commit it was pinned to"
+  fires_on: [comeni-vendor add, comeni-vendor check --upstream]
+  refuses: true
+  fix: |
+    Check the three parts of the pin, which are all in `module.yml`:
+
+        upstream:
+          repo: https://github.com/nf-core/modules.git
+          sha:  6d46786420b4d7bc88eba026eb389c0c5535d120
+          path: modules/nf-core/star/align
+
+    A `sha` that no longer exists means the branch was force-pushed or the fork
+    was deleted; a `path` that does not exist *at that commit* means the module
+    was added or moved later. Both are questions about the commit, not about the
+    branch it is on.
+  explanation: |
+    Vendoring pins a **commit**, never a branch. `vendor/modules.json` recorded both
+    and nf-core's own tooling reads the branch — but a branch moves, so a check
+    against it answers *does this match whatever upstream looks like today*, which is
+    a different question from *is this still the code we reviewed*.
+
+    Nothing in the build path emits this. A build reads a layer that is already on
+    disk, which is what keeps `make check` offline and an air-gapped site a
+    first-class customer (invariant 13).
+MV0002:
+  emitted_by: vendor
+  concern: vendoring
+  says: "a vendored module no longer matches what its module.yml declares"
+  fires_on: [comeni-vendor check]
+  refuses: true
+  fix: |
+    Do not edit `module/` — it is upstream's tree and `comeni-vendor add` replaces
+    it wholesale. If the change was deliberate, re-vendor at the commit that carries
+    it:
+
+        comeni-vendor add nf-core:star/align --sha <sha> --registry ../comeni-registry
+
+    If it was not, `git checkout` the directory.
+  explanation: |
+    `module/` is vendored source and is never hand-edited. That used to be a comment
+    somebody read after they had already edited it; this is what makes it enforceable,
+    and it runs in `comeni-registry`'s CI.
+
+    The default check is **offline**: it recomputes the directory's digest and compares
+    it to the one `module.yml` records, which is the question about a hand-edit. The
+    question about a bad `add` — does this still match upstream — needs the network and
+    is `--upstream`.
+
+    A module declaring `upstream: null` is a laboratory's own process. It reports
+    `unpinned` rather than `ok`, because there is nothing to compare it against and
+    reporting a pass would be claiming a check that never ran — the same reason
+    `MD0100` marks a contract `unverified` rather than trusting it.
 MF0001:
   emitted_by: forge
   concern: scaffolding

@@ -36,8 +36,9 @@ MANIFEST = "registry.yml"
 
 
 def declared_entries(path: Path) -> list[Path]:
-    """The files that *are* layer data: every `.yml`/`.yaml` outside a dot-directory, and the
-    manifest.
+    """The files that *are* layer data: every `.yml`/`.yaml` outside a dot-directory, the
+    manifest, and everything under a `module/` — a tool's own source, which a layer has
+    carried since Plan 5A.
 
     **One definition, used by everything that reads a layer as a whole** — the layer digest
     in `comeni_core.artifact.digest` and the symlink refusal in `mendel_resolver.layers`.
@@ -76,7 +77,10 @@ def _declared(path: Path, root: Path) -> bool:
     """Is this file part of the layer's declared data, or something git left beside it?
 
     The allowlist is *by extension* rather than by directory, because a layer no longer has
-    kind directories to enumerate (comeni-registry#1). What it must still exclude is what issue
+    kind directories to enumerate (comeni-registry#1) — with one exception, `module/`, which
+    holds a tool's own source in whatever extensions upstream ships. See `_in_module`.
+
+    What it must still exclude is what issue
     #46 found: a submodule's `.git` file holds
     `gitdir: …/worktrees/<name>/modules/registry`, which names the checkout and made the layer
     digest **machine-dependent**. `LICENSE` and `README.md` are the same class — real files a
@@ -94,6 +98,14 @@ def _declared(path: Path, root: Path) -> bool:
     arriving a second time by a different route. Where a layer sits cannot decide what it
     contains.
     """
+    if _in_module(path, root):
+        # **Before the dot rule, not after it, and running `comeni-vendor add` is what found
+        # that.** nf-core ships `.conda-lock/linux_amd64-….txt` inside a module — the pinned
+        # environment, which is as pipeline-affecting as `main.nf` — and the dot rule was
+        # written for `.git` and `.github` at a *layer root*. A dot-directory inside `module/`
+        # is upstream's content, so excluding it would have left the layer digest blind to
+        # exactly the file that decides which version of the tool runs.
+        return True
     if any(part.startswith(".") for part in path.relative_to(root).parts):
         # `.git`, `.github`, `.gitlab-ci` — metadata a layer repository carries, by a
         # convention every tool shares. Issue #46 found the `.git` case the expensive way: a
@@ -103,6 +115,36 @@ def _declared(path: Path, root: Path) -> bool:
         # one — which is what caught the absolute-path version of this check.
         return False
     return path.suffix in _DECLARED_SUFFIXES or path.name == MANIFEST
+
+
+MODULE_DIR = "module"
+"""The directory a tool's own source lives in, beside the `module.yml` that declares it."""
+
+
+def _in_module(path: Path, root: Path) -> bool:
+    """Is this file the tool's own source rather than a declaration about it?
+
+    **Plan 5A §9.1, and it is the reason `_declared` is not simply an extension allowlist.**
+    A layer now carries executable code — `main.nf`, and whatever else upstream ships beside
+    it — and the layer digest is what a `pipeline.yml` pins. A digest covering `meta.yml` and
+    not `main.nf` is *partial* coverage, which is worse than none: it reads as a guarantee and
+    is not one, so re-vendoring a module at a different commit would leave the layer digest
+    untouched and the emitted pipeline would silently change behaviour with its provenance
+    intact.
+
+    **By directory, never by extension.** Adding `.nf` to `_DECLARED_SUFFIXES` covers today's
+    corpus and misses the next one: nf-core modules already ship `.py`, `.sh` and `.R` helpers
+    beside `main.nf`, and a laboratory's own process may ship anything at all. An extension
+    allowlist here is the blocklist mistake wearing the other hat.
+
+    **The two callers want opposite answers, which is why this is its own predicate.**
+    `declared_entries` — the digest — must cover everything under `module/`. `_files` — the
+    loader — must cover *nothing* under it: upstream ships its own `meta.yml`, which has no
+    `declares:` line, so loading it would fail every module in the registry with `MD0010`. The
+    declaration that *is* layer data is `module.yml`, which sits **beside** `module/` rather
+    than inside it, for exactly this reason.
+    """
+    return MODULE_DIR in path.relative_to(root).parts
 
 
 class DeclaredKind(StrEnum):
@@ -118,6 +160,17 @@ class DeclaredKind(StrEnum):
     RULES = "rules"
     VOCABULARIES = "vocabularies"
     MEASUREMENTS = "measurements"
+    MODULES = "modules"
+    """The tool's own source, and where it came from — `comeni_core.declared.module`.
+
+    The sixth kind, and the first whose declaration is *about* a directory rather than being
+    the whole of what it declares: `module.yml` states where `module/` beside it came from,
+    while the code in `module/` is upstream's and is never hand-edited. Plan 5A moved it into
+    the layer so that `--registry X` is everything a build needs — a contract and the thing it
+    is a binding for were versioned in two repositories on two cadences, which is precisely
+    what `MD0104` exists to catch and could not.
+    """
+
     ROLES = "roles"
     """The jobs a contract can do — the only thing a tier-3 rule may target.
 
@@ -297,7 +350,9 @@ def _files(directory: Path) -> list[Path]:
     files" now, which is what invariant 11 already claimed.
     """
     found = {*directory.rglob("*.yml"), *directory.rglob("*.yaml")}
-    return sorted(p for p in found if _declared(p, directory))
+    return sorted(
+        p for p in found if _declared(p, directory) and not _in_module(p, directory)
+    )
 
 
 
@@ -315,6 +370,7 @@ _KIND_OF = {
     "vocabulary": DeclaredKind.VOCABULARIES,
     "measurement": DeclaredKind.MEASUREMENTS,
     "role": DeclaredKind.ROLES,
+    "module": DeclaredKind.MODULES,
 }
 """The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
 than by stripping an `s`, because `vocabularies` is not `vocabularys`."""

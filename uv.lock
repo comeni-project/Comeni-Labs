@@ -11,6 +11,7 @@ resolution-markers = [
 members = [
     "comeni-core",
     "comeni-labs",
+    "comeni-vendor",
     "dag-core",
     "mendel-ai",
     "mendel-api",
@@ -392,6 +393,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "comeni-core" },
+    { name = "comeni-vendor" },
     { name = "dag-core" },
     { name = "mendel-ai" },
     { name = "mendel-api" },
@@ -415,6 +417,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-vendor", editable = "packages/comeni-vendor" },
     { name = "dag-core", editable = "packages/dag-core" },
     { name = "mendel-ai", editable = "packages/mendel-ai" },
     { name = "mendel-api", editable = "packages/mendel-api" },
@@ -433,6 +436,23 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
+name = "comeni-vendor"
+version = "0.1.0"
+source = { editable = "packages/comeni-vendor" }
+dependencies = [
+    { name = "comeni-core" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

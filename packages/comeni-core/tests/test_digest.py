@@ -327,6 +327,92 @@ def test_a_layer_digests_what_it_declares_and_not_what_git_leaves_beside_it(tmp_
     assert digest_of_directory(bare) == digest_of_directory(dressed)
 
 
+def test_the_layer_digest_covers_a_tool_s_own_source(tmp_path):
+    """Plan 5A §9.1. A layer carries executable code now, and the digest has to cover it.
+
+    A `pipeline.yml` pins the layers it was built from by digest. Until Plan 5A a layer held
+    only declarations, so hashing every `.yml` in it *was* hashing the layer. It now holds
+    `module/` — `main.nf`, and whatever else upstream ships beside it — and a digest that
+    covers a module's `meta.yml` while ignoring its `main.nf` is **partial coverage, which is
+    worse than none**: it reads as a guarantee, so re-vendoring a module at a different commit
+    would leave the pinned digest untouched while the emitted pipeline changed behaviour, with
+    its provenance apparently intact.
+
+    Watched failing against its own defect: with `_in_module` removed from `_declared` the
+    two digests below are equal, and every other digest test still passes — which is exactly
+    what "the guard is blind to the thing it exists to cover" looks like.
+    """
+    one = _layer(tmp_path / "one")
+    two = _layer(tmp_path / "two")
+    for layer in (one, two):
+        source = layer / "tools" / "nf-core" / "fastqc" / "module"
+        source.mkdir(parents=True)
+        (source / "main.nf").write_text("process FASTQC {\n    // one\n}\n")
+
+    assert digest_of_directory(one) == digest_of_directory(two)
+
+    (two / "tools" / "nf-core" / "fastqc" / "module" / "main.nf").write_text(
+        "process FASTQC {\n    // two\n}\n"
+    )
+    assert digest_of_directory(one) != digest_of_directory(two), (
+        "one byte of a vendored main.nf moved and the layer digest did not — the digest "
+        "pins the declarations and not the code they describe"
+    )
+
+
+def test_the_module_clause_is_by_directory_and_not_by_extension(tmp_path):
+    """The tempting fix is `_DECLARED_SUFFIXES += (".nf",)`, and it is the blocklist mistake.
+
+    nf-core modules already ship `.py`, `.sh` and `.R` helpers beside `main.nf`, and a
+    laboratory's own process may ship anything at all. An extension allowlist covers today's
+    corpus and silently misses the next one — with no error, because a file the digest does
+    not know about is simply not hashed.
+    """
+    one = _layer(tmp_path / "one")
+    two = _layer(tmp_path / "two")
+    for layer in (one, two):
+        source = layer / "tools" / "in-house" / "tidy" / "module"
+        source.mkdir(parents=True)
+        (source / "main.nf").write_text("process TIDY {}\n")
+        (source / "tidy.R").write_text("x <- 1\n")
+
+    assert digest_of_directory(one) == digest_of_directory(two)
+
+    (two / "tools" / "in-house" / "tidy" / "module" / "tidy.R").write_text("x <- 2\n")
+    assert digest_of_directory(one) != digest_of_directory(two), (
+        "a helper script beside main.nf changed and the layer digest did not"
+    )
+
+
+def test_a_dotfile_inside_a_module_is_the_module_s_and_is_covered(tmp_path):
+    """**Found by running `comeni-vendor add`, not by reading the code.**
+
+    nf-core ships `.conda-lock/linux_amd64-….txt` inside a module: the pinned environment,
+    which decides which build of the tool actually runs. The dot rule above it was written for
+    `.git` and `.github` at a *layer root* — repository metadata — and applying it inside
+    `module/` would have left the layer digest blind to precisely the file that pins the
+    software version, while `main.nf` beside it was covered. Partial coverage again, and this
+    time the uncovered half is the one that changes results.
+
+    So `_in_module` is checked **before** the dot rule, and this is what holds that order.
+    """
+    one = _layer(tmp_path / "one")
+    two = _layer(tmp_path / "two")
+    for layer in (one, two):
+        source = layer / "tools" / "nf-core" / "fastqc" / "module" / ".conda-lock"
+        source.mkdir(parents=True)
+        (source / "linux_amd64.txt").write_text("fastqc=0.12.1\n")
+
+    assert digest_of_directory(one) == digest_of_directory(two)
+
+    (two / "tools" / "nf-core" / "fastqc" / "module" / ".conda-lock" / "linux_amd64.txt"
+     ).write_text("fastqc=0.11.9\n")
+    assert digest_of_directory(one) != digest_of_directory(two), (
+        "the pinned conda environment changed and the layer digest did not — a different "
+        "build of the tool now runs under a digest that says nothing moved"
+    )
+
+
 def test_the_allowlist_did_not_make_the_digest_constant(tmp_path):
     """The obvious way to break the test above is to digest nothing at all."""
     one = _layer(tmp_path / "one")
