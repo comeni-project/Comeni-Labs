@@ -204,3 +204,39 @@ describe("naming a socket", () => {
     expect(result.current.dirty).toBe(true);
   });
 });
+
+
+/** Spec §4. Whether two GTF ports are one channel or two is a decision only a person can make,
+ *  so the drawing carries it — and the default is one per type, which is today's behaviour. */
+describe("splitting a channel", () => {
+  it("records only the socket that was moved off the default", () => {
+    // A draft's `channels` stays proportional to how much somebody customised, not to how large
+    // the pipeline is: an unlisted port keeps one-channel-per-type.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.splitChannel("counts.annotation"));
+    expect(result.current.graph.channels).toEqual([{ ports: ["counts.annotation"] }]);
+  });
+
+  it("is idempotent, so a second click is not a second channel", () => {
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.splitChannel("counts.annotation"));
+    act(() => result.current.splitChannel("counts.annotation"));
+    expect(result.current.graph.channels).toHaveLength(1);
+  });
+
+  it("merges back and drops the empty group rather than leaving it", () => {
+    // A channel feeding nothing is a row the resolver would have to decide what to do with.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.splitChannel("counts.annotation"));
+    act(() => result.current.mergeChannel("counts.annotation"));
+    expect(result.current.graph.channels).toEqual([]);
+  });
+
+  it("marks the draft dirty, because it changes the emitted pipeline", () => {
+    // Unlike a label. Splitting a channel adds a `params.*` a laboratory has to bind, so it is
+    // an edit to the pipeline rather than a note on the drawing.
+    const { result } = renderHook(() => useGraph(empty));
+    act(() => result.current.splitChannel("counts.annotation"));
+    expect(result.current.dirty).toBe(true);
+  });
+});

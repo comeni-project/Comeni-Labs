@@ -222,6 +222,21 @@ reports is now 0% of what this file claims to cover instead of 60% of what it ap
 
 
 RETYPED: dict[str, str] = {
+    "PipelineIR.channels": (
+        "carried as `Pipeline.channels`, a `list[Channel]`. The IR's record says WHICH sockets "
+        "share a channel — the thing a person decided on the canvas — and the artifact's says "
+        "what the channel IS: its param, its Groovy, the measured facts riding on it. The "
+        "grouping survives by inversion, in `StepInput.channel`, so a reader asking *where does "
+        "this port's GTF come from* gets the answer beside the port rather than by joining a "
+        "grouping table to a step list. Same reduction `PipelineIR.edges` makes into "
+        "`Step.inputs`, and for root D's reason."
+    ),
+    "IRChannel.name": "carried as `Channel.name`, unchanged.",
+    "IRChannel.type_id": "carried as `Channel.type_id`, unchanged.",
+    "IRChannel.ports": (
+        "inverted rather than carried: each port names its channel in `StepInput.channel`, so "
+        "the grouping is stored the way it is read."
+    ),
     "IRNode.params": (
         "carried as `Step.settings`, a `list[Setting]`. A `ParamBinding` is a name and a "
         "`ResolvedValue`; a `Setting` is that plus the **route** that carries the value to "

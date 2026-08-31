@@ -3722,3 +3722,38 @@ hardcoded name rather than for a missing placeholder.
 
 That is the second time in this plan that the thing which caught an over-reach was an existing
 test using the feature incidentally, rather than a test written to police it.
+
+### The channel order is the shape's, not the clicking's (Plan 5B phase 3)
+
+**The revert.** In `mendel_resolver.materialise.channels_of`, the sort key
+
+    return (*shallowest, types[group], tuple(ports))
+
+became `return (tuple(ports),)` — ordering channels by their port keys, which begin with node
+ids. That is precisely the defect spec §11.2 names, written the way somebody would write it
+while meaning well: the port keys are right there, they are unique, and they sort.
+
+**What printed.** Two of six, and they are the two the ordering governs:
+
+```
+FAILED tests/test_two_channels_of_one_type.py::test_the_same_pipeline_drawn_by_two_routes_emits_the_same_nextflow
+FAILED tests/test_two_channels_of_one_type.py::test_a_split_channel_keeps_its_name_across_the_two_routes
+```
+
+The other four survive it and should: the default grouping, the split, the goal's sort, and the
+routing check are all true under either order. A test that failed on all six would have been one
+testing "something changed" rather than "this changed".
+
+**Why the revert is not a straw man.** `useGraph.nextId` mints an id from the ids currently
+*taken*, so adding two STAR nodes and deleting the first leaves `star_align_2` where drawing one
+fresh gives `star_align_1`. Under the reverted key those two drawings emit different `params.*`,
+and the person who redrew their pipeline finds their command line broken with nothing on screen
+to explain it. Invariant 10 survives — the goals genuinely differ — which is exactly why this
+needed a test rather than the existing determinism one.
+
+**What the key does NOT claim.** It sorts on `(depth of the shallowest consumer, that consumer's
+contract, the port name)`, then on type id, then on the sorted port keys. That last element reads
+a node id and is the tie-break for two *isomorphic* consumers — two identical STAR nodes at one
+depth, both consuming a GTF. Whichever way that falls, the two graphs describe the same
+computation, so the tie is arbitrary rather than wrong. Written on the function rather than left
+for somebody to find.

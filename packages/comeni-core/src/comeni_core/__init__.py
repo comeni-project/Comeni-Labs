@@ -40,7 +40,13 @@ from comeni_core.declared.vocabulary import UnknownStateError, UnknownTypeError,
 from comeni_core.goal.asked import Constraints, Goal, GoalInput, ParamOverride
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.decision import Ambiguity, DecisionRecord, Resolution
-from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftLabel, DraftNode
+from comeni_core.plan.draft import (
+    DraftChannel,
+    DraftEdge,
+    DraftGraph,
+    DraftLabel,
+    DraftNode,
+)
 from comeni_core.plan.ir import IREdge, IRNode, ParamBinding, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.review import Answer, Candidate, Excerpt, Question
@@ -62,6 +68,7 @@ __all__ = [
     "DeclaredKind",
     "Displacement",
     "DOORS",
+    "DraftChannel",
     "DraftEdge",
     "DraftGraph",
     "DraftLabel",

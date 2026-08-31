@@ -280,54 +280,88 @@ def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
                 )
             )
         else:
-            # **The channel's NAME, not its type.** One channel per type today, so the
-            # lookup is total — and it stops being total in phase 3, which is where the
-            # drawing starts saying which of two same-type channels a port reads.
-            inputs.append(StepInput(port=port.name, channel=named[port.type_id]))
+            # **The channel's NAME, not its type**, and since phase 3 the drawing may have
+            # said which of two same-type channels this port reads. `named` is the
+            # one-per-type fallback, used only where the drawing said nothing.
+            assigned = _named(ir).get(f"{node.id}.{port.name}") or named[port.type_id]
+            inputs.append(StepInput(port=port.name, channel=assigned))
     return inputs
 
 
+def _wanted(ir, registry) -> list[tuple[str, str]]:
+    """`(name, type_id)` per channel, in order — an empty name meaning *derive it*.
+
+    ═══ THE DRAWING'S ASSIGNMENT IS AN OVERRIDE, NOT A REPLACEMENT ═══════════════════════════
+
+    `ir.channel_of` maps `<node>.<port>` → channel name and is filled by
+    `mendel_resolver.materialise.channels_of` from the drawing's `DraftChannel` list. It covers
+    only the ports whose type declares an `entry_channel`, because those are the ones a person
+    can split — so a port reading a type with no declared channel (`alignment.bam` on a graph
+    with no sorter) is **not in the map and still needs one**, from `_default_entry`.
+
+    Treating the map as a replacement rather than an override is exactly the bug this docstring
+    exists to stop: `_inputs` raised `KeyError: 'alignment.bam'` on the first drawing that split
+    a channel, because the map had three types and the graph consumed four.
+
+    **Names are not re-derived where the map has one.** Two derivations of one fact is the
+    defect this whole plan started from, so materialisation reads the resolver's answer rather
+    than computing its own and hoping they agree.
+
+    ═══ THE FALLBACK ORDER IS SHAPE, NOT IDENTITY ════════════════════════════════════════════
+
+    Sorting by type id is keyed on nothing a person clicked: with one channel per type the order
+    is a pure function of the SET of types consumed, so two identical drawings sort identically
+    however they were built. Spec §11.2's `(depth, contract, port)` key is what `channels_of`
+    applies on the other route, where a type has stopped being a unique key.
+    """
+    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
+    named = _named(ir)
+    defaulted: dict[str, None] = {}
+    for node in ir.nodes:
+        for port in registry.get(node.contract_id).consumes:
+            if (node.id, port.name) in fed:
+                continue
+            if f"{node.id}.{port.name}" not in named:
+                defaulted[port.type_id] = None
+    return [(c.name, c.type_id) for c in ir.channels] + [
+        ("", type_id) for type_id in sorted(defaulted)
+    ]
+
+
+def _named(ir) -> dict[str, str]:
+    """`<node>.<port>` → channel name, from the IR's channel records.
+
+    Built at the point of use rather than stored: a mapping on a payload is what
+    `tests/test_egress.py` refuses, and it refuses it because a mapping's keys are unvalidated
+    by construction. Inside a function the keys came from `SocketKey` fields that were.
+    """
+    return {port: channel.name for channel in ir.channels for port in channel.ports}
+
+
 def _channels(ir, registry, vocab, measurements) -> list[Channel]:
-    """Every type consumed but not produced inside the pipeline, and how it arrives.
+    """Every channel the pipeline reads from outside, and how each arrives.
 
     The `meta` entries are the measured facts a module reads — `single_end`, `strandedness` —
     materialised here so emission needs no measurement registry. Sorted, because a set or a
     dict order reaching a digest is how a lockfile becomes spuriously dirty.
-    """
-    fed = {(edge.to_node, edge.to_port) for edge in ir.edges}
-    needed: dict[str, None] = {}
-    for node in ir.nodes:
-        for port in registry.get(node.contract_id).consumes:
-            if (node.id, port.name) not in fed:
-                needed[port.type_id] = None
 
-    channels = []
-    # **Sorted by type id, which is a property of the SHAPE and not of anybody's clicking.**
-    #
-    # Spec §11.2 asks for `(rank, order-within-rank, port index)` and explains why: node ids are
-    # minted from what is currently *taken*, so deleting a node and adding another gives two
-    # structurally identical graphs different ids, and any order keyed on them makes a person's
-    # `params.*` depend on the order they clicked.
-    #
-    # **`sorted(needed)` already has that property and is not a weaker version of it.** `needed`
-    # is keyed by type id, so while there is one channel per type the order is a pure function
-    # of the SET of types the graph consumes — no node id reaches it, and two identical drawings
-    # sort identically however they were built. The `(rank, order, port index)` key becomes
-    # necessary in **phase 3**, when two channels may share a type and the type id stops being a
-    # unique key; phase 3 owns it, and owns the determinism test that fails without it.
-    #
-    # **Two counters, not one.** They were one, and it produced `ch_star` reading
-    # `params.star_2`: the name took `star` and the param — the same word, for the same
-    # channel — found it taken and suffixed itself. A name and a param are different
-    # namespaces (a Groovy variable against a `params.*` key), and only a *cross-channel*
-    # collision is a collision. Caught by reading the golden diff rather than regenerating it,
-    # which is the third time that has been the thing that caught it.
+    **Two counters, not one.** They were one, and it produced `ch_star` reading `params.star_2`:
+    the name took `star` and the param — the same word, for the same channel — found it taken
+    and suffixed itself. A name and a param are different namespaces (a Groovy variable against
+    a `params.*` key), and only a *cross-channel* collision is a collision. Caught by reading the
+    golden diff rather than regenerating it.
+    """
     names: dict[str, None] = {}
     params: dict[str, None] = {}
-    for type_id in sorted(needed):
+    channels = []
+    for given, type_id in _wanted(ir, registry):
         sourced = measurements.meta_sources_for(type_id, ir.profile) if measurements else {}
         template = vocab.entry_channels.get(type_id) or _default_entry()
-        name = _unique(_stem(type_id), names)
+        # A name the resolver assigned is taken as given and only recorded as used; an empty one
+        # is derived here, which is the one-channel-per-type route.
+        name = given or _unique(_stem(type_id), names)
+        if given:
+            names[given] = None
         param = _unique(vocab.params.get(type_id) or _param_of(template, type_id), params)
         expression = _substitute(template, param)
         declared = vocab.test_data.get(type_id)

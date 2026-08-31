@@ -188,6 +188,40 @@ export function useGraph(
     [edit],
   );
 
+  /** Give one socket a channel of its own — the operator's *"multiple of the same type"*.
+   *
+   * **The default is one channel per type and this is the only way off it.** Whether two GTF
+   * ports are fed by one file or by two is not derivable from the drawing: both are legal
+   * pipelines and they analyse different experiments, so the drawing has to carry the answer
+   * and a person has to give it.
+   *
+   * Only ports moved off the default are listed, so a draft's `channels` stays proportional to
+   * how much somebody has customised rather than to how large the pipeline is.
+   */
+  const splitChannel = useCallback(
+    (port: string) =>
+      edit((g) => {
+        const channels = g.channels ?? [];
+        if (channels.some((c) => c.ports.includes(port))) return g;
+        return { ...g, channels: [...channels, { ports: [port] }] };
+      }),
+    [edit],
+  );
+
+  /** Put a socket back on its type's shared channel. **The same control in reverse**, and the
+   *  empty group is dropped rather than left behind — a channel feeding nothing is a row the
+   *  resolver would have to decide what to do with. */
+  const mergeChannel = useCallback(
+    (port: string) =>
+      edit((g) => ({
+        ...g,
+        channels: (g.channels ?? [])
+          .map((c) => ({ ...c, ports: c.ports.filter((p) => p !== port) }))
+          .filter((c) => c.ports.length > 0),
+      })),
+    [edit],
+  );
+
   /** Swap one node's contract, keeping its id and therefore its wires.
    *
    * Adopting the resolver's choice for a step means *this step, that tool* — removing and
@@ -288,6 +322,8 @@ export function useGraph(
     replaceContract,
     setParam,
     setLabel,
+    splitChannel,
+    mergeChannel,
     connect,
     disconnect,
     moveNode,
