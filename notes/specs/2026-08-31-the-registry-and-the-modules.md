@@ -602,3 +602,57 @@ tool today and `mendel registry lint` **refuses a second**, naming this section.
 genuinely needs two gets `align@1.11.0/` and `align@1.12.0/` directories — a mechanical change
 the lint can perform later, and one that must not be *designed around* now on the strength of a
 case nobody has.
+
+---
+
+## 10. Attacking it a third time — the threat model
+
+*One finding, on an axis neither earlier pass touched, and it is the one thing in this plan that
+changes what installing a registry MEANS.*
+
+### 10.1 The registry becomes executable code, and no document says so
+
+**Today `--registry X` means *parse this person's YAML*. After this plan it means *execute this
+person's Groovy*.**
+
+A layer is currently inert: contracts, types, rules and measurements are data that a loader
+parses, and the worst a hostile layer can do is misroute a pipeline — bad, visible in
+`pipeline.yml`, and bounded by invariant 7's closed vocabularies. After the move a layer carries
+`module/main.nf`, which Nextflow **runs**, plus `environment.yml` naming conda packages and a
+`container:` naming an image that gets pulled.
+
+`docs/design/federation.md` §3 designs exactly the case this matters for: *"the registry is a
+stack — public curated base, then private overlays via repeated `--registry`"*, and
+*"contributing upstream is a proposal into the forge queue"*. **Installing a third-party overlay
+becomes installing third-party code**, and nothing in the design or the CLI marks the moment.
+
+**This is not a reason to reverse the decision.** It is precisely nf-core's property — `nf-core
+modules install` puts somebody else's Groovy in your pipeline and everyone accepts it, because a
+pipeline is code and pretending otherwise helps nobody. Three things change, though:
+
+- **Signed tags stop being a nicety.** Federation §3.4 already specifies *"tag signature plus a
+  content digest recorded in the lockfile"*, and today that verifies **data**. It is now the only
+  thing standing between an overlay and arbitrary execution, which makes implementing it a
+  prerequisite for publishing overlays rather than a later refinement.
+- **The layer digest must cover the code**, which is §9.1's finding arriving from a second
+  direction. A digest that pins metadata and not `main.nf` is not a supply-chain control at all.
+- **It must be *said*.** `docs/design/federation.md` §6 gains a paragraph, and `mendel build`'s
+  first use of an unpinned layer is where a person should be told. **What this spec will not do is
+  invent a sandbox**: Nextflow runs containers, the trust boundary is the container runtime, and a
+  half-measure that looked like isolation would be worse than a sentence that tells the truth.
+
+**Phase A4 owns the sentence** — beside the lint, which is where a reader of the registry's own
+rules will be. The signing work is federation's, not this plan's, and this section is what
+promotes it from *designed* to *blocking for overlays*.
+
+### 10.2 A note, so nobody unifies two digests that should disagree
+
+`wiener_api.services.artifacts` computes an artifact's identity from `Pipeline.content_digest()`
+and says why, explicitly: *"not the tree digest … it covers the whole uploaded directory including
+the vendored `modules/` tree — so re-vendoring a module makes the same pipeline look like a
+different one."*
+
+That is **the opposite of §9.1's conclusion for the layer digest**, and both are right because
+they answer different questions: *is this the same pipeline document* versus *is this the same
+layer*. Written down here because the two will look like an inconsistency to whoever reads them
+next, and "fixing" either one breaks something real.

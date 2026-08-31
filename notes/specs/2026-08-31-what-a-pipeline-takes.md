@@ -641,3 +641,99 @@ line will break.
 
 **Phase 3 owns it**, and the check is the one §3.2 already asks for, made to fail first: build the
 same pipeline twice by different routes and diff the emitted `.nf`.
+
+---
+
+## 12. Attacking it a third time — the seams
+
+*Three findings, all of them at a boundary between this spec and something it does not describe.
+The third is a gap between the two halves of Plan 5 rather than a defect inside either.*
+
+### 12.1 A samplesheet is invisible to Wiener at the moment it matters
+
+`wiener_api.services.artifacts.declared_holes` is how the run sheet learns what to ask for, and it
+reads the artifact's **nulls**:
+
+> *The artifact is the schema for a submission. Mendel emits every value it can justify and a
+> placeholder — `= null` — for every value it cannot … So a run supplies precisely the nulls, and
+> Wiener can check that without knowing anything about the pipeline.*
+
+**Two same-type channels work by construction**, which is worth noticing: `params.gtf` and
+`params.gtf_2` are two nulls, Wiener asks for two files, and nothing on that side changes. That is
+a real strength of the design and it needed no coordination.
+
+**The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a CSV
+path**, so Wiener asks the same question and a person answers it with the wrong kind of thing. The
+run fails inside Nextflow, several minutes later, with a message about a file that is not a
+samplesheet — and the one place that could have said so is the form that asked.
+
+**It is already reachable, and that is the point.** `artifacts.py` loads the artifact with
+`Pipeline.model_validate(...)`, so `input_form` (§2.2, §11.1) is one field access away. What it
+must **not** be is prose — and §11.1 reached that conclusion for an entirely different reason, the
+egress boundary. **Two independent arguments for one design is the strongest signal this spec
+has**, and it is recorded rather than left as a coincidence.
+
+**Phase 5 owns it:** `declared_holes` returns holes with a *shape*, `input` carries
+`SAMPLESHEET` with its column list, and the run sheet renders a samplesheet builder rather than a
+path box. That is a Wiener change inside a Mendel plan, and it is small precisely because
+`wiener.md` §12's design — *the browser posts the artifact and Wiener reads its holes back out* —
+already put the artifact in the right place.
+
+### 12.2 `upgrade` would invent a decision nobody made
+
+`mendel upgrade` re-resolves against the current registry and **replays every recorded decision**,
+so only what you touched can move. Issue #10 closed on exactly that property.
+
+A `SCHEMA_VERSION` 5 artifact has **no scope on any channel**, because scope did not exist. Upgrade
+it and every channel acquires one. Taking the type's default is the obvious move and it is also a
+**new decision appearing in a pipeline nobody re-decided** — the thing replay exists to prevent.
+The same applies to channel names: `upgrade` re-derives from the goal, and if the migration's names
+and the fresh derivation's names differ by one, every `params.*` in a laboratory's command line
+renames itself on an upgrade they asked for to pick up a registry fix.
+
+**The migration is the one place that decides, and it records that it did.** Not `upgrade`:
+
+- the 5 → 6 loader assigns each channel its name and its type's default scope,
+- and writes a `Why` saying so — *migrated from schema 5; scope taken from the type's default,
+  which is what this pipeline's behaviour already was* — at a **tier**, like every other decision,
+- so `upgrade` **replays** it rather than deriving it, and the guarantee survives.
+
+**It is also a testable claim rather than an argument:** migrate a v5 artifact, upgrade it, and
+assert the emitted `.nf` is byte-identical to the v5 artifact's. Watched failing against a
+migration that assigns silently.
+
+### 12.3 `BuiltPipeline` has no channels, so the canvas keeps deriving its own
+
+**This is the gap between the two halves of Plan 5 and neither spec covers it.**
+
+§0's finding was that *the canvas already disagrees with the artifact* — it derives one socket per
+unwired port while `goal_of` deduplicates by type, so five sockets and three inputs. Part B fixes
+the resolver. Part A fixes the registry. **Nothing says the API changes**, and the API is what the
+canvas reads:
+
+```python
+class BuiltPipeline(BaseModel):
+    steps: list[StepView]
+    layout: Placement
+    provenance: dict[str, int]
+    settled_share: float
+    needs_review: list[str]
+```
+
+No channels. So `Sources.entryChannels()` in the browser keeps computing its own answer from
+unwired ports, and after all this work **the canvas and the resolver would disagree again** — in a
+new way, because now there genuinely are named channels for it to disagree with.
+
+**Phase 2 owns it**, at the same moment a channel becomes a named object:
+
+- `BuiltPipeline.channels: list[ChannelView]` — name, type, scope, the ports it feeds,
+- `Sources.entryChannels()` **deleted**, not left beside it. Two derivations of one fact is the
+  defect this whole plan started from, and keeping the old one "for now" is how it survives.
+- the canvas draws a node per channel rather than per unwired port, which is also what makes
+  §4's split/merge control possible at all — you cannot split a thing that is recomputed from
+  scratch on every render.
+
+**The general lesson, which is why this is written up rather than quietly fixed:** two specs that
+each describe one side of a system will leave the seam undescribed, and the seam is where §0's
+original defect lived. Whoever executes Part B phase 2 should read this section before the phase's
+own task list.
