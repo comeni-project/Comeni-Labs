@@ -149,6 +149,15 @@ def _build(argv: list[str] | None = None) -> int:
             parser.error("docs needs at least one --registry")
         return layer_verbs._docs_verb(args.registry, args.out, args.check)
 
+    # `conformance` acts on a layer too, and produces no pipeline. It exists because
+    # `comeni-registry`'s CI could not ask whether its own contracts agree with their own
+    # modules until Plan 5A put both in the layer — before that the check needed a goal, a
+    # build and a checkout holding two repositories.
+    if args.command == "conformance":
+        if not args.registry:
+            parser.error("conformance needs at least one --registry")
+        return layer_verbs._conformance_verb(args.registry)
+
     # `--check` belongs to `docs` alone. On any other verb it would be a flag that silently
     # means nothing, which is the defect `--dry-run` and `--force` each carry a guard for.
     if args.check:
