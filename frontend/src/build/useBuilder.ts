@@ -39,6 +39,35 @@ export function graphOf(built: Built): DraftGraph {
   };
 }
 
+/** A setting, plus whether the value on it is **this person's answer**.
+ *
+ * **It is not derivable from the tier, and that is the whole reason this type exists.** A tier-4
+ * setting can hold a value nobody chose: the resolver's own tier-4 exit writes one and says so —
+ * `selected the first of 1 candidates without judgement — please review`. So `tier === 4 &&
+ * value !== null` does not mean *answered*, and the draft graph is the only place that knows
+ * which values a person put there.
+ *
+ * The tier does **not** change (invariant 6: tier 4 is always flagged, even at high confidence).
+ * What changes is what the interface may say about it — *this still needs a decision* is false
+ * about a value somebody already decided, and it is the sentence the status line was making.
+ */
+export type Answered = Step["settings"][number] & { answered?: boolean };
+
+/** A step whose settings carry that mark. `Step` is assignable to it, since `answered` is
+ *  optional — so a caller with no draft in hand loses nothing. */
+export type AnsweredStep = Omit<Step, "settings"> & { settings: Answered[] };
+
+/** How many of a step's values **nobody has answered** — the count the red band and the status
+ *  line both mean, and neither of them had. */
+export function unanswered(steps: AnsweredStep[]): number {
+  return steps.flatMap((step) => step.settings).filter(open).length;
+}
+
+/** Whether one value is still open: tier 4, and not answered here. */
+export function open(setting: Answered): boolean {
+  return setting.tier === 4 && !setting.answered;
+}
+
 /** One step, with **what you have typed** laid over what the server last echoed back.
  *
  * `drawn` is a query keyed on the *debounced* graph and carries
@@ -51,7 +80,7 @@ export function graphOf(built: Built): DraftGraph {
  * — the tier, the domain, the reason. Overlaying only `value` keeps it that way, so a typed
  * value shows instantly while the tier it exits at stays the server's to stamp.
  */
-export function withTypedValues(step: Step, graph: DraftGraph): Step {
+export function withTypedValues(step: Step, graph: DraftGraph): AnsweredStep {
   const params = graph.nodes.find((node) => node.id === step.id)?.params;
   if (!params?.length) return step;
   // `DraftParam.value` admits `string | number | boolean` while a `SettingView` renders a
@@ -61,7 +90,9 @@ export function withTypedValues(step: Step, graph: DraftGraph): Step {
   return {
     ...step,
     settings: step.settings.map((setting) =>
-      typed.has(setting.name) ? { ...setting, value: typed.get(setting.name)! } : setting,
+      typed.has(setting.name)
+        ? { ...setting, value: typed.get(setting.name)!, answered: true }
+        : setting,
     ),
   };
 }

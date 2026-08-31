@@ -150,7 +150,7 @@ export function useGraph(
    * recording an empty answer.
    */
   const setParam = useCallback(
-    (id: string, name: string, value: string | null) =>
+    (id: string, name: string, value: string | number | boolean | null) =>
       edit((g) => ({
         ...g,
         nodes: g.nodes.map((n) => {

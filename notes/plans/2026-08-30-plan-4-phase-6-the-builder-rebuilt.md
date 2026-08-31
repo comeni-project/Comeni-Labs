@@ -128,10 +128,10 @@ description. **Leave the slot empty; do not invent prose.**
 
 ## Task 5 — the card on the node
 
-- [ ] Settings open from `⋯` in the node's header, ordered by **what could need you**: no-rule
+- [x] Settings open from `⋯` in the node's header, ordered by **what could need you**: no-rule
       first as choices, then measured with its premise, then `n settled` folded.
-- [ ] The rail keeps only the **choice** — what this step is, why this tool, swap it.
-- [ ] The two lists of the same thing are gone.
+- [x] The rail keeps only the **choice** — what this step is, why this tool, swap it.
+- [x] The two lists of the same thing are gone.
 
 ## Task 6 — write it down, then look at it
 
@@ -149,7 +149,7 @@ description. **Leave the slot empty; do not invent prose.**
 | 2 | Yes, plus one reversal the plan did not authorise | The three-band symbol, the rail colours and the footer went in as written. **Ports became clickable**, which reverses an operator decision that they were drag-only — written up in the ledger rather than done quietly, because a drag-only port is a gesture with no discoverable affordance and the annotation `n-bport` asks for one. `Port.tsx` distinguishes click from drag with a 4px slop on `pointerdown`, so the drag gesture is unchanged |
 | 3 | Yes | The picker mounts outside the transformed stage, so its canvas coordinates need the view transform applied **forward** — without that it opened in the page's top-left on every zoom but 1:1. The socket gutter was 240px against a 224px rank pitch, which drew every non-root node's entry sockets on top of the node feeding it; roots keep theirs to the left and everything else drops below |
 | 4 | Yes, and it uncovered a defect no API test could see | The field, the three-ruling grid and the registration marks are as written. **Adding a step made its sibling vanish** — `seed` pinned every node once-ever, so a re-layout that moved an unmoved node was discarded. The saved draft was correct throughout (verified against the API), which is why only looking at it could find it. Fixed with a `moved` ref: *being drawn somewhere is not being put there* |
-| 5 | | |
+| 5 | Yes, and the rail lost a whole tab as well as the card | The card is three bands ordered by what could need you, not four tier groups; a tier-4 value renders as **chips** where the contract enumerates and a field only where it declares no domain. The rail's Step tab is name / contract / *why this tool* / Swap / a one-line `Values` summary pointing at the node. **The Review tab went with `<Settings>`**: it was a third list of the same values, and `impl-inv` names invariant 6's four places — node, status line, settings card, run sheet — with the rail in none of them. Two things the plan did not ask for and the screen did: the card is a **card on the node** rather than a centred modal with a backdrop (a modal says *stop what you are doing*; the whole point of moving settings off the rail was to put them beside the step), and the settled band stays **answerable** once open, because departing from a convention is allowed and `because` exists to keep the departed-from convention readable |
 | 6 | | |
 
 **Two tasks are open and one thing is owed that the plan never listed.** Task 5 (settings move

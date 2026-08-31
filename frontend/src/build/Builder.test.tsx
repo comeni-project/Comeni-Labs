@@ -42,6 +42,12 @@ const PIPELINE = {
   needs_review: [],
 };
 
+/** A value nobody has answered: tier 4, no value, and the reason the resolver gives. */
+const open = (name: string) => ({
+  name, value: null, via: "ext", tier: 4, reason: "no rule matched",
+  axis_reason: "", premise: [], because: "",
+});
+
 const MODULES = [
   { contract_id: "nf-core/star/align@1.11.0", tool: "star/align", process: "STAR_ALIGN",
     roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "x" },
@@ -116,7 +122,20 @@ describe("the builder shell", () => {
     // **The rule this test exists for** — `dashboard.md` §4: the collapsed right rail keeps its
     // undecided count on the stub, because hiding the panel must never hide what is blocking
     // your run.
-    at({ ...PIPELINE, needs_review: ["star_align", "samtools_sort"] });
+    //
+    // **What the number MEANS changed in phase 6, and the rule did not.** It was
+    // `needs_review.length` — a list of STEP ids — under a label reading `n values need you`.
+    // On the spine both are 5, so the mislabel was invisible; what gave it away is that
+    // answering a value never moved it, because a step with one open value keeps its id
+    // whatever you do to the value. It counts tier-4 SETTINGS now, so the fixture carries two.
+    at({
+      ...PIPELINE,
+      steps: [
+        { ...PIPELINE.steps[0], settings: [open("seq_platform"), open("read_group")] },
+        PIPELINE.steps[1],
+      ],
+      needs_review: ["star_align", "samtools_sort"],
+    });
     const collapse = await screen.findByTestId("collapse-right");
     fireEvent.click(collapse);
     const rail = screen.getByTestId("rail");
@@ -313,5 +332,41 @@ describe("a value you type", () => {
     await user.type(field, "ILLUMINA");
 
     expect((field as HTMLInputElement).value).toBe("ILLUMINA");
+  });
+
+  it("stops counting a value against you once you have answered it", async () => {
+    // **The count moved for the first time in phase 6.** It was `needs_review.length` — a list
+    // of STEP ids — under the label `n values need you`, so answering a value never changed it:
+    // a step with one open value keeps its id whatever you do to the value. On the spine both
+    // numbers are 5, which is why nothing on screen looked wrong.
+    //
+    // **The server is deliberately not part of this.** The mocked `draw` echoes the same
+    // tier-4 setting back on every keystroke, so the only thing that can move this number is
+    // the draft graph — which is the one place that knows a value is a PERSON's rather than
+    // the resolver's tier-4 exit writing one and saying *selected the first of 1 candidates
+    // without judgement*.
+    const user = userEvent.setup();
+    at({
+      ...PIPELINE,
+      steps: [
+        { ...PIPELINE.steps[0], settings: [open("seq_platform"), open("read_group")] },
+        PIPELINE.steps[1],
+      ],
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("2 values need you"),
+    );
+
+    fireEvent.click(await screen.findByLabelText("settings for STAR_ALIGN"));
+    await user.type((await screen.findAllByTestId("setting-field"))[0], "ILLUMINA");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("1 value needs you"),
+    );
+
+    // **The node says the same thing**, because invariant 6's four places have to agree. It
+    // counted `tier === 4` and so read `2 need you` beside a card calling one of them *yours*.
+    expect(screen.getAllByTestId("node")[0].textContent).toContain("1 need you");
   });
 });

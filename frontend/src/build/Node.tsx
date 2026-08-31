@@ -1,5 +1,6 @@
 import type { components } from "../api/schema";
 import { NODE_H, NODE_W, portOffset } from "./geometry";
+import { open as isOpen } from "./useBuilder";
 import { Port } from "./Port";
 
 type Placed = components["schemas"]["PlacedNode"];
@@ -107,7 +108,11 @@ export function Node({
   const ins = ports.filter((port) => port.side === "in");
   const outs = ports.filter((port) => port.side === "out");
   const settings = step?.settings ?? [];
-  const needing = settings.filter((setting) => setting.tier === 4).length;
+  // **`isOpen`, not `tier === 4`.** A tier-4 value keeps its tier once you answer it
+  // (invariant 6), so counting the tier makes the footer say `1 need you` about a value the
+  // card beside it is already calling *yours*. Three surfaces read this rule — the footer, the
+  // card's band and the status line — and it lives in `useBuilder` so they cannot drift.
+  const needing = settings.filter(isOpen).length;
   const measured = settings.some((setting) => setting.tier === 3);
   const settled = settings.length - needing;
   const open = needing > 0;

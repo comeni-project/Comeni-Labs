@@ -40,7 +40,8 @@ type PortView = components["schemas"]["PortView"];
 export function Picker({ port, node, at, onPick, onClose }: {
   port: PortView;
   node: string;
-  /** Where to draw it, in canvas coordinates. */
+  /** Where to draw it, in SCREEN coordinates — `Builder`'s `onScreen` has already applied the
+   *  view transform and the canvas's offset in the page. */
   at: { x: number; y: number };
   /** Take this candidate: add the step and draw the wire. */
   onPick: (contractId: string, theirPort: string) => void;
@@ -82,7 +83,7 @@ export function Picker({ port, node, at, onPick, onClose }: {
       role="dialog"
       aria-label={`what can connect to ${port.name}`}
       style={{ left: at.x, top: at.y }}
-      className="absolute z-30 w-[340px] bg-surface border border-line-2 rounded-r shadow-e3
+      className="fixed z-30 w-[340px] bg-surface border border-line-2 rounded-r shadow-e3
                  overflow-hidden settle"
       onKeyDown={(e) => {
         if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }

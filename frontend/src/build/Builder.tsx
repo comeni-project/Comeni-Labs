@@ -25,7 +25,8 @@ import { useKeep } from "./useKeep";
 import { NODE_W, portOffset } from "./geometry";
 import { Rail } from "./Rail";
 import { Wires } from "./Wires";
-import { graphOf, useBuilder, useExample, withTypedValues } from "./useBuilder";
+import type { AnsweredStep } from "./useBuilder";
+import { graphOf, unanswered, useBuilder, useExample, withTypedValues } from "./useBuilder";
 import { accepts, useCompatibility } from "./useCompatibility";
 import { useView } from "./useView";
 
@@ -156,6 +157,32 @@ export function Builder() {
       {example.error && <Failed error={example.error} />}
     </div>
   );
+}
+
+/** Canvas coordinates → screen coordinates, for the two popovers that mount outside the stage.
+ *
+ * **Two corrections, and leaving either out is visible immediately.** The port picker and the
+ * settings card are rendered at the builder's root rather than inside the transformed stage,
+ * because the canvas clips its own overflow and a card that vanished at the edge of the frame
+ * would be unreachable. So a canvas coordinate needs:
+ *
+ * 1. **the view transform, applied forward** — `translate(view.x, view.y)` then `scale(view.k)`.
+ *    Without it the popover opens in the page's top-left corner at any zoom but 1:1, which is
+ *    what the picker did until phase 6 task 3.
+ * 2. **the canvas's own offset in the page.** Without it every card sits exactly the height of
+ *    the header and the provenance bar too high — which is what the settings card did the first
+ *    time it was anchored, and it is why this is a function rather than the same two lines
+ *    written twice.
+ *
+ * `useView`'s pointer handler undoes the same transform to put the cursor into canvas space.
+ * Three places, one transform, written the same way round each time.
+ */
+function onScreen(at: { x: number; y: number }, view: { x: number; y: number; k: number }) {
+  const r = document.querySelector('[data-testid="canvas"]')?.getBoundingClientRect();
+  return {
+    x: (r?.left ?? 0) + at.x * view.k + view.x,
+    y: (r?.top ?? 0) + at.y * view.k + view.y,
+  };
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -297,7 +324,19 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
   const [kept, setKept] = useState<{ row: any; reason: string }[]>([]);
   void kept;
 
-  const blocking = data?.needs_review.length ?? 0;
+  /** Every step with **what this person answered** laid over it — computed once, because three
+   *  things read it: the status line's count, the rail's sentence, and the settings card. */
+  const answered: AnsweredStep[] = (data?.steps ?? []).map((step: any) =>
+    withTypedValues(step, builder.graph),
+  );
+
+  /** **Values, not steps.** `Status.open` is documented as *how many values nobody has
+   *  answered*, and it was handed `data.needs_review.length` — which is a list of STEP ids. On
+   *  the spine that is 5 either way, so the two lines agreed by coincidence and the provenance
+   *  bar beside it already said `5 steps need your decision` off the same number: two sentences,
+   *  one fact, one of them mislabelled. It also never moved when you answered something, because
+   *  a step with one open value has a step id whatever you do to the value. */
+  const blocking = unanswered(answered);
 
   return (
     <div className="grid grid-rows-[38px_1fr] h-full overflow-hidden">
@@ -532,7 +571,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
               <Node
                 key={placed.id}
                 placed={placed}
-                step={data.steps.find((s) => s.id === placed.id)}
+                step={answered.find((s) => s.id === placed.id)}
                 zoom={view.k}
                 dim={isolated !== null && String(placed.tier) !== isolated}
                 selected={selected === placed.id}
@@ -561,10 +600,13 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                     //
                     // Beside the node rather than exactly on the port: at low zoom an exact
                     // anchor puts a 340px panel on top of the thing it is describing.
-                    at: {
-                      x: ((offsets[placed.id]?.x ?? 0) + NODE_W + 16) * view.k + view.x,
-                      y: (offsets[placed.id]?.y ?? 0) * view.k + view.y,
-                    },
+                    at: onScreen(
+                      {
+                        x: (offsets[placed.id]?.x ?? 0) + NODE_W + 16,
+                        y: offsets[placed.id]?.y ?? 0,
+                      },
+                      view,
+                    ),
                   })}
                 onDrag={(by) => builder.moveNode(placed.id, by)}
                 dragging={dragging}
@@ -691,10 +733,10 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         )}
         {panel === "review" && data && !swapping && (
           <Rail
-            data={data}
+            steps={answered}
             selected={selected}
-            onSelect={setSelected}
             onSwap={setSwapping}
+            onOpenSettings={setCarded}
             onCollapse={() => right.setCollapsed(true)}
           />
         )}
@@ -783,25 +825,43 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         />
       )}
 
+      {/* **A card ON the node, not a modal over the page** — `n-bsettings`.
+          *SETTINGS — a card on the node, opened from the ... in its header. Not a giant list.*
+
+          It shipped as a centred dialog with a dimming backdrop, which is a different claim:
+          a modal says *stop what you are doing*, and a card beside the step says *here is what
+          this one is set to*. The whole reason the settings moved off the rail was to put them
+          next to the thing they describe, and a backdrop that hides the canvas undoes that.
+
+          The anchor is the **picker's transform, written the same way round** — `translate`
+          then `scale`, applied forward from canvas space. Recomputed on render rather than
+          frozen on open, so the card travels with its node when you pan.
+
+          **`settle`, not the artboard's `pop`.** `BuilderSettings.dc.html` defines a sixth
+          keyframe for this one card; `mo-page-1` says five movements and nothing else moves,
+          and `settle` is already opacity plus a 4px rise. A sixth easing for one popover is how
+          a house style becomes a collection. */}
       {carded && data && (
         <div
-          className="fixed inset-0 z-40 flex items-start justify-center pt-[10vh] px-6
-                     bg-[color-mix(in_srgb,var(--ink)_35%,transparent)]"
-          onClick={() => setCarded(null)}
+          role="dialog"
+          data-testid="settings-anchored"
+          aria-label={`settings for ${answered.find((s) => s.id === carded)?.process ?? carded}`}
+          style={(() => {
+            const a = onScreen(
+              { x: (offsets[carded]?.x ?? 0) + NODE_W + 16, y: offsets[carded]?.y ?? 0 },
+              view,
+            );
+            return { left: a.x, top: a.y };
+          })()}
+          onClick={(e) => e.stopPropagation()}
+          className="settle fixed z-40 w-[352px] max-h-[70vh] overflow-auto border border-line-2
+                     bg-[var(--paper-2)] shadow-e3"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[560px] max-h-[70vh] overflow-auto rounded-r border
-                       border-line bg-surface shadow-e3"
-          >
-            <Settings
-              step={withTypedValues(data.steps.find((s) => s.id === carded)!, builder.graph)}
-              onClose={() => setCarded(null)}
-              onSet={(name, value) => builder.setParam(carded, name, value)}
-            />
-          </div>
+          <Settings
+            step={answered.find((s) => s.id === carded)!}
+            onClose={() => setCarded(null)}
+            onSet={(name, value) => builder.setParam(carded, name, value)}
+          />
         </div>
       )}
     </div>
