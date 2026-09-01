@@ -329,13 +329,13 @@ class Vocabulary(BaseModel):
         types = dict(self.types)
         for measurement_id in registry.ids():
             types[f"measurement.{measurement_id}"] = frozenset()
-        return Vocabulary(
-            types=types,
-            entry_channels=dict(self.entry_channels),
-            params=dict(self.params),
-            test_data=dict(self.test_data),
-            displaced=list(self.displaced),
-        )
+        # **`model_copy`, not a fresh `Vocabulary(...)`.** This listed every field by hand, so
+        # it had to be kept in step with the model — and the failure mode is silence: a field
+        # added to `Vocabulary` and collected by `of()` is dropped here, leaving one populated
+        # and another empty a few lines apart with nothing raising. It was correct when this
+        # changed, and correct by vigilance is what `test_a_derived_vocabulary_keeps_every_field`
+        # replaces.
+        return self.model_copy(update={"types": types})
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:
