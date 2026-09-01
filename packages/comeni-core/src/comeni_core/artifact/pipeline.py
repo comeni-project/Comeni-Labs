@@ -34,6 +34,7 @@ from comeni_core.goal.asked import Goal
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.tiers import (
+    InputForm,
     ReviewLevel,
     Scope,
     Tier,
@@ -868,6 +869,15 @@ class Pipeline(EgressPayload):
     gate: Gate | None = None
     """The strongest gate this pipeline actually passed. The verdict comes from the artifact."""
 
+    input_form: InputForm = InputForm.DIRECT
+    """How a laboratory hands this pipeline its per-sample data — `direct` or `samplesheet`.
+
+    **Derived, not authored**: one sample-scoped channel is a glob, two or more is a table.
+    `MD0229` refuses a file where the two disagree, which is what stops `params.input`'s two
+    meanings from ever both being claimed by one artifact.
+
+    Defaults to `DIRECT`, which is what every pipeline written before this field meant."""
+
     @model_validator(mode="after")
     def _readable_and_unambiguous(self) -> "Pipeline":
         """MD0207 and MD0212, on **every** load — this is what `any load` means.
@@ -949,6 +959,54 @@ class Pipeline(EgressPayload):
                     f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
                 )
             )
+        # MD0229 — **`params.input` has two meanings and one artifact may claim only one.**
+        # A glob and a CSV path are both a string, so nothing downstream can tell them apart:
+        # a laboratory answering the wrong question finds out inside Nextflow minutes later,
+        # and the one place that could have said so is the form that asked.
+        per_sample = [c.name for c in self.channels if c.scope is Scope.SAMPLE]
+        wants_table = self.input_form is InputForm.SAMPLESHEET
+        if wants_table and len(per_sample) < 2:
+            raise ValueError(
+                coded(
+                    "MD0229",
+                    f"this pipeline says its input is a samplesheet and has "
+                    f"{len(per_sample)} sample-scoped channel(s): "
+                    f"{', '.join(per_sample) or '(none)'}.\n"
+                    f"  A samplesheet's columns are its sample-scoped channels, so one of them "
+                    f"is a table with one column — which is a glob written the long way.",
+                )
+            )
+        # ═══ THE PLAN ASKED FOR A DIFFERENT SECOND ARM, AND IT MEASURED THE WRONG THING ═══
+        #
+        # §5.2 asks this to refuse *a non-samplesheet form with more than one sample-scoped
+        # channel*, calling it "the check that `params.input`'s two meanings can never both be
+        # claimed by one artifact".
+        #
+        # Sharing a **scope** is not claiming a param twice. Every archived v5 artifact has
+        # three channels, each with its own `params.<x>` — and no scope at all, so migration
+        # gives them all the `SAMPLE` default. That arm refused every pipeline this repository
+        # has ever written, which would make `mendel emit` unable to read the artifacts it is
+        # for.
+        #
+        # What "claimed twice" actually means is two channels reading one parameter: then a
+        # laboratory supplies one path and two channels silently read it, which is exactly the
+        # merge Plan 5B exists to remove. That cannot arise from a migration and does catch the
+        # thing the sentence was about.
+        claimed: dict[str, list[str]] = {}
+        for channel in self.channels:
+            claimed.setdefault(channel.param, []).append(channel.name)
+        twice = sorted((param, names) for param, names in claimed.items() if len(names) > 1)
+        if twice:
+            param, names = twice[0]
+            raise ValueError(
+                coded(
+                    "MD0229",
+                    f"channels {', '.join(sorted(names))} all read `params.{param}`.\n"
+                    f"  A laboratory supplies one path and every one of them reads it, which "
+                    f"is the silent merge this schema exists to make impossible.",
+                )
+            )
+
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:
             shadow = sorted(

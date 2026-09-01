@@ -159,3 +159,36 @@ class Scope(StrEnum):
 
     SAMPLE = "sample"
     """One per sample. Emitted as a queue, which is what makes the process run per sample."""
+
+
+class InputForm(StrEnum):
+    """How a laboratory hands this pipeline its per-sample data.
+
+    ═══ A CLOSED ENUM, AND THE SPEC ASKED FOR PROSE ══════════════════════════════════════════
+
+    Spec §2.2 originally asked the artifact to say which form it wants *"in words, next to the
+    param"*. `Pipeline` is door 4's payload, so **words next to a param is a fifteenth free-text
+    field** — in a spec whose §5 claims it adds none. The two sentences contradicted each other
+    and the review pass is what caught it.
+
+    So the *choice* is here and the **sentence is generated**: `mendel emit` writes
+    *"a samplesheet with columns sample, fastq_1, fastq_2"* from this plus the channel names.
+    Nobody authors a string, nothing new crosses a door, and the artifact still reads as prose.
+
+    **The general rule, worth carrying beyond this plan:** when a fact is a closed choice, put
+    the choice in the artifact and generate the sentence. A field that exists so a file can
+    explain itself is how a boundary widens one entry at a time.
+    """
+
+    DIRECT = "direct"
+    """`params.input` is a glob, and one sample-scoped channel reads it.
+
+    What every pipeline emitted before this existed, and what the spine still emits — which
+    `tests/test_counts.py` depends on, being the only check that exercises the v1 criterion."""
+
+    SAMPLESHEET = "samplesheet"
+    """`params.input` is a CSV, and each sample-scoped channel is a projection of it.
+
+    Two sample-scoped channels cannot both be a glob: *reads with their respective annotations*
+    is a table, joined at the process by `meta.id`. The columns are the channel names; the rows
+    are the laboratory's, and Mendel never sees one."""

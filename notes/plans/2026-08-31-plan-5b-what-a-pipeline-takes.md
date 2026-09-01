@@ -220,7 +220,7 @@ what makes the diff readable.*
 
 ### 5.1 The emission — spec §2.2
 
-- [ ] **One** sample-scoped channel emits what it emits now: `fromFilePairs`, one queue channel, no
+- [x] **One** sample-scoped channel emits what it emits now: `fromFilePairs`, one queue channel, no
       samplesheet. **This must not regress** — `tests/test_counts.py` is the only check exercising
       the v1 criterion and it runs this shape.
 - [ ] **Two or more** emit a samplesheet: `params.input` is a CSV whose columns are the
@@ -231,17 +231,17 @@ what makes the diff readable.*
 ### 5.2 `input_form`, and why it is an enum — spec §11.1 and §12.1
 
 - [ ] `Pipeline.input_form: InputForm` — `SAMPLESHEET | DIRECT`. **A closed enum, not prose.**
-- [ ] §2.2 originally asked the artifact to say which form it wants *"in words, next to the
+- [x] §2.2 originally asked the artifact to say which form it wants *"in words, next to the
       param"*. `Pipeline` is door 4's payload, so **words next to a param is a fifteenth free-text
       field**, in a spec whose §5 claims it adds none. The two sentences contradicted each other.
-- [ ] The **words** a reader needs — *"a samplesheet with columns sample, fastq_1, fastq_2, gtf"* —
+- [x] The **words** a reader needs — *"a samplesheet with columns sample, fastq_1, fastq_2, gtf"* —
       are **generated** from `input_form` plus the channel names. Nobody authors a string, nothing
       new crosses a door, and the artifact still reads as prose because `mendel emit` writes the
       comment.
-- [ ] **The general rule this nearly broke, worth carrying beyond this plan:** when a fact is a
+- [x] **The general rule this nearly broke, worth carrying beyond this plan:** when a fact is a
       closed choice, put the choice in the artifact and generate the sentence. A field that exists
       so a file can explain itself is how a boundary widens one entry at a time.
-- [ ] `MD0229`: a samplesheet form with fewer than two sample-scoped channels, or a non-samplesheet
+- [x] `MD0229`: a samplesheet form with fewer than two sample-scoped channels, or a non-samplesheet
       form with more than one. **It is the check that `params.input`'s two meanings can never both
       be claimed by one artifact.**
 

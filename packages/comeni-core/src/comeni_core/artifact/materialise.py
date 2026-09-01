@@ -26,7 +26,6 @@ from comeni_core.artifact.pipeline import (
     ModuleRef,
     Pipeline,
     RegistryProvenance,
-    Scope,
     Setting,
     Step,
     StepInput,
@@ -35,7 +34,7 @@ from comeni_core.artifact.pipeline import (
 )
 from comeni_core.declared.contract import Cardinality, ModuleContract
 from comeni_core.diagnostics import coded
-from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
 
 
 def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
@@ -109,6 +108,15 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
         ai=AiProvenance(available=[], used=[]),
         steps=steps,
         channels=channels,
+        # **Derived, never authored.** One sample-scoped channel is a glob; two or more is a
+        # table, because *reads with their respective annotations* cannot be two globs.
+        # `MD0229` refuses a file where the two disagree, which is what keeps `params.input`'s
+        # two meanings from both being claimed at once.
+        input_form=(
+            InputForm.SAMPLESHEET
+            if sum(1 for c in channels if c.scope is Scope.SAMPLE) > 1
+            else InputForm.DIRECT
+        ),
         decisions=list(ir.decisions),
     )
 

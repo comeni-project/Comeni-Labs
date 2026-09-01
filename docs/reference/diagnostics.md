@@ -106,6 +106,7 @@ decline to curate one.
 | `MD0225` | a value records a model settled it, and the build records that none was available |
 | `MD0226` | two channels share a name |
 | `MD0227` | a port names a channel the pipeline does not declare |
+| `MD0229` | a samplesheet with one column, or two channels reading one parameter |
 
 ## Routing and resolution
 
