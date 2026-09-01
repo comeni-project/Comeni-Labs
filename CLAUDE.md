@@ -22,20 +22,32 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`notes/journal/`](notes/journal/)** — which is
-> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md),
-> covering **Plan 5B phases 1 to 3: a channel has a name, and a pipeline can take two of a
-> type.** `entry_channel` fused the param name, the cardinality and the fan-out into the *type*;
-> the spine's three `annotation.gtf` consumers were one hole nobody could address. Splitting one
-> now gives it `gtf_2`, `params.gtf_2` and its own line in the workflow. `SCHEMA_VERSION` is 6
-> and `REGISTRY_FORMAT` is 2 — the registry declares which engine it needs (`MD0020`) and the
-> engine refuses a layer that names its own param (`MD0228`).
+> **Start with the latest entry in [`notes/journal/`](notes/journal/)** — and **2026-09-01 has
+> two entries that a filename sort orders backwards.** The one to read is
+> [`2026-09-01-the-fan-out-and-the-sheet.md`](notes/journal/2026-09-01-the-fan-out-and-the-sheet.md),
+> covering **Plan 5B phases 4 and 5, which complete the plan.** A `RUN`-scoped channel emits as a
+> **value** channel, so a reference is read once per task rather than consumed once per run — the
+> fan-out defect the earlier entry warned about **is fixed, and was reproduced first**. An
+> aggregator gets `.collect()`. `InputForm` says whether `params.input` is a glob or a CSV, and a
+> samplesheet pipeline **runs end to end under `--gate test`**, producing a BAM named for its
+> row's `sample` column.
 >
-> **Phase 4 carries a LIVE defect and it is not fixed**: the spine's reference channels are queue
-> channels, a process runs as many times as its shortest input, so **with 24 samples `STAR_ALIGN`
-> runs once and 23 are silently dropped**. The stub profile globs one sample pair, so N = 1 hides
-> it. Do not point the spine at real multi-sample data until phase 4 lands. **Nobody has looked
-> at the builder since phase 1** — the split/merge control has never been clicked.
+> Before it that morning,
+> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md),
+> covering **phases 1 to 3: a channel has a name, and a pipeline can take two of a type.**
+> `entry_channel` fused the param name, the cardinality and the fan-out into the *type*; the
+> spine's three `annotation.gtf` consumers were one hole nobody could address. Splitting one now
+> gives it `gtf_2`, `params.gtf_2` and its own line in the workflow. `SCHEMA_VERSION` is 6 and
+> `REGISTRY_FORMAT` is 2 — the registry declares which engine it needs (`MD0020`) and the engine
+> refuses a layer that names its own param (`MD0228`). **Its bolded warning not to point the
+> spine at multi-sample data is spent** — that is what phase 4 closed.
+>
+> **The scope override has no control on the canvas.** `DraftChannel.scope` exists, the resolver
+> honours it, the artifact records it with a `Why`, and nothing in the builder sets it — so the
+> samplesheet is reachable through the API and not through a browser. **Nobody has looked at the
+> builder since phase 1**; the split/merge control has never been clicked. A browser pass over
+> the runs board and the run sheet found four defects a green suite could not see, and it stopped
+> at the overview — Console, Graph and Tasks are still unopened.
 >
 > Before it, [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
