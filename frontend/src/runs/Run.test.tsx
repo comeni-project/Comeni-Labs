@@ -141,28 +141,37 @@ it("says it is read-only rather than pretending it is not", async () => {
   expect(await screen.findByText(/read-only until W4/i)).toBeInTheDocument();
 });
 
-it("opens on the overview, not the console", async () => {
-  // **W2's ending condition, as a test.** §18: you can read a 400-task run without reading
-  // text — which is a statement that the console cannot be what the page opens on. It keeps
-  // its shape and becomes a tab. This test asserted the opposite until 2026-08-24.
+it("opens on the run itself, and the console is not on it", async () => {
+  // **W2's ending condition, and the bands make it stronger.** §18: you can read a 400-task
+  // run without reading text — which is a statement that the console cannot be what the page
+  // opens on. It was a tab; now it is a separate view reached from the tasks band, so the
+  // claim is no longer *the console is not selected* but *the console is not here*.
   at(STATE, PAGE, "overview");
-  expect(await screen.findByRole("button", { name: "Overview" }))
-    .toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "Console" }))
-    .toHaveAttribute("aria-pressed", "false");
-  expect(screen.getByRole("button", { name: "Graph" }))
-    .toHaveAttribute("aria-pressed", "false");
+  expect(await screen.findByTestId("run-panels")).toBeInTheDocument();
+  expect(screen.getByTestId("band-processes")).toBeInTheDocument();
+  expect(screen.getByTestId("band-tasks")).toBeInTheDocument();
+  expect(screen.queryByTestId("console")).toBeNull();
 });
 
-it("offers four views of one run, and switching is a render", async () => {
-  // The Tasks tab was drawn DISABLED for one task — the same call this page made about
-  // `Graph` between phases 2 and 3, because a control that goes nowhere silently is the
-  // mistake `Shell.tsx` records 3A shipping six of. It is a real control now, and this test
-  // changed from asserting the promise to asserting the thing.
+it("draws every band at once rather than one behind each of four tabs", async () => {
+  // **The artboard is one scrolling page and this asserts it is not four.** `page-5`: *summary
+  // top, trend middle, granular detail bottom*, and *drill down IN PLACE — never a second page
+  // for the same run*. A tab IS a second page, and there were four.
+  //
+  // This test replaces one that asserted four enabled tab buttons. That test was true of the
+  // screen it was written for and is the reason this one names bands rather than controls.
   at(STATE, PAGE, "overview");
-  for (const name of ["Overview", "Tasks", "Console", "Graph"]) {
-    expect(await screen.findByRole("button", { name })).toBeEnabled();
+  for (const band of ["run-panels", "band-processes", "band-tasks"]) {
+    expect(await screen.findByTestId(band)).toBeInTheDocument();
   }
+});
+
+it("keeps table and graph as state on one band, not as two screens", async () => {
+  // The artboard names this pair explicitly: *"THE TABLE/GRAPH TOGGLE IS STATE, NOT A SECOND
+  // SCREEN. It was two artboards and that was two chances to drift — one board carries both."*
+  at(STATE, PAGE, "overview");
+  expect(await screen.findByTestId("board-table")).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByTestId("board-graph")).toHaveAttribute("aria-pressed", "false");
 });
 
 
@@ -173,17 +182,27 @@ it("draws progress over steps the artifact declared, never over tasks seen", asy
     steps_declared: 5, steps_finished: 3,
     rows: [{ ...OVERVIEW.rows[0], tasks: 28, done: 8, running: 20 }],
   });
-  const bar = await screen.findByTestId("run-progress");
-  expect(bar).toHaveTextContent("3 of 5 steps finished");
-  expect(bar).not.toHaveTextContent("28");
+  // **It moved from the header into the PROGRESS panel** and the claim is unchanged: the
+  // denominator is the artifact's, never the 28 tasks Nextflow has discovered so far. The
+  // header carried its own bar until the bands landed, and two of them said the same thing.
+  const panel = await screen.findByTestId("panel-progress");
+  expect(panel).toHaveTextContent("3");
+  expect(panel).toHaveTextContent("of 5");
+  expect(panel).not.toHaveTextContent("28");
 });
 
 it("says nothing about steps when the artifact could not be read", async () => {
   // A192's other half, drawn. `steps_declared: 0` means the directory is gone, and a bar
   // over a denominator of zero would be an invented number where there is no fact.
+  //
+  // **The panel is still drawn and it is the dash that carries the claim** — `page-5`: *"AN
+  // ABSENT SERIES IS A REASON TO DRAW A DIFFERENT PANEL, NOT AN EMPTY ONE"*, and *"A DASH
+  // NEVER MEANS ZERO"*. Dropping the panel would drop a question; drawing `0 of 0` would
+  // invent an answer.
   at(STATE, PAGE, "overview", { steps_declared: 0, steps_finished: 0, rows: OVERVIEW.rows });
-  await screen.findByTestId("row-TRIMGALORE");
-  expect(screen.queryByTestId("run-progress")).toBeNull();
+  const panel = await screen.findByTestId("panel-progress");
+  expect(panel).toHaveTextContent("\u2014");
+  expect(panel).not.toHaveTextContent("of 0");
 });
 
 it("reads the run the URL names, not the one the projection learned from an event", async () => {

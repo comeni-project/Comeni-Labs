@@ -10,6 +10,7 @@ import { Console } from "./Console";
 import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
 import { OverviewPanel, type OverviewData } from "./Overview";
+import { Panels } from "./Panels";
 import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
 import { elapsed } from "./elapsed";
@@ -32,6 +33,10 @@ type RunState = {
             submitted: number };
   started_at_ms: number | null;
   ended_at_ms: number | null;
+  /** When the fold last saw anything happen. **The *moving* panel is the only reader**, and it
+   *  is the question a watched run actually raises: four tasks running and nothing completing
+   *  for twenty minutes looks identical to a healthy run on every other panel. */
+  last_activity_ms?: number | null;
 };
 
 /** One run, watched. Built against `wiener-mockups/Main.dc.html`.
@@ -44,31 +49,6 @@ type RunState = {
  * The header's counts come from the projection; the console's rows come from the stream. Both
  * are the same events — one folded, one in order — which is why they cannot disagree.
  */
-function Segment({ name, active, onPick, disabled = false }: {
-  name: string; active: boolean; onPick: () => void; disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={active}
-      disabled={disabled}
-      title={disabled ? "arrives with the paged tasks endpoint" : undefined}
-      // **The active tab is a pill, and it is the only solid fill on the panel** — which is
-      // what makes it read as *you are here* rather than as one of four words. `--surface`
-      // against the strip's `--surface-2` is the artboard's pairing; bold alone was not
-      // enough contrast to locate at a glance.
-      className={`text-body rounded-[3px] px-[13px] py-[5px] border-0
-                  disabled:cursor-not-allowed disabled:opacity-40
-                  ${active
-                    ? "font-semibold text-ink bg-surface shadow-e1"
-                    : "text-ink-3 hover:text-ink bg-transparent hover:bg-[var(--hover)]"}`}
-    >
-      {name}
-    </button>
-  );
-}
-
 export function Run() {
   // **The route's id, and never the projection's.** `RunState.run_id` is what the *fold*
   // learned from an event, and it is `""` until the first one lands — which is every run
@@ -81,6 +61,9 @@ export function Run() {
   const [params] = useSearchParams();
   const from = params.get("from");
   const [view, setView] = useUrlState("view", "overview");
+  // **In the URL, for the same reason `view` is.** The artboard calls this pair *state, not a
+  // second screen*, and state somebody can link to is the whole of the difference.
+  const [board, setBoard] = useUrlState("board", "table");
   // §7's zoom-and-filter rung: the overview's right-click lands here, and the URL
   // carries it so a filtered console is a link somebody can paste.
   const [only, setOnly] = useUrlState("process", "");
@@ -114,12 +97,41 @@ export function Run() {
   });
 
 
+  // **`limit: 1` because only the count is read.** `total` answers the same filters, so the
+  // badge costs one row rather than a page of them — the A191 rule that a board is a query.
+  const retried = useQuery({
+    queryKey: ["retried", id],
+    queryFn: () => get<{ total: number }>(`/api/runs/${id}/tasks?retried_only=true&limit=1`),
+  });
+
   if (state.isPending) return <Loading what="the run" />;
   if (state.isError) return <Failed error={state.error} />;
 
   const run = state.data;
   const phase = isPhase(run.phase) ? run.phase : "queued";
   const now = Date.now();
+
+  // **One sentence naming the process the run is actually on.** `STAR_ALIGN - 2 of 6 tasks
+  // done, 2 running, 2 waiting for a slot` is the artboard's line, and every number in it is
+  // already on the overview — the header was making a reader join them by eye.
+  //
+  // The process chosen is the one with work in flight, falling back to the last that reported.
+  // **Absent rather than invented**: before any row exists there is no process to name, and a
+  // sentence about a run that has not started is the page lying for its first minute.
+  const rows = overview.data?.rows ?? [];
+  const busy = rows.find((row) => row.running > 0) ?? rows.findLast((row) => row.tasks > 0);
+  const waiting = busy ? busy.tasks - busy.done - busy.running - busy.failed : 0;
+  const sentence = busy ? (
+    <>
+      <span className="text-ink">{busy.process}</span>{" \u00b7 "}
+      {busy.done} of {busy.tasks} tasks done
+      {busy.running > 0 && `, ${busy.running} running`}
+      {waiting > 0 && `, ${waiting} waiting for a slot`}
+      {busy.failed > 0 && `, ${busy.failed} failed`}
+    </>
+  ) : (
+    "no task has reported yet"
+  );
 
   const worst = failedTask.data?.tasks?.[0];
   const report = stream.events.find((event) => event.manifest?.report)?.manifest?.report ?? null;
@@ -147,9 +159,6 @@ export function Run() {
           peak_rss_bytes: null, asked_bytes: null, report }
       : null;
 
-  const declared = overview.data?.steps_declared ?? 0;
-  const finished = overview.data?.steps_finished ?? 0;
-
   return (
     <div className="gutter py-6 flex flex-col gap-4">
       {/* **The artboard's shelf.** Every run screen opens on a `--surface-2` band with an
@@ -176,61 +185,67 @@ export function Run() {
             way about — a dot floated at the far edge of a 1500px header, a full column away
             from the thing whose state it describes, and the elapsed on a line of its own as an
             uppercase label. The artboard reads `run 85bbe6a0 ● running ............ 7m12s`. */}
+        {/* **A pill, not a dot** — `.design/RunView.dc.html` draws the phase as a bordered
+            uppercase chip in its own colour beside the name. A 8px dot beside grey body text
+            was legible and said nothing at a glance, which is the opposite of what a header
+            whose job is the five-second answer needs.
+
+            **`run <id>` and not a pipeline name.** The artboard's title is `rnaseq-counts`,
+            and Wiener surfaces no name for a pipeline — `/runs` has `pipeline_digest` and no
+            label anywhere. Inventing one from the digest would be a name nobody chose. */}
         <div className="flex items-baseline gap-3.5">
           <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">
             run {id.slice(0, 8)}
           </h1>
-          <span className="flex items-center gap-[7px] text-body text-ink-2">
-            <span
-              aria-hidden
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ background: colourOf[phase] }}
-            />
+          <span
+            data-testid="run-phase"
+            className="font-data text-label uppercase tracking-[.1em] px-2 py-[3px]"
+            style={{ color: colourOf[phase],
+                     background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
+                     border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
+          >
             {run.phase}
           </span>
-          <span className="ml-auto font-data text-body text-ink-3 tabular-nums">
-            {elapsed(run.started_at_ms, run.ended_at_ms, now)}
+          <span className="ml-auto text-right">
+            <span className="block font-data text-body text-ink-2 tabular-nums">
+              {elapsed(run.started_at_ms, run.ended_at_ms, now)}
+            </span>
+            {/* **When, under how long.** The artboard reads `21m 40s / local - started 21:04`,
+                and the second line is what makes the first checkable against a lab notebook. */}
+            {run.started_at_ms != null && (
+              <span className="block font-data text-label text-ink-3 mt-1">
+                started {new Date(run.started_at_ms).toLocaleTimeString([], {
+                  hour: "2-digit", minute: "2-digit",
+                })}
+              </span>
+            )}
           </span>
         </div>
 
-        {/* **Steps finished of steps DECLARED** — §5, and the only denominator anybody can
-            source. Nextflow discovers tasks as channels emit, so a task-level percentage is a
-            number that grows under you; the artifact declares its steps before the run starts.
+        {/* **The five-second answer, in one sentence** — `page-5`: *"Band 0 is the header, and
+            its one sentence is the five-second answer. If a reader has to look at a chart to
+            learn whether the run is fine, the header is wrong."* */}
+        <p data-testid="run-sentence" className="text-body text-ink-3 mt-[11px] m-0">
+          {sentence}
+        </p>
 
-            **Drawn from the current numbers on every render, and never from a remembered
-            maximum.** This count is not monotonic and cannot be: a step with three tasks done
-            is finished until a fourth is submitted, and Checkpoint 1 asked exactly this. A bar
-            that only ever fills would be monotonic and false.
-
-            Absent when `steps_declared` is 0 — A192: the artifact could not be read, and a bar
-            over a denominator of zero is an invented number. */}
-        {declared > 0 && (
-          <span data-testid="run-progress" className="flex items-center gap-3.5 mt-[11px]">
-            <span className="text-secondary text-ink-2 tabular-nums whitespace-nowrap">
-              {finished} of {declared} steps finished
-            </span>
-            {/* The bar is INLINE and capped at 520px — full-width it read as the page's own
-                loading bar rather than as this run's progress. */}
-            <span className="block h-2 rounded-[3px] overflow-hidden flex-1 max-w-[520px]"
-                  style={{ background: "var(--surface-2)", boxShadow: "var(--well)" }}>
-              <span
-                className="block h-full"
-                style={{ width: `${(finished / declared) * 100}%`,
-                         background: "var(--pea)", transition: `width var(--t)` }}
-              />
-            </span>
-            {/* Where the denominator came from, said out loud — §5's whole argument is that
-                this is the only one anybody can source. */}
-            <span className="text-label text-ink-3 whitespace-nowrap">
-              declared by the artifact
-            </span>
-          </span>
-        )}
       </header>
 
       {/* Above the overview, so a failed run says where it stopped without a click — and the
           failed process is what the table opens on beneath it, because the comparison is the
           diagnosis: one task at 63.8 GB beside eleven at 58 says what a single number cannot. */}
+      {/* **Band 1 \u2014 four panels, and they come before the failure banner.** The banner is
+          the detail of one task; the panels are the run. `page-5`: summary top, granular
+          detail bottom. */}
+      {view !== "console" && <Panels
+        overview={overview.data}
+        failed={run.counts.failed}
+        retried={retried.data?.total ?? 0}
+        lastMs={run.last_activity_ms ?? null}
+        now={now}
+        live={!TERMINAL.has(run.phase)}
+      />}
+
       {run.phase === "failed" && failed && <Failure failed={failed} />}
 
       {/* **What the run held, above the panel and outside the tabs.** It is not a fifth view:
@@ -240,67 +255,125 @@ export function Run() {
           — absence is absence — so a stub run's page is simply shorter. */}
       <Envelope runId={id} live={!TERMINAL.has(run.phase)} />
 
-      {/* **`flex flex-col flex-1 min-h-0`, and the graph is why.** The canvas inside asks for
-          `flex-1 min-h-0` to fill the panel; this section was neither a flex column nor
-          stretched, so it wrapped to content and the canvas got the 15px left over — a 568px
-          graph clipped to a sliver. It is also what the artboards draw: the panel fills the
-          viewport and its caption bar sits at the bottom on `margin-top:auto`. */}
-      <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
-                          rounded-[var(--r)] shadow-e2 overflow-hidden">
-        {/* `shrink-0` because the section is a flex column now and a strip that compresses is
-            a strip that loses its pills. `py-[9px] px-4` is the artboard's own measurement. */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
-                        border-b border-line bg-surface-2">
-          {/* **Two views of one `RunState`, so switching is a render and never a fetch** —
-              §9. The view lives in the URL because a link to a failing graph is the thing
-              somebody pastes into a message. */}
-          {/* **The overview is the front door and the console is a tab** — §18's ending
-              condition is that a 400-task run can be read without reading text, which is a
-              statement that the console cannot be the answer. It keeps its shape; it stops
-              being what opens.
+      {/* ══ BANDS, NOT TABS — `.design/RunView.dc.html` ═══════════════════════════════════
+          **The page was four tabs and the artboard is one scrolling page.** `page-5`'s
+          annotation is the argument: *"THE PYRAMID, AND WHY THE ORDER IS FIXED. Summary top,
+          trend middle, granular detail bottom"* and *"Drill down IN PLACE. Clicking a timeline
+          lane filters the tasks table below it. Never a second page for the same run."*
 
-              §6's two questions, one row component: `Overview` expands a process to ask *what
-              did this process do*, and `Tasks` spans the run to ask *what retried*. */}
-          <Segment name="Overview" active={view === "overview"} onPick={() => setView("overview")} />
-          <Segment name="Console" active={view === "console"} onPick={() => setView("console")} />
-          <Segment name="Graph" active={view === "graph"} onPick={() => setView("graph")} />
-          <Segment name="Tasks" active={view === "tasks"} onPick={() => setView("tasks")} />
-          <span className="ml-auto text-label text-ink-3">
-            {stream.following
-              ? "following · read-only until W4"
-              : TERMINAL.has(run.phase) ? "not following · the run is over"
-              : "not following · read-only until W4"}
-          </span>
-        </div>
-        {view === "overview" ? (
-          <OverviewPanel
-            runId={id}
-            openOn={failed?.process}
-            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
-            onOpenGraph={() => setView("graph")}
-          />
-        ) : view === "tasks" ? (
-          <Tasks
-            runId={id}
-            processes={(overview.data?.rows ?? []).map((row) => row.process)}
-          />
-        ) : view === "graph" ? (
-          <Graph
-            runId={id}
-            onOpenConsole={(process) => { setOnly(process); setView("console"); }}
-          />
-        ) : stream.error ? (
-          <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
-        ) : (
-          <Console
-            events={stream.events}
-            following={stream.following}
-            process={only}
-            onClearProcess={() => setOnly("")}
-            onFilter={(process) => setOnly(process)}
-          />
-        )}
-      </section>
+          A tab IS a second page for the same run. Four of them meant the answer to *is this
+          fine* was behind a click, and the table/graph pair — which the artboard names
+          explicitly as *"STATE, NOT A SECOND SCREEN... two artboards and that was two chances
+          to drift"* — were two of the four.
+
+          **The console stays a separate view**, and that is the artboards' own split:
+          `RunConsole.dc.html` is its own board, reached from the tasks band's header. It is
+          the one panel that is a stream rather than a summary, and the artboard draws it
+          full-height because that is what reading a log needs. */}
+      {view === "console" ? (
+        <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
+                            rounded-[var(--r)] shadow-e2 overflow-hidden">
+          <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
+                          border-b border-line bg-surface-2">
+            <span className="text-label uppercase tracking-[.08em] text-ink-3">console</span>
+            <button type="button" data-testid="close-console" onClick={() => setView("overview")}
+                    className="bg-transparent border-0 cursor-pointer text-label text-ink-3
+                               hover:text-ink px-1">
+              &larr; back to the run
+            </button>
+            <span className="ml-auto text-label text-ink-3">
+              {stream.following
+                ? "following \u00b7 read-only until W4"
+                : TERMINAL.has(run.phase) ? "not following \u00b7 the run is over"
+                : "not following \u00b7 read-only until W4"}
+            </span>
+          </div>
+          {stream.error ? (
+            <p className="px-4 py-3 text-secondary text-ink-3">{stream.error}</p>
+          ) : (
+            <Console
+              events={stream.events}
+              following={stream.following}
+              process={only}
+              onClearProcess={() => setOnly("")}
+              onFilter={(process) => setOnly(process)}
+            />
+          )}
+        </section>
+      ) : (
+        <>
+          {/* --- processes -------------------------------------------------------------
+              **The toggle is state, not a second screen.** Both halves read the same
+              `RunState`, so switching is a render and never a fetch. */}
+          <section data-testid="band-processes"
+                   className="flex flex-col bg-surface border border-line
+                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+            <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
+                            border-b border-line bg-surface-2">
+              <span className="text-label uppercase tracking-[.08em] text-ink-3">processes</span>
+              <span className="ml-auto flex items-center gap-1">
+                {(["table", "graph"] as const).map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    data-testid={`board-${name}`}
+                    aria-pressed={board === name}
+                    onClick={() => setBoard(name)}
+                    className={`bg-transparent border cursor-pointer px-2.5 py-1
+                                text-label uppercase tracking-[.08em]
+                                ${board === name
+                                  ? "text-ink border-line bg-surface"
+                                  : "text-ink-3 border-transparent hover:text-ink"}`}
+                    style={{ transition: `color var(--t)` }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </span>
+            </div>
+            {board === "table" ? (
+              <OverviewPanel
+                runId={id}
+                openOn={failed?.process}
+                onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+                onOpenGraph={() => setBoard("graph")}
+              />
+            ) : (
+              // The graph asks for `flex-1 min-h-0` inside, and this band sizes to content —
+              // so without a floor the canvas gets whatever is left over, which is the
+              // clipped-to-a-sliver defect the old section carried a note about.
+              <div className="flex flex-col min-h-[420px]">
+                <Graph
+                  runId={id}
+                  onOpenConsole={(process) => { setOnly(process); setView("console"); }}
+                />
+              </div>
+            )}
+          </section>
+
+          {/* --- tasks, and the console link the artboard puts in its header ------------- */}
+          <section data-testid="band-tasks"
+                   className="flex flex-col bg-surface border border-line
+                              rounded-[var(--r)] shadow-e2 overflow-hidden">
+            <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
+                            border-b border-line bg-surface-2">
+              <span className="text-label uppercase tracking-[.08em] text-ink-3">tasks</span>
+              <button type="button" data-testid="open-console"
+                      onClick={() => setView("console")}
+                      className="ml-auto bg-transparent border border-line cursor-pointer
+                                 px-2.5 py-1 text-label uppercase tracking-[.08em] text-ink-3
+                                 hover:text-ink"
+                      style={{ transition: `color var(--t)` }}>
+                console
+              </button>
+            </div>
+            <Tasks
+              runId={id}
+              processes={(overview.data?.rows ?? []).map((row) => row.process)}
+            />
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -47,7 +47,7 @@ function at(graph: unknown = GRAPH) {
     return Promise.resolve({ ok: true, json: async () => body });
   }));
   const router = createMemoryRouter(routes, {
-    initialEntries: ["/runs/4c1e9a07b2f1de40?view=graph"],
+    initialEntries: ["/runs/4c1e9a07b2f1de40?board=graph"],
   });
   return render(
     <QueryClientProvider client={makeClient()}>

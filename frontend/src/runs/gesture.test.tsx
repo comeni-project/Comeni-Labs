@@ -99,7 +99,7 @@ const SURFACES = [
   { what: "a board row", path: "/runs", testId: "run-4c1e9a07b2f1de40" },
   { what: "a process row", path: "/runs/4c1e9a07b2f1de40?view=overview", testId: "row-STAR_ALIGN" },
   { what: "a console line", path: "/runs/4c1e9a07b2f1de40?view=console", testId: "event-0" },
-  { what: "a graph node", path: "/runs/4c1e9a07b2f1de40?view=graph", testId: "node-star_align" },
+  { what: "a graph node", path: "/runs/4c1e9a07b2f1de40?board=graph", testId: "node-star_align" },
   { what: "a task row", path: "/runs/4c1e9a07b2f1de40?view=tasks", testId: "task-1" },
 ];
 
