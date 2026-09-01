@@ -23,31 +23,45 @@ reason sees a blank and asks; a model sees a blank and fills it.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](notes/journal/)** — and **2026-09-01 has
-> two entries that a filename sort orders backwards.** The one to read is
+> THREE entries that a filename sort does not order.** The one to read is
+> [`2026-09-01-the-run-page-and-the-first-verb.md`](notes/journal/2026-09-01-the-run-page-and-the-first-verb.md),
+> covering **Plan 6 — the run page rebuilt against its artboard, and Wiener's first verb.**
+> `/runs/{id}` is bands rather than four tabs; band 1 is four panels; the timeline exists and
+> `page-5`'s claim that it was *blocked* is retired — the attempt windows have been in
+> `run_task.attempts` since W2. A pipeline's **name crosses the courier** (it was never missing,
+> `PipelineDraft.name` has existed since 3E and nothing sent it). And **cancel exists**, which
+> opens W4's door: `wiener.md` §11's closed verb vocabulary, a `run_intent` audit row, and
+> `EventKind.CANCELLED` so a replayed run still reaches `cancelled`. The three
+> `read-only until W4` strings came down with it.
+>
+> **That entry's lesson is a method and it cost the operator three rounds of telling me:**
+> *reading finds wrong strings; it does not find wrong pictures.* Comparing the page to its
+> artboard by reading annotations and HTML found six real defects. Putting both in one viewport
+> — `.design/_compare.html`, committed for this reason — found four more in one screenshot, and
+> those were the ones that made the page look wrong: **a panel is translucent**
+> (`rgba(12,18,22,.62)` over the arc field, not an opaque card), the envelope was drawing at
+> **half width**, band headers had a chrome fill the artboards do not have, and the timeline was
+> squashed to 40px. **Open the artboard beside the page before claiming a screen matches it.**
+>
+> **`make dev` runs the Python APIs from a baked image** — no source mount, no `--reload` — so a
+> backend change is invisible until `docker compose up -d --build wiener-api`. Recorded rather
+> than fixed; it cost two rounds of 404s that were green in tests.
+>
+> Before it that day,
 > [`2026-09-01-the-fan-out-and-the-sheet.md`](notes/journal/2026-09-01-the-fan-out-and-the-sheet.md),
-> covering **Plan 5B phases 4 and 5, which complete the plan.** A `RUN`-scoped channel emits as a
-> **value** channel, so a reference is read once per task rather than consumed once per run — the
-> fan-out defect the earlier entry warned about **is fixed, and was reproduced first**. An
-> aggregator gets `.collect()`. `InputForm` says whether `params.input` is a glob or a CSV, and a
-> samplesheet pipeline **runs end to end under `--gate test`**, producing a BAM named for its
-> row's `sample` column.
+> covering **Plan 5B phases 4 and 5, which complete that plan.** A `RUN`-scoped channel emits as
+> a **value** channel, so a reference is read once per task rather than consumed once per run —
+> the fan-out defect **is fixed, and was reproduced first**. An aggregator gets `.collect()`.
+> `InputForm` says whether `params.input` is a glob or a CSV, and a samplesheet pipeline **runs
+> end to end under `--gate test`**. Before that,
+> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md) —
+> phases 1 to 3, where `entry_channel` stopped fusing the param name, the cardinality and the
+> fan-out into the *type*. `SCHEMA_VERSION` is 6 and `REGISTRY_FORMAT` is 2.
 >
-> Before it that morning,
-> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md),
-> covering **phases 1 to 3: a channel has a name, and a pipeline can take two of a type.**
-> `entry_channel` fused the param name, the cardinality and the fan-out into the *type*; the
-> spine's three `annotation.gtf` consumers were one hole nobody could address. Splitting one now
-> gives it `gtf_2`, `params.gtf_2` and its own line in the workflow. `SCHEMA_VERSION` is 6 and
-> `REGISTRY_FORMAT` is 2 — the registry declares which engine it needs (`MD0020`) and the engine
-> refuses a layer that names its own param (`MD0228`). **Its bolded warning not to point the
-> spine at multi-sample data is spent** — that is what phase 4 closed.
->
-> **The scope override has no control on the canvas.** `DraftChannel.scope` exists, the resolver
-> honours it, the artifact records it with a `Why`, and nothing in the builder sets it — so the
-> samplesheet is reachable through the API and not through a browser. **Nobody has looked at the
-> builder since phase 1**; the split/merge control has never been clicked. A browser pass over
-> the runs board and the run sheet found four defects a green suite could not see, and it stopped
-> at the overview — Console, Graph and Tasks are still unopened.
+> **The scope override still has no control on the canvas.** `DraftChannel.scope` exists, the
+> resolver honours it, the artifact records it with a `Why`, and nothing in the builder sets it —
+> so the samplesheet is reachable through the API and not through a browser. **Nobody has looked
+> at the builder since Plan 5B phase 1**; the split/merge control has never been clicked.
 >
 > Before it, [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**

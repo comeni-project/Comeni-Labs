@@ -16,12 +16,15 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
-> **2026-09-01 has TWO entries and a filename sort puts them the wrong way about.** Read
-> [`2026-09-01-a-channel-gets-a-name.md`](2026-09-01-a-channel-gets-a-name.md) first — Plan 5B
-> phases 1 to 3, where a channel stopped being a property of a type — then
-> [`2026-09-01-the-fan-out-and-the-sheet.md`](2026-09-01-the-fan-out-and-the-sheet.md), phases 4
-> and 5, which closes the fan-out defect the first entry carried and adds the samplesheet.
-> **The first entry's bolded warning about multi-sample data is spent**; the second says so.
+> **2026-09-01 has THREE entries and a filename sort orders none of them.** In order:
+> [`2026-09-01-a-channel-gets-a-name.md`](2026-09-01-a-channel-gets-a-name.md) — Plan 5B phases
+> 1 to 3, where a channel stopped being a property of a type;
+> [`2026-09-01-the-fan-out-and-the-sheet.md`](2026-09-01-the-fan-out-and-the-sheet.md) — phases
+> 4 and 5, closing the fan-out defect the first entry carried and adding the samplesheet; then
+> [`2026-09-01-the-run-page-and-the-first-verb.md`](2026-09-01-the-run-page-and-the-first-verb.md)
+> — **Plan 6, and the day's lesson: reading finds wrong strings and does not find wrong
+> pictures.** The first entry's bolded warning about multi-sample data is spent; the second says
+> so.
 >
 > **2026-08-18 has NINE entries and alphabetical order lies.** The one to read first is
 > [`2026-08-18-the-day.md`](2026-08-18-the-day.md) — five phases of the forge interface, what is
