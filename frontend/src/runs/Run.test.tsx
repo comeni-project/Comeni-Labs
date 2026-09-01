@@ -223,3 +223,21 @@ it("reads the run the URL names, not the one the projection learned from an even
   expect(asked.filter((url) => url.includes("/runs//"))).toEqual([]);
   expect(screen.getByRole("heading")).toHaveTextContent("run 4c1e9a07");
 });
+
+it("shows the pipeline's name when it has one, and keeps the id beside it", async () => {
+  // **Plan 6 phase 2.** `PipelineDraft.name` has existed since 3E and nothing carried it across
+  // the courier, so a run header read `run aa11bb22` while the builder two tabs away called the
+  // same thing by a name somebody chose. The id stays visible: it is what a person pastes into
+  // a message, and two runs of one pipeline share a name.
+  at({ ...STATE, name: "rnaseq-counts" }, PAGE, "overview");
+  expect(await screen.findByRole("heading")).toHaveTextContent("rnaseq-counts");
+  expect(screen.getByRole("heading").parentElement).toHaveTextContent("4c1e9a07");
+});
+
+it("falls back to the id rather than inventing a name", async () => {
+  // An artifact uploaded by hand — `curl -F bundle=@run.zip` — has no name, and that is
+  // invariant 13's customer rather than a degraded one. **Never a name derived from the
+  // digest**: a reader cannot tell one nobody chose from one somebody did.
+  at({ ...STATE, name: "" }, PAGE, "overview");
+  expect(await screen.findByRole("heading")).toHaveTextContent("run 4c1e9a07");
+});

@@ -222,7 +222,7 @@ export function RunSheet({
           >
             Cancel
           </button>
-          <SubmitPanel draftId={draftId} gated={gated} />
+          <SubmitPanel draftId={draftId} gated={gated} name={name} />
         </div>
       </div>
     </div>

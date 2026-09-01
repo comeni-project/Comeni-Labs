@@ -33,6 +33,13 @@ type RunState = {
             submitted: number };
   started_at_ms: number | null;
   ended_at_ms: number | null;
+  /** What a person called this pipeline — Plan 6 phase 2.
+   *
+   *  **Attached beside the projection, never folded into it.** A name came off the upload and
+   *  is not in the events, so `wiener-core` never sees it. `""` for an artifact uploaded
+   *  without one, and the header draws `run <id>` — never a name derived from the digest,
+   *  which a reader could not tell from one somebody chose. */
+  name?: string;
   /** When the fold last saw anything happen. **The *moving* panel is the only reader**, and it
    *  is the question a watched run actually raises: four tasks running and nothing completing
    *  for twenty minutes looks identical to a healthy run on every other panel. */
@@ -194,9 +201,16 @@ export function Run() {
             and Wiener surfaces no name for a pipeline — `/runs` has `pipeline_digest` and no
             label anywhere. Inventing one from the digest would be a name nobody chose. */}
         <div className="flex items-baseline gap-3.5">
+          {/* **The name when there is one, and `run <id>` when there is not.** The artboard's
+              title is `rnaseq-counts`; the id moves beside it in that case rather than being
+              dropped, because the id is what a person pastes into a message and two runs of one
+              pipeline share a name. */}
           <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">
-            run {id.slice(0, 8)}
+            {run.name || `run ${id.slice(0, 8)}`}
           </h1>
+          {run.name && (
+            <span className="font-data text-body text-ink-3">{id.slice(0, 8)}</span>
+          )}
           <span
             data-testid="run-phase"
             className="font-data text-label uppercase tracking-[.1em] px-2 py-[3px]"

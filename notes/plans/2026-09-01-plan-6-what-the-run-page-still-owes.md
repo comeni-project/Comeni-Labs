@@ -132,14 +132,14 @@ building the machinery under the cheapest verb, not for skipping it.
 
 ### 2.1 Pick where the name lives
 
-- [ ] **(a) On the upload request.** The browser is the courier (`docs/design/wiener.md` §12,
+- [x] **(a) On the upload request.** The browser is the courier (`docs/design/wiener.md` §12,
       A179) and it already holds the draft; it posts the name beside the bundle. `RunArtifact`
       gains a `name` column. **Small, no schema break — and a `mendel build` artifact uploaded
       by hand still has no name**, which is the hole.
-- [ ] **(b) On `Pipeline`.** Every artifact carries its own name, including CLI builds and
+- [x] **(b) On `Pipeline`.** Every artifact carries its own name, including CLI builds and
       air-gapped ones, and `mendel emit` round-trips it. **`SCHEMA_VERSION` 6→7, which is a
       break for `comeni-core`** — `docs/guides/releasing.md` says a schema bump always is.
-- [ ] **Recommendation: (a) first, and only (a).** The name is a *label somebody chose in a
+- [x] **Recommendation: (a) first, and only (a).** The name is a *label somebody chose in a
       builder*, and the artifact is the thing that must be byte-reproducible from a goal — a
       name is exactly the sort of free text that has no business changing a content digest.
       Note in `Pipeline`'s docstring that its absence is deliberate, so (b) is a decision
@@ -147,18 +147,29 @@ building the machinery under the cheapest verb, not for skipping it.
 
 ### 2.2 Carry it
 
-- [ ] The bundle endpoint or the upload call sends the draft's `name`; `RunArtifact` stores it;
+- [x] The bundle endpoint or the upload call sends the draft's `name`; `RunArtifact` stores it;
       `/runs` and `/runs/{id}` return it.
-- [ ] **A name is free text a person typed**, so it is displayed and never interpreted. It is
+- [x] **A name is free text a person typed**, so it is displayed and never interpreted. It is
       not a lab string in the §8 sense — it names a pipeline shape, not a sample — but it is
       user-authored, so it must not reach a span attribute or a log line without the same care.
       Write that distinction down where the column is declared.
-- [ ] Absent is absent: an artifact uploaded without a name shows `run <id>`, which is what the
+- [x] Absent is absent: an artifact uploaded without a name shows `run <id>`, which is what the
       page does today. **No name derived from a digest**, which would be a name nobody chose.
+
+### Execution record — 2026-09-01
+
+| step | what actually happened |
+|---|---|
+| 2.1 | **(a) as recommended, and the fork was not close.** Written up on the column itself rather than only here, so the next person meets the argument where the decision lives. |
+| 2.2 | `artifact_names()` is a **separate statement**, not a widened `pipeline_digests()`. The latter filters `pipeline_digest IS NOT NULL` on purpose — a pre-2026-08-30 upload must show under *every run without a pipeline* — and folding names in would have made that filter silently swallow names too. Still one statement per page. |
+| 2.2 | **The name is attached beside `RunState`, never folded into it.** A name came off the upload and is not in the events; a field on the pure type that no event can produce is how a projection stops being replayable from its record. A test asserts `name` is not in `RunState.model_fields`. |
+| 2.2 | `upload()` gained an optional `fields` argument — multipart, not a query string, following the standing rule about what never goes in a URL. |
+| 2.2 | **The browser already had the name and never sent it.** `usePipelineDraft` exposes `name` and its own header records that `PipelineDraft.name` has existed since 3E with nothing setting it. Four props of wiring, no new query. |
+| — | The header keeps the **id beside the name** rather than replacing it: the id is what a person pastes into a message, and two runs of one pipeline share a name. Not in the plan; found while writing the guard. |
 
 ### 2.3 Checkpoint
 
-- [ ] A pipeline named in the builder, run through Wiener, and its name in the run header and
+- [x] A pipeline named in the builder, run through Wiener, and its name in the run header and
       the board — and a `mendel build` artifact uploaded by hand still reading `run <id>`
       without an error anywhere.
 

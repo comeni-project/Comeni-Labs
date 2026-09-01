@@ -7,9 +7,9 @@ a field silently ignored — and the field somebody would try is a path.
 import asyncio
 import secrets
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
@@ -113,6 +113,14 @@ class RunRow(BaseModel):
     id: str
     phase: str
     executor: str
+    name: str = ""
+    """What a person called the pipeline this run is of — Plan 6 phase 2.
+
+    `""` for an artifact uploaded without one, which every artifact predating this field is and
+    every hand-uploaded `mendel build` artifact still may be. The row draws `run <id>` then,
+    which is what it drew before the field existed. **Never derived from the digest**: a name
+    nobody chose is worse than no name, because a reader cannot tell the two apart.
+    """
     submitted_by: str
     submitted_at: datetime
     ended_at: datetime | None = None
@@ -175,7 +183,13 @@ class BoardSummary(BaseModel):
 
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
              summary="Upload a gated pipeline directory")
-async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
+async def upload_artifact(bundle: UploadFile,
+                          name: Annotated[str, Form()] = "") -> ArtifactStored:
+    """**`name` is optional and stays optional.** The browser is the courier and it has the
+    draft's name to send; `curl -F bundle=@run.zip` has nothing to send and must keep working,
+    because an air-gapped site uploading a `mendel build` artifact by hand is invariant 13's
+    customer rather than a degraded one. An artifact with no name reads `run <id>`.
+    """
     try:
         artifact_id, digest, size = store(await bundle.read())
     except ValueError as exc:
@@ -184,7 +198,7 @@ async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
     with db.session_scope() as session:
         repository.add(session, settings.lab_id, RunArtifact(
             id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
-            digest=digest, size_bytes=size,
+            digest=digest, size_bytes=size, name=name.strip()[:200],
             # **The column stopped being decoration here.** Declared in W1 and never assigned;
             # it is the key that lets the browser put runs beside pipelines without either
             # server learning the other exists.
@@ -232,6 +246,9 @@ def board(phase: str | None = None, who: str | None = None, executor: str | None
         digests = repository.pipeline_digests(
             session, settings.lab_id, [r.artifact_id for r in page]
         )
+        names = repository.artifact_names(
+            session, settings.lab_id, [r.artifact_id for r in page]
+        )
         return RunsPage(
             runs=[
                 RunRow(id=r.id, phase=r.phase, executor=r.executor,
@@ -239,7 +256,8 @@ def board(phase: str | None = None, who: str | None = None, executor: str | None
                        ended_at=r.ended_at,
                        tasks_done=counts.get(r.id, (0, 0))[0],
                        tasks_seen=counts.get(r.id, (0, 0))[1],
-                       pipeline_digest=digests.get(r.artifact_id))
+                       pipeline_digest=digests.get(r.artifact_id),
+                       name=names.get(r.artifact_id, ""))
                 for r in page
             ],
             total=total,
@@ -263,9 +281,18 @@ def board_summary(days: int = 14) -> BoardSummary:
 @router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")
 def read(run_id: str) -> dict:
     with db.session_scope() as session:
-        if repository.run(session, settings.lab_id, run_id) is None:
+        row = repository.run(session, settings.lab_id, run_id)
+        if row is None:
             raise HTTPException(status_code=404)
-        return state_of(session, settings.lab_id, run_id).model_dump(mode="json")
+        state = state_of(session, settings.lab_id, run_id).model_dump(mode="json")
+        # **Beside the projection, never inside it.** `RunState` is what `wiener-core` folded
+        # from the events, and a name is not in the events — it came off the upload. Folding it
+        # in would put a field on the pure type that no event can produce, which is how a
+        # projection stops being replayable from its own record.
+        state["name"] = repository.artifact_names(
+            session, settings.lab_id, [row.artifact_id]
+        ).get(row.artifact_id, "")
+    return state
 
 
 @router.get("/runs/{run_id}/events", operation_id="readRunEvents",

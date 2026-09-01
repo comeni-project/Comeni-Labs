@@ -13,7 +13,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload a gated pipeline directory */
+        /**
+         * Upload a gated pipeline directory
+         * @description **`name` is optional and stays optional.** The browser is the courier and it has the
+         *     draft's name to send; `curl -F bundle=@run.zip` has nothing to send and must keep working,
+         *     because an air-gapped site uploading a `mendel build` artifact by hand is invariant 13's
+         *     customer rather than a degraded one. An artifact with no name reads `run <id>`.
+         */
         post: operations["uploadArtifact"];
         delete?: never;
         options?: never;
@@ -334,6 +340,11 @@ export interface components {
         Body_uploadArtifact: {
             /** Bundle */
             bundle: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
         };
         /** Curve */
         Curve: {
@@ -636,6 +647,11 @@ export interface components {
             phase: string;
             /** Executor */
             executor: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
             /** Submitted By */
             submitted_by: string;
             /**

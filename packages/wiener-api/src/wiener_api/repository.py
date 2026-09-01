@@ -113,6 +113,34 @@ def pipeline_digests(session: Session, lab_id: str, artifact_ids: list[str]) -> 
     return {artifact_id: digest for artifact_id, digest in rows}
 
 
+def artifact_names(session: Session, lab_id: str, artifact_ids: list[str]) -> dict[str, str]:
+    """`{artifact_id: name}` for a page of runs, in one query — Plan 6 phase 2.
+
+    **A separate statement rather than a wider `pipeline_digests`**, because the two answer
+    different questions and one of them filters. `pipeline_digests` drops artifacts with no
+    digest — deliberately, so a pre-2026-08-30 upload shows under *every run without a
+    pipeline* rather than being guessed into somebody else's. A name has no such rule: an
+    artifact with a digest and no name is ordinary, and folding the two into one row would make
+    the digest filter silently swallow names too.
+
+    Still one statement for the page rather than one per row, which is the property that
+    mattered.
+
+    An artifact with no name is **absent from the map**, not present with `""`. The caller
+    draws `run <id>`, which is what it drew before any of this existed.
+    """
+    if not artifact_ids:
+        return {}
+    rows = session.execute(
+        select(RunArtifact.id, RunArtifact.name).where(
+            RunArtifact.lab_id == lab_id,
+            RunArtifact.id.in_(artifact_ids),
+            RunArtifact.name != "",
+        )
+    ).all()
+    return {artifact_id: name for artifact_id, name in rows}
+
+
 def durations_by_pipeline(session: Session, lab_id: str, *, days: int = 14,
                           floor: int = 3) -> dict[str, int]:
     """`{pipeline_digest: median_ms}` over finished runs — what *vs usual* is measured against.

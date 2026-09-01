@@ -23,7 +23,16 @@ import type { components } from "../wiener/api/schema";
 type ArtifactStored = components["schemas"]["ArtifactStored"];
 type RunAccepted = components["schemas"]["RunAccepted"];
 
-export function useSubmit(draftId: string | null) {
+/** `name` is the draft's, and **carrying it is the whole of Plan 6 phase 2**.
+ *
+ *  `PipelineDraft.name` has existed since Plan 3E and `usePipelineDraft`'s own header records
+ *  that nothing in the browser ever set it. It is set now, and this is the other end: the
+ *  browser is the courier between the two services (`wiener.md` §12, A179), so a name that
+ *  never boards here is a name Wiener cannot have — there is no other route between them.
+ *
+ *  Empty is ordinary. An unnamed draft uploads without one and the run header draws `run <id>`.
+ */
+export function useSubmit(draftId: string | null, name = "") {
   const [artifact, setArtifact] = useState<ArtifactStored | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   /** The samplesheet, when the artifact says its input is one. **Rows, not a path** — Wiener
@@ -35,6 +44,7 @@ export function useSubmit(draftId: string | null) {
       const archive = await blob(`/pipeline/drafts/${draftId}/bundle`);
       return await upload<ArtifactStored>(
         "/api/artifacts", "bundle", archive, `pipeline-${draftId}.zip`,
+        name ? { name } : {},
       );
     },
     onSuccess: (stored) => {

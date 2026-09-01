@@ -29,11 +29,14 @@ const button =
 export function SubmitPanel({
   draftId,
   gated,
+  name = "",
 }: {
   draftId: string | null;
   gated: boolean;
+  /** What this pipeline is called, on its way to Wiener — Plan 6 phase 2. */
+  name?: string;
 }) {
-  const submit = useSubmit(draftId);
+  const submit = useSubmit(draftId, name);
   const navigate = useNavigate();
 
   if (submit.runId) {

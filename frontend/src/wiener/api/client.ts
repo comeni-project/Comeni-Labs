@@ -85,10 +85,18 @@ export async function get<T>(path: string): Promise<T> {
  * the body parseable — a hand-written `multipart/form-data` header omits the boundary and the
  * server answers 422 for a body it cannot split.
  */
+/** `fields` carries what travels *beside* the file — the pipeline's name, today.
+ *
+ *  **A multipart form rather than a query string**, because the name is free text somebody
+ *  typed and a URL is the one place this repository has a rule about: invariant 15's shape,
+ *  and the privacy rule that personal data never goes in a query string. A name is not
+ *  personal data, but the habit is the guard. */
 export async function upload<T>(path: string, field: string, file: Blob,
-                                filename: string): Promise<T> {
+                                filename: string,
+                                fields: Record<string, string> = {}): Promise<T> {
   const form = new FormData();
   form.append(field, file, filename);
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
   const r = await fetch(path, { method: "POST", headers: headers(), body: form });
   if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
   if (!r.ok) throw new Error(`${path} → ${r.status}`);

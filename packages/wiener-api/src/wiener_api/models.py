@@ -118,3 +118,23 @@ class RunArtifact(Base):
     pipeline_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     note: Mapped[str] = mapped_column(Text, default="")
+
+    # --- what a person called this pipeline, carried across the courier -----------------
+    #
+    # **The name was never missing; it was dropped in transit.** `mendel_api.models`'
+    # `PipelineDraft.name` has held it since Plan 3E, and the browser is the courier between
+    # the two services (`wiener.md` §12, A179) — so the name existed at one end, was wanted at
+    # the other, and nothing carried it. The run header read `run aa11bb22` while the builder
+    # two tabs away called the same thing by a name somebody chose.
+    #
+    # **Not on `Pipeline`, and that is a decision rather than the easy option.** Putting it in
+    # `pipeline.yml` would give CLI-built and air-gapped artifacts names too, at the cost of
+    # `SCHEMA_VERSION` 6 -> 7 — a break — and of letting a label somebody typed move a content
+    # digest. *Same goal in, same pipeline out* must not depend on what the pipeline was
+    # nicknamed. The hole this leaves is real and is the honest one: an artifact uploaded by
+    # hand has no name and shows `run <id>`.
+    #
+    # **Displayed, never interpreted.** It is free text a person typed. It is not a lab string
+    # in the §8 sense — it names a pipeline shape, not a sample — but it is user-authored, so
+    # it must not reach a span attribute or a log line without the same care.
+    name: Mapped[str] = mapped_column(String(200), default="")
