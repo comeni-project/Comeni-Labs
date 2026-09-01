@@ -96,12 +96,25 @@ def _process_of(pipeline: Pipeline, node_id: str) -> str:
 
 
 def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
-    """Where this port's data comes from: an upstream process, or an entry channel."""
+    """Where this port's data comes from: an upstream process, or an entry channel.
+
+    **`.collect()` when the port gathers**, which is fan-in: one invocation over the whole
+    channel rather than one per item. MULTIQC is the case — it consumes `qc.report` from every
+    sample, and without this the workflow says `MULTIQC(ch_qc_report)` and produces N reports
+    where the point of the tool is to produce one.
+
+    Distinct from phase 4.2's `.first()`, which is the *other* direction: `first()` takes one
+    item and makes a value channel that can be consumed any number of times, and `collect()`
+    gathers a whole channel into one list item. One stops a reference capping the run; the other
+    stops an aggregator running per sample.
+    """
     wiring = next(item for item in step.inputs if item.port == port_name)
     if wiring.source is not None:
         node_id, _, from_port = wiring.source.partition(".")
-        return f"{_process_of(pipeline, node_id)}.out.{from_port}"
-    return _channel_name(wiring.channel)
+        expression = f"{_process_of(pipeline, node_id)}.out.{from_port}"
+    else:
+        expression = _channel_name(wiring.channel)
+    return f"{expression}.collect()" if wiring.gather else expression
 
 
 def _argument(pipeline: Pipeline, step: Step, arg) -> str:

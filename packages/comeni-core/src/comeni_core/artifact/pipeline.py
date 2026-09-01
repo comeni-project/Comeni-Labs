@@ -412,6 +412,22 @@ class StepInput(BaseModel):
     liver annotation from the reference one, so `pipeline.yml` could not express what the
     canvas was already drawing. `MD0227` refuses a name no channel declares.
     """
+    gather: bool = False
+    """Whether this port consumes the **whole channel in one invocation** — `.collect()`.
+
+    From the contract's `cardinality: "*"`, and materialised here so emission needs no registry.
+    `False` is one item per invocation, which is what every port was.
+
+    **MULTIQC is why it exists.** It consumes `qc.report` from every sample, and without this
+    the emitted workflow says `MULTIQC(ch_qc_report)` — one invocation per sample, producing N
+    reports where the point of the tool is to produce one.
+
+    A `bool` rather than the contract's `Cardinality`, because the artifact records what was
+    *decided* rather than the vocabulary the decision was expressed in — the same reason
+    `Step.presence` is a tier and not a rule. A third cardinality would arrive here as a
+    different field, which is the right amount of friction.
+    """
+
     states: list[StateName] = Field(default_factory=list)
     """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
     order — `digest_of` hashes the JSON, so this must not be one."""

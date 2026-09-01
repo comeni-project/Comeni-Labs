@@ -1,5 +1,6 @@
 """Module contracts: what a module consumes and produces, in typed terms."""
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,35 @@ class Alternative(BaseModel):
         return sorted(states)
 
 
+class Cardinality(StrEnum):
+    """How many items this port consumes per invocation.
+
+    **A closed vocabulary, where it was a bare `str` defaulting to `"1"`.** That is A10's rule —
+    a value that is ignored is a value that can be mistyped in silence — and it mattered here
+    more than usual, because the field had exactly one reader and it compared against the
+    literal `"1"`: anything else, including `"one"` and `"2"`, meant *many* by falling through.
+
+    Two members, and a third is not obviously wrong — `"2"` for a paired thing is imaginable.
+    It is refused until somebody has one, because a number here would have to mean *the process
+    is invoked once per N items*, and nothing in Nextflow's channel algebra does that without a
+    `buffer` whose size is a pipeline's decision rather than a contract's.
+    """
+
+    ONE = "1"
+    """One item per invocation. The process runs once per item on its channel — the default,
+    and what every port was before this field was read by anything."""
+
+    MANY = "*"
+    """The whole channel, in one invocation. Emitted as `.collect()`.
+
+    **MULTIQC is why this exists.** It consumes `qc.report` from every sample, and without it the
+    emitted workflow says `MULTIQC(ch_qc_report)` — one invocation per sample, producing N
+    reports where the entire point of the tool is to produce one. It is not in the spine, so
+    nothing is broken today; the contract is in the registry and would be wrong the moment a
+    goal routed to it.
+    """
+
+
 class InputPort(BaseModel):
     model_config = _NO_EXTRAS
 
@@ -105,7 +135,14 @@ class InputPort(BaseModel):
     author's statement of preference between kinds of input, the same way decision-table
     rows are ordered and first-match-wins.
     """
-    cardinality: str = "1"
+    cardinality: Cardinality = Cardinality.ONE
+    """How many items this port takes per invocation — see `Cardinality`.
+
+    **It reaches the emitter since Plan 5B phase 4.3.** It had exactly one reader,
+    `validate.py`, which counts *wires* — a different question entirely: how many edges may
+    target this port, not how many items it consumes. A port can take one wire carrying a
+    channel of five hundred reports, which is precisely MULTIQC's case.
+    """
 
     @field_serializer(
         "state_required", "state_required_conventional", "state_preferred", "prefer"
