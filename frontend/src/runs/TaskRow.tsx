@@ -27,15 +27,24 @@ const OOM = 137;
  *  widths, its order. `Process` is prepended for the tab that spans processes and omitted
  *  where the row already sits under its process heading.
  *
- * **The `1fr` is the LAST column, and that is the whole shape of this table.** It was on
- * `tag`, so the tag cell absorbed every spare pixel and shoved attempt through realtime
- * against the right edge — a row with its identity at one end of the screen and its numbers
- * at the other, which is exactly what a small-multiple table must not be. Fixed narrow
- * columns cluster the figures where the eye can compare them down the column, and the
- * trailing `1fr` is the annotation slot: `worst`, `retried once`, `killed — out of memory`.
+ * **The `1fr` is on `tag`, and the mark column is fixed** — `.tk` in `RunView.dc.html` is
+ * `56px 176px 92px 1fr 82px 74px 58px`, so the flexible column sits early and every figure
+ * after it is anchored at the right edge.
+ *
+ * **This was corrected twice and the first correction over-shot.** The `1fr` began on `tag`,
+ * which pushed the numbers to the far right — a row with its identity at one end of the screen
+ * and its figures at the other. Moving it to the LAST column fixed that and created the
+ * opposite fault: every column packed hard against the left with the whole surplus in one
+ * empty gutter on the right, which is what the operator saw as *the tasks table is not
+ * centered*.
+ *
+ * The artboard has both properties at once and neither correction found it: one early flexible
+ * column spreads the row, and narrow fixed columns after it cluster the figures where the eye
+ * compares them down the column. The mark column keeps its slot — `worst`, `retried once`,
+ * `killed — out of memory` — at a fixed width rather than by absorbing the slack.
  */
-const COLUMNS = "grid-cols-[120px_60px_70px_110px_90px_100px_1fr]";
-const WITH_PROCESS = "grid-cols-[190px_120px_60px_70px_110px_90px_100px_1fr]";
+const COLUMNS = "grid-cols-[1fr_80px_70px_110px_90px_100px_128px]";
+const WITH_PROCESS = "grid-cols-[176px_1fr_80px_70px_110px_90px_100px_128px]";
 
 /** Indented under its process, or flush in the tab that spans them — the artboard's two
  *  paddings. The indent is what makes an expanded block read as *inside* its row. */

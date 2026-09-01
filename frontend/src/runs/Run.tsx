@@ -174,13 +174,19 @@ export function Run() {
 
   return (
     <div className="gutter py-6 flex flex-col gap-4">
-      {/* **The artboard's shelf.** Every run screen opens on a `--surface-2` band with an
-          `--e1` lip, and the header was sitting bare on `--paper` — which is most of why the
-          top of the page read as a different product from the panel below it. Three rows,
-          the artboard's: where you came from, what this is, and how far along. */}
-      <header className="-mx-[24px] md:-mx-[44px] -mt-6 mb-2 gutter pt-4 pb-3.5 bg-surface-2 border-b border-line
-                         shadow-e1 relative z-[2] flex flex-col">
-        <span className="flex items-center gap-3 mb-[3px]">
+      {/* **No shelf, and the comment that used to be here was wrong.** It claimed *every run
+          screen opens on a `--surface-2` band with an `--e1` lip* — neither `RunView.dc.html`
+          nor `RunsBoard.dc.html` has one. Both headers are
+          `padding:26px 0 22px; border-bottom:1px solid #172025` directly on the field, so the
+          arcs run behind the title and the page reads as one surface.
+
+          A filled, shadowed band made the top of the page a separate object from the bands
+          below it — which is the same defect the panels had, in the one place a reader looks
+          first. Found by zooming both headers side by side; it is invisible in the markup,
+          where a shelf and a rule are both one line. */}
+      <header className="pt-[26px] pb-[22px] mb-1 border-b border-line
+                         relative z-[2] flex flex-col">
+        <span className="flex items-center gap-3 mb-2">
           <Link to="/runs" className="text-secondary text-ink-3 no-underline hover:text-ink">
             ← Board
           </Link>
@@ -230,17 +236,21 @@ export function Run() {
                          tracking-[-.035em]">
             {run.name || `run ${id.slice(0, 8)}`}
           </h1>
+          {/* 9.5px / .1em / 3px 8px — the artboard's, and it was reading `text-label` with
+              looser padding, which made a status chip the size of a button. */}
           <span
             data-testid="run-phase"
-            className="font-data text-label uppercase tracking-[.1em] px-2 py-[3px]"
+            className="font-data text-[9.5px] leading-none uppercase tracking-[.1em] px-2 py-[3px]"
             style={{ color: colourOf[phase],
                      background: `color-mix(in srgb, ${colourOf[phase]} 12%, transparent)`,
                      border: `1px solid color-mix(in srgb, ${colourOf[phase]} 27%, transparent)` }}
           >
             {run.phase}
           </span>
+          {/* 11.5px `--ink-4`. It was `text-body`, which put the hash at the same weight as
+              the sentence under it — the artboard makes it the quietest thing on the line. */}
           {run.name && (
-            <span className="font-data text-body text-ink-4">{id.slice(0, 8)}</span>
+            <span className="font-data text-[11.5px] text-ink-4">{id.slice(0, 8)}</span>
           )}
 
           <span className="ml-auto flex items-center gap-[22px]">
@@ -268,7 +278,8 @@ export function Run() {
         {/* **The five-second answer, in one sentence** — `page-5`: *"Band 0 is the header, and
             its one sentence is the five-second answer. If a reader has to look at a chart to
             learn whether the run is fine, the header is wrong."* */}
-        <p data-testid="run-sentence" className="text-body text-ink-3 mt-[11px] m-0">
+        <p data-testid="run-sentence"
+           className="text-[12.5px] text-ink-3 mt-[11px] m-0">
           {sentence}
         </p>
 

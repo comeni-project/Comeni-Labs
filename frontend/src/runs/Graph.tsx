@@ -6,7 +6,7 @@ import { Menu, copy, useContextMenu } from "./Menu";
 import { Canvas } from "../build/Canvas";
 import { useView } from "../build/useView";
 
-import { Failed, Loading } from "../ui/States";
+import { Empty, Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
 
 type Placed = {
@@ -177,7 +177,20 @@ export function Graph({ runId, onOpenConsole }: {
   });
 
   if (graph.isPending) return <Loading what="the graph" />;
-  if (graph.isError) return <Failed error={graph.error} />;
+  if (graph.isError) {
+    // **A192, and the graph is the half that deliberately 404s.** `/overview` answers from the
+    // fold and is true whatever happened to the artifact directory; a graph IS the artifact, so
+    // when the directory is gone there is nothing honest to draw. The distinction is worth a
+    // sentence rather than a raw error: *the run is fine and its drawing is missing* is a very
+    // different thing to read than a failure.
+    const gone = String((graph.error as Error)?.message ?? "").includes("404");
+    return gone ? (
+      <Empty title="this run's artifact is no longer readable"
+             next="the table beside this is folded from the record and is unaffected" />
+    ) : (
+      <Failed error={graph.error} />
+    );
+  }
 
   const nodes = laidOut(graph.data.nodes);
   const at = new Map(nodes.map((n) => [n.id, n]));
