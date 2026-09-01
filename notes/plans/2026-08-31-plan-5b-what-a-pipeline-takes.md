@@ -223,14 +223,14 @@ what makes the diff readable.*
 - [x] **One** sample-scoped channel emits what it emits now: `fromFilePairs`, one queue channel, no
       samplesheet. **This must not regress** — `tests/test_counts.py` is the only check exercising
       the v1 criterion and it runs this shape.
-- [ ] **Two or more** emit a samplesheet: `params.input` is a CSV whose columns are the
+- [x] **Two or more** emit a samplesheet: `params.input` is a CSV whose columns are the
       sample-scoped channels, each channel a projection of it, joined at the process by `meta.id`.
-- [ ] Column names come from **channel names**, which are derived from types. Rows are the
+- [x] Column names come from **channel names**, which are derived from types. Rows are the
       laboratory's and Mendel never sees them.
 
 ### 5.2 `input_form`, and why it is an enum — spec §11.1 and §12.1
 
-- [ ] `Pipeline.input_form: InputForm` — `SAMPLESHEET | DIRECT`. **A closed enum, not prose.**
+- [x] `Pipeline.input_form: InputForm` — `SAMPLESHEET | DIRECT`. **A closed enum, not prose.**
 - [x] §2.2 originally asked the artifact to say which form it wants *"in words, next to the
       param"*. `Pipeline` is door 4's payload, so **words next to a param is a fifteenth free-text
       field**, in a spec whose §5 claims it adds none. The two sentences contradicted each other.
@@ -266,10 +266,10 @@ what makes the diff readable.*
 
 ### 5.4 Duplicate sample ids — spec §10.4
 
-- [ ] Two sample-scoped channels join on `meta.id`. A sample split across lanes or flowcells is
+- [x] Two sample-scoped channels join on `meta.id`. A sample split across lanes or flowcells is
       several rows with one id, and nf-core's answer is `cat_fastq` — a grouping step before
       anything else.
-- [ ] **A duplicate sample id is a refusal**, with a message naming the rows. Refusing is honest
+- [x] **A duplicate sample id is a refusal**, with a message naming the rows. Refusing is honest
       and cheap; merging is a pipeline-shape decision needing the grouping §10.5 says the contract
       model cannot express at all.
 

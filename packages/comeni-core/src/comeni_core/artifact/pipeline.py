@@ -586,6 +586,17 @@ class Channel(BaseModel):
     than a silent reinterpretation of every registry in the world.
     """
 
+    columns: list[PortName] = Field(default_factory=list)
+    """The samplesheet columns this channel reads, when `input_form` is `samplesheet`.
+
+    `["reads_1", "reads_2"]` for a paired FASTQ, `["gtf"]` for an annotation — named for the
+    **channel**, so a pipeline taking two GTFs gets `gtf` and `gtf_2` and a person can tell the
+    columns apart by the same word they tell the channels apart by.
+
+    Empty under `direct`, where `params.input` is a glob and there is no table. Materialised
+    here so emission needs no vocabulary, like everything else on this model.
+    """
+
     type_id: TypeId
     params: list[PortName] = Field(default_factory=list)
     """Which `params.<name>` the expression references. Plural: one expression may reference

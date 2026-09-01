@@ -112,11 +112,7 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
         # table, because *reads with their respective annotations* cannot be two globs.
         # `MD0229` refuses a file where the two disagree, which is what keeps `params.input`'s
         # two meanings from both being claimed at once.
-        input_form=(
-            InputForm.SAMPLESHEET
-            if sum(1 for c in channels if c.scope is Scope.SAMPLE) > 1
-            else InputForm.DIRECT
-        ),
+        input_form=_form(channels),
         decisions=list(ir.decisions),
     )
 
@@ -302,6 +298,20 @@ def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
     return inputs
 
 
+def _form(channels) -> InputForm:
+    """One sample-scoped channel is a glob; two or more is a table.
+
+    **Derived, never authored**, because *reads with their respective annotations* cannot be two
+    globs — two independent `fromFilePairs` zip by position and nothing ties a sample's reads to
+    its own annotation. `MD0229` refuses a file where this and the channels disagree.
+    """
+    return (
+        InputForm.SAMPLESHEET
+        if sum(1 for c in channels if c.scope is Scope.SAMPLE) > 1
+        else InputForm.DIRECT
+    )
+
+
 def _override_for(ir, name: str):
     """The IR channel of this name, if the drawing declared one. `None` for a derived channel."""
     return next((c for c in getattr(ir, "channels", []) if c.name == name), None)
@@ -392,8 +402,10 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
         # replay it forever.
         drawn = _override_for(ir, name)
         chosen = drawn.scope if drawn is not None else None
+        wide = vocab.columns.get(type_id, 1)
         channels.append(
             Channel(
+                columns=[name] if wide == 1 else [f"{name}_{n}" for n in range(1, wide + 1)],
                 scope=Scope(chosen.value) if chosen else Scope(
                     vocab.scopes.get(type_id, Scope.SAMPLE)
                 ),
