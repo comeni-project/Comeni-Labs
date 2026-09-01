@@ -212,6 +212,31 @@ class IRChannel(BaseModel):
 
     name: ChannelName
     type_id: TypeId
+
+    scope: ResolvedValue | None = None
+    """The scope somebody chose for this channel, **or `None` for the type's default.**
+
+    `None` is not `SAMPLE`: it is *nobody said*, which is a different fact. Taking a type's
+    default is not a decision, and an artifact recording one for it would owe `mendel explain`
+    an answer to a question that was never open — §12.2's rule, arriving from the other side.
+
+    ═══ A `ResolvedValue`, AND THE EGRESS GUARD IS WHY ═══════════════════════════════════════
+
+    The first version carried a `Scope` and a bare `Line`. `tests/test_egress.py` refused both:
+    a plain `str` on a payload is how a closed vocabulary stops being closed, and the `Line`
+    would have been the **fifteenth** free-text field on invariant 14's surface — a new author
+    at a new moment, which is the argument `ParamDecision.override_reason` had to make to become
+    the tenth.
+
+    It does not have to be made. A scope override *is* a resolved value: something settled, at a
+    tier, by somebody, for a reason, against an axis. `ResolvedValue` is that shape, and its
+    `reason` and `axis_reason` are already fields 3 and 12. Nothing widens.
+
+    Tier 4 always, because whether two GTF ports are fed by one file or by two is not derivable
+    from the drawing — both are legal pipelines and they analyse different experiments, so a
+    person decided and invariant 6 flags a person's decision however confident they were.
+    """
+
     ports: list[SocketKey] = Field(default_factory=list)
     """`<node>.<port>`. Sorted at construction — a set has no stable order and this reaches a
     digest, which is the same reason `IREdge.states` carries a serialiser."""

@@ -294,6 +294,11 @@ def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
     return inputs
 
 
+def _override_for(ir, name: str):
+    """The IR channel of this name, if the drawing declared one. `None` for a derived channel."""
+    return next((c for c in getattr(ir, "channels", []) if c.name == name), None)
+
+
 def _wanted(ir, registry) -> list[tuple[str, str]]:
     """`(name, type_id)` per channel, in order — an empty name meaning *derive it*.
 
@@ -371,9 +376,24 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
         param = _unique(vocab.params.get(type_id) or _param_of(template, type_id), params)
         expression = _substitute(template, param)
         declared = vocab.test_data.get(type_id)
+        # **The type's default unless the drawing overrode it**, and an override is a decision.
+        # Per-sample annotations over a shared one is a different analysis, not a different
+        # spelling, so it exits at tier 4 and carries the person's own reason (invariant 6).
+        # Taking the default records nothing: a `Why` for a choice nobody made would owe
+        # `mendel explain` an answer to a question that was never open, and `upgrade` would
+        # replay it forever.
+        drawn = _override_for(ir, name)
+        chosen = drawn.scope if drawn is not None else None
         channels.append(
             Channel(
-                scope=Scope(vocab.scopes.get(type_id, Scope.SAMPLE)),
+                scope=Scope(chosen.value) if chosen else Scope(
+                    vocab.scopes.get(type_id, Scope.SAMPLE)
+                ),
+                # **Read from the resolver's answer, not rebuilt.** It stamped the tier when it
+                # read the drawing; deriving a second `Why` here would be two answers to *at
+                # which tier was this settled*, which is A130's shape — and `_why` is the same
+                # function every settled param goes through.
+                why=_why(chosen) if chosen else None,
                 name=name,
                 param=param,
                 type_id=type_id,

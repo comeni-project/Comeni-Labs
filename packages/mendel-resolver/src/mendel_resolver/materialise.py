@@ -93,12 +93,40 @@ def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
     )
 
 
+def _scope_choice(drawn, source: ValueSource) -> ResolvedValue:
+    """Why a channel's scope is not its type's default.
+
+    **Tier 4, and invariant 6 is why.** Whether two GTF ports are fed by one file or by two is
+    not derivable from the drawing — both are legal pipelines and they analyse different
+    experiments — so a person decided, and a person's decision is flagged however confident they
+    were. Same tier `_param_why` stamps for a value somebody typed, and for the same reason.
+
+    **The reason is theirs, empty included.** Boilerplate here would replace what somebody wrote
+    with what the resolver would have said, which is A77 exactly: `upgrade` overwrote a
+    reviewer's own words with *"selected the first of 1 candidates without judgement"*.
+    """
+    return ResolvedValue(
+        value=drawn.scope,
+        tier=Tier.AMBIGUOUS,
+        source=source,
+        reason=drawn.why or "no reason was given for this channel's scope",
+        axis_reason=(
+            "how many times this channel delivers is a judgement about the experiment: one "
+            "reference for the whole run, or one per sample"
+        ),
+    )
+
+
 class DrawnChannel(NamedTuple):
     """One channel a drawing implies: its name, its type, and the sockets it feeds."""
 
     name: str
     type_id: str
     ports: tuple[str, ...]
+    scope: str | None = None
+    """What the drawing said this channel's scope is, or `None` for the type's default."""
+    why: str = ""
+    """The person's reason for that override."""
 
 
 def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
@@ -145,6 +173,9 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
                     break
 
     declared = {key: n for n, channel in enumerate(graph.channels) for key in channel.ports}
+    # A drawn channel may also say what scope it is, which is a judgement about an experiment
+    # rather than a fact about the type — see `DraftChannel.scope`.
+    said = {n: channel for n, channel in enumerate(graph.channels)}
     groups: dict[tuple, list[str]] = {}
     types: dict[tuple, str] = {}
     for key, type_id in sockets:
@@ -168,6 +199,8 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
             name=_unique(_stem(types[group]), taken),
             type_id=types[group],
             ports=tuple(sorted(groups[group])),
+            scope=said[group[1]].scope if group[0] == "drawn" else None,
+            why=said[group[1]].why if group[0] == "drawn" else "",
         )
         for group in sorted(groups, key=rank)
     ]
@@ -352,7 +385,12 @@ def ir_of(graph: DraftGraph, layers: Layers, *, by: str = "") -> PipelineIR:
         # and cannot derive it differently. Empty for a goal-driven build, which is one channel
         # per type and needs no map.
         channels=[
-            IRChannel(name=c.name, type_id=c.type_id, ports=sorted(c.ports))
+            IRChannel(
+                name=c.name,
+                type_id=c.type_id,
+                ports=sorted(c.ports),
+                scope=_scope_choice(c, source) if c.scope else None,
+            )
             for c in channels_of(graph, layers)
         ],
         nodes=nodes,
