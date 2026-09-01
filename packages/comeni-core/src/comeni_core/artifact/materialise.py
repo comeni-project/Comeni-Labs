@@ -33,7 +33,7 @@ from comeni_core.artifact.pipeline import (
     Why,
     _no_flags_why,
 )
-from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.contract import Cardinality, ModuleContract
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier, ValueSource
 
@@ -272,12 +272,17 @@ def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
     inputs = []
     for port in contract.consumes:
         edge = fed.get(port.name)
+        # **On both branches.** MULTIQC's `reports` port is *wired* — it consumes what FASTQC
+        # produced — so setting this only where a port reads an entry channel would have left
+        # the case the field exists for untouched.
+        gather = port.cardinality is Cardinality.MANY
         if edge is not None:
             inputs.append(
                 StepInput(
                     port=port.name,
                     source=f"{edge.from_node}.{edge.from_port}",
                     states=sorted(edge.states),
+                    gather=gather,
                 )
             )
         else:
@@ -285,7 +290,7 @@ def _inputs(ir, node, contract, named: dict[str, str]) -> list[StepInput]:
             # said which of two same-type channels this port reads. `named` is the
             # one-per-type fallback, used only where the drawing said nothing.
             assigned = _named(ir).get(f"{node.id}.{port.name}") or named[port.type_id]
-            inputs.append(StepInput(port=port.name, channel=assigned))
+            inputs.append(StepInput(port=port.name, channel=assigned, gather=gather))
     return inputs
 
 
