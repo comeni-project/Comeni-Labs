@@ -45,6 +45,7 @@ decline to curate one.
 | `MD0010` | a declared file does not say what it is |
 | `MD0011` | a declared file names a kind that does not exist |
 | `MD0012` | a vocabulary or measurement does not declare its id |
+| `MD0020` | this layer needs a newer Mendel than the one reading it |
 
 ## A contract disagrees with its module
 

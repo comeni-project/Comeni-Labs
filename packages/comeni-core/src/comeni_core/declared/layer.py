@@ -15,7 +15,30 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core import yaml_strict
+from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import LayerName
+
+LAYER_FORMAT = 1
+"""Which layer format this engine implements.
+
+**Incremented when a layer can hold something an older engine would read wrongly** — not when it
+holds something an older engine would merely ignore. The distinction is the whole value: an
+unknown *field* is ignorable and needs no floor, while `entry_channel` becoming a
+`params.{param}` template is not, because an emitter that does no substitution writes the literal
+placeholder into Groovy and reports success.
+
+`SCHEMA_VERSION` is the precedent and the two are deliberately separate: that one is about
+`pipeline.yml`, the artifact, and this one is about a registry layer. A laboratory can be handed
+either without the other.
+
+**An integer rather than a version string.** What matters is whether the format is one this
+engine implements; `0.1.0` against `0.2.0` answers a different and less useful question, because
+a patch release changes a version and implements no new format.
+"""
+
+
+class LayerTooNewError(ValueError):
+    """This layer needs a Mendel newer than the one reading it."""
 
 
 class LayerManifest(BaseModel):
@@ -29,6 +52,17 @@ class LayerManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: LayerName
+
+    requires: int = 1
+    """The lowest `LAYER_FORMAT` that can read this layer. Default 1, which every layer written
+    before the floor existed implicitly is.
+
+    A layer declaring a format this engine does not implement is **refused**, by name, rather
+    than read as far as it parses — see `LAYER_FORMAT`. Declaring a *higher* number than you need
+    costs your users an upgrade for nothing; declaring a lower one is what this field exists to
+    prevent.
+    """
+
     version: str = ""
     licence: str = ""
     description: str = ""
@@ -64,7 +98,21 @@ class LayerManifest(BaseModel):
         path = Path(layer) / "registry.yml"
         if not path.exists():
             return None
-        return cls.model_validate(yaml_strict.load(path))
+        manifest = cls.model_validate(yaml_strict.load(path))
+        # **Here rather than in `layers.load`**, because this is the one function every reader of
+        # a manifest goes through — `layer_name` calls it, the lint calls it, the loader calls it
+        # — and a floor checked in one caller is a floor the other callers walk past.
+        if manifest.requires > LAYER_FORMAT:
+            raise LayerTooNewError(
+                coded(
+                    "MD0020",
+                    f"{path} needs layer format {manifest.requires} and this Mendel "
+                    f"implements {LAYER_FORMAT}.\n"
+                    f"  Upgrade Mendel, or use a release of this layer that predates the "
+                    f"format change.",
+                )
+            )
+        return manifest
 
 
 def layer_name(layer: Path) -> LayerName:

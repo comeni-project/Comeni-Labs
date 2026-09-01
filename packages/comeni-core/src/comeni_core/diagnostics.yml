@@ -1612,6 +1612,34 @@ MD0012:
 
     Contracts always carried `id:`, and rules are keyed on the decision's target rather than on
     the file — so this closes the last two kinds whose identity was positional.
+MD0020:
+  emitted_by: core
+  concern: loading
+  says: "this layer needs a newer Mendel than the one reading it"
+  fires_on: [build, upgrade, profile, publish, docs, lint, conformance]
+  refuses: true
+  fix: |
+    Upgrade Mendel, or use a release of the layer that predates the format change.
+    A layer declares its floor in `registry.yml`:
+
+        requires: 2
+  explanation: |
+    **A floor exists so that a mismatch is a sentence rather than a broken pipeline.**
+
+    The case it was built for: `entry_channel` became a `params.{param}` template, and a
+    registry shipping one read by an engine that does no substitution writes the literal
+    string `params.{param}` into Groovy — a broken pipeline produced silently by a build
+    that reported success. An older engine cannot detect that; it can only be *told*.
+
+    So `LAYER_FORMAT` is incremented when a layer can hold something an older engine would
+    read **wrongly**, and not when it holds something an older engine would merely ignore.
+    An unknown field is ignorable and needs no floor. That distinction is the whole value of
+    the number: bumping it for every change would make upgrading a chore nobody does, which
+    is how a floor stops being believed.
+
+    An integer rather than a version string, for the same reason `SCHEMA_VERSION` is one:
+    what matters is whether the format is one this engine implements, and a patch release
+    changes a version while implementing no new format.
 MD0013:
   emitted_by: compiler
   concern: layout
