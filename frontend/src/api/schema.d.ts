@@ -1116,6 +1116,13 @@ export interface components {
          *     type inputs"*), and merging two back is the same control in reverse.
          */
         DraftChannel: {
+            /** Scope */
+            scope?: string | null;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
             /** Ports */
             ports: string[];
         };

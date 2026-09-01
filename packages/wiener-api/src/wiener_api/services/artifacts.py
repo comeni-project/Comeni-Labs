@@ -111,6 +111,54 @@ too and should not need this argument made again.
 """
 
 
+def input_shape(artifact_id: str) -> tuple[str, list[str]]:
+    """How `params.input` should be asked for: `("direct", [])` or `("samplesheet", columns)`.
+
+    ═══ THE ONE HOLE WHOSE NAME DOES NOT SAY WHAT IT WANTS ═══════════════════════════════════
+
+    **Two same-type channels work here by construction and needed nothing.** `declared_holes`
+    reads the artifact's *nulls*, so `params.gtf` and `params.gtf_2` are two nulls, the run
+    sheet asks for two files, and this side never had to learn what a channel is.
+
+    **The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a
+    CSV path**, so without this the run sheet asks the same question either way — somebody
+    answers with the wrong kind of thing, the run fails inside Nextflow minutes later, and the
+    one place that could have said so is the form that asked.
+
+    `wiener_api.services.artifacts` already loads the artifact with `Pipeline.model_validate`
+    for `pipeline_digest`, so this is **one field access away** — small precisely because
+    `docs/design/wiener.md` §12's design already put the artifact in the right place: the
+    browser posts it and Wiener reads its holes back out.
+
+    **Two independent arguments reached one design**, and that is worth recording rather than
+    leaving as a coincidence. Plan 5B §5.2 made `input_form` an enum because prose in the
+    artifact would have been a fifteenth free-text field on the egress surface; this section
+    needs the same enum because a form cannot ask for a table it has not been told about. The
+    egress boundary and the run sheet wanted the same field for unrelated reasons.
+
+    Returns the raw `str` rather than importing Mendel's `InputForm`: `wiener-api` depends on
+    `comeni-core` for the artifact and nothing else, and a shared enum here would make Wiener's
+    generated client move whenever Mendel's plan package does.
+    """
+    from comeni_core import yaml_strict
+    from comeni_core.artifact.pipeline import Pipeline
+
+    path = settings.artifact_root / artifact_id / "pipeline.yml"
+    try:
+        pipeline = Pipeline.model_validate(yaml_strict.load(path))
+    except Exception:
+        # Same posture as `pipeline_digest`: an artifact with no readable `pipeline.yml` is a
+        # thing somebody uploaded, and refusing to describe it is worse than saying nothing.
+        return ("direct", [])
+    columns = sorted(
+        column
+        for channel in pipeline.channels
+        if channel.scope.value == "sample"
+        for column in channel.columns
+    )
+    return (pipeline.input_form.value, columns)
+
+
 def declared_holes(artifact_id: str) -> set[str]:
     """The parameters this artifact says only the laboratory can supply.
 

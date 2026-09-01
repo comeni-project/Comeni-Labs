@@ -247,21 +247,21 @@ what makes the diff readable.*
 
 ### 5.3 Wiener has to know — spec §12.1
 
-- [ ] **Two same-type channels work by construction, and that is worth noticing.**
+- [x] **Two same-type channels work by construction, and that is worth noticing.**
       `declared_holes` reads the artifact's **nulls**, so `params.gtf` and `params.gtf_2` are two
       nulls, Wiener asks for two files, and nothing on that side changes.
-- [ ] **The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a
+- [x] **The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a
       CSV path**, so the run sheet asks the same question and a person answers it with the wrong
       kind of thing. The run fails inside Nextflow minutes later, and the one place that could have
       said so is the form that asked.
-- [ ] `wiener_api.services.artifacts` already loads the artifact with `Pipeline.model_validate`, so
+- [x] `wiener_api.services.artifacts` already loads the artifact with `Pipeline.model_validate`, so
       **`input_form` is one field access away.** `declared_holes` returns holes with a *shape*;
       `input` carries `SAMPLESHEET` and its column list.
-- [ ] The run sheet renders a **samplesheet builder** rather than a path box. A Wiener change
+- [x] The run sheet renders a **samplesheet builder** rather than a path box. A Wiener change
       inside a Mendel plan, and small precisely because `wiener.md` §12's design — *the browser
       posts the artifact and Wiener reads its holes back out* — already put the artifact in the
       right place.
-- [ ] **Two independent arguments reached one design** — the egress boundary in 5.2 and this — and
+- [x] **Two independent arguments reached one design** — the egress boundary in 5.2 and this — and
       that is the strongest signal in the spec. Recorded rather than left as a coincidence.
 
 ### 5.4 Duplicate sample ids — spec §10.4

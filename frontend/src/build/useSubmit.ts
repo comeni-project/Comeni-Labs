@@ -14,6 +14,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { incomplete, type Row, SAMPLE } from "./Samplesheet";
+
 import { blob } from "../api/client";
 import { post, Unauthorized, upload } from "../wiener/api/client";
 import type { components } from "../wiener/api/schema";
@@ -24,6 +26,9 @@ type RunAccepted = components["schemas"]["RunAccepted"];
 export function useSubmit(draftId: string | null) {
   const [artifact, setArtifact] = useState<ArtifactStored | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  /** The samplesheet, when the artifact says its input is one. **Rows, not a path** — Wiener
+   *  writes them as a CSV into the run's workdir, so Mendel never sees a sample identifier. */
+  const [rows, setRows] = useState<Row[]>([]);
 
   const send = useMutation({
     mutationFn: async () => {
@@ -37,6 +42,14 @@ export function useSubmit(draftId: string | null) {
       // Seed one empty field per declared hole, so the form is the artifact's own shape and
       // a person can see what is missing before they start typing.
       setValues(Object.fromEntries(stored.declared.map((name) => [name, ""])));
+      // **One empty row, so the table is visibly a table.** A samplesheet with no rows is
+      // indistinguishable from a control that has not loaded, and `incomplete` names what is
+      // missing in it — which a zero-row table cannot.
+      setRows(
+        stored.input_form === "samplesheet"
+          ? [Object.fromEntries([SAMPLE, ...stored.input_columns].map((c) => [c, ""]))]
+          : [],
+      );
     },
   });
 
@@ -44,18 +57,31 @@ export function useSubmit(draftId: string | null) {
     mutationFn: () =>
       post<RunAccepted>("/api/runs", {
         artifact_id: artifact?.artifact_id,
-        params: values,
+        // The samplesheet replaces `input`'s string. Wiener accepts either — a laboratory that
+        // already has a CSV gives its path, and the editor is a convenience over that.
+        params: sheet ? { ...values, input: rows } : values,
         executor: "local",
       }),
   });
 
-  const unfilled = Object.entries(values)
-    .filter(([, value]) => value.trim() === "")
-    .map(([name]) => name);
+  const sheet = artifact?.input_form === "samplesheet";
+
+  const unfilled = [
+    ...Object.entries(values)
+      // `input` is the samplesheet's own hole, and a table answers it — so an empty string
+      // there is not an unfilled field, it is a field this form does not use.
+      .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input"))
+      .map(([name]) => name),
+    ...(sheet ? incomplete(rows, artifact?.input_columns ?? []) : []),
+  ];
 
   return {
     artifact,
     values,
+    /** The samplesheet's columns, or `null` when this pipeline takes a glob. */
+    columns: sheet ? (artifact?.input_columns ?? []) : null,
+    rows,
+    setRows,
     set: (name: string, value: string) => setValues((v) => ({ ...v, [name]: value })),
     send: () => send.mutate(),
     sending: send.isPending,

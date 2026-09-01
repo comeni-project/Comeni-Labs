@@ -13,6 +13,7 @@
 import { useNavigate } from "react-router";
 
 import { TokenPrompt } from "../wiener/Token";
+import { Samplesheet } from "./Samplesheet";
 import { useSubmit } from "./useSubmit";
 
 /** **The run sheet's primary, in `--link` and not `--pea`.** `_run_sheet.html` ends on one blue
@@ -97,7 +98,18 @@ export function SubmitPanel({
                 These are the values Mendel could not justify, so it left them null. They are
                 yours, they are not stored, and they never reach Mendel.
               </p>
-              {submit.artifact.declared.map((name) => (
+              {submit.columns !== null && (
+                <Samplesheet
+                  columns={submit.columns}
+                  rows={submit.rows}
+                  onChange={submit.setRows}
+                />
+              )}
+              {submit.artifact.declared
+                // `input` is answered by the table above, not by a path box. Rendering both
+                // would ask the same question twice and let the two disagree.
+                .filter((name) => !(submit.columns !== null && name === "input"))
+                .map((name) => (
                 <label key={name} className="flex items-center gap-2">
                   <span className="font-data text-body w-28 text-ink-3">{name}</span>
                   <input
