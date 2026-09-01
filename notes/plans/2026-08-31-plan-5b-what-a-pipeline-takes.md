@@ -275,10 +275,10 @@ what makes the diff readable.*
 
 ### 5.5 The checkpoint
 
-- [ ] **`--gate test` is the real one.** `-stub-run` never reads its inputs, so a samplesheet column
+- [x] **`--gate test` is the real one.** `-stub-run` never reads its inputs, so a samplesheet column
       wired to nothing is exactly as green as one wired correctly. Two modules shipped that way
       before — STAR built an index from nothing and aligned against no annotation.
-- [ ] **Watch the estimate here.** `CLAUDE.md`'s rule is that an estimate wrong by more than about
+- [x] **Watch the estimate here.** `CLAUDE.md`'s rule is that an estimate wrong by more than about
       double is a decision point. `splitCsv` over a declared header, joined by `meta.id`, against
       modules whose input arity varies — `NfInput.empty` exists because a 2-tuple in a 3-tuple slot
       dies on *"Path value cannot be null"*, and this phase creates new chances for exactly that.
@@ -318,7 +318,7 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 | 2 | | |
 | 3 | | |
 | 4 | Yes, and **one of its boxes was ticked before it was done** | 4.1's third bullet — *the override carries a `Why`, exits at a tier and appears in `pipeline.yml`* — was ticked when 4.2 landed and had not been implemented. A tick means *this step was carried out*, and that one was a claim. Corrected and then done. **The egress guard refused the first design twice**, and was right both times: `IRChannel.scope` as a bare `str` is how a closed vocabulary stops being closed, and `IRChannel.why` as a `Line` would have been invariant 14's **fifteenth** free-text field. It is a `ResolvedValue` — a scope override *is* a value somebody settled, at a tier, for a reason, against an axis — so `reason` and `axis_reason` are already fields 3 and 12 and the boundary does not widen. `Scope` moved to `plan/tiers.py` beside `Tier` and `ValueSource`, because `plan/ir.py` importing from `artifact/` is backwards |
-| 5 | | |
+| 5 | Yes, with three corrections | **MD0229's second arm is not what §5.2 asked for.** That section wants *a non-samplesheet form with more than one sample-scoped channel* refused. Sharing a **scope** is not claiming a parameter twice: every archived v5 artifact has three channels with three parameters and no scope, so migration gives them the `SAMPLE` default — that arm refused every pipeline this repository has written, twenty tests including `wiener-core`'s. It checks two channels reading one *parameter* instead, which cannot arise from a migration and is what the sentence was about. **`sample_columns` had to be declared**: `entry_channel` knows how to read a glob, and a row projection needs to know a FASTQ is two columns and a GTF is one — not derivable from a type id, its states, or its Groovy. **`--gate test` needed a CSV a config block cannot write**, so `materialise_test_samplesheet` writes it beside the workflow at gate time, the same split `stub-data/` already makes. The checkpoint runs: real containers, real data, a real BAM named for the row's `sample` |
 
 
 ### Phase 1 — the six deviations

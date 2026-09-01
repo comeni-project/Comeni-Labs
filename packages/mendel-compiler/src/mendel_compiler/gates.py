@@ -90,6 +90,25 @@ def run_gate(gate: Gate, workdir: Path) -> GateResult:
     )
 
 
+def materialise_test_samplesheet(workdir: Path, pipeline) -> None:
+    """Write the `test` profile's samplesheet beside the workflow, if this pipeline takes one.
+
+    **A config block cannot write a file**, and `params.input` for a samplesheet pipeline is a
+    path to one. So the emitter points at `test-samplesheet.csv` and this puts it there — the
+    same split `materialise_stub_data` already makes, and for the same reason: the pipeline must
+    stay free of data and of paths to data (invariant 15), so fixtures live in the harness.
+
+    A no-op for a direct pipeline, whose `params.input` is a glob the profile can state inline.
+    """
+    from comeni_core.plan.tiers import InputForm
+
+    from mendel_compiler.emit import TEST_SAMPLESHEET, test_samplesheet
+
+    if pipeline.input_form is not InputForm.SAMPLESHEET:
+        return
+    (workdir / TEST_SAMPLESHEET).write_text(test_samplesheet(pipeline))
+
+
 def materialise_stub_data(workdir: Path, params: list[str]) -> None:
     """Synthetic inputs for the `-stub-run` gate.
 

@@ -390,6 +390,7 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
             "    // No `test` profile: these inputs declare no `test_data` in the",
             f"    // vocabulary — {', '.join(missing)}. Add one to make `--gate test` runnable.",
         ]
+    table = pipeline.input_form is InputForm.SAMPLESHEET
     return [
         "    test {",
         SMOKE_LIMITS,
@@ -398,12 +399,52 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
         "        // correct, and it is not a substitute for the laboratory validating it.",
         "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
         "        // result against next year.",
+        # **A samplesheet's `input` is a FILE, and a config block cannot write one.**
+        # `materialise_test_samplesheet` writes it beside the workflow at gate time, the same
+        # way `materialise_stub_data` writes the stub fixtures — a pipeline must stay free of
+        # data and of paths to data (invariant 15), so the validation harness is where fixtures
+        # belong. The other parameters are unchanged: a run-scoped reference still gets its URL.
         *[
-            f"        params.{name} = {_render_test_data(by_param[name].test_data)}"
+            f'        params.{name} = "${{projectDir}}/{TEST_SAMPLESHEET}"'
+            if table and name == "input"
+            else f"        params.{name} = {_render_test_data(by_param[name].test_data)}"
             for name in params
         ],
         "    }",
     ]
+
+
+TEST_SAMPLESHEET = "test-samplesheet.csv"
+"""What the `test` profile points `params.input` at when the pipeline takes a table.
+
+Written by `gates.materialise_test_samplesheet`, never by the emitter: the pipeline references
+a path and the harness supplies the file, which is the same split `stub-data/` already makes.
+"""
+
+
+def test_samplesheet(pipeline: Pipeline) -> str:
+    """The `test` profile's samplesheet: **one row**, from each type's declared `test_data`.
+
+    One row is enough and two would be a claim this repository cannot back. A second row needs a
+    second sample's URLs and the vocabulary declares one per type — inventing a second by reusing
+    the first would give the run two samples with identical data and identical results, which
+    looks like a fan-out test and is not one. `tests/test_fan_out.py` runs two *stub* pairs,
+    where a fixture costs nothing; here the fixture is somebody else's dataset.
+
+    What this row does prove is the thing `-stub-run` cannot: that each column is wired to the
+    input it names. A stub never reads its inputs, so a column pointing at nothing is exactly as
+    green as one pointing at a genome — which is how two modules shipped with hollow references.
+    """
+    by_param = {name: channel for channel in pipeline.channels for name in channel.params}
+    columns: list[str] = [SAMPLE_COLUMN]
+    values: list[str] = ["test"]
+    for channel in pipeline.channels:
+        if channel.scope is not Scope.SAMPLE:
+            continue
+        for column, url in zip(channel.columns, by_param[channel.param].test_data, strict=False):
+            columns.append(column)
+            values.append(url)
+    return ",".join(columns) + "\n" + ",".join(values) + "\n"
 
 
 def _ext_scope(step: Step) -> list[str]:

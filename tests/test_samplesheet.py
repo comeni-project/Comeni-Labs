@@ -194,3 +194,99 @@ def test_the_spine_is_still_a_glob(stack, tmp_path):
     workflow = (tmp_path / "b" / "main.nf").read_text()
     assert "splitCsv" not in workflow
     assert "fromFilePairs" in workflow
+
+
+# ── 5.5, the checkpoint ──────────────────────────────────────────────────────────────
+
+GENOME = "nf-core/star/genomegenerate@1.11.0"
+
+
+def _runnable() -> DraftGraph:
+    """A samplesheet pipeline whose every input declares a public example.
+
+    The index is *built* rather than supplied, because `genome.index.star` declares no
+    `test_data` — so a graph taking a prebuilt one gets no `test` profile at all, correctly and
+    by the emitter's own all-or-nothing rule. That refusal is right, and it is not what this
+    checkpoint is about; the first attempt at this test hit it and read as a samplesheet failure.
+    """
+    return DraftGraph(
+        nodes=[
+            DraftNode(id="index", contract_id=GENOME),
+            DraftNode(id="align", contract_id=STAR),
+        ],
+        edges=[DraftEdge(from_node="index", from_port="index", to_node="align", to_port="index")],
+        channels=[
+            DraftChannel(
+                ports=("align.gtf",),
+                scope="sample",
+                why="each biopsy carries its own annotation",
+            )
+        ],
+    )
+
+
+def test_a_samplesheet_pipeline_gets_a_test_profile(stack):
+    """**`--gate test` is the real checkpoint, and `-stub-run` cannot be.** A stub never reads
+    its inputs, so a samplesheet column wired to nothing is exactly as green as one wired
+    correctly — which is how two modules shipped with hollow references (`NfInput.empty`).
+
+    A config block cannot write a file, so the profile points at `test-samplesheet.csv` and the
+    gate materialises it — the same split `stub-data/` already makes, and for the same reason:
+    the pipeline stays free of data and of paths to data (invariant 15).
+    """
+    from mendel_compiler.emit import emit_config
+
+    pipeline = _built(_runnable(), stack)
+    assert pipeline.input_form is InputForm.SAMPLESHEET
+    config = emit_config(pipeline)
+    assert "test {" in config, "every input has test data and the profile was still refused"
+    assert 'params.input = "${projectDir}/test-samplesheet.csv"' in config
+
+
+def test_the_generated_samplesheet_is_one_row_of_pinned_urls(stack):
+    """**One row, and two would be a claim this repository cannot back.** A second row needs a
+    second sample's URLs and the vocabulary declares one per type; reusing the first would give
+    the run two samples with identical data and identical results, which looks like a fan-out
+    test and is not one. `test_fan_out.py` runs two *stub* pairs, where a fixture costs nothing.
+    """
+    from mendel_compiler.emit import test_samplesheet
+
+    rows = test_samplesheet(_built(_runnable(), stack)).splitlines()
+    assert len(rows) == 2, f"expected a header and one row, got {rows}"
+    assert rows[0].split(",")[0] == "sample"
+    assert rows[1].count("https://") == len(rows[0].split(",")) - 1, (
+        "a column has no pinned example behind it"
+    )
+    assert "72a702d346833d5523bc40d032323ea548603b00" in rows[1], "the dataset is not pinned"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("nextflow") is None, reason="the test gate needs Nextflow")
+@pytest.mark.skipif(shutil.which("docker") is None, reason="the test gate runs real tools")
+def test_a_samplesheet_pipeline_runs_end_to_end(stack, tmp_path):
+    """**The checkpoint.** Real containers, real data, a real BAM — and `STAR_ALIGN` reading its
+    FASTQ *and its GTF from the same row*, which is the whole claim of a samplesheet.
+
+    Slow by nature: it downloads a public dataset and builds a STAR index.
+    """
+    from mendel_compiler import pipeline_file
+    from mendel_compiler.emit import emit_config
+    from mendel_compiler.gates import materialise_test_samplesheet
+
+    pipeline = _built(_runnable(), stack)
+    pipeline_file.write(tmp_path, pipeline)
+    (tmp_path / "main.nf").write_text(emit(pipeline))
+    (tmp_path / "nextflow.config").write_text(emit_config(pipeline))
+    staging.stage(pipeline, stack.modules, tmp_path)
+    materialise_test_samplesheet(tmp_path, pipeline)
+
+    done = subprocess.run(
+        ["nextflow", "run", "main.nf", "-profile", "test,docker", "--outdir", "results"],
+        cwd=tmp_path, capture_output=True, text=True, timeout=1800,
+    )
+    assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+
+    published = sorted(one.name for one in (tmp_path / "results").rglob("*.bam"))
+    assert published, f"the run produced no alignment:\n{done.stdout[-2000:]}"
+    # Named for the row's `sample`, which is the only place that name could have come from.
+    assert any(name.startswith("test.") for name in published), published
