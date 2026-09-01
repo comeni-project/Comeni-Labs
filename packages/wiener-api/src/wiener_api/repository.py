@@ -264,10 +264,17 @@ is the only reading that is not a claim.
 """
 
 
-def _tasks_query(lab_id: str, run_id: str, process, status, retried_only, attempt=None):
+def _tasks_query(lab_id: str, run_id: str, process, status, retried_only, attempt=None,
+                 tag=None):
     query = select(RunTask).where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
     if process:
         query = query.where(RunTask.process == process)
+    if tag:
+        # **Equality, never a prefix or a LIKE.** `RunTask.tag` is unindexed on purpose
+        # (A200), and the bound that makes that safe is `run_id` above it: this scans one
+        # run's tasks. A pattern match would invite the cross-run search the column was
+        # deliberately shaped to refuse, and answers a question nobody on this screen asked.
+        query = query.where(RunTask.tag == tag)
     if status:
         query = query.where(RunTask.status == status)
     if retried_only:
@@ -287,7 +294,7 @@ def _tasks_query(lab_id: str, run_id: str, process, status, retried_only, attemp
 
 
 def tasks_page(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
-               retried_only=False, attempt=None, sort="task_id", after=0,
+               retried_only=False, attempt=None, tag=None, sort="task_id", after=0,
                limit=100) -> list[RunTask]:
     """One page of a run's tasks — filtered, sorted and paged in SQL.
 
@@ -298,16 +305,16 @@ def tasks_page(session: Session, lab_id: str, run_id: str, *, process=None, stat
     `RunTask.task_id` is appended to every sort, because a page boundary needs a total order:
     two tasks with the same peak would otherwise be free to swap between page 1 and page 2.
     """
-    query = (_tasks_query(lab_id, run_id, process, status, retried_only, attempt)
+    query = (_tasks_query(lab_id, run_id, process, status, retried_only, attempt, tag)
              .order_by(SORTS.get(sort, SORTS["task_id"]), RunTask.task_id)
              .offset(after).limit(min(limit, 500)))
     return list(session.scalars(query))
 
 
 def tasks_total(session: Session, lab_id: str, run_id: str, *, process=None, status=None,
-                retried_only=False, attempt=None) -> int:
+                retried_only=False, attempt=None, tag=None) -> int:
     """How many the same filters match. A table that says *404 more* has to know."""
-    query = _tasks_query(lab_id, run_id, process, status, retried_only, attempt)
+    query = _tasks_query(lab_id, run_id, process, status, retried_only, attempt, tag)
     return session.scalar(
         select(func.count()).select_from(query.subquery())
     ) or 0

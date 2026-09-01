@@ -155,6 +155,11 @@ export interface paths {
          * A run's tasks, filtered, sorted and paged
          * @description **A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
          *     falls back to `task_id` rather than reaching the database.
+         *
+         *     **`tag` is scoped to this run and there is no endpoint that lists tags.** Answering *how
+         *     did sampleB do* needs only the filter; answering *which samples exist* would be a distinct
+         *     query over lab strings, which is the deployment-wide search A200 refused. The table already
+         *     shows every tag on the page, so a person picks one from what is in front of them.
          */
         get: operations["readTasks"];
         put?: never;
@@ -1060,6 +1065,7 @@ export interface operations {
                 status?: string | null;
                 retried_only?: boolean;
                 attempt?: number | null;
+                tag?: string | null;
                 sort?: string;
                 after?: number;
                 limit?: number;

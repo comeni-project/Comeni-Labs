@@ -95,6 +95,15 @@ def _label(row, event: RunEvent) -> None:
                            "name": trace.name, "hash": trace.hash,
                            "workdir": trace.workdir}
     row.labels = [by_n[n] for n in sorted(by_n)]
+    # The latest attempt's tag, lifted into its own column so `_tasks_query` can filter on it
+    # without reading one JSON document per row. **Read from `row.labels`, not from `trace`**:
+    # events can arrive out of order, and `TaskOut.tag` answers `labels[-1]`, so taking it from
+    # anywhere else lets the filter and the cell that displays it disagree.
+    row.tag = row.labels[-1].get("tag")
+    # The latest attempt's tag, lifted into its own column so `_tasks_query` can filter on it
+    # without reading one JSON document per row. **Read from `row.labels`, not from `trace`**:
+    # events can arrive out of order, and `TaskOut.tag` answers `labels[-1]`, so taking it from
+    # anywhere else lets the filter and the cell that displays it disagree.
 
 
 def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunState:

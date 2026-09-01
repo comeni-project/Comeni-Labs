@@ -516,14 +516,21 @@ class TasksOut(BaseModel):
             summary="A run's tasks, filtered, sorted and paged")
 def run_tasks(run_id: str, process: str | None = None, status: str | None = None,
               retried_only: bool = False, attempt: int | None = None,
+              tag: str | None = None,
               sort: str = "task_id", after: int = 0, limit: int = 100) -> TasksOut:
     """**A query, never a fold** — A191. `sort` is a closed vocabulary and an unknown value
-    falls back to `task_id` rather than reaching the database."""
+    falls back to `task_id` rather than reaching the database.
+
+    **`tag` is scoped to this run and there is no endpoint that lists tags.** Answering *how
+    did sampleB do* needs only the filter; answering *which samples exist* would be a distinct
+    query over lab strings, which is the deployment-wide search A200 refused. The table already
+    shows every tag on the page, so a person picks one from what is in front of them.
+    """
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
         filters = {"process": process, "status": status, "retried_only": retried_only,
-                   "attempt": attempt}
+                   "attempt": attempt, "tag": tag}
         rows = repository.tasks_page(session, settings.lab_id, run_id,
                                      sort=sort, after=after, limit=limit, **filters)
         total = repository.tasks_total(session, settings.lab_id, run_id, **filters)

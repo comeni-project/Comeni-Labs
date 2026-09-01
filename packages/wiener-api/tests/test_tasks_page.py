@@ -172,3 +172,71 @@ def test_the_board_counts_tasks_without_folding_events(session, client, a_run):
     row = next(r for r in client.get("/api/runs").json()["runs"] if r["id"] == a_run.id)
     assert row["tasks_seen"] > 0
     assert row["tasks_done"] <= row["tasks_seen"]
+
+
+# ── filtering one run's tasks by tag ─────────────────────────────────────────────────
+
+
+def test_a_tag_filter_returns_only_that_tag(session, a_run):
+    """*How did sampleB do* — the question fan-out created and nothing answered.
+
+    Before Plan 5B phase 4 a reference channel capped every run at one task per process, so a
+    per-process row was the whole picture. With N samples a process has N tasks and the tag is
+    the only axis that separates them.
+    """
+    _replay_into(session, a_run.id)
+
+    page = repository.tasks_page(session, settings.lab_id, a_run.id, tag="genome.fasta")
+    assert [row.process for row in page] == ["STAR_GENOMEGENERATE"]
+    assert repository.tasks_total(session, settings.lab_id, a_run.id, tag="genome.fasta") == 1
+
+
+def test_the_total_counts_the_filter_and_not_the_run(session, a_run):
+    """`total` is what the footer says *404 more* from. A filter the count ignores makes the
+    table claim there is more to see when the filter already showed all of it."""
+    _replay_into(session, a_run.id)
+
+    whole = repository.tasks_total(session, settings.lab_id, a_run.id)
+    tagged = repository.tasks_total(session, settings.lab_id, a_run.id, tag="test")
+    assert 0 < tagged < whole, f"{tagged} of {whole} — the filter reached the count or it did not"
+
+
+def test_a_tag_is_not_a_sample_and_the_fixture_proves_it(session, a_run):
+    """**Why the control says `tag` and not `sample`.** `meta.id` is the sample for a per-sample
+    process and something else entirely for a reference one — this run tags
+    `STAR_GENOMEGENERATE` with `genome.fasta`, and the fan-out stub run tags it `fasta.txt`.
+
+    A control labelled *sample* would be lying on exactly the rows a person is least likely to
+    have thought about.
+    """
+    _replay_into(session, a_run.id)
+
+    tags = {row.tag for row in repository.tasks_page(session, settings.lab_id, a_run.id)}
+    assert "genome.fasta" in tags, "the reference task carries a tag that names no sample"
+    assert len(tags) > 1
+
+
+def test_the_column_never_disagrees_with_the_json_it_indexes(session, a_run):
+    """`labels` stays authoritative and `TaskOut.tag` still reads it, so the column is an index
+    rather than a second source of truth. The moment they can differ, the filter and the cell
+    it filtered describe different things and neither is wrong on its face."""
+    _replay_into(session, a_run.id)
+
+    for row in repository.tasks_page(session, settings.lab_id, a_run.id):
+        assert row.tag == (row.labels or [{}])[-1].get("tag"), row.task_id
+
+
+def test_an_untagged_run_matches_nothing_rather_than_everything(session, a_run):
+    """**The un-back-filled case, and it is not hypothetical.** `labels` arrived on 2026-08-24
+    and nothing back-fills it, so every run ingested before that has no tag at all.
+
+    A filter that matched those rows would quietly widen to the whole run; the honest answer is
+    an empty result, which is what the screen above has to explain rather than hide.
+    """
+    _replay_into(session, a_run.id)
+    for row in repository.tasks_page(session, settings.lab_id, a_run.id):
+        row.tag = None
+    session.flush()
+
+    assert repository.tasks_total(session, settings.lab_id, a_run.id, tag="test") == 0
+    assert repository.tasks_total(session, settings.lab_id, a_run.id) > 0, "the run still has tasks"

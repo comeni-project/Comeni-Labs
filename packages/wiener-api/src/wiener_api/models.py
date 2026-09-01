@@ -86,6 +86,24 @@ class RunTask(Base):
     # anybody can search a deployment for a patient.
     labels: Mapped[list] = mapped_column(JSON, default=list)
 
+    # --- the latest attempt's tag, so ONE RUN's tasks can be filtered by it -----------
+    #
+    # The same A191 argument as the three columns above — `labels` is JSON and a `WHERE` over
+    # it is a scan of documents — and the same A200 restraint as the column it indexes:
+    # **deliberately NOT indexed.** A191 earned its two indexes by needing to sort a whole
+    # deployment's worth of rows; this filter is always inside `(lab_id, run_id)`, which IS
+    # indexed, so the scan is bounded by one run's task count rather than by the table.
+    #
+    # That boundary is the whole argument for it existing. A200 withheld a search across a
+    # deployment for a patient, and an unindexed column reachable only under a run id cannot
+    # become one: you must already hold the run, whose tags the table renders anyway. Adding
+    # an index here would remove exactly that bound, which is why there is a comment instead
+    # of an index.
+    #
+    # `labels` stays authoritative and `TaskOut.tag` still reads it — this is its index, not a
+    # second source of truth. Nothing back-fills it, for the reason A191's migration gives.
+    tag: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
 
 class RunArtifact(Base):
     """A gated pipeline directory somebody uploaded. Wiener owns it — §12."""

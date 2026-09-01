@@ -68,3 +68,31 @@ it("shows the process column, because this tab spans processes", async () => {
   at();
   expect((await screen.findAllByTestId("process"))[0]).toBeInTheDocument();
 });
+
+it("asks the server for one tag rather than filtering the page it already has", async () => {
+  // **A page filter would be the console's defect again** — W2's console paged at 200 and
+  // subscribed, invisible on every run anybody had because the largest was five tasks. This
+  // table pages at 500 and a real run has thousands, so filtering what arrived answers about
+  // the first page and silently claims to answer about the run.
+  const calls = at();
+  await screen.findByTestId("tasks-count");
+
+  await userEvent.type(screen.getByLabelText("tag"), "sample_3");
+  await waitFor(() => expect(calls.some((url) => url.includes("tag=sample_3"))).toBe(true));
+});
+
+it("says which kind of empty it is when a tag matches nothing", async () => {
+  // `labels` arrived 2026-08-24 and nothing back-fills it, so an older run carries no tag at
+  // all and matches nothing whatever you type. Zero rows alone reads as *no such sample*.
+  // **`tasks-count` is in the control bar, which renders while the query is still pending** —
+  // waiting on it says nothing about the body. Found by writing this test and watching it fail
+  // on the assertion rather than on the behaviour.
+  const calls = at(page(0));
+  expect(await screen.findByTestId("no-tasks")).toHaveTextContent("no task matches these filters");
+
+  await userEvent.type(screen.getByLabelText("tag"), "sample_9");
+  await waitFor(() => expect(calls.some((url) => url.includes("tag=sample_9"))).toBe(true));
+  expect(await screen.findByTestId("no-tasks")).toHaveTextContent(
+    /no task in this run is tagged sample_9.*carries none at all/,
+  );
+});

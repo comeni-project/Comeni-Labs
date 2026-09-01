@@ -31,6 +31,7 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
   const [status, setStatus] = useState("");
   const [retriedOnly, setRetriedOnly] = useState(false);
   const [attempt, setAttempt] = useState("");
+  const [tag, setTag] = useState("");
   const [sort, setSort] = useState<string>("task_id");
 
   const query = new URLSearchParams({ sort, limit: String(LIMIT) });
@@ -38,6 +39,7 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
   if (status) query.set("status", status);
   if (retriedOnly) query.set("retried_only", "true");
   if (attempt) query.set("attempt", attempt);
+  if (tag) query.set("tag", tag);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["tasks-tab", runId, query.toString()],
@@ -100,6 +102,21 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
           </select>
         </label>
 
+        {/* **`tag`, and it says tag rather than sample on purpose.** `meta.id` is the sample
+            for a per-sample process and something else entirely for a reference one — the
+            spine tags `STAR_GENOMEGENERATE` with its FASTA, not with a sample. A control
+            labelled *sample* would be lying on exactly the rows nobody thought about.
+
+            **A free field rather than a menu, and that is the A200 line.** A menu needs a
+            distinct-tags query, which is a search over lab strings across a run; the filter
+            needs none, because every tag on the page is already in the table below. You pick
+            one from what is in front of you. */}
+        <label className="flex items-center gap-1.5 text-label text-ink-3">
+          tag
+          <input aria-label="tag" className={control} value={tag} placeholder="any"
+                 onChange={(e) => setTag(e.target.value.trim())} />
+        </label>
+
         <label className="flex items-center gap-1.5 text-label text-ink-3">
           <input type="checkbox" checked={retriedOnly}
                  onChange={(e) => setRetriedOnly(e.target.checked)} />
@@ -151,6 +168,20 @@ export function Tasks({ runId, processes = [] }: { runId: string; processes?: st
               ))}
             </div>
           </div>
+
+          {/* **An empty table has to say which kind of empty it is.** `labels` arrived on
+              2026-08-24 and nothing back-fills it (`TaskRow` says so on its `tag` field), so a
+              run ingested before that carries no tag at all and matches nothing whatever you
+              type. Rendering zero rows lets that read as *no such sample*, which is a
+              different and much more alarming statement. */}
+          {rows.length === 0 && (
+            <p data-testid="no-tasks" className="px-4 py-3 text-secondary text-ink-3">
+              {tag
+                ? `no task in this run is tagged ${tag} — and a run ingested before tags were `
+                  + `projected carries none at all, so an older run matches nothing here.`
+                : "no task matches these filters"}
+            </p>
+          )}
 
           {/* **Never a silent truncation.** The server caps a page at 500; a table that showed
               500 of 5,000 without saying so reads as a complete answer to the filter above it. */}
