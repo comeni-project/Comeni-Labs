@@ -10,6 +10,7 @@ on screen would explain.
 import json
 import pathlib
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -107,6 +108,28 @@ def command(run: Run, workdir: str, has_params: bool = False) -> list[str]:
     return argv
 
 
+def process_started_at(pid: int) -> float | None:
+    """When this pid began, from `/proc/<pid>/stat` field 22 — **the thing that makes a pid an
+    identity**.
+
+    Pids are reused. A cancel that signals a recycled one kills a stranger's process, which on
+    a laptop is plausibly the user's editor and on a shared host is somebody else's run. The
+    number alone cannot tell the two apart; the number *and* the start time can, because a
+    process cannot inherit both.
+
+    `None` where `/proc` is not readable — macOS, or a hardened container. The caller treats
+    that as *cannot verify*, and `cancel` refuses rather than signalling on a pid alone:
+    refusing costs a person one manual `kill`, and guessing wrong costs somebody a process
+    they never offered up.
+    """
+    try:
+        fields = pathlib.Path(f"/proc/{pid}/stat").read_text()
+        # The comm field is parenthesised and may contain spaces, so split after its close.
+        return float(fields[fields.rindex(")") + 2:].split()[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
 def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     """The subprocess seam, so a test can stand in for Nextflow — the same reason
     `mendel_api.services.gates._run` exists: CI has no Nextflow and a rule only a developer
@@ -176,4 +199,18 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
         run.phase = "launching"
         argv = command(run, workdir=str(workdir), has_params=bool(params))
 
-    _spawn(argv, cwd=workdir)
+    spawned = _spawn(argv, cwd=workdir)
+
+    # **What was spawned, remembered — Plan 6 phase 1.** Until this line the `Popen` was
+    # discarded where it was created, so nothing in Wiener could act on a running pipeline:
+    # there was no pid anywhere and `cancel` had nothing to signal.
+    #
+    # **Recorded after the spawn and in its own transaction**, because the first one is closed
+    # by then — and because a pid written before the process exists would name nothing if the
+    # spawn threw.
+    with db.session_scope() as session:
+        run = repository.run(session, settings.lab_id, run_id)
+        if run is not None:
+            run.pid = spawned.pid
+            run.pid_started_at = process_started_at(spawned.pid)
+            run.pid_host = socket.gethostname()

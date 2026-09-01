@@ -25,6 +25,23 @@ class Run(Base):
     Cheap now; a migration touching every table later. The named cost is that a filter you can
     forget is a leak, which is why Step 7a adds a guard rather than a convention."""
     artifact_id: Mapped[str] = mapped_column(String(32), index=True)
+
+    # --- what was spawned, so a verb has something to signal -----------------------------
+    #
+    # **`_spawn` discarded its `Popen` on the line it made it**, so until Plan 6 nothing in
+    # Wiener could act on a running pipeline: there was no pid anywhere and cancel had nothing
+    # to terminate.
+    #
+    # **A pid is not an identity.** They are reused, and signalling a recycled one kills a
+    # stranger's process — on a laptop, plausibly the user's editor. `pid_started_at` is what
+    # makes the pair unique: a process's own start time cannot be reused with its number.
+    #
+    # **The host matters** because `wiener.md` §12.1 records that the worker holds the host
+    # Docker socket. A cancel arriving at a replica that did not spawn this run has nothing to
+    # signal, and guessing would signal the wrong process. It refuses and says so.
+    pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pid_started_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pid_host: Mapped[str | None] = mapped_column(String(200), nullable=True)
     submitted_by: Mapped[str] = mapped_column(String(200))
     """ATTRIBUTION, not authentication — and §12.1 says that is a gap in W1, not a design."""
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
@@ -103,6 +120,72 @@ class RunTask(Base):
     # `labels` stays authoritative and `TaskOut.tag` still reads it — this is its index, not a
     # second source of truth. Nothing back-fills it, for the reason A191's migration gives.
     tag: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
+class RunIntent(Base):
+    """One verb, asked for by a person, and what happened — `wiener.md` §11.
+
+    **This table is the reason cancel is not a `POST /runs/{id}/cancel`.** §11 defines a *closed
+    verb vocabulary* — `cancel`, `relaunch`, `retry task N`, `pause`, `apply` — where every one
+    is a typed `Intent` that *requires approval by a named human* and leaves an audit line. It
+    also calls that surface the one *"that deserves the hardest audit in Wiener"*, and says why
+    the vocabulary is what makes the audit finite: **a reviewer checks a list of verbs, not a
+    sanitiser.** A first verb shipped without this makes the second one a shortcut's descendant.
+
+    Cancel is the right verb to open with for §11's own reason — *"the only one that needs no
+    artifact"* — which is an argument for building the machinery under the cheapest verb, not
+    for skipping it.
+
+    §11's audit line is *who · when · why · prior phase · resulting run id*, and all five are
+    here. `resulting_run_id` is null for cancel and non-null for relaunch; it exists now rather
+    than when relaunch arrives because adding it later means a migration over rows that cannot
+    be back-filled.
+    """
+
+    __tablename__ = "run_intent"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lab_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    """A member of `wiener_core.intent.IntentKind`, stored as its value. **A closed vocabulary
+    written down twice would drift**, so the enum is the authority and this column is its
+    spelling on disk — the same relationship `run.phase` has with `Phase`."""
+
+    because: Mapped[str] = mapped_column(String(32))
+    """A member of `wiener_core.policy.Reason` — **a declared enum, never free text**, which is
+    §5.2's rule and the reason that enum exists. `OPERATOR_REQUEST` is what a person clicking
+    *cancel* writes; a policy that cancels on its own would write its own reason, and the audit
+    would read the same either way without this field.
+
+    Beside `why`, which is the sentence somebody typed. The enum is what a query groups by; the
+    sentence is what a reader needs. Collapsing them is how §5.2 says an audit stops being
+    answerable."""
+
+    who: Mapped[str] = mapped_column(String(200))
+    """**Authentication here, not attribution**, and that is a break with `mendel_api.models`'
+    `who`, whose own docstring calls it attribution from `git config user.name`. §11 says
+    *approval by a named human*.
+
+    Until accounts exist there is no named human — `WIENER_API_TOKEN` is the only boundary, and
+    `submitted_by` is already hardcoded `"operator"`, which `page-5` calls decoration. So this
+    records what it actually knows and the API says so rather than inventing a person. **Do not
+    read it as an identity until something authenticates one.**"""
+
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    why: Mapped[str] = mapped_column(Text, default="")
+    """Free text somebody typed to justify a verb. Displayed, never interpreted."""
+
+    prior_phase: Mapped[str] = mapped_column(String(16))
+    """What the run was before the verb. **The audit's most load-bearing field**: a cancel on a
+    run that was already failing is a different act from one on a healthy run, and the phase
+    afterwards cannot distinguish them."""
+
+    resulting_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(32), default="")
+    """What the verb actually did, in a closed set. A request that was accepted and then found
+    nothing to signal is not the same as one that stopped a running process, and an audit that
+    cannot tell them apart is an audit of intentions rather than of effects."""
 
 
 class RunArtifact(Base):

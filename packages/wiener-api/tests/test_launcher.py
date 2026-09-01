@@ -1,4 +1,8 @@
 # packages/wiener-api/tests/test_launcher.py
+
+import os
+
+
 def test_site_config_turns_on_the_two_things_wiener_needs(a_run):
     """§4.3 finding 6: without `trace.enabled` the resource fields are absent entirely, and
     everything the dashboard draws depends on this one line."""
@@ -58,7 +62,20 @@ def test_launch_copies_the_artifact_and_starts_nextflow_there(a_run, session, tm
     session.commit()
 
     spawned: list[tuple[list[str], str]] = []
-    monkeypatch.setattr(launcher, "_spawn", lambda argv, cwd: spawned.append((argv, str(cwd))))
+
+    class _Fake:
+        """**The stand-in has a pid now**, because the launcher records what it spawned —
+        Plan 6 phase 1. `os.getpid()` rather than a literal: the launcher verifies the pid
+        against `/proc` to reject a recycled number, and a made-up one would be rejected
+        correctly, which would make this test fail for a reason it is not about."""
+
+        pid = os.getpid()
+
+    def _stub(argv, cwd):
+        spawned.append((argv, str(cwd)))
+        return _Fake()
+
+    monkeypatch.setattr(launcher, "_spawn", _stub)
 
     launcher.launch(a_run.id)
 

@@ -6,6 +6,7 @@ import { useUrlState } from "../app/useUrlState";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { get } from "../wiener/api/client";
+import { Cancel } from "./Cancel";
 import { Console } from "./Console";
 import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
@@ -221,6 +222,11 @@ export function Run() {
           >
             {run.phase}
           </span>
+          {/* **The artboard draws Cancel here and it was omitted until the verb existed.** A
+              control that goes nowhere silently is what `Shell.tsx` records 3A shipping six of;
+              drawing it now is the other half of that rule, not a reversal of it. */}
+          {!TERMINAL.has(run.phase) && <Cancel runId={id} />}
+
           <span className="ml-auto text-right">
             <span className="block font-data text-body text-ink-2 tabular-nums">
               {elapsed(run.started_at_ms, run.ended_at_ms, now)}
@@ -304,11 +310,14 @@ export function Run() {
                                hover:text-ink px-1">
               &larr; back to the run
             </button>
+            {/* **`read-only until W4` came down with the first verb.** It was true for as long
+                as nothing could act on a run, and the moment `cancel` shipped it became a
+                promise the page was breaking. A stale reassurance is worse than none. */}
             <span className="ml-auto text-label text-ink-3">
               {stream.following
-                ? "following \u00b7 read-only until W4"
+                ? "following"
                 : TERMINAL.has(run.phase) ? "not following \u00b7 the run is over"
-                : "not following \u00b7 read-only until W4"}
+                : "not following"}
             </span>
           </div>
           {stream.error ? (

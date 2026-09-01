@@ -136,9 +136,20 @@ it("re-pages when the connection drops, rather than reopening blind", async () =
   expect(paged.filter((u) => u.includes("/events")).length).toBeGreaterThan(1);
 });
 
-it("says it is read-only rather than pretending it is not", async () => {
-  at();
-  expect(await screen.findByText(/read-only until W4/i)).toBeInTheDocument();
+it("offers cancel on a live run, and does not on one that has ended", async () => {
+  // **This replaces a test asserting `read-only until W4`.** That was true for as long as
+  // nothing could act on a run; `cancel` is the first verb (`wiener.md` §11) and the promise
+  // came down with it. A stale reassurance is worse than none.
+  at({ ...STATE, phase: "running" }, PAGE, "overview");
+  expect(await screen.findByTestId("cancel-run")).toBeInTheDocument();
+});
+
+it("does not offer cancel on a run that has already ended", async () => {
+  // Refused server-side too — `409`, with the phase named. The control is absent because a
+  // button that is always refused is a worse answer than no button.
+  at({ ...STATE, phase: "succeeded" }, PAGE, "overview");
+  await screen.findByTestId("run-panels");
+  expect(screen.queryByTestId("cancel-run")).toBeNull();
 });
 
 it("opens on the run itself, and the console is not on it", async () => {

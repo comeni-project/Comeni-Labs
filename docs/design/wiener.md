@@ -506,6 +506,21 @@ have to remember what they asked. The briefs alone would not do — those are de
 the chat panel**; until then the four-table guard stays at four, so adding it early fails a test
 rather than arriving unnoticed.
 
+**`run_intent` is the sixth table and its argument is §11's** (built 2026-09-01, Plan 6 phase
+1). It was in the schema listing above from the start and had no prose beside `run_message`'s,
+which is why the four-table guard refused it — correctly. The argument: §11 defines a **closed
+verb vocabulary** where every verb *requires approval by a named human* and leaves an audit line
+of *who · when · why · prior phase · resulting run id*, and calls that surface the one **"that
+deserves the hardest audit in Wiener"**. An audit that lives only in the event stream cannot be
+queried by *who asked for this*, and one that lives only on the row cannot say what a person was
+looking at when they asked — `prior_phase` is the field that carries that, and a cancel on a run
+that was already failing is a different act from one on a healthy run.
+
+**It is not a projection and has no rebuild path**, which is exactly why it needs an argument
+rather than a note: nothing can reconstruct who clicked a button. The *effect* of a verb does go
+through the record — `EventKind.CANCELLED` is admitted like any other event, so a replayed run
+still reaches `cancelled` — and this table is the half the record cannot hold.
+
 **`run_event` is the source of truth and everything else is a projection.** `run_task` and
 `run.phase` exist because a dashboard cannot fold three days of events on every page load; they are
 a cache with a rebuild path, and `test_projection_matches_replay` asserts the cache agrees with the

@@ -8,7 +8,7 @@ def test_the_tables_are_the_four_that_argued_for_themselves():
     import wiener_api.models as m
 
     tables = {v.__tablename__ for v in vars(m).values() if hasattr(v, "__tablename__")}
-    assert tables == {"run", "run_event", "run_task", "run_artifact"}, (
+    assert tables == {"run", "run_event", "run_task", "run_artifact", "run_intent"}, (
         f"the tables moved: {sorted(tables)}. run_event is the record and run_task and run "
         "are projections of it with a rebuild path — a table that is neither needs an "
         "argument in docs/design/wiener.md §7.1 before it exists. NOTE: `run_message` is "

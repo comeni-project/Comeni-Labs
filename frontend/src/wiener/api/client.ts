@@ -118,6 +118,14 @@ export async function post<T>(path: string, payload: unknown): Promise<T> {
     }
     throw new Refused("refused, with no reason given");
   }
+  if (r.status === 409) {
+    // **A refusal's whole value is its sentence.** `cancel` answers *this run is already
+    // succeeded* or *this run was launched on another host*, and a reader who sees
+    // `/api/runs/…/cancel → 409` learns nothing they can act on. Found in the browser: the
+    // server said the useful thing and this function threw it away.
+    const detail = ((await r.json().catch(() => null)) as { detail?: string } | null)?.detail;
+    throw new Error(detail || `${path} → 409`);
+  }
   if (!r.ok) throw new Error(`${path} → ${r.status}`);
   return (await r.json()) as T;
 }

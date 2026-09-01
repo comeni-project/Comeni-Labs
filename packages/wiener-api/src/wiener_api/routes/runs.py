@@ -18,7 +18,7 @@ from wiener_core.timeline import Timeline, lanes
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
-from wiener_api.services import launcher, stream
+from wiener_api.services import launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
     input_shape,
@@ -606,6 +606,48 @@ def run_series(run_id: str) -> Series:
 
     attempts = [Attempt.model_validate(one) for row in rows for one in (row or [])]
     return series(attempts)
+
+
+class CancelRequest(BaseModel):
+    """Why somebody is stopping this run. **Free text, displayed and never interpreted.**"""
+
+    why: str = ""
+
+
+class Cancelled(BaseModel):
+    outcome: str
+    """`signalled` or `already_gone` — **what the verb did, not what was asked.** An audit that
+    records only the request is an audit of intentions, and a reader chasing an orphaned
+    container needs the difference."""
+
+    message: str
+
+
+@router.post("/runs/{run_id}/cancel", operation_id="cancelRun",
+             summary="Stop a run, and record that somebody asked")
+def cancel_run(run_id: str, body: CancelRequest) -> Cancelled:
+    """**The first verb Wiener has ever had** — `wiener.md` §11, and Plan 6 phase 1.
+
+    §11 makes this a closed vocabulary of five where every verb is a typed `Intent` requiring
+    approval by a named human and leaving an audit line. Cancel is first because §11 calls it
+    *"the only one that needs no artifact"*, which is an argument for building the machinery
+    under the cheapest verb rather than for skipping it.
+
+    **`who` is what this deployment actually knows, which is not a person.** §11 says *approval
+    by a named human* and there is no authenticated principal until §12.1's accounts land —
+    `WIENER_API_TOKEN` is the only boundary and `submitted_by` is already hardcoded
+    `"operator"`, which `page-5` calls decoration. Recording `"operator"` here is that same
+    limit, stated rather than dressed up. **Do not read `run_intent.who` as an identity until
+    something authenticates one.**
+
+    A refusal is a `409` and its message is a sentence somebody can act on — *this run is
+    already succeeded*, not *cannot cancel*.
+    """
+    try:
+        outcome, message = verbs.cancel(run_id, who="operator", why=body.why)
+    except verbs.Refused as refusal:
+        raise HTTPException(status_code=409, detail=str(refusal)) from refusal
+    return Cancelled(outcome=outcome, message=message)
 
 
 @router.get("/runs/{run_id}/timeline", operation_id="readTimeline",

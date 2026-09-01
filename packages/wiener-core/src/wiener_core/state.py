@@ -120,7 +120,7 @@ class RunState(BaseModel):
 
 EMPTY = RunState()
 
-_TERMINAL = {EventKind.COMPLETED, EventKind.ERROR}
+_TERMINAL = {EventKind.COMPLETED, EventKind.ERROR, EventKind.CANCELLED}
 
 
 def _counts(tasks: Mapping[int, TaskState]) -> Counts:
@@ -135,6 +135,12 @@ def _counts(tasks: Mapping[int, TaskState]) -> Counts:
 
 
 def _phase(seen: frozenset[EventKind], succeeded: bool | None, started: bool) -> RunPhase:
+    # **First, and above `ERROR`.** Cancelling a run makes Nextflow exit non-zero, so a cancel
+    # and the error it causes arrive together — and *a person stopped this* is the truer
+    # sentence. Reading it as `failed` would send somebody looking for a defect that is a
+    # decision.
+    if EventKind.CANCELLED in seen:
+        return RunPhase.CANCELLED
     if EventKind.ERROR in seen:
         return RunPhase.FAILED
     if EventKind.COMPLETED in seen:

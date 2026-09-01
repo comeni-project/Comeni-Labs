@@ -49,6 +49,18 @@ class EventKind(StrEnum):
     passage of time reaches the fold as an event that `wiener-api`'s timer appends. It is what
     `LOST` is detected by and what §10.1's cheap standing brief is woken by."""
 
+    CANCELLED = "cancelled"
+    """**Wiener's own too, and for the same reason `HEARTBEAT` is** — Plan 6 phase 1.
+
+    A person cancelling a run is not something Nextflow emits, so a cancel could either be
+    written straight onto the row or admitted as an event. It is an event, because §7.1 is
+    *"`run_event` is the source of truth and everything else is a projection"* — and a phase
+    written only on the row makes a replayed run **forget it was cancelled**, which is the one
+    thing the audit exists to remember.
+
+    It also means the console shows the cancel in order, beside the tasks that were running
+    when it happened, without anything being taught to merge two sources."""
+
 
 FROM_NEXTFLOW: Final = frozenset(EventKind) - {EventKind.HEARTBEAT}
 """What an external party may author. Smaller than `EventKind` on purpose — A175."""

@@ -1,6 +1,7 @@
 """Upload, submit, read. The public surface — `docs/design/wiener.md` §13."""
 
 import io
+import os
 import zipfile
 
 
@@ -91,7 +92,10 @@ def test_the_params_reach_a_params_file_and_the_argv(client, a_bundle, session, 
     _, (queued_id, queued_params) = client.queued[0]
     assert (queued_id, queued_params) == (run_id, params)
 
-    monkeypatch.setattr(launcher, "_spawn", lambda argv, cwd: None)
+    # The launcher records what it spawned (Plan 6 phase 1), so a stand-in for a process
+    # has to look like one. `os.getpid()` because the pid is verified against `/proc`.
+    monkeypatch.setattr(launcher, "_spawn",
+                        lambda argv, cwd: type("P", (), {"pid": os.getpid()})())
     launcher.launch(run_id, queued_params)
 
     workdir = launcher.work_dir(run_id)

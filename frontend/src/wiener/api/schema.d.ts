@@ -203,6 +203,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a run, and record that somebody asked
+         * @description **The first verb Wiener has ever had** — `wiener.md` §11, and Plan 6 phase 1.
+         *
+         *     §11 makes this a closed vocabulary of five where every verb is a typed `Intent` requiring
+         *     approval by a named human and leaving an audit line. Cancel is first because §11 calls it
+         *     *"the only one that needs no artifact"*, which is an argument for building the machinery
+         *     under the cheapest verb rather than for skipping it.
+         *
+         *     **`who` is what this deployment actually knows, which is not a person.** §11 says *approval
+         *     by a named human* and there is no authenticated principal until §12.1's accounts land —
+         *     `WIENER_API_TOKEN` is the only boundary and `submitted_by` is already hardcoded
+         *     `"operator"`, which `page-5` calls decoration. Recording `"operator"` here is that same
+         *     limit, stated rather than dressed up. **Do not read `run_intent.who` as an identity until
+         *     something authenticates one.**
+         *
+         *     A refusal is a `409` and its message is a sentence somebody can act on — *this run is
+         *     already succeeded*, not *cannot cancel*.
+         */
+        post: operations["cancelRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/timeline": {
         parameters: {
             query?: never;
@@ -400,6 +435,24 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * CancelRequest
+         * @description Why somebody is stopping this run. **Free text, displayed and never interpreted.**
+         */
+        CancelRequest: {
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+        };
+        /** Cancelled */
+        Cancelled: {
+            /** Outcome */
+            outcome: string;
+            /** Message */
+            message: string;
         };
         /** Curve */
         Curve: {
@@ -1240,6 +1293,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Series"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancelRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cancelled"];
                 };
             };
             /** @description Validation Error */

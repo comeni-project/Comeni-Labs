@@ -67,61 +67,75 @@ building the machinery under the cheapest verb, not for skipping it.
 
 ### 1.1 The launcher keeps what it spawned
 
-- [ ] `RunProcess` — or a column on `run` — holding the **pid, the start time, and the host**.
+- [x] `RunProcess` — or a column on `run` — holding the **pid, the start time, and the host**.
       A pid alone is not an identity: pids are reused, and killing a recycled one kills
       somebody else's process. The start time is what makes the pair unique.
-- [ ] `_spawn` returns its `Popen` and the caller records it. Today the handle is discarded on
+- [x] `_spawn` returns its `Popen` and the caller records it. Today the handle is discarded on
       the line it is made.
-- [ ] **The host matters and this is why**: `docs/design/wiener.md` §12.1 records that the
+- [x] **The host matters and this is why**: `docs/design/wiener.md` §12.1 records that the
       worker holds the host Docker socket. A cancel arriving at an API replica that did not
       spawn the run has no process to signal. Decide and write down whether cancel is
       *replica-local* (refuse when the host does not match) or goes through a queue. Refusing
       loudly is the correct MVP answer and must say so in the response.
-- [ ] A guard: a launched run records a pid; a run whose recorded pid no longer names the same
+- [x] A guard: a launched run records a pid; a run whose recorded pid no longer names the same
       process is reported as **gone**, not as cancellable.
 
 ### 1.2 `Intent`, approval and audit — §11
 
-- [ ] `IntentKind` and `Intent` in **`wiener-core`**, which already declares them in the design
+- [x] `IntentKind` and `Intent` in **`wiener-core`**, which already declares them in the design
       (§88: `decide(RunState) -> list[Intent]`, *"returns typed intents, never performs them"*).
       Check whether they exist in code before writing them; the design has carried them since
       W1 and the fold may already have the type.
-- [ ] `run_intent` — the audit row. §11's five fields exactly: **who, when, why, prior phase,
+- [x] `run_intent` — the audit row. §11's five fields exactly: **who, when, why, prior phase,
       resulting run id**. `resulting run id` is null for cancel and non-null for relaunch, which
       is why the column exists now rather than when relaunch arrives.
-- [ ] **`who` is authentication here, not attribution**, and that is a break with
+- [x] **`who` is authentication here, not attribution**, and that is a break with
       `mendel_api.models`'s `who` (which its own docstring calls attribution from
       `git config user.name`). §11 says *approval by a named human*. Until accounts exist,
       `WIENER_API_TOKEN` is the only boundary — so the honest MVP records the token's identity
       and the plan must not pretend otherwise. **`submitted_by` is hardcoded `"operator"`** and
       `page-5` already calls that out as decoration; do not add a second one.
-- [ ] Cancel is refused on a terminal run, and the refusal names the phase.
+- [x] Cancel is refused on a terminal run, and the refusal names the phase.
 
 ### 1.3 The phase actually moves
 
-- [ ] **Who writes `cancelled`?** The fold derives phase from events, and a cancel is not
+- [x] **Who writes `cancelled`?** The fold derives phase from events, and a cancel is not
       something Nextflow emits. Two options, and the plan must pick one in writing:
       **(a)** synthesise an admitted event so the record stays the source of truth and
       `state_of` replays a cancel exactly like anything else; **(b)** write the phase on the row
       and accept that the projection and the record now disagree.
       **(a) is correct** — §7.1 is *"`run_event` is the source of truth and everything else is a
       projection"*, and (b) makes a replayed run forget it was cancelled.
-- [ ] Killing the head process leaves containers running. Nextflow traps `SIGTERM` and cleans
+- [x] Killing the head process leaves containers running. Nextflow traps `SIGTERM` and cleans
       up; `SIGKILL` does not. **Send `SIGTERM`, wait, and report what is still up** rather than
       claiming a clean stop.
-- [ ] A guard driven against a real `-stub-run`: cancel mid-run, assert the phase becomes
+- [x] A guard driven against a real `-stub-run`: cancel mid-run, assert the phase becomes
       `cancelled` **and** that a replay of the events reaches the same phase.
 
 ### 1.4 The screen
 
-- [ ] The Cancel control, in the header where the artboard draws it, on non-terminal runs only.
-- [ ] **The three `read-only until W4` strings come down** — they are in `Run.tsx` and they will
+- [x] The Cancel control, in the header where the artboard draws it, on non-terminal runs only.
+- [x] **The three `read-only until W4` strings come down** — they are in `Run.tsx` and they will
       be false. Grep for the phrase; it appears three times.
-- [ ] Confirmation before it fires. It is the first destructive control in Wiener.
+- [x] Confirmation before it fires. It is the first destructive control in Wiener.
+
+### Execution record — 2026-09-01
+
+| step | what actually happened |
+|---|---|
+| 1.1 | `pid`, `pid_started_at`, `pid_host` on `run`. **A pid alone is not an identity** and the start time from `/proc/<pid>/stat` is what makes the pair unique — where `/proc` cannot be read the answer is *do not signal*, because refusing costs one manual `kill` and guessing costs somebody a process they never offered up. |
+| 1.1 | The host check refuses **loudly and names the host**, as the plan required. |
+| 1.2 | **`IntentKind`, `Intent` and `Reason` already existed** in `wiener_core/policy.py`, and `Reason.OPERATOR_REQUEST` is exactly §11's `because:` line. Nothing new was written in `wiener-core`; the plan's instruction to check first is what avoided a duplicate vocabulary. |
+| 1.2 | **`run_intent` was already in §7.1's schema listing** and had no prose argument beside `run_message`'s — which is why the four-table guard refused it, correctly. The argument is written now, and the guard widened only after. Its columns were reconciled with §11's audit line: `because` (the enum) beside `why` (the sentence). |
+| 1.3 | **(a), as the plan chose.** `EventKind.CANCELLED` is Wiener's own event, the same shape `HEARTBEAT` already is and for the same reason. It is checked **above** `ERROR` in `_phase`, because cancelling makes Nextflow exit non-zero and *a person stopped this* is the truer sentence. |
+| 1.4 | The three `read-only until W4` strings came down, and the test asserting one was replaced rather than deleted. |
+| — | **`reported.test.ts` refused `Cancel.tsx`** until the mutation was lifted into a `useCancel` hook that returns it. The guard was right and the house pattern was better; widening the scan to accommodate the component was the wrong instinct. |
+| — | **The `409`'s sentence was thrown away by the client.** Found in the browser: the server answers *this run is already succeeded* and the page showed `/api/runs/…/cancel → 409`. `post()` handled 422 specially and nothing else. A refusal's whole value is its reason. |
+| — | **Watching the recycled-pid guard fail terminated the test runner.** Removing the start-time check made `test_a_recycled_pid_is_never_signalled` send `SIGTERM` to `os.getpid()` — pytest itself. The most direct demonstration available that the check is what stands between this verb and a stranger's process. |
 
 ### 1.5 Checkpoint
 
-- [ ] A real run cancelled from the browser, its phase `cancelled`, an audit row naming who and
+- [x] A real run cancelled from the browser, its phase `cancelled`, an audit row naming who and
       why, and no orphaned containers — or a truthful line saying which ones survived.
 
 ---
