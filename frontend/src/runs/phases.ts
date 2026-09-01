@@ -18,7 +18,12 @@ export type Phase = (typeof PHASES)[number];
 export const colourOf: Record<Phase, string> = {
   queued: "var(--ink-3)",
   launching: "var(--ink-3)",
-  running: "var(--measured)",
+  // **`--running`, which exists for exactly this and was not being used.** The artboards
+  // paint a running phase `#BD6DCD` — the pill, the elapsed and the timeline's live bars all
+  // in one colour — and this said `--measured`, the amber that means *a rule matched measured
+  // data*. So a running pill claimed a tier and `Timeline.tsx` drew its running bars purple
+  // beside it: two answers to *what does running look like* on one screen.
+  running: "var(--running)",
   succeeded: "var(--pea)",
   failed: "var(--undecided)",
   cancelled: "var(--ink-3)",

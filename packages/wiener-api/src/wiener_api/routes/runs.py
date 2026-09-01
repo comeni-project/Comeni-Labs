@@ -293,6 +293,10 @@ def read(run_id: str) -> dict:
         state["name"] = repository.artifact_names(
             session, settings.lab_id, [row.artifact_id]
         ).get(row.artifact_id, "")
+        # **Where the run went, beside how long it took.** The artboard's header reads
+        # `local · started 21:04`, and the executor was on the board's rows and nowhere on the
+        # run itself — so the page that shows one run could not say where it ran.
+        state["executor"] = row.executor
     return state
 
 

@@ -1,4 +1,13 @@
+import { useQuery } from "@tanstack/react-query";
+
+import { get } from "../wiener/api/client";
 import type { OverviewData } from "./Overview";
+
+type TimelineShape = {
+  lanes: { bars: { end_ms: number | null }[] }[];
+  from_ms: number;
+  to_ms: number;
+};
 import { ABSENT, seconds, shortBytes } from "./units";
 
 /** Band 1 of the run view — **four panels, never five**.
@@ -98,7 +107,45 @@ function Failures({ failed, retried }: { failed: number; retried: number }) {
 /** **Is it moving** — time since the last thing finished, which is the question a watched run
  *  actually raises. A run with four tasks running and nothing completing for twenty minutes is
  *  not visibly different from a healthy one on any other panel here. */
-function Moving({ lastMs, now, live }: { lastMs: number | null; now: number; live: boolean }) {
+/** Completions per bucket over the run — the artboard's sparkline, ten bars in a 118x26 box.
+ *
+ *  **It answers a different question from the figure beside it.** *2m 35s since the last
+ *  completion* is a moment; the sparkline is whether that moment is normal for this run. A long
+ *  gap after a dense run is a stall; the same gap after a sparse one is how the run has always
+ *  behaved, and the number alone cannot tell them apart.
+ *
+ *  **A bucket with nothing in it draws a 1.5px stub, not nothing** — the artboard does this and
+ *  it matters: an empty bucket is a measurement, and a gap in the bar row would read as the
+ *  chart ending.
+ */
+function Sparkline({ ends, from, to }: { ends: number[]; from: number; to: number }) {
+  const BUCKETS = 10;
+  const span = Math.max(1, to - from);
+  const counts = Array.from({ length: BUCKETS }, () => 0);
+  for (const at of ends) {
+    const n = Math.min(BUCKETS - 1, Math.floor(((at - from) / span) * BUCKETS));
+    if (n >= 0) counts[n] += 1;
+  }
+  const peak = Math.max(1, ...counts);
+
+  return (
+    <svg viewBox="0 0 118 26" width="118" height="26" aria-hidden data-testid="moving-spark">
+      {counts.map((n, i) => {
+        const h = n === 0 ? 1.5 : Math.max(2, (n / peak) * 26);
+        return (
+          <rect key={i} x={i * 10.7} y={26 - h} width={9.1} height={h}
+                fill={n === 0 ? "var(--surface-2)" : "var(--pea)"}
+                fillOpacity={n === 0 ? 1 : 0.62} />
+        );
+      })}
+    </svg>
+  );
+}
+
+function Moving({ lastMs, now, live, ends, from, to }: {
+  lastMs: number | null; now: number; live: boolean;
+  ends: number[]; from: number; to: number;
+}) {
   if (!live) {
     return (
       <Panel label="moving" testid="panel-moving" note="the run has ended"
@@ -117,6 +164,7 @@ function Moving({ lastMs, now, live }: { lastMs: number | null; now: number; liv
   return (
     <Panel label="moving" testid="panel-moving" note="Since the last completion.">
       <span className={FIGURE}>{seconds(Math.max(0, now - lastMs))}</span>
+      {ends.length > 0 && <Sparkline ends={ends} from={from} to={to} />}
     </Panel>
   );
 }
@@ -153,10 +201,23 @@ function ResourceFit({ data }: { data?: OverviewData }) {
   );
 }
 
-export function Panels({ overview, failed, retried, lastMs, now, live }: {
+export function Panels({ overview, failed, retried, lastMs, now, live, runId }: {
   overview?: OverviewData; failed: number; retried: number;
-  lastMs: number | null; now: number; live: boolean;
+  lastMs: number | null; now: number; live: boolean; runId: string;
 }) {
+  // **The same query key the timeline uses, so this costs no second request.** react-query
+  // serves both from one fetch; the alternative was a `completions` endpoint answering a
+  // question the timeline's own data already contains.
+  const timeline = useQuery({
+    queryKey: ["timeline", runId],
+    queryFn: () => get<TimelineShape>(`/api/runs/${runId}/timeline`),
+    refetchInterval: live ? 6_000 : false,
+  });
+  const data = timeline.data;
+  const ends = (data?.lanes ?? [])
+    .flatMap((lane) => lane.bars)
+    .map((bar) => bar.end_ms)
+    .filter((at): at is number => at != null);
   return (
     // **They wrap 2x2 and are never dropped to fit** — dropping one drops a question. `auto-fit`
     // with a floor rather than a media query, so the wrap happens at the width where a panel
@@ -166,7 +227,8 @@ export function Panels({ overview, failed, retried, lastMs, now, live }: {
          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
       <Progress data={overview} />
       <Failures failed={failed} retried={retried} />
-      <Moving lastMs={lastMs} now={now} live={live} />
+      <Moving lastMs={lastMs} now={now} live={live} ends={ends}
+              from={data?.from_ms ?? 0} to={data?.to_ms ?? 0} />
       <ResourceFit data={overview} />
     </div>
   );

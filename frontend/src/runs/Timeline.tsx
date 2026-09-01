@@ -32,6 +32,25 @@ const LANE_GAP = 8;
 /** **Colour is status, never process** — the artboard, and the reason is recorded there: the
  *  first draft coloured by process and a finished STAR task was indistinguishable from a
  *  running one. The lane label already carries identity. */
+/** Round intervals a person reads without converting — 10s, 30s, 1m, 5m … up to 12h.
+ *
+ *  **The ladder is the point.** A tick at 2343m is arithmetically correct and useless; a tick
+ *  at 5m is what the artboard draws and what somebody can measure a bar against. The largest
+ *  interval that yields at most six ticks wins, so a 40-second stub run and a two-day run both
+ *  get an axis rather than one of them collapsing.
+ */
+const LADDER = [
+  10_000, 30_000, 60_000, 5 * 60_000, 10 * 60_000, 30 * 60_000,
+  3_600_000, 6 * 3_600_000, 12 * 3_600_000, 24 * 3_600_000,
+];
+
+function tickEvery(span: number): number[] {
+  const step = LADDER.find((one) => span / one <= 6) ?? LADDER[LADDER.length - 1];
+  const marks: number[] = [];
+  for (let at = 0; at <= span; at += step) marks.push(at);
+  return marks;
+}
+
 const COLOUR: Record<string, string> = {
   COMPLETED: "var(--pea)",
   CACHED: "var(--rail)",
@@ -77,8 +96,11 @@ export function Timeline({ runId, live, onPickLane }: {
   });
   const total = Math.max(1, y);
 
-  const ticks = 5;
-  const marks = Array.from({ length: ticks + 1 }, (_, n) => data.from_ms + (span * n) / ticks);
+  // **Round ticks, not five equal slices.** The artboard's axis reads `0m 5m 10m 15m 20m`;
+  // dividing the span by five gave `0m 2343m 39s 4687m 17s …`, which is a number nobody can
+  // size at a glance — the one job an axis label has. So the *interval* is chosen from a
+  // human ladder and the ticks fall on multiples of it.
+  const marks = tickEvery(span);
 
   return (
     <section data-testid="band-timeline"
@@ -97,13 +119,14 @@ export function Timeline({ runId, live, onPickLane }: {
       <div className="p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${LABELS + W} ${total + 26}`} width="100%"
              height={total + 26} role="img" aria-label="when each attempt ran">
-          {marks.map((ms, n) => (
-            <g key={n}>
-              <line x1={LABELS + x(ms)} y1={0} x2={LABELS + x(ms)} y2={total}
+          {marks.map((offset) => (
+            <g key={offset}>
+              <line x1={LABELS + x(data.from_ms + offset)} y1={0}
+                    x2={LABELS + x(data.from_ms + offset)} y2={total}
                     stroke="var(--line)" strokeWidth={1} />
-              <text x={LABELS + x(ms)} y={total + 18} fill="var(--ink-4)" fontSize={9}
-                    textAnchor="middle" className="font-data">
-                {seconds(ms - data.from_ms)}
+              <text x={LABELS + x(data.from_ms + offset)} y={total + 18} fill="var(--ink-4)"
+                    fontSize={9} textAnchor="middle" className="font-data">
+                {offset === 0 ? "0" : seconds(offset)}
               </text>
             </g>
           ))}

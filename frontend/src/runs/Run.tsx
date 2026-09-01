@@ -35,6 +35,10 @@ type RunState = {
             submitted: number };
   started_at_ms: number | null;
   ended_at_ms: number | null;
+  /** Where the run went. The artboard puts it under the elapsed — `local · started 21:04` —
+   *  because *where* is the other half of *when*, and a run on a cluster and one on this
+   *  laptop are different facts about the same duration. */
+  executor?: string;
   /** What a person called this pipeline — Plan 6 phase 2.
    *
    *  **Attached beside the projection, never folded into it.** A name came off the upload and
@@ -202,17 +206,30 @@ export function Run() {
             **`run <id>` and not a pipeline name.** The artboard's title is `rnaseq-counts`,
             and Wiener surfaces no name for a pipeline — `/runs` has `pipeline_digest` and no
             label anywhere. Inventing one from the digest would be a name nobody chose. */}
+        {/* ══ THE HEADER, AGAINST `.design/RunView.dc.html` ══════════════════════════════
+            Read the artboard beside the page rather than its annotations — four things were
+            wrong here and none was visible from the code:
+
+            **The title is SANS.** The artboard sets `font-size:31px; font-weight:600;
+            letter-spacing:-.035em` with no family override, so it inherits the body sans; only
+            the id carries `class="m"`. This was `font-data`, which made a pipeline's name read
+            like an identifier — the opposite of the distinction the artboard draws between a
+            name somebody chose and a hash nobody did.
+
+            **The order is name · pill · id.** The id came second here, which put a hash between
+            a name and its state.
+
+            **The elapsed takes the phase's colour** — the artboard draws `21m 40s` in the same
+            `#BD6DCD` as the running pill, so the two things that say *this is still going* say
+            it together. It was grey.
+
+            **CANCEL is rightmost, after the elapsed**, not tucked beside the pill where it sat
+            in the reach of somebody aiming at the phase. */}
         <div className="flex items-baseline gap-3.5">
-          {/* **The name when there is one, and `run <id>` when there is not.** The artboard's
-              title is `rnaseq-counts`; the id moves beside it in that case rather than being
-              dropped, because the id is what a person pastes into a message and two runs of one
-              pipeline share a name. */}
-          <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">
+          <h1 className="font-display text-[31px] font-semibold leading-none text-ink m-0
+                         tracking-[-.035em]">
             {run.name || `run ${id.slice(0, 8)}`}
           </h1>
-          {run.name && (
-            <span className="font-data text-body text-ink-3">{id.slice(0, 8)}</span>
-          )}
           <span
             data-testid="run-phase"
             className="font-data text-label uppercase tracking-[.1em] px-2 py-[3px]"
@@ -222,24 +239,29 @@ export function Run() {
           >
             {run.phase}
           </span>
-          {/* **The artboard draws Cancel here and it was omitted until the verb existed.** A
-              control that goes nowhere silently is what `Shell.tsx` records 3A shipping six of;
-              drawing it now is the other half of that rule, not a reversal of it. */}
-          {!TERMINAL.has(run.phase) && <Cancel runId={id} />}
+          {run.name && (
+            <span className="font-data text-body text-ink-4">{id.slice(0, 8)}</span>
+          )}
 
-          <span className="ml-auto text-right">
-            <span className="block font-data text-body text-ink-2 tabular-nums">
-              {elapsed(run.started_at_ms, run.ended_at_ms, now)}
-            </span>
-            {/* **When, under how long.** The artboard reads `21m 40s / local - started 21:04`,
-                and the second line is what makes the first checkable against a lab notebook. */}
-            {run.started_at_ms != null && (
-              <span className="block font-data text-label text-ink-3 mt-1">
-                started {new Date(run.started_at_ms).toLocaleTimeString([], {
-                  hour: "2-digit", minute: "2-digit",
-                })}
+          <span className="ml-auto flex items-center gap-[22px]">
+            <span className="text-right">
+              <span className="block font-data text-[23px] leading-none tracking-[-.02em]
+                               tabular-nums"
+                    style={{ color: TERMINAL.has(run.phase) ? "var(--ink-2)" : colourOf[phase] }}>
+                {elapsed(run.started_at_ms, run.ended_at_ms, now)}
               </span>
-            )}
+              {/* The artboard reads `local · started 21:04` — **the executor beside the
+                  clock time**, because *where* a run went is the other half of *when*. */}
+              {run.started_at_ms != null && (
+                <span className="block font-data text-label text-ink-4 mt-1">
+                  {run.executor ? `${run.executor} \u00b7 ` : ""}started{" "}
+                  {new Date(run.started_at_ms).toLocaleTimeString([], {
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </span>
+            {!TERMINAL.has(run.phase) && <Cancel runId={id} />}
           </span>
         </div>
 
@@ -265,6 +287,7 @@ export function Run() {
         lastMs={run.last_activity_ms ?? null}
         now={now}
         live={!TERMINAL.has(run.phase)}
+        runId={id}
       />}
 
       {run.phase === "failed" && failed && <Failure failed={failed} />}

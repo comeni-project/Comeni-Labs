@@ -24,9 +24,14 @@ export function seconds(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return ABSENT;
   if (ms < 1000) return `${ms}ms`;
   const total = Math.round(ms / 1000);
-  return total < 60
-    ? `${total}s`
-    : `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  // **Hours, because a run is not always short.** This stopped at minutes, so a two-day run
+  // read `2880m 00s` and a timeline axis tick read `11718m 12s` — a number nobody can size at
+  // a glance, which is the one job an axis label has. Found by putting the page beside its
+  // artboard, whose axis reads `0m 5m 10m 15m 20m`.
+  if (minutes < 60) return `${minutes}m ${String(total % 60).padStart(2, "0")}s`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 export function percent(value: number | null | undefined): string {

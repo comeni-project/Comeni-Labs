@@ -55,7 +55,11 @@ it("draws a run's phase as its own colour AND as a word", async () => {
   // The word matters as much as the hue: `failed` and `lost` share `--undecided` on purpose,
   // and a colour alone is unreadable to somebody who cannot separate the two.
   const dot = row.querySelector("[aria-hidden]") as HTMLElement;
-  expect(dot.style.background).toBe("var(--measured)");
+  // **`--running`, and this test asserted `--measured` until 2026-09-01.** The artboards paint
+  // a running phase `#BD6DCD` and `--running` exists for exactly that; `--measured` is the
+  // amber that means *a rule matched measured data*, so a running row was claiming a tier.
+  // Found by putting the run page beside `RunView.dc.html` rather than by reading either.
+  expect(dot.style.background).toBe("var(--running)");
 });
 
 it("gives failed and running different colours", async () => {
