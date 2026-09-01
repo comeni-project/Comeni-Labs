@@ -193,25 +193,36 @@ export function RunSheet({
             is one third knowable.** The step count is; the sample count is not, because samples
             arrive with the data and this side never sees them (invariant 15); and there is no
             run-shape history. So it says the part it knows. */}
-        <div className="border-t border-line px-6 py-4 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="font-data text-secondary text-ink-3">
-              {tasks} step{tasks === 1 ? "" : "s"} · tasks depend on how many samples you bind
-            </div>
-            <GateVerdict draftId={draftId} blocked={blocked} />
+        {/* **A column, not a row**, and the browser is what found that. `SubmitPanel` is a
+            button until the artifact is uploaded and then becomes a form — three path fields,
+            and a samplesheet table once a pipeline takes one. Inside a `justify-between` row it
+            grew the `shrink-0` cell it sits in, collapsed the `min-w-0` summary beside it to a
+            single word per line, and drew Cancel on top of the words. `lint: passed` fell off
+            the bottom of the sheet.
+            
+            Every test passed: the panel renders, the summary renders, and neither knows the
+            other is there. Plan 4 phase 6's lesson, in the screen that lesson was about. */}
+        <div className="border-t border-line px-6 py-4 flex flex-col gap-4">
+          <div className="font-data text-secondary text-ink-3">
+            {tasks} step{tasks === 1 ? "" : "s"} · tasks depend on how many samples you bind
           </div>
-          <div className="flex items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              data-testid="sheet-cancel"
-              onClick={onClose}
-              className="border border-line-2 px-4 py-[9px] text-body text-ink-2 bg-transparent
-                         cursor-pointer lift"
-            >
-              Cancel
-            </button>
-            <SubmitPanel draftId={draftId} gated={gated} />
-          </div>
+          <GateVerdict draftId={draftId} blocked={blocked} />
+
+          {/* **Cancel rides with the summary, never with the panel.** Sharing a row with
+              `SubmitPanel` puts it on top of *Stored as …* the moment the panel expands into a
+              form — which is the same collapse this footer just stopped having, one level in.
+              The panel gets the whole width below, which is what a form and a samplesheet table
+              both need. */}
+          <button
+            type="button"
+            data-testid="sheet-cancel"
+            onClick={onClose}
+            className="self-end border border-line-2 px-4 py-[9px] text-body text-ink-2
+                       bg-transparent cursor-pointer lift -mt-10"
+          >
+            Cancel
+          </button>
+          <SubmitPanel draftId={draftId} gated={gated} />
         </div>
       </div>
     </div>

@@ -119,7 +119,7 @@ telemetry:  ## bring up the OTLP backend — ClickHouse, the collector and Grafa
 wiener-migrate:  ## apply Wiener's migrations — its own chain, its own database
 	cd packages/wiener-api && uv run alembic upgrade head
 
-dev: names-free $(DEVREG) $(NODEDEPS)  ## the whole stack, plus Vite on the host for HMR
+dev: names-free $(DEVREG) dev-refresh $(NODEDEPS)  ## the whole stack, plus Vite on the host for HMR
 	@test -f .env || cp .env.example .env
 	@# **Made here, owned by whoever ran make.** Docker creates a missing bind-mount source
 	@# ROOT-owned, and the containers run as the host user — so the first write dies on
@@ -221,11 +221,30 @@ $(DEVREG):
 	git clone -q registry $(DEVREG)
 	@echo "cloned the registry to $(DEVREG) — this is what the containers write to"
 
+# **A dependency of `dev`, not a thing to remember.** The clone was made once and never
+# touched again, so `make dev` served whatever the registry looked like the first time anybody
+# ran it — every change in Plan 5A and 5B was invisible to the running stack, and the symptom
+# was a blank builder with a 422 about a manifest field that had been replaced.
 dev-refresh:  ## pull registry changes into the dev clone, if it has no work in it
-	@if [ -z "`git -C $(DEVREG) status --porcelain`" ]; then \
-		git -C $(DEVREG) fetch -q origin && git -C $(DEVREG) reset -q --hard origin/HEAD && \
-		echo "dev registry refreshed"; \
-	else echo "dev registry has uncommitted work — left alone"; fi
+	@if [ ! -d $(DEVREG) ]; then echo "no dev registry yet"; exit 0; fi; \
+	if [ -n "`git -C $(DEVREG) status --porcelain`" ]; then \
+		echo "dev registry has uncommitted work — left alone"; exit 0; fi; \
+	want=`git -C registry rev-parse HEAD`; \
+	have=`git -C $(DEVREG) rev-parse HEAD`; \
+	if [ "$$want" = "$$have" ]; then echo "dev registry is current ($$(echo $$want | cut -c1-8))"; \
+	else \
+		git -C $(DEVREG) fetch -q origin HEAD && git -C $(DEVREG) reset -q --hard FETCH_HEAD && \
+		echo "dev registry $$(echo $$have | cut -c1-8) -> $$(echo $$want | cut -c1-8)"; \
+	fi
+	@# **`fetch origin HEAD`, never a branch name.** This reset to `origin/HEAD`, and the
+	@# clone's origin is the submodule *directory* — fetching a path gets its local branches,
+	@# and the submodule's `main` never moves because the superproject pins a *commit* and
+	@# leaves it detached. So it fetched a branch that had not moved in days and printed
+	@# "dev registry refreshed". `HEAD` fetches whatever the submodule is actually on.
+	@#
+	@# The message now names the two commits, so a refresh that moves nothing says so. A
+	@# success line that is unconditional on whether anything happened is `make drift`
+	@# printing "skipped" over twelve edited contracts, in a new place.
 
 dev-down:  ## stop Vite and the stack
 	@if [ -f $(PIDFILE) ]; then kill -- -`cat $(PIDFILE)` 2>/dev/null || true; rm -f $(PIDFILE); fi

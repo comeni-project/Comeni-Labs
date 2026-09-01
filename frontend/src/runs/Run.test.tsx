@@ -185,3 +185,22 @@ it("says nothing about steps when the artifact could not be read", async () => {
   await screen.findByTestId("row-TRIMGALORE");
   expect(screen.queryByTestId("run-progress")).toBeNull();
 });
+
+it("reads the run the URL names, not the one the projection learned from an event", async () => {
+  // **`RunState.run_id` is `""` until the first event lands**, which is every run between
+  // launch and its first task — and the page passed it to every panel. The overview asked
+  // `/api/runs//overview`, got a 404, and drew that under a header reading `run ` with no id.
+  //
+  // Asserting the *URLs* rather than the rendering is what makes this fail against the
+  // defect: the fixture mock answers any path, so a panel handed an empty id still renders.
+  at({ ...STATE, run_id: "" }, PAGE, "overview");
+
+  await screen.findByRole("heading");
+  const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls.map(
+    ([url]) => url,
+  );
+  // The cause before the symptom: a panel handed an empty id asks a URL with a hole in it.
+  expect(asked.some((url) => url.includes("/overview"))).toBe(true);
+  expect(asked.filter((url) => url.includes("/runs//"))).toEqual([]);
+  expect(screen.getByRole("heading")).toHaveTextContent("run 4c1e9a07");
+});

@@ -70,7 +70,14 @@ function Segment({ name, active, onPick, disabled = false }: {
 }
 
 export function Run() {
-  const { id } = useParams();
+  // **The route's id, and never the projection's.** `RunState.run_id` is what the *fold*
+  // learned from an event, and it is `""` until the first one lands — which is every run
+  // between launch and its first task, and exactly the window somebody watches. Passing it
+  // down asked `/api/runs//overview`, a 404 under a header reading `run ` with no id.
+  //
+  // The tell was that `useTitle` below already used the route id, so the browser tab said
+  // `Run bb22cc33` over a page that did not know which run it was.
+  const { id = "" } = useParams();
   const [params] = useSearchParams();
   const from = params.get("from");
   const [view, setView] = useUrlState("view", "overview");
@@ -171,7 +178,7 @@ export function Run() {
             uppercase label. The artboard reads `run 85bbe6a0 ● running ............ 7m12s`. */}
         <div className="flex items-baseline gap-3.5">
           <h1 className="font-data text-title text-ink m-0 tracking-[-.01em]">
-            run {run.run_id.slice(0, 8)}
+            run {id.slice(0, 8)}
           </h1>
           <span className="flex items-center gap-[7px] text-body text-ink-2">
             <span
@@ -231,7 +238,7 @@ export function Run() {
           question about a step or a task, so putting it behind a segment would hide the one
           panel that is about the run as a whole. It renders nothing when the record is empty
           — absence is absence — so a stub run's page is simply shorter. */}
-      <Envelope runId={run.run_id} live={!TERMINAL.has(run.phase)} />
+      <Envelope runId={id} live={!TERMINAL.has(run.phase)} />
 
       {/* **`flex flex-col flex-1 min-h-0`, and the graph is why.** The canvas inside asks for
           `flex-1 min-h-0` to fill the panel; this section was neither a flex column nor
@@ -267,19 +274,19 @@ export function Run() {
         </div>
         {view === "overview" ? (
           <OverviewPanel
-            runId={run.run_id}
+            runId={id}
             openOn={failed?.process}
             onOpenConsole={(process) => { setOnly(process); setView("console"); }}
             onOpenGraph={() => setView("graph")}
           />
         ) : view === "tasks" ? (
           <Tasks
-            runId={run.run_id}
+            runId={id}
             processes={(overview.data?.rows ?? []).map((row) => row.process)}
           />
         ) : view === "graph" ? (
           <Graph
-            runId={run.run_id}
+            runId={id}
             onOpenConsole={(process) => { setOnly(process); setView("console"); }}
           />
         ) : stream.error ? (

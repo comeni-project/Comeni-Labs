@@ -68,7 +68,7 @@ export function SubmitPanel({
       : null;
 
   return (
-    <div className="p-3 flex flex-col gap-3">
+    <div className="py-0 px-0 flex flex-col gap-3">
       {submit.artifact === null ? (
         <div className="flex items-center gap-2">
           <button

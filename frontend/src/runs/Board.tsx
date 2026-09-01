@@ -324,8 +324,22 @@ export function Board() {
         <Tile label="succeeded · 14 days" figure={rate === null ? "—" : `${rate}%`}
               note={s ? `${s.succeeded} of ${s.succeeded + s.failed} runs` : "—"}
               bar={rate === null ? undefined : { pct: rate, colour: "var(--pea)" }} />
+        {/* **`p95_ms == null` means no run has a recorded DURATION, not that none finished.**
+            The two differ, and the board showed them differing: a `succeeded` row in the table
+            below and *no run has finished* in this tile, at the same time — because
+            `repository.at()` folds only runs with an `ended_at`, and a run can reach a terminal
+            phase without one.
+            
+            Absence is absence, and there are two absences here. Saying the wrong one is the
+            board contradicting its own table, which is the thing a summary must never do. */}
         <Tile label="typical run" figure={s?.median_ms == null ? "—" : seconds(s.median_ms)}
-              note={s?.p95_ms == null ? "no run has finished" : `p95 ${seconds(s.p95_ms)}`} />
+              note={
+                s?.p95_ms != null
+                  ? `p95 ${seconds(s.p95_ms)}`
+                  : (s?.succeeded ?? 0) + (s?.failed ?? 0) === 0
+                    ? "no run has finished"
+                    : "no finished run recorded how long it took"
+              } />
         {s ? <Activity days={s.days} />
            : <div className="bg-surface border border-line rounded-[var(--r)] shadow-e2" />}
       </div>
