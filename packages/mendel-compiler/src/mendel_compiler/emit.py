@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import Pipeline, Step
+from comeni_core.artifact.pipeline import Pipeline, Scope, Step
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
@@ -170,10 +170,36 @@ def _with_meta(expression: str, entries: list) -> str:
 
 
 def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
+    """Every entry channel, as `(groovy name, expression)`.
+
+    **A `RUN`-scoped channel is emitted as a VALUE channel, and that is a correctness fix.**
+
+    A Nextflow process with several *queue* inputs runs as many times as the **shortest** one.
+    Every entry channel used to be a queue, so a reference genome — one item — capped the whole
+    run: with twenty-four samples `STAR_ALIGN` ran **once** and twenty-three were silently
+    dropped. No error, no warning, a green gate, and a counts matrix for one sample.
+
+    Nobody saw it because the stub profile globs **one** sample pair, so N = 1 and the shortest
+    channel is every channel. `test_fan_out.py` runs two pairs, which is the smallest fixture
+    that can tell the two apart — a determinism test over the spine passes either way, which is
+    the guard-that-proves-nothing shape this repository has paid for twice already.
+
+    `.first()` rather than `.collect()`: `first()` takes the one item and makes it a value
+    channel, consumable any number of times. `collect()` gathers a whole channel into a single
+    *list* item, which is fan-in — a different question, and `InputPort.cardinality`'s.
+    """
     return [
-        (_channel_name(channel.name), _with_meta(channel.expression, channel.meta))
+        (
+            _channel_name(channel.name),
+            _as_value(_with_meta(channel.expression, channel.meta), channel.scope),
+        )
         for channel in pipeline.channels
     ]
+
+
+def _as_value(expression: str, scope: Scope) -> str:
+    """A run-scoped channel becomes a value channel; a sample-scoped one stays a queue."""
+    return f"({expression}).first()" if scope is Scope.RUN else expression
 
 
 def _meta_injection(step: Step) -> str:

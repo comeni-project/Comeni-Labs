@@ -104,7 +104,17 @@ def materialise_stub_data(workdir: Path, params: list[str]) -> None:
     data.mkdir(parents=True, exist_ok=True)
     for name in params:
         if name == "input":
-            for mate in ("R1", "R2"):
-                (data / f"sample_{mate}.fastq.gz").write_bytes(b"")
+            # **Two pairs, not one, and that is the whole reason a live bug survived.**
+            #
+            # A Nextflow process with several *queue* inputs runs as many times as the shortest.
+            # Every entry channel was a queue, so a reference genome — one item — capped the run
+            # at one invocation and every sample after the first was silently dropped.
+            #
+            # With one pair, N = 1 and the shortest channel is every channel: the gate is green,
+            # the counts matrix is right, and the pipeline is wrong for real data. Two is the
+            # smallest fixture that can tell a value channel from a queue of one.
+            for sample in ("sampleA", "sampleB"):
+                for mate in ("R1", "R2"):
+                    (data / f"{sample}_{mate}.fastq.gz").write_bytes(b"")
         else:
             (data / f"{name}.txt").write_text("")

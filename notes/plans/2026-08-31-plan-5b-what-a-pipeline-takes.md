@@ -166,33 +166,33 @@ what makes the diff readable.*
 
 ### 4.1 The scope
 
-- [ ] `Scope` with **exactly two members**, `RUN` and `SAMPLE`. **No `group` scope** — every case
+- [x] `Scope` with **exactly two members**, `RUN` and `SAMPLE`. **No `group` scope** — every case
       for one is expressible as a sample-scoped channel with a column that groups, and a scope for
       it would put a join strategy in the vocabulary where the pipeline cannot see it. If a real
       case appears, it arrives as a new member with a written argument, the way `Kind` gained
       exactly two in Plan 4 phase 4 and refused a third.
-- [ ] A type declares its **default** scope; a channel may **override** it.
-- [ ] The override carries a `Why`, exits at a tier and appears in `pipeline.yml`. Choosing
+- [x] A type declares its **default** scope; a channel may **override** it.
+- [x] The override carries a `Why`, exits at a tier and appears in `pipeline.yml`. Choosing
       per-sample annotations over a shared one is a judgement about an experiment, and the
       product's claim is that no such judgement is silent.
 
 ### 4.2 The live bug — spec §10.1
 
-- [ ] **`tests/golden/spine/main.nf` builds `ch_genome_index_star` and `ch_annotation_gtf` with
+- [x] **`tests/golden/spine/main.nf` builds `ch_genome_index_star` and `ch_annotation_gtf` with
       `Channel.fromPath` — queue channels of one item.** `STAR_ALIGN` consumes three queue
       channels, and a Nextflow process runs as many times as the **shortest**. With twenty-four
       samples it runs **once** and twenty-three are silently dropped. There is no `.collect()`,
       `.first()` or `Channel.value` anywhere in `emit.py`.
-- [ ] Nobody noticed because the stub profile globs **one** sample pair, so N = 1 and the shortest
+- [x] Nobody noticed because the stub profile globs **one** sample pair, so N = 1 and the shortest
       channel is every channel. Green gate, correct counts matrix, wrong pipeline for real data.
-- [ ] **A `RUN`-scoped channel emits as a VALUE channel** — `.first()` for a single file,
+- [x] **A `RUN`-scoped channel emits as a VALUE channel** — `.first()` for a single file,
       `.collect()` for a set — so it can be consumed any number of times. `SAMPLE`-scoped stays a
       queue.
-- [ ] **The check is a stub run with two sample pairs asserting the process ran twice**, watched
+- [x] **The check is a stub run with two sample pairs asserting the process ran twice**, watched
       failing against today's emitter. **Not** a determinism test over the spine: that passes
       either way on a one-sample fixture, which is the guard-that-proves-nothing shape this
       repository has already paid for twice.
-- [ ] The stub-data fixture gains a second sample pair.
+- [x] The stub-data fixture gains a second sample pair.
 
 ### 4.3 Fan-in — spec §10.2
 

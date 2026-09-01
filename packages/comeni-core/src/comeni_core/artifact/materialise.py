@@ -26,6 +26,7 @@ from comeni_core.artifact.pipeline import (
     ModuleRef,
     Pipeline,
     RegistryProvenance,
+    Scope,
     Setting,
     Step,
     StepInput,
@@ -367,6 +368,7 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
         declared = vocab.test_data.get(type_id)
         channels.append(
             Channel(
+                scope=Scope(vocab.scopes.get(type_id, Scope.SAMPLE)),
                 name=name,
                 param=param,
                 type_id=type_id,
