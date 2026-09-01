@@ -3794,3 +3794,41 @@ channel from a queue of one, and everything above is vacuous with one — which
 **A determinism test over the spine passes either way.** That is why this is a *run* rather than
 an assertion about emitted text, and it is the third time this repository has met the shape: a
 guard green on the code it was written to reject.
+
+
+## An aggregator gathers, and an override is a decision — Plan 5B phases 4.3 to 4.5, 2026-09-01
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-01 | `test_fan_in.py` "an aggregator is called over the whole channel" | dropped `.collect()` from `_port_expression` | failed | `MULTIQC is called per sample: MULTIQC(FASTQC.out.zip)` |
+| 2026-09-01 | `test_fan_in.py` "the contract declares the fan-in" | removed `cardinality` from MULTIQC's contract | failed, with the emitter one | both halves, so a failure says which end is wrong |
+| 2026-09-01 | `test_scope_override.py` × 3 | the artifact drops the override's `Why` | failed | three, including the round trip through YAML |
+| 2026-09-01 | `test_scope_override.py` × 2 | the artifact ignores the override and takes the default | failed | the `Why` and the emitted Groovy |
+| 2026-09-01 | `test_scope_override.py` × 5 | **recorded a decision for a channel nobody overrode** | failed | `test_the_default_is_taken_and_recorded_as_nothing` |
+
+### The egress guard refused the first design, twice, and was right both times
+
+`IRChannel` was given a `Scope` and a bare `Line`. `tests/test_egress.py` said:
+
+    IRChannel.scope: a bare `str` — annotate it with a `Mark`
+    Extra items in the left set: ('IRChannel', 'why')
+
+The first is a closed vocabulary quietly reopening on a payload. The second is bigger: a `Line`
+there would have been invariant 14's **fifteenth** free-text field — a new author at a new
+moment, which is the argument `ParamDecision.override_reason` had to make to become the tenth.
+
+**That argument does not have to be made**, and noticing so is the whole value of the guard. A
+scope override *is* a resolved value: something settled, at a tier, by somebody, for a reason,
+against an axis. `ResolvedValue` is exactly that shape and its `reason` and `axis_reason` are
+already fields 3 and 12. Nothing widens, no new type exists, and the tier is stamped by the
+function every settled param already goes through.
+
+### A box was ticked before the work was done
+
+4.1's third bullet — *the override carries a `Why`, exits at a tier and appears in
+`pipeline.yml`* — was ticked when 4.2 landed. 4.2 implemented the type's **default**; the
+**override** and its `Why` were not written at all.
+
+`CLAUDE.md` is explicit that a tick means *this step was carried out*. That one was a claim, and
+it was made by a `head.replace("- [ ]", "- [x]")` over a whole section rather than by reading
+what the section said. Ticking by range is how a plan stops being a record.

@@ -196,19 +196,19 @@ what makes the diff readable.*
 
 ### 4.3 Fan-in — spec §10.2
 
-- [ ] `InputPort.cardinality` exists, defaults to `"1"`, and has exactly one reader —
+- [x] `InputPort.cardinality` exists, defaults to `"1"`, and has exactly one reader —
       `validate.py`, refusing more than one *wire*. It says nothing about how many **items** a port
       consumes and **nothing reaches the emitter**.
-- [ ] `cardinality: "*"` emits `.collect()`: one invocation over the whole channel.
-- [ ] MULTIQC's contract consumes `qc.report` from every sample. Today it would emit
+- [x] `cardinality: "*"` emits `.collect()`: one invocation over the whole channel.
+- [x] MULTIQC's contract consumes `qc.report` from every sample. Today it would emit
       `MULTIQC(ch_qc_report)` — **one invocation per sample, producing N reports where the point of
       the tool is to produce one.** It is not in the spine, so nothing is broken right now; the
       contract is in the registry and would be wrong the moment it routed.
-- [ ] Same phase as 4.2 because it is the same arithmetic: *make this port a value channel*.
+- [x] Same phase as 4.2 because it is the same arithmetic: *make this port a value channel*.
 
 ### 4.4 The spine changes, and that is expected
 
-- [ ] The emitted `.nf` is **not** byte-identical to phase 3's — a reference becomes a value
+- [x] The emitted `.nf` is **not** byte-identical to phase 3's — a reference becomes a value
       channel. Golden files move. The invariant that must hold is *same goal in → byte-identical
       out*, not *the same bytes as last week*.
 
@@ -317,7 +317,7 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 | 1 | Yes, with six | See below |
 | 2 | | |
 | 3 | | |
-| 4 | | |
+| 4 | Yes, and **one of its boxes was ticked before it was done** | 4.1's third bullet — *the override carries a `Why`, exits at a tier and appears in `pipeline.yml`* — was ticked when 4.2 landed and had not been implemented. A tick means *this step was carried out*, and that one was a claim. Corrected and then done. **The egress guard refused the first design twice**, and was right both times: `IRChannel.scope` as a bare `str` is how a closed vocabulary stops being closed, and `IRChannel.why` as a `Line` would have been invariant 14's **fifteenth** free-text field. It is a `ResolvedValue` — a scope override *is* a value somebody settled, at a tier, for a reason, against an axis — so `reason` and `axis_reason` are already fields 3 and 12 and the boundary does not widen. `Scope` moved to `plan/tiers.py` beside `Tier` and `ValueSource`, because `plan/ir.py` importing from `artifact/` is backwards |
 | 5 | | |
 
 

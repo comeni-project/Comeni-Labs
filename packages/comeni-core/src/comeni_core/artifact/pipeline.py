@@ -35,6 +35,7 @@ from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.tiers import (
     ReviewLevel,
+    Scope,
     Tier,
     ValueSource,
     review_level_for,
@@ -532,41 +533,6 @@ class Step(BaseModel):
         return self
 
 
-class Scope(StrEnum):
-    """How many times a channel delivers, relative to the run.
-
-    ═══ WHY THIS DECIDES WHETHER A PIPELINE IS CORRECT ═══════════════════════════════════════
-
-    A Nextflow process with several **queue** inputs runs as many times as the **shortest** one.
-    Every entry channel was a queue, so a reference genome — one item — capped a whole run: with
-    twenty-four samples `STAR_ALIGN` ran **once** and twenty-three were silently dropped. No
-    error, no warning, a green gate and a counts matrix for one sample.
-
-    Nobody saw it because the stub profile globs **one** sample pair, so N = 1 and the shortest
-    channel is every channel. The bug is invisible to the only end-to-end test that runs a tool.
-
-    ═══ EXACTLY TWO MEMBERS, AND THE THIRD IS REFUSED IN WRITING ═════════════════════════════
-
-    **There is no `GROUP` scope.** Every case for one — per-batch adapters, per-lane references —
-    is expressible as a `SAMPLE` channel with a column that groups, and a scope for it would put
-    a *join strategy* into the vocabulary, where the pipeline that has to perform the join cannot
-    see it. A type would be asserting how two channels combine, which is not a fact about the
-    type.
-
-    If a real case appears it arrives as a new member with an argument written here, the way
-    `wiener_core.series.Kind` gained exactly two and refused a third.
-    """
-
-    RUN = "run"
-    """One for the whole run: a reference genome, an annotation, an index.
-
-    Emitted as a **value channel**, which Nextflow may consume any number of times. That is the
-    fix — a queue of one item is consumed once and then the process stops."""
-
-    SAMPLE = "sample"
-    """One per sample. Emitted as a queue, which is what makes the process run per sample."""
-
-
 class Channel(BaseModel):
     """What the laboratory supplies, and the measured facts that ride with it.
 
@@ -597,6 +563,19 @@ class Channel(BaseModel):
     fields would rename it inside a phase that is supposed to change no behaviour, and would
     dissolve the ambiguity spec §12.1 says phase 5 must solve.
     """
+    why: "Why | None" = None
+    """Why this channel's scope is what it is — **present only when it was overridden.**
+
+    `None` means the type's default was taken, which is not a decision anybody made and must not
+    read as one. That is §12.2's rule arriving from the other side: a `Why` for a choice nobody
+    made would owe `mendel explain` an answer to a question that was never open, and `upgrade`
+    would replay it forever.
+
+    An override is a judgement about an experiment — per-sample annotations over a shared one is
+    a different analysis, not a different spelling — so it exits at **tier 4** and carries the
+    person's own reason. Invariant 6: flagged always, whatever the confidence.
+    """
+
     scope: Scope = Scope.SAMPLE
     """Whether this channel delivers once for the run or once per sample.
 

@@ -150,6 +150,26 @@ class DraftChannel(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    scope: str | None = None
+    """`run` or `sample`, when a person wants this channel to differ from its type's default.
+
+    **`None` is the type's default and is not an override.** A reference genome is `run` because
+    it is one file for the whole analysis, and saying so again on every draft would be noise —
+    the artifact would then carry a `Why` for a decision nobody made, which is the failure mode
+    §12.2 already refuses for channel *names*.
+
+    An override is a genuine judgement about an experiment. Per-sample annotations over a shared
+    one is a different analysis, not a different spelling, so it exits at **tier 4** and carries
+    the reason the person gave: the product's claim is that no such judgement is silent.
+    """
+
+    why: Line = ""
+    """Why this scope, in the words of whoever chose it. Read only when `scope` overrides.
+
+    Empty is legal and is said in those words rather than replaced with the resolver's
+    boilerplate — audits A77 and A111, and the same rule `DraftParam.why` follows.
+    """
+
     ports: tuple[SocketKey, ...]
     """`<node>.<port>`, the sockets this channel feeds. **A tuple, so the model is hashable and
     frozen** — a draft is compared for equality on every render.

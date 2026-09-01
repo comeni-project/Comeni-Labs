@@ -124,3 +124,38 @@ _REVIEW_BY_TIER = {
 
 def review_level_for(tier: Tier) -> ReviewLevel:
     return _REVIEW_BY_TIER[tier]
+
+
+class Scope(StrEnum):
+    """How many times a channel delivers, relative to the run.
+
+    ═══ WHY THIS DECIDES WHETHER A PIPELINE IS CORRECT ═══════════════════════════════════════
+
+    A Nextflow process with several **queue** inputs runs as many times as the **shortest** one.
+    Every entry channel was a queue, so a reference genome — one item — capped a whole run: with
+    twenty-four samples `STAR_ALIGN` ran **once** and twenty-three were silently dropped. No
+    error, no warning, a green gate and a counts matrix for one sample.
+
+    Nobody saw it because the stub profile globs **one** sample pair, so N = 1 and the shortest
+    channel is every channel. The bug is invisible to the only end-to-end test that runs a tool.
+
+    ═══ EXACTLY TWO MEMBERS, AND THE THIRD IS REFUSED IN WRITING ═════════════════════════════
+
+    **There is no `GROUP` scope.** Every case for one — per-batch adapters, per-lane references —
+    is expressible as a `SAMPLE` channel with a column that groups, and a scope for it would put
+    a *join strategy* into the vocabulary, where the pipeline that has to perform the join cannot
+    see it. A type would be asserting how two channels combine, which is not a fact about the
+    type.
+
+    If a real case appears it arrives as a new member with an argument written here, the way
+    `wiener_core.series.Kind` gained exactly two and refused a third.
+    """
+
+    RUN = "run"
+    """One for the whole run: a reference genome, an annotation, an index.
+
+    Emitted as a **value channel**, which Nextflow may consume any number of times. That is the
+    fix — a queue of one item is consumed once and then the process stops."""
+
+    SAMPLE = "sample"
+    """One per sample. Emitted as a queue, which is what makes the process run per sample."""
