@@ -3832,3 +3832,62 @@ function every settled param already goes through.
 `CLAUDE.md` is explicit that a tick means *this step was carried out*. That one was a claim, and
 it was made by a `head.replace("- [ ]", "- [x]")` over a whole section rather than by reading
 what the section said. Ticking by range is how a plan stops being a record.
+
+
+## The samplesheet — Plan 5B phase 5, 2026-09-01
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-01 | `test_input_form.py` "a samplesheet with one column is refused" | `if wants_table and len(per_sample) < 2` -> `if False` | failed, alone | MD0229 |
+| 2026-09-01 | `test_input_form.py` "two channels reading one parameter" | `if twice:` -> `if False:` | failed, alone | MD0229 |
+| 2026-09-01 | `test_samplesheet.py` "the refusal actually fires and names the id" | put the `+` back at the START of each continuation line | failed | *the refusal did not name the id — the message truncated* |
+| 2026-09-01 | `test_samplesheet.py` end to end | **nothing — it is the checkpoint** | passed | `STAR_ALIGN (test) | 1 of 1 ✔`, and a BAM named for the row's sample |
+
+### `nextflow lint` passed Groovy that meant something else
+
+The duplicate-sample-id refusal is emitted into the pipeline, because that is where the table is
+— Mendel never reads one. The first version put the `+` at the **start** of each continuation
+line:
+
+    error "samplesheet has duplicate sample ids: "
+        + "${twice.join(', ')}. "
+
+Groovy continues a statement when a line **ends** with an operator. A line *beginning* with `+`
+is a new statement applying unary plus to a string, so the message truncated to *"samplesheet
+has duplicate sample ids: "* — **with no ids at all**.
+
+`nextflow lint` reported no errors, because it is valid Groovy. Only a run could tell, and only
+because the run was done: two `nextflow run` invocations against a table with a repeated id and
+one without. That is the same lesson `-stub-run` teaches about hollow inputs — **syntax is not
+behaviour** — and it is now a test that runs Nextflow twice.
+
+### An arm that would have refused every pipeline ever written here
+
+`MD0229`'s second arm, as §5.2 specifies it, refuses *a non-samplesheet form with more than one
+sample-scoped channel*. Every archived schema-5 artifact has three channels, three parameters,
+and **no scope at all** — so migration gives them the `SAMPLE` default and that arm fires on all
+of them. Twenty tests failed, including `wiener-core`'s, which load a v5 fixture to build spans.
+
+Sharing a *scope* is not claiming a parameter twice. What the sentence was about is two channels
+reading one **parameter** — a laboratory supplies one path and both silently read it — and that
+cannot arise from a migration. The correction is in the code, on the diagnostic, and in
+`test_an_archived_v5_artifact_still_loads`, which uses the v5 fixture precisely because a v6 one
+would prove nothing.
+
+### The checkpoint was run, not asserted
+
+`--gate test` on a samplesheet pipeline, with real containers and the pinned public dataset:
+
+    [3e/a44654] STAR_GENOMEGENERATE (genome.fasta) | 1 of 1 ✔
+    [1a/5033ec] STAR_ALIGN (test)                  | 1 of 1 ✔
+    results/star_align/test.Aligned.out.bam
+
+`STAR_ALIGN` read its FASTQ **and its GTF from the same row**, which is the whole claim of a
+samplesheet, and the BAM is named for that row's `sample` — the only place that name could have
+come from. `-stub-run` could not have shown any of it: a stub never reads its inputs, so a
+column wired to nothing is exactly as green as one wired correctly.
+
+**The first attempt at this test failed for an unrelated and correct reason**, worth recording:
+a graph taking a *prebuilt* STAR index gets no `test` profile at all, because
+`genome.index.star` declares no `test_data` and the emitter is all-or-nothing about it. That
+read as a samplesheet failure and was not one.

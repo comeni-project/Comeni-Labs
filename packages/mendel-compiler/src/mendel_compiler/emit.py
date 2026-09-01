@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import Pipeline, Scope, Step
+from comeni_core.artifact.pipeline import InputForm, Pipeline, Scope, Step
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
@@ -201,6 +201,8 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     channel, consumable any number of times. `collect()` gathers a whole channel into a single
     *list* item, which is fan-in — a different question, and `InputPort.cardinality`'s.
     """
+    if pipeline.input_form is InputForm.SAMPLESHEET:
+        return _from_samplesheet(pipeline)
     return [
         (
             _channel_name(channel.name),
@@ -208,6 +210,95 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
         )
         for channel in pipeline.channels
     ]
+
+
+SAMPLESHEET = "ch_samplesheet"
+"""The parsed table, which every sample-scoped channel is a projection of."""
+
+SAMPLE_COLUMN = "sample"
+"""The column carrying a sample's identifier. **Mendel never sees a value in it** — invariant
+15: the pipeline references `params.input`, and the rows are the laboratory's."""
+
+
+def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
+    """`params.input` is a CSV, and each sample-scoped channel is a projection of one column.
+
+    ═══ WHY A TABLE AND NOT TWO GLOBS ════════════════════════════════════════════════════════
+
+    Two `fromFilePairs` calls zip by position, so nothing ties a sample's reads to *its own*
+    annotation — the pipeline would run, pair sample 1's reads with sample 3's GTF, and produce
+    a counts matrix nobody could tell was wrong. A row is what makes *reads with their
+    respective annotations* expressible at all.
+
+    ═══ NO EXPLICIT JOIN, AND THAT IS DELIBERATE ═════════════════════════════════════════════
+
+    Every sample-scoped channel derives from **one** `splitCsv`, so they emit in row order and
+    a process consuming several of them sees one row's values together. Joining them back on
+    `meta.id` would be re-deriving an alignment that was never lost — and `.join()` on a queue
+    is a synchronisation point, so it would also make the pipeline wait for the whole table
+    before the first sample could start.
+
+    A run-scoped channel is untouched: it is one file for the whole analysis, it has its own
+    `params.<name>`, and it has no column.
+    """
+    lines = [
+        (
+            SAMPLESHEET,
+            f"Channel.fromPath(params.input, checkIfExists: true)"
+            f".splitCsv(header: true){_no_duplicate_ids()}",
+        )
+    ]
+    for channel in pipeline.channels:
+        if channel.scope is not Scope.SAMPLE:
+            lines.append(
+                (
+                    _channel_name(channel.name),
+                    _as_value(_with_meta(channel.expression, channel.meta), channel.scope),
+                )
+            )
+            continue
+        files = ", ".join(f"file(row.{column})" for column in channel.columns)
+        payload = files if len(channel.columns) == 1 else f"[ {files} ]"
+        projection = (
+            f"{SAMPLESHEET}.map {{ row -> [ [id: row.{SAMPLE_COLUMN}], {payload} ] }}"
+        )
+        lines.append((_channel_name(channel.name), _with_meta(projection, channel.meta)))
+    return lines
+
+
+def _no_duplicate_ids() -> str:
+    """Refuse a table whose sample ids repeat, naming them. Plan 5B §5.4.
+
+    Two sample-scoped channels are aligned by row, so a sample split across lanes or flowcells —
+    several rows carrying one id — silently becomes several independent samples with the same
+    name, and every per-sample output overwrites the last.
+
+    **Refusing is honest and cheap; merging is not.** nf-core's answer is `cat_fastq`, a grouping
+    step before anything else, and a step that changes cardinality on its way through is exactly
+    what §10.5 says the contract model cannot express at all. So this says so rather than
+    guessing, and names the ids so the person can fix the table.
+
+    Emitted into the pipeline because that is where the table is: Mendel never reads one
+    (invariant 15), so the only place this check can run is the run itself.
+    """
+    return (
+        ".toList().map { rows ->\n"
+        "        def seen = rows.collect { it.sample }\n"
+        "        def twice = seen.countBy { it }.findAll { _k, v -> v > 1 }.keySet()\n"
+        # **The `+` goes at the END of a line, and running it is what found that.** Groovy
+        # continues a statement when a line ends with an operator; a line *beginning* with `+`
+        # is a new statement applying unary plus to a string, so the message silently truncated
+        # to "samplesheet has duplicate sample ids: " — the words before the first break, with
+        # no ids. `nextflow lint` passed it, because it is valid Groovy that means something
+        # else.
+        "        if (twice) {\n"
+        "            error \"samplesheet has duplicate sample ids: ${twice.join(', ')}. \" +\n"
+        "                \"Each row is one sample; a sample split across lanes needs \" +\n"
+        "                \"merging before this pipeline, which Mendel does not emit.\"\n"
+        "        }\n"
+        "        rows\n"
+        "    }.flatMap { it }"
+    )
 
 
 def _as_value(expression: str, scope: Scope) -> str:
@@ -299,6 +390,7 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
             "    // No `test` profile: these inputs declare no `test_data` in the",
             f"    // vocabulary — {', '.join(missing)}. Add one to make `--gate test` runnable.",
         ]
+    table = pipeline.input_form is InputForm.SAMPLESHEET
     return [
         "    test {",
         SMOKE_LIMITS,
@@ -307,12 +399,52 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
         "        // correct, and it is not a substitute for the laboratory validating it.",
         "        // Pinned to a commit: a dataset that moves is one you cannot compare a",
         "        // result against next year.",
+        # **A samplesheet's `input` is a FILE, and a config block cannot write one.**
+        # `materialise_test_samplesheet` writes it beside the workflow at gate time, the same
+        # way `materialise_stub_data` writes the stub fixtures — a pipeline must stay free of
+        # data and of paths to data (invariant 15), so the validation harness is where fixtures
+        # belong. The other parameters are unchanged: a run-scoped reference still gets its URL.
         *[
-            f"        params.{name} = {_render_test_data(by_param[name].test_data)}"
+            f'        params.{name} = "${{projectDir}}/{TEST_SAMPLESHEET}"'
+            if table and name == "input"
+            else f"        params.{name} = {_render_test_data(by_param[name].test_data)}"
             for name in params
         ],
         "    }",
     ]
+
+
+TEST_SAMPLESHEET = "test-samplesheet.csv"
+"""What the `test` profile points `params.input` at when the pipeline takes a table.
+
+Written by `gates.materialise_test_samplesheet`, never by the emitter: the pipeline references
+a path and the harness supplies the file, which is the same split `stub-data/` already makes.
+"""
+
+
+def test_samplesheet(pipeline: Pipeline) -> str:
+    """The `test` profile's samplesheet: **one row**, from each type's declared `test_data`.
+
+    One row is enough and two would be a claim this repository cannot back. A second row needs a
+    second sample's URLs and the vocabulary declares one per type — inventing a second by reusing
+    the first would give the run two samples with identical data and identical results, which
+    looks like a fan-out test and is not one. `tests/test_fan_out.py` runs two *stub* pairs,
+    where a fixture costs nothing; here the fixture is somebody else's dataset.
+
+    What this row does prove is the thing `-stub-run` cannot: that each column is wired to the
+    input it names. A stub never reads its inputs, so a column pointing at nothing is exactly as
+    green as one pointing at a genome — which is how two modules shipped with hollow references.
+    """
+    by_param = {name: channel for channel in pipeline.channels for name in channel.params}
+    columns: list[str] = [SAMPLE_COLUMN]
+    values: list[str] = ["test"]
+    for channel in pipeline.channels:
+        if channel.scope is not Scope.SAMPLE:
+            continue
+        for column, url in zip(channel.columns, by_param[channel.param].test_data, strict=False):
+            columns.append(column)
+            values.append(url)
+    return ",".join(columns) + "\n" + ",".join(values) + "\n"
 
 
 def _ext_scope(step: Step) -> list[str]:

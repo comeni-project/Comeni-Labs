@@ -309,6 +309,9 @@ def test_the_file_carries_every_provenance_a_reader_needs(tmp_path):
         "ai",
         "steps",
         "channels",
+        # How a laboratory hands this pipeline its per-sample data — a closed choice, so the
+        # words a reader needs are generated rather than authored. Plan 5B §5.2.
+        "input_form",
         "decisions",
         "emitted",
         "gate",
@@ -825,7 +828,7 @@ def test_an_unanswered_raw_ext_value_still_loads():
 
 SERIALISED_SHAPE = {
     "Pipeline": ["version", "goal", "registry", "ai", "steps", "channels", "decisions",
-                 "emitted", "gate"],
+                 "emitted", "gate", "input_form"],
     "Step": ["id", "module", "process", "include", "why", "presence", "ext_args", "inputs",
              "call", "settings"],
     "ExtArgs": ["template", "why"],

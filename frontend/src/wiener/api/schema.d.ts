@@ -256,6 +256,17 @@ export interface components {
              * @default []
              */
             declared: string[];
+            /**
+             * Input Form
+             * @default direct
+             * @enum {string}
+             */
+            input_form: "direct" | "samplesheet";
+            /**
+             * Input Columns
+             * @default []
+             */
+            input_columns: string[];
         };
         /**
          * AttemptOut
@@ -697,7 +708,9 @@ export interface components {
              * @default {}
              */
             params: {
-                [key: string]: string | string[];
+                [key: string]: string | string[] | {
+                    [key: string]: string;
+                }[];
             };
             /**
              * Executor

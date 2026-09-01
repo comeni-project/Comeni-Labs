@@ -58,6 +58,24 @@ class TypeDeclaration(BaseModel):
     """The filename stem, validated. A vocabulary type id is whatever somebody named a
     file, and it is emitted as a channel name — root C, A34."""
     states: frozenset[str] = frozenset()
+    sample_columns: int = 1
+    """How many CSV columns one sample of this type occupies. **1 or 2.**
+
+    `fastq.reads` is 2 — `reads_1` and `reads_2`, nf-core's samplesheet convention, with an
+    empty second column meaning single-end. `annotation.gtf` is 1. **Not derivable**: nothing
+    about the type id or its states says a FASTQ arrives in pairs and a GTF does not, and the
+    entry channel's Groovy says it only by using `fromFilePairs`, which is a fact about the
+    glob form rather than about the type.
+
+    Only read when a pipeline takes two or more sample-scoped channels, which is when
+    `params.input` becomes a table — see `Pipeline.input_form`. A single sample-scoped channel
+    still emits its glob, and that is `tests/test_counts.py`'s shape.
+
+    The **column names** come from the channel, not from here: `reads` becomes `reads_1` and
+    `reads_2`, and a pipeline taking two GTFs gets `gtf` and `gtf_2`, because a channel's name
+    is already the thing a person distinguishes them by.
+    """
+
     scope: str = "sample"
     """How many times one of these arrives, relative to the run — `run` or `sample`.
 
@@ -238,6 +256,10 @@ class Vocabulary(BaseModel):
     """The default param name for each type that declares one. See `TypeDeclaration.param` —
     absent means the type id's last segment, which is every type but `fastq.reads`."""
 
+    columns: dict[str, int] = {}
+    """Type id -> how many CSV columns one sample of it occupies. See
+    `TypeDeclaration.sample_columns`."""
+
     scopes: dict[str, str] = {}
     """Type id -> its default scope. See `TypeDeclaration.scope`."""
 
@@ -281,6 +303,7 @@ class Vocabulary(BaseModel):
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
         scopes: dict[str, str] = {}
+        columns: dict[str, int] = {}
         params: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
@@ -289,6 +312,7 @@ class Vocabulary(BaseModel):
             )
             types[type_id] = entry.states
             scopes[type_id] = entry.scope
+            columns[type_id] = entry.sample_columns
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
             if entry.param:
@@ -299,6 +323,7 @@ class Vocabulary(BaseModel):
             types=types,
             entry_channels=entry_channels,
             scopes=scopes,
+            columns=columns,
             params=params,
             test_data=test_data,
             displaced=list(stacked.displaced),

@@ -805,6 +805,43 @@ MD0224:
     call carrying two values of the same name that disagreed, and `MD0108` did not catch it
     because it checked `ext` keys only.
 
+MD0229:
+  emitted_by: core
+  concern: pipeline-file
+  says: "a samplesheet with one column, or two channels reading one parameter"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    `input_form` is derived from the pipeline: one sample-scoped channel is `direct`,
+    two or more is `samplesheet`. If you edited it by hand, set it to match; if this came
+    out of a build, it is a bug in the derivation and worth reporting with the goal.
+  explanation: |
+    **`params.input` has two meanings and one artifact may claim only one.**
+
+    With a single sample-scoped channel it is a glob — `'reads/*_R{1,2}.fastq.gz'`. With
+    two or more it is the path to a CSV whose columns are those channels, because *reads
+    with their respective annotations* is a table and not two globs.
+
+    A glob and a CSV path are both a string, so **nothing downstream can tell them apart**.
+    Wiener reads the artifact's nulls to ask a laboratory what to supply, and without this
+    field it asks the same question either way: somebody answers with the wrong kind of
+    thing, the run fails inside Nextflow minutes later, and the one place that could have
+    said so is the form that asked.
+
+    The check is the reason the field can be trusted at all. It is derived, so it should
+    never disagree — and a derived value that *can* disagree needs a check rather than a
+    convention, which is the same argument `MD0226` makes about channel names.
+
+    **The second arm is not what Plan 5B §5.2 asked for**, and the difference is worth
+    recording. That section asks this to refuse *a non-samplesheet form with more than one
+    sample-scoped channel*. Sharing a **scope** is not claiming a parameter twice: every
+    archived schema-5 artifact has three channels with three parameters and no scope at all,
+    so migration gives them the `SAMPLE` default and that arm refused every pipeline this
+    repository has ever written.
+
+    What *claimed twice* means is two channels reading one parameter — a laboratory supplies
+    one path and both silently read it, which is the merge this plan exists to remove. That
+    cannot arise from a migration, and it catches the thing the sentence was about.
 MD0301:
   emitted_by: resolver
   concern: routing

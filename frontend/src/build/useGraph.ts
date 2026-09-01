@@ -203,7 +203,10 @@ export function useGraph(
       edit((g) => {
         const channels = g.channels ?? [];
         if (channels.some((c) => c.ports.includes(port))) return g;
-        return { ...g, channels: [...channels, { ports: [port] }] };
+        // `why: ""` explicitly, because splitting a channel is not yet a *scope* decision
+        // — it says these ports read different files, and the reason belongs to whoever later
+        // says one of them is per-sample. Empty is legal and is said in those words (A77).
+        return { ...g, channels: [...channels, { ports: [port], why: "" }] };
       }),
     [edit],
   );

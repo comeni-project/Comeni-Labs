@@ -214,7 +214,12 @@ describe("splitting a channel", () => {
     // the pipeline is: an unlisted port keeps one-channel-per-type.
     const { result } = renderHook(() => useGraph(empty));
     act(() => result.current.splitChannel("counts.annotation"));
-    expect(result.current.graph.channels).toEqual([{ ports: ["counts.annotation"] }]);
+    // `why: ""` explicitly since Plan 5B phase 4: splitting says *these ports read
+    // different files*, and the reason belongs to whoever later says one is per-sample.
+    // Empty is legal and is said in those words rather than left absent (A77).
+    expect(result.current.graph.channels).toEqual([
+      { ports: ["counts.annotation"], why: "" },
+    ]);
   });
 
   it("is idempotent, so a second click is not a second channel", () => {

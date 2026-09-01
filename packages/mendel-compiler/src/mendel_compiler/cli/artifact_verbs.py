@@ -19,7 +19,12 @@ from comeni_core.diagnostics import coded
 
 from mendel_compiler import pipeline_file
 from mendel_compiler.emit import emit, emit_config, entry_params
-from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
+from mendel_compiler.gates import (
+    Gate,
+    materialise_stub_data,
+    materialise_test_samplesheet,
+    run_gate,
+)
 
 
 def _emit_verb(target: Path, out: Path) -> int:
@@ -131,6 +136,10 @@ def _publish_verb(target: Path, gate: "Gate | None") -> int:
 
     passed: Gate | None = None
     if gate is not None:
+        # Both gates: a `test` run needs the samplesheet its profile points at, and `-stub-run`
+        # needs it too — a stub never reads its inputs, but `splitCsv` runs before any process
+        # does and a missing file fails there.
+        materialise_test_samplesheet(directory, pipeline)
         if gate is Gate.STUB:
             materialise_stub_data(directory, entry_params(pipeline))
         result = run_gate(gate, directory)

@@ -129,6 +129,7 @@ def test_the_pipeline_file_carries_every_part_a_recipient_needs(tmp_path):
         "ai",
         "steps",
         "channels",
+        "input_form",
         "decisions",
         "emitted",
         "gate",

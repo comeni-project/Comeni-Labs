@@ -220,65 +220,65 @@ what makes the diff readable.*
 
 ### 5.1 The emission — spec §2.2
 
-- [ ] **One** sample-scoped channel emits what it emits now: `fromFilePairs`, one queue channel, no
+- [x] **One** sample-scoped channel emits what it emits now: `fromFilePairs`, one queue channel, no
       samplesheet. **This must not regress** — `tests/test_counts.py` is the only check exercising
       the v1 criterion and it runs this shape.
-- [ ] **Two or more** emit a samplesheet: `params.input` is a CSV whose columns are the
+- [x] **Two or more** emit a samplesheet: `params.input` is a CSV whose columns are the
       sample-scoped channels, each channel a projection of it, joined at the process by `meta.id`.
-- [ ] Column names come from **channel names**, which are derived from types. Rows are the
+- [x] Column names come from **channel names**, which are derived from types. Rows are the
       laboratory's and Mendel never sees them.
 
 ### 5.2 `input_form`, and why it is an enum — spec §11.1 and §12.1
 
-- [ ] `Pipeline.input_form: InputForm` — `SAMPLESHEET | DIRECT`. **A closed enum, not prose.**
-- [ ] §2.2 originally asked the artifact to say which form it wants *"in words, next to the
+- [x] `Pipeline.input_form: InputForm` — `SAMPLESHEET | DIRECT`. **A closed enum, not prose.**
+- [x] §2.2 originally asked the artifact to say which form it wants *"in words, next to the
       param"*. `Pipeline` is door 4's payload, so **words next to a param is a fifteenth free-text
       field**, in a spec whose §5 claims it adds none. The two sentences contradicted each other.
-- [ ] The **words** a reader needs — *"a samplesheet with columns sample, fastq_1, fastq_2, gtf"* —
+- [x] The **words** a reader needs — *"a samplesheet with columns sample, fastq_1, fastq_2, gtf"* —
       are **generated** from `input_form` plus the channel names. Nobody authors a string, nothing
       new crosses a door, and the artifact still reads as prose because `mendel emit` writes the
       comment.
-- [ ] **The general rule this nearly broke, worth carrying beyond this plan:** when a fact is a
+- [x] **The general rule this nearly broke, worth carrying beyond this plan:** when a fact is a
       closed choice, put the choice in the artifact and generate the sentence. A field that exists
       so a file can explain itself is how a boundary widens one entry at a time.
-- [ ] `MD0229`: a samplesheet form with fewer than two sample-scoped channels, or a non-samplesheet
+- [x] `MD0229`: a samplesheet form with fewer than two sample-scoped channels, or a non-samplesheet
       form with more than one. **It is the check that `params.input`'s two meanings can never both
       be claimed by one artifact.**
 
 ### 5.3 Wiener has to know — spec §12.1
 
-- [ ] **Two same-type channels work by construction, and that is worth noticing.**
+- [x] **Two same-type channels work by construction, and that is worth noticing.**
       `declared_holes` reads the artifact's **nulls**, so `params.gtf` and `params.gtf_2` are two
       nulls, Wiener asks for two files, and nothing on that side changes.
-- [ ] **The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a
+- [x] **The samplesheet does not.** `params.input` is **one null whether it is a fastq glob or a
       CSV path**, so the run sheet asks the same question and a person answers it with the wrong
       kind of thing. The run fails inside Nextflow minutes later, and the one place that could have
       said so is the form that asked.
-- [ ] `wiener_api.services.artifacts` already loads the artifact with `Pipeline.model_validate`, so
+- [x] `wiener_api.services.artifacts` already loads the artifact with `Pipeline.model_validate`, so
       **`input_form` is one field access away.** `declared_holes` returns holes with a *shape*;
       `input` carries `SAMPLESHEET` and its column list.
-- [ ] The run sheet renders a **samplesheet builder** rather than a path box. A Wiener change
+- [x] The run sheet renders a **samplesheet builder** rather than a path box. A Wiener change
       inside a Mendel plan, and small precisely because `wiener.md` §12's design — *the browser
       posts the artifact and Wiener reads its holes back out* — already put the artifact in the
       right place.
-- [ ] **Two independent arguments reached one design** — the egress boundary in 5.2 and this — and
+- [x] **Two independent arguments reached one design** — the egress boundary in 5.2 and this — and
       that is the strongest signal in the spec. Recorded rather than left as a coincidence.
 
 ### 5.4 Duplicate sample ids — spec §10.4
 
-- [ ] Two sample-scoped channels join on `meta.id`. A sample split across lanes or flowcells is
+- [x] Two sample-scoped channels join on `meta.id`. A sample split across lanes or flowcells is
       several rows with one id, and nf-core's answer is `cat_fastq` — a grouping step before
       anything else.
-- [ ] **A duplicate sample id is a refusal**, with a message naming the rows. Refusing is honest
+- [x] **A duplicate sample id is a refusal**, with a message naming the rows. Refusing is honest
       and cheap; merging is a pipeline-shape decision needing the grouping §10.5 says the contract
       model cannot express at all.
 
 ### 5.5 The checkpoint
 
-- [ ] **`--gate test` is the real one.** `-stub-run` never reads its inputs, so a samplesheet column
+- [x] **`--gate test` is the real one.** `-stub-run` never reads its inputs, so a samplesheet column
       wired to nothing is exactly as green as one wired correctly. Two modules shipped that way
       before — STAR built an index from nothing and aligned against no annotation.
-- [ ] **Watch the estimate here.** `CLAUDE.md`'s rule is that an estimate wrong by more than about
+- [x] **Watch the estimate here.** `CLAUDE.md`'s rule is that an estimate wrong by more than about
       double is a decision point. `splitCsv` over a declared header, joined by `meta.id`, against
       modules whose input arity varies — `NfInput.empty` exists because a 2-tuple in a 3-tuple slot
       dies on *"Path value cannot be null"*, and this phase creates new chances for exactly that.
@@ -318,7 +318,7 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 | 2 | | |
 | 3 | | |
 | 4 | Yes, and **one of its boxes was ticked before it was done** | 4.1's third bullet — *the override carries a `Why`, exits at a tier and appears in `pipeline.yml`* — was ticked when 4.2 landed and had not been implemented. A tick means *this step was carried out*, and that one was a claim. Corrected and then done. **The egress guard refused the first design twice**, and was right both times: `IRChannel.scope` as a bare `str` is how a closed vocabulary stops being closed, and `IRChannel.why` as a `Line` would have been invariant 14's **fifteenth** free-text field. It is a `ResolvedValue` — a scope override *is* a value somebody settled, at a tier, for a reason, against an axis — so `reason` and `axis_reason` are already fields 3 and 12 and the boundary does not widen. `Scope` moved to `plan/tiers.py` beside `Tier` and `ValueSource`, because `plan/ir.py` importing from `artifact/` is backwards |
-| 5 | | |
+| 5 | Yes, with three corrections | **MD0229's second arm is not what §5.2 asked for.** That section wants *a non-samplesheet form with more than one sample-scoped channel* refused. Sharing a **scope** is not claiming a parameter twice: every archived v5 artifact has three channels with three parameters and no scope, so migration gives them the `SAMPLE` default — that arm refused every pipeline this repository has written, twenty tests including `wiener-core`'s. It checks two channels reading one *parameter* instead, which cannot arise from a migration and is what the sentence was about. **`sample_columns` had to be declared**: `entry_channel` knows how to read a glob, and a row projection needs to know a FASTQ is two columns and a GTF is one — not derivable from a type id, its states, or its Groovy. **`--gate test` needed a CSV a config block cannot write**, so `materialise_test_samplesheet` writes it beside the workflow at gate time, the same split `stub-data/` already makes. The checkpoint runs: real containers, real data, a real BAM named for the row's `sample` |
 
 
 ### Phase 1 — the six deviations

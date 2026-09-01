@@ -8,6 +8,7 @@ on screen would explain.
 """
 
 import json
+import pathlib
 import shutil
 import subprocess
 from pathlib import Path
@@ -113,6 +114,39 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 
 
+def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dict[str, object]:
+    """Turn a submitted samplesheet into a CSV in the workdir, and point the param at it.
+
+    ═══ WHY WIENER WRITES IT AND MENDEL NEVER SEES IT ════════════════════════════════════════
+
+    A samplesheet is a table of sample identifiers and paths — **data**. Mendel emits a pipeline
+    that *references* `params.input` and never receives one (invariant 15); Wiener is the half
+    that launches runs and is allowed to hold run data, which is the whole reason the two are
+    separate services.
+
+    **Written into the workdir, never into a table.** `docs/design/wiener.md` §7.1: no table
+    holds a samplesheet. The workdir is transient by nature and is deleted with the run, which
+    is the right lifetime for the one artefact that names a laboratory's files.
+
+    A `str` value is passed through unchanged — that is a path the laboratory already has, and
+    a person who wants to point at their own samplesheet still can. The browser's table editor
+    is a convenience over this, not a gate in front of it.
+    """
+    written: dict[str, object] = {}
+    for name, value in params.items():
+        rows = value if isinstance(value, list) else None
+        if not rows or not all(isinstance(row, dict) for row in rows):
+            written[name] = value
+            continue
+        columns = list(rows[0])
+        path = workdir / f"{name}.csv"
+        lines = [",".join(columns)]
+        lines += [",".join(str(row.get(column, "")) for column in columns) for row in rows]
+        path.write_text("\n".join(lines) + "\n")
+        written[name] = str(path)
+    return written
+
+
 def launch(run_id: str, params: dict[str, object] | None = None) -> None:
     """Copy the artifact somewhere Wiener owns, write the site config, and start Nextflow.
 
@@ -137,6 +171,7 @@ def launch(run_id: str, params: dict[str, object] | None = None) -> None:
         shutil.copytree(settings.artifact_root / artifact.id, workdir, dirs_exist_ok=True)
         (workdir / "site.config").write_text(site_config(run))
         if params:
+            params = _materialise_tables(params, workdir)
             (workdir / "params.json").write_text(json.dumps(params, indent=2, sort_keys=True))
         run.phase = "launching"
         argv = command(run, workdir=str(workdir), has_params=bool(params))

@@ -18,7 +18,12 @@ from wiener_core.state import Attempt
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
 from wiener_api.services import launcher, stream
-from wiener_api.services.artifacts import declared_holes, pipeline_digest, store
+from wiener_api.services.artifacts import (
+    declared_holes,
+    input_shape,
+    pipeline_digest,
+    store,
+)
 from wiener_api.services.projection import state_of
 from wiener_api.settings import settings
 
@@ -29,7 +34,7 @@ class SubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    params: dict[str, str | list[str]] = {}
+    params: dict[str, str | list[str] | list[dict[str, str]]] = {}
     """The values only the laboratory can supply, and **the artifact is the schema**.
 
     Mendel emits every value it can justify and `= null` for every value it cannot, so a
@@ -40,6 +45,12 @@ class SubmitRequest(BaseModel):
 
     **Not stored** — §7.1: no table holds a samplesheet. These ride to the launcher as a job
     argument, which is transient by nature and the right lifetime for run data.
+
+    **A value may be a list of rows**, which is a samplesheet composed in the browser: the
+    launcher writes it as a CSV into the run's workdir and points the parameter at that file.
+    A plain string is passed through unchanged, so a laboratory that already has a samplesheet
+    still gives its path — the table editor is a convenience over that, not a gate in front of
+    it.
     """
     executor: Literal["local"] = "local"
     """`local` only in W1. k8s and awsbatch are W5, and an enum that accepted them before
@@ -60,6 +71,23 @@ class ArtifactStored(BaseModel):
     question. The moment somebody has uploaded an artifact is the moment they need to know what
     it wants, so it is said then.
     """
+
+    input_form: Literal["direct", "samplesheet"] = "direct"
+    """Whether `params.input` is a glob or the path to a samplesheet.
+
+    **The one hole whose name does not say what it wants.** `params.gtf` and `params.gtf_2` are
+    two nulls and the run sheet asks for two files with no help from anybody — two same-type
+    channels work here by construction. `params.input` is **one null either way**, so without
+    this the form asks the same question for a glob and a CSV, somebody answers with the wrong
+    kind of thing, and the run fails inside Nextflow minutes later.
+    """
+
+    input_columns: list[str] = []
+    """The samplesheet's columns, when `input_form` is `samplesheet`. Empty otherwise.
+
+    `sample` is not among them and never will be: it is the identifier column every row
+    carries, and it is the browser's to render. These are the *file* columns each sample
+    supplies — `reads_1`, `reads_2`, `gtf`."""
 
 
 class RunAccepted(BaseModel):
@@ -162,8 +190,10 @@ async def upload_artifact(bundle: UploadFile) -> ArtifactStored:
             # server learning the other exists.
             pipeline_digest=pipeline_digest(artifact_id),
         ))
+    form, columns = input_shape(artifact_id)
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
-                          declared=sorted(declared_holes(artifact_id)))
+                          declared=sorted(declared_holes(artifact_id)),
+                          input_form=form, input_columns=columns)
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")

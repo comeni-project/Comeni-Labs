@@ -30,7 +30,12 @@ from mendel_compiler.cli.report import (
     _report_upgrade,
 )
 from mendel_compiler.emit import emit, emit_config, entry_params
-from mendel_compiler.gates import Gate, materialise_stub_data, run_gate
+from mendel_compiler.gates import (
+    Gate,
+    materialise_stub_data,
+    materialise_test_samplesheet,
+    run_gate,
+)
 
 
 def run(args, parser) -> int:
@@ -222,6 +227,10 @@ def run(args, parser) -> int:
     passed: Gate | None = None
     failed = False
     if args.gate is not None:
+        # **Both gates, and only `stub` was branched on.** A `test` run needs the
+        # samplesheet the profile points at, and `-stub-run` needs it too — a stub
+        # never reads its inputs but `splitCsv` runs before any process does.
+        materialise_test_samplesheet(args.out, pipeline)
         if args.gate is Gate.STUB:
             materialise_stub_data(args.out, entry_params(pipeline))
         result = run_gate(args.gate, args.out)
