@@ -1,5 +1,5 @@
 import type { components } from "../api/schema";
-import { NODE_H, portOffset } from "./geometry";
+import { NODE_H, NODE_W, portOffset } from "./geometry";
 
 type Built = components["schemas"]["BuiltPipeline"];
 type Placed = components["schemas"]["PlacedNode"];
@@ -60,11 +60,38 @@ export function entryChannels(data: Built) {
   );
 }
 
-export function Sources({ data, offsets }: {
+/** What this pipeline produces: every output port nothing on the canvas consumes.
+ *
+ * **The same arithmetic as `entryChannels`, read the other way**, and it is deliberately the
+ * same shape: this is exactly what `materialise.goal_of` computes as the goal's `want` — *what
+ * nothing downstream consumes* — so the canvas and the resolver answer one question once.
+ *
+ * **Nothing drew these.** `want` has always been computed and there was no output node on the
+ * builder at all, so a terminal `counts.matrix` was an unwired port like any other and the
+ * drawing never said which port was the thing the pipeline is *for*.
+ *
+ * **No `met` filter, unlike the input side.** An unmet *input* is a hole in the graph and the
+ * hollow port says so; an output has nothing to be unmet about — it is produced or the step is
+ * not there.
+ */
+export function terminalOutputs(data: Built) {
+  const consumed = new Set(data.layout.wires.map((w) => `${w.from_node}.${w.from_port}`));
+  return data.steps.flatMap((step) =>
+    step.ports
+      .filter((port) => port.side === "out" && !consumed.has(`${step.id}.${port.name}`))
+      .map((port) => ({ key: `${step.id}.${port.name}`, name: port.name, type_id: port.type_id })),
+  );
+}
+
+export function Sources({ data, offsets, labels, onRename }: {
   data: Built;
   offsets: Record<string, { x: number; y: number }>;
+  /** `<node>.<port>` -> what a person called it. Draft-only; it reaches no artifact. */
+  labels?: Record<string, string>;
+  onRename?: (key: string, label: string) => void;
 }) {
   const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
+  const consumed = new Set(data.layout.wires.map((w) => `${w.from_node}.${w.from_port}`));
   const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
 
   const sockets = data.layout.nodes.flatMap((node) => {
@@ -113,7 +140,30 @@ export function Sources({ data, offsets }: {
     });
   });
 
-  if (sockets.length === 0) return null;
+  // **The mirror, and the arithmetic is simpler because the space is free.** An input socket
+  // has to dodge the node that feeds its consumer (see above); an output sits to the RIGHT of a
+  // terminal node, and a node with an unconsumed output has nothing to its right by
+  // construction — that is what makes it terminal.
+  const outputs = data.layout.nodes.flatMap((node) => {
+    const step = data.steps.find((s) => s.id === node.id);
+    if (!step) return [];
+    const outs = step.ports.filter((p) => p.side === "out");
+    return outs.flatMap((port, index) => {
+      if (consumed.has(`${node.id}.${port.name}`)) return [];
+      const anchor = at(node);
+      return [{
+        key: `${node.id}.${port.name}`,
+        port,
+        x: anchor.x + NODE_W + GAP,
+        y: anchor.y + portOffset(0) - SOCKET_H / 2 + index * (SOCKET_H + 8),
+        toY: anchor.y + portOffset(0) + index * (SOCKET_H + 8),
+        fromX: anchor.x + NODE_W,
+        fromY: anchor.y + portOffset(index),
+      }];
+    });
+  });
+
+  if (sockets.length === 0 && outputs.length === 0) return null;
 
   return (
     <>
@@ -145,7 +195,12 @@ export function Sources({ data, offsets }: {
                        bg-[var(--link-soft)]"
           >
             <span className="block text-label uppercase tracking-[.13em] text-ink-3">Input</span>
-            <span className="block text-body text-ink">{s.port.name}</span>
+            <Name
+              at={s.key}
+              fallback={s.port.name}
+              labels={labels}
+              onRename={onRename}
+            />
             {/* **The TYPE, and there is nothing else to show.** No value, no path, no field —
                 the binding happens at the run. */}
             <span className="block font-data text-label text-[var(--link)] truncate">
@@ -155,6 +210,82 @@ export function Sources({ data, offsets }: {
           </div>
         </div>
       ))}
+
+      {outputs.map((s) => (
+        <div key={s.key} data-testid="output" className="absolute pointer-events-none">
+          <svg
+            className="absolute overflow-visible"
+            style={{ left: s.fromX, top: Math.min(s.fromY, s.toY) }}
+            width={Math.max(1, s.x - s.fromX)}
+            height={Math.max(1, Math.abs(s.toY - s.fromY)) + 1}
+          >
+            <path
+              d={`M0,${s.fromY - Math.min(s.fromY, s.toY)}
+                  H${(s.x - s.fromX) / 2}
+                  V${s.toY - Math.min(s.fromY, s.toY)}
+                  H${s.x - s.fromX}`}
+              fill="none"
+              stroke="var(--link)"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+              opacity={0.6}
+            />
+          </svg>
+
+          {/* **Rounded on the LEFT**, where the input socket is rounded on the right — the two
+              read as the open ends of the pipeline rather than as two of the same thing. */}
+          <div
+            style={{ left: s.x, top: s.y, width: SOCKET_W, minHeight: SOCKET_H }}
+            className="absolute border border-dashed border-[var(--link)] rounded-l px-3 py-2
+                       bg-[var(--link-soft)]"
+          >
+            <span className="block text-label uppercase tracking-[.13em] text-ink-3">Output</span>
+            <Name at={s.key} fallback={s.port.name} labels={labels} onRename={onRename} />
+            {/* The type, and there is nothing else to show: where the results go is a RUN
+                question, answered on the run sheet by Wiener. */}
+            <span className="block font-data text-label text-[var(--link)] truncate">
+              {s.port.type_id}
+              {(s.port.states ?? []).length > 0 && `[${(s.port.states ?? []).join(", ")}]`}
+            </span>
+          </div>
+        </div>
+      ))}
     </>
+  );
+}
+
+/** What a person calls a socket, editable in place, falling back to the port's own name.
+ *
+ * **A label and never a key.** It does not become a `params.<name>`, it does not reach
+ * `pipeline.yml`, and no resolver sees it — `tests/test_draft_labels.py` holds that, watched
+ * failing against a version that threads it into the channel name. It exists because a pipeline
+ * can legitimately take two `fastq.reads`, and *tumour* and *normal* is the difference between a
+ * drawing a person can read and one they cannot.
+ *
+ * `pointer-events-auto` because the sockets are drawn inside a `pointer-events-none` layer —
+ * the wires and cards must not eat canvas drags, and this one control must.
+ */
+function Name({ at, fallback, labels, onRename }: {
+  at: string;
+  fallback: string;
+  labels?: Record<string, string>;
+  onRename?: (key: string, label: string) => void;
+}) {
+  const named = labels?.[at];
+  if (!onRename) {
+    return <span className="block text-body text-ink">{named || fallback}</span>;
+  }
+  return (
+    <input
+      data-testid="socket-name"
+      aria-label={`name for ${fallback}`}
+      value={named ?? ""}
+      placeholder={fallback}
+      onChange={(e) => onRename(at, e.target.value)}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="block w-full bg-transparent border-0 p-0 text-body text-ink outline-none
+                 pointer-events-auto placeholder:text-ink-3
+                 focus:underline focus:decoration-dotted"
+    />
   );
 }

@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from comeni_core.goal.profile import DataProfile
 from comeni_core.spell.marks import (
     ContractId,
+    EdgeRef,
     HumanParamValue,
     Line,
     NfIdentifier,
@@ -21,7 +22,7 @@ from comeni_core.spell.marks import (
     PortName,
 )
 
-__all__ = ["DraftEdge", "DraftGraph", "DraftNode", "DraftParam"]
+__all__ = ["DraftEdge", "DraftGraph", "DraftLabel", "DraftNode", "DraftParam"]
 
 
 class DraftParam(BaseModel):
@@ -49,6 +50,38 @@ class DraftParam(BaseModel):
     resolver's boilerplate — audits A77 and A111."""
 
 
+class DraftLabel(BaseModel):
+    """A name somebody typed onto an input or an output socket, for their own reading.
+
+    **Draft-only, and that is the whole design.** Nothing in `materialise` reads it: it does not
+    become a `params.<name>`, it does not reach `pipeline.yml`, and no resolver ever sees it. The
+    operator's constraint was *"yes it's a label, does not change the actual keys"*, and
+    `test_labels_reach_nothing` is what holds it — two drafts differing only in labels emit
+    byte-identical Nextflow and identical artifacts.
+
+    It exists because a pipeline can legitimately take several inputs of one type, and
+    `fastq.reads` twice tells a person nothing about which is which. Naming them *tumour* and
+    *normal* is a reading aid over a graph whose identity is unchanged.
+
+    **`key` is `<node>.<port>` and deliberately not a `NodeId`.** A port is not a node: several
+    ports on one step can each carry a label, and a label should survive its node being dragged
+    (which changes no key) while not surviving its port being rewired (which changes what the
+    label was about).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: EdgeRef
+    """`<node>.<port>` — the same shape `DraftEdge` addresses a port with, and the same alias
+    the IR uses for *which upstream output feeds this consumer's port*. Validated, so a label
+    cannot carry a path or a newline into a draft that is stored and read back."""
+
+    label: Line
+    """What a person calls it. Free text, single line — and it is **not** a new egress author:
+    a `DraftGraph` is not a door payload, `tests/test_egress.py` is untouched, and the count of
+    free-text fields on the surface is still fourteen."""
+
+
 class DraftEdge(BaseModel):
     """One wire: where it starts, where it ends. Nothing derived."""
 
@@ -73,6 +106,10 @@ class DraftGraph(BaseModel):
 
     nodes: list[DraftNode] = Field(default_factory=list)
     edges: list[DraftEdge] = Field(default_factory=list)
+    labels: list[DraftLabel] = Field(default_factory=list)
+    """What a person called each input and output socket. Read by the browser and by nothing
+    else — see `DraftLabel`."""
+
     profile: DataProfile = Field(default_factory=DataProfile)
     """Carried because an advisory check may want to say *the rule that would have fired here
     read a measurement you have not supplied*. `validate` never resolves; it only reports."""

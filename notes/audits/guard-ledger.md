@@ -3631,3 +3631,36 @@ exactly when a suite deserves to be doubted. Reverting each check in turn — `f
 recording which tests noticed produced a clean diagonal: every check has one test, no test
 covers two checks, and no check is unwatched. That is a stronger statement than "the tests pass",
 and it took one script.
+
+
+## A label is for a reader, and outputs are drawn — Plan 5B phase 1, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_draft_labels.py` "a label reaches neither the Nextflow nor the artifact" | threaded the label into `GoalInput.type_id` in `materialise.goal_of` — the shape somebody would actually write | failed | `a label reached pipeline.yml`, with the leaked word in the diff |
+| 2026-08-31 | `rename.test.tsx` × 4 | made `Name` render read-only text unconditionally | failed | four of seven, including the one about two inputs of one type |
+| 2026-08-31 | `Sources.test.tsx` "draws no input socket when the pipeline needs nothing" | **nothing — the change broke it and it was right to break** | n/a | its fixture had become a step with a terminal output, which is what the new socket exists to mark |
+
+### The revert that mattered was the tempting implementation, not a deleted line
+
+A label is *right there* when the channel name is built, it is a `NfIdentifier` away, and
+threading it in would make the emitted Groovy read beautifully. It would also make **what
+somebody typed into a browser** decide what a pipeline *is* — A130's shape, a client claiming
+something about the artifact that nothing downstream could catch.
+
+So the revert is that implementation rather than a disabled check: `goal_of` was made to suffix
+the type id with the label, and the guard failed naming `pipeline.yml` with the leaked word
+visible. Reading the label without using it does **not** fail, which is correct — the claim is
+about the output, not about access.
+
+### A guard that would not have run
+
+The first version lived in `packages/mendel-api/tests/test_drafts.py`, which is where drafts are
+tested — and every test in that file is `skipif`-guarded on Postgres, so in CI it reported
+`13 skipped`. It moved to `tests/test_draft_labels.py` and runs against `materialise` directly,
+which is where the claim actually lives.
+
+**Nothing announced this.** `pytest -q` printed `13 skipped` and it took reading the `-rs` output
+to see that the new guard was among them. A skip is quieter than a failure and louder than
+nothing, and this is the second time in two plans that where a guard *lives* decided whether it
+runs at all.

@@ -60,15 +60,57 @@ describe("what the pipeline needs from you", () => {
     expect(container.textContent).not.toMatch(/\//);
   });
 
-  it("renders nothing at all when the pipeline needs nothing", () => {
+  it("draws no input socket when the pipeline needs nothing", () => {
     // Absence is absence. A pipeline with no entry channels gets no empty column.
+    //
+    // **This asserted `innerHTML === ""` until outputs were drawn**, and the fixture it used —
+    // a step with one output port and no inputs — is now a step with a *terminal output*, which
+    // is exactly what the OUTPUT socket exists to mark. The claim was right and the fixture had
+    // stopped matching it.
     const closed = {
       ...DATA,
       steps: [{ ...DATA.steps[0], ports: [DATA.steps[0].ports[1]] }],
       layout: { ...DATA.layout, nodes: [DATA.layout.nodes[0]], wires: [] },
     };
     const { container } = render(<Sources data={closed as never} offsets={{}} />);
+    expect(container.querySelectorAll("[data-testid=source]").length).toBe(0);
+    expect(container.querySelectorAll("[data-testid=output]").length).toBe(1);
+  });
+
+  it("renders nothing at all for a graph with no steps", () => {
+    // **A pipeline that is closed at both ends does not exist**, which is worth stating rather
+    // than testing around: anything that produces something has a terminal output, and anything
+    // that consumes something it does not make has an entry channel. The only empty canvas is
+    // an empty one.
+    const empty = { ...DATA, steps: [], layout: { ...DATA.layout, nodes: [], wires: [] } };
+    const { container } = render(<Sources data={empty as never} offsets={{}} />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("marks the thing the pipeline is for", () => {
+    // `goal_of` computes `want` as every unwired `produces` and the canvas drew **none of
+    // them** — a terminal `counts.matrix` was an unwired port like any other, with nothing
+    // saying it was the output. One socket per terminal port, and several where there are
+    // several, which `want` has always supported.
+    // DATA's only `out` port is consumed by the wire, so it has no terminal output — which is
+    // itself the check that this is derived rather than drawn per node. Give the last step one.
+    const producing = {
+      ...DATA,
+      steps: [
+        DATA.steps[0],
+        {
+          ...DATA.steps[1],
+          ports: [
+            ...DATA.steps[1].ports,
+            { name: "bam", type_id: "alignment.bam", side: "out", met: true, states: [] },
+          ],
+        },
+      ],
+    };
+    const { container } = render(<Sources data={producing as never} offsets={{}} />);
+    expect(container.querySelectorAll("[data-testid=output]").length).toBe(1);
+    expect(container.textContent).toMatch(/Output/);
+    expect(container.textContent).toMatch(/alignment\.bam/);
   });
 
   it("follows a node that has been dragged", () => {

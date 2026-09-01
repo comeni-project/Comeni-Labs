@@ -67,6 +67,30 @@ export function useGraph(
     setDirty(true);
   }, []);
 
+  /** Name an input or an output socket. `key` is `<node>.<port>`.
+   *
+   * **A label and never a key.** It does not become a `params.<name>`, it does not reach
+   * `pipeline.yml`, and no resolver sees it — `tests/test_draft_labels.py` holds that, watched
+   * failing against a version that threads it into the channel name. It exists because a
+   * pipeline can legitimately take two `fastq.reads`, and *tumour* and *normal* is the
+   * difference between a drawing a person can read and one they cannot.
+   *
+   * Clearing it **removes the entry** rather than storing an empty string, so a draft that was
+   * named and then unnamed is byte-identical to one that never was — which is what keeps the
+   * autosave from writing a graph that differs from the one on screen by an invisible field.
+   */
+  const rename = useCallback(
+    (key: string, label: string) =>
+      edit((g) => ({
+        ...g,
+        labels: [
+          ...(g.labels ?? []).filter((one) => one.key !== key),
+          ...(label.trim() ? [{ key, label }] : []),
+        ],
+      })),
+    [edit],
+  );
+
   /** Add a step, and **return the id it was given** so the caller can position it.
    *
    * The id is minted from the current graph rather than inside the reducer, because a caller
@@ -256,6 +280,7 @@ export function useGraph(
   }, [graph, dirty, save, idleMs]);
 
   return {
+    rename,
     graph,
     offsets,
     dirty,

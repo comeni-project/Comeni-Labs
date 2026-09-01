@@ -1081,6 +1081,8 @@ export interface components {
             nodes?: components["schemas"]["DraftNode"][];
             /** Edges */
             edges?: components["schemas"]["DraftEdge"][];
+            /** Labels */
+            labels?: components["schemas"]["DraftLabel"][];
             profile?: components["schemas"]["DataProfile"];
         };
         /**
@@ -1094,6 +1096,31 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * DraftLabel
+         * @description A name somebody typed onto an input or an output socket, for their own reading.
+         *
+         *     **Draft-only, and that is the whole design.** Nothing in `materialise` reads it: it does not
+         *     become a `params.<name>`, it does not reach `pipeline.yml`, and no resolver ever sees it. The
+         *     operator's constraint was *"yes it's a label, does not change the actual keys"*, and
+         *     `test_labels_reach_nothing` is what holds it — two drafts differing only in labels emit
+         *     byte-identical Nextflow and identical artifacts.
+         *
+         *     It exists because a pipeline can legitimately take several inputs of one type, and
+         *     `fastq.reads` twice tells a person nothing about which is which. Naming them *tumour* and
+         *     *normal* is a reading aid over a graph whose identity is unchanged.
+         *
+         *     **`key` is `<node>.<port>` and deliberately not a `NodeId`.** A port is not a node: several
+         *     ports on one step can each carry a label, and a label should survive its node being dragged
+         *     (which changes no key) while not surviving its port being rewired (which changes what the
+         *     label was about).
+         */
+        DraftLabel: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
         };
         /** DraftNode */
         DraftNode: {

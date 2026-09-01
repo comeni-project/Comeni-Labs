@@ -23,35 +23,35 @@ and it puts the drawing into a shape the later phases read.*
 
 ### 1.1 Outputs are drawn — spec §4.1
 
-- [ ] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
+- [x] `goal_of` computes `want` as every unwired `produces` and **the canvas draws none of them.**
       There is no output node on the builder at all; a terminal `counts.matrix` is an unwired port
       with nothing marking it as the thing the pipeline is *for*.
-- [ ] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
+- [x] One **OUTPUT** node per terminal port, the mirror of the INPUT socket — dashed, blue-edged,
       no settings, `impl-inv`'s shape for a thing that carries a type and never a path.
-- [ ] **Several of them where there are several.** The operator asked for it and `want` has always
+- [x] **Several of them where there are several.** The operator asked for it and `want` has always
       supported it.
-- [ ] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
+- [x] `Sources.tsx`'s socket-gutter arithmetic applies in reverse: an output needs clear space to
       its **right**, and a node at the last rank has it by construction.
 
 ### 1.2 Labels — spec §5
 
-- [ ] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
+- [x] `DraftLabel { key, label: Line }` on `DraftGraph`. `key` is `<node>.<port>` — **not a
       `NodeId`**: a port is not a node, and a label should survive its node being dragged but not
       its port being rewired.
-- [ ] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
+- [x] **Draft-only.** Nothing in `materialise` reads it. It does not become a `params.<name>`, it
       does not reach `pipeline.yml`, and no resolver sees it — the operator's constraint was *"yes
       it's a label, does not change the actual keys."*
-- [ ] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
-- [ ] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
+- [x] Renaming works on both INPUT and OUTPUT nodes, in place on the canvas.
+- [x] **A guard that a label reaches nothing.** Two drafts differing only in labels emit
       byte-identical `.nf` and identical `pipeline.yml`. Watched failing against a version that
       threads the label into the channel name.
-- [ ] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
+- [x] **`tests/test_egress.py` is untouched**, and that is the assertion: fourteen free-text
       fields, still fourteen. A `DraftGraph` is not a door payload.
 
 ### 1.3 Checkpoint
 
-- [ ] `make verify` green, frontend suite green.
-- [ ] On screen: a pipeline with several named inputs and several named outputs, and an emitted
+- [x] `make verify` green, frontend suite green.
+- [x] On screen: a pipeline with several named inputs and several named outputs, and an emitted
       `.nf` byte-identical to the one before the labels were typed.
 
 ---
@@ -314,7 +314,7 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
-| 1 | | |
+| 1 | Yes, with two corrections | **The guard moved out of `test_drafts.py`**, whose tests need Postgres and skip in CI — a guard that does not run is not a guard. It lives in `tests/test_draft_labels.py` and asserts against `materialise` directly, which is where the claim *nothing in `materialise` reads it* actually lives. **`Sources.test.tsx`'s "renders nothing at all" broke and was right to**: its fixture was a step with one output port and no inputs, which is now a step with a *terminal output* — exactly what the OUTPUT socket exists to mark. Split into three: no input socket, nothing at all for a graph with no steps, and a note that **a pipeline closed at both ends does not exist**. `make client` was needed — `DraftGraph` gained a field, and the generated client is never hand-edited |
 | 2 | | |
 | 3 | | |
 | 4 | | |

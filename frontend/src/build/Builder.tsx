@@ -543,7 +543,14 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
                 both. An entry channel used to draw a stub running off to the left with a
                 clipped label and no terminus: the canvas said *something feeds this* and never
                 what, so the only way to learn what the pipeline required was to press Run. */}
-            <Sources data={data} offsets={offsets} />
+            <Sources
+              data={data}
+              offsets={offsets}
+              labels={Object.fromEntries(
+                (builder.graph.labels ?? []).map((one) => [one.key, one.label]),
+              )}
+              onRename={builder.rename}
+            />
 
             {/* Wires first, so a node draws over the line that reaches it rather than under. */}
             <Wires
