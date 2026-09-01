@@ -175,7 +175,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
           columns. `.08em` is the artboard's letterspacing — `.14em` was wider than drawn. */}
       <div className="grid grid-cols-[13rem_8rem_7rem_1fr_1fr_1fr_1fr] gap-[18px]
                       pl-6 pr-[18px] py-2
-                      border-b border-line bg-surface-2 shadow-e1
+                      border-b border-line-soft
                       font-ui text-label uppercase tracking-[.08em] font-semibold text-ink-3">
         <span>process</span><span>tasks</span><span>progress</span>
         <span>memory peak / asked</span><span>cpu used / asked</span>
@@ -293,7 +293,7 @@ export function Table({ data, runId, openOn, onOpenConsole, onOpenGraph }: {
           that the panel fills; `--surface-2` and the border make it the artboards' bar, which
           is where the design keeps its own argument about how to read the table. */}
       <p className="mt-auto px-6 py-2.5 flex items-baseline gap-3 border-t border-line
-                    bg-surface-2 text-label uppercase tracking-[.08em] text-ink-3">
+                    text-label uppercase tracking-[.08em] text-ink-3">
         <span data-testid="table-footer">
           {data.steps_declared > 0
             ? `${data.steps_declared} processes declared`

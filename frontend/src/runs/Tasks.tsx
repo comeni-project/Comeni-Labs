@@ -77,11 +77,11 @@ export function Tasks({ runId, processes = [], openOn }: {
     initialRect: { width: 1200, height: 600 },
   });
 
-  const control = "text-secondary bg-surface border border-line rounded-[var(--r)] px-2 py-1";
+  const control = "text-secondary bg-panel border border-line rounded-[var(--r)] px-2 py-1";
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-line bg-surface-2">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-line-soft">
         <label className="flex items-center gap-1.5 text-label text-ink-3">
           process
           <select aria-label="process" className={control}

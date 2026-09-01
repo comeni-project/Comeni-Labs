@@ -323,10 +323,10 @@ export function Run() {
           the one panel that is a stream rather than a summary, and the artboard draws it
           full-height because that is what reading a log needs. */}
       {view === "console" ? (
-        <section className="flex flex-col flex-1 min-h-0 bg-surface border border-line
+        <section className="flex flex-col flex-1 min-h-0 bg-panel border border-line
                             rounded-[var(--r)] shadow-e2 overflow-hidden">
           <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
-                          border-b border-line bg-surface-2">
+                          border-b border-line-soft">
             <span className="text-label uppercase tracking-[.08em] text-ink-3">console</span>
             <button type="button" data-testid="close-console" onClick={() => setView("overview")}
                     className="bg-transparent border-0 cursor-pointer text-label text-ink-3
@@ -361,10 +361,10 @@ export function Run() {
               **The toggle is state, not a second screen.** Both halves read the same
               `RunState`, so switching is a render and never a fetch. */}
           <section data-testid="band-processes"
-                   className="flex flex-col bg-surface border border-line
+                   className="flex flex-col bg-panel border border-line
                               rounded-[var(--r)] shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
-                            border-b border-line bg-surface-2">
+                            border-b border-line-soft">
               <span className="text-label uppercase tracking-[.08em] text-ink-3">processes</span>
               <span className="ml-auto flex items-center gap-1">
                 {(["table", "graph"] as const).map((name) => (
@@ -408,10 +408,10 @@ export function Run() {
 
           {/* --- tasks, and the console link the artboard puts in its header ------------- */}
           <section data-testid="band-tasks"
-                   className="flex flex-col bg-surface border border-line
+                   className="flex flex-col bg-panel border border-line
                               rounded-[var(--r)] shadow-e2 overflow-hidden">
             <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
-                            border-b border-line bg-surface-2">
+                            border-b border-line-soft">
               <span className="text-label uppercase tracking-[.08em] text-ink-3">tasks</span>
               <button type="button" data-testid="open-console"
                       onClick={() => setView("console")}

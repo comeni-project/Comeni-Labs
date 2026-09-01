@@ -74,7 +74,17 @@ function Row({ curve, series }: { curve: Curve; series: Series }) {
         </span>
       </span>
 
+      {/* **`preserveAspectRatio="none"`, and without it the chart drew at half width.** The
+          element is `width="100%"` over a fixed 620-wide viewBox, so the default `xMidYMid
+          meet` scaled the drawing to fit the 54px HEIGHT and centred it — leaving a third of
+          the panel empty on each side. Nothing in the code says 620px; it said *fit*, and fit
+          against a fixed height means do not use the width.
+
+          `none` distorts strokes horizontally, which `vector-effect: non-scaling-stroke` on
+          the paths undoes. A step chart has only vertical and horizontal segments, so there is
+          no diagonal to skew. */}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img"
+           preserveAspectRatio="none"
            aria-label={`${curve.name}, ${curve.kind}`}
            data-testid={`curve-${curve.name.replace(/\s+/g, "-")}`}
            data-kind={curve.kind}
@@ -93,14 +103,14 @@ function Row({ curve, series }: { curve: Curve; series: Series }) {
             never learned which hue meant what. */}
         {derived ? (
           <>
-            <path d={area} fill="var(--measured)" fillOpacity=".16" />
-            <path d={line} fill="none" stroke="var(--measured)" strokeWidth="1.25"
+            <path vectorEffect="non-scaling-stroke" d={area} fill="var(--measured)" fillOpacity=".16" />
+            <path vectorEffect="non-scaling-stroke" d={line} fill="none" stroke="var(--measured)" strokeWidth="1.25"
                   strokeOpacity=".55" strokeDasharray="4 3" />
           </>
         ) : (
           <>
-            <path d={area} fill="var(--pea)" fillOpacity=".07" />
-            <path d={line} fill="none" stroke="var(--pea)" strokeWidth="1.5" />
+            <path vectorEffect="non-scaling-stroke" d={area} fill="var(--pea)" fillOpacity=".07" />
+            <path vectorEffect="non-scaling-stroke" d={line} fill="none" stroke="var(--pea)" strokeWidth="1.5" />
           </>
         )}
 
@@ -145,7 +155,7 @@ export function Envelope({ runId, live }: { runId: string; live: boolean }) {
   if (!data?.curves?.length) return null;
 
   return (
-    <section className="bg-surface border border-line rounded-[var(--r)] shadow-e2 p-4
+    <section className="bg-panel border border-line rounded-[var(--r)] shadow-e2 p-4
                         flex flex-col gap-4">
       <span className="flex items-baseline gap-3">
         <h2 className="text-body font-semibold text-ink m-0">what this run held</h2>

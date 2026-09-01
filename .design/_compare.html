@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>artboard vs live</title>
+<style>
+  html, body { margin: 0; background: #05090b; color: #DFE6E6;
+               font: 12px/1.4 system-ui, sans-serif; }
+  .bar { display: flex; gap: 0; position: sticky; top: 0; z-index: 5; }
+  .bar span { flex: 1; padding: 6px 10px; background: #0d1418; border-bottom: 1px solid #223;
+              letter-spacing: .08em; text-transform: uppercase; font-size: 10px; color: #8D9A9E; }
+  .pair { display: flex; gap: 0; align-items: flex-start; }
+  .half { flex: 1; overflow: hidden; }
+  /* Both panes are authored at 1400px and scaled to whatever half the window is, so the two
+     are compared at the SAME width rather than at whatever each happens to get. */
+  iframe { width: 1400px; height: 2400px; border: 0; transform-origin: 0 0; display: block; }
+</style>
+<div class="bar"><span>artboard — RunView.dc.html</span><span>live — /runs/{id}</span></div>
+<div class="pair">
+  <div class="half"><iframe id="a" src="http://localhost:8899/RunView.dc.html"></iframe></div>
+  <div class="half"><iframe id="b" src=""></iframe></div>
+</div>
+<script>
+  const run = new URLSearchParams(location.search).get("run") || "";
+  document.getElementById("b").src = `http://localhost:5173/runs/${run}`;
+  function fit() {
+    const scale = (window.innerWidth / 2) / 1400;
+    for (const f of document.querySelectorAll("iframe")) {
+      f.style.transform = `scale(${scale})`;
+      f.parentElement.style.height = `${2400 * scale}px`;
+    }
+  }
+  fit();
+  addEventListener("resize", fit);
+</script>

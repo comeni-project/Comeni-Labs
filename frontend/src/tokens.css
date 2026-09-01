@@ -33,6 +33,15 @@
   --paper: #080B0D; --paper-2: #0B1013; --surface: #0E1418; --surface-2: #1E282C;
   --ink: #DFE6E6; --ink-2: #889699; --ink-3: #67757A; --ink-4: #455257;
   --line: #172025; --line-2: #2A3438; --link-line: #1E3A4E;
+  /* The hairline INSIDE a panel — a band's header rule. Softer than `--line`, which is the
+     panel's own edge. `.pl > .hd` in every artboard: `border-bottom:1px solid #121A1D`. */
+  --line-soft: #121A1D;
+  /* **A panel is translucent and that is the whole look.** Every artboard's `.pl` is
+     `background:rgba(12,18,22,.62)` over the arc field, so the arcs and the scan texture read
+     THROUGH the panels and the page is one surface with things laid on it. `--surface` is
+     opaque, which turned every band into a card floating on a backdrop — the single biggest
+     reason the built page and its artboard did not look like the same design. */
+  --panel: rgba(12, 18, 22, .62);
   /* The field's CRT scan line. A texture rather than a surface, which is why it is
      an alpha over whatever it lands on and not a colour. */
   --scan-line: rgba(255, 255, 255, .010);
@@ -109,6 +118,8 @@
     --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
     --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
     --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+  --line-soft: #E7ECE9;
+  --panel: rgba(255, 255, 255, .72);
     --scan-line: rgba(0, 0, 0, .012);
     --rule-line: rgba(60, 110, 160, .045);
   --rule-line: rgba(60, 110, 160, .045);
@@ -133,6 +144,8 @@
   --paper: #F4F6F5; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #EDF0EE;
   --ink: #12151A; --ink-2: #4A5350; --ink-3: #7C8783; --ink-4: #9AA5A1;
   --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
+  --line-soft: #E7ECE9;
+  --panel: rgba(255, 255, 255, .72);
   --scan-line: rgba(0, 0, 0, .012);
   --rule-line: rgba(60, 110, 160, .045);
   --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;

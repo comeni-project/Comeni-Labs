@@ -79,6 +79,8 @@
   --color-paper: var(--paper);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-panel: var(--panel);
+  --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);

@@ -23,11 +23,17 @@ type Bar = {
 type Lane = { process: string; declared: boolean; bars: Bar[]; rows: number; dense: number };
 type TimelineData = { lanes: Lane[]; from_ms: number; to_ms: number; open: boolean };
 
-const LABELS = 150;
+// **Measured off `RunView.dc.html`, not chosen.** `.tlpad { padding-left:132px }` is the label
+// gutter and the chart's own viewBox is `0 0 1230 182` — so the lanes get 182px of height for
+// five processes, where this was giving them about 40. A timeline squashed to a few pixels per
+// lane cannot show concurrency, which is the one thing it is for.
+const LABELS = 132;
 const W = 1230;
 const BAR = 5;
-const GAP = 2;
-const LANE_GAP = 8;
+const GAP = 3;
+/** The artboard's lanes sit ~26px apart even when each holds one bar — the space is what makes
+ *  a lane a lane rather than a row in a list. */
+const LANE_GAP = 21;
 
 /** **Colour is status, never process** — the artboard, and the reason is recorded there: the
  *  first draft coloured by process and a finished STAR task was indistinguishable from a
@@ -104,19 +110,21 @@ export function Timeline({ runId, live, onPickLane }: {
 
   return (
     <section data-testid="band-timeline"
-             className="bg-surface border border-line rounded-[var(--r)] shadow-e2
+             className="bg-panel border border-line rounded-[var(--r)] shadow-e2
                         flex flex-col overflow-hidden">
-      <div className="shrink-0 flex items-center gap-3 px-4 py-[9px]
-                      border-b border-line bg-surface-2">
-        <span className="text-label uppercase tracking-[.08em] text-ink-3">timeline</span>
-        <span className="ml-auto font-data text-label text-ink-3">
+      {/* **No chrome strip.** `.pl > .hd` in the artboard has a bottom rule and no fill; the
+          label and the count sit on one line inside the panel. A filled bar turned every band
+          into a titled card, which is not how these boards are drawn. */}
+      <div className="shrink-0 flex items-center gap-3 px-4 pt-3 pb-2">
+        <span className="text-label uppercase tracking-[.15em] text-ink-3">timeline</span>
+        <span className="ml-auto font-data text-label text-ink-4">
           {drawn.reduce((n, lane) => n + lane.bars.length, 0)} attempts ·{" "}
           {seconds(span)}
           {data.open && " · running"}
         </span>
       </div>
 
-      <div className="p-4 overflow-x-auto">
+      <div className="px-4 pb-4 overflow-x-auto">
         <svg viewBox={`0 0 ${LABELS + W} ${total + 26}`} width="100%"
              height={total + 26} role="img" aria-label="when each attempt ran">
           {marks.map((offset) => (
@@ -135,7 +143,7 @@ export function Timeline({ runId, live, onPickLane }: {
             <g key={lane.process}>
               {/* **A lane exists before the run reaches it** — the artboard's own rule, and it
                   is why an unreached process is drawn greyed rather than omitted. */}
-              <text x={LABELS - 10} y={top + 8} textAnchor="end" fontSize={10}
+              <text x={LABELS - 16} y={top + 8} textAnchor="end" fontSize={9.5}
                     className="font-data"
                     data-testid={`lane-${lane.process}`}
                     role={onPickLane && lane.bars.length ? "button" : undefined}

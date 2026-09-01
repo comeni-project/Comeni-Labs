@@ -24,7 +24,7 @@ import { ABSENT, seconds, shortBytes } from "./units";
  * anywhere on these boards`. A zero here is a measurement; absence is `—` and a sentence.
  */
 
-const PANEL = "bg-surface border border-line rounded-[var(--r)] shadow-e1 px-4 pt-3 pb-3.5 " +
+const PANEL = "bg-panel border border-line rounded-[var(--r)] shadow-e1 px-4 pt-3 pb-3.5 " +
   "flex flex-col";
 const LABEL = "text-label uppercase tracking-[.08em] text-ink-3";
 const FIGURE = "font-data text-[29px] leading-none tracking-[-.03em] text-ink";
