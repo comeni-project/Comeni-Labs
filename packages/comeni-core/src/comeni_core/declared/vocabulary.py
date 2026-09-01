@@ -58,6 +58,23 @@ class TypeDeclaration(BaseModel):
     """The filename stem, validated. A vocabulary type id is whatever somebody named a
     file, and it is emitted as a channel name — root C, A34."""
     states: frozenset[str] = frozenset()
+    scope: str = "sample"
+    """How many times one of these arrives, relative to the run — `run` or `sample`.
+
+    **A reference genome is `run`.** It is one file for the whole analysis, and a Nextflow
+    process with several *queue* inputs runs as many times as the shortest — so a queue of one
+    genome capped a twenty-four-sample run at one invocation, silently. `Scope` carries the
+    argument.
+
+    A **default**, which a pipeline may override: the same split as `entry_param`. Per-sample
+    annotations over a shared one is a judgement about an experiment, and the product's claim is
+    that no such judgement is silent — so the override carries a `Why` and appears in
+    `pipeline.yml`.
+
+    Defaulting to `sample` is the conservative choice: it is what every channel was before this
+    field existed, so a type that says nothing behaves exactly as it did.
+    """
+
     entry_channel: GroovyExpression | None = None
     """Unbounded Groovy, emitted verbatim — the designed exception, marked as such.
 
@@ -221,6 +238,9 @@ class Vocabulary(BaseModel):
     """The default param name for each type that declares one. See `TypeDeclaration.param` —
     absent means the type id's last segment, which is every type but `fastq.reads`."""
 
+    scopes: dict[str, str] = {}
+    """Type id -> its default scope. See `TypeDeclaration.scope`."""
+
     entry_channels: dict[str, str] = {}
     """How a type enters a pipeline when nothing upstream produces it.
 
@@ -260,6 +280,7 @@ class Vocabulary(BaseModel):
         types: dict[str, frozenset[str]] = {}
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
+        scopes: dict[str, str] = {}
         params: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
@@ -267,6 +288,7 @@ class Vocabulary(BaseModel):
                 coded("MD0008", f"add_states for {type_id!r}, which no layer declares")
             )
             types[type_id] = entry.states
+            scopes[type_id] = entry.scope
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
             if entry.param:
@@ -276,6 +298,7 @@ class Vocabulary(BaseModel):
         return cls(
             types=types,
             entry_channels=entry_channels,
+            scopes=scopes,
             params=params,
             test_data=test_data,
             displaced=list(stacked.displaced),
@@ -329,13 +352,13 @@ class Vocabulary(BaseModel):
         types = dict(self.types)
         for measurement_id in registry.ids():
             types[f"measurement.{measurement_id}"] = frozenset()
-        return Vocabulary(
-            types=types,
-            entry_channels=dict(self.entry_channels),
-            params=dict(self.params),
-            test_data=dict(self.test_data),
-            displaced=list(self.displaced),
-        )
+        # **`model_copy`, not a fresh `Vocabulary(...)`.** This listed every field by hand, so
+        # it had to be kept in step with the model — and the failure mode is silence: a field
+        # added to `Vocabulary` and collected by `of()` is dropped here, leaving one populated
+        # and another empty a few lines apart with nothing raising. It was correct when this
+        # changed, and correct by vigilance is what `test_a_derived_vocabulary_keeps_every_field`
+        # replaces.
+        return self.model_copy(update={"types": types})
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:

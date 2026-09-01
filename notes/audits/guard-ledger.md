@@ -3757,3 +3757,40 @@ a node id and is the tie-break for two *isomorphic* consumers — two identical 
 depth, both consuming a GTF. Whichever way that falls, the two graphs describe the same
 computation, so the tie is arbitrary rather than wrong. Written on the function rather than left
 for somebody to find.
+
+
+## A reference does not cap the run — Plan 5B phase 4.2, 2026-09-01
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-01 | `test_fan_out.py` "a step behind a reference runs on every sample too" | `_as_value` returning the expression unchanged — the emitter as it was | failed | `STAR_ALIGN ran on ['sampleA'] of ['sampleA', 'sampleB']` |
+| 2026-09-01 | `test_fan_out.py` "every declared step reached every sample" | the same | failed | `SAMTOOLS_SORT ran on some samples and not others` |
+| 2026-09-01 | `test_emit.py` golden | **nothing — the fix moved it, and 4.4 says it should** | n/a | two lines, both `.first()`, `ch_reads` untouched |
+
+### This was live, and the stub gate said PASS
+
+Reverted and run for real, with two sample pairs:
+
+    2 TRIMGALORE (sampleA)
+    2 TRIMGALORE (sampleB)
+    2 STAR_ALIGN (sampleB)          <- sampleA is simply absent
+    gate stub: PASS
+
+`TRIMGALORE` takes one queue input and ran on both. `STAR_ALIGN` takes reads plus two
+one-item reference channels, and a Nextflow process with several *queue* inputs runs as many
+times as the **shortest** — so it ran once, on whichever sample the scheduler reached, and the
+other was dropped with no error, no warning, and a green gate.
+
+### The fixture is the finding
+
+**One sample pair is why this survived.** With N = 1 the shortest channel is every channel, so
+the defect is invisible to the only end-to-end test that runs a tool — the counts matrix was
+correct, for one sample, and nothing said the other twenty-three were missing.
+
+`materialise_stub_data` writes two pairs now. Two is the smallest fixture that can tell a value
+channel from a queue of one, and everything above is vacuous with one — which
+`test_the_fixture_really_has_two_samples` exists to keep true.
+
+**A determinism test over the spine passes either way.** That is why this is a *run* rather than
+an assertion about emitted text, and it is the third time this repository has met the shape: a
+guard green on the code it was written to reject.
