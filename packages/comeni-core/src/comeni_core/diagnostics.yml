@@ -803,6 +803,71 @@ MD0224:
     call carrying two values of the same name that disagreed, and `MD0108` did not catch it
     because it checked `ext` keys only.
 
+MD0226:
+  emitted_by: core
+  concern: pipeline-file
+  says: "two channels in this pipeline share a name"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Channel names are derived from the graph's shape and must be unique. If you edited them
+    by hand, give each one its own name; if this came out of a build, it is a bug in the
+    derivation and worth reporting with the goal that produced it.
+  explanation: |
+    **A derived value that can collide needs a check, not a convention.**
+
+    `StepInput.channel` references a channel by name, so two channels sharing one make the
+    reference ambiguous — and the emitter resolves it by assigning both to the same Groovy
+    variable, where the second assignment wins and a port is silently fed the wrong data.
+    That exact failure has happened once already: `_channel_name` derived from a type's last
+    segment, `qc.report` and `multiqc.report` both became `ch_report`, and two ports were fed
+    one channel with nothing saying so.
+
+    The derivation is over the **full** type id with a numeric suffix for repeats, and this
+    refuses the case where that is still not enough rather than trusting that it always is.
+MD0227:
+  emitted_by: core
+  concern: pipeline-file
+  says: "a step reads a channel this pipeline does not declare"
+  fires_on: [build, emit, upgrade, publish]
+  refuses: true
+  fix: |
+    Name a channel that exists, or add the channel. `channels:` at the top of the file lists
+    every one this pipeline takes.
+  explanation: |
+    A `StepInput.channel` naming nothing emits Groovy that references a variable which was
+    never assigned. Nextflow fails at launch with a message about an undefined identifier —
+    true, unhelpful, and about Nextflow rather than about the artifact a person edited.
+
+    This is the same class as `MD0211`: the artifact is a file people edit by hand, and every
+    cross-reference in it is one somebody can get wrong.
+MD0228:
+  emitted_by: core
+  concern: loading
+  says: "an `entry_channel` declares no `{param}` placeholder"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Put the placeholder where the parameter goes:
+
+        entry_channel: "Channel.fromFilePairs(params.{param}, checkIfExists: true)"
+
+    Exactly the seven characters `{param}`, once.
+  explanation: |
+    **Carrying on quietly would silently merge two inputs**, which is the defect Plan 5B
+    exists to remove. A type whose expression hard-codes `params.reads` gives every input of
+    that type the same parameter, so a pipeline taking a tumour and a normal FASTQ takes one
+    FASTQ twice and nothing says so.
+
+    Refused at load rather than at emit, because a registry is a thing a laboratory installs
+    and the useful moment to hear about it is the one where they can still choose a different
+    version.
+
+    **Not a template language.** One substitution, the same argument Plan 1.15's `transform`
+    makes: `{` is legal Groovy and appears throughout these expressions, so the placeholder is
+    matched as the literal seven characters and nothing else is interpreted. An engine that
+    predates the template writes the placeholder into Groovy verbatim, which is what
+    `MD0020`'s layer format floor exists to stop.
 MD0301:
   emitted_by: resolver
   concern: routing

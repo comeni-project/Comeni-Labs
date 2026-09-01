@@ -17,10 +17,19 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.diagnostics import coded
-from comeni_core.spell.marks import GroovyExpression, TypeId
+from comeni_core.spell.marks import GroovyExpression, NfIdentifier, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
     from comeni_core.declared.measurement import MeasurementRegistry
+
+
+PARAM_PLACEHOLDER = "{param}"
+"""The one substitution an `entry_channel` may carry — literally these seven characters.
+
+**Not a template language**, the same argument Plan 1.15's `transform` makes: `{` is legal
+Groovy and appears throughout these expressions, so this is matched as a literal and nothing
+else is interpreted. One placeholder, one meaning, no parser.
+"""
 
 
 class UnknownTypeError(KeyError):
@@ -57,7 +66,36 @@ class TypeDeclaration(BaseModel):
     """The filename stem, validated. A vocabulary type id is whatever somebody named a
     file, and it is emitted as a channel name — root C, A34."""
     states: frozenset[str] = frozenset()
+    entry_param: NfIdentifier | None = None
+    """What a laboratory calls this input on the command line, when a pipeline takes one.
+
+    **Declared rather than derived, because a derivation cannot reproduce what is shipped.**
+    `genome.fasta` arrives as `params.fasta` and `annotation.gtf` as `params.gtf` — both of which
+    a last-segment rule would produce — but `fastq.reads` arrives as `params.input`, which is
+    nf-core's name for *the samplesheet* and is not this type's name at all. Deriving it would
+    rename it, and that is every laboratory's command line changing under them.
+
+    A **default**, not a fixture: a pipeline taking two of this type says what it calls each, and
+    that is the split phase 3 needs. `None` falls back to the type id with its dots flattened,
+    which is what a type nobody has thought about should get.
+    """
+
     entry_channel: GroovyExpression | None = None
+    """How this type arrives from outside, as Groovy with **one placeholder**: `{param}`.
+
+    `Channel.fromFilePairs(params.{param}, checkIfExists: true)`. The parameter's *name* is the
+    pipeline's to choose, because a pipeline may take two of this type and they cannot both be
+    `params.reads` — which is Plan 5B's whole subject.
+
+    **Not a template language.** One substitution, the same argument Plan 1.15's `transform`
+    makes: `{` is legal Groovy and appears throughout these expressions, so the placeholder is
+    matched as the literal seven characters `{param}` and nothing else is interpreted.
+
+    A declaration with no `{param}` is refused by `MD0228` rather than emitted, because carrying
+    on would silently give every input of this type one parameter — the defect this plan exists
+    to remove. `LAYER_FORMAT` 2 is the floor that makes an older engine say so instead of writing
+    the literal placeholder into Groovy.
+    """
     """Unbounded Groovy, emitted verbatim — the designed exception, marked as such."""
     test_data: str | list[str] | None = None
 
@@ -141,6 +179,14 @@ class Vocabulary(BaseModel):
     result against next year, which is the entire point of having one.
     """
 
+    entry_params: dict[str, str] = {}
+    """Type id -> what a laboratory calls one input of it, when a pipeline takes one.
+
+    Declared per type rather than derived: `fastq.reads` arrives as `params.input`, which is
+    nf-core's name for the samplesheet and is not this type's name. See
+    `TypeDeclaration.entry_param`.
+    """
+
     entry_channels: dict[str, str] = {}
     """How a type enters a pipeline when nothing upstream produces it.
 
@@ -180,6 +226,7 @@ class Vocabulary(BaseModel):
         types: dict[str, frozenset[str]] = {}
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
+        entry_params: dict[str, str] = {}
         for type_id, entry in stacked.entries.items():
             if isinstance(entry, TypeExtension):
                 raise ValueError(
@@ -187,12 +234,29 @@ class Vocabulary(BaseModel):
             )
             types[type_id] = entry.states
             if entry.entry_channel:
+                # MD0228. Refused at **load** rather than at emit, because a registry is a
+                # thing a laboratory installs and the useful moment to hear about it is the one
+                # where they can still choose a different version.
+                if PARAM_PLACEHOLDER not in entry.entry_channel:
+                    raise ValueError(
+                        coded(
+                            "MD0228",
+                            f"type {entry.id!r} declares an entry_channel with no "
+                            f"{PARAM_PLACEHOLDER} placeholder:\n"
+                            f"    {entry.entry_channel}\n"
+                            f"  Every input of this type would get one parameter, so a pipeline "
+                            f"taking two of them would take one of them twice.",
+                        )
+                    )
                 entry_channels[type_id] = entry.entry_channel
+            if entry.entry_param:
+                entry_params[type_id] = entry.entry_param
             if entry.test_data:
                 test_data[type_id] = entry.test_data
         return cls(
             types=types,
             entry_channels=entry_channels,
+            entry_params=entry_params,
             test_data=test_data,
             displaced=list(stacked.displaced),
         )
@@ -245,12 +309,12 @@ class Vocabulary(BaseModel):
         types = dict(self.types)
         for measurement_id in registry.ids():
             types[f"measurement.{measurement_id}"] = frozenset()
-        return Vocabulary(
-            types=types,
-            entry_channels=dict(self.entry_channels),
-            test_data=dict(self.test_data),
-            displaced=list(self.displaced),
-        )
+        # **`model_copy`, not a fresh `Vocabulary(...)`.** This listed every field by hand and
+        # therefore had to be kept in step with the model; it was not. `entry_params` was added,
+        # the loader collected it, and this silently returned a vocabulary without it — so
+        # `entry_channels` was populated and `entry_params` was empty, three lines apart, with
+        # nothing failing. `test_a_derived_vocabulary_keeps_every_field` is the guard.
+        return self.model_copy(update={"types": types})
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:

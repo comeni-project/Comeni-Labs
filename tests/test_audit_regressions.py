@@ -854,7 +854,7 @@ def test_a24_an_overlay_vocabulary_says_so(tmp_path):
         _declared(
             lab / "vocabularies" / "fastq.reads.yml",
             "states: [trimmed, deduplicated, subsampled]\n"
-        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n")
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/' + params.{param})\"\n")
     )
 
     loaded = layers_mod.load([base, lab])
@@ -915,7 +915,10 @@ def test_a35_add_states_extends_and_the_base_survives(tmp_path):
     assert loaded.vocabulary.states_for("fastq.reads") == frozenset(
         {"trimmed", "deduplicated", "subsampled", "phix_removed"}
     )
-    assert "params.input" in loaded.vocabulary.entry_channels["fastq.reads"]
+    # The *template*, since Plan 5B — the parameter's name is the pipeline's to
+    # choose, and `entry_params` is where the default lives.
+    assert "params.{param}" in loaded.vocabulary.entry_channels["fastq.reads"]
+    assert loaded.vocabulary.entry_params["fastq.reads"] == "input"
     assert loaded.vocabulary.test_data["fastq.reads"], "the base's test data survives too"
 
 

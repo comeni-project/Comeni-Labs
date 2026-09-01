@@ -63,75 +63,75 @@ what makes the diff readable.*
 
 ### 2.1 The version floor, and it lands FIRST — spec §1.3
 
-- [ ] **Before any registry ships a template**, the *current* release must refuse one. A new
+- [x] **Before any registry ships a template**, the *current* release must refuse one. A new
       registry's `params.{param}` reaching an emitter that does no substitution would write
       `params.{param}` into Groovy.
-- [ ] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
+- [x] A **version floor on the layer**: `registry.yml` declares the minimum Mendel it needs, and
       an older Mendel says *this registry needs a newer Mendel* instead of emitting broken Nextflow.
-- [ ] It is a small change and **it has to land first or it cannot land at all.**
+- [x] It is a small change and **it has to land first or it cannot land at all.**
 
 ### 2.2 The types
 
-- [ ] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
-- [ ] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
+- [x] `Channel` gains `name: ChannelName` and `param: NfIdentifier`.
+- [x] `StepInput.channel` becomes `ChannelName | None` — was `TypeId | None`. **This is the change
       that makes two same-type inputs addressable.**
-- [ ] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
+- [x] `entry_channel` becomes a one-placeholder template: `params.{param}`. **Not a template
       language** — one substitution, the same argument as Plan 1.15's `transform`. `{` is legal
       Groovy and appears throughout these expressions, so the placeholder is matched as the
       literal seven characters `{param}`.
-- [ ] `MD0226` two channels sharing a name · `MD0227` a `StepInput.channel` naming no declared
+- [x] `MD0226` two channels sharing a name · `MD0227` a `StepInput.channel` naming no declared
       channel · `MD0228` an `entry_channel` with no `{param}`.
-- [ ] A test over every type in the registry: substituting a known param yields Groovy that still
+- [x] A test over every type in the registry: substituting a known param yields Groovy that still
       parses, via `nextflow lint` on a generated stub.
 
 ### 2.3 Ordering is on SHAPE, never on identity — spec §11.2
 
-- [ ] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
+- [x] Channels are numbered by **`(rank, order-within-rank, port index)`** — `dag-core`'s own
       layout arithmetic, and **no node id anywhere**.
-- [ ] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
+- [x] **Why:** `useGraph.nextId` mints `star_align_1`, `star_align_2` … from the ids currently
       *taken*. Add two STAR nodes and delete the first and the survivor is `star_align_2`; draw one
       and it is `star_align_1`. Two structurally identical graphs, two different node ids — so any
       ordering keyed on them makes a person's `params.*` depend on the order they clicked.
-- [ ] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
+- [x] Derivation is over the **full type id** with a `_2`, `_3` suffix, not the last segment:
       `qc.report` and `multiqc.report` both end in `report`, and `_channel_name`'s docstring
       records that collision costing two ports the same channel silently.
-- [ ] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
+- [x] `MD0226` refuses a `Pipeline` whose channel names are not unique. **A derived value that can
       collide needs a check, not a convention.**
 
 ### 2.4 `SCHEMA_VERSION` 5 → 6, and the migration decides — spec §12.2
 
-- [ ] The loader migrates: an old file names its channels by type, one channel per type, so
+- [x] The loader migrates: an old file names its channels by type, one channel per type, so
       `annotation.gtf` → `gtf`. In the loader beside the other version branches, **not a script
       somebody has to remember to run.**
-- [ ] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
+- [x] **The migration records that it decided.** A `Why` at a tier — *migrated from schema 5;
       name derived from the type, which is what this pipeline's behaviour already was.*
-- [ ] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
+- [x] **`upgrade` replays it rather than re-deriving it.** `mendel upgrade` re-resolves against the
       current registry and replays every recorded decision so only what you touched can move —
       issue #10 closed on that property. If the migration's names and a fresh derivation's names
       differ by one, every `params.*` in a laboratory's command line renames itself on an upgrade
       they asked for to pick up a registry fix.
-- [ ] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
+- [x] **The test, and it is the phase's real check:** migrate a v5 artifact, upgrade it, assert the
       emitted `.nf` is byte-identical to the v5 artifact's. Watched failing against a migration
       that assigns silently.
 
 ### 2.5 The API, which neither spec covered — spec §12.3
 
-- [ ] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
-- [ ] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
+- [x] `BuiltPipeline` gains `channels: list[ChannelView]` — name, type, scope, the ports it feeds.
+- [x] **`Sources.entryChannels()` is DELETED**, not left beside it. Two derivations of one fact is
       the defect this whole plan started from; keeping the old one "for now" is how it survives.
-- [ ] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
+- [x] The canvas draws a node per **channel** rather than per unwired port. This is also what makes
       phase 3's split/merge possible at all — you cannot split a thing recomputed from scratch on
       every render.
-- [ ] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
+- [x] **Why this is a task and not a footnote:** §0's finding was that the canvas derives its own
       answer and disagrees with the artifact. Part A fixes the registry and Part B fixes the
       resolver, and without this the canvas would disagree *again* — in a new way, because now
       there really are named channels for it to disagree with.
 
 ### 2.6 The registry side
 
-- [ ] Three type files change — `fastq.reads`, `annotation.gtf`, `genome.fasta`. A
+- [x] Three type files change — `fastq.reads`, `annotation.gtf`, `genome.fasta`. A
       `comeni-registry` PR plus a submodule bump, **registry PR first**.
-- [ ] An **old registry read by a new resolver** — a literal `params.gtf`, no `{param}` — is a
+- [x] An **old registry read by a new resolver** — a literal `params.gtf`, no `{param}` — is a
       clean refusal, `MD0228`. Carrying on quietly would silently merge two inputs, which is the
       defect this plan exists to remove.
 
@@ -315,7 +315,7 @@ Named so the difference between *we decided not to* and *nobody thought of it* s
 | Phase | Carried out as written? | Deviation |
 |---|---|---|
 | 1 | Yes, with two corrections | **The guard moved out of `test_drafts.py`**, whose tests need Postgres and skip in CI — a guard that does not run is not a guard. It lives in `tests/test_draft_labels.py` and asserts against `materialise` directly, which is where the claim *nothing in `materialise` reads it* actually lives. **`Sources.test.tsx`'s "renders nothing at all" broke and was right to**: its fixture was a step with one output port and no inputs, which is now a step with a *terminal output* — exactly what the OUTPUT socket exists to mark. Split into three: no input socket, nothing at all for a graph with no steps, and a note that **a pipeline closed at both ends does not exist**. `make client` was needed — `DraftGraph` gained a field, and the generated client is never hand-edited |
-| 2 | | |
+| 2 | Yes, plus one thing neither spec named | **`entry_param` had to be declared, not derived.** `genome.fasta` arrives as `params.fasta` and `annotation.gtf` as `params.gtf`, both derivable from the last segment — but `fastq.reads` arrives as `params.input`, which is nf-core's name for the *samplesheet* and is not the type's name at all. Deriving would have renamed it, and a rename here is every laboratory's command line changing under them. So the type declares its default and a pipeline may override it, which is exactly the split phase 3 needs. **`Vocabulary.with_measurements` silently dropped the new field**: it listed every field by hand in a fresh `Vocabulary(...)`, so `entry_channels` was populated and `entry_params` was empty three lines apart with nothing failing. It is a `model_copy` now and `test_a_derived_vocabulary_keeps_every_field` is the guard. The migration reads the param **out of the expression** rather than deriving it — `Channel.params` already records which `params.<x>` the expression references — which is what makes the v5 round trip byte-identical |
 | 3 | | |
 | 4 | | |
 | 5 | | |

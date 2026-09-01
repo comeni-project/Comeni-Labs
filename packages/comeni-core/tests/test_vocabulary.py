@@ -102,3 +102,33 @@ def test_add_states_of_nothing_is_refused(tmp_path):
     layer = _layer(tmp_path, alignment__bam="add_states: [coordinate_sorted]\n")
     with pytest.raises(ValueError, match="which no layer declares"):
         Vocabulary.load(layer)
+
+
+def test_a_derived_vocabulary_keeps_every_field():
+    """`with_measurements` returns a new `Vocabulary`, and it must not lose one on the way.
+
+    **It did.** It listed every field by hand in a fresh `Vocabulary(...)`, so it had to be kept
+    in step with the model — and when `entry_params` arrived, the loader collected it and this
+    silently returned a vocabulary without it. `entry_channels` was populated and `entry_params`
+    was empty, three lines apart in the same function, with nothing failing.
+
+    It is a `model_copy` now, which cannot drop a field. This guard is for the next person who
+    finds a reason to spell it out again: every field except the one being changed survives.
+    """
+    from comeni_core.declared.measurement import MeasurementRegistry
+
+    before = Vocabulary(
+        types={"a.b": frozenset({"x"})},
+        entry_channels={"a.b": "Channel.of(params.{param})"},
+        entry_params={"a.b": "ab"},
+        test_data={"a.b": "https://example.invalid/x"},
+    )
+    after = before.with_measurements(MeasurementRegistry())
+
+    carried = set(Vocabulary.model_fields) - {"types"}
+    for field in sorted(carried):
+        assert getattr(after, field) == getattr(before, field), (
+            f"`with_measurements` dropped {field!r} — it is derived from a hand-written field "
+            f"list somewhere instead of a `model_copy`"
+        )
+    assert after.types["a.b"] == frozenset({"x"})

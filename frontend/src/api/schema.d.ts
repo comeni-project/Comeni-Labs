@@ -891,6 +891,8 @@ export interface components {
         BuiltPipeline: {
             /** Steps */
             steps: components["schemas"]["StepView"][];
+            /** Channels */
+            channels: components["schemas"]["ChannelView"][];
             layout: components["schemas"]["Placement"];
             /** Provenance */
             provenance: {
@@ -926,6 +928,28 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /**
+         * ChannelView
+         * @description One thing this pipeline takes in, as the canvas reads it.
+         *
+         *     **Why this is a field and not something the browser works out.** `Sources.entryChannels()`
+         *     derived it — every input port nothing wires — and that was a *second implementation of the
+         *     same question the resolver already answers*, agreeing only because each pipeline had one
+         *     channel per type. Plan 5B ends that: a pipeline may take two `fastq.reads` and only the
+         *     artifact knows what they are called, so a browser deriving its own answer would disagree
+         *     with the artifact in a new way — and this plan started from the canvas disagreeing with the
+         *     artifact.
+         */
+        ChannelView: {
+            /** Name */
+            name: string;
+            /** Param */
+            param: string;
+            /** Type Id */
+            type_id: string;
+            /** Feeds */
+            feeds: string[];
         };
         /** CompareIn */
         CompareIn: {

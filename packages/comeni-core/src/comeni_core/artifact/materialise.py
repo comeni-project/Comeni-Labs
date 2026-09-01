@@ -33,6 +33,7 @@ from comeni_core.artifact.pipeline import (
     _no_flags_why,
 )
 from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.vocabulary import PARAM_PLACEHOLDER
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Tier, ValueSource
 
@@ -274,7 +275,7 @@ def _inputs(ir, node, contract) -> list[StepInput]:
                 )
             )
         else:
-            inputs.append(StepInput(port=port.name, channel=port.type_id))
+            inputs.append(StepInput(port=port.name, channel=_channel_name(port.type_id)))
     return inputs
 
 
@@ -295,10 +296,15 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
     channels = []
     for type_id in sorted(needed):
         sourced = measurements.meta_sources_for(type_id, ir.profile) if measurements else {}
-        expression = vocab.entry_channels.get(type_id) or _default_entry(type_id)
+        param = vocab.entry_params.get(type_id) or _channel_name(type_id)
+        expression = _substitute(
+            vocab.entry_channels.get(type_id) or _default_entry(type_id), param
+        )
         declared = vocab.test_data.get(type_id)
         channels.append(
             Channel(
+                name=_channel_name(type_id),
+                param=param,
                 type_id=type_id,
                 params=_param_refs(expression),
                 expression=expression,
@@ -309,6 +315,34 @@ def _channels(ir, registry, vocab, measurements) -> list[Channel]:
             )
         )
     return channels
+
+
+def _channel_name(type_id: str) -> str:
+    """`fastq.reads` -> `fastq_reads`. A channel's name, derived from the graph's shape.
+
+    **Over the full type id, not its last segment.** `qc.report` and `multiqc.report` both end in
+    `report`, and deriving from the last segment made both `report` — one assignment shadowed the
+    other and two ports were fed the same channel, silently. `MD0226` refuses a collision the
+    derivation still produces, because a derived value that *can* collide needs a check rather
+    than a convention.
+
+    **No node id anywhere, and that is deliberate.** `useGraph.nextId` mints `star_align_1`,
+    `star_align_2` … from the ids currently *taken*: add two STAR nodes, delete the first, and
+    the survivor is `star_align_2`; draw one and it is `star_align_1`. Two structurally identical
+    graphs with two different node ids — so any ordering keyed on them would make a person's
+    `params.*` depend on the order they clicked.
+    """
+    return type_id.replace(".", "_").replace("-", "_")
+
+
+def _substitute(expression: str, param: str) -> str:
+    """The one substitution an `entry_channel` carries. `MD0228` guarantees it is there.
+
+    **Not a template language**, the same argument Plan 1.15's `transform` makes: `{` is legal
+    Groovy and appears throughout these expressions, so `{param}` is matched as those literal
+    seven characters and nothing else is interpreted. One placeholder, one meaning, no parser.
+    """
+    return expression.replace(PARAM_PLACEHOLDER, param)
 
 
 def _default_entry(type_id: str) -> str:

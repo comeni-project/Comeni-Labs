@@ -51,18 +51,29 @@ const GAP = 90;
  * an input that is *unmet* is not an entry channel, it is a hole in the graph, and saying so is
  * the hollow port's job.
  */
-export function entryChannels(data: Built) {
-  const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
-  return data.steps.flatMap((step) =>
-    step.ports
-      .filter((port) => port.side === "in" && port.met && !wired.has(`${step.id}.${port.name}`))
-      .map((port) => ({ key: `${step.id}.${port.name}`, name: port.name, type_id: port.type_id })),
-  );
+/** What this pipeline needs before it can run — **read off the artifact, not derived.**
+ *
+ * **`entryChannels` used to compute this** — every input port nothing wires — and that was a
+ * second implementation of the question the resolver already answers. The two agreed only
+ * because each pipeline had one channel per type; Plan 5B ends that, so a browser deriving its
+ * own answer would disagree with the artifact in a *new* way. Which is where this plan started.
+ *
+ * **One derivation, two readers.** The canvas draws these as `INPUT` sockets and the run sheet
+ * lists them as the things a person has to bind, and now both read the same field.
+ */
+export function channelsOf(data: Built) {
+  return (data.channels ?? []).map((channel) => ({
+    key: channel.name,
+    name: channel.name,
+    param: channel.param,
+    type_id: channel.type_id,
+    feeds: channel.feeds ?? [],
+  }));
 }
 
 /** What this pipeline produces: every output port nothing on the canvas consumes.
  *
- * **The same arithmetic as `entryChannels`, read the other way**, and it is deliberately the
+ * **The mirror of `channelsOf`**, and it is deliberately the
  * same shape: this is exactly what `materialise.goal_of` computes as the goal's `want` — *what
  * nothing downstream consumes* — so the canvas and the resolver answer one question once.
  *
@@ -90,23 +101,29 @@ export function Sources({ data, offsets, labels, onRename }: {
   labels?: Record<string, string>;
   onRename?: (key: string, label: string) => void;
 }) {
-  const wired = new Set(data.layout.wires.map((w) => `${w.to_node}.${w.to_port}`));
   const consumed = new Set(data.layout.wires.map((w) => `${w.from_node}.${w.from_port}`));
   const at = (node: Placed) => offsets[node.id] ?? { x: node.x, y: node.y };
 
-  const sockets = data.layout.nodes.flatMap((node) => {
-    const step = data.steps.find((s) => s.id === node.id);
-    if (!step) return [];
-    const ins = step.ports.filter((p) => p.side === "in");
-    return ins.flatMap((port, index) => {
-      // Fed by a wire? Then it has a source on the canvas already.
-      if (wired.has(`${node.id}.${port.name}`)) return [];
-      // Unmet is the hollow port's job to say — an absent input is not an entry channel.
-      if (!port.met) return [];
+  // **One socket per CHANNEL, at the first port it feeds.** It was one per unwired port, which
+  // drew `annotation.gtf` twice on a pipeline where one channel reaches both STAR and
+  // featureCounts — the canvas saying the laboratory supplies two GTFs when the artifact says
+  // one. A channel feeding several ports is one thing a person binds once.
+  const sockets = channelsOf(data).flatMap((channel, index) => {
+    const first = channel.feeds[0];
+    if (!first) return [];
+    const [nodeId, portName] = [first.slice(0, first.lastIndexOf(".")),
+                                first.slice(first.lastIndexOf(".") + 1)];
+    const node = data.layout.nodes.find((n) => n.id === nodeId);
+    const step = data.steps.find((s) => s.id === nodeId);
+    if (!node || !step) return [];
+    const port = step.ports.find((pt) => pt.side === "in" && pt.name === portName);
+    if (!port) return [];
+    {
       const anchor = at(node);
       return [{
-        key: `${node.id}.${port.name}`,
+        key: channel.key,
         port,
+        channel,
         // **Left of a root, below anything else** — and the arithmetic says why rather than a
         // preference. A socket needs `SOCKET_W + GAP` = 240px of clear space to its left, and a
         // rank is `RANK_PITCH` = 224px from the one before it. So for any node past rank 0 the
@@ -135,9 +152,9 @@ export function Sources({ data, offsets, labels, onRename }: {
         // cannot land 39px from the chevron it points at. **Left to right**, so an entry
         // channel enters the consumer's LEFT edge at that port's own offset.
         toX: anchor.x,
-        toY: anchor.y + portOffset(index),
+        toY: anchor.y + portOffset(step.ports.filter((pt) => pt.side === "in").indexOf(port)),
       }];
-    });
+    }
   });
 
   // **The mirror, and the arithmetic is simpler because the space is free.** An input socket
@@ -195,17 +212,18 @@ export function Sources({ data, offsets, labels, onRename }: {
                        bg-[var(--link-soft)]"
           >
             <span className="block text-label uppercase tracking-[.13em] text-ink-3">Input</span>
-            <Name
-              at={s.key}
-              fallback={s.port.name}
-              labels={labels}
-              onRename={onRename}
-            />
+            <Name at={s.key} fallback={s.channel.name} labels={labels} onRename={onRename} />
             {/* **The TYPE, and there is nothing else to show.** No value, no path, no field —
                 the binding happens at the run. */}
             <span className="block font-data text-label text-[var(--link)] truncate">
               {s.port.type_id}
               {(s.port.states ?? []).length > 0 && `[${(s.port.states ?? []).join(", ")}]`}
+            </span>
+            {/* **What a laboratory actually types.** The name above is the pipeline's handle;
+                this is the flag on the command line, and they are the same today only because
+                each pipeline takes one of each type. */}
+            <span className="block font-data text-label text-ink-3 truncate">
+              --{s.channel.param}
             </span>
           </div>
         </div>

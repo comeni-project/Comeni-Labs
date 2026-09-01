@@ -16,6 +16,17 @@ const DATA = {
       ],
     },
   ],
+  // Two `fastq.reads` channels feeding two ports of one step — the case the whole feature
+  // exists for, and the one a per-unwired-port derivation could not express at all.
+  channels: [
+    { name: "fastq_reads", param: "input", type_id: "fastq.reads", feeds: ["star_align.reads"] },
+    {
+      name: "fastq_reads_2",
+      param: "control",
+      type_id: "fastq.reads",
+      feeds: ["star_align.control"],
+    },
+  ],
   layout: { nodes: [{ id: "star_align", x: 0, y: 0, rank: 0 }], wires: [] },
 };
 
@@ -29,7 +40,7 @@ describe("naming a socket", () => {
     const fields = screen.getAllByTestId("socket-name");
     await userEvent.type(fields[0], "t");
 
-    expect(rename).toHaveBeenCalledWith("star_align.reads", "t");
+    expect(rename).toHaveBeenCalledWith("fastq_reads", "t");
   });
 
   it("shows the port's own name until somebody types one", () => {
@@ -39,7 +50,7 @@ describe("naming a socket", () => {
     render(<Sources data={DATA as never} offsets={{}} labels={{}} onRename={vi.fn()} />);
     const fields = screen.getAllByTestId("socket-name") as HTMLInputElement[];
     expect(fields[0].value).toBe("");
-    expect(fields[0].placeholder).toBe("reads");
+    expect(fields[0].placeholder).toBe("fastq_reads");
   });
 
   it("shows the label once there is one, on an output as well as an input", () => {
@@ -47,7 +58,7 @@ describe("naming a socket", () => {
       <Sources
         data={DATA as never}
         offsets={{}}
-        labels={{ "star_align.reads": "tumour", "star_align.bam": "aligned tumour" }}
+        labels={{ fastq_reads: "tumour", "star_align.bam": "aligned tumour" }}
         onRename={vi.fn()}
       />,
     );
@@ -73,7 +84,7 @@ describe("naming a socket", () => {
       <Sources
         data={DATA as never}
         offsets={{}}
-        labels={{ "star_align.reads": "tumour" }}
+        labels={{ fastq_reads: "tumour" }}
         onRename={vi.fn()}
       />,
     );

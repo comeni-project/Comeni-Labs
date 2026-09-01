@@ -3664,3 +3664,42 @@ which is where the claim actually lives.
 to see that the new guard was among them. A skip is quieter than a failure and louder than
 nothing, and this is the second time in two plans that where a guard *lives* decided whether it
 runs at all.
+
+
+## A channel is named — Plan 5B phase 2, 2026-08-31
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-08-31 | `test_layer_format.py` × 2 | `if manifest.requires > LAYER_FORMAT` -> `if False` | failed | the refusal, and separately that it reaches the loader |
+| 2026-08-31 | `test_named_channels.py` "two channels sharing a name" | `if shared:` -> `if False:` | failed | MD0226 |
+| 2026-08-31 | `test_named_channels.py` "a step reading an undeclared channel" | `if dangling:` -> `if False:` | failed | MD0227 |
+| 2026-08-31 | `test_named_channels.py` "an entry_channel with no placeholder" | `if PARAM_PLACEHOLDER not in …` -> `if False:` | failed | MD0228 |
+| 2026-08-31 | `test_named_channels.py` × 2, the migration | derived the param from the type instead of reading it out of the expression | failed, both | *a migrated v5 artifact emits different Nextflow from the v6 it was made from* |
+| 2026-08-31 | `test_vocabulary.py` "a derived vocabulary keeps every field" | put back the hand-written field list in `with_measurements` | failed | `with_measurements dropped 'entry_params'` |
+
+### The floor was demonstrated end to end, not just unit-tested
+
+Before bumping `LAYER_FORMAT`, the registry was given `requires: 2` and a templated
+`entry_channel`, and the *unmodified* engine was pointed at it:
+
+    MD0020: registry/registry.yml needs layer format 2 and this Mendel implements 1.
+
+That is the whole reason 2.1 lands first. Without it the same registry read by the same engine
+writes the literal string `params.{param}` into Groovy and reports success.
+
+### A guard found a defect it was not written for
+
+`MD0228` fired on the **shipped registry** the moment it existed, because all three types still
+hard-coded their parameter. That is the check working as intended on real data rather than on a
+fixture, and it is why the registry change and the code change are one commit.
+
+### `with_measurements` dropped a field and nothing failed
+
+It listed every field by hand in a fresh `Vocabulary(...)`, so adding `entry_params` meant the
+loader collected it and this silently returned a vocabulary without it — `entry_channels`
+populated and `entry_params` empty, **three lines apart in the same function**.
+
+Nothing caught it. It surfaced as `entry_params: {}` at a REPL while checking something else, and
+the two minutes before that were spent doubting the YAML, the parse, and a stale `__pycache__`.
+A hand-written field list that has to be kept in step with a model is a `model_copy` waiting to
+happen, and the guard now asserts every field except the one being changed survives.

@@ -10,7 +10,7 @@ import { Grip, RAIL, useWidth } from "./Panels";
 import { ArtifactView } from "./ArtifactView";
 import { Browse } from "./Browse";
 import { Picker } from "./Picker";
-import { entryChannels, Sources } from "./Sources";
+import { channelsOf, Sources } from "./Sources";
 import { Status } from "./Status";
 import { Swap } from "./Swap";
 import { useRun } from "./useRun";
@@ -818,7 +818,7 @@ function Editing({ built, opened, draft, view, onWheel, onPointerDown, reset, nu
         <RunSheet
           name={draft.name || "this pipeline"}
           steps={answered}
-          sources={data ? entryChannels(data) : []}
+          sources={data ? channelsOf(data) : []}
           draftId={keeper.draftId}
           blocked={keeper.blocked}
           gated={gate.passed && !keeper.blocked}

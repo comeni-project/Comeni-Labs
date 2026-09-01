@@ -66,7 +66,7 @@ provenance:
 """
 
 # One file per type, named for the type id — `_parse_type` takes the id from the filename.
-TYPES = {"fastq.reads": "states: [trimmed]\nentry_channel: \"Channel.empty()\"\n",
+TYPES = {"fastq.reads": "states: [trimmed]\nentry_channel: \"Channel.empty(params.{param})\"\n",
          "qc.report": "states: []\n"}
 
 ROLES = "declares: role\nroles: [qc_per_sample]\n"
@@ -195,7 +195,7 @@ def test_MD0007_add_states_carrying_other_fields(tmp_path):
     (layer / "vocabularies" / "fastq.reads.yml").write_text(
         _declared(
             layer / "vocabularies" / "fastq.reads.yml",
-            "add_states: [deduped]\nentry_channel: \"Channel.empty()\"\n")
+            "add_states: [deduped]\nentry_channel: \"Channel.empty(params.{param})\"\n")
     )
     message = _refusal(layer)
     assert "MD0007" in message

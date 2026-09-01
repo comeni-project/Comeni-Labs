@@ -46,6 +46,7 @@ decline to curate one.
 | `MD0011` | a declared file names a kind that does not exist |
 | `MD0012` | a vocabulary or measurement does not declare its id |
 | `MD0020` | this layer needs a newer Mendel than the one reading it |
+| `MD0228` | an `entry_channel` declares no `{param}` placeholder |
 
 ## A contract disagrees with its module
 
@@ -103,6 +104,8 @@ decline to curate one.
 | `MD0223` | a value was edited and the reason beside it still describes the value it replaced |
 | `MD0224` | a setting fills a positional argument and is unanswered, so the call would read `null` |
 | `MD0225` | a value records a model settled it, and the build records that none was available |
+| `MD0226` | two channels in this pipeline share a name |
+| `MD0227` | a step reads a channel this pipeline does not declare |
 
 ## Routing and resolution
 

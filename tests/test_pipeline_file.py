@@ -441,7 +441,7 @@ def test_a_vocabulary_displacement_reaches_the_artifact(tmp_path):
         _declared(
             ov / "vocabularies" / "fastq.reads.yml",
             "states: [trimmed, deduplicated, subsampled]\n"
-        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n")
+        "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/' + params.{param})\"\n")
     )
     out = _build_with_overlay(tmp_path, ov)
     assert "vocabularies" in _displaced_kinds(out)
@@ -489,7 +489,9 @@ def test_a_step_input_naming_both_a_source_and_a_channel_is_refused():
     channel (`channel`), never both. Both set is a wiring that reads two ways — root G's defect
     in a new type — so it is refused rather than resolved by field order."""
     with pytest.raises(ValueError, match="MD0215"):
-        StepInput(port="reads", source="trimgalore.reads", channel="fastq.reads")
+        # A channel NAME since Plan 5B — `fastq.reads` is a type id and is refused by
+        # `ChannelName` before MD0215 gets a chance to speak.
+        StepInput(port="reads", source="trimgalore.reads", channel="fastq_reads")
 
 
 def test_a_step_input_naming_neither_a_source_nor_a_channel_is_refused():

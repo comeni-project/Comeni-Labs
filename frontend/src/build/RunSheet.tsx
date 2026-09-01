@@ -5,8 +5,13 @@ import { SubmitPanel } from "./Submit";
 import type { AnsweredStep } from "./useBuilder";
 import { open as isOpen } from "./useBuilder";
 
-/** One thing that has to be bound before this pipeline can run — `Sources.entryChannels`. */
-type Entry = { key: string; name: string; type_id: string };
+/** One thing that has to be bound before this pipeline can run — `Sources.channelsOf`.
+ *
+ * **Read off the artifact since Plan 5B.** It was derived in the browser, which was a second
+ * implementation of the question the resolver answers — and the two agreed only because each
+ * pipeline had one channel per type.
+ */
+type Entry = { key: string; name: string; param: string; type_id: string };
 
 /** **Run — the sheet, not a tab.** `n-brun`, and it is where three controls that were sitting
  * beside the canvas actually belong.
@@ -122,6 +127,9 @@ export function RunSheet({
               <div className="flex items-baseline gap-3 pb-[9px]">
                 <span className="font-data text-body text-ink">{source.name}</span>
                 <span className="font-data text-label text-link">{source.type_id}</span>
+                {/* The flag a laboratory types. Wiener reads it out of the artifact on upload,
+                    which is why this sheet shows it and does not ask for a value. */}
+                <span className="font-data text-label text-ink-4">--{source.param}</span>
               </div>
               <Slot what="choose where these files are" />
             </div>

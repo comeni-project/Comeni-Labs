@@ -25,6 +25,11 @@ const DATA = {
       { name: "index", type_id: "genome.index.star", side: "in", met: false, states: [] },
     ],
   }],
+  // **What the pipeline takes, named by the resolver.** The browser used to work this out
+  // from unwired ports; it reads it now, so a fixture has to declare it.
+  channels: [
+    { name: "fastq_reads", param: "input", type_id: "fastq.reads", feeds: ["trimgalore.reads"] },
+  ],
   layout: {
     nodes: [
       { id: "trimgalore", rank: 0, order: 0, x: 40, y: 60, width: 232, height: 78, tier: 2 },

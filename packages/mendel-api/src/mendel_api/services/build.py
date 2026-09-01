@@ -212,8 +212,32 @@ class StepView(BaseModel):
     round trip for data the build already had in hand."""
 
 
+class ChannelView(BaseModel):
+    """One thing this pipeline takes in, as the canvas reads it.
+
+    **Why this is a field and not something the browser works out.** `Sources.entryChannels()`
+    derived it — every input port nothing wires — and that was a *second implementation of the
+    same question the resolver already answers*, agreeing only because each pipeline had one
+    channel per type. Plan 5B ends that: a pipeline may take two `fastq.reads` and only the
+    artifact knows what they are called, so a browser deriving its own answer would disagree
+    with the artifact in a new way — and this plan started from the canvas disagreeing with the
+    artifact.
+    """
+
+    name: str
+    """What the pipeline calls it. `StepInput.channel` references this."""
+    param: str
+    """The `params.<name>` a laboratory fills in. Shown because it is the thing they type."""
+    type_id: str
+    feeds: list[str]
+    """`<step>.<port>` for every port this channel feeds. **Plural**: one channel can feed
+    several ports, which is how `annotation.gtf` reaches both STAR and featureCounts today."""
+
+
 class BuiltPipeline(BaseModel):
     steps: list[StepView]
+    channels: list[ChannelView]
+    """What this pipeline takes in, **named by the resolver**. See `ChannelView`."""
     layout: Placement
     provenance: dict[str, int]
     """Tier → how many steps exited at it. **Keyed by string** because JSON object keys are
@@ -277,6 +301,21 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
             [port.name for port in contract.consumes],
             [port.name for port in contract.produces],
         )
+    channels = [
+        ChannelView(
+            name=channel.name,
+            param=channel.param,
+            type_id=channel.type_id,
+            feeds=sorted(
+                f"{step.id}.{wiring.port}"
+                for step in pipeline.steps
+                for wiring in step.inputs
+                if wiring.channel == channel.name
+            ),
+        )
+        for channel in pipeline.channels
+    ]
+
     placed = layout.of(ir, ports=declared)
     # **An input is met by an edge OR by an entry channel**, and getting that wrong is worse
     # than not drawing ports at all. `star_align`'s `gtf` has no incoming edge — the annotation
@@ -353,6 +392,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
 
     return BuiltPipeline(
         steps=steps,
+        channels=channels,
         layout=Placement(
             nodes=[PlacedNode(**vars(n)) for n in placed.nodes],
             wires=[

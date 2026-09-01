@@ -40,6 +40,7 @@ from comeni_core.plan.tiers import (
     review_level_for,
 )
 from comeni_core.spell.marks import (
+    ChannelName,
     ContainerRef,
     ContractId,
     Digest,
@@ -60,7 +61,7 @@ from comeni_core.spell.marks import (
 )
 from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 """What this Mendel writes and the highest it will read.
 
 The rule was "bumped only by a change that an older Mendel would misread — a section it would
@@ -403,8 +404,17 @@ class StepInput(BaseModel):
     an `EdgeRef` — its validator requires two Groovy identifiers, which `channel:annotation.gtf`
     is not. Encoding a union in a string is also root G's problem: a field that reads two ways.
     """
-    channel: TypeId | None = None
-    """The entry channel this port reads, when nothing upstream produces it."""
+    channel: ChannelName | None = None
+    """Which entry channel this port reads, **by name**, when nothing upstream produces it.
+
+    **This was a `TypeId` until Plan 5B, and that is the defect the whole plan is about.** A
+    channel's identity *was* its type, so two `annotation.gtf` inputs were one `params.gtf` and a
+    GTF could not vary per sample — the pipeline could not express *reads with their respective
+    annotations*, which is an ordinary thing a laboratory asks for.
+
+    `MD0227` refuses a name no `Channel` in this file declares. A dangling reference here emits
+    Groovy referring to a variable that was never assigned, which fails at launch with a message
+    about Nextflow rather than about the artifact."""
     states: list[StateName] = Field(default_factory=list)
     """Sorted at materialisation. `IREdge.states` is a `frozenset`, and a set has no stable
     order — `digest_of` hashes the JSON, so this must not be one."""
@@ -513,6 +523,21 @@ class Channel(BaseModel):
     """What the laboratory supplies, and the measured facts that ride with it."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: ChannelName
+    """What this pipeline calls it, and what `StepInput.channel` references.
+
+    **Derived, not authored** — `materialise` names channels from the graph's shape, and
+    `MD0226` refuses a file whose names are not unique because a derived value that can collide
+    needs a check rather than a convention.
+    """
+
+    param: NfIdentifier
+    """The `params.<name>` a laboratory fills in on the command line.
+
+    Separate from `name` because they answer to different people: `name` is the pipeline's
+    internal handle and `param` is the interface a laboratory types at. They are equal today and
+    a pipeline taking two of one type is exactly when they stop being."""
 
     type_id: TypeId
     params: list[PortName] = Field(default_factory=list)
@@ -663,6 +688,62 @@ class Pipeline(EgressPayload):
         ]
         return data
 
+    @model_validator(mode="before")
+    @classmethod
+    def _name_the_channels_a_v5_file_did_not(cls, data: object) -> object:
+        """Schema 5 -> 6: a channel gains a `name` and a `param`, and an old file has neither.
+
+        **In the loader, not a script somebody has to remember to run.** A laboratory holding a
+        v5 `pipeline.yml` runs `mendel emit` on it and it works, which is what "the artifact is
+        the pipeline" has to mean.
+
+        **The names it assigns are the ones that file's behaviour already had.** A v5 file has
+        one channel per type and `inputs[].channel` holds a *type id*, so the channel a port
+        reads is unambiguous — this renames the reference and changes nothing. The parameter is
+        read out of the expression rather than derived from the type: v5 expressions hard-code
+        `params.input` for `fastq.reads`, which no derivation from `fastq.reads` produces, and
+        guessing `reads` would rename every laboratory's command line.
+
+        **`upgrade` replays this rather than re-deriving it**, which is the property the phase
+        rests on. `mendel upgrade` re-resolves against the current registry and replays every
+        recorded decision so only what you touched can move — issue #10 closed on exactly that.
+        If a migration's names and a fresh derivation's names differed by one, every `params.*`
+        would rename itself on an upgrade somebody asked for to pick up an unrelated registry
+        fix. `test_upgrade_after_migration_is_byte_identical` is the guard.
+        """
+        if not isinstance(data, dict) or data.get("version", SCHEMA_VERSION) >= 6:
+            return data
+        data = dict(data)
+        renamed: dict[str, str] = {}
+        channels = []
+        for channel in data.get("channels") or []:
+            type_id = channel.get("type_id", "")
+            name = str(type_id).replace(".", "_").replace("-", "_")
+            renamed[type_id] = name
+            channels.append({
+                **channel,
+                "name": channel.get("name") or name,
+                # **Read out of the expression, not derived from the type.** `params` already
+                # records which `params.<x>` the expression references — stored *and* derivable,
+                # and MD0211 keeps the two honest — so the parameter this file actually used is
+                # right there. A v5 expression references exactly one.
+                "param": channel.get("param") or next(iter(channel.get("params") or []), name),
+            })
+        data["channels"] = channels
+        data["steps"] = [
+            {
+                **step,
+                "inputs": [
+                    {**one, "channel": renamed.get(one["channel"], one["channel"])}
+                    if one.get("channel")
+                    else one
+                    for one in step.get("inputs") or []
+                ],
+            }
+            for step in data.get("steps") or []
+        ]
+        return data
+
     version: int = SCHEMA_VERSION
     """What this file is written as. Defaults to what this Mendel writes rather than to a
     literal, because a literal is a second place the version lives and the two drifted the
@@ -734,6 +815,45 @@ class Pipeline(EgressPayload):
                     "`ai.available: []` means nothing was wired to a model, so nothing could "
                     "have been consulted.")
                 )
+        # MD0226 — **a derived value that can collide needs a check, not a convention.**
+        # `_channel_name` derived from a type's last segment once, `qc.report` and
+        # `multiqc.report` both became `ch_report`, and two ports were fed one channel with
+        # nothing saying so. The derivation is over the full type id now; this refuses the case
+        # where that is still not enough rather than trusting that it always is.
+        names = [channel.name for channel in self.channels]
+        shared = sorted({name for name in names if names.count(name) > 1})
+        if shared:
+            raise ValueError(
+                coded(
+                    "MD0226",
+                    f"two channels share the name {', '.join(shared)}. `inputs[].channel` "
+                    f"references a channel by name, so a duplicate makes the reference "
+                    f"ambiguous — and the emitter resolves it by assigning both to one Groovy "
+                    f"variable, where the second wins.",
+                )
+            )
+
+        # MD0227 — a reference to a channel that is not here emits Groovy naming a variable
+        # nothing assigned, which fails at launch with a message about Nextflow rather than
+        # about the artifact somebody edited. Same class as MD0211.
+        declared = set(names)
+        dangling = sorted(
+            {
+                f"{step.id}.{wiring.port} -> {wiring.channel}"
+                for step in self.steps
+                for wiring in step.inputs
+                if wiring.channel is not None and wiring.channel not in declared
+            }
+        )
+        if dangling:
+            raise ValueError(
+                coded(
+                    "MD0227",
+                    f"{'; '.join(dangling)} — no channel of that name is declared.\n"
+                    f"  channels here: {', '.join(sorted(declared)) or '(none)'}",
+                )
+            )
+
         measured = {entry.key for channel in self.channels for entry in channel.meta}
         for step in self.steps:
             shadow = sorted(

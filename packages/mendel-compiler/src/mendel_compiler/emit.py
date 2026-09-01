@@ -72,14 +72,18 @@ def _render_process_name(name: str) -> str:
     return name
 
 
-def _channel_name(type_id: str) -> str:
-    """`fastq.reads` -> `ch_fastq_reads`.
+def _channel_name(name: str) -> str:
+    """`fastq_reads` -> `ch_fastq_reads`. The Groovy variable for a channel this pipeline names.
 
-    The last segment alone reads better but is not injective: `qc.report` and
-    `multiqc.report` both became `ch_report`, so one assignment shadowed the other and
-    two ports were fed the same channel, silently.
+    **It takes the channel's NAME now, not its type id.** Deriving here from the type was the
+    same fact computed in two places — `materialise` decided what a channel was and this decided
+    what to call it — and the two agreed only because each pipeline had one channel per type.
+    Plan 5B ends that: a pipeline may take two `fastq.reads`, and only the artifact knows what
+    they are called.
+
+    The prefix stays, because `reads` is a plausible Groovy local and `ch_reads` is not.
     """
-    return "ch_" + type_id.replace(".", "_").replace("-", "_")
+    return "ch_" + name
 
 
 def _process_of(pipeline: Pipeline, node_id: str) -> str:
@@ -162,7 +166,7 @@ def _with_meta(expression: str, entries: list) -> str:
 
 def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     return [
-        (_channel_name(channel.type_id), _with_meta(channel.expression, channel.meta))
+        (_channel_name(channel.name), _with_meta(channel.expression, channel.meta))
         for channel in pipeline.channels
     ]
 

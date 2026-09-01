@@ -56,6 +56,7 @@ class Mark(StrEnum):
     MODULE_KEY = "module-key"
     ROLE_NAME = "role-name"
     SPDX_ID = "spdx-id"
+    CHANNEL_NAME = "channel-name"
 
     NF_IDENTIFIER = "nf-identifier"
     """A name emitted into a Nextflow or Groovy *declaration* — a process name, a channel,
@@ -666,6 +667,21 @@ def _spdx_id(value: str) -> str:
 
 
 SpdxId = Annotated[str, Mark.SPDX_ID, AfterValidator(_spdx_id)]
+
+ChannelName = Annotated[str, Mark.CHANNEL_NAME, AfterValidator(_identifier("channel name"))]
+"""What a pipeline calls one of the things it takes in.
+
+**Its own alias rather than `TypeId`, and that is the whole of Plan 5B.** `StepInput.channel` was
+a `TypeId`, so a channel's identity *was* its type — two `annotation.gtf` inputs were one
+`params.gtf` and a GTF could not vary per sample. A name is what makes two channels of one type
+addressable.
+
+**And its own alias rather than `NfIdentifier`**, which it is emitted as. That one means *a name
+going into a Groovy declaration, where there is no escaping option*; this one means *a key
+another field references*. They validate identically today and they are answers to different
+questions, which is the distinction `EdgeRef` already draws between `<node>.<port>` and a
+filename that happens to have a dot in it.
+"""
 """The licence a vendored module arrives under, as an SPDX identifier.
 
 Registry data with a shape rather than prose: it is the pointer from a `module.yml` to the

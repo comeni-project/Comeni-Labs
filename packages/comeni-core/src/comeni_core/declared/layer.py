@@ -18,8 +18,12 @@ from comeni_core import yaml_strict
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import LayerName
 
-LAYER_FORMAT = 1
+LAYER_FORMAT = 2
 """Which layer format this engine implements.
+
+**2 since Plan 5B**: `entry_channel` is a `params.{param}` template, and an engine at format 1
+substitutes nothing — it would write the literal placeholder into Groovy and report success.
+That is the case this number exists for.
 
 **Incremented when a layer can hold something an older engine would read wrongly** — not when it
 holds something an older engine would merely ignore. The distinction is the whole value: an

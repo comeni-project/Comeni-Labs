@@ -72,7 +72,7 @@ def test_the_base_vocabulary_is_not_mutated(tmp_path):
     (v / "fastq.reads.yml").write_text(
         _declared(
             v / "fastq.reads.yml",
-            "states: [trimmed]\nentry_channel: 'Channel.of()'\n"))
+            "states: [trimmed]\nentry_channel: 'Channel.of(params.{param})'\n"))
 
     base = Vocabulary.load(tmp_path)
     derived = base.with_measurements(MeasurementRegistry.load(tmp_path))
