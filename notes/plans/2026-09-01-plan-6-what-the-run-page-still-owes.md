@@ -182,55 +182,66 @@ database**; treat any task here that talks about measuring or admitting as a mis
 
 ### 3.1 A pure verb, beside the three that exist
 
-- [ ] `lanes(state, declared) -> Lanes` in **`wiener-core`**, the fourth of its shape after
+- [x] `lanes(state, declared) -> Lanes` in **`wiener-core`**, the fourth of its shape after
       `overview()`, `spans()` and `series()` — and it inherits invariant 1 for free, which is
       the argument §3.1 already made for the others.
-- [ ] **A lane is a process, in the order the artifact declares it** — the annotation is
+- [x] **A lane is a process, in the order the artifact declares it** — the annotation is
       explicit, and it is the same rule that gives `overview()` a row before the run reaches it:
       *"The chart's height is known before the first event."*
-- [ ] **Sub-rows are concurrency, greedily packed** — a finished row is reused. Above roughly
+- [x] **Sub-rows are concurrency, greedily packed** — a finished row is reused. Above roughly
       40 concurrent the stack stops and the remainder becomes a **density band**. Never 5,000
       rows.
-- [ ] **Colour is status, never process.** The lane already carries identity. The annotation
+- [x] **Colour is status, never process.** The lane already carries identity. The annotation
       records that the first draft coloured by process and *"a finished STAR task was
       indistinguishable from a running one."*
-- [ ] **A retry is a separate bar in the same lane.** `Attempt` is per-attempt precisely so the
+- [x] **A retry is a separate bar in the same lane.** `Attempt` is per-attempt precisely so the
       try that asked for more memory is visible; collapsing them loses the only interesting
       thing.
-- [ ] **No clock inside the fold.** `series()` already carries this rule and it is load-bearing
+- [x] **No clock inside the fold.** `series()` already carries this rule and it is load-bearing
       here too: a running attempt has no `complete_ms`, and closing it at `now` inside a pure
       function breaks §6.1's *same events in, same decisions out*. The **renderer** extends an
       open bar to the right edge, exactly as the envelope does.
 
 ### 3.2 The query path
 
-- [ ] The windows are in `run_task.attempts` (JSON) and `/runs/{id}/tasks` pages at 100. So
+- [x] The windows are in `run_task.attempts` (JSON) and `/runs/{id}/tasks` pages at 100. So
       either **three derived columns** — the A191 move, and the one the `tag` column made
       earlier today — or a **dedicated endpoint** over the pure verb, the `/series` move.
-- [ ] **Recommendation: the endpoint.** A191's columns exist so a *table* can `ORDER BY`; the
+- [x] **Recommendation: the endpoint.** A191's columns exist so a *table* can `ORDER BY`; the
       timeline needs every attempt of every task at once and orders by nothing. `/series` is
       the precedent and `page-5` names both options without choosing.
-- [ ] **A board is a query, not a fold in the request** — A191. Check what `/series` actually
+- [x] **A board is a query, not a fold in the request** — A191. Check what `/series` actually
       does before copying it: if it replays events per request, that is a cost this endpoint
       inherits and the plan should say so rather than discover it under a 5,000-task run.
 
 ### 3.3 The band
 
-- [ ] `Timeline.tsx`, between the panels and the envelope, sharing the envelope's x-axis —
+- [x] `Timeline.tsx`, between the panels and the envelope, sharing the envelope's x-axis —
       `curve.ts` already establishes that time is the comparison that matters and each series
       keeps its own y.
-- [ ] **Drill down in place**: clicking a lane filters the tasks table below it. The annotation
+- [x] **Drill down in place**: clicking a lane filters the tasks table below it. The annotation
       is explicit — *"Never a second page for the same run"* — and the tasks band already takes
       a `process` filter, so this is wiring, not a new capability.
-- [ ] **A stepped, exact drawing and no interpolation**, for the reason `curve.ts` records: a
+- [x] **A stepped, exact drawing and no interpolation**, for the reason `curve.ts` records: a
       scan already refuses a bezier, and a bar chart of windows must not grow a smoother.
+
+### Execution record — 2026-09-01
+
+| step | what actually happened |
+|---|---|
+| 3.1 | `lanes()` takes `(task_id, process, attempts)` rows, **not a `RunState`** — the shape `series()` established and for its reason. The first draft passed no `task_id` and every bar would have been unidentifiable, which kills 3.3's drill-down; caught while writing the packing. |
+| 3.2 | **The endpoint, as recommended.** `task_windows()` is a wider query than `attempts_of()` rather than a replacement: the envelope reads only attempts and adding two columns would make it carry what it does not read. |
+| 3.2 | `test_wiener_openapi.py` refused the new route until it was named in its literal list. That guard working. |
+| 3.3 | Drill-down is a **callback**, not a filter the band applies: the timeline reports which lane was picked and the page decides. An empty lane is deliberately not clickable — filtering to nothing reads as *this process has no tasks* when the truth is *it has not started*. |
+| — | **`make dev` runs the Python APIs from a baked image with no source mount and no `--reload`.** The endpoint 404'd in the browser while green in tests, and `docker compose up -d --build wiener-api` was the fix. Same class as the stale dev registry found this morning: the running stack not reflecting the source. Not fixed here — recorded, because it will cost the next person the same twenty minutes. |
+| — | An SVG `<text>` has no `.click()` in jsdom. `fireEvent.click` instead. |
 
 ### 3.4 Checkpoint
 
-- [ ] A real multi-sample run — the fan-out fixture is two samples and `--gate test` produces
+- [x] A real multi-sample run — the fan-out fixture is two samples and `--gate test` produces
       more — with a lane per process, a bar per attempt, a retry visible as its own bar, and a
       click filtering the table beneath.
-- [ ] A run with one task and a run with none both draw something honest.
+- [x] A run with one task and a run with none both draw something honest.
 
 ---
 

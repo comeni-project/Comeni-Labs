@@ -27,5 +27,6 @@ def test_every_operation_is_named_by_hand():
         ("/api/runs/{run_id}/tasks", "get"): "readTasks",
         ("/api/runs/{run_id}/results", "get"): "readResults",
         ("/api/runs/{run_id}/series", "get"): "readSeries",
+        ("/api/runs/{run_id}/timeline", "get"): "readTimeline",
         ("/api/health", "get"): "health",
     }

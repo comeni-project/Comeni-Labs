@@ -13,6 +13,7 @@ import { OverviewPanel, type OverviewData } from "./Overview";
 import { Panels } from "./Panels";
 import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
 import { Tasks } from "./Tasks";
+import { Timeline } from "./Timeline";
 import { elapsed } from "./elapsed";
 import { colourOf, isPhase } from "./phases";
 import { useRunStream } from "./useRunStream";
@@ -267,6 +268,14 @@ export function Run() {
           question about a step or a task, so putting it behind a segment would hide the one
           panel that is about the run as a whole. It renders nothing when the record is empty
           — absence is absence — so a stub run's page is simply shorter. */}
+      {/* **Between the panels and the envelope**, which is the artboard's own order: summary,
+          then when things ran, then what they held. It shares the envelope's x-axis — the run's
+          own span — because time is the comparison that matters and `curve.ts` already
+          establishes that each series keeps its own y. */}
+      {view !== "console" && (
+        <Timeline runId={id} live={!TERMINAL.has(run.phase)} onPickLane={setOnly} />
+      )}
+
       <Envelope runId={id} live={!TERMINAL.has(run.phase)} />
 
       {/* ══ BANDS, NOT TABS — `.design/RunView.dc.html` ═══════════════════════════════════
@@ -384,6 +393,7 @@ export function Run() {
             <Tasks
               runId={id}
               processes={(overview.data?.rows ?? []).map((row) => row.process)}
+              openOn={only || undefined}
             />
           </section>
         </>

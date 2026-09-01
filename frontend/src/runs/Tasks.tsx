@@ -26,8 +26,23 @@ const STATUSES = ["", "COMPLETED", "FAILED", "CACHED", "RUNNING", "ABORTED"];
  * **Filtered, sorted and paged server-side**, never here. 5,000 rows is not an overview, and
  * sorting them in the browser would mean holding all 5,000 to sort 50.
  */
-export function Tasks({ runId, processes = [] }: { runId: string; processes?: string[] }) {
-  const [process, setProcess] = useState("");
+export function Tasks({ runId, processes = [], openOn }: {
+  runId: string; processes?: string[];
+  /** A lane somebody clicked on the timeline — **drill down IN PLACE**, which the artboard
+   *  states as a rule: *"Clicking a timeline lane filters the tasks table below it. Never a
+   *  second page for the same run."* Seeded rather than forced, so the select stays a
+   *  control: picking `all` afterwards is not immediately undone by the prop. */
+  openOn?: string;
+}) {
+  const [process, setProcess] = useState(openOn ?? "");
+  // `openOn` changes when a different lane is clicked, and a `useState` initialiser only runs
+  // once. Keyed remount is the alternative and it would throw away the sort and the tag filter,
+  // which are the reader's, not the lane's.
+  const [lastOpened, setLastOpened] = useState(openOn);
+  if (openOn !== lastOpened) {
+    setLastOpened(openOn);
+    setProcess(openOn ?? "");
+  }
   const [status, setStatus] = useState("");
   const [retriedOnly, setRetriedOnly] = useState(false);
   const [attempt, setAttempt] = useState("");

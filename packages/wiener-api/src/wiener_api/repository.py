@@ -89,6 +89,31 @@ def attempts_of(session: Session, lab_id: str, run_id: str) -> list[list]:
     return [row[0] for row in rows]
 
 
+def task_windows(session: Session, lab_id: str, run_id: str) -> list[tuple[int, str, list]]:
+    """`(task_id, process, attempts)` per task — everything the timeline needs, in one query.
+
+    **A wider `attempts_of`, not a replacement for it.** The envelope needs only the attempts
+    and says so; the timeline needs to know which lane each belongs to and which task a bar
+    names, and adding two columns to the envelope's query would make it carry what it does not
+    read.
+
+    **One indexed `SELECT`, never a fold** — A191, and the same argument `attempts_of`'s
+    docstring makes: the attempts are already a column because the projection wrote them when
+    it wrote the row, so replaying a 5,000-task run's 15,000 events to rediscover them is the
+    expensive shape that rule exists to name.
+
+    Ordered by `task_id` so the sweep's input is stable run to run. `lanes()` sorts its own bars
+    and is order-independent by test, but a stable query is what keeps *that* test honest rather
+    than accidentally true.
+    """
+    rows = session.execute(
+        select(RunTask.task_id, RunTask.process, RunTask.attempts)
+        .where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+        .order_by(RunTask.task_id)
+    ).all()
+    return [(task_id, process, attempts or []) for task_id, process, attempts in rows]
+
+
 def pipeline_digests(session: Session, lab_id: str, artifact_ids: list[str]) -> dict[str, str]:
     """`{artifact_id: pipeline_digest}` for a page of runs, in one query.
 

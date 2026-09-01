@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
 from wiener_core.state import Attempt
+from wiener_core.timeline import Timeline, lanes
 
 from wiener_api import db, jobs, repository
 from wiener_api.models import Run, RunArtifact
@@ -605,6 +606,44 @@ def run_series(run_id: str) -> Series:
 
     attempts = [Attempt.model_validate(one) for row in rows for one in (row or [])]
     return series(attempts)
+
+
+@router.get("/runs/{run_id}/timeline", operation_id="readTimeline",
+            summary="Where every attempt sat in time, packed into lanes")
+def run_timeline(run_id: str) -> Timeline:
+    """**A query, never a fold** — the same shape as `/series` one endpoint above.
+
+    `page-5` listed the timeline under *"BLOCKED, FAKE, OR NOT YET PROJECTED"*, on the grounds
+    that attempt windows *"are inside `run_task.attempts` but are not projected as columns"*.
+    That was true of the columns and never of the data: `Attempt.start_ms` and `complete_ms`
+    have been written into that JSON since W2, so nothing had to be measured, admitted or
+    migrated — only read.
+
+    **Derived columns were the other option and are the wrong one here.** A191 earned its three
+    columns so a *table* could `ORDER BY`; the timeline reads every attempt of every task at
+    once and orders by nothing, so an endpoint over the pure verb is `series`'s shape and this
+    is `series`'s question.
+
+    Every decision about how bars pack, when the stack stops and what an open bar means belongs
+    to `wiener_core.timeline`, which is pure and reads no clock. This route reads rows and hands
+    them over.
+    """
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        rows = repository.task_windows(session, settings.lab_id, run_id)
+        # **Not a 404 when the artifact cannot be read** — A192, the same call `/overview`
+        # makes. The windows come from the fold and are true whatever happened to the
+        # directory; what is lost is the declared order, so the lanes are the ones the run
+        # actually reached.
+        pipeline = _pipeline_of(session, run_id)
+
+    declared = [step.process for step in pipeline.steps] if pipeline is not None else []
+    return lanes(
+        [(task_id, process, [Attempt.model_validate(one) for one in attempts])
+         for task_id, process, attempts in rows],
+        declared,
+    )
 
 
 class ResultFile(BaseModel):

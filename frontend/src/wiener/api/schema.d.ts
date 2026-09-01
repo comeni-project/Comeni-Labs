@@ -203,6 +203,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where every attempt sat in time, packed into lanes
+         * @description **A query, never a fold** — the same shape as `/series` one endpoint above.
+         *
+         *     `page-5` listed the timeline under *"BLOCKED, FAKE, OR NOT YET PROJECTED"*, on the grounds
+         *     that attempt windows *"are inside `run_task.attempts` but are not projected as columns"*.
+         *     That was true of the columns and never of the data: `Attempt.start_ms` and `complete_ms`
+         *     have been written into that JSON since W2, so nothing had to be measured, admitted or
+         *     migrated — only read.
+         *
+         *     **Derived columns were the other option and are the wrong one here.** A191 earned its three
+         *     columns so a *table* could `ORDER BY`; the timeline reads every attempt of every task at
+         *     once and orders by nothing, so an endpoint over the pure verb is `series`'s shape and this
+         *     is `series`'s question.
+         *
+         *     Every decision about how bars pack, when the stack stops and what an open bar means belongs
+         *     to `wiener_core.timeline`, which is pure and reads no clock. This route reads rows and hands
+         *     them over.
+         */
+        get: operations["readTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/results": {
         parameters: {
             query?: never;
@@ -305,6 +340,26 @@ export interface components {
             peak_rss_bytes?: number | null;
             /** Realtime Ms */
             realtime_ms?: number | null;
+        };
+        /**
+         * Bar
+         * @description One attempt, where it sat. **Not one task** — see rule 3.
+         */
+        Bar: {
+            /** Task Id */
+            task_id: number;
+            /** Attempt */
+            attempt: number;
+            status: components["schemas"]["TaskStatus"];
+            /** Start Ms */
+            start_ms: number;
+            /** End Ms */
+            end_ms?: number | null;
+            /**
+             * Row
+             * @default 0
+             */
+            row: number;
         };
         /**
          * BoardSummary
@@ -423,6 +478,31 @@ export interface components {
          * @enum {string}
          */
         Kind: "exact" | "derived";
+        /**
+         * Lane
+         * @description One process, and every attempt of it.
+         */
+        Lane: {
+            /** Process */
+            process: string;
+            /** Declared */
+            declared: boolean;
+            /**
+             * Bars
+             * @default []
+             */
+            bars: components["schemas"]["Bar"][];
+            /**
+             * Rows
+             * @default 0
+             */
+            rows: number;
+            /**
+             * Dense
+             * @default 0
+             */
+            dense: number;
+        };
         /** OverviewOut */
         OverviewOut: {
             /**
@@ -778,6 +858,11 @@ export interface components {
              */
             history: components["schemas"]["AttemptOut"][];
         };
+        /**
+         * TaskStatus
+         * @enum {string}
+         */
+        TaskStatus: "SUBMITTED" | "RUNNING" | "COMPLETED" | "FAILED" | "ABORTED" | "CACHED";
         /** TasksOut */
         TasksOut: {
             /**
@@ -790,6 +875,29 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /** Timeline */
+        Timeline: {
+            /**
+             * Lanes
+             * @default []
+             */
+            lanes: components["schemas"]["Lane"][];
+            /**
+             * From Ms
+             * @default 0
+             */
+            from_ms: number;
+            /**
+             * To Ms
+             * @default 0
+             */
+            to_ms: number;
+            /**
+             * Open
+             * @default false
+             */
+            open: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -1132,6 +1240,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Series"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Timeline"];
                 };
             };
             /** @description Validation Error */
