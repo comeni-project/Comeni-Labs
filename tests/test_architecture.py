@@ -74,11 +74,18 @@ def test_no_document_or_tool_still_says_docs_internal():
     # What *is* scanned is everything a reader or a tool follows now: `docs/`, the root,
     # `packages/`, `tests/`, `tools/`.
     scanned = ("docs", "packages", "tests", "tools")
+    # `*.yml` was added on 2026-09-02, and it found a violation immediately: the band table in
+    # `comeni_core/diagnostics.yml` cited `docs/internal/specs/…`, and this guard — written for
+    # exactly that class of error — could not see it, because it scanned only `*.md` and `*.py`.
+    # A guard that names the two extensions it happened to be written against is a guard with a
+    # hole the shape of every other extension. Declared data is the one that matters here:
+    # `diagnostics.yml` is the source every diagnostic code and `docs/reference/diagnostics.md`
+    # are generated from, so a dead path in it is a dead path in generated documentation.
     exempt = {"tests/test_architecture.py"}  # holds the string it searches for
     paths = [
         path
         for top in scanned
-        for pattern in ("*.md", "*.py")
+        for pattern in ("*.md", "*.py", "*.yml", "*.yaml")
         for path in sorted((root / top).rglob(pattern))
     ] + sorted(root.glob("*.md"))
     # A scan that reaches nothing reports nothing and passes. Emptying `scanned` was watched
