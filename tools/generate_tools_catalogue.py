@@ -14,6 +14,10 @@ Run by `make wiki-tools`, after `mendel docs` and before `mkdocs build`. The out
 gitignored like every other page under `docs/tools/` — `docs/tools/index.md` is the only
 authored file there, and this script's whole job is to make the generated ones reachable
 without becoming one.
+
+`build_catalogue` is separated from `main` so a test can run it against a temp directory of
+real generated pages without touching `docs/tools/` — the same split `tool_docs.py` describes
+between deciding page content and writing it to disk.
 """
 
 import sys
@@ -31,18 +35,14 @@ Every tool in the registry this site was built against, grouped by the org that 
 """
 
 
-def main() -> int:
+def build_catalogue(tools_dir: Path) -> str:
+    """The catalogue's content for the tool pages found under `tools_dir`, or `""` if none."""
     by_org: dict[str, list[Path]] = {}
-    for path in sorted(TOOLS_DIR.glob("*/*.md")):
+    for path in sorted(tools_dir.glob("*/*.md")):
         by_org.setdefault(path.parent.name, []).append(path)
 
     if not by_org:
-        print(
-            "generate_tools_catalogue: no tool pages under docs/tools/ — run `mendel docs` "
-            "(or `make wiki-tools`) first",
-            file=sys.stderr,
-        )
-        return 1
+        return ""
 
     lines = [HEADER]
     for org in sorted(by_org):
@@ -51,10 +51,25 @@ def main() -> int:
             lines.append(f"- [{org}/{path.stem}]({org}/{path.name})")
         lines.append("")
 
-    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    tool_count = sum(len(v) for v in by_org.values())
+    return "\n".join(lines) + "\n"
+
+
+def main() -> int:
+    content = build_catalogue(TOOLS_DIR)
+
+    if not content:
+        print(
+            "generate_tools_catalogue: no tool pages under docs/tools/ — run `mendel docs` "
+            "(or `make wiki-tools`) first",
+            file=sys.stderr,
+        )
+        return 1
+
+    OUT.write_text(content, encoding="utf-8")
+    tool_count = sum(1 for line in content.splitlines() if line.startswith("- ["))
+    org_count = sum(1 for line in content.splitlines() if line.startswith("## "))
     relative = OUT.relative_to(TOOLS_DIR.parent.parent)
-    print(f"wrote {relative} ({tool_count} tools, {len(by_org)} orgs)")
+    print(f"wrote {relative} ({tool_count} tools, {org_count} orgs)")
     return 0
 
 

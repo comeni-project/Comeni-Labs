@@ -5,8 +5,12 @@ so the two cannot drift, and this file is what says so.
 """
 
 import pathlib
+import sys
+import tempfile
 
 import yaml
+from mendel_compiler import tool_docs
+from mendel_resolver import layers
 
 ROOT = pathlib.Path(__file__).parent.parent.parent
 CONFIG = ROOT / "mkdocs.yml"
@@ -91,3 +95,34 @@ def test_the_catalogue_is_reachable_by_clicking_not_only_searching():
         "the Tools nav must reference the generated catalogue page, so a reader reaches the "
         "tool pages by clicking through it"
     )
+
+
+def test_the_catalogue_links_to_real_tool_pages_not_an_empty_shell():
+    """A nav entry pointing at the catalogue proves nothing about the catalogue's own content —
+    it would pass this file's other test even if the generator wrote nothing or wrote nonsense.
+
+    Runs the real registry through `mendel-compiler`'s `tool_docs` — the same pure, offline,
+    no-network, no-Docker path `mendel docs` takes — to produce real tool pages in a temp
+    directory, then asserts the generator both produces something (an empty catalogue over a
+    real registry is itself a bug) and names a link to every tool page it sits beside.
+    """
+    loaded = layers.load([ROOT / "registry"])
+    tools = tool_docs.tools_of(loaded.registry)
+    assert tools, "the registry produced no tools — there is nothing here to catalogue"
+
+    with tempfile.TemporaryDirectory(prefix="catalogue-test-") as tmp:
+        tools_dir = pathlib.Path(tmp)
+        for tool, contracts in tools.items():
+            page = tools_dir / f"{tool}.md"
+            page.parent.mkdir(parents=True, exist_ok=True)
+            page.write_text(tool_docs.render(tool, contracts, loaded), encoding="utf-8")
+
+        sys.path.insert(0, str(ROOT / "tools"))
+        import generate_tools_catalogue
+
+        catalogue = generate_tools_catalogue.build_catalogue(tools_dir)
+
+    assert catalogue, "the generator produced an empty catalogue against a real registry"
+
+    missing = [tool for tool in tools if f"]({tool}.md)" not in catalogue]
+    assert missing == [], f"catalogue is missing a link to: {missing}"
