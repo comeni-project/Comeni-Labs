@@ -874,10 +874,17 @@ deleted with issue #46: a licence file for content the repository no longer hold
 about nothing. Vendored nf-core modules keep their own.
 
 **Repo status.** `github.com/comeni-project/Comeni-Labs`, transferred to the org on
-2026-08-03 and **public since 2026-08-04**. `README`, `CONTRIBUTING` (a root stub pointing at
-`docs/guides/contributing.md`, because GitHub reads the root path), `SECURITY` and `CHANGELOG`
-are in place, CI runs on every pull request, and the nightly
-workflow runs the stub gate.
+2026-08-03 and **public since 2026-08-04**. `README` and `CHANGELOG` are at the root;
+`CONTRIBUTING` and `SECURITY` are in **`.github/`**, CI runs on every pull request, and the
+nightly workflow runs the stub gate.
+
+**The root stub is gone, and the reason it gave was wrong.** It said it stayed at the root
+"because GitHub reads this path to offer contributing guidelines on a pull request" — GitHub
+resolves a community health file in `.github/` **first**, then the root, then `docs/`, so the
+affordance it was protecting was never at risk. `docs/guides/contributing.md` moved to
+`.github/CONTRIBUTING.md` rather than being pointed at from two places: one file, one path,
+and the path GitHub prefers. `LICENSE` is the exception that must stay at the root — it is
+excluded from that resolution order so that it travels with a clone or a package.
 
 The org is the **umbrella**, not one of the products — `comeni-labs`, `comeni-code` and
 `comeni-registry` sit under it as equals. Naming `comeni-labs` as the org was considered and

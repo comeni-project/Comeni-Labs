@@ -30,7 +30,7 @@ The other loop. Mendel reads declared data; the forge is how it gets written.
 8. **[`ARCHITECTURE.md`](../ARCHITECTURE.md)** — the five stages, the load order, routing, both
    tier ladders and the three guards, written against the types that exist. Read it before
    writing code
-9. [Contributing](guides/contributing.md) — registry data needs no Python and is the most
+9. [Contributing](../.github/CONTRIBUTING.md) — registry data needs no Python and is the most
    valuable contribution
 10. [Releasing](guides/releasing.md) — which number to move, and how a tag becomes a release
 11. [Writing a contract](guides/writing-a-contract.md) · [a rule](guides/writing-a-rule.md) ·

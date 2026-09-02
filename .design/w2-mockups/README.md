@@ -1,7 +1,7 @@
 # W2 mockups
 
 The artboards behind the W2 design, published as a design canvas. The decisions they draw are
-[`../../../notes/specs/2026-08-24-w2-reading-a-run.md`](../../../notes/specs/2026-08-24-w2-reading-a-run.md)
+[`../../notes/specs/2026-08-24-w2-reading-a-run.md`](../../notes/specs/2026-08-24-w2-reading-a-run.md)
 — the spec, which absorbed the interim D1–D11 decisions file.
 
 **These are separate from [`../wiener-mockups/`](../wiener-mockups/) on purpose.** That canvas is

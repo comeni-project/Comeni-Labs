@@ -1,6 +1,6 @@
 # Wiener mockups
 
-The artboards behind [`../wiener.md`](../wiener.md) §9.5, published as a design canvas.
+The artboards behind [`../../docs/design/wiener.md`](../../docs/design/wiener.md) §9.5, published as a design canvas.
 
 **`tokens.shared.css` is the one place colour is defined here**, and `build.py` generates every
 `.dc.html` from it. That is checkable rather than promised: no hex literal appears in any artboard

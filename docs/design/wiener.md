@@ -777,7 +777,7 @@ a line in an allowlist and a test, rather than a subsystem.
 
 **Chosen 2026-08-23, from four directions put up as artboards** — Instrument (dark, dense),
 Editorial (the serif leads), Depth (the existing palette, layered) and Signal (colour blocking, big
-numerals). The three rejected ones are kept in [`wiener-mockups/`](wiener-mockups/) with the
+numerals). The three rejected ones are kept in [`wiener-mockups/`](../../.design/wiener-mockups/) with the
 argument for each, because a rejected option whose reasoning lives only in a chat log gets
 re-proposed six months later.
 
@@ -804,7 +804,7 @@ cut in with `--well`. Nothing else changed — the same six type roles, the same
 scale, and the same rule that certainty is drawn as stroke.
 
 **One source of colour, and it is checkable.**
-[`wiener-mockups/tokens.shared.css`](wiener-mockups/tokens.shared.css) is the only place a hex
+[`wiener-mockups/tokens.shared.css`](../../.design/wiener-mockups/tokens.shared.css) is the only place a hex
 literal appears; `build.py` generates every artboard from it, and **no hex literal appears in any
 artboard outside that block** — verified by grep rather than asserted. That mirrors what
 `frontend/src/tokens.css` gives the product, and it is why a colour change is one edit.

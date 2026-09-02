@@ -135,7 +135,7 @@ Article 5(5) in-house exemption.
 
 ## Reporting a hole
 
-If you find a way through the boundary, see [`SECURITY.md`](../../SECURITY.md). A test that
+If you find a way through the boundary, see [`SECURITY.md`](../../.github/SECURITY.md). A test that
 demonstrates it is the most useful possible report.
 
 Full rationale: [`docs/design/clinical-data-protection.md`](../design/clinical-data-protection.md).

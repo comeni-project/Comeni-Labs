@@ -15,14 +15,20 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # Relaxed only here, and only for the two rules that are about writing HTML in Python —
 # E, F, I, B, SIM and the rest of UP still apply. Nothing imports these files (A196): they
 # are a design tool whose output is nine artboards, and the artboards are the artifact.
-"docs/design/*-mockups/build.py" = ["E501", "UP031"]
+#
+# These moved from `docs/design/` to `.design/` on 2026-09-02: a lint config reaching into the
+# documentation tree was the tell that generated payload and executable generators were living
+# there. Every canvas is under `.design/` now, so every exemption below names one directory.
+".design/*-mockups/build.py" = ["E501", "UP031"]
 # The runs board is drawn by the same tool for the same reason — it borrows `build.py`'s
 # chrome rather than restating it, so it inherits its shape and therefore its two exemptions.
-"docs/design/runs-board/board.py" = ["E501", "UP031"]
-# `.design/` is the same class again: two generators whose output is twenty-four artboards,
+".design/runs-board/board.py" = ["E501", "UP031"]
+# The flat canvas at `.design/` is the same class again: two generators whose output is twenty-four artboards,
 # and whose long lines are style attributes, SVG path data and `{{ }}` template holes inside
 # string literals. **E501 only** — deliberately not a directory exclude, because F811 caught
 # seven superseded functions left behind by an append-and-override edit, and a blanket exclude
 # would have shipped all seven. Nothing imports these files; `python runs_boards.py` and
 # `python build_boards.py` regenerate the `.dc.html` beside them, byte for byte.
+# `*` does not cross a `/`, so this covers the flat generators only — the three in
+# subdirectories are named above, with the extra exemption they need and this one does not.
 ".design/*.py" = ["E501"]

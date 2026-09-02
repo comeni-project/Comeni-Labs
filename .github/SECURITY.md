@@ -73,4 +73,4 @@ before clinical use.
 
 We claim no compliance with IVDR, CLIA, CAP or ISO 15189. Those attach to a laboratory's
 processes and no software can hold them on your behalf. See
-[`docs/concepts/privacy-and-egress.md`](docs/concepts/privacy-and-egress.md).
+[`docs/concepts/privacy-and-egress.md`](../docs/concepts/privacy-and-egress.md).

@@ -72,7 +72,7 @@ forge-rework:   ## everything the deferred forge rework has to revisit
 	@grep -rn FORGE-REWORK packages/ frontend/src/ notes/ 2>/dev/null \
 	  | grep -v Binary || echo "nothing marked"
 
-links:          ## every relative markdown link in docs/ and the root resolves
+links:          ## every relative markdown link in docs/, .github/, .design/ and the root
 	uv run python tools/check_links.py
 
 docs:           ## fail if docs/reference/diagnostics.md is stale

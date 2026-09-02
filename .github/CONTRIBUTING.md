@@ -7,8 +7,8 @@ about, and what a reviewable change looks like.
 
 **Registry data** — a contract, a rule, a measurement, a vocabulary state — is the most
 valuable kind and needs no Python. It is a YAML file plus a citation. Start with
-[`docs/guides/writing-a-contract.md`](writing-a-contract.md) or
-[`docs/guides/writing-a-rule.md`](writing-a-rule.md).
+[`docs/guides/writing-a-contract.md`](../docs/guides/writing-a-contract.md) or
+[`docs/guides/writing-a-rule.md`](../docs/guides/writing-a-rule.md).
 
 **Where the file goes:** wherever it reads best. Every declared file opens with a `declares:`
 line naming what it is, and the loader reads that rather than the path (comeni-registry#1), so
@@ -30,7 +30,7 @@ versionable — a laboratory pinning a registry version without pinning an engin
 is deliberate. If your change is registry-only, which most valuable ones are, none of it applies:
 open one pull request there and never touch this repository.
 
-**Code** changes the machinery. Read [`ARCHITECTURE.md`](../../ARCHITECTURE.md) first — it is
+**Code** changes the machinery. Read [`ARCHITECTURE.md`](../ARCHITECTURE.md) first — it is
 short, and it explains why several things that look wrong are deliberate.
 
 ## Setup
@@ -55,7 +55,7 @@ make stub      # ~1 min warm, ~15 min on a cold container cache
 
 ## The invariants
 
-Fifteen properties are listed in [`CLAUDE.md`](../../CLAUDE.md), and three are enforced by tests
+Fifteen properties are listed in [`CLAUDE.md`](../CLAUDE.md), and three are enforced by tests
 that will fail your PR:
 
 | Guard | Says |
@@ -128,7 +128,7 @@ The PR template asks two questions, and they are the ones that matter:
 
 ## Reporting a security or privacy issue
 
-See [`SECURITY.md`](../../SECURITY.md). A hole in the egress boundary or a way to get patient
+See [`SECURITY.md`](SECURITY.md). A hole in the egress boundary or a way to get patient
 data into a `Goal` is a security issue, not a bug report.
 
 ## Adding a diagnostic code
@@ -157,12 +157,12 @@ directions are tested — so the two cannot drift.
    in `diagnostics.yml`, not an entry.
 
 **A code is never renumbered once published**, because a laboratory runbook can cite it. That is
-also why adding one is a *feature* rather than a fix — see [`releasing.md`](releasing.md).
+also why adding one is a *feature* rather than a fix — see [`releasing.md`](../docs/guides/releasing.md).
 
 ## Releasing
 
 Every package versions independently and is tagged on its own — `comeni-core-v0.2.0`. Which
-number to move is a judgement, and [`releasing.md`](releasing.md) is the rule this project
+number to move is a judgement, and [`releasing.md`](../docs/guides/releasing.md) is the rule this project
 holds itself to: `0.0.x` for a fix, `0.x.0` for a feature, `x.0.0` for a break.
 
 Your pull request is where a version bump gets reviewed. Nothing mechanical can tell a fix from
@@ -170,7 +170,7 @@ a feature.
 
 ## Licensing
 
-Code is Apache-2.0 ([`LICENSE`](../../LICENSE)). Registry data is CC-BY-4.0 and lives in
+Code is Apache-2.0 ([`LICENSE`](../LICENSE)). Registry data is CC-BY-4.0 and lives in
 [`comeni-registry`](https://github.com/comeni-project/comeni-registry), which carries its own
 `LICENSE` — contracts cite papers and attribution matters. Vendored `nf-core` modules keep their
 own licence. By contributing you agree your work is released under whichever applies.
@@ -179,7 +179,7 @@ own licence. By contributing you agree your work is released under whichever app
 
 Be civil, argue with the work rather than the person, and assume the other reader is trying to
 get something right. Report anything that goes beyond that through
-[`SECURITY.md`](../../SECURITY.md)'s private channel.
+[`SECURITY.md`](SECURITY.md)'s private channel.
 
 There is no separate code of conduct. There was a 119-line one until 2026-08-16, adopted as
 boilerplate rather than written, and it committed this project to an enforcement process nobody
