@@ -54,3 +54,24 @@ def test_the_stage_stamp_is_declared_once():
     """Spec §6.1: stamp the stage, do not version the books."""
     extra = _config().get("extra", {})
     assert extra.get("stage") == "Alpha · pre-MVP"
+
+
+def test_the_tools_book_is_generated_not_committed():
+    """Spec §6: a generated page in the repository is a page that can disagree with its source.
+
+    `index.md` is the one hand-written file under `docs/tools/`; everything else arrives from
+    `mendel docs` at build time and is ignored.
+    """
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "/docs/tools/*.md" in ignore
+    assert "!/docs/tools/index.md" in ignore, (
+        "index.md is authored and must be negated out of the ignore rule"
+    )
+
+
+def test_building_the_wiki_generates_the_catalogue_first():
+    """`make wiki` must not be able to publish a stale or absent catalogue."""
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "wiki: wiki-tools" in makefile, (
+        "make wiki must depend on wiki-tools, or the catalogue can go stale"
+    )

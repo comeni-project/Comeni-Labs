@@ -64,3 +64,15 @@ frontend/dist/
 
 # The wiki's build output. Anchored, like /build/ above and for the same reason.
 /site/
+
+# The tool catalogue is generated from the registry by `mendel docs` on every wiki build.
+# index.md is the one authored page in that directory, so it is negated back in. Committing
+# generated pages is how a page comes to disagree with the data it was rendered from.
+#
+# `mendel docs` writes one page per tool nested under its registry org (docs/tools/nf-core/
+# fastqc.md, docs/tools/comeni/profile.md), not flat files directly under docs/tools/, so a
+# single `*.md` rule would not catch them — hence the `**` line, which matches at any depth
+# including zero, which is also what the index.md negation below needs to reach.
+/docs/tools/*.md
+/docs/tools/**/*.md
+!/docs/tools/index.md
