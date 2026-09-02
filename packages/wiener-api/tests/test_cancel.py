@@ -13,7 +13,6 @@ import sys
 from datetime import UTC, datetime
 
 import pytest
-
 from wiener_api import repository
 from wiener_api.models import Run, RunIntent
 from wiener_api.services import launcher, verbs
