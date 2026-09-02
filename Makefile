@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs static stub profile forge clean \
+.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs docs-status static stub profile forge clean \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
@@ -35,7 +35,7 @@ registry-present:  ## refuse early if the registry submodule was not checked out
 help:           ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
-check: registry-present lint test types docs links  ## everything CI runs on a pull request (~1 min, no Docker)
+check: registry-present lint test types docs docs-status links  ## everything CI runs on a pull request (~1 min, no Docker)
 
 verify:         ## check + slow + guards — needs Docker, ~2 min. See CLAUDE.md
 	@$(MAKE) --no-print-directory -j1 check
@@ -78,6 +78,9 @@ links:          ## every relative markdown link in docs/, .github/, .design/ and
 docs:           ## fail if docs/reference/ disagrees with the code
 	uv run python tools/generate_diagnostics_doc.py --check
 	uv run python tools/check_reference.py --check
+
+docs-status:    ## what on the wiki is vision and what is real — derived, not asserted
+	uv run python tools/docs_status.py --check
 
 wiki-tools:     ## render the tool catalogue from the registry into docs/tools/
 	uv run mendel docs --registry registry/ --out docs/tools/

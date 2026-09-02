@@ -3891,3 +3891,28 @@ column wired to nothing is exactly as green as one wired correctly.
 a graph taking a *prebuilt* STAR index gets no `test` profile at all, because
 `genome.index.star` declares no `test_data` and the emitter is all-or-nothing about it. That
 read as a samplesheet failure and was not one.
+
+## `docs_status.py` — the honesty mechanism, 2026-09-02
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-02 | `tools/docs_status.py` via `make docs-status` | appended a marker naming no plan and saying nothing about what happens today to `docs/start/index.md` | failed, both problems fired | see below |
+
+The defect:
+
+    !!! warning "Not built yet"
+        Nothing here yet.
+
+appended to `docs/start/index.md`. `make docs-status` printed:
+
+    2 problem(s) with the documentation's markers:
+      start/index.md:11: a `Not built yet` marker names no plan or issue, so nobody can
+    schedule or retire it. Add 'Tracked in Plan N' or an issue number.
+      start/index.md:11: a `Not built yet` marker must say what happens today instead. A
+    marker that only reports an absence strands the reader.
+
+Both problems named the file and line. Reverting (`git checkout docs/start/index.md`) brought
+`make docs-status` back to `docs/status.md is current (0 marked)`. This is the guard Plan B's
+honesty claim rests on — the `!!! warning "Not built yet"` convention every user-facing page
+will carry — and A14 required it be watched failing before being believed rather than merely
+read.

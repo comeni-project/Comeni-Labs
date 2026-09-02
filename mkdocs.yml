@@ -70,6 +70,7 @@ plugins:
 nav:
   - Start here:
       - start/index.md
+      - What is not built yet: status.md
   - Handbook:
       - handbook/index.md
       - Your first pipeline: handbook/your-first-pipeline.md

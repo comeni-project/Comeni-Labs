@@ -1,5 +1,7 @@
 # Cutting a release
 
+*Serves: **all four steps**. How a change to any part of the loop reaches a user.*
+
 Every package here versions **independently** and is tagged on its own — the tag is
 `<package>-v<version>`, so `comeni-core-v0.2.0`. Pushing that tag is the whole request: a
 workflow builds it, reads its notes out of the changelog, and cuts a GitHub Release.
