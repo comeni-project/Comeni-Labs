@@ -183,3 +183,24 @@ def test_specs_are_excluded_from_the_link_check():
     that may not exist yet."""
     text = (ROOT / "tools" / "check_links.py").read_text(encoding="utf-8")
     assert "superpowers" in text
+
+
+CERTAINTY = {
+    "--undecided": "the `Not built yet` marker, and a tier-4 question",
+    "--measured": "a derived version stamp, and a tier-3 rule",
+}
+
+
+@pytest.mark.parametrize("token", sorted(CERTAINTY))
+def test_the_theme_declares_the_certainty_tokens(token: str):
+    """The wiki borrows the product's certainty colours rather than inventing docs colours,
+    so a reader who has seen a tier-4 question on the canvas already knows what red means."""
+    css = (ROOT / "docs" / "assets" / "comeni.css").read_text(encoding="utf-8")
+    assert token in css, f"{token} missing — it is {CERTAINTY[token]}"
+
+
+def test_the_theme_does_not_load_a_serif_display_face():
+    """`--font-display` was a Georgia serif with no webfont loaded, and that was most of why
+    the built front door did not look like the artboard it came from. Never again silently."""
+    css = (ROOT / "docs" / "assets" / "comeni.css").read_text(encoding="utf-8")
+    assert "Georgia" not in css and "serif;" not in css.replace("sans-serif;", "")

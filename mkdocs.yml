@@ -35,6 +35,8 @@ not_in_nav: |
 theme:
   name: material
   font: false          # Geist is loaded by docs/assets/comeni.css, Task 4
+  palette:
+    scheme: slate      # the Observatory is dark by default, like the product
   features:
     - navigation.tabs      # the five books, across the top. This is why Material and not mdBook
     - navigation.sections
