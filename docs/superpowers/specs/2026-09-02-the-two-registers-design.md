@@ -169,14 +169,15 @@ maintained by hand.
 
 ## 4. The shelf
 
-One site, four books as top-level tabs. Search runs across all four.
+One site, five books as top-level tabs. Search runs across all five.
 
-| Tab | Reader | Register |
-|---|---|---|
-| **Start here** | you have data and a question | vision |
-| **Handbook** | you own the analysis | vision |
-| **Registry** | you keep the tools | vision |
-| **Internals** | you work on Comeni Labs | accuracy |
+| Tab | Reader | Register | Authored? |
+|---|---|---|---|
+| **Start here** | you have data and a question | vision | by hand |
+| **Handbook** | you own the analysis | vision | by hand |
+| **Tools** | *what can this thing actually do?* | accuracy | **generated** |
+| **Registry** | you keep the tools | vision | by hand |
+| **Internals** | you work on Comeni Labs | accuracy | by hand |
 
 ### 4.1 Why four, and why these
 
@@ -196,6 +197,20 @@ subsection would put the product's foundation three clicks down a sidebar.
 `Internals` is a book rather than plain repository markdown so that it shares the search index.
 A contributor searching *"why is this value tier 2"* should find the concept page and the
 resolver's implementation notes in one result list.
+
+**`Tools` is the catalogue, and it is generated.** It is the answer to the most common question
+anybody asks — *what can this thing actually do?* — and no authored page can answer it, because
+the answer is whatever is in the loaded registry.
+
+It is a separate book rather than a section of `Registry` for three reasons. It is **generated**
+where every other book is authored, so it is the one book a writer never edits. Its reader is
+**everyone**: a researcher asking whether salmon is supported, a bioinformatician asking what
+states `star/align` emits, a curator asking which contracts are drifting. And it is by far the
+largest by page count — thirteen tools today, but nf-core and pegi3s together are roughly
+sixteen hundred, which would swamp `Registry`'s nine authored pages entirely.
+
+It is also the **only user-facing book in the accuracy register**, and it gets there for free:
+generated from the registry, it cannot drift from the registry.
 
 ### 4.2 Spines
 
@@ -222,6 +237,24 @@ resolver's implementation notes in one result list.
 The *Understanding* section is Diátaxis' explanation quadrant, and it earns its place here
 because its reader is the one who owns the analysis. A bench researcher meets the tiers as
 colours on a screen in `Start here`; the person who has to defend the pipeline reads this.
+
+**Tools** — generated from the loaded registry by `mendel docs`. Not written by hand, ever.
+
+- **One page per tool** — what it takes, what it produces and the states it adds, its
+  parameters and their defaults, its container, the paper it cites, and who approved it when
+- **By role** — *what can align reads?* is the routing question, and a role is what a tier-3
+  rule targets, so browsing by role is browsing by the thing decisions are actually made on
+- **Types and their states** — the closed vocabulary. `alignment.bam` and everything it can be
+- **Measurements** — every declared measurement, and whether a tool can produce it or it can
+  only be asserted
+- **Rules** — every tier-3 decision in the stack, with its citation
+- **Layers** — which layer each of the above came from, and what displaced what
+
+Two properties fall out of generating it. **Search covers the catalogue**, so typing
+`coordinate_sorted` finds every contract producing that state — free, from Material's index,
+and not something anybody has to build. And **a private layer gets its own catalogue**: a lab
+running `mkdocs build` against its own `--registry` gets its own tools in its own wiki. That is
+invariant 13 — self-hosted is not a degraded tier — showing up somewhere it was not planned for.
 
 **Registry** — the forge loop, and the hand-authoring floor beneath it.
 
@@ -351,11 +384,11 @@ wiki that is local"*.
 |---|---|---|
 | local, no hosting | yes | yes |
 | offline from `file://` with search | partial | yes, `offline` plugin, free |
-| top-level tabs (four books, one site) | **no** — one flat sidebar | yes, `navigation.tabs`, free |
+| top-level tabs (five books, one site) | **no** — one flat sidebar | yes, `navigation.tabs`, free |
 | toolchain | Rust binary | Python, installs via `uv` |
 | Mermaid | plugin | built in |
 
-mdBook would give four isolated books. The tabs are what make it one seamless wiki, which is the
+mdBook would give five isolated books. The tabs are what make it one seamless wiki, which is the
 requirement.
 
 **Setup:**
@@ -366,6 +399,15 @@ requirement.
 - features: `navigation.tabs`, `navigation.sections`, `navigation.indexes`, `content.code.copy`
 - plugins: `search`, `offline`
 - publishing to GitHub Pages later is the same `mkdocs build` with nothing changed
+
+**The `Tools` book is generated before every build.** `make wiki` runs
+`mendel docs --registry registry/ --out docs/tools/` first, and `docs/tools/` is **gitignored** —
+a generated page in the repository is a page that can disagree with its source, which is the
+whole failure this design keeps designing against. `mendel docs --check` already exists and runs
+in comeni-registry's CI; the same flag guards the wiki build.
+
+This is also the one part of the site whose content is a function of `--registry`, which is what
+makes a lab's private wiki work without forking anything.
 
 ### 6.1 Versioning — stamp the stage, do not version the books
 
@@ -585,7 +627,11 @@ true. Accepted, because the alternative — hedged pages — is the defect being
 Not an implementation plan; that is the next artifact.
 
 1. **Scaffolding.** `mkdocs.yml`, the `docs` dependency group, `make wiki` / `make wiki-serve`,
-   the four empty books with index pages. Nothing moves yet.
+   the five empty books with index pages. Nothing moves yet.
+
+   **Wire `Tools` in this step.** It is generated by a verb that already works, so it is the
+   cheapest whole book on the list and the only one that needs no writing — which makes it the
+   fastest way to have a wiki with real content in it while everything else is still moving.
 2. **`tools/docs_status.py` and `make docs-status`**, in `make check`. Before any marked page
    exists — §12.
 3. **Move and retone what survives.** The §7 table, respecting §7.1. Fix the links, §8.
