@@ -4,9 +4,20 @@
 mendel <command> [options]
 ```
 
-Six commands: `build`, `profile`, `emit`, `publish`, `upgrade` and `explain`. Exit codes: `0` success, `1` a gate
-failed, `2` your input was rejected — which includes a contract that disagrees with its
-module.
+**Nine commands.** Six act on a pipeline; three act on a registry layer and produce no pipeline
+at all.
+
+| | |
+|---|---|
+| `build` `profile` `emit` `publish` `upgrade` | make or re-make a pipeline |
+| `explain` | the long form of a diagnostic code |
+| `conformance` `lint` `docs` | act on a **layer** — see [acting on a layer](#acting-on-a-layer) |
+
+Exit codes: `0` success, `1` a gate failed, `2` your input was rejected — which includes a
+contract that disagrees with its module.
+
+There is a second CLI, `forge`, for writing the registry Mendel reads. It has its own section
+[at the end of this page](#forge).
 
 ## Shared options
 
@@ -14,7 +25,7 @@ module.
 |---|---|---|
 | `--out PATH` | *required for `build` and `profile`* | output directory, created if absent |
 | `--root PATH` | current directory | repository root — only supplies the default `--registry` of `<root>/registry` |
-| `--registry PATH` | `<root>/examples` | a registry layer; **repeatable**, later layers win |
+| `--registry PATH` | `<root>/registry` | a registry layer; **repeatable**, later layers win |
 | `--gate {lint,preview,stub,test}` | none | run a validation gate after emitting |
 
 `--root` and `--registry` are different things and are frequently confused. `--registry` is
@@ -96,9 +107,13 @@ A registry that can measure nothing at all exits `2`. See
 ## Conformance
 
 Before anything is resolved, `build` and `profile` check every contract in the loaded
-registry against the module it claims to describe — the vendored `main.nf` and `meta.yml`
-under `<root>/vendor`. A contract is a hand-written binding to a foreign, dynamically-typed
-unit, and nothing else compares the two.
+registry against the module it claims to describe — the `main.nf` and `meta.yml` under
+`tools/<org>/<tool>/module/` **inside the layer itself**. A contract is a hand-written binding
+to a foreign, dynamically-typed unit, and nothing else compares the two.
+
+*Modules used to live in a top-level `vendor/` directory. Plan 5A moved them into the registry,
+beside the contracts that are bindings for them — so that the check comparing the two is looking
+at a pair something keeps in step.*
 
 Any disagreement exits `2` and emits nothing at all:
 
@@ -292,6 +307,82 @@ Every failure is a message rather than a traceback.
 | `this goal's profile is not valid` | an undeclared measurement, or a value outside its declaration |
 | `a rule table will not load` | a rule cannot fire against this registry; the message says what you can write |
 | `N contract(s) disagree with their modules` | conformance refused the build; each diagnostic says what to write instead |
+
+## Acting on a layer
+
+Three verbs take `--registry` and produce no pipeline. They exist so a registry repository's own
+CI can check itself without needing a goal, a build, or a checkout holding two repositories.
+
+### `mendel conformance`
+
+Does **every** contract in a layer agree with the module it is a binding for?
+
+```bash
+uv run mendel conformance --registry registry/
+```
+
+Distinct from the conformance check `build` runs, which only sees contracts a goal happens to
+route to. This one checks all of them, and is what `comeni-registry`'s CI runs. Requires at
+least one `--registry`.
+
+### `mendel lint`
+
+Is the layer arranged the way its own `registry.yml` says?
+
+```bash
+uv run mendel lint --registry registry/
+```
+
+`layout:` in the manifest is this verb's **argument**, and **the loader reads none of it** —
+invariant 11 says a file declares its own kind, so a private overlay arranges itself however it
+likes and declaring no `layout:` means unenforced. This is the curated registry holding itself
+to a standard in its own CI, the way nixpkgs does with `pkgs/by-name`.
+
+Takes exactly one layer: a stack has no single arrangement.
+
+### `mendel docs`
+
+One Markdown page per tool, from the registry data alone.
+
+```bash
+uv run mendel docs --registry registry/ --out docs/tools
+uv run mendel docs --registry registry/ --out docs/tools --check   # writes nothing, exits 1 if stale
+```
+
+`--check` belongs to this verb alone. A check that repaired what it measured could never fail
+twice.
+
+## `forge`
+
+A second CLI, for **writing** the registry rather than reading it. Adding a tool needs no Python.
+[Driving the forge](../guides/driving-the-forge.md) is the walkthrough; this is the list.
+
+```
+forge <command> [options]
+```
+
+| Command | What |
+|---|---|
+| `forge sources` | the ingestion sources that are registered |
+| `forge discover` | every tool a source can read |
+| `forge draft` | ingest a tool into a new draft |
+| `forge list` | the drafts in the workspace |
+| `forge show` | a draft's filled fields, and every hole with its reason |
+| `forge verify` | run the five-rung ladder over a draft |
+| `forge fill` | answer one hole, by hand or with a model |
+| `forge propose` | decline a hole — nothing declared fits, and here is what would |
+| `forge decide` | approve or reject a proposal |
+| `forge check` | does the registry still match its sources |
+| `forge update` | re-draft one contract from its source |
+| `forge land` | commit a finished draft onto a branch |
+| `forge explain` | the long form of a diagnostic code |
+
+**`--registry` is required for `land`** and defaults for everything else. Landing is the one
+verb with a git commit behind it.
+
+**There is no `--no-ai` flag, and that is deliberate.** The forge's model path is opt-in through
+`forge fill --model`, so the default *is* the no-AI lane — there is nothing to switch off and
+nothing to leave accidentally on.
 
 ## Other commands
 

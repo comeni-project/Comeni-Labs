@@ -55,6 +55,19 @@ jobs:
         # A stale stub costs autocomplete and never correctness, which is exactly
         # why nobody would notice it rotting.
 
+      # **`make check` runs these and CI did not**, so a pull request could merge documentation
+      # that disagreed with the code — which is exactly how, by 2026-09-02, all five reference
+      # schema pages had drifted from their models, two `mendel` verbs were documented nowhere,
+      # and one page described a rule format Plan 1.15 replaced.
+      #
+      # `make check` is documented as "exactly what CI runs on a pull request" and is neither a
+      # subset nor a superset of it. This closes the half that costs nothing to close.
+      - name: Documentation agrees with the code
+        run: |
+          uv run python tools/generate_diagnostics_doc.py --check
+          uv run python tools/check_reference.py --check
+          uv run python tools/check_links.py
+
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@893c28b667aedeba26e37f296d260ccc5bc4d914 # v3.0.1
 

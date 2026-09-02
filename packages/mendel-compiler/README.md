@@ -24,4 +24,4 @@ use — it proves the wiring, never that the analysis is right.
 
 Documentation: [CLI reference](../../docs/reference/cli.md) ·
 [diagnostic codes](../../docs/reference/diagnostics.md) ·
-[getting started](../../docs/guides/getting-started.md). Licensed Apache-2.0.
+[the tutorial](../../docs/tutorial.md). Licensed Apache-2.0.

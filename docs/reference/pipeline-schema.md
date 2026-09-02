@@ -132,6 +132,25 @@ emitted:                       # what was written, and what it was written from
 gate: test                     # the strongest gate this pipeline actually passed
 ```
 
+## The ten top-level keys
+
+Model: `comeni_core.artifact.pipeline.Pipeline`
+
+| Key | What it holds |
+|---|---|
+| `version` | the schema version. A newer one is **refused**, not partially read |
+| `goal` | what was asked for — the goal file, preserved |
+| `registry` | every layer that was loaded, pinned by content digest |
+| `ai` | which model, if any, touched this. `available: []` means none was wired |
+| `steps` | every process: the tool, why it was chosen, and every setting with its reason |
+| `channels` | how the steps are wired to each other |
+| `decisions` | the record of every ambiguity, so a rerun replays rather than re-asks |
+| `emitted` | the files that were written, each by digest |
+| `gate` | the strongest gate this pipeline actually passed |
+| `input_form` | what a laboratory must supply at run time |
+
+Each is described below.
+
 ## Section by section
 
 ### `version`

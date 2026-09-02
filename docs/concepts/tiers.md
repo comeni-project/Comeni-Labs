@@ -26,32 +26,41 @@ only hope about.
 Nothing was decided, because there was nothing to decide. One contract produces what was
 asked for, or one produces it with exactly the required states while the others overshoot.
 
-```
-samtools_sort → tier 1 — the only contract producing alignment.bam
-                         with exactly the required states
-```
-
 Silent, because reporting it would be noise.
+
+Tier 1 is rarer than it sounds. In the RNA-seq spine, *every* uncontested step comes out at
+tier 2 rather than tier 1 — because "nothing else in this registry fills this role" is a fact
+about **what happens to be installed**, which is a convention, not a structural necessity.
+Install an overlay and it may stop being true.
 
 ## Tier 2 — convention
 
-Several candidates were equally good and the registry's `priority` broke the tie. That is
-a documented default — someone wrote down which one this registry prefers.
+A documented default settled it — either the registry's `priority` broke a tie, or exactly one
+contract in the loaded stack fills the role.
 
 ```
-star_align → tier 2 — registry priority 10, over nf-core/hisat2/align@2.2.2
+trimgalore            tier 2  uncontested — nothing else in this stack fills trimming
+star_genomegenerate   tier 2  uncontested — nothing else in this stack fills index_building
+samtools_sort         tier 2  uncontested — nothing else in this stack fills bam_sorting
+subread_featurecounts tier 2  uncontested — nothing else in this stack fills quantification
 ```
 
-Green rather than silent: a default is a real choice, and you may disagree with it.
+Green rather than silent: a default is a real choice, and you may disagree with it. Note what
+the reason says — *nothing else in **this stack***. It is telling you the scope of the claim.
 
 ## Tier 3 — data-profiled
 
 A declared rule matched your measurements, and the reason carries the citation.
 
 ```
-star_align → tier 3 — rule producer_of:alignment.bam matched {'read_length': '>= 70'}:
-                      Dobin et al. 2013, doi:10.1093/bioinformatics/bts635
+rule implementation:alignment where read_length is 150, asserted, not measured: STAR's
+seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the
+index cost it pays back over reads this length; Dobin et al. 2013,
+doi:10.1093/bioinformatics/bts635
 ```
+
+Read what that reason contains: the rule, the fact it read, **whether the fact was measured or
+merely asserted**, the argument, and the paper.
 
 **Advisory rather than silent, on purpose.** A rule match is only as good as the
 measurement behind it, and Mendel cannot check whether your stated 150bp read length is

@@ -5,7 +5,8 @@ One rule table per file, carrying `declares: rule`. **Where the file sits is fre
 
 No `id:`: a rule is keyed on the target its decision names, not on the file.
 
-Model: `mendel_resolver.rules.RuleTable`.
+A rule targets a **role** — *what job is being filled* — not a type id and not a tool. That
+changed in Plan 1.15; anything you read describing `producer_of:` is the superseded format.
 
 ## File
 
@@ -13,7 +14,7 @@ Model: `mendel_resolver.rules.RuleTable`.
 declares: rule
 version: 1
 decisions:
-  - decides: {param: strandedness}
+  - decides: {effect: param, of: quantification, name: strandedness}
     because: "featureCounts -s follows library strandedness"
     cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
     rows:
@@ -25,6 +26,8 @@ decisions:
 `version` is recorded and currently unused.
 
 ## Decision
+
+Model: `mendel_resolver.rules.format.Decision`
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
@@ -38,19 +41,39 @@ layer replaces the whole block.
 
 ## DecisionTarget
 
-Exactly one of the two.
+What a decision is *about*. Three effects, and the effect decides what `then:` may hold.
 
-| Field | Type | Meaning |
+Model: `mendel_resolver.rules.format.DecisionTarget`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `effect` | enum | *required* | `presence`, `implementation` or `param` |
+| `of` | string | *required* | the **role** — the job being filled, e.g. `alignment` |
+| `name` | string \| null | `null` | for `effect: param`, which parameter |
+| `when_implementation` | [contract id] | `[]` | restrict this decision to particular tools |
+
+| effect | settles | `then:` holds |
 |---|---|---|
-| `param` | string \| null | a parameter name some contract declares |
-| `producer_of` | string \| null | a type id; rows name contract ids |
+| `presence` | whether the role appears at all | a boolean |
+| `implementation` | which tool fills it | a contract id |
+| `param` | what a parameter is set to | the value |
+
+```yaml
+decides: {effect: implementation, of: alignment}
+```
+
+**`of` is a role, not a type.** *Something must align these reads* is the decision; which type
+comes out is a consequence. Targeting a type made a rule unable to say anything about a step
+that produces the same type as the one it replaces.
 
 ## DecisionRow
+
+Model: `mendel_resolver.rules.format.DecisionRow`
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `when` | map | `{}` | measurement id → expectation. All must hold. |
-| `then` | scalar | `null` | the value, or the contract id for `producer_of` |
+| `then` | scalar | `null` | the value, or a contract id for `effect: implementation` |
 | `because` | string \| null | `null` | overrides the block's `because` for this row |
 | `cite` | string \| null | `null` | overrides the block's `cite` for this row |
 
@@ -79,14 +102,14 @@ declarations. `RuleValidationError` if:
 
 | Problem | Because |
 |---|---|
-| `param` no contract declares | the rule could never fire |
-| `producer_of` naming an undeclared type | same |
+| an `of:` role no layer declares | the rule could never fire |
+| a `name:` parameter no contract in that role declares | same |
 | `then` naming a contract not in the registry | the row can never be applied |
-| `then` naming a contract that does not produce that type | same |
+| `then` naming a contract that does not fill that role | same |
 | `when` naming an undeclared measurement | the condition can never be evaluated |
 | a comparison against an enum or boolean | `strandedness >= 70` has no meaning |
 | the same target decided twice in one layer | a copy-paste; resolving by file order would be a silent arbitrary pick |
-| a decision naming both or neither of `param` / `producer_of` | ambiguous target |
+| `effect: param` with no `name:` | which parameter is unstated |
 
 Errors name what you *can* write:
 
@@ -101,7 +124,7 @@ string, and two of the five rules originally shipped had never once executed.
 
 ## Layer composition
 
-Keyed on the target — `param:strandedness`, `producer_of:alignment.bam`. A higher layer
+Keyed on the target — `implementation:alignment`, `param:quantification.strandedness`. A higher layer
 replaces the **whole block**, so a reviewer reads one block and sees the entire effective
 decision.
 
@@ -110,15 +133,20 @@ decision.
 Tier 3, review level `advisory`, and a reason of the form:
 
 ```
-rule producer_of:alignment.bam matched {'read_length': '>= 70'}:
-  Dobin et al. 2013, doi:10.1093/bioinformatics/bts635
+rule implementation:alignment where read_length is 150, asserted, not measured: STAR's
+seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the
+index cost it pays back over reads this length; Dobin et al. 2013,
+doi:10.1093/bioinformatics/bts635
 ```
+
+Note *asserted, not measured*. The reason carries how the fact behind it was obtained, because
+a rule match is only as good as its premise.
 
 A miss demotes to tier 4. It never calls a model.
 
 ## Pinned producers must be reachable
 
-A `producer_of` rule chooses a module; it does not supply that module's inputs. If the
+An `implementation` rule chooses a module; it does not supply that module's inputs. If the
 pinned module is selected and its dependencies cannot be met, the build stops with
 `UnroutablePinError` naming the rule condition — rather than quietly using something else.
 
@@ -131,7 +159,7 @@ See [concepts/routing.md](../concepts/routing.md).
 declares: rule
 version: 1
 decisions:
-  - decides: {param: strandedness}
+  - decides: {effect: param, of: quantification, name: strandedness}
     because: "featureCounts -s follows library strandedness"
     cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
     rows:
@@ -139,7 +167,7 @@ decisions:
       - {when: {strandedness: forward},    then: 1}
       - {when: {strandedness: unstranded}, then: 0}
 
-  - decides: {producer_of: alignment.bam}
+  - decides: {effect: implementation, of: alignment}
     because: "read length determines which aligner is appropriate"
     cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:

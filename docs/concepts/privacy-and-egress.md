@@ -54,13 +54,31 @@ verified.
 | publication | `Pipeline` | the pipeline file: steps, settings, decisions, provenance |
 
 Every payload is a declared type. No payload may carry `Any`, a mapping, or a plain `str`.
-**Seven fields across the entire surface may hold free text**, and they are named literally in
-`tests/test_egress.py`: the prompt, a gate's tool message, and five `reason` fields carrying
-the prose that explains a choice.
 
-That number has only ever gone up by *refactor* — splitting a decision record into three
-kinds, and swapping the publication payload — never by a new kind of string crossing. The
-literal list is what makes somebody check which of the two it was.
+**Fourteen fields across the entire surface may hold free text.** They are named one by one in
+`tests/test_egress.py`, which is the count — this sentence is only a copy of it, and a copy of
+a number is a number that goes stale. It said *seven* here for three weeks while the guard held
+fourteen, and *exactly two* in one design document, which is why the check now compares them.
+
+The fourteen are four kinds of thing:
+
+| | |
+|---|---|
+| your prompt | `PromptRequest.prompt` — **the single taint source** |
+| a tool's own error text | `GateFailure.tool_message` |
+| prose explaining a choice | the `reason` and `axis_reason` fields on `Why`, `ResolvedValue` and the three decision kinds, plus `ParamDecision.override_reason` |
+| what a question is about | `AmbiguityRequest.what` and `.why_open`, and `Excerpt.locator` and `.text` |
+
+The number has almost always gone up by *refactor* rather than by a new kind of string
+crossing — splitting one decision record into three, swapping the publication payload. Two
+entries broke that run and are worth knowing. `override_reason` is written by **a person
+answering a question**, in the artifact, after resolution: a new author at a new moment, added
+because otherwise a reviewer's reasoning lived nowhere. And `Excerpt` is not an author at all —
+its two fields are *quoted* from a file that already exists, which is a weaker claim than the
+rest of the list makes, and bounded only by where excerpts come from: vendored modules and
+registry files, which are public, and never a prompt.
+
+A literal list exists so that somebody has to decide which of the two a change is.
 
 Publication carries the artifact itself. `pipeline.yml` is what a person reads before
 publishing, so the thing reviewed and the thing sent are one document rather than two that can

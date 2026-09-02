@@ -367,9 +367,16 @@ away, so it must carry its own label.
 Numbered continuing from CLAUDE.md's existing thirteen.
 
 > **14. Data leaves through four declared doors and no others.** Each carries one declared
-> payload type, and exactly two fields in the whole surface may hold free text —
-> `PromptRequest.prompt` and `GateFailure.tool_message`. Everything else is closed vocabulary.
-> Enforced by `tests/test_egress.py`, which holds both lists literally.
+> payload type, and a named list of fields in that surface may hold free text — everything else
+> is closed vocabulary. Enforced by `tests/test_egress.py`, which holds both lists literally,
+> and that file is the count.
+>
+> *This paragraph said "exactly two — `PromptRequest.prompt` and `GateFailure.tool_message`"
+> from the day it was written until 2026-09-02, by which time the guard held **fourteen**. It
+> was never re-read, because nothing compared prose to the list. The number is deliberately not
+> restated here now; [`concepts/privacy-and-egress.md`](../concepts/privacy-and-egress.md)
+> carries it, and `tools/check_reference.py` fails the build if that page and the guard
+> disagree.*
 >
 > **15. Mendel does not receive patient data.** No input accepts a sample identifier, filename
 > or path. Profiling happens where the data is and yields measurements only. The emitted

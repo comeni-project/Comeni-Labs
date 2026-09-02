@@ -1,166 +1,105 @@
 # Measurement schema
 
-One measurement per file, carrying `declares: measurement` and an `id:`. **Where the file
-sits is free** (comeni-registry#1); the public registry keeps them in `measurements/`.
+A measurement declares **one fact a rule may reason about**: what it is called, what kind of
+value it holds, and whether any tool can actually produce it.
 
-**`id:` is required**, and `MD0012` refuses a file without one — same reasoning as a
-vocabulary's, since both took their identity from a filename that a free layout makes a poor
-name.
-
-Note that `declares:` is not `kind:`. A measurement's `kind:` is the kind of its *value*
-(`integer`, `enum`), which is why the file-level key had to be a different word.
-
-Model: `comeni_core.declared.measurement.Measurement`.
-
-## Fields
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `kind` | `integer` \| `number` \| `boolean` \| `enum` | *required* | the value type |
-| `values` | [string] | `[]` | allowed values; `enum` only |
-| `extensible` | bool | `false` | whether a higher layer may `add_values` |
-| `minimum` | number \| null | `null` | inclusive lower bound; numeric kinds |
-| `maximum` | number \| null | `null` | inclusive upper bound; numeric kinds |
-| `unit` | string \| null | `null` | e.g. `bp`. Documentation only. |
-| `description` | string | `""` | one line, for humans |
-| `cite` | string \| null | `null` | where the definition comes from |
-| `edam` | string \| null | `null` | EDAM ontology term, if one applies |
-| `deprecated` | bool | `false` | still loads, should not be used in new rules |
-| `replaced_by` | string \| null | `null` | the successor measurement id |
-
-## There is no `string` kind
-
-Deliberately. A free-text measurement is exactly the hole the egress guard exists to close
-— `organism: "patient 4471023's tumour"` is a perfectly valid string, and no type checker
-would object.
-
-A categorical declares its values as an `enum` instead, which has the second benefit of
-letting a rule over it be checked for completeness. Declaring `kind: string` is a load
-error that says so.
-
-## Extending an enum
+Measurements are what a goal's `profile:` may contain, and what a tier-3 rule's `when:` reads.
+Both are closed against this list — an undeclared key is refused, which is what stops
+`profile: {sample_name: ...}` from ever building.
 
 ```yaml
-# base layer: measurements/organism.yml
-declares: measurement
-id: organism
-kind: enum
-extensible: true
-values: [homo_sapiens, mus_musculus]
-```
-
-```yaml
-# your layer: measurements/organism.yml
-declares: measurement
-id: organism
-add_values: [ambystoma_mexicanum]
-```
-
-A file with `add_values` extends rather than replaces. Without `extensible: true` it is
-refused:
-
-```
-lab/measurements/strandedness.yml: 'strandedness' is not extensible. Shadow the whole
-declaration to change it, or set `extensible: true` where it is declared.
-```
-
-Per-measurement because the semantics genuinely differ: `strandedness` has exactly three
-values and a fourth is a bug, while `organism` can never be enumerated and a registry that
-tries is wrong.
-
-## Deprecation, never reuse
-
-A meaning change gets a **new id**. The old one stays forever, pointing at its successor:
-
-```yaml
+# registry/measurements/read_length.yml
 declares: measurement
 id: read_length
 kind: integer
-deprecated: true
-replaced_by: read_length_median
-description: "ambiguous — see read_length_median"
-```
-
-Standard OBO practice, which the ontologies this registry cites have used for two decades.
-
-Per-measurement `@version` was considered and rejected: every rule condition would grow a
-version, and omitting one would silently mean *latest* — which is the ambiguity versioning
-was meant to remove.
-
-## Validation
-
-`MeasurementRegistry.check(id, value)` raises:
-
-| Error | When |
-|---|---|
-| `UnknownMeasurementError` | nothing declares that id. Message lists what is declared. |
-| `BadMeasurementValueError` | wrong type, outside bounds, or not in an enum's values |
-
-A `bool` is never accepted as an `integer`, despite Python's opinion on the matter.
-
-## Every measurement is also a type
-
-`Vocabulary.with_measurements()` derives a stateless `measurement.<id>` type from each
-declaration, so a contract can produce one:
-
-```yaml
-produces:
-  - {name: read_length, type_id: measurement.read_length, state: []}
-```
-
-That is what makes `mendel profile` an ordinary build rather than a second subsystem.
-
-Derived rather than declared twice — a vocabulary file repeating the measurement would be
-a thing to drift. Stateless because a measurement has a *value*, not a condition; letting
-enum values also be states would give routing two places to disagree.
-
-## Generated types
-
-```bash
-uv run python tools/generate_types.py
-```
-
-Regenerates `packages/comeni-core/src/comeni_core/goal/profile.pyi`, giving `DataProfile.get`
-a per-measurement return type in any PEP 561 type checker. `--check` fails if stale, and
-CI runs it.
-
-## Some shipped declarations
-
-`ls registry/measurements/` is the count; this is a sample of the shapes.
-
-```yaml
-# measurements/read_length.yml
-declares: measurement
-id: read_length
-kind: integer
+per_sample: true
 minimum: 1
 unit: bp
 description: "Sequenced read length"
+cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
 ```
 
+`declares: measurement` **and** an `id:` are both required; `MD0012` refuses a file without one.
+
+## Fields
+
+Model: `comeni_core.declared.measurement.Measurement`
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `id` | string | *required* | what a profile and a rule call it |
+| `kind` | enum | *required* | `integer`, `number`, `boolean` or `enum` |
+| `values` | [string] | `[]` | for `enum`: the permitted values |
+| `extensible` | boolean | `false` | for `enum`: whether values outside the list are allowed |
+| `per_sample` | boolean | `false` | whether each sample can have its own value |
+| `assertion_only` | boolean | `false` | **no tool can produce this** — see below |
+| `assertion_only_because` | string | `""` | why not. Required when `assertion_only` is set |
+| `minimum` | number \| null | `null` | lower bound, checked on load |
+| `maximum` | number \| null | `null` | upper bound, checked on load |
+| `unit` | string \| null | `null` | `bp`, `GB` — for display, never for conversion |
+| `description` | string | `""` | one line, for a human |
+| `cite` | string \| null | `null` | where the definition comes from |
+| `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
+| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads` |
+| `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |
+| `meta_values` | [string] | `[]` | how its values are spelled in `meta`, when they differ |
+| `deprecated` | boolean | `false` | still loads, should not be used in new rules |
+| `replaced_by` | string \| null | `null` | what to use instead |
+
+## `assertion_only` is the honest field
+
+A measurement is only as good as whatever produced it. **`assertion_only: true` means nothing
+in the registry can measure this — you can only assert it**, and `assertion_only_because` has to
+say why:
+
 ```yaml
-# measurements/strandedness.yml
-declares: measurement
-id: strandedness
+id: organism
 kind: enum
-values: [forward, reverse, unstranded]
-description: "Library strandedness determined by the prep protocol"
-cite: "Signal et al. 2022, doi:10.1186/s12859-022-04572-7"
+values: [homo_sapiens, mus_musculus, danio_rerio]
+extensible: true
+assertion_only: true
+assertion_only_because: >-
+  measurable by classification against a reference database — Kraken2 and friends — which is
+  a whole tool this spine does not carry.
 ```
 
-```yaml
-# measurements/n_samples.yml
-declares: measurement
-id: n_samples
-kind: integer
-minimum: 1
-description: "Number of samples in the study"
-```
+`MD0315` refuses `assertion_only: true` with no reason given.
 
-```yaml
-# measurements/paired.yml
-declares: measurement
-id: paired
-kind: boolean
-description: "Whether the library is paired-end"
-```
+**Five of the original six measurements turned out to be assertion-only**, including
+`strandedness`. That was a surprise worth recording rather than smoothing over: a tier-3 rule
+firing on an asserted premise is doing arithmetic on a guess, and the reason it writes into
+`pipeline.yml` says so in those words — *asserted, not measured*.
+
+`node_memory_gb` is a second kind of honesty. It is a property of the *execution environment*
+rather than of the data, and such a "measurement" loads without complaint. It is declared
+because people really write rules against it, and marked so a reader can see it is not about
+the reads.
+
+## `describes` and `meta_key` — the two directions
+
+`describes` points at the **type** the fact is about. `strandedness` describes `fastq.reads`.
+
+`meta_key` is how the fact reaches a tool. nf-core modules read a `meta` map, and a module does
+its own translation from a fact to a flag — which is why the strandedness rule was **deleted**
+rather than wired: `-s 2` is featureCounts' encoding of a fact, not a decision anybody makes.
+
+`meta_values` exists for where the spellings differ. `paired` describes `fastq.reads` and its
+`meta_key` is `single_end` — the same fact, inverted, because that is what the modules read.
+
+## Kinds and bounds
+
+| kind | value | bounds |
+|---|---|---|
+| `integer` | whole number | `minimum`, `maximum` |
+| `number` | any number | `minimum`, `maximum` |
+| `boolean` | `true` / `false` | — |
+| `enum` | one of `values` | `extensible` widens it |
+
+`extensible: true` is for lists that genuinely cannot be enumerated — `organism` is the example.
+It is a real weakening of the closed-vocabulary guarantee and should be rare.
+
+## See also
+
+- [Measuring your data](../guides/measuring-your-data.md) — turning an assertion into a measurement
+- [Rule schema](rule-schema.md) — what reads these
+- [Goal schema](goal-schema.md) — what a `profile:` may contain

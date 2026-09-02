@@ -1,60 +1,74 @@
 # Documentation
 
-Three doors. Pick the one that describes what you are doing.
+Comeni Labs turns a description of an analysis into a Nextflow pipeline, and every choice
+it makes carries a reason you can read.
 
-## I am driving Mendel
+There are two halves. **Mendel** builds pipelines. **Wiener** runs them and shows you what
+happened. A third thing, **the forge**, writes the registry Mendel reads from.
 
-An agent, or a person doing what an agent does: turning a question into a goal, building a
-pipeline, reading what it decided, and tuning it.
+## Start here
 
-1. **[Driving Mendel](guides/driving-mendel.md)** — the loop, end to end, with real output
-2. [`pipeline.yml`, field by field](reference/pipeline-schema.md) — the save file
-3. [Diagnostic codes](reference/diagnostics.md) — why something was refused
-4. [The four tiers](concepts/tiers.md) — what each decision commits you to
+**[Your first pipeline](tutorial.md)** — fifteen minutes, one command at a time, ending with
+a pipeline that runs. Everything else on this page assumes you have done it.
 
-## I am writing the registry Mendel reads
+## Then pick what you are doing
 
-The other loop. Mendel reads declared data; the forge is how it gets written.
+### Building pipelines
 
-4a. **[Driving the forge](guides/driving-the-forge.md)** — discover, draft, fill, verify, land
+| | |
+|---|---|
+| [Driving Mendel](guides/driving-mendel.md) | the full loop — goal, build, read, edit, re-emit |
+| [Measuring your data](guides/measuring-your-data.md) | turning *I think the reads are 150bp* into a measured fact |
+| [`pipeline.yml`](reference/pipeline-schema.md) | the file that **is** the pipeline, field by field |
+| [Diagnostic codes](reference/diagnostics.md) | why something was refused |
 
-## I am running a pipeline Mendel produced
+### Running pipelines
 
-5. [Getting started](guides/getting-started.md) — install, build, run
-6. [Measuring your data](guides/measuring-your-data.md) — turning an asserted premise into a
-   measured one
-7. [Privacy and egress](concepts/privacy-and-egress.md) — what leaves, and through which door
+| | |
+|---|---|
+| [Running the stack](guides/running-the-stack.md) | `make dev`, what comes up, and on which port |
+| [Watching a run](guides/watching-a-run.md) | submitting a pipeline to Wiener and reading the result |
 
-## I am changing Mendel
+### Extending the registry
 
-8. **[`ARCHITECTURE.md`](../ARCHITECTURE.md)** — the five stages, the load order, routing, both
-   tier ladders and the three guards, written against the types that exist. Read it before
-   writing code
-9. [Contributing](../.github/CONTRIBUTING.md) — registry data needs no Python and is the most
-   valuable contribution
-10. [Releasing](guides/releasing.md) — which number to move, and how a tag becomes a release
-11. [Writing a contract](guides/writing-a-contract.md) · [a rule](guides/writing-a-rule.md) ·
-    [a registry layer](guides/registry-layers.md)
-12. [The design arguments](design/) — why it works this way, and what was rejected
-13. [Working notes](notes/) — how it got here. Provenance, not documentation
+Mendel only knows the tools the registry declares. Adding one needs no Python.
 
-## The sections
+| | |
+|---|---|
+| [Driving the forge](guides/driving-the-forge.md) | discover, draft, fill, verify, land |
+| [Writing a contract](guides/writing-a-contract.md) · [a rule](guides/writing-a-rule.md) · [a layer](guides/registry-layers.md) | the three things you can add |
+| [Contract](reference/contract-schema.md) · [rule](reference/rule-schema.md) · [vocabulary](reference/vocabulary-schema.md) · [measurement](reference/measurement-schema.md) | what each file may contain |
 
-**[guides/](guides/)** — task-shaped, start to finish. Read one when you are trying to get
-something done.
+### Changing the code
 
-**[reference/](reference/)** — every field of every file format, and every CLI flag. These
-describe Pydantic models in `packages/comeni-core`, so a field named here exists in the code.
+| | |
+|---|---|
+| [`ARCHITECTURE.md`](../ARCHITECTURE.md) | how the pieces fit. **Read before writing code** |
+| [Contributing](../.github/CONTRIBUTING.md) | how a change gets in |
+| [Releasing](guides/releasing.md) | which version number to move |
 
-**[concepts/](concepts/)** — the three ideas the rest depends on: the four resolution tiers, how
-routing picks modules, and why data does not leave. Read these when something surprised you.
+## The three ideas
 
-**[design/](design/)** — the design records. Longer and more opinionated than the concept pages;
-written to be argued with.
+Read one when something surprised you. Each is a page, not a chapter.
 
-**[notes/](notes/)** — plans, audits and the journal. **Provenance, not documentation**, and
-the one directory here that is not held to the rest of this page's standards: it is not
-maintained against the code, and `make links` deliberately does not check it, because a plan
-naming a file its own tasks create is correct when written and broken until it runs. It moved
-under `docs/` on 2026-09-02; if you are looking for what is *true now*, it is one of the four
-sections above, and if you are looking for *why*, it is here.
+- **[The four tiers](concepts/tiers.md)** — every choice exits at one of them, and carries it for ever
+- **[Routing](concepts/routing.md)** — how a tool gets picked, and what happens when two could
+- **[What leaves](concepts/privacy-and-egress.md)** — the four doors, and why your data is not one of them
+
+If a screen is using a word at you, that is the [glossary](reference/glossary.md) — eight words
+this project uses in a particular way.
+
+## The shelves
+
+| | |
+|---|---|
+| **[guides/](guides/)** | task-shaped. Start to finish, with real output |
+| **[reference/](reference/)** | every field and every flag. Checked against the code by `make docs` |
+| **[concepts/](concepts/)** | the four ideas above. Short by design |
+| **[design/](design/)** | *why* it works this way, and what was rejected. Long, opinionated, written to be argued with |
+| **[notes/](notes/)** | plans, audits and the journal. **Provenance, not documentation** — not maintained against the code, and the one directory here `make links` does not check |
+
+**Reference pages cannot drift.** `tools/check_reference.py` fails the build if a schema page
+documents a field the model does not have, or misses one it does — and if the CLI grows a verb
+nobody wrote down. That check exists because on 2026-09-02 all five schema pages disagreed with
+their models and two `mendel` verbs were documented nowhere.

@@ -18,13 +18,12 @@ convention is `<layer>/rules/<name>.rule.yml`. One block per decision, rows unde
 declares: rule
 version: 1
 decisions:
-  - decides: {param: strandedness}
-    because: "featureCounts -s follows library strandedness"
-    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+  - decides: {effect: implementation, of: alignment}
+    because: "read length determines which aligner is appropriate"
+    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
     rows:
-      - {when: {strandedness: reverse},    then: 2}
-      - {when: {strandedness: forward},    then: 1}
-      - {when: {strandedness: unstranded}, then: 0}
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
+      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
 ```
 
 Grouped rather than flat so a reviewer reads the justification once and then reads the
@@ -36,25 +35,46 @@ Rows are tried in order and the first match wins.
 > `- {when: {...}, then: N}`. Writing `- when: {...}   then: N` is two block keys on one
 > line, which is a parse error. If you prefer block style, put `then:` on its own line.
 
-## Two kinds of decision
+## Three kinds of decision
 
-**`param:`** sets a parameter on whichever module declares it:
+A `decides:` names an **effect** and the **role** it applies to. A role is a job — `alignment`,
+`trimming`, `quantification` — not a tool and not a type.
 
-```yaml
-  - decides: {param: strandedness}
-```
-
-**`producer_of:`** picks which module produces a type:
+**`implementation`** — which tool fills the role:
 
 ```yaml
-  - decides: {producer_of: alignment.bam}
-    cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
+  - decides: {effect: implementation, of: alignment}
     rows:
       - {when: {read_length: ">= 70"}, then: nf-core/star/align@1.11.0}
       - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
 ```
 
-A block decides exactly one of the two.
+**`presence`** — whether the role happens at all:
+
+```yaml
+  - decides: {effect: presence, of: trimming}
+    rows:
+      - {when: {read_length: ">= 70"}, then: true}
+```
+
+**`param`** — what a parameter is set to. Needs `name:` as well:
+
+```yaml
+  - decides: {effect: param, of: quantification, name: strandedness}
+    because: "featureCounts -s follows library strandedness"
+    cite: "Liao et al. 2014, doi:10.1093/bioinformatics/btt656"
+    rows:
+      - {when: {strandedness: reverse},    then: 2}
+      - {when: {strandedness: forward},    then: 1}
+      - {when: {strandedness: unstranded}, then: 0}
+```
+
+Add `when_implementation: [<contract id>]` to restrict a decision to particular tools.
+
+> **This changed in Plan 1.15, and the old form does not load.** A rule used to target a
+> parameter or a type directly — `{param: strandedness}`, `{producer_of: alignment.bam}` — and
+> both are now refused with a validation error. Targeting a **role** is what lets one rule
+> choose between STAR and HISAT2 without naming either in its key.
 
 ## Conditions
 
@@ -88,8 +108,8 @@ registry/rules/alignment.rule.yml, decision param:aligner
 
 Refused outright:
 
-- a `param` no contract declares
-- a `producer_of` type nothing produces
+- an `of:` role no layer declares
+- a `name:` parameter no contract in that role declares
 - a pinned contract that is not in the registry, or that does not produce that type
 - a `when` naming a measurement nothing declares
 - a comparison against an enum or boolean
@@ -102,7 +122,7 @@ months. Loading is now the check.
 
 ## A pinned module must still be reachable
 
-A `producer_of` rule pins a module; it does not conjure its inputs. If the rule picks
+An `implementation` rule pins a module; it does not conjure its inputs. If the rule picks
 HISAT2 and nothing in the registry can build a HISAT2 index, the build stops:
 
 ```
@@ -121,7 +141,7 @@ the sorter's own BAM input, where the aligners actually compete.
 
 ## Layers replace whole blocks
 
-If your layer and the base layer both decide `param:strandedness`, yours replaces the
+If your layer and the base layer both decide the same target, yours replaces the
 entire block — not row by row. A reviewer should be able to read one block and see the
 complete effective decision. See [registry-layers.md](registry-layers.md).
 

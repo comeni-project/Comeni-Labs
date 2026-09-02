@@ -1,117 +1,108 @@
 # Vocabulary schema
 
-One type per file, carrying `declares: vocabulary` and an `id:`. **Where the file sits is
-free** (comeni-registry#1): the public registry keeps general types in `types/` and puts a type
-beside the only tool that produces it — `genome.index.star.type.yml` sits in
-`tools/nf-core/star/`.
+A vocabulary file declares **one type**: what it is called, which states it may carry, and how
+it enters a pipeline when nothing upstream produces it.
 
-**`id:` is required**, and `MD0012` refuses a file without one. The filename used to be the id,
-which was workable only while every type sat in a directory named for its kind — once a file may
-live anywhere, `align.type.yml` in a tool folder would silently declare a type called
-`align.type`.
-
-Model: `comeni_core.declared.vocabulary.Vocabulary`.
-
-## Fields
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `states` | [string] | `[]` | every state this type may carry. Closed. |
-| `entry_channel` | string \| null | `null` | Groovy expression producing this type when nothing upstream does |
+Types are what routing matches on. `fastq.reads` and `alignment.bam` are types; `trimmed` and
+`coordinate_sorted` are states of them.
 
 ```yaml
-# types/alignment.bam.yml
-declares: vocabulary
-id: alignment.bam
-states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
-```
-
-```yaml
-# types/fastq.reads.yml
+# registry/types/fastq.reads.yml
 declares: vocabulary
 id: fastq.reads
 states: [trimmed, deduplicated, subsampled]
-entry_channel: "Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
+sample_columns: 2
+param: input
+entry_channel: "Channel.fromFilePairs(params.{param}, checkIfExists: true).map { id, reads -> [ [id: id], reads ] }"
+test_data:
+  - "https://.../SRR6357070_1.fastq.gz"
+  - "https://.../SRR6357070_2.fastq.gz"
 ```
 
-## Vocabularies are closed
+**Where the file sits is free.** The public registry keeps general types in `types/` and puts a
+type beside the only tool that produces it — `genome.index.star.type.yml` lives in
+`tools/nf-core/star/`. The loader reads `declares:`, not the path.
 
-A contract naming a state this file does not declare **fails to load**:
+**`id:` is required**, and `MD0012` refuses a file without one. The filename used to be the id;
+once a file could live anywhere, `align.type.yml` in a tool folder would have silently declared
+a type called `align.type`.
 
-```
-UnknownStateError: 'sorted_by_coord' is not a declared state for 'alignment.bam';
-allowed: ['coordinate_sorted', 'deduplicated', 'filtered', 'indexed', 'name_sorted']
-```
+## Fields
 
-This is what makes routing provable rather than plausible. `coordinate_sorted` means one
-thing across the entire registry, and a typo is an error at load rather than a module that
-mysteriously never gets selected.
+Model: `comeni_core.declared.vocabulary.TypeDeclaration`
 
-New states arrive as reviewed data changes, never code changes.
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `id` | string | *required* | the type id. Validated, because it is emitted as a channel name |
+| `states` | [string] | `[]` | every state this type may carry. **Closed** — an undeclared state fails to load |
+| `sample_columns` | integer | `1` | how many samplesheet columns one sample occupies. **1 or 2** |
+| `scope` | string | `sample` | `sample` or `run` — how many arrive, relative to the run |
+| `entry_channel` | string \| null | `null` | Groovy producing this type when nothing upstream does |
+| `param` | string \| null | `null` | the parameter `entry_channel` reads. Defaults to the id's last segment |
+| `test_data` | string \| [string] \| null | `null` | a pinned example, for the generated `test` profile |
 
-## Naming
+### `states` is closed, and that is the point
 
-Dotted, hierarchical, and **injective after the compiler mangles it**:
-`fastq.reads` → `ch_fastq_reads`.
+A contract using a state no vocabulary declares **fails to load**. New states arrive by review,
+through the forge, as a data change — never as a code change. That is what makes a state mean
+the same thing in two contracts written a year apart.
 
-Use the full path. Naming a channel after the last segment alone is not injective —
-`qc.report` and `multiqc.report` both became `ch_report`, one assignment shadowed the
-other, and two ports were silently fed the same channel.
+### `scope` — `run` or `sample`
 
-## Entry channels
+A reference genome is `run`: one file for the whole analysis, so it must emit as a **value**
+channel. A Nextflow process with several *queue* inputs runs as many times as the shortest, so
+a queue of one genome silently capped a twenty-four-sample run at one invocation.
 
-A type that nothing in the pipeline produces has to come from somewhere. `entry_channel`
-is that Groovy expression, and it belongs here rather than in the compiler because
-`mendel-compiler` has no built-in idea what a FASTQ is. The same compiler has to emit calls
-for a containerised tool it has never seen.
+A pipeline may override this, and the override carries a reason into `pipeline.yml` — per-sample
+annotation instead of a shared one is a judgement about an experiment, and no judgement here is
+silent.
 
-The expression must produce Nextflow's `[meta, files]` shape. Any `params.<name>` it
-mentions is discovered by the emitter and declared in the generated `nextflow.config` —
-so a type that declares its own entry channel automatically declares its own parameter.
+### `sample_columns` is not derivable
 
-Omit it and you get:
+`fastq.reads` is 2 — `fastq_1` and `fastq_2`, nf-core's convention, an empty second column
+meaning single-end. `annotation.gtf` is 1.
 
-```groovy
-Channel.fromPath(params.<last_segment>, checkIfExists: true).map { f -> [ [:], f ] }
-```
+Nothing about the id or the states says a FASTQ arrives in pairs. The entry channel says it only
+by using `fromFilePairs`, which is a fact about the glob, not about the type. So it is declared.
 
-For a port with several alternatives, the **first** alternative's type supplies the entry
-channel: nothing upstream has narrowed the choice, so the pipeline asks for the one the
-contract names first.
+Column **names** come from the channel rather than from here: `reads` becomes `reads_1` and
+`reads_2`; a pipeline taking two GTFs gets `gtf` and `gtf_2`.
 
-## Derived measurement types
+### `entry_channel` is the one place unbounded Groovy is allowed
 
-`Vocabulary.with_measurements()` adds a stateless `measurement.<id>` type per declared
-measurement. **Do not write these by hand** — the measurement file already says what the
-measurement is, and a second file repeating it is a thing to drift.
+It is emitted verbatim, and that is the designed exception rather than an oversight.
 
-They carry no states, so `vocab.validate("measurement.strandedness", ["forward"])` raises.
-An enum's *values* are not states.
+It carries **one placeholder**, `{param}`, substituted at materialisation with the channel's own
+parameter. Not a template language — one substitution, matched as seven literal characters,
+because `{` is legal Groovy and appears throughout these expressions already.
 
-## Layer stacking
+It used to hold a literal `params.<name>`, which fused a *pipeline* decision into a *type*: two
+channels of the same type shared one parameter and were therefore one hole, whatever the pipeline
+said.
 
-Keyed on type id; a higher layer replaces the whole entry, states and entry channel
-together.
+## The stacked result
 
-Load order matters: measurements must load before the vocabulary, because the derived
-`measurement.*` types have to exist before contracts are validated against them. Use
-`mendel_resolver.layers.load()` rather than assembling this by hand.
+When layers load, all the type files merge into one object. You do not write this — it is what
+the resolver reads.
 
-## The eight shipped types
+Model: `comeni_core.declared.vocabulary.Vocabulary`
 
-| Type | States | Entry channel |
+| Field | Type | Meaning |
 |---|---|---|
-| `fastq.reads` | `trimmed`, `deduplicated`, `subsampled` | `fromFilePairs(params.input)` |
-| `annotation.gtf` | — | `fromPath(params.gtf)` |
-| `alignment.bam` | `coordinate_sorted`, `name_sorted`, `deduplicated`, `filtered`, `indexed` | — |
-| `alignment.bai` | — | — |
-| `counts.matrix` | `gene_level`, `transcript_level`, `normalised` | — |
-| `qc.report` | `aggregated` | — |
-| `genome.index.star` | — | — |
-| `genome.index.hisat2` | — | — |
-| `profile.yml` | — | — |
+| `types` | dict | every type id to its declared states |
+| `displaced` | list | which layer replaced which, recorded rather than silent |
+| `test_data` | dict | per type, from `test_data` above |
+| `params` | dict | per type, from `param` above |
+| `columns` | dict | per type, from `sample_columns` above |
+| `scopes` | dict | per type, from `scope` above |
+| `entry_channels` | dict | per type, from `entry_channel` above |
 
-`alignment.bai` exists because an index is **not** a BAM. Declaring it
-`alignment.bam[indexed]` is what once let the router hand featureCounts a `.bai` file —
-valid Nextflow, no flag raised, and invisible to `-stub-run` because nf-core stubs never
-read their inputs.
+**Overlays extend or replace.** `states:` replaces a type's states; `add_states:` extends them.
+A replacement is recorded as a `Displacement` and printed in the build's `OVERLAY` block, so an
+installed overlay can never reroute a pipeline silently.
+
+## See also
+
+- [Registry layers](../guides/registry-layers.md) — how a stack is assembled
+- [Routing](../concepts/routing.md) — what types and states are matched on
+- [Contract schema](contract-schema.md) — what consumes and produces these types

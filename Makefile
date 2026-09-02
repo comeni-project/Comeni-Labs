@@ -75,8 +75,9 @@ forge-rework:   ## everything the deferred forge rework has to revisit
 links:          ## every relative markdown link in docs/, .github/, .design/ and the root
 	uv run python tools/check_links.py
 
-docs:           ## fail if docs/reference/diagnostics.md is stale
+docs:           ## fail if docs/reference/ disagrees with the code
 	uv run python tools/generate_diagnostics_doc.py --check
+	uv run python tools/check_reference.py --check
 
 static:         ## conformance + lint + preview — everything checkable without Docker
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint

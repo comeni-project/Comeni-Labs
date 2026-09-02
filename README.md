@@ -196,7 +196,7 @@ holds an example goal and nothing else.
 
 | You want | Read |
 |---|---|
-| to build your first pipeline | [`docs/guides/getting-started.md`](docs/guides/getting-started.md) |
+| to build your first pipeline | [`docs/tutorial.md`](docs/tutorial.md) |
 | to teach Mendel a tool it does not know | [`docs/guides/writing-a-contract.md`](docs/guides/writing-a-contract.md) |
 | a choice to depend on your data | [`docs/guides/writing-a-rule.md`](docs/guides/writing-a-rule.md) |
 | to look up a field or a flag | [`docs/reference/`](docs/reference/) |
