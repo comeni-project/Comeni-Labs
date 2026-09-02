@@ -136,7 +136,11 @@ def test_no_document_or_tool_still_says_docs_internal():
         if str(relative) in exempt or _is_record(relative):
             continue
         text = path.read_text()
-        if "docs/internal" in text or '"docs" / "internal"' in text:
+        # A boundary, not a bare substring: `docs/internals/` — the fifth book, added
+        # 2026-09-02 — contains `docs/internal` as a substring, and every correct reference to
+        # it was tripping this guard. `(?!s)` is the boundary: it rejects the character that
+        # turns the retired directory into the new one, on both spellings this guard checks.
+        if re.search(r"docs/internal(?!s)", text) or re.search(r'"docs" / "internal"(?!s)', text):
             stale.append(str(relative))
     assert stale == [], (
         "these still name `docs/internal`, which no longer exists:\n  " + "\n  ".join(stale)
