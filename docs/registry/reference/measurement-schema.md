@@ -102,4 +102,4 @@ It is a real weakening of the closed-vocabulary guarantee and should be rare.
 
 - Measuring your data — turning an assertion into a measurement
 - [Rule schema](rule-schema.md) — what reads these
-- [Goal schema](goal-schema.md) — what a `profile:` may contain
+- [Goal schema](../../handbook/reference/goal-schema.md) — what a `profile:` may contain

@@ -71,7 +71,7 @@ the **role** being filled, given your profile. If a rule matches **and the pinne
 genuinely a candidate here**, it is selected at tier 3 carrying the citation.
 
 A rule targets a role — *something must align these reads* — rather than a type or a tool.
-[Writing a rule](../guides/writing-a-rule.md) is the format.
+[Writing a rule](../registry/making-a-choice-depend-on-your-data.md) is the format.
 
 That second condition matters. When featureCounts asks for `alignment.bam[coordinate_sorted]`,
 the only producer is `samtools/sort` — STAR cannot emit that state at all, so an aligner

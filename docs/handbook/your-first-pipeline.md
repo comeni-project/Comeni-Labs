@@ -44,7 +44,8 @@ profile:
 *What you have, what you want, and what the data looks like.*
 
 Notice what is missing: no filenames, no paths, no sample names. There is nowhere to put one.
-That is enforced, not merely encouraged — see [what leaves](concepts/privacy-and-egress.md).
+That is enforced, not merely encouraged. What leaves the platform on the build path, and when,
+is its own page — not yet written.
 
 ## 3. Build it
 
@@ -132,7 +133,7 @@ star_align seq_platform = None
 used, so Mendel says so instead of picking one. **A tier-4 choice is always flagged, however
 confident anything is** — that is the difference between this and asking a chatbot.
 
-The [four tiers](concepts/tiers.md) explain the ladder. Briefly: tiers 1 and 2 are silent,
+The [four tiers](the-four-tiers.md) explain the ladder. Briefly: tiers 1 and 2 are silent,
 tier 3 is worth a glance, tier 4 needs you.
 
 ## 6. Change one number
@@ -179,8 +180,8 @@ uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
 | you want to | read |
 |---|---|
-| do this properly, end to end | [Driving Mendel](tutorial.md) |
-| watch a run rather than read a file | [Running the stack](guides/running-the-stack.md) |
+| do this properly, end to end | Driving Mendel |
+| watch a run rather than read a file | [Running the stack](the-stack.md) |
 | stop asserting `read_length` and measure it | Measuring your data |
-| add a tool Mendel does not know | [Driving the forge](guides/writing-a-contract.md) |
-| understand why a tool was picked | [Routing](concepts/routing.md) |
+| add a tool Mendel does not know | Driving the forge |
+| understand why a tool was picked | [Routing](how-tools-get-chosen.md) |

@@ -410,4 +410,4 @@ trying to change the pipeline and that is the file which does it.
 - [cli.md](cli.md) — the verbs and their flags
 - [diagnostics.md](diagnostics.md) — every code, what it says, and whether it refuses
 - [goal-schema.md](goal-schema.md) — what goes in `goal:`
-- [../concepts/tiers.md](../concepts/tiers.md) — what the four tiers mean
+- [The four tiers](../the-four-tiers.md) — what the four tiers mean

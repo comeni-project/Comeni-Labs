@@ -113,7 +113,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
                     "    git submodule update --init\n"
                     "\n"
                     "`git clone --recurse-submodules` avoids this. "
-                    "See docs/guides/contributing.md.",
+                    "See .github/CONTRIBUTING.md.",
                 )
             )
         # `declared_entries`, not `rglob("*")`: since issue #46 `registry/` is a git

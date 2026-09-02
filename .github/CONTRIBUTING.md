@@ -8,8 +8,9 @@ about, and what a reviewable change looks like.
 **Adding a tool** is the most useful thing you can do, and it needs no Python. A tool definition
 is a YAML file with a citation.
 
-- [Adding a tool](../docs/guides/writing-a-contract.md)
-- [Writing a rule](../docs/guides/writing-a-rule.md) — make a choice depend on the data
+- [Adding a tool](../docs/registry/writing-a-contract.md)
+- [Writing a rule](../docs/registry/making-a-choice-depend-on-your-data.md) — make a choice
+  depend on the data
 
 These go to a **different repository**:
 [comeni-registry](https://github.com/comeni-project/comeni-registry). Open your pull request
@@ -135,7 +136,7 @@ directions are tested — so the two cannot drift.
 
    Never write the code into the string yourself. `coded()` checks it against the registry, so a
    typo raises here rather than printing to a user and then failing `mendel explain`.
-3. **Run `make docs`.** `docs/reference/diagnostics.md` is generated in full; CI fails if it is
+3. **Run `make docs`.** `docs/handbook/reference/diagnostics.md` is generated in full; CI fails if it is
    stale, and hand-editing it is refused.
 4. **Do not declare a code you are not going to raise.** A test fails on it. A code that cannot
    happen still appears in the generated page and still answers `mendel explain`, which makes it
@@ -143,12 +144,12 @@ directions are tested — so the two cannot drift.
    in `diagnostics.yml`, not an entry.
 
 **A code is never renumbered once published**, because a laboratory runbook can cite it. That is
-also why adding one is a *feature* rather than a fix — see [`releasing.md`](../docs/guides/releasing.md).
+also why adding one is a *feature* rather than a fix — see [`releasing.md`](../docs/internals/releasing.md).
 
 ## Releasing
 
 Every package versions independently and is tagged on its own — `comeni-core-v0.2.0`. Which
-number to move is a judgement, and [`releasing.md`](../docs/guides/releasing.md) is the rule this project
+number to move is a judgement, and [`releasing.md`](../docs/internals/releasing.md) is the rule this project
 holds itself to: `0.0.x` for a fix, `0.x.0` for a feature, `x.0.0` for a break.
 
 Your pull request is where a version bump gets reviewed. Nothing mechanical can tell a fix from

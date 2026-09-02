@@ -7,7 +7,7 @@ and here is the paper".
 Rules are **data**, not code. A domain expert adds one without touching Python, and the
 result is reproducible, free, and reviewable as a diff.
 
-Full field list: [reference/rule-schema.md](../reference/rule-schema.md).
+Full field list: [reference/rule-schema.md](reference/rule-schema.md).
 
 ## The shape
 
@@ -143,7 +143,7 @@ the sorter's own BAM input, where the aligners actually compete.
 
 If your layer and the base layer both decide the same target, yours replaces the
 entire block — not row by row. A reviewer should be able to read one block and see the
-complete effective decision. See [registry-layers.md](registry-layers.md).
+complete effective decision. See [your-labs-own-layer.md](your-labs-own-layer.md).
 
 ## What you get
 

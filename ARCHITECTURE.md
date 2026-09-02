@@ -25,7 +25,7 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `wiener-core` | run state: admit, fold, decide, spans | **pure** | `docs/design/wiener.md` |
 | `wiener-api` | launch, ingest, project, stream | impure | `docs/design/wiener.md` |
 | `dag-core` | where to draw a graph. Both canvases, one arithmetic | **pure** | `docs/design/dashboard.md` |
-| `comeni-vendor` | fetch a tool's source into a layer, check it against its pin | impure | [`docs/guides/registry-layers.md`](docs/guides/registry-layers.md) |
+| `comeni-vendor` | fetch a tool's source into a layer, check it against its pin | impure | [`docs/registry/your-labs-own-layer.md`](docs/registry/your-labs-own-layer.md) |
 | `frontend/` | React 19 + TS + Vite. `src/api/` is **generated** | — | `docs/design/dashboard.md` |
 
 **Mendel and Wiener do not import each other, and neither knows the other exists.** A pipeline

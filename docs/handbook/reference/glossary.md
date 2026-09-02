@@ -6,7 +6,8 @@ saying, not for learning the system.
 
 **It exists because the person who co-designed Mendel could not read its own interface.** That
 was the verdict on 2026-08-19, and it was correct: every screen was written for somebody who had
-already read [`ARCHITECTURE.md`](../../ARCHITECTURE.md). Nothing in the product defined
+already read `ARCHITECTURE.md`, the code-level design document at the repository root. Nothing
+in the product defined
 *contract*, *role*, *type*, *measurement*, *drift*, *hole*, *band* or *proposal*, and all eight
 appear on screen without explanation.
 
@@ -22,7 +23,7 @@ both defects. Same shape as the diagnostics guard.
 registry. It is a hand-written FFI binding to a Nextflow module: `mendel build` refuses to emit
 if a contract disagrees with the module it describes.
 
-Read [`contract-schema.md`](contract-schema.md).
+Read [`contract-schema.md`](../../registry/reference/contract-schema.md).
 
 ### type
 
@@ -32,7 +33,7 @@ Read [`contract-schema.md`](contract-schema.md).
 **states** it carries, are the missing meaning routing depends on.
 
 Types are **closed**: a contract naming an undeclared one fails to load. Read
-[`vocabulary-schema.md`](vocabulary-schema.md).
+[`vocabulary-schema.md`](../../registry/reference/vocabulary-schema.md).
 
 ### role
 
@@ -50,7 +51,7 @@ many samples. Declared, cited, and each says whether a tool can actually produce
 first six turned out to be `assertion_only`, meaning a person states them and no tool measures
 them.
 
-Read [`measurement-schema.md`](measurement-schema.md).
+Read [`measurement-schema.md`](../../registry/reference/measurement-schema.md).
 
 ### drift
 

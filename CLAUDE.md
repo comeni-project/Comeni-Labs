@@ -186,7 +186,7 @@ and no producer, so `QueueRow`'s *Confirm* branch was unreachable — now has on
 something actually scored. `Sources` and `Contracts` were one query at two stages of a tool's
 life and are now `GET /api/tools` behind a status board that answers *is everything okay* before
 it lists anything. **Eight words the interface used without defining now have definitions**
-([`docs/reference/glossary.md`](docs/reference/glossary.md), `?` from anywhere).
+([`docs/reference/glossary.md`](docs/handbook/reference/glossary.md), `?` from anywhere).
 
 **Plan 3C is COMPLETE as of 2026-08-19**, on `plan-3c-builder`, and it built a **visualiser
 rather than a builder**. `/build` shows a pipeline the resolver already
@@ -392,8 +392,8 @@ tool, so a resolved value reaching nothing is refused rather than emitted. It re
 `pipeline.ir.json`, `mendel.lock.yml` and `PublishBundle`. `mendel emit` rebuilds the Nextflow
 from it with **no registry and no network**; `mendel upgrade` re-resolves against the current
 registry and replays every recorded decision. Read
-[`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md), and
-[`docs/guides/driving-mendel.md`](docs/tutorial.md) for the loop end to end.
+[`docs/reference/pipeline-schema.md`](docs/handbook/reference/pipeline-schema.md), and
+[`docs/guides/driving-mendel.md`](docs/handbook/your-first-pipeline.md) for the loop end to end.
 
 **A tier-3 rule targets a role, not a type id** (Plan 1.15), with three effects — `presence`,
 `implementation`, `param` — and a **premise layer** builds the facts `when` reads, each carrying
@@ -404,7 +404,7 @@ express them.
 
 **`mendel build` refuses a contract that disagrees with its module**, against the vendored
 `main.nf` and `meta.yml`. `mendel explain <code>` for any diagnostic;
-[`docs/reference/diagnostics.md`](docs/reference/diagnostics.md) for all of them.
+[`docs/reference/diagnostics.md`](docs/handbook/reference/diagnostics.md) for all of them.
 
 **Nothing AI-shaped is built, and `mendel-forge` now exists without being AI-shaped.** That
 distinction is the point of Plan 2 Phase 1. `comeni-core`, `mendel-resolver` and
@@ -462,9 +462,9 @@ written against the types that exist.
 | Read this | For |
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | **how it all fits together, against real types. First.** |
-| [`docs/README.md`](docs/README.md) | the documentation front door — three doors, by what you are doing |
-| [`docs/guides/driving-mendel.md`](docs/tutorial.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
-| [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md) | `pipeline.yml`, field by field |
+| `docs/README.md` | *retired 2026-09-02* — the documentation front door, replaced by `docs/index.md` |
+| [`docs/guides/driving-mendel.md`](docs/handbook/your-first-pipeline.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
+| [`docs/reference/pipeline-schema.md`](docs/handbook/reference/pipeline-schema.md) | `pipeline.yml`, field by field |
 | [`notes/journal/`](docs/notes/journal/) | **what happened, what is next, what was decided.** Newest first |
 | [`notes/README.md`](docs/notes/README.md) | every plan in execution order, and the argument for that order |
 | `notes/audits/README.md` | the rounds, the design audit, and the guard ledger |

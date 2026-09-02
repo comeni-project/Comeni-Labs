@@ -20,20 +20,23 @@ GitHub renders and a stranger reads, so its links have exactly the audience the 
 says `docs/` has, and leaving them unchecked would have traded a tidier root for a page of dead
 links nobody would notice.
 
-`docs/notes/` is **excluded**, and it is the one exclusion here. The working notes moved under
-`docs/` on 2026-09-02, and the reason they were never checked did not move with them: a plan
-naming a file its own tasks create is *correct* at the moment it executes and broken until then,
-so checking them makes `make check` red for the duration of every plan. The cost of a broken
-link also differs by audience — in `docs/` a reader hits a 404; in the notes a future reader
-meets a dated document that already says it describes work not yet done.
+`docs/notes/` and `docs/superpowers/` are **excluded**, and they are the only two. The working
+notes moved under `docs/` on 2026-09-02, and the reason they were never checked did not move
+with them: a plan naming a file its own tasks create is *correct* at the moment it executes and
+broken until then, so checking them makes `make check` red for the duration of every plan. The
+cost of a broken link also differs by audience — in `docs/` a reader hits a 404; in the notes a
+future reader meets a dated document that already says it describes work not yet done.
+`docs/superpowers/` holds the same kind of provenance — plans and specs — and joined the
+exclusion in Task 4 for the same reason: a spec links forward to a plan, or a plan to a task,
+that may not exist yet.
 
 **The exclusion is a path prefix, and that is a weaker guarantee than it was.** While the notes
 sat in their own top-level directory the separation was structural: `_markdown()` enumerated
 `docs/` and never reached them. Now a new directory under `docs/` is checked by default and the
 notes are checked by exception, so the failure mode inverts — the old shape could not
 accidentally check the notes, and this one can accidentally stop checking a real documentation
-directory whose name someone nests under `docs/notes/`. `test_notes_are_the_only_docs_exclusion`
-holds the exclusion to exactly one prefix.
+directory whose name someone nests under `docs/notes/` or `docs/superpowers/`.
+`test_notes_are_the_only_docs_exclusion` holds the exclusion to exactly these two prefixes.
 
 Anchors (`#section`) are not checked — that needs a markdown parser, and the failure mode is a
 reader scrolling rather than a reader hitting a 404.
@@ -57,12 +60,19 @@ def _prose(text: str) -> str:
     return "\n".join(kept)
 
 
-EXCLUDED = ROOT / "docs" / "notes"
+# Provenance, both of them: the notes are append-only history, and the specs link forward to
+# plans that may not exist yet. Neither is published, so a stale link inside them costs a
+# future reader a moment rather than costing a user a 404.
+EXCLUDED = (ROOT / "docs" / "notes", ROOT / "docs" / "superpowers")
 
 
 def _markdown() -> list[pathlib.Path]:
     return (
-        [p for p in sorted((ROOT / "docs").rglob("*.md")) if EXCLUDED not in p.parents]
+        [
+            p
+            for p in sorted((ROOT / "docs").rglob("*.md"))
+            if not any(e in p.parents for e in EXCLUDED)
+        ]
         + sorted((ROOT / ".github").rglob("*.md"))
         + sorted((ROOT / ".design").rglob("*.md"))
         + sorted(ROOT.glob("*.md"))

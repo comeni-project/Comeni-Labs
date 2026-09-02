@@ -103,8 +103,9 @@ def test_no_document_or_tool_still_says_docs_internal():
     # exactly that class of error — could not see it, because it scanned only `*.md` and `*.py`.
     # A guard that names the two extensions it happened to be written against is a guard with a
     # hole the shape of every other extension. Declared data is the one that matters here:
-    # `diagnostics.yml` is the source every diagnostic code and `docs/reference/diagnostics.md`
-    # are generated from, so a dead path in it is a dead path in generated documentation.
+    # `diagnostics.yml` is the source every diagnostic code and
+    # `docs/handbook/reference/diagnostics.md` are generated from, so a dead path in it is a
+    # dead path in generated documentation.
     # This file itself, spelled from `__file__` rather than written out: the hard-coded
     # path went stale the day the suite was arranged into directories, and a guard that
     # fails on its own move teaches nothing.
@@ -180,7 +181,8 @@ def test_every_documented_clone_command_gets_the_submodule():
 
 
 def test_notes_are_the_only_docs_exclusion():
-    """`docs/notes/` is skipped by the link checker, and **nothing else under `docs/` is.**
+    """`docs/notes/` and `docs/superpowers/` are skipped by the link checker, and **nothing
+    else under `docs/` is.**
 
     This exists because of the direction the 2026-09-02 move weakened. While the working notes
     were a top-level `notes/`, `check_links._markdown()` enumerated `docs/` and could not reach
@@ -189,10 +191,14 @@ def test_notes_are_the_only_docs_exclusion():
     check the record, and this one can accidentally stop checking real documentation, silently,
     the moment anything is nested under that prefix or the prefix is widened.
 
+    `docs/superpowers/` joined the exclusion in Task 4 — the specs there link forward to plans
+    that may not exist yet, same reasoning as the notes, same risk: two prefixes are still a
+    blocklist, and this test is what keeps that list from growing by accident.
+
     A prefix exclusion is a blocklist, and this repository has learned twice what a blocklist
     costs — `test_every_payload_field_is_a_declared_shape` became an allowlist because a
     blocklist can only forbid what somebody named. So this asserts the complement: every
-    markdown file under `docs/` that is not in the record **is** checked.
+    markdown file under `docs/` that is not in one of the two exclusions **is** checked.
     """
     root = ROOT
     sys.path.insert(0, str(root / "tools"))
@@ -200,12 +206,13 @@ def test_notes_are_the_only_docs_exclusion():
 
     scanned = set(check_links._markdown())
     everything = set((root / "docs").rglob("*.md"))
-    record = {p for p in everything if _is_record(p.relative_to(root))}
+    exclusions = (root / "docs" / "notes", root / "docs" / "superpowers")
+    record = {p for p in everything if any(e in p.parents for e in exclusions)}
 
     missed = sorted(str(p.relative_to(root)) for p in (everything - record) - scanned)
     assert missed == [], (
-        "these documentation files are not link-checked, and only `docs/notes/` should be "
-        "exempt:\n  " + "\n  ".join(missed)
+        "these documentation files are not link-checked, and only `docs/notes/` and "
+        "`docs/superpowers/` should be exempt:\n  " + "\n  ".join(missed)
     )
     leaked = sorted(str(p.relative_to(root)) for p in record & scanned)
     assert leaked == [], (

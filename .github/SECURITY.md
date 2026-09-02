@@ -72,5 +72,5 @@ produces no diagnostic result.** Pipelines it emits must be validated by the lab
 before clinical use.
 
 We claim no compliance with IVDR, CLIA, CAP or ISO 15189. Those attach to a laboratory's
-processes and no software can hold them on your behalf. See
-[`docs/concepts/privacy-and-egress.md`](../docs/concepts/privacy-and-egress.md).
+processes and no software can hold them on your behalf. What leaves the platform on the
+build path, and when, is covered on its own page — not yet written.

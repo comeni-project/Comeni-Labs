@@ -7,7 +7,7 @@ wherever it fits.
 The file is called a **contract**: what the tool takes, what it produces, and what it can be
 told.
 
-Full field list: [reference/contract-schema.md](../reference/contract-schema.md).
+Full field list: [reference/contract-schema.md](reference/contract-schema.md).
 
 ## The shape
 

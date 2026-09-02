@@ -24,7 +24,8 @@ profile:
 Pass it with `mendel build --goal <file>`.
 
 **There is nowhere to put a filename, a path or a sample name**, and that is enforced rather
-than encouraged. A goal is a *shape*. See [what leaves](../concepts/privacy-and-egress.md).
+than encouraged. A goal is a *shape*. What leaves the platform on the build path, and when, is
+its own page — not yet written.
 
 ## Fields
 
@@ -123,6 +124,7 @@ Measuring your data is how you turn the first into the second.
 
 ## See also
 
-- [Driving Mendel](../tutorial.md) — the loop this file starts
-- [Measurement schema](measurement-schema.md) — what may appear under `profile`
+- [Driving Mendel](../your-first-pipeline.md) — the loop this file starts
+- [Measurement schema](../../registry/reference/measurement-schema.md) — what may appear under
+  `profile`
 - [`pipeline.yml`](pipeline-schema.md) — what a goal turns into

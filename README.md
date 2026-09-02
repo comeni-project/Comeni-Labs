@@ -23,7 +23,7 @@ make dev
 Open **http://localhost:5173** — build a pipeline, run it, watch it.
 
 
-**[The tutorial](docs/tutorial.md)** takes fifteen minutes and walks all of it, including
+**[The tutorial](docs/handbook/your-first-pipeline.md)** takes fifteen minutes and walks all of it, including
 changing one fact about your data and watching a different aligner get chosen for a stated
 reason.
 
@@ -33,11 +33,11 @@ reason.
 
 | You want to | Read |
 |---|---|
-| build your first pipeline | [Tutorial](docs/tutorial.md) |
-| run and watch pipelines | [Running the platform](docs/guides/running-the-stack.md) · [Watching a run](docs/guides/running-the-stack.md) |
-| add a tool it does not know | [Adding a tool](docs/guides/writing-a-contract.md) · [Drafting one faster](docs/guides/writing-a-contract.md) |
-| make a choice depend on your data | [Writing a rule](docs/guides/writing-a-rule.md) |
-| understand a decision it made | [The four tiers](docs/concepts/tiers.md) · [How tools get chosen](docs/concepts/routing.md) |
+| build your first pipeline | [Tutorial](docs/handbook/your-first-pipeline.md) |
+| run and watch pipelines | [Running the platform](docs/handbook/the-stack.md) · Watching a run |
+| add a tool it does not know | [Adding a tool](docs/registry/writing-a-contract.md) · Drafting one faster |
+| make a choice depend on your data | [Writing a rule](docs/registry/making-a-choice-depend-on-your-data.md) |
+| understand a decision it made | [The four tiers](docs/handbook/the-four-tiers.md) · [How tools get chosen](docs/handbook/how-tools-get-chosen.md) |
 | work on the code | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 Everything is in [`docs/`](docs/).
@@ -50,8 +50,8 @@ Adding or contributing to a tool needs no Python. It is a YAML file with a citat
 contribution anyone can make, because tool definitions are what the compiler builds from. One
 definition makes that tool available to every analysis it fits.
 
-Write it by hand with [adding a tool](docs/guides/writing-a-contract.md), or let
-[the forge](docs/guides/writing-a-contract.md) draft most of it from the tool's own documentation
+Write it by hand with [adding a tool](docs/registry/writing-a-contract.md), or let
+the forge draft most of it from the tool's own documentation
 and hand you what is left. Definitions live in
 [comeni-registry](https://github.com/comeni-project/comeni-registry); code lives here, and
 [CONTRIBUTING.md](.github/CONTRIBUTING.md) has the rest.

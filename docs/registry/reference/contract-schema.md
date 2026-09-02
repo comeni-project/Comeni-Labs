@@ -161,11 +161,11 @@ emits nothing.
 | `MD0104` | the contract and the module disagree |
 | `MD0105` | a `produces[].name` is not an emit the module has |
 
-`mendel explain MD0105` for the long form; [all codes](diagnostics.md).
+`mendel explain MD0105` for the long form; [all codes](../../handbook/reference/diagnostics.md).
 
 ## See also
 
-- [Writing a contract](../guides/writing-a-contract.md) — the walkthrough
-- [Driving the forge](../guides/writing-a-contract.md) — how a contract gets drafted
+- [Writing a contract](../writing-a-contract.md) — the walkthrough
+- Driving the forge — how a contract gets drafted
 - [Vocabulary schema](vocabulary-schema.md) — the types these ports name
-- [Routing](../concepts/routing.md) — how one of these gets picked
+- [Routing](../../handbook/how-tools-get-chosen.md) — how one of these gets picked

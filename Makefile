@@ -20,7 +20,7 @@ registry-present:  ## refuse early if the registry submodule was not checked out
 	  echo; \
 	  echo "    git submodule update --init"; \
 	  echo; \
-	  echo "'git clone --recurse-submodules' avoids this. See docs/guides/contributing.md."; \
+	  echo "'git clone --recurse-submodules' avoids this. See .github/CONTRIBUTING.md."; \
 	  exit 1; \
 	fi
 # Here as well as in `layers.load()` because a contributor's first command is `make check`,

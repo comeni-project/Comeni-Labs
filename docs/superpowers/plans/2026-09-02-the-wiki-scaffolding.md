@@ -739,7 +739,7 @@ run* to `running-the-stack.md`. And **two shipped error messages name a file tha
 exist**: `Makefile:23` and `layers.py:116` both say *See docs/guides/contributing.md*, which
 moved to `.github/CONTRIBUTING.md`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/repo/test_wiki.py`:
 
@@ -765,19 +765,19 @@ def test_specs_are_excluded_from_the_link_check():
     assert "superpowers" in text
 ```
 
-- [ ] **Step 2: Run it to make sure it fails**
+- [x] **Step 2: Run it to make sure it fails**
 
 Run: `uv run pytest tests/repo/test_wiki.py -k "shipped_message or specs_are_excluded" -v`
 Expected: 2 FAILED.
 
-- [ ] **Step 3: Fix the two shipped messages**
+- [x] **Step 3: Fix the two shipped messages**
 
 `Makefile` line 23 — replace `docs/guides/contributing.md` with `.github/CONTRIBUTING.md`.
 
 `packages/mendel-resolver/src/mendel_resolver/layers.py` line 116 — same replacement inside the
 `"See docs/guides/contributing.md."` string.
 
-- [ ] **Step 4: Exclude the specs from the link checker**
+- [x] **Step 4: Exclude the specs from the link checker**
 
 In `tools/check_links.py`, line 60, replace the single exclusion:
 
@@ -802,7 +802,7 @@ Then update line 65's comprehension:
 assert both exclusions rather than deleting it; its point is that the exclusion list is short
 and deliberate, and that point survives.
 
-- [ ] **Step 5: Find every remaining broken link**
+- [x] **Step 5: Find every remaining broken link**
 
 Run: `uv run python tools/check_links.py`
 
@@ -815,7 +815,7 @@ known set:
   text, remove the link, and add a plain sentence naming what it will cover.
 - `measuring-your-data.md`, advertised in two now-deleted index pages — gone with them.
 
-- [ ] **Step 6: Run the full link check and a strict build**
+- [x] **Step 6: Run the full link check and a strict build**
 
 ```bash
 uv run python tools/check_links.py
@@ -826,7 +826,7 @@ uv run pytest tests/repo/test_wiki.py -v
 Expected: `check_links.py` reports zero broken; `mkdocs build --strict` exits 0 — strict mode
 understands the nav and catches unresolved internal links that `check_links.py` cannot.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A docs tools/check_links.py Makefile packages/mendel-resolver tests
@@ -845,6 +845,13 @@ see docs/guides/contributing.md, which has not existed since it moved to
 mkdocs build --strict now backs check_links.py up inside the site, since it
 understands the nav and the checker does not."
 ```
+
+**Execution record — deviations from the written steps:**
+
+| Step | What actually happened |
+|---|---|
+| 2 | Steps 3 and 4 (the two shipped messages, the `check_links.py` exclusion) were fixed *before* the Step-1 tests were run once to confirm failure, so both assertions passed on their first run rather than failing first. The properties were understood well enough going in that this was a reasonable order; noted because Step 2 says "Expected: 2 FAILED" and that was not observed. |
+| 5 | The brief this task was dispatched under superseded the plan's own five-link estimate — Task 3 had since moved every page, leaving 30 broken links inside `docs/` and 57 total including root/`.github/`. The dispatch's fuller instructions (a move table, a rule for repoint-vs-remove, named known-missing destinations) were followed in place of this step's shorter "known set" list, which undercounted. `make wiki` additionally caught one link Step 6 didn't anticipate: `handbook/reference/glossary.md`'s link to the root `ARCHITECTURE.md` resolves as a file but sits outside `docs_dir`, so MkDocs strict rejects it — removed rather than repointed, same as any other unreachable destination. Two more fixes were folded in on the dispatcher's instruction: a stale-path comment in `.github/CONTRIBUTING.md:139` (adjacent to the two named shipped-message fixes, same defect), and two comments carried from Task 3's review (`comeni_core/diagnostics.py:5`, `test_architecture.py:106`). Full accounting: `.superpowers/sdd/2026-09-02-the-wiki-scaffolding/task-4-report.md`. |
 
 ---
 

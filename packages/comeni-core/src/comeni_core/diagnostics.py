@@ -2,7 +2,7 @@
 
 One source, two consumers. `Diagnostic` validates its `code` against this, so an undeclared
 code cannot be constructed; and `tools/generate_diagnostics_doc.py` renders
-`docs/reference/diagnostics.md` from it, so the public page cannot drift from the codes it
+`docs/handbook/reference/diagnostics.md` from it, so the public page cannot drift from the codes it
 lists.
 
 Both of those were previously conventions. `EXPLANATIONS` was a Python dict beside a

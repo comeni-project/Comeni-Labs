@@ -33,7 +33,7 @@ where *contracts* live; `--root` is where *module source* lives, at `<root>/vend
 laboratory wrapping bare containers has the first without the second.
 
 A registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` and
-`measurements/`. See [guides/registry-layers.md](../guides/registry-layers.md).
+`measurements/`. See [registry/your-labs-own-layer.md](../../registry/your-labs-own-layer.md).
 
 ## `mendel build`
 
@@ -355,8 +355,9 @@ twice.
 
 ## `forge`
 
-A second CLI, for **writing** the registry rather than reading it. Adding a tool needs no Python.
-[Driving the forge](../guides/writing-a-contract.md) is the walkthrough; this is the list.
+A second CLI, for **writing** the registry rather than reading it. Adding a tool needs no
+Python — [writing a contract](../../registry/writing-a-contract.md) is the walkthrough; this
+is the list.
 
 ```
 forge <command> [options]

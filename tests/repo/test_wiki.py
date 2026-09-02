@@ -162,3 +162,24 @@ def test_the_old_layout_is_gone(rel: str):
     """The books ARE the folders. A leftover `guides/` is a second answer to 'where does
     this go', which is how the old split drifted from its own index pages."""
     assert not (ROOT / "docs" / rel).exists(), f"docs/{rel} should have been moved or deleted"
+
+
+def test_no_shipped_message_points_at_a_deleted_guide():
+    """`docs/guides/contributing.md` has not existed since the file moved to `.github/`.
+
+    Both of these are user-facing: one is printed when the registry submodule is missing, the
+    other when a layer fails to load. A message naming a path that 404s is worse than no
+    message, because the reader goes looking.
+    """
+    for rel in ["Makefile", "packages/mendel-resolver/src/mendel_resolver/layers.py"]:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "docs/guides/contributing.md" not in text, (
+            f"{rel} names a file that does not exist; it is .github/CONTRIBUTING.md"
+        )
+
+
+def test_specs_are_excluded_from_the_link_check():
+    """`docs/superpowers/` is provenance like `docs/notes/`, and its links point at plans
+    that may not exist yet."""
+    text = (ROOT / "tools" / "check_links.py").read_text(encoding="utf-8")
+    assert "superpowers" in text

@@ -103,6 +103,6 @@ installed overlay can never reroute a pipeline silently.
 
 ## See also
 
-- [Registry layers](../guides/registry-layers.md) — how a stack is assembled
-- [Routing](../concepts/routing.md) — what types and states are matched on
+- [Registry layers](../your-labs-own-layer.md) — how a stack is assembled
+- [Routing](../../handbook/how-tools-get-chosen.md) — what types and states are matched on
 - [Contract schema](contract-schema.md) — what consumes and produces these types

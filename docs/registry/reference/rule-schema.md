@@ -151,7 +151,7 @@ pinned module is selected and its dependencies cannot be met, the build stops wi
 `UnroutablePinError` naming the rule condition — rather than quietly using something else.
 
 A pin applies only where the pinned contract is a candidate for the states being requested.
-See [concepts/routing.md](../concepts/routing.md).
+See [How tools get chosen](../../handbook/how-tools-get-chosen.md).
 
 ## Complete example
 

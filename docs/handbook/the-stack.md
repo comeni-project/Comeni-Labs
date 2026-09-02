@@ -86,5 +86,5 @@ already declares.
 
 ## Next
 
-- [Watching a run](running-the-stack.md) — send a pipeline to Wiener and read what happened
-- [Driving Mendel](../tutorial.md) — the same loop on the command line
+- Watching a run — send a pipeline to Wiener and read what happened
+- [Driving Mendel](your-first-pipeline.md) — the same loop on the command line

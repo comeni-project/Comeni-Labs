@@ -13,7 +13,7 @@ changes are recorded in its own repository, not below.
 **Every package versions independently and is tagged on its own** —
 `comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`. Entries below sit under a `###` heading naming
 the package they belong to, which is what the release workflow reads to fill a Release's notes.
-Which number to move is [`docs/guides/releasing.md`](docs/guides/releasing.md).
+Which number to move is [`docs/internals/releasing.md`](docs/internals/releasing.md).
 
 ## [Unreleased]
 
@@ -167,7 +167,7 @@ checked is the reverse — an author naming no act.
 Not part of any package's version: build and documentation changes.
 
 - Every GitHub Action is current and pinned by commit SHA; Dependabot watches them weekly.
-- A tag-driven release workflow, and [`docs/guides/releasing.md`](docs/guides/releasing.md).
+- A tag-driven release workflow, and [`docs/internals/releasing.md`](docs/internals/releasing.md).
 - Workspace dependencies carry lower bounds, so an independent version means something.
 
 ### Changed
@@ -188,7 +188,7 @@ Not part of any package's version: build and documentation changes.
   digest, registry layer and gate verdict is in it, and every value carries a `why:` — the
   tier it exited at, who settled it, which layer it came from, and the citation. "What
   settings does this pipeline use, and why" was four files and four mechanisms; it is one file
-  now. See [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md).
+  now. See [`docs/handbook/reference/pipeline-schema.md`](docs/handbook/reference/pipeline-schema.md).
 - **A setting declares the route that carries it, and a dead one is refused.** Every `Param`
   names `via: ext | meta | directive`. Before this, a resolved value became a `params.<x>`
   line in the workflow that no module reads — the resolver ran, flagged tier 4, printed
