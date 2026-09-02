@@ -1,4 +1,5 @@
-"""`docs/reference/` documents exactly what the code has — no more, no fewer.
+"""The reference pages under `docs/*/reference/` document exactly what the code has — no more,
+no fewer.
 
 **Every reference page in this repository had drifted from its model by 2026-09-02**, and the
 drift was invisible because nothing compared them. `vocabulary-schema.md` was the worst: it named
@@ -28,7 +29,16 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
-REFERENCE = ROOT / "docs" / "reference"
+# The schema pages split across two books when the wiki landed: a reader of `pipeline.yml`
+# is in the Handbook, and a contract author is in Registry. Both are still held to their
+# models by this file — the split is a nav decision, never a weakening.
+REFERENCE_DIRS = (
+    ROOT / "docs" / "handbook" / "reference",
+    ROOT / "docs" / "registry" / "reference",
+)
+#: `cli.md` documents both `mendel` and `forge`, and it lives in the Handbook alone — there is
+#: no Registry-side CLI to split it against.
+CLI_DOC = REFERENCE_DIRS[0] / "cli.md"
 
 #: Each page names its own subjects in `Model:` lines, so the mapping is not repeated here —
 #: retyping it would be one more thing to go stale, which is the defect this file exists for.
@@ -56,7 +66,7 @@ def _first_table(text: str) -> str:
 
 
 def _paths() -> list[pathlib.Path]:
-    return sorted(REFERENCE.glob("*-schema.md"))
+    return sorted(p for d in REFERENCE_DIRS for p in d.glob("*-schema.md"))
 
 
 def schema_problems() -> list[str]:
@@ -116,7 +126,7 @@ def _verbs(parser: argparse.ArgumentParser) -> set[str]:
 
 
 def cli_problems() -> list[str]:
-    page = REFERENCE / "cli.md"
+    page = CLI_DOC
     if not page.exists():
         return [f"{page.relative_to(ROOT)}: missing"]
     text = page.read_text()
@@ -127,7 +137,7 @@ def cli_problems() -> list[str]:
         assert verbs, f"read no verbs at all from {module}; the check is not checking"
         for verb in sorted(verbs):
             if not re.search(rf"`{prog} {verb}`", text):
-                found.append(f"docs/reference/cli.md: `{prog} {verb}` exists and is undocumented")
+                found.append(f"docs/*/reference/cli.md: `{prog} {verb}` exists and is undocumented")
     return found
 
 
@@ -251,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
         for line in problems:
             print(f"  {line}")
         return 1
-    print(f"docs/reference/ agrees with the code ({len(_paths())} schema pages + cli.md)")
+    print(f"docs/*/reference/ agrees with the code ({len(_paths())} schema pages + cli.md)")
     return 0
 
 

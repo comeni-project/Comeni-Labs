@@ -8,6 +8,7 @@ import pathlib
 import sys
 import tempfile
 
+import pytest
 import yaml
 from mendel_compiler import tool_docs
 from mendel_resolver import layers
@@ -126,3 +127,38 @@ def test_the_catalogue_links_to_real_tool_pages_not_an_empty_shell():
 
     missing = [tool for tool in tools if f"]({tool}.md)" not in catalogue]
     assert missing == [], f"catalogue is missing a link to: {missing}"
+
+
+MOVED = {
+    "handbook/your-first-pipeline.md",
+    "handbook/the-four-tiers.md",
+    "handbook/how-tools-get-chosen.md",
+    "handbook/the-stack.md",
+    "handbook/reference/cli.md",
+    "handbook/reference/pipeline-schema.md",
+    "handbook/reference/goal-schema.md",
+    "handbook/reference/diagnostics.md",
+    "handbook/reference/glossary.md",
+    "registry/writing-a-contract.md",
+    "registry/making-a-choice-depend-on-your-data.md",
+    "registry/your-labs-own-layer.md",
+    "registry/reference/contract-schema.md",
+    "registry/reference/rule-schema.md",
+    "registry/reference/vocabulary-schema.md",
+    "registry/reference/measurement-schema.md",
+    "internals/releasing.md",
+}
+
+RETIRED = ["concepts", "guides", "reference", "tutorial.md", "README.md"]
+
+
+@pytest.mark.parametrize("rel", sorted(MOVED))
+def test_every_surviving_page_landed_in_its_book(rel: str):
+    assert (ROOT / "docs" / rel).is_file(), f"docs/{rel} is missing — see the spec §7 move table"
+
+
+@pytest.mark.parametrize("rel", RETIRED)
+def test_the_old_layout_is_gone(rel: str):
+    """The books ARE the folders. A leftover `guides/` is a second answer to 'where does
+    this go', which is how the old split drifted from its own index pages."""
+    assert not (ROOT / "docs" / rel).exists(), f"docs/{rel} should have been moved or deleted"
