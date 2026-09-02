@@ -21,9 +21,15 @@ import pathlib
 import re
 import sys
 
-MARKER = re.compile(r'^\s*!!!\s+\w+\s+"Not built yet"\s*$')
+# `!!!` is a plain admonition; pymdownx.details also allows `???` (collapsed by
+# default) and `???+` (collapsed but rendered expanded) for the identical block — a
+# marker written either way must be exactly as enforced.
+MARKER = re.compile(r'^\s*(?:!!!|\?\?\?\+?)\s+\w+\s+"Not built yet"\s*$')
 PLAN = re.compile(r"\b(Plan [0-9]+(?:\.[0-9]+)?[A-Z]?|#[0-9]+|issue [0-9]+)\b", re.IGNORECASE)
 SERVES = re.compile(r"^\s*>?\s*\*?Serves:", re.MULTILINE)
+# What follows "Serves:" on that line, up to the sentence's close — captures the
+# step name so it can be checked against STEPS rather than merely detected.
+STEP_NAME = re.compile(r"Serves:\s*\*{0,2}([^*\n.]+?)\*{0,2}\s*\.")
 
 # The loop a page may serve. Spec §2 — these are the product's four verbs plus the registry
 # loop that everything else stands on.
@@ -86,11 +92,24 @@ def problems(markers: list[Marker], root: pathlib.Path | None = None) -> list[st
             )
     if root is not None:
         for path in sorted((root / "internals").rglob("*.md")):
-            if not SERVES.search(path.read_text(encoding="utf-8")):
-                rel = path.relative_to(root).as_posix()
+            text = path.read_text(encoding="utf-8")
+            rel = path.relative_to(root).as_posix()
+            if not SERVES.search(text):
                 out.append(
                     f"{rel}: an Internals page needs a `Serves:` line naming which part of "
                     f"the loop it belongs to — one of {sorted(STEPS)}."
+                )
+                continue
+            # The line exists — now check it names a real step rather than just
+            # confirming the string "Serves:" is present, which proves nothing about
+            # what it claims.
+            step_match = STEP_NAME.search(text)
+            step = step_match.group(1).strip() if step_match else None
+            if step is None or step.lower() not in STEPS:
+                out.append(
+                    f"{rel}: its `Serves:` line names a step not in {sorted(STEPS)} "
+                    f"(got {step!r}) — a page can only orphan-proof itself by naming a "
+                    "step that is actually part of the loop."
                 )
     return out
 

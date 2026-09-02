@@ -34,6 +34,13 @@ NO_TODAY = '''# A page
     Tracked in Plan 3.
 '''
 
+COLLAPSED = '''# A page
+
+??? warning "Not built yet"
+    The agent does not exist. Today you assemble the pipeline on the canvas by hand.
+    Tracked in Plan 3.
+'''
+
 
 def _write(tmp_path: pathlib.Path, name: str, text: str) -> pathlib.Path:
     d = tmp_path / "docs" / "start"
@@ -84,3 +91,25 @@ def test_an_internals_page_without_a_serves_line_is_a_problem(tmp_path):
     problems = docs_status.problems(docs_status.scan(tmp_path / "docs"),
                                     root=tmp_path / "docs")
     assert any("Serves:" in p for p in problems)
+
+
+def test_a_collapsible_marker_is_found_too(tmp_path):
+    """pymdownx.details (mkdocs.yml) lets `???` render the identical admonition, collapsed
+    by default — a marker written that way must be exactly as enforced as `!!!`."""
+    docs = _write(tmp_path, "g.md", COLLAPSED)
+    markers = docs_status.scan(docs)
+    assert len(markers) == 1
+    assert markers[0].plan == "Plan 3"
+
+
+def test_a_serves_line_naming_a_step_outside_the_loop_is_a_problem(tmp_path):
+    """`STEPS` must be checked, not just quoted in the error message for a missing line."""
+    d = tmp_path / "docs" / "internals"
+    d.mkdir(parents=True)
+    (d / "i.md").write_text(
+        "# Some internals page\n\n*Serves: **fly to the moon**. Nonsense.*\n\nBody.\n",
+        encoding="utf-8",
+    )
+    problems = docs_status.problems(docs_status.scan(tmp_path / "docs"),
+                                    root=tmp_path / "docs")
+    assert any("not in" in p for p in problems)
