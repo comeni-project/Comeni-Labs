@@ -50,8 +50,23 @@ const LADDER = [
   3_600_000, 6 * 3_600_000, 12 * 3_600_000, 24 * 3_600_000,
 ];
 
-function tickEvery(span: number): number[] {
-  const step = LADDER.find((one) => span / one <= 6) ?? LADDER[LADDER.length - 1];
+/** **The ladder runs out, and the fallback used to ignore its own promise.** `?? LADDER[last]`
+ *  kept the 24h rung whatever the span, so the loop below emitted one tick per day forever:
+ *  eight ticks at seven days, sixty at sixty days, and **20,699** for a run reporting
+ *  `from_ms: 0` with something still open — a right edge of `Date.now()`, 56 years of axis, and
+ *  20,699 SVG nodes. That is what timed out `Timeline.test.tsx` in CI at 5s while passing on a
+ *  faster laptop: not a flaky test, an unbounded render the test was slow enough to catch.
+ *
+ *  Past the ladder the step becomes a whole number of **days**, chosen so the count holds. Days
+ *  because the label stays readable — the rung a person reads is the point of the ladder, and
+ *  falling back to an arbitrary `span / 6` would put the axis back at `2343m 39s`.
+ */
+const MOST = 6;
+
+export function tickEvery(span: number): number[] {
+  const top = LADDER[LADDER.length - 1];
+  const step =
+    LADDER.find((one) => span / one <= MOST) ?? top * Math.ceil(span / (MOST * top));
   const marks: number[] = [];
   for (let at = 0; at <= span; at += step) marks.push(at);
   return marks;
