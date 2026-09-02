@@ -1,7 +1,7 @@
-# Driving Mendel
+# Building a pipeline, properly
 
-The loop, end to end: a goal in, a pipeline out, and every change made in the pipeline file
-rather than in the generated Nextflow.
+The full loop on the command line: describe an analysis, read every decision it made, change the
+ones you disagree with, and re-emit — all in the pipeline file, never in the generated Nextflow.
 
 Written for whoever is *operating* the engine — an agent, or a person doing what an agent does.
 Mendel is the engine and the AI is its primary operator ([`design/mendel.md`](../design/mendel.md)

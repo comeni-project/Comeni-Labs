@@ -1,7 +1,11 @@
-# Writing a contract
+# Adding a tool
 
-A contract is what makes a tool visible to the router. Without one, Mendel does not know
-the tool exists; with one, it can be selected, wired and justified.
+The platform can only use tools it has been told about. Telling it about one is a YAML file —
+no Python — and from then on the tool can be chosen, wired up and justified automatically
+wherever it fits.
+
+The file is called a **contract**: what the tool takes, what it produces, and what it can be
+told.
 
 Full field list: [reference/contract-schema.md](../reference/contract-schema.md).
 

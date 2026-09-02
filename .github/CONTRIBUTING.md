@@ -5,33 +5,19 @@ about, and what a reviewable change looks like.
 
 ## Two kinds of contribution
 
-**Registry data** — a contract, a rule, a measurement, a vocabulary state — is the most
-valuable kind and needs no Python. It is a YAML file plus a citation. Start with
-[`docs/guides/writing-a-contract.md`](../docs/guides/writing-a-contract.md) or
-[`docs/guides/writing-a-rule.md`](../docs/guides/writing-a-rule.md).
+**Adding a tool** is the most useful thing you can do, and it needs no Python. A tool definition
+is a YAML file with a citation.
 
-**Where the file goes:** wherever it reads best. Every declared file opens with a `declares:`
-line naming what it is, and the loader reads that rather than the path (comeni-registry#1), so
-there is no directory you have to find. The registry's convention is to keep a tool's files
-together — a new nf-core contract goes in `tools/nf-core/<tool>/<name>.contract.yml`, beside any
-type only that tool produces. Measurements, general types and rules sit in `measurements/`,
-`types/` and `rules/`. Copy the nearest existing file; `MD0010` tells you if you forget the
-`declares:` line, and `MD0012` if a type or measurement forgets its `id:`.
+- [Adding a tool](../docs/guides/writing-a-contract.md)
+- [Writing a rule](../docs/guides/writing-a-rule.md) — make a choice depend on the data
 
-**It goes to a different repository:**
-[`comeni-project/comeni-registry`](https://github.com/comeni-project/comeni-registry). Since
-issue #46 the registry is its own layer with its own version and its own signed tags, and
-`registry/` here is that repository mounted as a git submodule.
+These go to a **different repository**:
+[comeni-registry](https://github.com/comeni-project/comeni-registry). Open your pull request
+there; you never need to touch this one.
 
-**The cost of that split, stated rather than discovered:** a change touching both the engine and
-the registry is **two pull requests**, and the engine one cannot merge until the registry one
-does and the submodule pointer is bumped. That is the price of the registry being independently
-versionable — a laboratory pinning a registry version without pinning an engine version — and it
-is deliberate. If your change is registry-only, which most valuable ones are, none of it applies:
-open one pull request there and never touch this repository.
+**Changing the code** happens here. Read [ARCHITECTURE.md](../ARCHITECTURE.md) first.
 
-**Code** changes the machinery. Read [`ARCHITECTURE.md`](../ARCHITECTURE.md) first — it is
-short, and it explains why several things that look wrong are deliberate.
+If a change needs both, it is two pull requests — the registry one first.
 
 ## Setup
 

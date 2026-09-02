@@ -1,232 +1,144 @@
 # Comeni Labs
 
-Deterministic bioinformatics pipeline construction.
+**One platform for planning, running and watching bioinformatics analyses.**
 
-A researcher describes an analysis; **Mendel** resolves it into a Nextflow pipeline where every
-decision traces to a constraint, a convention, a measurement, or an explicitly flagged judgement
-call.
+Describe the analysis you want. Get a pipeline. Run it. Watch it work. When something breaks,
+be told what went wrong and what to do about it — without writing code, logging into a cluster,
+or reading a thousand lines of log.
 
-> **Same goal in → same pipeline out, and nothing was guessed silently.**
-
-That claim is the whole point. A chat window will produce a plausible-looking `nf-core` pipeline
-in minutes and give you no basis for judging whether its tool choices, parameters or data
-assumptions are defensible. Mendel produces the same pipeline every time and tells you which
-parts it was unsure about.
+Comeni Labs exists to close the gap between the bench and the analysis. The people who generate
+the data should be able to analyse it.
 
 ---
 
-## Intended purpose
+## The loop
 
-> Mendel constructs and documents analysis pipelines. It is not a diagnostic device and produces
-> no diagnostic result. Pipelines must be validated by the laboratory before clinical use.
+```
+    describe  →  build  →  run  →  watch  →  fix
+       ↑                                       │
+       └───────────────────────────────────────┘
+```
 
-This sentence is load-bearing rather than boilerplate, and it also appears as a header comment in
-every pipeline Mendel emits. Under IVDR, device status follows the intended purpose its
-manufacturer states: a laboratory using Mendel to build a pipeline it then validates is the
-manufacturer of its own in-house device, and we are a tool — the same relationship BWA, GATK and
-Nextflow already have with the diagnostic pipelines they appear in.
+**Describe.** Say what you have and what you want — *paired 150bp RNA-seq reads, and I want a
+gene-level count matrix*. No tool names, no flags, no filenames.
 
-We claim no compliance with IVDR, CLIA, CAP or ISO 15189, and no software can — those attach to a
-laboratory's processes. What Mendel supplies is the documentation substrate those processes
-require.
+**Build.** You get a real Nextflow pipeline. Every tool chosen, every parameter set, and beside
+each one a reason you can read: a constraint, a convention, a measurement from your data, or an
+open question it refuses to answer for you.
 
-**Mendel does not receive patient data.** Not "anonymises" — genetic data are not reliably
-anonymisable, and pseudonymised data remains personal data under GDPR Article 9. A `Goal` holds
-type identifiers, states and declared measurements: a shape, not data. There is no field for a
-filename, a path or a sample identifier, and a test asserts there is nowhere to put one.
+**Run.** Send it to the platform from your browser. It handles the containers, the queue and the
+execution.
 
----
+**Watch.** One page per run. Every process, every task, what it cost, what it is waiting on.
 
-## Status
-
-**Plans 1 and 2 are complete.** A typed goal becomes a runnable RNA-seq pipeline with no AI
-involved anywhere. 165 tests, and `-stub-run` executes the whole DAG green against real `nf-core`
-modules.
-
-Built:
-
-- `comeni-core` — contracts, closed type vocabularies, declared measurements, the pipeline IR,
-  the layered registry
-- `mendel-resolver` — the four-tier ladder, backward-chaining router, validated tier-3 decision
-  tables, module pinning, ports that accept alternatives
-- `mendel-compiler` — IR to Nextflow DSL2, validation gates, `mendel build` and `mendel profile`
-
-[`ARCHITECTURE.md`](ARCHITECTURE.md) describes how those fit together, written against the types
-that exist rather than the ones a plan predicted.
-
-Not built yet, and named so nothing here reads as more finished than it is: the AI adapters and
-the contract forge (Plan 2), the FastAPI surface and React dashboard (Plan 3), and pipeline
-publication and lockfiles (Plan 1.7).
+**Fix.** When a run fails, the platform decides what should happen — retry it, escalate it, stop
+— and tells you why. You approve; it acts.
 
 ---
 
-## Quickstart
+## What makes it different
 
-Requires [`uv`](https://docs.astral.sh/uv/), Python 3.12+, and — for the `stub` gate — Nextflow
-and Docker.
+Anything can generate a plausible pipeline. The question is whether you can defend it six months
+later, to a reviewer or to yourself.
 
-**Clone with `--recurse-submodules`**: the registry is a separate repository mounted at
-`registry/`, and without it that directory is empty. Already cloned without it? Run
-`git submodule update --init`. Either way `make check` says so in one sentence rather than
-failing about missing contracts.
+**Every decision carries its reason.** Not a log of what happened — the pipeline file itself
+records, beside each choice, what settled it and on what basis.
+
+```
+star_align   tier 3   read_length is 150, asserted, not measured: STAR's seed-and-extend
+                      search is built for long reads … Dobin et al. 2013
+```
+
+**It tells you what it does not know.** A choice nothing could settle is flagged in red and left
+empty, never filled with a plausible default.
+
+**The same description gives the same pipeline, every time.** Change one fact about your data and
+watch the pipeline change with a reason attached.
+
+---
+
+## Try it
+
+You need [`uv`](https://docs.astral.sh/uv/) and Docker.
 
 ```bash
 git clone --recurse-submodules https://github.com/comeni-project/Comeni-Labs
 cd Comeni-Labs
 uv sync
-uv run pytest -v
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/
+make dev
 ```
 
-That writes `build/main.nf`, `build/nextflow.config`, `build/modules/` and
-`build/pipeline.yml` — the pipeline, with every setting and the reason for each — and prints
-what needs a human:
+Then open **http://localhost:5173**.
+
+Or build a pipeline from the command line in one command:
+
+```bash
+uv run mendel build --goal examples/rnaseq-goal.yml --out build/
+```
 
 ```
 5 modules, 1 requiring review
   REVIEW  star_align.seq_platform
 ```
 
-To execute the whole graph with dummy outputs — about a minute, and several minutes the first
-time while containers pull:
-
-```bash
-uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
-```
-
-Rules reason about *measured* properties of the data, so there is a verb for measuring them.
-`mendel profile` emits a pipeline that measures what this registry knows how to measure, plus a
-`profile.yml` recording which module produces each value — with `value: null`, because the
-pipeline has been emitted and not run:
-
-```bash
-uv run mendel profile --have fastq.reads --out profile-build/
-```
-
-```
-profiling for: read_length
-  NOT MEASURED  adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
-                node_memory_gb, organism, paired, purpose, rrna_fraction, strandedness —
-                declared, but no contract in this registry produces them
-```
-
-The laboratory runs that pipeline, fills the values in, and the same file goes back into a goal's
-`profile:` block. Mendel never sees the data.
-
-A laboratory's own contracts, rules, types and measurements stack over the public ones. A
-registry layer is a directory holding `contracts/`, `rules/`, `vocabularies/` and
-`measurements/`; later layers win:
-
-```bash
-uv run mendel build --goal examples/rnaseq-goal.yml \
-  --registry registry/ --registry ./lab-registry --out build/
-```
+**[The tutorial](docs/tutorial.md)** takes fifteen minutes and walks the whole loop.
 
 ---
 
-## The four tiers
+## Where it is
 
-Every module choice and every parameter exits at exactly one tier and carries it forever.
+Honest, because a half-built platform that reads as finished is worse than one that says so.
 
-| Tier | Fires when | Review | UI |
-|---|---|---|---|
-| 1 structural | no choice exists — the inputs force it | none | silent |
-| 2 convention | a documented default exists | none | green |
-| 3 data-profiled | a declared rule matched measured data | advisory | **yellow** |
-| 4 ambiguous | no rule matched | required | **red** |
+| | |
+|---|---|
+| **Describe → build** | works. Typed goals today; plain-language input is next |
+| **Run** | works. Upload a pipeline, fill in your data, launch |
+| **Watch** | works. Live run page, per-process and per-task, with a timeline |
+| **Fix** | partly. The platform decides and records what should happen; only *cancel* is wired to act on it |
+| **Agents that propose pipeline changes** | not built. This is the next thing |
 
-Tier 3 is yellow rather than silent on purpose. A rule match is only as good as the rule *and*
-the measurement behind it: if the profiler misreads strandedness, the rule fires correctly on
-wrong input and produces a confidently wrong pipeline. Yellow means *the machinery worked, check
-the premise* — exactly the failure a biologist can catch and the software cannot.
-
-Tier 4 is always flagged, even at high confidence. That is the honesty mechanism, and the
-difference from a chat window.
-
----
-
-## How it works
-
-Five stages, each a pure function:
-
-```
-Goal (YAML) → RoutePlan → PipelineIR → main.nf + nextflow.config → GateResult
-```
-
-The router chains **backwards** from what you want. To reach `counts.matrix` it finds a producer,
-discovers that producer needs a coordinate-sorted BAM, finds a producer for *that*, and so on
-until the goal's inputs satisfy the requirement. A tie between candidates is ambiguity, not a coin
-flip — it demotes to tier 4 and asks a human.
-
-The semantic layer is what makes this possible. `nf-core`'s `meta.yml` declares outputs as
-`type: file` with a filename pattern, so a sorted BAM and an unsorted one are indistinguishable
-and "sorted" exists only in an English sentence. Mendel's contracts add the missing part: closed
-state vocabularies a router can actually prove a connection against.
-
----
-
-## Distribution
-
-Open source and self-hostable. **Self-hosted is not a degraded tier** — same registry, same
-resolver, byte-identical output. Tiers 1 to 3 need no model at all, so a Mendel with no provider
-configured still ingests a goal, routes it, resolves it and emits Nextflow; tier 4 flags instead
-of guessing, which is behaviour the product promises anyway.
-
-The public registry lives in its own repository under CC-BY-4.0:
-[comeni-registry](https://github.com/comeni-project/comeni-registry). `registry/` here is
-**that repository, as a git submodule** — not a copy of it, since 2026-08-16. It is
-hand-written data sufficient to build and test the RNA-seq spine, and explicitly **not** a
-curated registry: every contract in it is a test fixture that happens to be true. `examples/`
-holds an example goal and nothing else.
-
----
-
-## Licences
-
-- **Code:** Apache-2.0 — see [`LICENSE`](LICENSE)
-- **Registry data** lives in its own repository,
-  [`comeni-registry`](https://github.com/comeni-project/comeni-registry), under CC-BY-4.0 with
-  its own `LICENSE`. `registry/` here is that repository as a git submodule. Contracts and rules
-  cite papers; attribution is the currency of the field.
-- **Vendored `nf-core` modules** live in the registry layer, under `tools/<org>/<tool>/module/`, and retain their own licences — each `module.yml` names an SPDX identifier and `LICENSES/<id>.txt` there carries the text.
+RNA-seq is the analysis the platform is proven on end to end. Other assays need registry data,
+not code.
 
 ---
 
 ## Documentation
 
-[**`docs/`**](docs/) is the index. In short:
-
-| You want | Read |
+| You want to | Read |
 |---|---|
-| to build your first pipeline | [`docs/tutorial.md`](docs/tutorial.md) |
-| to teach Mendel a tool it does not know | [`docs/guides/writing-a-contract.md`](docs/guides/writing-a-contract.md) |
-| a choice to depend on your data | [`docs/guides/writing-a-rule.md`](docs/guides/writing-a-rule.md) |
-| to look up a field or a flag | [`docs/reference/`](docs/reference/) |
-| to know why it works this way | [`docs/concepts/`](docs/concepts/) |
-| to change the code | [`ARCHITECTURE.md`](ARCHITECTURE.md), then [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) |
-| the design records and what was rejected | [`docs/design/`](docs/design/) |
+| build your first pipeline | [Tutorial](docs/tutorial.md) |
+| run and watch pipelines | [Running the platform](docs/guides/running-the-stack.md) · [Watching a run](docs/guides/watching-a-run.md) |
+| add a tool the platform does not know | [Adding a tool](docs/guides/writing-a-contract.md) |
+| make a choice depend on your data | [Writing a rule](docs/guides/writing-a-rule.md) |
+| understand a decision it made | [The four tiers](docs/concepts/tiers.md) |
+| know what leaves your machine | [Privacy](docs/concepts/privacy-and-egress.md) |
+| work on the code | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
-## The audit
+Everything is in [`docs/`](docs/).
 
-[`notes/audits/2026-08-03-plan-1-audit.md`](docs/notes/audits/2026-08-03-plan-1-audit.md)
-is linked deliberately. Three guards claimed to enforce the properties this project sells, and an
-independent reviewer broke all three on first attempt — each the same way, by checking the surface
-it was written against and stopping at the first boundary. One fell to four lines:
+---
 
-```python
-import urllib.request, socket, http.client
-importlib.import_module("httpx").post(...)
-__import__("openai").OpenAI()
-```
+## Your data stays with you
 
-All four defects are closed and the guards are the shape they are because of it. Keeping the
-record public is cheaper than the alternative.
+The platform never receives your sequencing data. It plans and runs analyses; the files stay
+where they are. A description of an analysis holds types and measurements — there is nowhere to
+put a sample name, a filename or a path, and that is enforced rather than promised.
+
+Clinical laboratories are a target user, not a later market. [Privacy and
+egress](docs/concepts/privacy-and-egress.md) is the detail.
+
+---
 
 ## Contributing
 
-Registry data — a contract, a rule, a measurement — is the most valuable contribution and needs
-no Python. See [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md), which is also where
-this project says what it expects of a conversation.
+**Adding a tool needs no Python.** It is a YAML file with a citation, and it is the most useful
+contribution anyone can make. See [adding a tool](docs/guides/writing-a-contract.md).
 
-Security and privacy reports go through [`SECURITY.md`](.github/SECURITY.md) rather than a public issue.
-A hole in the egress boundary, or a way to get patient data into a `Goal`, is a security issue.
+Tool definitions live in [comeni-registry](https://github.com/comeni-project/comeni-registry);
+code lives here. [CONTRIBUTING.md](.github/CONTRIBUTING.md) has the details.
+
+## Licence
+
+Code is Apache-2.0 ([`LICENSE`](LICENSE)). The tool registry is CC-BY-4.0 in its own repository —
+tool definitions cite papers, and attribution matters. Bundled `nf-core` modules keep their own
+licences.

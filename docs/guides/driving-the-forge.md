@@ -1,7 +1,9 @@
-# Driving the forge
+# Drafting tools faster
 
-The other loop. [`driving-mendel.md`](driving-mendel.md) is how a pipeline gets built from a
-registry; this is how the registry gets written.
+[Adding a tool](writing-a-contract.md) by hand is a YAML file. This does most of that file for
+you: it reads the tool's own documentation, fills in everything that can be proved, and hands
+you a short list of the things only a person can decide — each with what it is asking and why it
+could not be worked out.
 
 Written for whoever is *authoring* declared data — a curator, or an agent doing what a curator
 does. The one thing to understand before any command:

@@ -1,12 +1,25 @@
 # Comeni Labs
 
-Deterministic bioinformatics pipeline construction. A researcher describes an analysis in
-plain language; **Mendel** resolves it to a Nextflow pipeline where every decision traces to
-a constraint, a convention, a measurement, or an explicitly flagged judgement call.
+**One platform for planning, running and watching bioinformatics analyses.** A researcher
+describes an analysis, gets a Nextflow pipeline, runs it without touching a cluster, watches it,
+and is told what to do when it breaks. The goal is to close the gap between the bench and the
+analysis.
 
-The product claim, which every design decision serves:
+**The loop the product ships is: describe → build → run → watch → fix.** Read that as the
+priority order for any decision about scope. Steps 1–4 work today; step 5 decides and records
+but only `cancel` acts, and agents that propose *pipeline* changes are not built.
+
+**Do not describe this project as "a pipeline builder", and do not lead with Mendel.** Mendel and
+Wiener are engine names — a user describes an analysis, runs it and watches it. Leading with the
+engine is the framing error the 2026-09-02 documentation rework was called in to fix, and it had
+propagated into every page a newcomer touched.
+
+The claim every design decision serves:
 
 > Same goal in → same pipeline out, and nothing was guessed silently.
+
+That is what makes an analysis defensible six months later. Anything can produce a plausible
+pipeline; the platform's job is that you can say why each part of it is there.
 
 **Mendel is the engine, and the AI is its primary operator** — decided 2026-08-14, see
 `docs/design/mendel.md` §1. A human can drive it and the CLI is built so they can, but the
@@ -19,6 +32,31 @@ cannot reach the output. **It changes no invariant**: an agent driving the CLI i
 outside the engine, and invariant 3 constrains what Mendel calls rather than who calls Mendel.
 What it does change is the standard the artifact is held to — a person reading a value with no
 reason sees a blank and asks; a model sees a blank and fills it.
+
+## Writing documentation here — read before touching `docs/` or a README
+
+**Repo documentation is not code documentation.** The pages a newcomer reads answer *what is
+this, what can I do with it, how do I start*. They are not a place to record why a decision was
+taken.
+
+Four rules, each written down because it was broken:
+
+1. **Lead with what the reader gets, never with the mechanism.** "Deterministic pipeline
+   construction" is how it works. Seqera says *run pipelines and collaborate*; Galaxy says
+   *accessible, reproducible, transparent*.
+2. **Name sections after what somebody does.** Build, run, watch, add a tool. Not "three doors",
+   not "the shelves". **No page explains its own information architecture** — no comparable
+   project does this, and it reads as filler.
+3. **Do not make a reader learn internal names.** Mendel, Wiener, the forge, `comeni-core` are
+   implementation. Seqera never makes you know its service names.
+4. **No provenance in a task page.** Issue numbers, audit findings, "the cost of that split,
+   stated rather than discovered", counter-arguments to decisions already taken — all of it
+   belongs in `docs/design/` and `docs/notes/`, which exist for it. A reader who came to do
+   something does not need the argument for why things are as they are.
+
+The house style of *this* file — every claim carrying its history and its counter-argument — is
+right here and in the design records, and wrong everywhere a user reads. It leaked, and cleaning
+it up is what 2026-09-02 was.
 
 ## Current state
 
@@ -504,10 +542,18 @@ code, and expect to correct a plan you are executing.**
 Named for people who made a hard thing legible or dependable — after Comenius, following
 Rosalind from Franklin.
 
-- **Mendel** (Lab X) — the pipeline builder. Deterministic laws from observed data, which is
-  what the tier-3 rule tables are. **The only one being built.**
-- **Wiener** (Lab Y) — cloud execution and monitoring. Cybernetics: control through feedback.
-- **Nightingale** (Lab Z) — data analysis. Parked until Mendel exists.
+These are **engine names, internal to this repository.** A user describes an analysis, runs it
+and watches it; they should never need to know which engine did what. Leading with them in a
+README or a guide is the framing error named at the top of this file.
+
+- **Mendel** (Lab X) — *describe → build*. Deterministic laws from observed data, which is what
+  the tier-3 rule tables are.
+- **Wiener** (Lab Y) — *run → watch → fix*. Cybernetics: control through feedback. **Built**, and
+  no longer "later": W1, W2 and Plan 6 have shipped, so the loop's second half exists.
+- **Nightingale** (Lab Z) — data analysis. Not started.
+
+**Both halves are being built now.** The sentence "Mendel is the only one being built" was true
+until 2026-08-24 and stayed here for a week after it was not.
 
 `Comeni-Code` is a separate repo: the learning platform. Do not build it here.
 

@@ -1,7 +1,7 @@
 # Watching a run
 
-Mendel builds a pipeline. **Wiener runs it and tells you what happened.** This page takes a
-pipeline you have built and follows it to a finished run.
+You have built a pipeline. This is how you run it and see what it did — without logging into a
+cluster or reading a log file.
 
 You need the stack up — see [running the stack](running-the-stack.md).
 

@@ -1,7 +1,8 @@
 # Measuring your data
 
-Tier-3 rules reason about measured properties — read length, strandedness, sample count.
-This is where those numbers come from.
+Some decisions depend on facts about your data — how long the reads are, whether the library is
+stranded, how many samples there are. You can state those facts, or you can measure them. This
+is how you measure them, and why it matters which one you did.
 
 The short version: **Mendel never looks at your data.** It emits a pipeline that measures
 it, your laboratory runs that pipeline, and you hand the answers back.

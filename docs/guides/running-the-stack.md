@@ -1,7 +1,7 @@
-# Running the stack
+# Running the platform
 
-The [tutorial](../tutorial.md) uses the CLI. There is also a web application: a visual pipeline
-builder, a run monitor, and the forge's review queue. This page brings it up.
+Everything the command line does, plus the parts it cannot: a visual pipeline builder, a live
+run monitor, and a review queue for new tools. This brings it all up on your machine.
 
 **You need Docker.** Everything else is fetched or built for you.
 

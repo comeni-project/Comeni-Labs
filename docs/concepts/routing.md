@@ -1,7 +1,11 @@
-# How routing works
+# How tools get chosen
 
-Mendel does not have a list of pipelines. It works backwards from what you want to what
-you have, inserting modules until the chain closes.
+There is no list of pipelines anywhere. You say what you have and what you want, and the
+platform works **backwards** — finding a tool that produces what you asked for, then a tool that
+feeds it, until the chain reaches something you already hold.
+
+That is why adding a tool makes it usable everywhere it fits, without anybody writing a new
+pipeline.
 
 ## Backward chaining
 

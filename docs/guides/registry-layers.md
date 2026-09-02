@@ -1,4 +1,4 @@
-# Registry layers
+# Your lab's own tools
 
 Your laboratory has tools nobody else has, conventions nobody else shares, and rules that
 came out of your own validation work. A layer is how you ship those without forking
