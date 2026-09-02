@@ -81,6 +81,7 @@ docs:           ## fail if docs/reference/ disagrees with the code
 
 wiki-tools:     ## render the tool catalogue from the registry into docs/tools/
 	uv run mendel docs --registry registry/ --out docs/tools/
+	uv run python tools/generate_tools_catalogue.py
 
 wiki: wiki-tools  ## build the wiki to site/ — local, no hosting
 	uv run --group docs mkdocs build --strict

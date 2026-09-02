@@ -75,3 +75,19 @@ def test_building_the_wiki_generates_the_catalogue_first():
     assert "wiki: wiki-tools" in makefile, (
         "make wiki must depend on wiki-tools, or the catalogue can go stale"
     )
+
+
+def test_the_catalogue_is_reachable_by_clicking_not_only_searching():
+    """A reader must be able to browse into the tool pages, not only find one by search.
+
+    `docs/tools/index.md` is the one authored file under `docs/tools/`; the catalogue itself
+    is generated (`tools/generate_tools_catalogue.py`, run by `make wiki-tools`) and gitignored
+    like every other page `mendel docs` writes — but the *entry point* to it is a real nav
+    reference, not a pointer to the search box.
+    """
+    nav = _config()["nav"]
+    tools_entry = next(entry for entry in nav if next(iter(entry)) == "Tools")
+    assert "tools/catalogue.md" in tools_entry["Tools"], (
+        "the Tools nav must reference the generated catalogue page, so a reader reaches the "
+        "tool pages by clicking through it"
+    )

@@ -9,6 +9,7 @@ Everything the platform currently knows how to do. **These pages are generated**
 registry you built the site against — `mendel docs --registry <your layer>` — so a laboratory
 running its own layer gets its own catalogue here.
 
-The catalogue doesn't appear in the sidebar, because its contents depend on which registry you
-built against and can't be known ahead of time. Use search to find a tool, a contract, a port
-or a type by name — every generated page is indexed.
+[Browse the catalogue](catalogue.md), grouped by the org that supplies each tool. The
+individual tool pages don't appear in the sidebar themselves, because their set depends on
+which registry you built against and can't be known ahead of time — but every one is reachable
+from the catalogue, and searchable too.
