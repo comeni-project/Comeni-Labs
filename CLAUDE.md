@@ -5,9 +5,34 @@ describes an analysis, gets a Nextflow pipeline, runs it without touching a clus
 and is told what to do when it breaks. The goal is to close the gap between the bench and the
 analysis.
 
-**The loop the product ships is: describe → build → run → watch → fix.** Read that as the
-priority order for any decision about scope. Steps 1–4 work today; step 5 decides and records
-but only `cancel` acts, and agents that propose *pipeline* changes are not built.
+**The loop the product ships is: describe → build → run → watch.** Read that as the priority
+order for any decision about scope. Describe, build and watch work; run works on a local
+executor, with `k8s` and `awsbatch` profiles emitted but not launched for you. Diagnosing a
+failure is partial — the run's state is folded and a decision recorded with its reason, and only
+`cancel` acts on it. **An agent that proposes a fix to the pipeline is the next thing and is not
+built.**
+
+## The differentiator — say this, not "deterministic pipeline construction"
+
+**Semi-deterministic construction.** The engine builds everything it can *prove* from declared
+data, then hands out what is left as **typed, addressable questions**. Every one carries an id
+(`produces[0].type_id`), what it is asking, why it could not be settled, the legal answers, and
+whether that list is exhaustive — plus a ranked `suggested` when the arithmetic is confident.
+
+A model answers only those, addressed by id, and **cannot produce a value outside the candidate
+set**. So a reader can see exactly which parts of a pipeline a model touched, and the rest is
+reproducible without one.
+
+That is the contribution. It is not "a pipeline builder", and it is not "AI writes your
+pipeline". `Question` in `comeni_core/review/` is the type; `Hole` and `Ambiguity` are its two
+sides. When explaining this project, this is the paragraph that should come first — it is what
+nothing else does.
+
+**Do not claim anything about where sequencing data goes on managed cloud.** The non-receipt
+property is real for the build path and stated in `docs/concepts/privacy-and-egress.md`. How it
+behaves once execution moves to AWS or a hosted service is **undecided**, so a README-level
+promise is a false statement. That claim was removed from the README on 2026-09-02 for exactly
+this reason.
 
 **Do not describe this project as "a pipeline builder", and do not lead with Mendel.** Mendel and
 Wiener are engine names — a user describes an analysis, runs it and watches it. Leading with the

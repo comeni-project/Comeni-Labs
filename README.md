@@ -11,49 +11,63 @@ the data should be able to analyse it.
 
 ---
 
+## What makes this different
+
+Most tools take one of two positions. Hand the whole job to a model — fast, and you cannot
+defend a word of it. Or make you write everything — defensible, and nobody in a wet lab is
+going to.
+
+**Comeni Labs is semi-deterministic, and that is the whole idea.**
+
+A deterministic engine builds everything it can *prove* from declared data — which tool produces
+what, which states it needs, what a convention says. Then it stops, and hands out what is left
+as **typed, addressable questions**. Each one carries:
+
+- **an id** — `produces[0].type_id`, the exact thing being asked about
+- **what it is asking**, in a sentence
+- **why it could not be settled** — no rule covered it, or two tools tie
+- **the legal answers** — and whether that list is exhaustive
+- **a ranked suggestion**, when the arithmetic is confident enough to have one
+
+An AI answers *only those*, addressed by id, and cannot produce anything outside the candidate
+set. Everything else was arithmetic.
+
+So you get a pipeline where **you can see exactly which parts a model touched** — and the rest
+is reproducible without one. The engine runs the same with no model configured at all.
+
+It also keeps the model's job small enough to do well. Measured over every port of every tool
+definition in the public registry: listing candidates alphabetically put the right one first for
+**1 of 30** fields; ranking them by what the tool and the port are called puts it first for
+**25 of 30** — before a model is asked anything at all.
+
+---
+
 ## The loop
 
 ```
-    describe  →  build  →  run  →  watch  →  fix
-       ↑                                       │
-       └───────────────────────────────────────┘
+    describe  →  build  →  run  →  watch
+       ↑                             │
+       └─────────────────────────────┘
 ```
 
 **Describe.** Say what you have and what you want — *paired 150bp RNA-seq reads, and I want a
 gene-level count matrix*. No tool names, no flags, no filenames.
 
-**Build.** You get a real Nextflow pipeline. Every tool chosen, every parameter set, and beside
-each one a reason you can read: a constraint, a convention, a measurement from your data, or an
-open question it refuses to answer for you.
+**Build.** You get a real Nextflow pipeline. Every tool and setting it could settle, it settled
+— and it shows you what on: a constraint, a convention, or a measurement from your data. What it
+could not settle it leaves **empty and flagged in red**, never filled with a plausible default.
 
-**Run.** Send it to the platform from your browser. It handles the containers, the queue and the
-execution.
+**Run.** One pipeline, several places to put it. The emitted config carries profiles for local
+execution, Kubernetes and AWS Batch, so the same pipeline scales from your laptop to a cluster
+without being rewritten. You launch it from the browser; containers, queueing and execution are
+handled.
 
-**Watch.** One page per run. Every process, every task, what it cost, what it is waiting on.
+**Watch.** Live telemetry, automatically — one page per run, every process and every task, what
+it cost in memory and time, what it is waiting on. Nothing to instrument.
 
-**Fix.** When a run fails, the platform decides what should happen — retry it, escalate it, stop
-— and tells you why. You approve; it acts.
-
----
-
-## What makes it different
-
-Anything can generate a plausible pipeline. The question is whether you can defend it six months
-later, to a reviewer or to yourself.
-
-**Every decision carries its reason.** Not a log of what happened — the pipeline file itself
-records, beside each choice, what settled it and on what basis.
-
-```
-star_align   tier 3   read_length is 150, asserted, not measured: STAR's seed-and-extend
-                      search is built for long reads … Dobin et al. 2013
-```
-
-**It tells you what it does not know.** A choice nothing could settle is flagged in red and left
-empty, never filled with a plausible default.
-
-**The same description gives the same pipeline, every time.** Change one fact about your data and
-watch the pipeline change with a reason attached.
+**And when it fails**, you are not handed a log. The platform reads the run's own state, decides
+what should happen — retry, escalate, stop — records why in terms you can audit, and gives you
+a first read on what went wrong. You approve; it acts.
 
 ---
 
@@ -91,11 +105,12 @@ Honest, because a half-built platform that reads as finished is worse than one t
 
 | | |
 |---|---|
-| **Describe → build** | works. Typed goals today; plain-language input is next |
-| **Run** | works. Upload a pipeline, fill in your data, launch |
-| **Watch** | works. Live run page, per-process and per-task, with a timeline |
-| **Fix** | partly. The platform decides and records what should happen; only *cancel* is wired to act on it |
-| **Agents that propose pipeline changes** | not built. This is the next thing |
+| **Describe** | typed descriptions work. Plain-language input is next |
+| **Build**, and the question API above | works |
+| **Run** | works on a local executor. Kubernetes and AWS Batch profiles are emitted, not yet launched for you |
+| **Watch** | works. Live per-process and per-task telemetry, with a timeline |
+| **Diagnose a failure** | partly. The run's state is folded and a decision recorded with its reason; only *cancel* is wired to act |
+| **An agent that proposes a fix to the pipeline** | not built. This is the next thing |
 
 RNA-seq is the analysis the platform is proven on end to end. Other assays need registry data,
 not code.
@@ -115,17 +130,6 @@ not code.
 | work on the code | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 Everything is in [`docs/`](docs/).
-
----
-
-## Your data stays with you
-
-The platform never receives your sequencing data. It plans and runs analyses; the files stay
-where they are. A description of an analysis holds types and measurements — there is nowhere to
-put a sample name, a filename or a path, and that is enforced rather than promised.
-
-Clinical laboratories are a target user, not a later market. [Privacy and
-egress](docs/concepts/privacy-and-egress.md) is the detail.
 
 ---
 
