@@ -303,6 +303,45 @@ Neither hedges, so neither reads mechanically.
 
 ---
 
+### 5.2 A page that names a screen requires a browser pass
+
+**Binding rule. A page describing a screen is not written from routes, React source, or an
+artboard. It is written while driving the platform in Chrome.**
+
+This is a gate on each page, not a correction sweep at the end. Writing first and walking
+afterwards produces a page that is corrected; walking first produces a page that is *sourced*.
+
+The repository's own record is why. Twice now, reading the code found wrong strings and missed
+wrong pictures — comparing the run page to its artboard by reading annotations found six
+defects, and putting both in one viewport found four more, which were the ones that made the
+page look wrong. And the current state notes record that nobody has looked at the builder since
+Plan 5B phase 1, that W2's browser checkpoints are owed, and that `DraftChannel.scope` has no
+control on the canvas at all. A Handbook written from the source would document a control that
+does not exist.
+
+**The pass, per page:**
+
+1. `make dev`, open the screen, and drive the path the page describes end to end.
+2. Write what actually happens. Every present-tense sentence in the page is a sentence
+   somebody watched.
+3. **The walk decides the markers.** Anything the page needs to say that the screen does not do
+   becomes a `Not built yet` marker naming the plan — sourced from the walk rather than guessed
+   from the code. This is what makes the vision register honest rather than aspirational.
+4. Screenshots go to the scratchpad, not the repository. `.design/_compare.html` is the
+   existing tool for putting a page beside its artboard and is the right thing to reuse.
+5. **Defects found are recorded, never silently written around.** A page that describes a
+   working screen because prose was easier than an issue is the failure this rule exists to
+   prevent. File it, or note it in the journal entry for the documentation work.
+
+**Which pages.** Every page in `Start here` except *What this is*; in `Handbook`, *The stack*,
+*Running*, *Watching a run* and *Diagnosing a failure*.
+
+**Where there is no screen to walk** — most of `Registry`, because the forge's visual surface is
+not built — the page is fully marked, and the walk still happens to establish **what a reader
+gets today instead**. `make dev` brings up `/forge/queue` and `/forge/tools`; whatever those do
+is what the marker's body must say. A marker that says only that something is missing leaves the
+reader stranded (§3.3, rule 2), and the only way to write the other half honestly is to look.
+
 ## 6. Tooling
 
 **Material for MkDocs.** Chosen over mdBook, which was the literal answer to *"a Rust-style
@@ -328,7 +367,39 @@ requirement.
 - plugins: `search`, `offline`
 - publishing to GitHub Pages later is the same `mkdocs build` with nothing changed
 
-### 6.1 Diagrams
+### 6.1 Versioning — stamp the stage, do not version the books
+
+**Decision: the books are not versioned. They carry a stage stamp and a derived schema
+version.**
+
+Versioned documentation — several published versions served side by side, which is what `mike`
+does for Material — solves one problem: a reader on an old release needs the documentation for
+*their* release. That problem does not exist here. The product is pre-MVP, deployed nowhere, has
+no users and has no product version at all; only packages are versioned, independently, as
+`<package>-v<version>`. `mike` also needs a `gh-pages` branch to mean anything, which
+contradicts the local-only requirement, and it would double the maintenance surface at the
+moment the structure is being rebuilt.
+
+The real need underneath the question is different, and it is already this design's subject:
+**a reader must know how much of what they are holding is real.** That is answered by §3.3 and
+§3.4, not by a version number.
+
+Three things instead:
+
+1. **A stage stamp, site-wide.** `Alpha · pre-MVP` in the header, defined once in `mkdocs.yml`
+   and linking to `docs/status.md`. One string, one place, no drift surface.
+2. **Reference pages carry the version of what they describe, derived rather than typed.**
+   `contract-schema.md` stamped `SCHEMA_VERSION 6 · comeni-core 0.2.0`.
+   `tools/check_reference.py` already imports those models to check their fields, so it can emit
+   the stamp in the same pass and fail on a stale one. This is worth doing on its own merits: a
+   schema page silently describing last month's schema is precisely the drift that has bitten
+   this repository repeatedly, and a version a command derives cannot go stale the way a
+   sentence can.
+3. **Full versioning waits for a tagged product release with users.** It is one `mike` command
+   and no change to the source, so the decision is cheap to reverse and there is no cost to
+   deferring it.
+
+### 6.2 Diagrams
 
 **Yes, Mermaid, and sparingly.** Material renders it natively.
 
@@ -500,9 +571,9 @@ source will produce pages that describe screens which do not behave as written �
 run-page journal entry names twice: *reading finds wrong strings; it does not find wrong
 pictures.*
 
-**Mitigation, and it is not optional: the platform-facing pages are written while driving the
-platform in a browser.** Expect this to find product defects. That is a cost and a benefit, and
-it should be budgeted as both.
+**Mitigated by §5.2, which is a gate rather than a mitigation:** a page naming a screen is
+written while driving that screen in Chrome, and the walk is what sources its markers. Expect
+this to find product defects. That is a cost and a benefit, and it should be budgeted as both.
 
 **Four books is more surface than one.** Each additional book is a sidebar somebody must keep
 true. Accepted, because the alternative — hedged pages — is the defect being fixed.
@@ -519,9 +590,10 @@ Not an implementation plan; that is the next artifact.
    exists — §12.
 3. **Move and retone what survives.** The §7 table, respecting §7.1. Fix the links, §8.
 4. **Split `running-the-stack.md`**, the §5.1 worked example, as the first page written to the
-   new shape.
+   new shape — and the first to take a §5.2 browser pass.
 5. **Write the missing pages**, §10 order — *What leaves your machine* first, because
-   `.github/SECURITY.md` points at nothing.
-6. **Walk the platform in a browser** and correct every vision-register page against what the
-   screens actually do. §12.
-7. **Diagrams**, §6.1, last — a diagram of a page that is still moving is drawn twice.
+   `.github/SECURITY.md` points at nothing, and it needs no browser pass.
+6. **The screen pages, each behind its §5.2 pass.** `Start here` first, then `Handbook`'s four,
+   then `Registry`'s marked pages. This is the expensive step and the one that finds defects;
+   the walk is part of writing each page, not a sweep afterwards.
+7. **Diagrams**, §6.2, last — a diagram of a page that is still moving is drawn twice.
