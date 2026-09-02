@@ -58,3 +58,6 @@ frontend/dist/
 /.design/comeni-visual-directions.html
 /.design/w2-mockups/wiener-w2-screens.html
 /.design/runs-board/runs-board.html
+
+# JetBrains IDE files — local to a checkout, never shared
+.idea/

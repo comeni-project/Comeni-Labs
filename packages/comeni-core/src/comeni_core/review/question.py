@@ -8,7 +8,7 @@ is the mistake `CLAUDE.md` records about invariant 1. See the spec's §3.1.
 
 **Closed vocabulary only.** `Ambiguity` subclasses this and projects to `AmbiguityRequest`, a
 door-2 payload. A free-text field here widens door 2 without anybody editing
-`tests/test_egress.py`, which is the file that says *these are all the ways data leaves*.
+`tests/guards/test_egress.py`, which is the file that says *these are all the ways data leaves*.
 Free text belongs on the subclasses, where the field count already tracks it.
 
 See `docs/notes/specs/2026-08-18-the-shared-question.md`.
@@ -54,7 +54,7 @@ class Excerpt(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     """Frozen, because an `Excerpt` reaches door 2 through `Ambiguity.evidence` and what a
-    reviewer read must be what is sent. `tests/test_egress.py` demanded this the moment the
+    reviewer read must be what is sent. `tests/guards/test_egress.py` demanded this the moment the
     type became reachable from a payload, which is the allowlist working as intended."""
 
     locator: Text
@@ -68,7 +68,7 @@ class Excerpt(BaseModel):
     **Free text that is quoted rather than composed**, which is a weaker claim than the other
     entries on that list: nobody writes this sentence, a source file already contains it and
     this copies it. It is still free text and still listed literally in
-    `tests/test_egress.py`, because the boundary is widened by editing the file that says
+    `tests/guards/test_egress.py`, because the boundary is widened by editing the file that says
     *these are all the ways data leaves*.
     """
 

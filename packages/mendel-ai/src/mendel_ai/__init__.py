@@ -14,7 +14,7 @@ validator; a `Goal` is a Pydantic model. **A module's script body has no shape**
 declares, which is what lets the tier-4 ambiguity resolver reuse it unchanged when Plan 3
 arrives (`docs/notes/README.md` row 17). `comeni-core` is imported for `coded()` and nothing else.
 
-**It is impure and classified as such** in `tests/test_purity.py`. The arrow points
+**It is impure and classified as such** in `tests/guards/test_purity.py`. The arrow points
 `mendel-ai -> comeni-core`, never back.
 
 Read `docs/notes/specs/2026-08-17-forge-phase-2.md` §4 before changing this package's surface —

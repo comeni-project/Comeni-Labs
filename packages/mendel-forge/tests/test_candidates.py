@@ -41,5 +41,7 @@ def test_an_unknown_field_has_no_candidates_rather_than_raising():
 
 
 def test_every_candidate_says_where_it_is_declared():
-    for candidate in for_field("roles", _stack()):
+    candidates = for_field("roles", _stack())
+    assert candidates, "the stack offered no role candidates — nothing below is exercised"
+    for candidate in candidates:
         assert candidate.note, f"{candidate.value} has no note saying where it comes from"

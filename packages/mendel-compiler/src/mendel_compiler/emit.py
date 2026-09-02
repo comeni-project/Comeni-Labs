@@ -428,7 +428,7 @@ def test_samplesheet(pipeline: Pipeline) -> str:
     One row is enough and two would be a claim this repository cannot back. A second row needs a
     second sample's URLs and the vocabulary declares one per type — inventing a second by reusing
     the first would give the run two samples with identical data and identical results, which
-    looks like a fan-out test and is not one. `tests/test_fan_out.py` runs two *stub* pairs,
+    looks like a fan-out test and is not one. `tests/emit/test_fan_out.py` runs two *stub* pairs,
     where a fixture costs nothing; here the fixture is somebody else's dataset.
 
     What this row does prove is the thing `-stub-run` cannot: that each column is wired to the

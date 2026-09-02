@@ -10,8 +10,8 @@ look up — process names, include paths, entry-channel expressions, the measure
 in `meta` — is copied onto the `Pipeline` here. That is what lets a laboratory archive a
 validated pipeline and rebuild its Nextflow years later with no registry and no network.
 
-`Pipeline.of` stays on `Pipeline` and delegates here: `tests/test_construction.py` asserts it is
-the only validating constructor, and that guard is about the entry point rather than the code
+`Pipeline.of` stays on `Pipeline` and delegates here: `tests/guards/test_construction.py` asserts it
+is the only validating constructor, and that guard is about the entry point rather than the code
 behind it.
 """
 
@@ -46,7 +46,7 @@ def of(ir, registry, vocab, measurements=None, layers=(), *, goal) -> Pipeline:
     `have: []`, `want: []` into every pipeline file. A default is how a field comes to be
     present and empty, and this file's whole claim is that it records what was asked for.
 
-    Enforced by `tests/test_construction.py`, the way `MeasurementRegistry.profile()`
+    Enforced by `tests/guards/test_construction.py`, the way `MeasurementRegistry.profile()`
     already is — that guard exists because deleting one call let `profile: {sample_name:
     ...}` build cleanly. Same reasoning: materialisation must not be bypassable by a caller
     assembling a `Pipeline` by hand with the contract-derived fields left empty.
@@ -361,8 +361,8 @@ def _named(ir) -> dict[str, str]:
     """`<node>.<port>` → channel name, from the IR's channel records.
 
     Built at the point of use rather than stored: a mapping on a payload is what
-    `tests/test_egress.py` refuses, and it refuses it because a mapping's keys are unvalidated
-    by construction. Inside a function the keys came from `SocketKey` fields that were.
+    `tests/guards/test_egress.py` refuses, and it refuses it because a mapping's keys are
+    unvalidated by construction. Inside a function the keys came from `SocketKey` fields that were.
     """
     return {port: channel.name for channel in ir.channels for port in channel.ports}
 

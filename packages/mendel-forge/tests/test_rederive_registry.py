@@ -56,5 +56,6 @@ def test_the_derived_fields_match_what_we_ship(contract, ref):
 def test_every_shipped_output_port_appears_as_a_derived_name(contract, ref):
     scaffold = _scaffold(contract, ref)
     derived = {v.value for k, v in scaffold.filled.items() if k.endswith("].name")}
+    assert contract.produces, f"{contract.id} declares no output port to derive"
     for port in contract.produces:
         assert port.name in derived, f"{contract.id}: {port.name} was not derived"

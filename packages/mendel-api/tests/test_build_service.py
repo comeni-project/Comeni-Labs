@@ -21,6 +21,7 @@ def test_the_example_goal_builds_a_spine():
 def test_every_wire_joins_two_placed_steps():
     got = build.example()
     placed = {node.id for node in got.layout.nodes}
+    assert got.layout.wires, "a graph with no wires joins nothing; this asserts over air"
     for wire in got.layout.wires:
         assert wire.from_node in placed and wire.to_node in placed
 

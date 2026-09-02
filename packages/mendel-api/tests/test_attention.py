@@ -5,7 +5,9 @@ it answered the Queue's question, and the discipline that keeps this from becomi
 that it never renders a row. These tests hold the shape that makes that possible.
 """
 
-from mendel_api.services import attention
+from datetime import UTC, datetime
+
+from mendel_api.services import attention, drafts
 from mendel_api.services.attention import Urgency
 
 
@@ -32,14 +34,31 @@ def test_it_points_at_a_screen_and_never_at_a_registry_subject():
         assert "@" not in call.where, "a contract id in the link is a registry item on the page"
 
 
-def test_the_mendel_half_reports_the_lab_s_own_pipelines():
+def test_the_mendel_half_reports_the_lab_s_own_pipelines(monkeypatch):
     """**This test asserted `mendel == []` and its docstring said "nothing stores pipelines".**
 
     That had been false since Plan 3E — drafts have been rows in Postgres since the builder
     became a builder, and nobody came back to the sentence. It is the drift `CLAUDE.md` warns
     about in prose that has no counter behind it, caught here by needing the field.
+
+    **The rows are supplied rather than read.** Its second version looped over
+    `whats_open().mendel`, which is `[]` on any machine without Postgres — so every assertion
+    below sat inside an empty loop and the test passed by measuring nothing, on CI and on a
+    developer machine with the stack down. `_waiting_on_a_person` degrades to `[]` by design
+    (A192), and a test of what it *says* must not also be a test of whether a database is up:
+    `test_the_page_survives_an_unreachable_store` below is that one.
     """
+    rows = [
+        _row("a1b2c3d4e5", "rnaseq", open_values=[("star_align", "strandedness")]),
+        _row("f6a7b8c9d0", "", open_values=[("star_align", "strandedness"),
+                                            ("featurecounts", "fragment_size")]),
+        _row("0d9c8b7a6f", "capped", open_values=[("star_align", "strandedness")], more=3),
+        _row("1122334455", "settled"),
+    ]
+    monkeypatch.setattr(drafts, "list_drafts", lambda **_: (rows, len(rows)))
+
     calls = attention.whats_open().mendel
+    assert len(calls) == 3, "a pipeline with nothing open is not a call for anybody"
     for call in calls:
         assert call.urgency is Urgency.WAITING, "an open value holds somebody up; it breaks nothing"
         assert call.where.startswith("/build"), "it leads to the page that can answer it"
@@ -47,6 +66,41 @@ def test_the_mendel_half_reports_the_lab_s_own_pipelines():
             "waiting on a person NAMES the values — a count is what you write when you have "
             "not looked"
         )
+        assert "strandedness" in call.what, "it names the value, and this is that assertion"
+    named, plural, capped = calls
+    assert named.what == "rnaseq: strandedness has no rule"
+    assert plural.what == "f6a7b8c9: strandedness, fragment_size have no rule", (
+        "an unnamed pipeline falls back to a short id, and two values take a plural verb"
+    )
+    assert capped.what.endswith("and 3 more have no rule") and capped.count == 4, (
+        "a cap must not read as the total — `open_not_named` is counted, not dropped"
+    )
+
+
+def test_the_page_survives_an_unreachable_store(monkeypatch):
+    """A192, on this half: the front door must not go blank because Postgres is down. The forge
+    half reads files and the mendel half reads rows, so one failing may not take the other."""
+    def _down(**_):
+        raise RuntimeError("could not connect")
+
+    monkeypatch.setattr(drafts, "list_drafts", _down)
+    got = attention.whats_open()
+    assert got.mendel == []
+    assert got.forge, "the half that still works is still reported"
+
+
+def _row(id: str, name: str, *, open_values=(), more: int = 0) -> drafts.DraftRow:
+    return drafts.DraftRow(
+        id=id,
+        name=name,
+        who="a-curator",
+        updated_at=datetime(2026, 9, 2, tzinfo=UTC),
+        steps=4,
+        kept=True,
+        open_values=[drafts.OpenValue(step=step, setting=setting)
+                     for step, setting in open_values],
+        open_not_named=more,
+    )
 
 
 def test_drift_outranks_an_undrafted_tool():

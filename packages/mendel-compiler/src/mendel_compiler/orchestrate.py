@@ -10,8 +10,8 @@ before anyone read it closely enough to notice.
 every byte stays in the CLI — the same split the forge's own command layer already has, whose
 docstring says in as many words that a transport holds no logic.
 
-*(That package is named here only in prose, and not even that: `tests/test_purity.py` scans for
-the module name in the **file**, not merely in its imports, and refused this docstring when it
+*(That package is named here only in prose, and not even that: `tests/guards/test_purity.py` scans
+for the module name in the **file**, not merely in its imports, and refused this docstring when it
 spelled it out. The breadth is right — a prose reference is how a dependency gets argued into
 existence — and it costs one rewording.)*
 

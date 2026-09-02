@@ -9,7 +9,7 @@ This lives in `comeni-core` rather than beside `Goal` in `mendel-resolver` becau
 profile is made of measurements, and measurements are declared here. The alternative —
 `MeasurementRegistry.profile()` reaching back into `mendel-resolver` through a
 function-local import — is a layering inversion wearing a disguise, and would have meant
-widening `comeni-core`'s closed allowlist in `tests/test_purity.py` to permit it. Closes
+widening `comeni-core`'s closed allowlist in `tests/guards/test_purity.py` to permit it. Closes
 issue #4. `mendel_resolver.goal` re-exports both names, so every existing import still
 resolves.
 """
@@ -42,11 +42,11 @@ class Measured(BaseModel):
 class DataProfile(BaseModel):
     """Measured properties of the input data.
 
-    A list rather than a mapping because `tests/test_egress.py` forbids mappings in
+    A list rather than a mapping because `tests/guards/test_egress.py` forbids mappings in
     anything reachable from a payload: a typed key does not prove a *declared* key.
 
     Build one through `MeasurementRegistry.profile()`, which is the only place that
-    validates values against their declarations — `tests/test_construction.py` enforces
+    validates values against their declarations — `tests/guards/test_construction.py` enforces
     that. The mapping shorthand below exists because it is the natural way to *write* one
     in a goal file, and because `Goal` needs a default.
     """

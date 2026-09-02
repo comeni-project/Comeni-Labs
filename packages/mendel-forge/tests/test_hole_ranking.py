@@ -44,5 +44,6 @@ def test_every_hole_asks_something() -> None:
     can read, which is what `Question.what` is documented to be.
     """
     scaffold = _scaffold("samtools/faidx", "1.21.0")
+    assert scaffold.holes, "no hole was opened — the string below could not have appeared"
     for hole in scaffold.holes:
         assert not hole.what.startswith("a value for"), hole.subject

@@ -2,7 +2,7 @@
 
 Not a guard. This is the measurement behind the forge's hole list, kept as a test so it
 re-runs and cannot quietly become false. If it fails, the derivability table in
-docs/notes/audits/2026-08-16-forge-derivability.md is stale and the forge's holes are wrong.
+the derivability audit (since removed) is stale and the forge's holes are wrong.
 """
 
 from pathlib import Path
@@ -39,6 +39,7 @@ def test_the_survey_found_modules_to_survey():
 
 
 def test_process_name_is_derivable():
+    assert _pairs(), "no contract/module pairs — `test_the_survey_surveys` says why"
     for contract, spec in _pairs():
         assert contract.nf_process == spec.process, contract.id
 
@@ -105,7 +106,7 @@ def test_input_port_names_are_a_choice_and_not_a_reading():
         "nf-core/subread/featurecounts@2.0.6:bam",
     ], (
         "input port naming changed; re-read "
-        f"docs/notes/audits/2026-08-16-forge-derivability.md: {renamed}"
+        f"the derivability audit (since removed): {renamed}"
     )
 
 

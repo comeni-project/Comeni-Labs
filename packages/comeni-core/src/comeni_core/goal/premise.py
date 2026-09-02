@@ -18,7 +18,7 @@ class PremiseRecord(BaseModel):
     """One fact a decision rested on, and how good that fact is.
 
     A **list of records**, not two parallel mappings. The plan drafted `premise:
-    dict[str, Any]` beside `premise_origin: dict[str, str]`, and `tests/test_egress.py`
+    dict[str, Any]` beside `premise_origin: dict[str, str]`, and `tests/guards/test_egress.py`
     refused it three ways at once — a mapping, an `Any`, and a bare `str` key — because `Why`
     is reachable from door 4, publication, the door with no undo.
 

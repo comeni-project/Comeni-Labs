@@ -154,7 +154,7 @@ it up is what 2026-09-02 was.
 > nothing counted them (A71, A72), and a third — "748 fast tests" — was stale again by the time
 > issue #41 rewrote this section. Counts live where a command can derive them: `make check` for
 > tests, `make residue` for guard coverage, `len(DeclaredKind)` for kinds,
-> `tests/test_egress.py` for the free-text fields.
+> `tests/guards/test_egress.py` for the free-text fields.
 
 **Plan 1 through Plan 1.15 are complete, the design audit has run, the forge's two phases are
 done, and Plan 2.5 landed.** **Plan 3A — the forge interface — is COMPLETE as of 2026-08-19**, all nine phases, on the
@@ -162,7 +162,7 @@ branch `plan-3-slice-1`, **merged into `main` on 2026-08-19**. `make dev` brings
 Redis, the API, the ARQ worker and nginx serving the built SPA, with Vite on the host for HMR. **Phase 7 was
 responsiveness and it did not exist until an audit created it** — every registry-touching screen
 cost ~250ms warm and one function was responsible
-([`notes/audits/2026-08-19-performance-audit.md`](docs/notes/audits/2026-08-19-performance-audit.md),
+(`notes/audits/2026-08-19-performance-audit.md`,
 A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s, and the fast test
 suite is 41s where it was 207s — with the emitted pipeline byte-identical.
 
@@ -237,7 +237,7 @@ record did not survive being read back, because it is written by field name and 
 alias; the fold was a no-op because `prior` was read after the row was inserted, so every ingest
 replayed the whole run; a run arrived as two traces because the SDK invents a trace id for a
 parentless span; and `* task.attempt` was decoration until an `errorStrategy` made a retry
-possible. [`notes/journal/2026-08-24-wiener-w1.md`](docs/notes/journal/2026-08-24-wiener-w1.md) is
+possible. The 2026-08-24 W1 journal entry (since pruned) was
 the handoff.
 
 **Mendel gained two things from Wiener needing them.** The emitted pipeline now says what it
@@ -393,7 +393,7 @@ tool, so a resolved value reaching nothing is refused rather than emitted. It re
 from it with **no registry and no network**; `mendel upgrade` re-resolves against the current
 registry and replays every recorded decision. Read
 [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md), and
-[`docs/guides/driving-mendel.md`](docs/guides/driving-mendel.md) for the loop end to end.
+[`docs/guides/driving-mendel.md`](docs/tutorial.md) for the loop end to end.
 
 **A tier-3 rule targets a role, not a type id** (Plan 1.15), with three effects — `presence`,
 `implementation`, `param` — and a **premise layer** builds the facts `when` reads, each carrying
@@ -418,7 +418,7 @@ mode. `mendel-ai` exists (transport only) and **`mendel-api` and `frontend/` exi
 and its first question is the fifth egress door** — a model call sends tool documentation to a
 provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
 `notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and
-[`notes/journal/2026-08-17-the-forge.md`](docs/notes/journal/2026-08-17-the-forge.md) **§Phase 2** is
+the 2026-08-17 forge journal entry (since pruned), **§Phase 2**, was
 the handoff — what is already built, three things that look like blockers and are not, and the
 decisions Phase 1 deliberately left open.
 
@@ -426,7 +426,7 @@ decisions Phase 1 deliberately left open.
 
 **A14 is critical and stays open.** A guard never watched failing may be **inert rather than
 merely weak**, and it closes only when every guard in `tests/` has a recorded revert.
-[`notes/audits/guard-ledger.md`](docs/notes/audits/guard-ledger.md) is that record — append-only, one
+`notes/audits/guard-ledger.md` is that record — append-only, one
 row per revert, with the message it printed.
 
 **Residue is measured per *guard*, not per file** — that is A69, and the distinction matters
@@ -463,19 +463,19 @@ written against the types that exist.
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | **how it all fits together, against real types. First.** |
 | [`docs/README.md`](docs/README.md) | the documentation front door — three doors, by what you are doing |
-| [`docs/guides/driving-mendel.md`](docs/guides/driving-mendel.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
+| [`docs/guides/driving-mendel.md`](docs/tutorial.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
 | [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md) | `pipeline.yml`, field by field |
 | [`notes/journal/`](docs/notes/journal/) | **what happened, what is next, what was decided.** Newest first |
 | [`notes/README.md`](docs/notes/README.md) | every plan in execution order, and the argument for that order |
-| [`notes/audits/README.md`](docs/notes/audits/README.md) | the rounds, the design audit, and the guard ledger |
-| [`notes/specs/README.md`](docs/notes/specs/README.md) | the specs — read the one behind a part before starting it |
-| [`docs/design/mendel.md`](docs/design/mendel.md) | the original rationale. `ARCHITECTURE.md` is what the code *does* |
-| [`docs/design/federation.md`](docs/design/federation.md) | provider access, registry stacking, publication, licensing |
-| [`docs/design/clinical-data-protection.md`](docs/design/clinical-data-protection.md) | clinical use, the egress boundary, the protection profiles |
-| [`docs/design/conformance.md`](docs/design/conformance.md) | whether "if it compiles, it runs" is reachable |
-| [`docs/design/declared-data.md`](docs/design/declared-data.md) | why declared data is files and not a database, and where an index would be legitimate |
-| [`docs/design/rule-tables-and-port-logic.md`](docs/design/rule-tables-and-port-logic.md) | the **superseded** rule format. Plan 1.15 replaced it |
-| [`notes/specs/2026-08-13-the-rule-drafter.md`](docs/notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
+| `notes/audits/README.md` | the rounds, the design audit, and the guard ledger |
+| `notes/specs/README.md` | the specs — read the one behind a part before starting it |
+| `docs/design/mendel.md` | the original rationale. `ARCHITECTURE.md` is what the code *does* |
+| `docs/design/federation.md` | provider access, registry stacking, publication, licensing |
+| `docs/design/clinical-data-protection.md` | clinical use, the egress boundary, the protection profiles |
+| `docs/design/conformance.md` | whether "if it compiles, it runs" is reachable |
+| `docs/design/declared-data.md` | why declared data is files and not a database, and where an index would be legitimate |
+| `docs/design/rule-tables-and-port-logic.md` | the **superseded** rule format. Plan 1.15 replaced it |
+| `notes/specs/2026-08-13-the-rule-drafter.md` | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
 
 ## How to start implementing — decided 2026-08-02, read this first
 
@@ -588,9 +588,9 @@ Violating any of these breaks the product claim, not just a test.
 
 1. **`comeni-core`, `mendel-resolver`, `mendel-compiler` and `wiener-core` do not reach the
    network.** Two partial guards, and the claim is their union — say *do not*, never *cannot*. A
-   static AST scan (`tests/test_purity.py`) rejects the imports, the dynamic import forms, bare
+   static AST scan (`tests/guards/test_purity.py`) rejects the imports, the dynamic import forms, bare
    `exec`/`eval`/`compile`, and a module reached as an attribute of an allowed one; a runtime
-   assertion (`tests/test_purity_runtime.py`) installs an audit hook over a real build and fails
+   assertion (`tests/guards/test_purity_runtime.py`) installs an audit hook over a real build and fails
    if any socket or process event comes from a frame in those packages. Neither is complete: the
    scan cannot see a two-link attribute chain or a `getattr`, and the hook only covers code a
    build reaches. **Audit A1 defeated the scan alone** — a file importing only `pathlib` and
@@ -678,7 +678,7 @@ Violating any of these breaks the product claim, not just a test.
     no `pipeline.yml`; it reads vendored modules and registry files and produces registry data a
     build later consumes — the offline authoring half of invariant 2. `AiPoint` corroborates
     this without being changed: invariant 3 declares three runtime AI points and the forge is
-    not one of them. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired a
+    not one of them. `DOORS` and `tests/guards/test_egress.py` did not change when Phase 2 wired a
     model into the forge, and that is the point.
     Each door carries one declared payload type, and
     **fourteen** fields across the whole surface may hold free text: `PromptRequest.prompt`,
@@ -728,7 +728,7 @@ Violating any of these breaks the product claim, not just a test.
     now an **allowlist**: `test_every_payload_field_is_a_declared_shape` enumerates what a
     leaf may be rather than what it may not, because a blocklist can only forbid what
     somebody named — which is how `object`, `Path` and `Any` each arrived one audit apart.
-    Enforced by `tests/test_egress.py`, which holds both lists literally, so widening the
+    Enforced by `tests/guards/test_egress.py`, which holds both lists literally, so widening the
     boundary means editing a test that says these are all the ways data leaves. Publication
     is the door with no undo.
 15. **Mendel does not receive patient data.** No input accepts a sample identifier, filename or
@@ -738,7 +738,7 @@ Violating any of these breaks the product claim, not just a test.
     a pipeline and not run one.
     Since measurements became declared data the model can no longer refuse an undeclared key, so
     the guard moved rather than weakened: `MeasurementRegistry.profile()` is the only validating
-    constructor, `tests/test_construction.py` enforces that nothing else builds a `DataProfile`,
+    constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,
     and `mendel build` re-routes every goal's profile through it. Delete that one call and
     `profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
 
@@ -919,7 +919,7 @@ See the federation spec.
 
 **Telemetry is opt-in and off by default.** Invariant 1 is what enforces it: telemetry lives
 in `mendel-api`, and a network call added to `comeni-core`, `mendel-resolver` or
-`mendel-compiler` fails `tests/test_purity.py` or `tests/test_purity_runtime.py`.
+`mendel-compiler` fails `tests/guards/test_purity.py` or `tests/guards/test_purity_runtime.py`.
 
 This used to be sold as *structural* — "the pure packages **cannot** import an HTTP client" —
 and that was false as written. Audit A1 built a `comeni_core/telemetry.py` importing only
@@ -940,7 +940,7 @@ break for `comeni-core`. The bump is judged, not derived — read
 
 **Every GitHub Action is pinned by commit SHA with its version in a trailing comment**, and
 Dependabot rewrites both. A mutable `@v7` can be repointed by whoever controls the action, which
-is the one part of the supply chain invariant 1's posture had not reached. `tests/test_workflow_pins.py`
+is the one part of the supply chain invariant 1's posture had not reached. `tests/repo/test_workflow_pins.py`
 holds it.
 
 **Licences.** Code Apache-2.0 (`LICENSE`). Registry data CC-BY-4.0, in `comeni-registry` with
@@ -1013,7 +1013,7 @@ conversation is a loose end lost.
 
 **`make check` is not verification of a change to `resolve.py`, `router.py`, `rules/`,
 `mendel_compiler/cli/`, `mendel_compiler/emit.py` or `comeni_core/artifact/pipeline.py`.** It
-deselects `tests/test_counts.py` — the three tests that run `--gate test` on the nf-core
+deselects `tests/emit/test_counts.py` — the three tests that run `--gate test` on the nf-core
 dataset and assert the counts matrix is right, that featureCounts got the strandedness that
 was measured, and that a resolved setting reached the tool. That is the only check exercising
 the v1 criterion. Touch any of those six files and run **`make verify`**, which is `check` +
@@ -1037,8 +1037,8 @@ make verify                      # check + counts matrix + guards; Docker, ~2 mi
 make static                      # conformance + nextflow lint + preview; no Docker, ~6s
 uv run pytest -v                 # all tests; no test may call a live model
 uv run ruff check .              # lint (line length 100)
-uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
-  tests/test_egress.py tests/test_construction.py               # the guards
+uv run pytest tests/guards/test_purity.py tests/guards/test_purity_runtime.py \
+  tests/guards/test_egress.py tests/guards/test_construction.py               # the guards
 
 # why anything was refused, at length. The bands are in diagnostics.yml; the generated page
 # is the count. docs/reference/diagnostics.md is generated from comeni_core/diagnostics.yml —
@@ -1132,7 +1132,7 @@ alternative aligners, pseudo-aligners and UMI handling. That breadth is v2.
 
 **Status after Plan 1.5** — a `test` profile is emitted, so `Gate.TEST` runs; the spine
 executes on the nf-core RNA-seq test dataset and produces a counts matrix, and
-`tests/test_counts.py` asserts featureCounts ran with the strandedness that was measured.
+`tests/emit/test_counts.py` asserts featureCounts ran with the strandedness that was measured.
 What remains unmet is the plain-language prompt (Plan 2) and the module count: **10 distinct
 processes, not 15–20**. The remainder are QC breadth — `samtools stats`/`flagstat`/`idxstats`,
 duplicate marking, RNA-specific QC — not correctness.
@@ -1183,12 +1183,12 @@ already been wrong once, when it named a gate that could not pass.
 - **Read process names and containers out of `registry/tools/**/module/main.nf`, never out of a plan.**
   It is `SUBREAD_FEATURECOUNTS`, not `FEATURECOUNTS`. nf-core 4.x mostly uses
   `community.wave.seqera.io`, not quay.io — take the *last* quoted string in the `container`
-  ternary. `tests/test_spine_contracts.py` compares contracts against the modules on disk so a
+  ternary. `tests/registry/test_spine_contracts.py` compares contracts against the modules on disk so a
   guess fails in milliseconds instead of at pipeline launch.
 - **CI has no Nextflow, and a developer machine does.** `make check`'s lane installs neither
   Nextflow nor Docker, so **any test passing `--gate` to `mendel build` is green locally and red
   in CI** — `mendel: gate lint: FAIL / nextflow not found on PATH`, exit 1. Omit `--gate` unless
-  the test is *about* gates; `tests/test_pipeline_file.py::_build` is the shape to copy. The two
+  the test is *about* gates; `tests/artifact/test_pipeline_file.py::_build` is the shape to copy. The two
   tests in `test_gates.py` that genuinely need it are `skipif`-guarded on
   `shutil.which("nextflow")`. **Check it by shadowing rather than by remembering**: put a
   `nextflow` on `PATH` that exits non-zero and run the fast suite — anything that fails and is
@@ -1271,6 +1271,19 @@ already been wrong once, when it named a gate that could not pass.
   when *those* problems appear, not for "the AI needs memory".
 
 ## Testing
+
+> **Read [`tests/README.md`](tests/README.md) before adding a test file.** It says where a test
+> goes, and when a new directory is warranted. The short version: a test lives with its package
+> in `packages/<name>/tests/` unless it belongs to no single package, and the root `tests/` is
+> arranged by subject — `guards/`, `registry/`, `artifact/`, `emit/`, `diagnostics/`, `repo/`,
+> `regressions/`. It was 52 flat files until 2026-09-02.
+>
+> **Two rules from that page are load-bearing here.** Ask `support.paths` for the repository
+> root rather than counting `parent.parent` — the depth is a claim that goes false the moment a
+> file moves. And **a loop is not an assertion**: a test whose only assertions sit inside
+> `for x in <something derived>` passes when the collection is empty. Three were found doing
+> exactly that on 2026-09-02, including the standing check for §18.1's *no cause is named* rule,
+> which had never once run. Assert the collection is non-empty first.
 
 Mirrors the purity split — this is what makes the determinism claim auditable rather than
 rhetorical.

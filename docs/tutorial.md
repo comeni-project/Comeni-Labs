@@ -179,8 +179,8 @@ uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate stub
 
 | you want to | read |
 |---|---|
-| do this properly, end to end | [Driving Mendel](guides/driving-mendel.md) |
+| do this properly, end to end | [Driving Mendel](tutorial.md) |
 | watch a run rather than read a file | [Running the stack](guides/running-the-stack.md) |
-| stop asserting `read_length` and measure it | [Measuring your data](guides/measuring-your-data.md) |
-| add a tool Mendel does not know | [Driving the forge](guides/driving-the-forge.md) |
+| stop asserting `read_length` and measure it | Measuring your data |
+| add a tool Mendel does not know | [Driving the forge](guides/writing-a-contract.md) |
 | understand why a tool was picked | [Routing](concepts/routing.md) |

@@ -31,6 +31,7 @@ def test_semantic_fields_arrive_as_holes():
 
 
 def test_every_hole_says_why_it_is_open():
+    assert _scaffold().holes, "a scaffold with no holes says nothing about how holes read"
     for hole in _scaffold().holes:
         assert hole.why_open, f"{hole.subject} is open with no stated reason"
 

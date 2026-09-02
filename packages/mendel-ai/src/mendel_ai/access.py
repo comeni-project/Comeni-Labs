@@ -73,8 +73,8 @@ class ModelAccess(BaseModel):
 
         This raises here, in `mendel-ai`, rather than in whichever CLI resolves the
         configuration — `MA0001` is declared `emitted_by: ai`, and
-        `tests/test_diagnostics_ownership.py` checks a code is raised by the package that owns
-        it. Moving the raise would move the code.
+        `tests/diagnostics/test_diagnostics_ownership.py` checks a code is raised by the package
+        that owns it. Moving the raise would move the code.
         """
         access = cls.from_env(env)
         if access is None:

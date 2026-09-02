@@ -282,7 +282,7 @@ def test_a_displacement_satisfies_the_egress_leaf_rule():
     import typing
 
     sys.path.insert(0, str(pathlib.Path(__file__).parents[3] / "tests"))
-    from test_egress import _leaf_problems
+    from guards.test_egress import _leaf_problems
 
     hints = typing.get_type_hints(Displacement, include_extras=True)
     problems: list[str] = []

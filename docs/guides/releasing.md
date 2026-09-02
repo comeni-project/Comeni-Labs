@@ -83,7 +83,7 @@ nothing is blocked, and a published PyPI version cannot be withdrawn — only ya
 uv add "comeni-core @ git+https://github.com/comeni-project/Comeni-Labs@comeni-core-v0.2.0#subdirectory=packages/comeni-core"
 ```
 
-**No signing.** `comeni-registry` plans signed tags ([`federation.md`](../design/federation.md)
+**No signing.** `comeni-registry` plans signed tags (`federation.md`
 §3); signing engine releases is a separate design with a key-management question attached.
 
 **No automatic version bumping.** Tools that do it want to own the changelog too, and this one is
@@ -98,7 +98,7 @@ a released wheel accepts a `comeni-core` predating a type it imports.
 
 A cap would be a promise to bump in lockstep: `mendel-compiler` pinning `comeni-core<0.3` means
 every `comeni-core` minor release breaks the compiler until somebody edits a file. Both
-directions are enforced by `tests/test_packaging.py`.
+directions are enforced by `tests/repo/test_packaging.py`.
 
 **Raise a lower bound when you start depending on something new.** Adding a field to
 `comeni-core` and using it from `mendel-compiler` means `mendel-compiler` now needs that version,

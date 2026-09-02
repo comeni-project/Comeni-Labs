@@ -50,8 +50,8 @@ slow:           ## the counts-matrix tests: --gate test on real data (Docker, ~4
 	uv run pytest -m slow -v
 
 guards:         ## purity, egress and construction — the tests that hold the invariants
-	uv run pytest tests/test_purity.py tests/test_purity_runtime.py \
-	  tests/test_egress.py tests/test_construction.py -v
+	uv run pytest tests/guards/test_purity.py tests/guards/test_purity_runtime.py \
+	  tests/guards/test_egress.py tests/guards/test_construction.py -v
 
 residue:        ## how much of A14 is left, counted per guard (A69). --list for the names
 	@uv run python tools/guard_residue.py $(ARGS)

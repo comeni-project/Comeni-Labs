@@ -98,6 +98,7 @@ def test_a_name_is_relative_and_never_a_path_on_this_machine(client, a_run):
     _publish(a_run.id, {"star_align/deep/nested.bam": "x"})
 
     body = client.get(f"/api/runs/{a_run.id}/results").json()
+    assert body["files"], "the endpoint listed nothing — no name was checked"
     for entry in body["files"]:
         assert not entry["name"].startswith("/")
         assert str(launcher.results_dir(a_run.id)) not in entry["name"]

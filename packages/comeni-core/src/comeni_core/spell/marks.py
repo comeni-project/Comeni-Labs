@@ -2,7 +2,7 @@
 
 These live apart from `ir.py`, `decision.py` and `egress.py` because all three need them
 and any two of those importing each other would be a cycle. They are also the vocabulary
-`tests/test_egress.py` reasons about, so keeping them in one small file makes the guard's
+`tests/guards/test_egress.py` reasons about, so keeping them in one small file makes the guard's
 subject matter readable in one screen.
 
 Every marker is a member of `Mark`, which is closed. That is what lets the egress guard ask

@@ -9,8 +9,8 @@ Comeni Labs plans, runs and watches bioinformatics analyses. These pages are how
 | | |
 |---|---|
 | [Describing an analysis](reference/goal-schema.md) | what you have, what you want, what your data looks like |
-| [Building a pipeline, properly](guides/driving-mendel.md) | the full loop on the command line — build, read, edit, re-emit |
-| [Measuring your data](guides/measuring-your-data.md) | turning *I think the reads are 150bp* into a measured fact |
+| [Building a pipeline, properly](tutorial.md) | the full loop on the command line — build, read, edit, re-emit |
+| Measuring your data | turning *I think the reads are 150bp* into a measured fact |
 | [The pipeline file](reference/pipeline-schema.md) | every step, setting and reason, field by field |
 
 ## Running and watching
@@ -18,7 +18,7 @@ Comeni Labs plans, runs and watches bioinformatics analyses. These pages are how
 | | |
 |---|---|
 | [Running the platform](guides/running-the-stack.md) | bring it up on your machine, and what runs where |
-| [Watching a run](guides/watching-a-run.md) | send a pipeline, follow it, read what happened |
+| [Watching a run](guides/running-the-stack.md) | send a pipeline, follow it, read what happened |
 
 ## Adding tools the platform does not know
 
@@ -29,7 +29,7 @@ No Python required. A tool definition is a YAML file with a citation.
 | [Adding a tool](guides/writing-a-contract.md) | teach the platform a tool it has never seen |
 | [Writing a rule](guides/writing-a-rule.md) | make a choice depend on your data |
 | [Your lab's own tools](guides/registry-layers.md) | ship private tools without forking anything |
-| [Drafting tools faster](guides/driving-the-forge.md) | read a tool's own documentation and fill in the rest |
+| [Drafting tools faster](guides/writing-a-contract.md) | read a tool's own documentation and fill in the rest |
 
 ## Understanding what it decided
 
@@ -52,7 +52,7 @@ No Python required. A tool definition is a YAML file with a citation.
 
 ## Deeper
 
-**[design/](design/)** — why it works this way, and what was rejected. Long and opinionated.
+**design/** — why it works this way, and what was rejected. Long and opinionated.
 
 **[notes/](notes/)** — plans, audits and a running journal. Kept for provenance; not maintained
 against the code.

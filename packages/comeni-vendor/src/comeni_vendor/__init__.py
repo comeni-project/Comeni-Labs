@@ -2,10 +2,10 @@
 
 **This is not `mendel vendor`, and the name is the point.** `mendel` is
 `mendel_compiler.cli:main`, and `mendel-compiler` is one of the four packages invariant 1
-keeps off the network — `tests/test_purity.py` rejects the imports outright. A subcommand that
-fetches from GitHub could not live there, and it should not *look* as though it could: this
-tool is not part of the deterministic build path, and a verb spelled `mendel …` reads as
-though it is.
+keeps off the network — `tests/guards/test_purity.py` rejects the imports outright. A subcommand
+that fetches from GitHub could not live there, and it should not *look* as though it could: this
+tool is not part of the deterministic build path, and a verb spelled `mendel …` reads as though it
+is.
 
 **Nothing else fetches.** A build reads a layer that is already on disk, which is what keeps
 `make check` offline and an air-gapped site a first-class customer (invariant 13). Vendoring is

@@ -99,8 +99,8 @@ class DraftLabel(BaseModel):
     published pipeline.
 
     It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
-    door payload and `tests/test_egress.py` is untouched by this change, which is the assertion
-    rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
+    door payload and `tests/guards/test_egress.py` is untouched by this change, which is the
+    assertion rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
     fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
     """
 

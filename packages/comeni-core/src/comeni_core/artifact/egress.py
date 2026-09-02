@@ -118,7 +118,7 @@ class AmbiguityRequest(EgressPayload):
     actually needs are these.
 
     **The union of what the three `*Asked` types carry**, asserted by
-    `tests/test_egress.py`: a field added to an ambiguity that has nowhere to land here is a
+    `tests/guards/test_egress.py`: a field added to an ambiguity that has nowhere to land here is a
     field a model would silently not be told, which is the quiet half of A32. `type_id` and
     `required` were exactly that — `SourceAsked` carries them and the door had no slot.
 
@@ -207,7 +207,7 @@ class Emitted(BaseModel):
     written under version 1, which is precisely the claim being made.
 
     Found while executing Plan 1.13, not by the design audit. The fixture that demonstrates
-    it is `docs/notes/audits/fixtures/pipeline-v1/`.
+    it is `tests/fixtures/pipeline-v1/`.
     """
 
     files: list[EmittedFile] = []

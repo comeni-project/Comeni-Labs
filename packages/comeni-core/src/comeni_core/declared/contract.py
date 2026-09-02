@@ -409,7 +409,7 @@ class NfInput(BaseModel):
     and a passing stub gate. Issue #8.
 
     Making it a sentence someone has to write turns the next one into something a reviewer
-    reads rather than something a real run discovers. `tests/test_runnable.py` enforces it.
+    reads rather than something a real run discovers. `tests/emit/test_runnable.py` enforces it.
     """
 
     empty: int = 0

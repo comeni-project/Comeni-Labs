@@ -5,7 +5,7 @@
 decisions, and an approximate replay cannot answer *why did it give up at 04:12*.
 
 **`now_ms` is a parameter.** §6.1 — this package does not read a clock, and
-`tests/test_no_clock.py` is what holds that rather than this sentence.
+`tests/guards/test_no_clock.py` is what holds that rather than this sentence.
 """
 
 from enum import StrEnum

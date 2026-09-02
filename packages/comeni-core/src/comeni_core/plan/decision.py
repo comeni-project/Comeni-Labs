@@ -121,7 +121,7 @@ class SourceAsked(Ambiguity):
 AmbiguityKinds = (ParamAsked, ProducerAsked, SourceAsked)
 """The three shapes a tier-4 question can take.
 
-Named as a tuple so `tests/test_egress.py` can assert the projection to `AmbiguityRequest`
+Named as a tuple so `tests/guards/test_egress.py` can assert the projection to `AmbiguityRequest`
 is *total* — a fourth kind added without a slot at the door would fail that test rather than
 quietly not be told to a model."""
 

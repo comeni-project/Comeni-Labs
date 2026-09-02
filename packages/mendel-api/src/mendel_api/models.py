@@ -89,8 +89,8 @@ class GateRun(Base):
     **`output` is a tool's own text** — the same kind of field `GateFailure.tool_message`
     already is on the egress surface, with a real author who is not us. It is stored and shown
     to the person who asked for the gate. It must never be folded into an egress payload
-    without going through `tests/test_egress.py` first: `guarded` sets `tool_message` to `None`
-    for a reason, and a tool's stderr is exactly where a path would appear.
+    without going through `tests/guards/test_egress.py` first: `guarded` sets `tool_message` to
+    `None` for a reason, and a tool's stderr is exactly where a path would appear.
 
     **This is not run history.** `docs/design/execution-boundary.md` §2 — a gate is Mendel's
     artifact checking itself on data somebody else published; a *run* takes a laboratory's

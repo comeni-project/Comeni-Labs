@@ -58,6 +58,7 @@ def test_a_block_fact_quotes_the_block_and_not_just_its_header(observation) -> N
 
 def test_no_locator_is_an_absolute_path(observation) -> None:
     """Held already for the old locators; a line suffix must not reintroduce it."""
+    assert observation.facts and observation.prose, "nothing was observed to check"
     for fact in observation.facts.values():
         assert not fact.evidence.locator.startswith("/")
     for excerpt in observation.prose:
@@ -72,6 +73,7 @@ def test_a_derived_fact_says_so_rather_than_citing_a_line(observation) -> None:
 
 def test_no_evidence_text_is_empty(observation) -> None:
     """An excerpt whose text is blank is a citation to nothing, and reads as one that worked."""
+    assert observation.facts, "no fact was derived — an empty citation cannot show up here"
     for key, fact in observation.facts.items():
         assert fact.evidence.text.strip(), f"{key} cites an empty line"
 

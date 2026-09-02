@@ -103,6 +103,7 @@ def test_an_absent_role_removes_every_contract_that_fills_it(registry):
     does not have to name it in the rule that turns trimming off. That is the whole reason
     a decision targets a role."""
     plan = route(_goal(), registry, absent_roles=frozenset({"trimming"}))
+    assert plan.steps, "removing a role emptied the plan; that is unroutable, not absent"
     for step in plan.steps:
         assert "trimming" not in registry.get(step.contract_id).roles
 

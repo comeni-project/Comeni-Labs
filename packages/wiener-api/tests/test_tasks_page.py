@@ -222,7 +222,9 @@ def test_the_column_never_disagrees_with_the_json_it_indexes(session, a_run):
     it filtered describe different things and neither is wrong on its face."""
     _replay_into(session, a_run.id)
 
-    for row in repository.tasks_page(session, settings.lab_id, a_run.id):
+    rows = repository.tasks_page(session, settings.lab_id, a_run.id)
+    assert rows, "the page is empty — the column and the JSON cannot be compared"
+    for row in rows:
         assert row.tag == (row.labels or [{}])[-1].get("tag"), row.task_id
 
 

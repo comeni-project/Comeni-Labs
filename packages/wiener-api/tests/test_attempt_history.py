@@ -23,6 +23,24 @@ def _rows(client, run_id: str) -> list[dict]:
     return client.get(f"/api/runs/{run_id}/tasks").json()["tasks"]
 
 
+def _kill_a_task(session, run_id: str) -> None:
+    """Replay one more `process_completed`, for a task that exited on a signal.
+
+    `137` and nothing else: it is 128+9, and `wiener_core.signals` glosses it `SIGKILL` while
+    refusing to say what sent it. A preemption, a `kill -9` and a cgroup limit are the same code.
+    """
+    last = [json.loads(line) for line in SPINE.read_text().splitlines() if line.strip()][-2]
+    killed = {
+        **last,
+        "seq": last["seq"] + 100,
+        "at_ms": last["at_ms"] + 1000,
+        "trace": {**last["trace"], "task_id": 99, "process": "STAR_ALIGN",
+                  "name": "STAR_ALIGN (killed)", "status": "FAILED", "exit": 137},
+    }
+    projection.append(session, settings.lab_id, run_id,
+                      RunEvent.model_validate({**killed, "run_id": run_id}))
+
+
 def test_a_row_carries_what_each_attempt_asked_for_beside_what_it_touched(client, session,
                                                                          a_run):
     """**Both halves, or neither is worth showing.** `peak_rss_bytes` alone says a task touched
@@ -56,9 +74,20 @@ def test_a_single_attempt_task_still_ships_its_history(client, session, a_run):
 
 def test_the_row_glosses_a_signal_and_names_no_cause(client, session, a_run):
     """§18.1. `137` reaches the browser as `SIGKILL` — the 128+n convention — and never as a
-    reason. Nothing explains a failure until W3, and the row must not be where that slips in."""
+    reason. Nothing explains a failure until W3, and the row must not be where that slips in.
+
+    **The spine fixture has no signalled attempt**, so the `if one["signal"]` branch below — the
+    whole §18.1 rule — never ran, and the test passed while glossing nothing. One killed attempt
+    is appended here rather than added to the shared fixture: `spine-run.events.jsonl` is a real
+    recorded run and the value of a recording is that nobody edits it.
+    """
     _replay_into(session, a_run.id)
+    _kill_a_task(session, a_run.id)
     rows = _rows(client, a_run.id)
+
+    glossed = [one for row in rows for one in row["history"] if one["signal"]]
+    assert glossed, "no attempt was signalled — the rule this test holds would not be exercised"
+    assert [one["signal"] for one in glossed] == ["SIGKILL"]
 
     for one in (one for row in rows for one in row["history"]):
         if one["exit"] in (None, 0):

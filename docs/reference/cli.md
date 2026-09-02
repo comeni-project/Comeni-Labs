@@ -103,7 +103,7 @@ profiling for: read_length
 ```
 
 A registry that can measure nothing at all exits `2`. See
-[guides/measuring-your-data.md](../guides/measuring-your-data.md).
+guides/measuring-your-data.md.
 
 ## Conformance
 
@@ -356,7 +356,7 @@ twice.
 ## `forge`
 
 A second CLI, for **writing** the registry rather than reading it. Adding a tool needs no Python.
-[Driving the forge](../guides/driving-the-forge.md) is the walkthrough; this is the list.
+[Driving the forge](../guides/writing-a-contract.md) is the walkthrough; this is the list.
 
 ```
 forge <command> [options]

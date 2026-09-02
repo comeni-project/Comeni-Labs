@@ -21,16 +21,16 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
 | `mendel-forge` | drafting registry data from sources | impure | §10 below |
 | `mendel-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
-| `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | [`docs/design/forge-review.md`](docs/design/forge-review.md), [`dashboard.md`](docs/design/dashboard.md) |
-| `wiener-core` | run state: admit, fold, decide, spans | **pure** | [`docs/design/wiener.md`](docs/design/wiener.md) |
-| `wiener-api` | launch, ingest, project, stream | impure | [`docs/design/wiener.md`](docs/design/wiener.md) |
-| `dag-core` | where to draw a graph. Both canvases, one arithmetic | **pure** | [`docs/design/dashboard.md`](docs/design/dashboard.md) |
+| `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | `docs/design/forge-review.md`, `dashboard.md` |
+| `wiener-core` | run state: admit, fold, decide, spans | **pure** | `docs/design/wiener.md` |
+| `wiener-api` | launch, ingest, project, stream | impure | `docs/design/wiener.md` |
+| `dag-core` | where to draw a graph. Both canvases, one arithmetic | **pure** | `docs/design/dashboard.md` |
 | `comeni-vendor` | fetch a tool's source into a layer, check it against its pin | impure | [`docs/guides/registry-layers.md`](docs/guides/registry-layers.md) |
-| `frontend/` | React 19 + TS + Vite. `src/api/` is **generated** | — | [`docs/design/dashboard.md`](docs/design/dashboard.md) |
+| `frontend/` | React 19 + TS + Vite. `src/api/` is **generated** | — | `docs/design/dashboard.md` |
 
 **Mendel and Wiener do not import each other, and neither knows the other exists.** A pipeline
 crosses between them as a zip carried by the browser.
-[`docs/design/execution-boundary.md`](docs/design/execution-boundary.md) is why, and it is the
+`docs/design/execution-boundary.md` is why, and it is the
 one page to read before making them talk directly.
 
 ---
@@ -71,7 +71,7 @@ knows which directory to open:
 
 `yaml_strict.py` and `diagnostics.py` sit above those five because every one of them uses both.
 
-`tests/test_architecture.py` asserts every path this document names exists — prose that names
+`tests/repo/test_architecture.py` asserts every path this document names exists — prose that names
 a path is prose that goes stale, which is what `CLAUDE.md`'s two stale counts were (A71, A72)
 and what `registry.yml:kinds` was until Plan 1.15.
 
@@ -176,7 +176,7 @@ required if the same compiler is to emit calls for a pegi3s image or an in-house
 `minimum`/`maximum`, `unit`, `cite`, `edam`, and `deprecated`/`replaced_by`.
 
 **There is deliberately no `string` kind.** A free-text measurement is exactly the hole
-`tests/test_egress.py` exists to close: `organism: "patient 4471023's tumour"` is a perfectly
+`tests/guards/test_egress.py` exists to close: `organism: "patient 4471023's tumour"` is a perfectly
 valid string. A categorical declares its values instead, which also lets a rule over it be
 checked for exhaustiveness.
 
@@ -492,9 +492,9 @@ broken by someone who meant well.
 
 | Guard | Asserts | Broken by |
 |---|---|---|
-| `tests/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core` and `mendel-resolver`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
-| `tests/test_egress.py` | four doors, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the seven named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
-| `tests/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
+| `tests/guards/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core` and `mendel-resolver`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
+| `tests/guards/test_egress.py` | four doors, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the seven named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
+| `tests/guards/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
 
 The third exists because validation *moved*. `DataProfile` used to hold four hardcoded fields,
 so `extra="forbid"` alone refused `sample_name`. Measurements are declared data now, so the
@@ -508,7 +508,7 @@ every goal's profile through it. Without that last step a goal file carrying
 **A guard that has not been watched failing has proven one thing, not the general property.**
 Three of three earlier guards had holes, all found that way.
 
-`tests/test_generated_types.py` is a fourth of a different kind: `profile.pyi` is generated
+`tests/repo/test_generated_types.py` is a fourth of a different kind: `profile.pyi` is generated
 from the measurement declarations, and `--check` in CI is what stops it rotting. A stale stub
 costs autocomplete and never correctness — which is exactly why nobody would notice.
 
@@ -534,7 +534,7 @@ with the `IREdge.states` serialiser deleted. Anything new that serialises a set 
 `mendel_resolver/ports.py` declares `AmbiguityResolver` as a `Protocol`; `FlagOnlyResolver` is
 the shipped implementation, which picks the first candidate, flags it, and never guesses
 cleverly. The dependency arrow points `mendel-ai → mendel-resolver`, never the reverse, and
-`tests/test_purity.py` is what holds it.
+`tests/guards/test_purity.py` is what holds it.
 
 **Nothing implements `AmbiguityResolver` over a model yet** (checked 2026-09-02). `mendel-ai`
 exists and is transport — `generate(shape)` over LiteLLM and closed-choice helpers — and the
@@ -554,7 +554,7 @@ reaching for a model.
 ## 10. The forge — where declared data comes from
 
 Everything above reads the registry. **`mendel-forge` is how a registry gets written**, and it
-is the first impure package: it is not scanned by `tests/test_purity.py`, it is listed in
+is the first impure package: it is not scanned by `tests/guards/test_purity.py`, it is listed in
 `IMPURE_PACKAGES`, and `test_no_pure_package_imports_an_impure_one` holds the arrow pointing
 `mendel-forge → the pure packages` and never back.
 
@@ -597,7 +597,7 @@ anything.
 
 **The forge is not an egress door.** Invariant 14's doors track the prompt taint path — prompt,
 goal, build, pipeline, publish — and the forge is offline authoring outside it, reading vendored
-modules and registry files. `DOORS` and `tests/test_egress.py` did not change when Phase 2 wired
+modules and registry files. `DOORS` and `tests/guards/test_egress.py` did not change when Phase 2 wired
 a model in. `notes/specs/2026-08-17-forge-phase-2.md` §1 is the argument.
 
 ### `mendel-ai` — model access
@@ -673,7 +673,7 @@ it.
 ### Landing is the invariant-2 boundary
 
 `land.py` is the only thing in the package that writes under a registry root, and
-`tests/test_forge_write_boundary.py` is a static scan holding that over every other module. It
+`tests/guards/test_forge_write_boundary.py` is a static scan holding that over every other module. It
 creates a branch, writes the files, and commits — refusing the default branch (`MF0100`), a
 dirty tree (`MF0101`) and an incomplete draft (`MF0004`).
 

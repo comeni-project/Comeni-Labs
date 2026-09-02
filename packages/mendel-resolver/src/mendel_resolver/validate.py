@@ -200,9 +200,9 @@ def _preference(edge: DraftEdge, out: OutputPort, inp: InputPort) -> list[Findin
 def _f(*, code: str, level: Level, edge: DraftEdge, message: str) -> Finding:
     """Keyword-only, and the codes at every call site are literals — both deliberate.
 
-    `tests/test_diagnostics_ownership.py` scans source for `coded("MD0001"` or `code="MD0001"`
-    and knows no third shape. A helper taking the code positionally is invisible to it, so a
-    code could be emitted while the guard reported it dead. Found by running the guard.
+    `tests/diagnostics/test_diagnostics_ownership.py` scans source for `coded("MD0001"` or
+    `code="MD0001"` and knows no third shape. A helper taking the code positionally is invisible to
+    it, so a code could be emitted while the guard reported it dead. Found by running the guard.
 
     `<node>.<port>` on each end — the spelling `SourceDecision.chosen` already uses, so a
     finding and a decision name an endpoint the same way."""

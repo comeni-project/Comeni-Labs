@@ -184,7 +184,7 @@ class InputForm(StrEnum):
     """`params.input` is a glob, and one sample-scoped channel reads it.
 
     What every pipeline emitted before this existed, and what the spine still emits — which
-    `tests/test_counts.py` depends on, being the only check that exercises the v1 criterion."""
+    `tests/emit/test_counts.py` depends on, being the only check that exercises the v1 criterion."""
 
     SAMPLESHEET = "samplesheet"
     """`params.input` is a CSV, and each sample-scoped channel is a projection of it.

@@ -6,7 +6,7 @@ a release — something a bioinformatician cannot do and a curator cannot approv
 tier-3 promise is that rules are data a domain expert adds; this is what makes that true.
 
 `kind` is closed and there is deliberately no `string`. A free-text measurement is exactly
-the hole `tests/test_egress.py` exists to close — `organism: "patient 4471023's tumour"` is
+the hole `tests/guards/test_egress.py` exists to close — `organism: "patient 4471023's tumour"` is
 a perfectly valid string. A categorical declares its values instead, which also lets a rule
 over it be checked for exhaustiveness.
 """
@@ -103,7 +103,7 @@ class Measurement(BaseModel):
     Declared rather than derived, even though it is derivable, for the reason `describes` is:
     the registry is data a domain expert writes and a curator approves, and *"we have not
     wired a tool for this yet"* is a statement somebody should have to make. Where the two
-    disagree, `tests/test_measurement_vocabulary.py` refuses the file.
+    disagree, `tests/registry/test_measurement_vocabulary.py` refuses the file.
 
     An asserted measurement is not a lesser one — `strandedness` is asserted in every shipped
     goal and drives featureCounts' `-s` — but it is different **evidence**, which is what
@@ -383,7 +383,7 @@ class MeasurementRegistry(BaseModel):
         """The one validated way to build a `DataProfile`.
 
         Validation needs this registry, which the model cannot hold, so it happens here.
-        `tests/test_construction.py` asserts nothing else constructs a profile — a second
+        `tests/guards/test_construction.py` asserts nothing else constructs a profile — a second
         path skipping validation would produce an unchecked profile flowing straight into
         routing, which is the class of bug that left `subject: aligner` dead for months.
         """

@@ -131,13 +131,13 @@ grep -A2 "process SUBREAD_FEATURECOUNTS" \
   registry/tools/nf-core/subread/featurecounts/module/main.nf
 ```
 
-`tests/test_spine_contracts.py` compares every contract against the module on disk, so a
+`tests/registry/test_spine_contracts.py` compares every contract against the module on disk, so a
 guess fails in milliseconds instead of at pipeline launch.
 
 ## Check it
 
 ```bash
-uv run pytest tests/test_spine_contracts.py -q
+uv run pytest tests/registry/test_spine_contracts.py -q
 uv run mendel build --goal your-goal.yml --out build/ --gate stub
 ```
 

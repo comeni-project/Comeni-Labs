@@ -1,7 +1,7 @@
 """Shared data model for Comeni Labs: contracts, vocabularies, measurements, IR.
 
 This package is **pure**: no web framework, no HTTP client, no model library. That is
-enforced by a closed import allowlist in `tests/test_purity.py`, which covers the standard
+enforced by a closed import allowlist in `tests/guards/test_purity.py`, which covers the standard
 library and the dynamic import forms as well as third-party names. If a change here seems
 to need one of those, the design is wrong rather than the guard.
 

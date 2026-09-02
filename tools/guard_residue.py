@@ -18,7 +18,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
-LEDGER = ROOT / "docs" / "notes" / "audits" / "guard-ledger.md"
+LEDGER = ROOT / "tests" / "fixtures" / "guard-ledger.md"
 
 REFUSAL_MARKERS = ("pytest.raises", "== []", "assert not ", "is None", "DID NOT RAISE")
 """What makes a test a *guard*: it refuses something.

@@ -145,7 +145,7 @@ def egress_problems() -> list[str]:
     """Any page stating how many fields may hold free text states the number the guard holds.
 
     **This one sentence was wrong in two places at once on 2026-09-02**: the concepts page said
-    *seven*, a design document said *exactly two*, and `tests/test_egress.py` held fourteen.
+    *seven*, a design document said *exactly two*, and `tests/guards/test_egress.py` held fourteen.
     Nothing compared them, because the guard is a set of tuples and the pages are prose.
 
     A number repeated in prose is a number that goes stale while everything around it stays
@@ -154,7 +154,7 @@ def egress_problems() -> list[str]:
     """
     import ast
 
-    source = ast.parse((ROOT / "tests" / "test_egress.py").read_text())
+    source = ast.parse((ROOT / "tests" / "guards" / "test_egress.py").read_text())
     real = None
     for node in source.body:
         if not isinstance(node, ast.Assign):
@@ -173,7 +173,7 @@ def egress_problems() -> list[str]:
                 continue
             found.append(
                 f"{page.relative_to(ROOT)}: says {word} fields may hold free text; "
-                f"`tests/test_egress.py` holds {real}"
+                f"`tests/guards/test_egress.py` holds {real}"
             )
     return found
 

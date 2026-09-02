@@ -55,7 +55,7 @@ __all__ = [
 """`_comparison` and `_computed_over` are imported above and deliberately absent here.
 
 They are private and two test files reach them directly — `test_rules.py` for the comparison
-predicate and `test_audit_regressions.py` for A118's computed-`then` check. Importing them keeps
-those tests working without inventing a public name for something that is not public, and
+predicate and `tests/regressions/test_rules.py` for A118's computed-`then` check. Importing them
+keeps those tests working without inventing a public name for something that is not public, and
 leaving them out of `__all__` is what says so.
 """

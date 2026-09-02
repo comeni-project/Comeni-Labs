@@ -11,7 +11,7 @@ a serialiser that sorts, because `frozenset` iterates in hash order::
 `cli.main` is the only thing here that touches disk; everything else takes objects and
 returns strings, which is what makes the golden-file tests possible.
 
-This package is **pure** in the sense of `tests/test_purity.py`, under a banlist rather
+This package is **pure** in the sense of `tests/guards/test_purity.py`, under a banlist rather
 than an allowlist: it has to run Nextflow, so it needs `subprocess`, and `subprocess` can
 shell out to `curl`. An honest banlist beats an allowlist with a hole in it.
 """

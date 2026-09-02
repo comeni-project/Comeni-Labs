@@ -70,6 +70,7 @@ def test_every_node_is_tier_four_and_says_a_person_chose_it(stack):
     """**The honesty mechanism, applied to the builder.** Nothing about a drawn graph was
     resolved, so nothing may claim a lower tier. Tier 4 is always flagged (invariant 6)."""
     ir = ir_of(_spine(), stack)
+    assert ir.nodes, "an empty IR claims no tier at all — that is not the same as tier 4"
     for node in ir.nodes:
         assert node.selection.tier is Tier.AMBIGUOUS
         assert node.selection.source is ValueSource.HUMAN

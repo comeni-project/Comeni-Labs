@@ -12,8 +12,8 @@ resolves differently as it changes.
 Two rules govern what is in here, and they are converse:
 
 - **Totality.** Every field of every type this replaces has a home, checked mechanically by
-  `tests/test_pipeline_totality.py`. Three drafts of this schema dropped five fields between
-  them, including the one the `sealed` profile depends on.
+  `tests/artifact/test_pipeline_totality.py`. Three drafts of this schema dropped five fields
+  between them, including the one the `sealed` profile depends on.
 - **Productivity.** A field is embedded only if `emit` reads it, or it is provenance no later
   registry lookup recovers. Self-containment widens the publication door, and that widening was
   accepted on condition that nothing rides along.
@@ -75,8 +75,8 @@ true, and it answers the wrong direction: forward compatibility was fine, while 
 `MD0213` then reported thousands of untouched files as edited by a human.
 
 So the rule is now: **bump whenever the serialised shape changes at all**, because the digest is
-part of the shape. `tests/test_pipeline_file.py::test_a_schema_change_bumps_the_version` holds
-the current dump's fingerprint and fails when a field is added without one, so the next person
+part of the shape. `tests/artifact/test_pipeline_file.py::test_a_schema_change_bumps_the_version`
+holds the current dump's fingerprint and fails when a field is added without one, so the next person
 is told rather than trusted to remember.
 
 2 is this bump — it covers `CallArg.join`, shipped in 1.13 without one, and everything Plan 1.14
@@ -651,7 +651,7 @@ class AiPoint(StrEnum):
     """The three declared runtime AI points. Invariant 3 says there are exactly these.
 
     Adding a fourth is not a schema change to wave through — it is a change to invariant 3,
-    and `tests/test_ai_provenance.py` asserts this list so somebody has to say so out loud.
+    and `tests/artifact/test_ai_provenance.py` asserts this list so somebody has to say so out loud.
     """
 
     PROMPT = "prompt"
@@ -1182,7 +1182,7 @@ class Pipeline(EgressPayload):
         """The **only** validating constructor. The body lives in `materialise.of`.
 
         Kept here rather than exposed as a bare function because
-        `tests/test_construction.py` asserts nothing else builds a `Pipeline`, and that guard
+        `tests/guards/test_construction.py` asserts nothing else builds a `Pipeline`, and that guard
         names this spelling. The argument for why `goal` is keyword-only and required moved
         with the body.
         """

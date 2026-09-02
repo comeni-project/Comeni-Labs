@@ -68,7 +68,7 @@ class ResolvedValue(BaseModel):
     source: ValueSource = ValueSource.RESOLVER
     reason: Line
     """Why this value was chosen. Prose, and declared as such — it reaches an egress
-    payload through `RepairRequest.ir`, so `tests/test_egress.py` names it explicitly
+    payload through `RepairRequest.ir`, so `tests/guards/test_egress.py` names it explicitly
     rather than letting it ride along unexamined."""
 
     premise: list[PremiseRecord] = Field(default_factory=list)
@@ -125,7 +125,7 @@ class ResolvedValue(BaseModel):
 class ParamBinding(BaseModel):
     """One resolved parameter. A list rather than a dict on purpose.
 
-    `tests/test_egress.py` forbids mappings in anything reachable from a payload, because
+    `tests/guards/test_egress.py` forbids mappings in anything reachable from a payload, because
     a typed key does not prove a *declared* key — `{"patient_id": ...}` type-checks
     perfectly against `dict[str, ResolvedValue]`. A list of records carries the same
     information and can be inspected field by field.
@@ -222,11 +222,11 @@ class IRChannel(BaseModel):
 
     ═══ A `ResolvedValue`, AND THE EGRESS GUARD IS WHY ═══════════════════════════════════════
 
-    The first version carried a `Scope` and a bare `Line`. `tests/test_egress.py` refused both:
-    a plain `str` on a payload is how a closed vocabulary stops being closed, and the `Line`
-    would have been the **fifteenth** free-text field on invariant 14's surface — a new author
-    at a new moment, which is the argument `ParamDecision.override_reason` had to make to become
-    the tenth.
+    The first version carried a `Scope` and a bare `Line`. `tests/guards/test_egress.py` refused
+    both: a plain `str` on a payload is how a closed vocabulary stops being closed, and the `Line`
+    would have been the **fifteenth** free-text field on invariant 14's surface — a new author at a
+    new moment, which is the argument `ParamDecision.override_reason` had to make to become the
+    tenth.
 
     It does not have to be made. A scope override *is* a resolved value: something settled, at a
     tier, by somebody, for a reason, against an axis. `ResolvedValue` is that shape, and its
@@ -262,7 +262,7 @@ class PipelineIR(BaseModel):
     argument is that a goal describes a shape and nothing else.
 
     **A list of records rather than a `dict[socket, name]`**, which is what it was for one
-    commit. `tests/test_egress.py` refused it in two voices — *`dict` is not a declared
+    commit. `tests/guards/test_egress.py` refused it in two voices — *`dict` is not a declared
     container* and *these fields are mappings; use a list of declared records instead* — and it
     was right twice: a mapping's keys are unvalidated by construction, which is the hole the
     egress boundary spent three audits closing. It also reads better beside `DraftChannel` and

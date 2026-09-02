@@ -1,6 +1,6 @@
 # Runs board
 
-The artboard behind the across-runs boards — Wiener W1 phase 3, [`../../docs/design/wiener.md`](../../docs/design/wiener.md) §9.4.
+The artboard behind the across-runs boards — Wiener W1 phase 3, `../../docs/design/wiener.md` §9.4.
 
 **Published as a canvas**: <https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92>
 

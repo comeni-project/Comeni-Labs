@@ -69,7 +69,7 @@ class TypeDeclaration(BaseModel):
 
     Only read when a pipeline takes two or more sample-scoped channels, which is when
     `params.input` becomes a table — see `Pipeline.input_form`. A single sample-scoped channel
-    still emits its glob, and that is `tests/test_counts.py`'s shape.
+    still emits its glob, and that is `tests/emit/test_counts.py`'s shape.
 
     The **column names** come from the channel, not from here: `reads` becomes `reads_1` and
     `reads_2`, and a pipeline taking two GTFs gets `gtf` and `gtf_2`, because a channel's name

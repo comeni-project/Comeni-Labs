@@ -9,7 +9,7 @@ that invented a default would let a test assert against a fixture for a differen
 which is the failure this exists to prevent.
 
 `RecordingTransport` is the tool a developer runs by hand to capture a fixture. **No test uses
-it** — `tests/test_no_live_model.py` is what holds that.
+it** — `tests/guards/test_no_live_model.py` is what holds that.
 """
 
 import hashlib
@@ -47,8 +47,8 @@ class RecordedTransport:
 class RecordingTransport:
     """Wraps a real transport and writes what it returns. **Run by hand, never by a test.**
 
-    This is one of the two names `tests/test_no_live_model.py` refuses to find in a test file,
-    because reaching a provider from the suite has to be deliberate and visible.
+    This is one of the two names `tests/guards/test_no_live_model.py` refuses to find in a test
+    file, because reaching a provider from the suite has to be deliberate and visible.
     """
 
     def __init__(self, inner: Transport, path: Path) -> None:

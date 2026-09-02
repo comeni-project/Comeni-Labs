@@ -41,7 +41,7 @@ Use **`:5173`** while developing — that is Vite, and your frontend edits appea
 
 Mendel and Wiener are **separate services that do not know about each other**. When you send a
 pipeline from the builder to Wiener, your browser carries it. See
-[the execution boundary](../design/execution-boundary.md) for why.
+the execution boundary for why.
 
 ## Where to go in the app
 
@@ -86,5 +86,5 @@ already declares.
 
 ## Next
 
-- [Watching a run](watching-a-run.md) — send a pipeline to Wiener and read what happened
-- [Driving Mendel](driving-mendel.md) — the same loop on the command line
+- [Watching a run](running-the-stack.md) — send a pipeline to Wiener and read what happened
+- [Driving Mendel](../tutorial.md) — the same loop on the command line

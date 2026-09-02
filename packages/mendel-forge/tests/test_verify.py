@@ -38,10 +38,18 @@ def test_a_wrong_process_name_is_caught_by_the_existing_conformance_code(complet
     assert "MD0101" in codes
 
 
-def test_every_diagnostic_carries_a_fix(complete_scaffold):
-    for verdict in _verify(complete_scaffold):
-        for diagnostic in verdict.diagnostics:
-            assert diagnostic.fix, f"{diagnostic.code} has no fix; that is half a diagnostic"
+def test_every_diagnostic_carries_a_fix(incomplete_scaffold, orphan_scaffold, widget_scaffold):
+    """**It ran on `complete_scaffold` and therefore on nothing.** A complete scaffold is the one
+    input that produces no diagnostics, so every assertion sat inside an empty loop and the test
+    passed on a ladder where no rung carried a fix at all. Sweep the scaffolds that *fail*, and
+    assert the sweep found something before believing what it says about it."""
+    seen = []
+    for scaffold in (incomplete_scaffold, orphan_scaffold, widget_scaffold):
+        for verdict in _verify(scaffold):
+            for diagnostic in verdict.diagnostics:
+                seen.append(diagnostic.code)
+                assert diagnostic.fix, f"{diagnostic.code} has no fix; that is half a diagnostic"
+    assert seen, "no scaffold here produced a diagnostic — this test is measuring nothing"
 
 
 def test_a_contract_nothing_can_route_to_is_reported_but_does_not_refuse(orphan_scaffold):

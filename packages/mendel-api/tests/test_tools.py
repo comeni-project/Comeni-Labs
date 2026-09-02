@@ -22,10 +22,11 @@ def test_a_landed_tool_carries_its_status_and_its_ports() -> None:
 
 
 def test_an_undrafted_tool_has_no_status() -> None:
-    for row in tools.board().rows:
-        if row.state == "undrafted":
-            assert row.status is None, "nothing was checked, so nothing may claim a status"
-            assert not row.consumes and not row.produces, "nothing declares its ports yet"
+    undrafted = [row for row in tools.board().rows if row.state == "undrafted"]
+    assert undrafted, "no tool is undrafted — the rule below was never exercised"
+    for row in undrafted:
+        assert row.status is None, "nothing was checked, so nothing may claim a status"
+        assert not row.consumes and not row.produces, "nothing declares its ports yet"
 
 
 def test_the_known_total_is_absent_rather_than_wrong() -> None:

@@ -92,7 +92,7 @@ on `integer` and `number` measurements — comparing an enum refuses to load, be
 
 **A measurement that was never measured makes the row fail to match.** Rows are not skipped
 and the build does not stop; the decision simply falls through to the next tier. See
-[measuring-your-data.md](measuring-your-data.md).
+measuring-your-data.md.
 
 ## Validation is the point
 

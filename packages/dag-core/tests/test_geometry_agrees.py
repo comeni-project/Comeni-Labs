@@ -60,6 +60,7 @@ def test_the_canvas_and_the_layout_agree_on_geometry():
     different cause.
     """
     canvas = _declared()
+    assert canvas, "geometry.ts parsed to nothing — the regex, not the geometry, is wrong"
     for py_name, ts_name in SHARED.items():
         want = getattr(layout, py_name)
         assert ts_name in canvas, f"geometry.ts declares no {ts_name} (layout.{py_name} = {want})"

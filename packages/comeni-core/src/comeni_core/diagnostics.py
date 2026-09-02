@@ -147,9 +147,9 @@ def coded(code: str, message: str) -> str:
     and leaves `raise` visible where control flow is decided.
 
     **Checked at call time, which is the error path.** That is weaker than import time and it is
-    deliberately not the whole answer: `tests/test_diagnostics_ownership.py` scans the literals
-    and runs whether or not anything fails. What this buys is that a bad code cannot reach a
-    user — the emission raises here instead, naming the code and the known set.
+    deliberately not the whole answer: `tests/diagnostics/test_diagnostics_ownership.py` scans the
+    literals and runs whether or not anything fails. What this buys is that a bad code cannot reach
+    a user — the emission raises here instead, naming the code and the known set.
     """
     if code not in REGISTRY:
         raise UnknownDiagnosticError(

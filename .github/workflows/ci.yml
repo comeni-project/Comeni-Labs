@@ -46,8 +46,8 @@ jobs:
 
       - name: Tests
         run: uv run pytest -v
-        # Includes tests/test_purity.py, tests/test_egress.py and
-        # tests/test_construction.py — the three guards — plus the determinism
+        # Includes tests/guards/test_purity.py, tests/guards/test_egress.py and
+        # tests/guards/test_construction.py — the three guards — plus the determinism
         # tests, which re-run the build under several PYTHONHASHSEED values.
 
       - name: Generated type stubs are fresh

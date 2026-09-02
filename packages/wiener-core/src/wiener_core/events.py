@@ -1,7 +1,7 @@
 """What Nextflow sends, and the subset Wiener agrees to keep.
 
 **Mendel declares what may leave; Wiener declares what may enter.** `admit()` is the exact
-mirror of `tests/test_egress.py` — an allowlist rather than a blocklist, because a blocklist
+mirror of `tests/guards/test_egress.py` — an allowlist rather than a blocklist, because a blocklist
 can only forbid what somebody named. `docs/design/wiener.md` §4.4.
 
 The fields marked `LAB_STRING` are the ones a real run fills with a laboratory's own words:

@@ -1,7 +1,7 @@
 """Sending what `wiener_core.spans` described. **The impure half of §8.**
 
 `wiener-core` says which spans a run is; this meets the wire format. That split is not tidiness:
-the OpenTelemetry SDK is a network client, and `tests/test_purity.py` refuses it in the pure
+the OpenTelemetry SDK is a network client, and `tests/guards/test_purity.py` refuses it in the pure
 package — which was watched failing on 2026-08-24, so §3.1's *"structurally impossible to put the
 exporter on the wrong side"* is a demonstrated claim rather than a hopeful one.
 

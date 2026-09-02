@@ -49,6 +49,7 @@ def test_a_producer_sits_LEFT_of_its_consumer(spine):
     `x` assertion is the one that can tell the two layouts apart.
     """
     placed = {node.id: node for node in layout.of(spine).nodes}
+    assert layout.of(spine).wires, "a spine with no wires draws no flow to check"
     for wire in layout.of(spine).wires:
         source, target = placed[wire.from_node], placed[wire.to_node]
         assert source.rank < target.rank
@@ -101,6 +102,7 @@ def test_nothing_overlaps(spine):
     rather than merely ugly, and the one `impl-walkbugs` reports from the walk: *every step
     landed on identical coordinates — two nodes, one visible.*"""
     seen = set()
+    assert layout.of(spine).nodes, "an empty layout overlaps nothing and proves nothing"
     for node in layout.of(spine).nodes:
         assert (node.rank, node.y) not in seen, f"{node.id} lands on another node"
         seen.add((node.rank, node.y))
@@ -130,6 +132,7 @@ def test_a_wire_leaves_the_right_edge_and_arrives_at_the_left(spine):
     every wire 6px above its port on the 2026-08-29 walk.
     """
     placed = {node.id: node for node in layout.of(spine).nodes}
+    assert layout.of(spine).wires, "no wire to check an endpoint on"
     for wire in layout.of(spine).wires:
         start, end = wire.points[0], wire.points[-1]
         assert start.x == placed[wire.from_node].x + placed[wire.from_node].width
