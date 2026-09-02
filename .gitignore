@@ -61,3 +61,6 @@ frontend/dist/
 
 # JetBrains IDE files — local to a checkout, never shared
 .idea/
+
+# The wiki's build output. Anchored, like /build/ above and for the same reason.
+/site/

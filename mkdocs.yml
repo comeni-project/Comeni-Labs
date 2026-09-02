@@ -1,0 +1,86 @@
+site_name: Comeni Labs
+site_description: One platform for planning, running and watching bioinformatics analyses.
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+# Provenance and specs are read on GitHub, never in a sidebar. Spec §7.
+#
+# docs/README.md is the pre-wiki documentation front door — docs/index.md is its replacement
+# and the two collide at the same site root (`index.html`), so the old one is excluded here
+# rather than left to lose the collision silently. Anchored, like /build/ in .gitignore and
+# for the same reason: an unanchored `README.md` would also swallow every book's own README
+# (docs/guides/README.md and friends), which stay until Task 3 moves them. Task 3 deletes the
+# root file; until then it is still readable on GitHub, same as notes/ and superpowers/ above.
+exclude_docs: |
+  notes/
+  superpowers/
+  /README.md
+
+# index.md is the site homepage, served at `/` — it stays outside the nav by design, since
+# the top level is exactly the five books (test_the_five_books_are_the_top_level_nav_in_order)
+# and a sixth entry for it would break that. Everything else here moves into a book in Task 3,
+# at which point that part of this block is DELETED. It exists so `--strict` can be on from the
+# first commit rather than switched on later.
+not_in_nav: |
+  index.md
+  tutorial.md
+  concepts/
+  guides/
+  reference/
+
+validation:
+  links:
+    # docs/guides/, docs/reference/ and docs/concepts/ already link to pages that do not exist
+    # yet in this tree (`../tutorial.md`, `concepts/privacy-and-egress.md`) — content drift from
+    # before the wiki existed, in files this task does not touch. Task 3 moves and fixes this
+    # content; until then this keeps --strict meaningful for structure without failing the
+    # build on link rot this task did not introduce.
+    not_found: ignore
+
+theme:
+  name: material
+  font: false          # Geist is loaded by docs/assets/comeni.css, Task 4
+  features:
+    - navigation.tabs      # the five books, across the top. This is why Material and not mdBook
+    - navigation.sections
+    - navigation.indexes   # a book's index.md is its tab's landing page
+    - content.code.copy
+    - toc.follow
+
+extra_css:
+  - assets/comeni.css
+
+extra:
+  # Spec §6.1 — stamp the stage rather than version the books. One string, one place.
+  stage: "Alpha · pre-MVP"
+
+markdown_extensions:
+  - admonition           # the `Not built yet` marker
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - offline               # the built site works from file:// with search. Spec §6
+
+nav:
+  - Start here:
+      - start/index.md
+  - Handbook:
+      - handbook/index.md
+  - Tools:
+      - tools/index.md
+  - Registry:
+      - registry/index.md
+  - Internals:
+      - internals/index.md

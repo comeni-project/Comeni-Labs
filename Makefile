@@ -1,5 +1,5 @@
 .PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs static stub profile forge clean \
-	dev dev-down dev-logs dev-refresh prod prod-down client migrate
+	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-serve
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
 # repository owned by another uid, and root-owned drafts in ./workspace are undeletable.
@@ -78,6 +78,12 @@ links:          ## every relative markdown link in docs/, .github/, .design/ and
 docs:           ## fail if docs/reference/ disagrees with the code
 	uv run python tools/generate_diagnostics_doc.py --check
 	uv run python tools/check_reference.py --check
+
+wiki:           ## build the wiki to site/ — local, no hosting
+	uv run --group docs mkdocs build --strict
+
+wiki-serve:     ## serve the wiki at http://localhost:8000 with live reload
+	uv run --group docs mkdocs serve
 
 static:         ## conformance + lint + preview — everything checkable without Docker
 	uv run mendel build --goal examples/rnaseq-goal.yml --out build/ --gate lint
