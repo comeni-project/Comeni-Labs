@@ -5,7 +5,7 @@
 **Mockup:** [`dashboard.html`](dashboard.html) — open it directly in a browser; self-contained, no build step.
 
 This is the visual and interaction spec for the builder screen described in
-[Plan 3](../../notes/plans/2026-08-02-mendel-api-and-dashboard.md), Tasks 6–8. Where
+[Plan 3](../notes/plans/2026-08-02-mendel-api-and-dashboard.md), Tasks 6–8. Where
 the plan says *what* the components do, this says *what they look like and why*.
 
 ---

@@ -21,7 +21,7 @@ command line, and the worst case for a field a person types an input's name into
 change that makes a label matter — fails
 `test_two_drafts_differing_only_in_labels_emit_the_same_nextflow` with a diff on the
 `ch_gtf` line, and `test_the_artifact_is_byte_identical_too` on `goal.have`. The
-revert is in `notes/audits/guard-ledger.md`.
+revert is in `docs/notes/audits/guard-ledger.md`.
 
 **This file lives at the root rather than in `mendel-resolver/tests`** because it spans three
 packages: `comeni-core` declares the field, `mendel-resolver` is what must not read it, and

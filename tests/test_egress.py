@@ -817,7 +817,7 @@ def test_every_mark_carries_a_validator_or_is_listed_as_a_label():
 def test_the_door_carries_what_the_forge_measured_a_model_needs():
     """Not a shape check — a content one.
 
-    The forge's prompt search (`notes/journal/2026-08-17-prompt-search.md`) measured a local
+    The forge's prompt search (`docs/notes/journal/2026-08-17-prompt-search.md`) measured a local
     model going from 69% to 88% on three fixes, and two of them were **the question did not
     say what it was about** and **the evidence was not readable**. Door 2 projects a tier-4
     question to a model. A door that carries candidates and nothing else rebuilds the 69%

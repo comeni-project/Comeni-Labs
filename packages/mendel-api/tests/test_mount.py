@@ -13,7 +13,7 @@ and `workspace_root`, and whose `/drafts/land` ran `git commit` in whatever path
 
 The module was **deleted** rather than left unmounted — zero production consumers, an optional
 `fastapi` extra nothing installed, and a guide section telling operators to mount it. The
-argument, and what was lost with it, is `notes/specs/2026-08-19-sources-and-drafting.md` §3.2.
+argument, and what was lost with it, is `docs/notes/specs/2026-08-19-sources-and-drafting.md` §3.2.
 """
 
 from fastapi.routing import APIRoute

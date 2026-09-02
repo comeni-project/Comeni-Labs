@@ -14,6 +14,24 @@ Issue #41.
 
 import pathlib
 import re
+import sys
+
+# **The record is not documentation, and since 2026-09-02 it lives inside the documentation
+# tree.** `notes/` moved to `docs/notes/` by the operator's decision, and every guard that walks
+# `docs/` inherited it: this file's two scans both went red immediately, on entries that are
+# *correct* — the guard ledger's own row about the `docs/internal` move names `docs/internal`,
+# for ever, and a plan describing a clone quotes the command it described.
+#
+# While the notes had their own top-level directory that separation was structural. It is now an
+# exception, which is a weaker guarantee in a specific direction: a scan can no longer
+# accidentally include the record, but a *new* documentation directory nested under this prefix
+# would be silently skipped. `test_notes_are_the_only_docs_exclusion` is what holds that.
+RECORD = pathlib.Path("docs") / "notes"
+
+
+def _is_record(relative: pathlib.Path) -> bool:
+    return RECORD in relative.parents
+
 
 ROOT = pathlib.Path(__file__).parent.parent
 SOURCE = ROOT / "packages"
@@ -106,7 +124,7 @@ def test_no_document_or_tool_still_says_docs_internal():
         # `.worktrees/comeni-registry` and printed "skipped": a check written against the
         # repository root does nothing in the one place `CLAUDE.md` requires the work to
         # happen. Naming the roots removes the question rather than answering it carefully.
-        if str(relative) in exempt:
+        if str(relative) in exempt or _is_record(relative):
             continue
         text = path.read_text()
         if "docs/internal" in text or '"docs" / "internal"' in text:
@@ -132,6 +150,8 @@ def test_every_documented_clone_command_gets_the_submodule():
     root = pathlib.Path(__file__).parent.parent
     offenders = []
     for path in sorted(root.glob("*.md")) + sorted((root / "docs").rglob("*.md")):
+        if _is_record(path.relative_to(root)):
+            continue
         for number, line in enumerate(path.read_text().splitlines(), start=1):
             stripped = line.strip()
             if not stripped.startswith("git clone"):
@@ -144,3 +164,40 @@ def test_every_documented_clone_command_gets_the_submodule():
         "these clone Comeni-Labs without --recurse-submodules, so registry/ would be empty:\n    "
         + "\n    ".join(offenders)
     )
+
+
+def test_notes_are_the_only_docs_exclusion():
+    """`docs/notes/` is skipped by the link checker, and **nothing else under `docs/` is.**
+
+    This exists because of the direction the 2026-09-02 move weakened. While the working notes
+    were a top-level `notes/`, `check_links._markdown()` enumerated `docs/` and could not reach
+    them — the separation was a property of the tree. Now the notes are inside `docs/` and are
+    skipped by a path prefix, so the failure mode inverted: the old shape could not accidentally
+    check the record, and this one can accidentally stop checking real documentation, silently,
+    the moment anything is nested under that prefix or the prefix is widened.
+
+    A prefix exclusion is a blocklist, and this repository has learned twice what a blocklist
+    costs — `test_every_payload_field_is_a_declared_shape` became an allowlist because a
+    blocklist can only forbid what somebody named. So this asserts the complement: every
+    markdown file under `docs/` that is not in the record **is** checked.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    sys.path.insert(0, str(root / "tools"))
+    import check_links
+
+    scanned = set(check_links._markdown())
+    everything = set((root / "docs").rglob("*.md"))
+    record = {p for p in everything if _is_record(p.relative_to(root))}
+
+    missed = sorted(str(p.relative_to(root)) for p in (everything - record) - scanned)
+    assert missed == [], (
+        "these documentation files are not link-checked, and only `docs/notes/` should be "
+        "exempt:\n  " + "\n  ".join(missed)
+    )
+    leaked = sorted(str(p.relative_to(root)) for p in record & scanned)
+    assert leaked == [], (
+        "the record is being link-checked, which makes `make check` red for the duration of "
+        "every plan:\n  " + "\n  ".join(leaked)
+    )
+    # A scan that reaches nothing proves nothing — the same assertion the guard above makes.
+    assert len(everything - record) > 20, "the documentation scan is not scanning"

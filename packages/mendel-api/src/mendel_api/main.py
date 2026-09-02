@@ -13,7 +13,7 @@ holds both halves — no mounts, and no request body carrying a path.
 **This used to say the forge's app was "mounted, never re-exposed route by route".** That
 stopped being true in phase 2 and stayed untrue for four phases, for the reason above. The
 mount and `mendel_forge.http` were both removed in phase 6 —
-`notes/specs/2026-08-19-sources-and-drafting.md` §3.2 is the argument and what was lost.
+`docs/notes/specs/2026-08-19-sources-and-drafting.md` §3.2 is the argument and what was lost.
 """
 
 from fastapi import FastAPI

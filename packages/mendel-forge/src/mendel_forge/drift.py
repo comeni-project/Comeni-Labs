@@ -8,7 +8,7 @@ obligations, and one of them must be able to refuse a build — so what is decla
 is the coverage, in one place, with a totality test on each half.
 
 **The verdict is a fold over this table and never a case analysis.**
-`notes/specs/2026-08-18-plan-3.md` §4.7 asked for exactly that, for a stated reason: a verdict
+`docs/notes/specs/2026-08-18-plan-3.md` §4.7 asked for exactly that, for a stated reason: a verdict
 written per case is wrong the first time a field is added, and wrong silently.
 """
 

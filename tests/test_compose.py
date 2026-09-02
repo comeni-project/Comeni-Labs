@@ -95,7 +95,7 @@ def test_the_public_api_is_reached_through_nginx_and_not_a_second_port(base):
 
 def test_nginx_routes_both_halves_of_the_api():
     """The config is what makes the previous test true, so it is read rather than assumed."""
-    conf = (ROOT / "nginx" / "default.conf").read_text()
+    conf = (ROOT / "ops" / "nginx" / "default.conf").read_text()
     assert "location /api/runs" in conf and "wiener-api:8001" in conf
     assert "location /api/artifacts" in conf
     assert "location /api/" in conf and "api:8000" in conf

@@ -22,9 +22,9 @@ reason sees a blank and asks; a model sees a blank and fills it.
 
 ## Current state
 
-> **Start with the latest entry in [`notes/journal/`](notes/journal/)** — and **2026-09-01 has
+> **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — and **2026-09-01 has
 > THREE entries that a filename sort does not order.** The one to read is
-> [`2026-09-01-the-run-page-and-the-first-verb.md`](notes/journal/2026-09-01-the-run-page-and-the-first-verb.md),
+> [`2026-09-01-the-run-page-and-the-first-verb.md`](docs/notes/journal/2026-09-01-the-run-page-and-the-first-verb.md),
 > covering **Plan 6 — the run page rebuilt against its artboard, and Wiener's first verb.**
 > `/runs/{id}` is bands rather than four tabs; band 1 is four panels; the timeline exists and
 > `page-5`'s claim that it was *blocked* is retired — the attempt windows have been in
@@ -48,13 +48,13 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > than fixed; it cost two rounds of 404s that were green in tests.
 >
 > Before it that day,
-> [`2026-09-01-the-fan-out-and-the-sheet.md`](notes/journal/2026-09-01-the-fan-out-and-the-sheet.md),
+> [`2026-09-01-the-fan-out-and-the-sheet.md`](docs/notes/journal/2026-09-01-the-fan-out-and-the-sheet.md),
 > covering **Plan 5B phases 4 and 5, which complete that plan.** A `RUN`-scoped channel emits as
 > a **value** channel, so a reference is read once per task rather than consumed once per run —
 > the fan-out defect **is fixed, and was reproduced first**. An aggregator gets `.collect()`.
 > `InputForm` says whether `params.input` is a glob or a CSV, and a samplesheet pipeline **runs
 > end to end under `--gate test`**. Before that,
-> [`2026-09-01-a-channel-gets-a-name.md`](notes/journal/2026-09-01-a-channel-gets-a-name.md) —
+> [`2026-09-01-a-channel-gets-a-name.md`](docs/notes/journal/2026-09-01-a-channel-gets-a-name.md) —
 > phases 1 to 3, where `entry_channel` stopped fusing the param name, the cardinality and the
 > fan-out into the *type*. `SCHEMA_VERSION` is 6 and `REGISTRY_FORMAT` is 2.
 >
@@ -63,23 +63,23 @@ reason sees a blank and asks; a model sees a blank and fills it.
 > so the samplesheet is reachable through the API and not through a browser. **Nobody has looked
 > at the builder since Plan 5B phase 1**; the split/merge control has never been clicked.
 >
-> Before it, [`2026-08-31-the-modules-move-in.md`](notes/journal/2026-08-31-the-modules-move-in.md),
+> Before it, [`2026-08-31-the-modules-move-in.md`](docs/notes/journal/2026-08-31-the-modules-move-in.md),
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
 > `--registry X` is the whole input to a build, and three checks exist that could not before.
 > Read it before touching the registry, conformance, or anything that used to join a path onto
 > a module root. **The forge is deprecated** — `make forge-rework` is the list.
 >
-> Before it, [`2026-08-30-the-overview.md`](notes/journal/2026-08-30-the-overview.md), covering Plan 4
+> Before it, [`2026-08-30-the-overview.md`](docs/notes/journal/2026-08-30-the-overview.md), covering Plan 4
 > phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
 > to 5 shipped with every suite green; opening the pages found that the fonts were never loaded,
 > the arc field every artboard sits on was never built, and the builder's canvas flowed the wrong
 > way. **The guards here are good at behaviour and blind to appearance** — plan for that.
 > **2026-08-29 has two entries and a filename sort does not order them**: read
-> [`2026-08-29-walking-the-loop.md`](notes/journal/2026-08-29-walking-the-loop.md) first — the
+> [`2026-08-29-walking-the-loop.md`](docs/notes/journal/2026-08-29-walking-the-loop.md) first — the
 > loop walked by hand end to end, and the fourteen defects it found — then the redesign entry,
 > which answers them and carries the canvas the rework builds from. Earlier days do the same
 > thing: 2026-08-24 has three entries and 2026-08-18 has nine, and each day's entry point is
-> named in [`notes/journal/README.md`](notes/journal/README.md).
+> named in [`notes/journal/README.md`](docs/notes/journal/README.md).
 >
 > **This pointer went three entries stale before anybody noticed** (fixed 2026-08-29), which is
 > the same failure mode as the counts below. Update it in the commit that adds the entry.
@@ -99,7 +99,7 @@ branch `plan-3-slice-1`, **merged into `main` on 2026-08-19**. `make dev` brings
 Redis, the API, the ARQ worker and nginx serving the built SPA, with Vite on the host for HMR. **Phase 7 was
 responsiveness and it did not exist until an audit created it** — every registry-touching screen
 cost ~250ms warm and one function was responsible
-([`notes/audits/2026-08-19-performance-audit.md`](notes/audits/2026-08-19-performance-audit.md),
+([`notes/audits/2026-08-19-performance-audit.md`](docs/notes/audits/2026-08-19-performance-audit.md),
 A132–A145). It is now **5–10ms**, `mendel build` is 0.38s where it was 1.47s, and the fast test
 suite is 41s where it was 207s — with the emitted pipeline byte-identical.
 
@@ -174,7 +174,7 @@ record did not survive being read back, because it is written by field name and 
 alias; the fold was a no-op because `prior` was read after the row was inserted, so every ingest
 replayed the whole run; a run arrived as two traces because the SDK invents a trace id for a
 parentless span; and `* task.attempt` was decoration until an `errorStrategy` made a retry
-possible. [`notes/journal/2026-08-24-wiener-w1.md`](notes/journal/2026-08-24-wiener-w1.md) is
+possible. [`notes/journal/2026-08-24-wiener-w1.md`](docs/notes/journal/2026-08-24-wiener-w1.md) is
 the handoff.
 
 **Mendel gained two things from Wiener needing them.** The emitted pipeline now says what it
@@ -309,7 +309,7 @@ than commented out, so it typechecks and prints in every run, because commented 
 invisibly and is what nobody greps for. Add a marker rather than repointing a forge fixture: a
 fixture updated against a layout that will change again is a fixture updated twice.
 The ordered list of every plan, with its status and the argument for its position, is
-[`notes/README.md`](notes/README.md) — that file is the index, and repeating it here is how this
+[`notes/README.md`](docs/notes/README.md) — that file is the index, and repeating it here is how this
 section got to 156 lines.
 
 **The product claim is two claims, and they are not in the same state.** That split is the most
@@ -355,7 +355,7 @@ mode. `mendel-ai` exists (transport only) and **`mendel-api` and `frontend/` exi
 and its first question is the fifth egress door** — a model call sends tool documentation to a
 provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
 `notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and
-[`notes/journal/2026-08-17-the-forge.md`](notes/journal/2026-08-17-the-forge.md) **§Phase 2** is
+[`notes/journal/2026-08-17-the-forge.md`](docs/notes/journal/2026-08-17-the-forge.md) **§Phase 2** is
 the handoff — what is already built, three things that look like blockers and are not, and the
 decisions Phase 1 deliberately left open.
 
@@ -363,7 +363,7 @@ decisions Phase 1 deliberately left open.
 
 **A14 is critical and stays open.** A guard never watched failing may be **inert rather than
 merely weak**, and it closes only when every guard in `tests/` has a recorded revert.
-[`notes/audits/guard-ledger.md`](notes/audits/guard-ledger.md) is that record — append-only, one
+[`notes/audits/guard-ledger.md`](docs/notes/audits/guard-ledger.md) is that record — append-only, one
 row per revert, with the message it printed.
 
 **Residue is measured per *guard*, not per file** — that is A69, and the distinction matters
@@ -387,7 +387,7 @@ the same drift A71 and A72 are about, in prose that had no counter behind it.
 
 **By the operator's decision on 2026-08-13, Plan 1.12 was the last audit-driven plan** — which
 overrides the fix-then-re-audit loop's own exit criterion of *no critical finding surviving a
-fresh audit*. [`notes/README.md`](notes/README.md) records that decision and the argument against
+fresh audit*. [`notes/README.md`](docs/notes/README.md) records that decision and the argument against
 it, as it does for every ordering here.
 
 ### What to read
@@ -402,17 +402,17 @@ written against the types that exist.
 | [`docs/README.md`](docs/README.md) | the documentation front door — three doors, by what you are doing |
 | [`docs/guides/driving-mendel.md`](docs/guides/driving-mendel.md) | the loop: goal → build → read → edit → emit → answer → upgrade |
 | [`docs/reference/pipeline-schema.md`](docs/reference/pipeline-schema.md) | `pipeline.yml`, field by field |
-| [`notes/journal/`](notes/journal/) | **what happened, what is next, what was decided.** Newest first |
-| [`notes/README.md`](notes/README.md) | every plan in execution order, and the argument for that order |
-| [`notes/audits/README.md`](notes/audits/README.md) | the rounds, the design audit, and the guard ledger |
-| [`notes/specs/README.md`](notes/specs/README.md) | the specs — read the one behind a part before starting it |
+| [`notes/journal/`](docs/notes/journal/) | **what happened, what is next, what was decided.** Newest first |
+| [`notes/README.md`](docs/notes/README.md) | every plan in execution order, and the argument for that order |
+| [`notes/audits/README.md`](docs/notes/audits/README.md) | the rounds, the design audit, and the guard ledger |
+| [`notes/specs/README.md`](docs/notes/specs/README.md) | the specs — read the one behind a part before starting it |
 | [`docs/design/mendel.md`](docs/design/mendel.md) | the original rationale. `ARCHITECTURE.md` is what the code *does* |
 | [`docs/design/federation.md`](docs/design/federation.md) | provider access, registry stacking, publication, licensing |
 | [`docs/design/clinical-data-protection.md`](docs/design/clinical-data-protection.md) | clinical use, the egress boundary, the protection profiles |
 | [`docs/design/conformance.md`](docs/design/conformance.md) | whether "if it compiles, it runs" is reachable |
 | [`docs/design/declared-data.md`](docs/design/declared-data.md) | why declared data is files and not a database, and where an index would be legitimate |
 | [`docs/design/rule-tables-and-port-logic.md`](docs/design/rule-tables-and-port-logic.md) | the **superseded** rule format. Plan 1.15 replaced it |
-| [`notes/specs/2026-08-13-the-rule-drafter.md`](notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
+| [`notes/specs/2026-08-13-the-rule-drafter.md`](docs/notes/specs/2026-08-13-the-rule-drafter.md) | **where tier-3 rules come from.** Unscheduled on purpose; read before building any part of the forge |
 
 ## How to start implementing — decided 2026-08-02, read this first
 
@@ -761,7 +761,11 @@ registry/      A GIT SUBMODULE of comeni-project/comeni-registry — THE LAYER.
                the contract that is a binding for it. There is no `vendor/`.
 examples/      rnaseq-goal.yml — an example goal, and nothing else
 docs/          guides/ reference/ concepts/ design/ — written for a stranger
-notes/         plans/ audits/ specs/ journal/ — provenance, not documentation
+  notes/         plans/ audits/ specs/ journal/ — provenance, NOT documentation, and the
+                 one directory under docs/ that `make links` does not check
+.design/       every design canvas — artboards, generators, canvas.json. Seeds are gitignored
+ops/           deployment config a container reads: nginx/ otel/ grafana/ boards/
+tools/         dev and CI scripts the Makefile runs. Nothing in packages/ imports them
 frontend/      React 19 + TS + Vite + Tailwind 4. src/api/ is GENERATED from openapi.json
 ```
 
@@ -896,7 +900,7 @@ Bare `comeni` is unavailable everywhere that matters — the GitHub user, and `c
 positioning is already IVDR- and GDPR-shaped. **No domain has been bought yet.**
 
 **Because it is public now**, two things follow. Write for a stranger: `docs/` is split by
-audience — `guides/`, `reference/`, `concepts/`, `design/` — and `notes/` holds the
+audience — `guides/`, `reference/`, `concepts/`, `design/` — and `docs/notes/` holds the
 plans and audits, labelled as working notes rather than documentation. And **auto-phylo is
 not discussed**: it was removed from the prior-art section on 2026-08-04 by the operator's
 decision. `pegi3s` appears only as what is useful about it — a repository of ~190

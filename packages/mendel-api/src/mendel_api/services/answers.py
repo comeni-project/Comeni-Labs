@@ -123,7 +123,7 @@ def propose_one(
     """Record that nothing declared fits — invariant 7's escape hatch.
 
     A closed choice with no way to decline forces a wrong answer, which is the defect
-    `notes/specs/2026-08-17-vocabulary-proposals.md` was written about.
+    `docs/notes/specs/2026-08-17-vocabulary-proposals.md` was written about.
     """
     if not why.strip():
         raise ValueError("a proposal needs a reason: a reviewer has only this to judge by")

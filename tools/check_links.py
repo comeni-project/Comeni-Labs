@@ -20,11 +20,20 @@ GitHub renders and a stranger reads, so its links have exactly the audience the 
 says `docs/` has, and leaving them unchecked would have traded a tidier root for a page of dead
 links nobody would notice.
 
-`notes/` is not checked, only `docs/`, `.github/` and the root. A plan naming a file its own
-tasks create is *correct* at the moment it executes and broken until then, so checking it makes
-`make check` red for the duration of every plan. The cost of a broken link also differs by
-audience: in `docs/` a reader hits a 404, and in `notes/` a future reader meets a dated document
-that already says it describes work not yet done.
+`docs/notes/` is **excluded**, and it is the one exclusion here. The working notes moved under
+`docs/` on 2026-09-02, and the reason they were never checked did not move with them: a plan
+naming a file its own tasks create is *correct* at the moment it executes and broken until then,
+so checking them makes `make check` red for the duration of every plan. The cost of a broken
+link also differs by audience — in `docs/` a reader hits a 404; in the notes a future reader
+meets a dated document that already says it describes work not yet done.
+
+**The exclusion is a path prefix, and that is a weaker guarantee than it was.** While the notes
+sat in their own top-level directory the separation was structural: `_markdown()` enumerated
+`docs/` and never reached them. Now a new directory under `docs/` is checked by default and the
+notes are checked by exception, so the failure mode inverts — the old shape could not
+accidentally check the notes, and this one can accidentally stop checking a real documentation
+directory whose name someone nests under `docs/notes/`. `test_notes_are_the_only_docs_exclusion`
+holds the exclusion to exactly one prefix.
 
 Anchors (`#section`) are not checked — that needs a markdown parser, and the failure mode is a
 reader scrolling rather than a reader hitting a 404.
@@ -48,9 +57,12 @@ def _prose(text: str) -> str:
     return "\n".join(kept)
 
 
+EXCLUDED = ROOT / "docs" / "notes"
+
+
 def _markdown() -> list[pathlib.Path]:
     return (
-        sorted((ROOT / "docs").rglob("*.md"))
+        [p for p in sorted((ROOT / "docs").rglob("*.md")) if EXCLUDED not in p.parents]
         + sorted((ROOT / ".github").rglob("*.md"))
         + sorted((ROOT / ".design").rglob("*.md"))
         + sorted(ROOT.glob("*.md"))

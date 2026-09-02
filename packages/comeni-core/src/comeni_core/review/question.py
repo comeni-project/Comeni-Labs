@@ -11,7 +11,7 @@ door-2 payload. A free-text field here widens door 2 without anybody editing
 `tests/test_egress.py`, which is the file that says *these are all the ways data leaves*.
 Free text belongs on the subclasses, where the field count already tracks it.
 
-See `notes/specs/2026-08-18-the-shared-question.md`.
+See `docs/notes/specs/2026-08-18-the-shared-question.md`.
 """
 
 from typing import Any

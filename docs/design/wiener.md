@@ -554,7 +554,7 @@ span**, because §5.1 keeps attempts as history and a retry that succeeded after
 look like three spans, not one. The mapping is a pure function over `RunState`.
 
 **The attribute names are OpenTelemetry's CI/CD conventions, not Wiener's** — researched
-2026-08-24, [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md),
+2026-08-24, [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../notes/specs/2026-08-24-telemetry-for-a-run.md),
 which closes §17's last open question. A run is `cicd.pipeline.run.id` on a `SERVER` span, an
 attempt is a `cicd.pipeline.task.run.*` child of kind `INTERNAL`, the exit code is
 `process.exit.code`, and the five `cicd.pipeline.run.*` metrics are reused verbatim — including
@@ -1191,7 +1191,7 @@ and it is the narrowest possible shape.
 
 This is slice **W6** and it is last on purpose: it needs many runs to have happened, and it inherits
 the open design risk of
-[`../../notes/specs/2026-08-13-the-rule-drafter.md`](../../notes/specs/2026-08-13-the-rule-drafter.md).
+[`../../notes/specs/2026-08-13-the-rule-drafter.md`](../notes/specs/2026-08-13-the-rule-drafter.md).
 
 ---
 
@@ -1266,7 +1266,7 @@ as one nobody asked.
 **Still genuinely open, and it is one:**
 
 - ~~**The OTLP semantic conventions.**~~ **Closed 2026-08-24** —
-  [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../../notes/specs/2026-08-24-telemetry-for-a-run.md).
+  [`notes/specs/2026-08-24-telemetry-for-a-run.md`](../notes/specs/2026-08-24-telemetry-for-a-run.md).
   The premise was half wrong in a useful way: **there is no batch or job convention**, and
   `opentelemetry-specification#1347` has been open since January 2021 with no maintainer
   conclusion, so waiting for one is waiting for nothing. What does exist is the **CI/CD** group

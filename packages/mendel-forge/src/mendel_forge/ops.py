@@ -203,7 +203,8 @@ class ModelFillOutcome(BaseModel):
     why: str | None = None
     proposed_id: str | None = None
     """Set when the model answered *nothing declared fits, and here is what would*. The hole
-    stays open — a proposal is not a fill. See `notes/specs/2026-08-17-vocabulary-proposals.md`."""
+    stays open — a proposal is not a fill.
+    See `docs/notes/specs/2026-08-17-vocabulary-proposals.md`."""
     proposed_description: str | None = None
     declined_because: str | None = None
     """Why a hole was not filled. **Never `None` when `filled` is false** — a hole nobody

@@ -4,7 +4,7 @@ Two directions of one mapping, kept in one file because they must agree: a field
 module fills must be a field the other reads, and splitting them is how the two halves of
 a serialiser drift apart.
 
-**The mapping is `notes/audits/2026-08-16-forge-derivability.md`, implemented literally.**
+**The mapping is `docs/notes/audits/2026-08-16-forge-derivability.md`, implemented literally.**
 That table was measured against every vendored module rather than reasoned about. Where
 this file and the table disagree, the table is right.
 """
@@ -56,7 +56,7 @@ question in opposite directions — *what should this field be* and *does this f
 match*. Two copies of this tuple would drift, and the drift would be invisible: `check`
 would simply stop noticing a field.
 
-Every entry is a `derived` row in `notes/audits/2026-08-16-forge-derivability.md`. Adding
+Every entry is a `derived` row in `docs/notes/audits/2026-08-16-forge-derivability.md`. Adding
 one here without measuring it there is how an estimate gets back in.
 """
 
@@ -163,7 +163,7 @@ def scaffold_for(obs: Observation, stack: Layers, *, ident: str, version: str) -
     #
     # The *name* is a hole with the module's channel names as candidates, because a contract
     # port name is chosen rather than read — four of twelve shipped contracts rename, and
-    # `notes/audits/2026-08-16-forge-derivability.md` measures it.
+    # `docs/notes/audits/2026-08-16-forge-derivability.md` measures it.
     for index, slot in enumerate(obs.fact("input_names") or []):
         offered = [name for name in slot if not name.startswith("meta")]
         holes.append(

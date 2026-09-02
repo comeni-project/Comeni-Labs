@@ -2,7 +2,7 @@
 
 `Scaffold.propose` already existed for the model path (`fill_with_model` sets `proposed_id`).
 This is the human's door to the same act — invariant 7's escape hatch, and
-`notes/specs/2026-08-17-vocabulary-proposals.md` is why it exists at all.
+`docs/notes/specs/2026-08-17-vocabulary-proposals.md` is why it exists at all.
 """
 
 from pathlib import Path

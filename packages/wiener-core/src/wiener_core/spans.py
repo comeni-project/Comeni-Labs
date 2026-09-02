@@ -1,6 +1,6 @@
 """A run, as OpenTelemetry sees it. Pure — the SDK is a network client and lives next door.
 
-`notes/specs/2026-08-24-telemetry-for-a-run.md` is where every name below comes from, and the
+`docs/notes/specs/2026-08-24-telemetry-for-a-run.md` is where every name below comes from, and the
 short version is that **there is no batch-job convention** — the issue asking for one has been
 open since 2021 — while the **CI/CD** conventions fit almost exactly: a pipeline that runs named
 tasks which succeed or fail is the same shape as a Nextflow run.

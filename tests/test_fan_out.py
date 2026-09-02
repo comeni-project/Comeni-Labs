@@ -15,7 +15,7 @@ a value channel from a queue of one.
 
 **A determinism test over the spine passes either way**, which is why this is a run and not an
 assertion about emitted text: that shape — a guard green on the code it was written to reject —
-is one this repository has already paid for twice (`notes/audits/guard-ledger.md`).
+is one this repository has already paid for twice (`docs/notes/audits/guard-ledger.md`).
 """
 
 import pathlib

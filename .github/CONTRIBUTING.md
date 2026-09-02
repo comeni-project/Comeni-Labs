@@ -70,7 +70,7 @@ than the guard. Say so in the PR and we will work out the seam together.
 ## How we work
 
 **Test first.** Write the failing test, watch it fail, then make it pass. Every task in
-every plan in `notes/plans/` is shaped that way, and the tests are the
+every plan in `docs/notes/plans/` is shaped that way, and the tests are the
 specification.
 
 **Watch your guard fail.** If you add a test that asserts something *cannot* happen, break

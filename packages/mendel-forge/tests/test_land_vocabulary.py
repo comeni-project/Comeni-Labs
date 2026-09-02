@@ -1,6 +1,6 @@
 """Landing a draft whose approved proposals must travel with it.
 
-**One review, not two** — `notes/specs/2026-08-17-vocabulary-proposals.md` §4.2. A reviewer
+**One review, not two** — `docs/notes/specs/2026-08-17-vocabulary-proposals.md` §4.2. A reviewer
 opening the branch sees the new type and its first consumer side by side, because a type
 proposed with no consumer is a type nobody can judge.
 """

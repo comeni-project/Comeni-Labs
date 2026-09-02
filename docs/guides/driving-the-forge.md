@@ -75,7 +75,7 @@ fastqc -> tools/nf-core/fastqc/fastqc.contract.yml
 ```
 
 Nine fields the module proves, seven it cannot. That split is not a guess —
-[`notes/audits/2026-08-16-forge-derivability.md`](../../notes/audits/2026-08-16-forge-derivability.md)
+[`notes/audits/2026-08-16-forge-derivability.md`](../notes/audits/2026-08-16-forge-derivability.md)
 measured it against all twelve shipped contracts, and `assemble.py` implements that table
 literally.
 
@@ -398,7 +398,7 @@ every hole — so `--no-ai` is not a flag here, it is the only mode, and there i
 accidentally on. Wiring a model is Phase 2, and its first question is not an implementation
 question: a forge model call sends tool documentation to a provider, and invariant 14 says data
 leaves through *four* declared doors. Read §10.3 of
-[`the forge spec`](../../notes/specs/2026-08-16-the-forge.md) before writing an adapter.
+[`the forge spec`](../notes/specs/2026-08-16-the-forge.md) before writing an adapter.
 
 **It does not approve anything.** Invariant 2: the forge drafts, a person approves. `--by` names
 that person and it never defaults to `$USER`.

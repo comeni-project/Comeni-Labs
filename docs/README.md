@@ -36,7 +36,7 @@ The other loop. Mendel reads declared data; the forge is how it gets written.
 11. [Writing a contract](guides/writing-a-contract.md) · [a rule](guides/writing-a-rule.md) ·
     [a registry layer](guides/registry-layers.md)
 12. [The design arguments](design/) — why it works this way, and what was rejected
-13. [Working notes](../notes/) — how it got here. Provenance, not documentation
+13. [Working notes](notes/) — how it got here. Provenance, not documentation
 
 ## The sections
 
@@ -52,5 +52,9 @@ routing picks modules, and why data does not leave. Read these when something su
 **[design/](design/)** — the design records. Longer and more opinionated than the concept pages;
 written to be argued with.
 
-**[../notes/](../notes/)** — plans, audits and the journal, kept for provenance and not
-maintained against the code. `make links` deliberately does not check them.
+**[notes/](notes/)** — plans, audits and the journal. **Provenance, not documentation**, and
+the one directory here that is not held to the rest of this page's standards: it is not
+maintained against the code, and `make links` deliberately does not check it, because a plan
+naming a file its own tasks create is correct when written and broken until it runs. It moved
+under `docs/` on 2026-09-02; if you are looking for what is *true now*, it is one of the four
+sections above, and if you are looking for *why*, it is here.

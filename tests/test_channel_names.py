@@ -11,7 +11,7 @@ rename and a break.
 `tests/fixtures/pipeline-v5/` is a real schema-5 artifact, built by the schema-5 code at commit
 `d8fd2be` and committed rather than generated here. A fixture produced by the code under test
 cannot demonstrate anything about reading what a laboratory archived — the same argument as the
-README beside `notes/audits/fixtures/pipeline-v1/`.
+README beside `docs/notes/audits/fixtures/pipeline-v1/`.
 """
 
 import pathlib

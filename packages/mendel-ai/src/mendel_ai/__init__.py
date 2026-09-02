@@ -12,12 +12,12 @@ validator; a `Goal` is a Pydantic model. **A module's script body has no shape**
 
 **This package holds no Mendel domain types.** It speaks in strings and shapes its caller
 declares, which is what lets the tier-4 ambiguity resolver reuse it unchanged when Plan 3
-arrives (`notes/README.md` row 17). `comeni-core` is imported for `coded()` and nothing else.
+arrives (`docs/notes/README.md` row 17). `comeni-core` is imported for `coded()` and nothing else.
 
 **It is impure and classified as such** in `tests/test_purity.py`. The arrow points
 `mendel-ai -> comeni-core`, never back.
 
-Read `notes/specs/2026-08-17-forge-phase-2.md` §4 before changing this package's surface —
+Read `docs/notes/specs/2026-08-17-forge-phase-2.md` §4 before changing this package's surface —
 §4.3 records two ways the first design of it was wrong.
 """
 

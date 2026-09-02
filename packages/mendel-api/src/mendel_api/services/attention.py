@@ -5,7 +5,7 @@ what can be started; this says how much and points. An **Overview** page that li
 designed and cut once — `docs/design/forge-review.md` §3 — for answering the Queue's question,
 and rendering one row here is how that decision gets undone by forgetting it. That discipline is
 the whole reason a landing page is defensible at all
-(`notes/specs/2026-08-19-the-landing-page.md` §1).
+(`docs/notes/specs/2026-08-19-the-landing-page.md` §1).
 
 **Sections, not a flat list.** The interface spec's own test of this design is that 3C *gains*
 Mendel's items without changing shape. A flat list would make `mendel` a filter on a field, and

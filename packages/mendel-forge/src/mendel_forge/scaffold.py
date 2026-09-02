@@ -106,7 +106,7 @@ class Proposal(BaseModel):
     `vocabularies/`; a person moves it, which is invariant 2's approval step and the whole of
     what bounds a model inventing an id and a sentence.
 
-    See `notes/specs/2026-08-17-vocabulary-proposals.md`.
+    See `docs/notes/specs/2026-08-17-vocabulary-proposals.md`.
     """
 
     model_config = _NO_EXTRAS

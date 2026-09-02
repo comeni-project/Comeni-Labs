@@ -208,7 +208,7 @@ so explicitly and add the two remote executors beside it. Each is a **fragment**
 `process.executor` and nothing else, because a namespace, a storage claim, a queue, a region and
 an S3 `workDir` are all site facts by §5. A profile that resolves is a much weaker claim than a
 pipeline that runs, and only the first is proven: see
-[`../../notes/journal/2026-08-23-the-gate.md`](../../notes/journal/2026-08-23-the-gate.md)
+[`../../notes/journal/2026-08-23-the-gate.md`](../notes/journal/2026-08-23-the-gate.md)
 §*How far the executor half is actually proven*.
 
 **Site-specific configuration is Nextflow's problem and Nextflow solved it.** A laboratory

@@ -160,7 +160,7 @@ def is_stale(pipeline: Pipeline) -> bool:
     `predates_schema` is the honest reading of that case, and it is deliberately *not*
     stale-ness: the generated files are unaffected and `files_changed` still checks them, so
     the real corruption this diagnostic exists for is still caught. Found while executing
-    Plan 1.13; the fixture is `notes/audits/fixtures/pipeline-v1/`.
+    Plan 1.13; the fixture is `docs/notes/audits/fixtures/pipeline-v1/`.
     """
     if pipeline.emitted is None or pipeline.emitted.from_digest is None:
         return False

@@ -69,7 +69,7 @@ types:          ## fail if the generated measurement stub is stale
 	uv run python tools/generate_types.py --check
 
 forge-rework:   ## everything the deferred forge rework has to revisit
-	@grep -rn FORGE-REWORK packages/ frontend/src/ notes/ 2>/dev/null \
+	@grep -rn FORGE-REWORK packages/ frontend/src/ docs/notes/ 2>/dev/null \
 	  | grep -v Binary || echo "nothing marked"
 
 links:          ## every relative markdown link in docs/, .github/, .design/ and the root

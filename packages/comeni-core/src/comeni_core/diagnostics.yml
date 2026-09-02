@@ -30,7 +30,7 @@
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
 # A band may overflow into a new band. **A code is never renumbered** — a published code is
-# something a laboratory runbook can cite. See notes/specs/2026-08-07-the-pipeline-file.md
+# something a laboratory runbook can cite. See docs/notes/specs/2026-08-07-the-pipeline-file.md
 # section 10.
 
 MD0100:
