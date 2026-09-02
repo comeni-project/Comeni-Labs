@@ -387,7 +387,16 @@ class Vocabulary(BaseModel):
 
     def states_for(self, type_id: str) -> frozenset[str]:
         if type_id not in self.types:
-            raise UnknownTypeError(type_id)
+            # **The message says what to do, because the commonest way to reach it is not a
+            # typo.** A private overlay names types the base layer declares, so loading one on
+            # its own fails here — and it used to print the type id in quotes and nothing else,
+            # which names the symptom and not the cause. `docs/guides/registry-layers.md`
+            # documents that exact situation; the error now agrees with it.
+            raise UnknownTypeError(
+                f"no layer declares the type {type_id!r}. Either it is a typo, or a layer that "
+                f"uses it is being loaded without the layer that declares it — a private "
+                f"overlay usually needs the base registry stacked underneath it."
+            )
         return self.types[type_id]
 
     def validate(self, type_id: str, states: Iterable[str]) -> None:

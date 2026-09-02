@@ -105,7 +105,9 @@ uv run mendel profile --have fastq.reads --out profile-build/
 
 ```
 profiling for: read_length
-  NOT MEASURED  n_samples, paired, strandedness — declared, but no contract in this registry produces them
+  NOT MEASURED  adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
+                node_memory_gb, organism, paired, purpose, rrna_fraction, strandedness —
+                declared, but no contract in this registry produces them
 ```
 
 The laboratory runs that pipeline, fills the values in, and the same file goes back into a goal's

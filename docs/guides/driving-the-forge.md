@@ -26,6 +26,7 @@ One source ships. [pegi3s is issue #65](https://github.com/comeni-project/Comeni
 
 ```console
 $ uv run forge discover
+nf-core:bedtools/sort
 nf-core:fastqc
 nf-core:hisat2/align
 nf-core:hisat2/build
@@ -70,7 +71,7 @@ than they look: contracts are pinned by *digest*, not version.
 
 ```console
 $ uv run forge draft nf-core:fastqc --name fastqc --version 0.12.1
-fastqc -> tools/nf-core/fastqc/fastqc.contract.yml
+fastqc -> tools/nf-core/fastqc/contract.yml
   9 field(s) derived, 7 open
 ```
 
@@ -87,7 +88,7 @@ allowlist walks, and would make every draft a commit in the registry's history.
 
 ```console
 $ uv run forge show fastqc
-fastqc -> tools/nf-core/fastqc/fastqc.contract.yml
+fastqc -> tools/nf-core/fastqc/contract.yml
 
 filled:
   container = 'quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0'  (derived, nf-core)
@@ -130,7 +131,7 @@ demanding one would make every prose field unfillable.
 ```console
 $ uv run forge fill fastqc 'produces[0].type_id' qc.report \
     --by rafael --why "FastQC writes a report"
-produces[0].type_id filled; 4 left: priority_because, produces[1].type_id, produces[2].type_id, roles
+produces[0].type_id filled; 6 left: consumes[0].name, consumes[0].type_id, priority_because, produces[1].type_id, produces[2].type_id, roles
 ```
 
 `--by` and `--why` are required. A value with no author and no reason is the thing this whole
@@ -140,7 +141,7 @@ For a field holding several values from one closed set, `--list`:
 
 ```console
 $ uv run forge fill fastqc roles qc_per_sample --list --by rafael --why "it QCs one sample"
-roles filled; 3 left: priority_because, produces[1].type_id, produces[2].type_id
+roles filled; 5 left: consumes[0].name, consumes[0].type_id, priority_because, produces[1].type_id, produces[2].type_id
 ```
 
 A value outside the candidates is refused with `MF0003`, and a field that is not open with
@@ -217,11 +218,15 @@ wall of consequences. With holes left:
 ```console
 $ uv run forge verify fastqc
 complete     REFUSED
-    MF0004  tools/nf-core/fastqc/fastqc.contract.yml
-  3 field(s) still open
+    MF0004  tools/nf-core/fastqc/contract.yml
+  7 field(s) still open
+    consumes[0].name
+    consumes[0].type_id
     priority_because
+    produces[0].type_id
     produces[1].type_id
     produces[2].type_id
+    roles
   → run `forge show` for what each hole wants, then `forge fill` for each
 
 refused
@@ -258,7 +263,7 @@ adding a tool before the goal that needs it is being reasonable.
 ```console
 $ uv run forge land fastqc --registry ../comeni-registry --by rafael
 landed on forge/fastqc (a1b2c3d4e5f6)
-  tools/nf-core/fastqc/fastqc.contract.yml
+  tools/nf-core/fastqc/contract.yml
 ```
 
 **`--registry` is required here and defaults everywhere else.** Landing is the one verb with a
@@ -333,7 +338,7 @@ empty against it. To see it work, break a copy on purpose:
 ```console
 $ git clone registry /tmp/drift-demo && cd /tmp/drift-demo && git checkout -b work
 $ sed -i 's|fastqc:0.12.1--hdfd78af_0|fastqc:0.12.1--WRONGTAG|' \
-    tools/nf-core/fastqc/fastqc.contract.yml
+    tools/nf-core/fastqc/contract.yml
 $ git commit -am "manufacture a drift"
 $ MENDEL_REGISTRY_ROOT=/tmp/drift-demo make dev
 ```

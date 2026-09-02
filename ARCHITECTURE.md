@@ -1,12 +1,37 @@
 # Architecture
 
-How Mendel turns a goal into a Nextflow pipeline, and why each part is shaped the way it is.
+How **Mendel** turns a goal into a Nextflow pipeline, and why each part is shaped the way it is.
 
 Written against the code as it stands, not against a plan. Every type name here exists; if
 one has drifted, the code is right and this document is wrong.
 
 For the product claim and the invariants those parts serve, read `CLAUDE.md` first. This
 document is the *how*; that one is the *why it may not change*.
+
+## What this document does not cover
+
+**Mendel is half the system.** This page is the build path and stops at the emitted pipeline.
+The other half runs it, and is described where it is built rather than summarised here — a
+summary of a twelve-thousand-word design record is a second copy that drifts.
+
+| package | what | pure? | described in |
+|---|---|---|---|
+| `comeni-core` | types, contract schema, the IR, the artifact | **pure** | this page |
+| `mendel-resolver` | the four-tier ladder, rules, routing, ports | **pure** | this page |
+| `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
+| `mendel-forge` | drafting registry data from sources | impure | §10 below |
+| `mendel-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
+| `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | [`docs/design/forge-review.md`](docs/design/forge-review.md), [`dashboard.md`](docs/design/dashboard.md) |
+| `wiener-core` | run state: admit, fold, decide, spans | **pure** | [`docs/design/wiener.md`](docs/design/wiener.md) |
+| `wiener-api` | launch, ingest, project, stream | impure | [`docs/design/wiener.md`](docs/design/wiener.md) |
+| `dag-core` | where to draw a graph. Both canvases, one arithmetic | **pure** | [`docs/design/dashboard.md`](docs/design/dashboard.md) |
+| `comeni-vendor` | fetch a tool's source into a layer, check it against its pin | impure | [`docs/guides/registry-layers.md`](docs/guides/registry-layers.md) |
+| `frontend/` | React 19 + TS + Vite. `src/api/` is **generated** | — | [`docs/design/dashboard.md`](docs/design/dashboard.md) |
+
+**Mendel and Wiener do not import each other, and neither knows the other exists.** A pipeline
+crosses between them as a zip carried by the browser.
+[`docs/design/execution-boundary.md`](docs/design/execution-boundary.md) is why, and it is the
+one page to read before making them talk directly.
 
 ---
 
@@ -504,17 +529,25 @@ with the `IREdge.states` serialiser deleted. Anything new that serialises a set 
 
 ---
 
-## 9. Where Plan 2 plugs in
+## 9. The seam a model plugs into
 
 `mendel_resolver/ports.py` declares `AmbiguityResolver` as a `Protocol`; `FlagOnlyResolver` is
 the shipped implementation, which picks the first candidate, flags it, and never guesses
-cleverly. `mendel-ai` will implement the same protocol over LiteLLM. The dependency arrow
-points `mendel-ai → mendel-resolver`, never the reverse, and `tests/test_purity.py` is what
-holds it.
+cleverly. The dependency arrow points `mendel-ai → mendel-resolver`, never the reverse, and
+`tests/test_purity.py` is what holds it.
 
-This plan changed none of that seam. Runtime AI stays confined to three declared points —
-goal extraction, tier-4 resolution, compiler repair — and tier 3 remains a pure lookup whose
-miss demotes to tier 4 rather than reaching for a model.
+**Nothing implements `AmbiguityResolver` over a model yet** (checked 2026-09-02). `mendel-ai`
+exists and is transport — `generate(shape)` over LiteLLM and closed-choice helpers — and the
+forge uses it through a *different* seam, `HoleFiller`. So `mendel build` has no model path at
+all: the tier-4 resolver is the thing that would add one.
+
+That is why `--no-ai` is still not a flag. There is nothing to switch off, and nothing that can
+be left accidentally on. When the tier-4 resolver lands, the flag becomes meaningful and becomes
+the mode CI runs in.
+
+Runtime AI stays confined to three declared points — goal extraction, tier-4 resolution,
+compiler repair — and tier 3 remains a pure lookup whose miss demotes to tier 4 rather than
+reaching for a model.
 
 ---
 

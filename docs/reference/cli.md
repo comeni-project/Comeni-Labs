@@ -97,8 +97,9 @@ this registry can actually reach, and names the rest:
 
 ```
 profiling for: read_length
-  NOT MEASURED  n_samples, paired, strandedness — declared, but no contract in
-                this registry produces them
+  NOT MEASURED  adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
+                node_memory_gb, organism, paired, purpose, rrna_fraction, strandedness —
+                declared, but no contract in this registry produces them
 ```
 
 A registry that can measure nothing at all exits `2`. See

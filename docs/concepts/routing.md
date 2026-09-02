@@ -14,11 +14,15 @@ counts.matrix[gene_level]     ← featureCounts produces this
       needs fastq.reads[trimmed]           ← trimgalore produces this
         needs fastq.reads                  ← you have this. Done.
       needs genome.index.star              ← star/genomegenerate produces this
+        needs genome.fasta                 ← you have this. Done.
         needs annotation.gtf               ← you have this. Done.
+      needs annotation.gtf                 ← you have this. Done.
+  needs annotation.gtf                     ← you have this. Done.
 ```
 
 Five modules, in dependency order, and nobody wrote that sequence down. It falls out of
-the contracts.
+the contracts. You can print the result of that search for any built pipeline — see
+[reading a route](#reading-a-route) at the end of this page.
 
 This is why adding a tool is a data change: declare what it consumes and produces, and it
 becomes reachable everywhere it fits.
@@ -33,8 +37,8 @@ happened.
 `SAMTOOLS_SORT` consumes `alignment.bam` and produces `alignment.bam`. It is therefore a
 candidate for its own dependency, and without exclusion it selects itself forever.
 
-The router carries a `visiting` set down the recursion. This is also what lets a producer
-rule pinning STAR fire correctly one level below the sorter: at that point the sorter is
+The router carries a `visiting` set down the recursion. This is also what lets an
+`implementation` rule pinning STAR fire correctly one level below the sorter: at that point the sorter is
 excluded and the aligners are the real candidates.
 
 ### Smallest surplus wins
@@ -58,9 +62,12 @@ Never an alphabetical pick presented as a decision.
 
 ## Where rules enter
 
-Before ranking, the router asks the rule table whether anything pins a producer for this
-type given your profile. If a rule matches **and the pinned contract is genuinely a
-candidate here**, it is selected at tier 3 carrying the citation.
+Before ranking, the router asks the rule table whether anything pins an implementation for
+the **role** being filled, given your profile. If a rule matches **and the pinned contract is
+genuinely a candidate here**, it is selected at tier 3 carrying the citation.
+
+A rule targets a role — *something must align these reads* — rather than a type or a tool.
+[Writing a rule](../guides/writing-a-rule.md) is the format.
 
 That second condition matters. When featureCounts asks for `alignment.bam[coordinate_sorted]`,
 the only producer is `samtools/sort` — STAR cannot emit that state at all, so an aligner

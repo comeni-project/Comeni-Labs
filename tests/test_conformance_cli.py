@@ -252,3 +252,36 @@ def test_the_shipped_registry_routes_nothing_to_a_key_its_module_ignores():
 
     registry = layers.load(ROOT / "registry").registry
     assert not [d for d in check(registry, MODULES) if d.code == "MD0108"]
+
+
+def test_a_refused_profile_prints_a_message_a_person_can_read(tmp_path, capsys):
+    """The refusal renders as lines, not as one quoted line with a literal `\\n` in it.
+
+    **`UnknownMeasurementError` is a `KeyError`, and `KeyError.__str__` is `repr()` of its
+    argument.** So the carefully formatted message — which names every declared measurement and
+    tells you exactly where to put a new one — reached the user as a single line wrapped in
+    quotes with the newlines escaped. It had been that way since the message was written.
+
+    Nothing caught it because no test asserted on the *rendered* text, only on the exit code,
+    and `docs/guides/measuring-your-data.md` showed the output the author intended rather than
+    the output the code produced. It was found by running what that guide tells you to run,
+    which is the whole argument for walking documentation instead of reading it.
+
+    This asserts the shape rather than the wording: more than one line, and no literal escape.
+    """
+    goal = tmp_path / "goal.yml"
+    goal.write_text(
+        "have:\n  - type_id: fastq.reads\nwant:\n  - counts.matrix\n"
+        "profile:\n  sample_name: nope\n"
+    )
+    code = main(["build", "--goal", str(goal), "--out", str(tmp_path / "out")])
+    printed = capsys.readouterr().err
+
+    assert code == 2
+    assert "is not a declared measurement" in printed
+    assert "\\n" not in printed, (
+        f"the message carries a literal escape rather than a newline:\n{printed}"
+    )
+    assert len(printed.strip().splitlines()) > 1, f"collapsed onto one line:\n{printed}"
+    # The list of declared measurements is the actionable half — it says what you *may* write.
+    assert "read_length" in printed

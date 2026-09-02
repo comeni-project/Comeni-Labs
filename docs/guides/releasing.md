@@ -1,9 +1,13 @@
 # Cutting a release
 
-Every package here versions **independently** and is tagged on its own:
-`comeni-core-v0.2.0`, `mendel-resolver-v0.1.3`, `mendel-compiler-v0.4.0`. Pushing that tag is
-the whole request — a workflow builds it, reads its notes out of the changelog, and cuts a
-GitHub Release.
+Every package here versions **independently** and is tagged on its own — the tag is
+`<package>-v<version>`, so `comeni-core-v0.2.0`. Pushing that tag is the whole request: a
+workflow builds it, reads its notes out of the changelog, and cuts a GitHub Release.
+
+> **No release has been cut yet.** As of 2026-09-02 the repository has no tags and no
+> releases, so if you are reading this you are the first — expect to find something this
+> page does not cover, and add it. Every package is at `0.1.0` except `comeni-core`, which
+> is at `0.2.0` in its `pyproject.toml` and untagged.
 
 ## Which number moves
 

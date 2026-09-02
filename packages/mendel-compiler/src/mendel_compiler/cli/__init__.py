@@ -111,8 +111,23 @@ def main(argv: list[str] | None = None) -> int:
     except RuleValidationError as exc:
         print(_with_pointer(f"mendel: a rule table will not load —\n{exc}"), file=sys.stderr)
     except (UnknownMeasurementError, BadMeasurementValueError) as exc:
-        print(_with_pointer(f"mendel: this goal's profile is not valid — {exc}"), file=sys.stderr)
-    except (OSError, KeyError, ValueError) as exc:
+        # **`exc.args[0]`, not `exc`.** `UnknownMeasurementError` is a `KeyError`, and
+        # `KeyError.__str__` is `repr()` of its argument — so the carefully formatted refusal,
+        # which names every declared measurement on its own line and tells you where to put a
+        # new one, reached the user as a single quoted line with a literal `\n` in it. It had
+        # been that way since the message was written; nothing caught it because no test asserts
+        # on the rendered text and `docs/guides/measuring-your-data.md` showed the intended
+        # output rather than the real one. Found by running what that guide tells you to run.
+        print(_with_pointer(f"mendel: this goal's profile is not valid — {exc.args[0]}"),
+              file=sys.stderr)
+    except KeyError as exc:
+        # **Separated from the branch below because `KeyError.__str__` is `repr()`.** Every
+        # `KeyError` subclass this project raises — `UnknownTypeError`, `UnknownMeasurementError`
+        # — reached the user as its argument in quotes and nothing else: stacking a private
+        # overlay on its own printed `mendel: 'alignment.bam'`, which names the type and not the
+        # problem. `args[0]` is the message the raiser actually wrote.
+        print(_with_pointer(f"mendel: {exc.args[0] if exc.args else exc}"), file=sys.stderr)
+    except (OSError, ValueError) as exc:
         # `ValueError` last, and it catches a lot on purpose: a symlink in a layer, a
         # duplicate YAML key, an `add_states` for a type nothing declares, A35's joined
         # `UnknownStateError`. Every one of them is a refusal this code chose to make, and

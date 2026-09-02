@@ -76,10 +76,15 @@ uv run mendel profile --have fastq.reads --out profile-build/
 
 ```
 profiling for: read_length
-  NOT MEASURED  n_samples, paired, strandedness — declared, but no contract in
-                this registry produces them
+  NOT MEASURED  adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
+                node_memory_gb, organism, paired, purpose, rrna_fraction, strandedness —
+                declared, but no contract in this registry produces them
 1 modules, 0 requiring review
 ```
+
+Eleven of the twelve declared measurements cannot be measured by this registry, and it says
+so rather than quietly profiling for one thing. Most are `assertion_only` — no tool can
+produce them at all — which their declarations record and explain.
 
 Two files come out. `profile-build/main.nf` is an ordinary Nextflow pipeline that measures
 what this registry knows how to measure. And `profile-build/profile.yml`:
@@ -112,7 +117,24 @@ profile:
 ```
 
 Now the tier-3 rules have something to match, and the record shows the value was measured
-rather than assumed — including *by what*.
+rather than assumed — including *by what*. That reaches the reason beside every choice the
+fact influenced:
+
+```
+rule implementation:alignment where read_length is 150, measured: STAR's seed-and-extend
+search is built for long reads and is nf-core/rnaseq's default aligner; …
+```
+
+Compare the same build from an asserted profile, which is what the
+[tutorial](../tutorial.md) produces:
+
+```
+rule implementation:alignment where read_length is 150, asserted, not measured: …
+```
+
+Same decision, same tier, different standing. **That difference is the entire point of this
+page** — a tier-3 rule is only as good as the fact under it, and the artifact never lets you
+forget which kind you have.
 
 ## Why profiling is not special
 

@@ -9,7 +9,7 @@ Mendel is the engine and the AI is its primary operator ([`design/mendel.md`](..
 meets a value with no reason beside it asks; a model fills it in. So every value carries a
 `why:`, and the parts of this loop that keep it honest are the parts worth reading slowly.
 
-Every command below was run against this repository on 2026-08-16, and the output is copied
+Every command below was run against this repository on 2026-09-02, and the output is copied
 rather than described.
 
 ## 1. Produce a goal
@@ -138,7 +138,7 @@ rather than a recipe for rebuilding one.
 The edit reaches the tool. `main.nf`:
 
 ```groovy
-STAR_ALIGN(TRIMGALORE.out.reads, STAR_GENOMEGENERATE.out.index, ch_annotation_gtf, true)
+STAR_ALIGN(TRIMGALORE.out.reads, STAR_GENOMEGENERATE.out.index, ch_gtf, true)
 ```
 
 That `true` is the value edited above, carried by `via: positional`. Every setting declares the
@@ -176,8 +176,9 @@ is issue #10, and answering a question by silently relabelling it tier 2 is exac
 tiers exist to prevent.
 
 `override_reason` is the only field in the whole system written by the person answering, in the
-artifact, after resolution — the tenth and newest free-text field on the egress boundary
-(invariant 14). Before it existed, `upgrade` replaced what a reviewer wrote with *"selected the
+artifact, after resolution — the tenth free-text field to arrive on the egress boundary
+(invariant 14), and the first with a genuinely new author. Four more have arrived since; there
+are fourteen, and `tests/test_egress.py` is the count. Before it existed, `upgrade` replaced what a reviewer wrote with *"selected the
 first of 1 candidates without judgement"* (audit A77).
 
 **The setting's own `why.reason` must be updated too, and `MD0223` insists on it.** Setting

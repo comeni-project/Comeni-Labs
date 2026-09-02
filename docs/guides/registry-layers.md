@@ -67,9 +67,13 @@ A *different* module key is an ordinary candidate and competes normally.
 Shadowing is announced on every build:
 
 ```
-  SHADOW  nf-core/samtools/sort: nf-core/samtools/sort@1.22.0 from ./lab-registry
-          displaced nf-core/samtools/sort@1.21.0
+1 overlay reroute(s) — an installed layer changed what the layers below it would do:
+  OVERLAY  contracts: nf-core/samtools/sort@1.22.0 from my-lab over
+           nf-core/samtools/sort@1.21.0, displacing comeni-registry-examples
 ```
+
+The layer is named by its `registry.yml`, not by its path — which is why `my-lab` appears
+there rather than `./lab-registry`.
 
 Never silent. An installed overlay that quietly rerouted a pipeline would break the
 guarantee the tool is for.
@@ -126,7 +130,7 @@ If you are writing code against this, use the one function:
 ```python
 from mendel_resolver import layers
 
-loaded = layers.load(["examples", "./lab-registry"])
+loaded = layers.load(["registry", "./lab-registry"])
 loaded.registry, loaded.rules, loaded.vocabulary, loaded.measurements
 ```
 

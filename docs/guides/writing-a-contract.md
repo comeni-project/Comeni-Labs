@@ -15,16 +15,29 @@ Here is a complete one:
 ```yaml
 declares: contract
 id: nf-core/samtools/sort@1.21.0
+roles: [bam_sorting]
 nf_process: SAMTOOLS_SORT
 nf_include: modules/nf-core/samtools/sort/main
 consumes: [{name: bam, type_id: alignment.bam, state_required: []}]
 produces: [{name: bam, type_id: alignment.bam, state: [coordinate_sorted]}]
-params: []
+params:
+  - name: index_format
+    default: bai
+    domain: {kind: enum, values: [bai, csi]}
+    because: "BAI, not CSI. Every downstream tool in this spine reads BAI and it is nf-core's own default."
+    via: positional
 priority: 0
-nf_inputs: [{ports: [bam]}, {empty: 3}, {literal: bai}]
+nf_inputs:
+  - {ports: [bam]}
+  - {empty: 3, because: "the reference is only needed to write CRAM; this emits BAM"}
+  - {param: index_format}
 container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
 provenance: {source: nf-core-meta-yml, drafted_by: hand, approved_by: rafael, approved_at: "2026-08-03"}
 ```
+
+That is the file in the registry, copied. **`because` on `{empty: 3}` is not optional here** —
+an empty slot that the module expects a *file* in is refused without one, because `-stub-run`
+cannot see a hollow input and would go green either way.
 
 Read that as a sentence: *SAMTOOLS_SORT takes a BAM in any state and gives you back one
 that is coordinate-sorted.* That sentence is the entire reason the router can place it.
@@ -55,15 +68,15 @@ states: [coordinate_sorted, name_sorted, deduplicated, filtered, indexed]
 This trips up everyone once, so it is worth the paragraph.
 
 A **port** is semantic: a typed thing the module consumes. A **process input** is
-plumbing: one channel in the Nextflow call signature. They do not correspond. Of the ten
-processes in the example registry, five differ:
+plumbing: one channel in the Nextflow call signature. They do not correspond. Of the twelve
+contracts in the registry, five differ:
 
 | Process | Ports | Channels |
 |---|---|---|
 | `SUBREAD_FEATURECOUNTS` | 2 | 1 |
-| `STAR_GENOMEGENERATE` | 1 | 2 |
 | `SAMTOOLS_SORT` | 1 | 3 |
-| `STAR_ALIGN` | 2 | 4 |
+| `HISAT2_BUILD` | 2 | 3 |
+| `STAR_ALIGN` | 3 | 4 |
 | `HISAT2_ALIGN` | 2 | 4 |
 
 `nf_inputs` declares the real call signature, one entry per channel, in order:
