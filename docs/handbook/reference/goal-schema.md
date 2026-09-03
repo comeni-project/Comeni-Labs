@@ -120,11 +120,11 @@ choice that read it:
 rule implementation:alignment where read_length is 150, asserted, not measured: ...
 ```
 
-Measuring your data is how you turn the first into the second.
+Profiling and measurement support is how you turn the first into the second.
 
 ## See also
 
-- [Driving Mendel](../your-first-pipeline.md) — the loop this file starts
+- [Your first pipeline](../your-first-pipeline.md) — the app loop this file supports
 - [Measurement schema](../../registry/reference/measurement-schema.md) — what may appear under
   `profile`
 - [`pipeline.yml`](pipeline-schema.md) — what a goal turns into

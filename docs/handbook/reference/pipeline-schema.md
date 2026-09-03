@@ -211,8 +211,8 @@ the contents of the registry: install a second sorter tomorrow and the same pipe
 real choice. A reader deciding whether a step can be removed is reading `presence`; a reader
 deciding whether the right tool was picked is reading `why`.
 
-**`why.premise` is what tier 3 asks you to check.** Tier 3 is *advisory* — the CLI colours it
-yellow and the gloss is "the machinery worked, check the premise" — and until version 3 there was
+**`why.premise` is what tier 3 asks you to check.** Tier 3 is *advisory*: the rule matched, and
+the person responsible for the analysis should check the fact it read. Until version 3 there was
 no premise in the file to check. Each entry carries the fact, its value, and its `origin`:
 
 | `origin` | means |

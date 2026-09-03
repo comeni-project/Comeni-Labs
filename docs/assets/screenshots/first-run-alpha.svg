@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">First run screen placeholder</title>
+  <desc id="desc">Placeholder for a Comeni Labs alpha first-run screen screenshot.</desc>
+  <rect width="1280" height="720" fill="#081013"/>
+  <rect x="290" y="292" width="700" height="72" fill="#0B1013" stroke="#1E3A4E"/>
+  <text x="640" y="240" fill="#E6EEF2" font-family="Arial, sans-serif" font-size="44" text-anchor="middle">What do you want to make?</text>
+  <text x="330" y="337" fill="#55B7E8" font-family="Arial, sans-serif" font-size="24">&gt;</text>
+  <text x="370" y="337" fill="#6F7C82" font-family="Arial, sans-serif" font-size="24">gene counts from paired-end RNA-seq</text>
+  <text x="640" y="430" fill="#91A0A7" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">Screenshot placeholder: first-run alpha</text>
+</svg>

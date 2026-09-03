@@ -127,7 +127,11 @@ def render(markers: list[Marker]) -> str:
         "is generated from those markers, so it cannot go stale.\n\n"
     )
     if not markers:
-        return head + "Nothing is marked. Every page describes something that exists.\n"
+        return (
+            head
+            + "Nothing is marked as future-only. The pages describe current alpha behavior, "
+            "including surfaces that may still change.\n"
+        )
     rows = "\n".join(
         f"| [{m.page}]({m.page}) | {m.plan or '—'} | {m.body} |" for m in markers
     )

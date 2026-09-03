@@ -4,6 +4,25 @@ Your laboratory has tools nobody else has, conventions nobody else shares, and r
 came out of your own validation work. A layer is how you ship those without forking
 anything.
 
+## The intuition first
+
+The public registry should hold broadly reusable knowledge. Your lab layer holds local
+knowledge: private tools, local containers, validated defaults, and rules your lab is willing to
+defend but may not want to publish.
+
+Layering lets you keep both. The base registry can say what the community knows; your layer can
+say what your lab knows. Comeni loads them together, with later layers winning when they
+deliberately replace something below.
+
+Typical reasons to create a layer:
+
+| Need | Layer change |
+|---|---|
+| private module | add a contract |
+| newer pinned module version | shadow the lower contract |
+| lab default differs from public default | add or replace a rule |
+| local organism or assay vocabulary | extend an extensible measurement |
+
 ## What a layer is
 
 **A directory of files, each of which says what it is.** Every file carries a `declares:`

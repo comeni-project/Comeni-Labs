@@ -1,4 +1,8 @@
-# CLI reference
+# Advanced CLI reference
+
+The browser is the primary Comeni Labs product path. Use this reference when you are developing
+the platform, automating checks, repairing artifacts, or reproducing what the app does in tests.
+It is not the first-run guide.
 
 ```
 mendel <command> [options]
@@ -102,8 +106,9 @@ profiling for: read_length
                 declared, but no contract in this registry produces them
 ```
 
-A registry that can measure nothing at all exits `2`. See
-guides/measuring-your-data.md.
+A registry that can measure nothing at all exits `2`. In the current alpha, measurement and
+input collection are still moving surfaces, so treat profiling commands as advanced tooling
+rather than the product's first-run path.
 
 ## Conformance
 

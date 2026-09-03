@@ -9,6 +9,40 @@ result is reproducible, free, and reviewable as a diff.
 
 Full field list: [reference/rule-schema.md](reference/rule-schema.md).
 
+## The intuition first
+
+A convention says “this registry usually prefers STAR.” A rule says “choose STAR when a stated
+fact about this dataset makes STAR the defended choice.”
+
+That distinction matters in a low-code app. The user should not have to pick an aligner because
+they know the tool landscape, and the app should not pick one because a model sounded
+confident. A rule gives the app a small, cited piece of scientific judgement it can apply
+reproducibly.
+
+In the RNA-seq example:
+
+```text
+read_length >= 70  -> STAR
+read_length < 70   -> HISAT2
+```
+
+The useful part is not the syntax. The useful part is that a future reader can ask “why STAR?”
+and get a data fact, a rule, and a citation instead of a hidden preference.
+
+## Before and after
+
+Before a rule exists, the app may still build a pipeline, but the choice is weaker:
+
+| Before | After |
+|---|---|
+| aligner is chosen by registry convention | aligner is chosen by a matching data fact |
+| a reviewer sees a default or an open question | a reviewer sees tier 3 with the premise |
+| changing read length may not change the route | changing read length can pick a different aligner |
+| the reason is “this registry prefers it” | the reason names the fact, rule, and citation |
+
+Use a rule when the choice should vary with the data. Use priority or a lab layer when the
+choice is simply your default.
+
 ## The shape
 
 One rule table per file, opening with `declares: rule`. **Where you put it is free**; the
@@ -91,8 +125,9 @@ on `integer` and `number` measurements — comparing an enum refuses to load, be
 `strandedness >= 70` has no meaning and a rule that cannot fire is worse than no rule.
 
 **A measurement that was never measured makes the row fail to match.** Rows are not skipped
-and the build does not stop; the decision simply falls through to the next tier. See
-measuring-your-data.md.
+and the build does not stop; the decision simply falls through to the next tier. In the current
+alpha, profiling and input collection are still moving surfaces, so write rules against facts
+the lab can either measure or assert clearly.
 
 ## Validation is the point
 
@@ -151,7 +186,8 @@ A rule match exits at **tier 3**, review level `advisory`, and carries your cita
 `pipeline.yml`, as the `why.reason` beside the value it explains.
 
 Tier 3 is advisory rather than silent on purpose: a rule match is only as good as the
-measurement behind it. Yellow means *the machinery worked, check the premise*.
+measurement behind it. Yellow means the rule matched, and the person responsible for the
+analysis should check the fact it read.
 
 **A rule miss never calls a model.** It demotes to tier 4 and gets flagged for a human.
 That is what keeps the tier labels meaningful and the common case free.

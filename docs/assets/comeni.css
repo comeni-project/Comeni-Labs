@@ -102,6 +102,38 @@
   border-radius: 3px;
 }
 
+/* Mermaid renders as a block whose SVG keeps its own intrinsic width. Without an explicit
+   wrapper rule, compact vertical diagrams sit left-biased in Material's content column and
+   long flows look accidental. */
+.md-typeset .mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 1.4rem auto;
+  padding: 1rem;
+  max-width: min(100%, 46rem);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.md-typeset .mermaid svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.md-typeset img[src*="screenshots/"] {
+  display: block;
+  width: 100%;
+  max-width: 58rem;
+  height: auto;
+  margin: 1.2rem auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+}
+
 /* Tables carry field lists, so the head is a label and the rules are hairlines. */
 .md-typeset table:not([class]) th {
   background: transparent;

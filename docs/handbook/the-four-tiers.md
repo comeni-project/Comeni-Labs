@@ -1,129 +1,100 @@
 # The four tiers
 
-Every module choice and every parameter exits at exactly one tier and carries it forever.
-This is the mechanism behind the whole product claim, so it is worth understanding
-precisely.
+Every module choice and important setting exits at one tier. The tier tells you how the choice
+was justified and how much attention it needs.
 
-| Tier | Fires when | Review | Shown as |
+```mermaid
+flowchart TD
+  A[Tier 1 structural<br/>forced by the requested shape]
+  B[Tier 2 convention<br/>documented registry default]
+  C[Tier 3 data-profiled<br/>declared rule matched data]
+  D[Tier 4 ambiguous<br/>human review required]
+  A --> B --> C --> D
+```
+
+| Tier | Fires when | Review level | Reader action |
 |---|---|---|---|
-| **1 structural** | no choice exists — the inputs force it | `none` | silent |
-| **2 convention** | a documented default exists | `none` | green |
-| **3 data-profiled** | a declared rule matched measured data | `advisory` | yellow |
-| **4 ambiguous** | no rule matched | `required` | red |
+| 1 structural | the inputs force the choice | none | ignore unless debugging |
+| 2 convention | the loaded registry has a documented default | none | glance if your lab differs |
+| 3 data-profiled | a declared rule matched a measurement | advisory | check the premise and citation |
+| 4 ambiguous | no rule or convention can defend the choice | required | answer before relying on it |
 
-## Why four
+## Why this matters
 
-A chat window gives you one tier: *plausible*. You cannot tell which parts of its output
-were forced by your inputs, which were reasonable defaults, which followed from your data,
-and which were invented to fill a gap. All four look identical, and the last one is the
-one that will hurt you.
+A chat answer often makes every part of a workflow feel equally plausible. Comeni separates the
+cases. It should be obvious which parts were forced, which parts are defaults, which parts came
+from data-backed rules, and which parts are open questions.
 
-Separating them is the difference between a pipeline you can defend and a pipeline you can
-only hope about.
+That separation is the product's honesty mechanism. The AI can help fill gaps, but a model
+guess must not be presented as the same thing as a declared rule or a measured fact.
 
-## Tier 1 — structural
+## Tier 1: structural
 
-Nothing was decided, because there was nothing to decide. One contract produces what was
-asked for, or one produces it with exactly the required states while the others overshoot.
+There was no real decision. The requested shape and available typed ports force the step or
+connection.
 
-Silent, because reporting it would be noise.
+Example: if a step consumes a genome index and the graph already contains exactly one compatible
+index output, the wire is structural. There is no useful question for the user.
 
-Tier 1 is rarer than it sounds. In the RNA-seq spine, *every* uncontested step comes out at
-tier 2 rather than tier 1 — because "nothing else in this registry fills this role" is a fact
-about **what happens to be installed**, which is a convention, not a structural necessity.
-Install an overlay and it may stop being true.
+## Tier 2: convention
 
-## Tier 2 — convention
+The registry made a documented default choice. This often means one loaded tool fills the role
+or a priority settled an otherwise equal choice.
 
-A documented default settled it — either the registry's `priority` broke a tie, or exactly one
-contract in the loaded stack fills the role.
+Convention is useful, but it is scoped. A lab overlay can change what the loaded registry
+prefers.
 
-```
-trimgalore            tier 2  uncontested — nothing else in this stack fills trimming
-star_genomegenerate   tier 2  uncontested — nothing else in this stack fills index_building
-samtools_sort         tier 2  uncontested — nothing else in this stack fills bam_sorting
-subread_featurecounts tier 2  uncontested — nothing else in this stack fills quantification
-```
+In the RNA-seq example, `samtools sort` is convention because the loaded registry has a clear
+way to produce coordinate-sorted BAM for `featureCounts`.
 
-Green rather than silent: a default is a real choice, and you may disagree with it. Note what
-the reason says — *nothing else in **this stack***. It is telling you the scope of the claim.
+## Tier 3: data-profiled
 
-## Tier 3 — data-profiled
+A rule looked at a declared measurement and chose a tool or setting for a stated reason. This is
+where citations matter.
 
-A declared rule matched your measurements, and the reason carries the citation.
+Yellow/advisory does not mean wrong. It means the rule matched exactly as written, and the
+person responsible for the analysis should check that the fact it read is true for this data.
 
-```
-rule implementation:alignment where read_length is 150, asserted, not measured: STAR's
-seed-and-extend search is built for long reads and is nf-core/rnaseq's default aligner; the
-index cost it pays back over reads this length; Dobin et al. 2013,
-doi:10.1093/bioinformatics/bts635
+In the RNA-seq example, the aligner choice is data-profiled:
+
+```text
+read_length = 150
+  -> alignment rule matches the long-read branch
+  -> STAR align is selected
 ```
 
-Read what that reason contains: the rule, the fact it read, **whether the fact was measured or
-merely asserted**, the argument, and the paper.
+If the read length changes to a short-read case, the rule can select a different aligner. The
+goal did not name STAR; the data fact changed the route.
 
-**Advisory rather than silent, on purpose.** A rule match is only as good as the
-measurement behind it, and Mendel cannot check whether your stated 150bp read length is
-true. Yellow means *the machinery worked, check the premise*.
+## Tier 4: ambiguous
 
-That is also why provenance is recorded per measurement: a measured value came from a tool
-that named itself, an asserted one came from a person. Both are legitimate; only one is
-checkable.
+Comeni could not defend a choice from structure, convention, or a matching rule. The value is
+flagged for a person.
 
-## Tier 4 — ambiguous
+Tier 4 is always reviewable. Even a confident AI suggestion is still a suggestion until a human
+accepts it.
 
-Nothing decided it. The choice was recorded, flagged, and surfaced.
+In the RNA-seq example, `seq_platform` may be tier 4. The registry can know that STAR accepts a
+sequencing platform setting, but it cannot infer which platform produced your reads unless a
+measurement, lab convention, or human answer provides that fact.
 
-```
-5 modules, 1 requiring review
-  REVIEW  star_align.seq_platform
-```
+## Reading a mixed pipeline
 
-**Tier 4 is always flagged, even at high model confidence.** This is the honesty mechanism
-and the whole difference from a chat window. A model that is 95% sure is still guessing,
-and a tool that hides that is selling you a feeling rather than a result.
+| Step or value | Likely tier | What the tier tells you |
+|---|---|---|
+| Trim Galore | 2 | accepted default in this registry |
+| STAR align | 3 | a rule read `read_length` |
+| `seq_platform` | 4 | needs a person or a new rule |
+| featureCounts strandedness setting | 3, when covered | a rule may map library strandedness to the tool's parameter |
 
-## The rules that keep the labels meaningful
+The exact artifact keeps these labels beside the decisions. The app should make the same
+distinctions visible without forcing you to read YAML first.
 
-**A tier-3 miss demotes to tier 4. It never calls a model inside tier 3.** If it did, tier
-3 would silently become "a model said so", the label would stop meaning "a declared rule
-matched", and the common case would stop being free and reproducible.
+When reviewing, start with tier 4 because it can block a reliable run. Then scan tier 3 because
+it depends on facts about the data. Tier 2 usually becomes interesting only when your lab has a
+different convention from the loaded registry.
 
-**A routing tie is ambiguity, not a coin flip.** Contracts equal on surplus and priority
-produce a decision record at tier 4 rather than an alphabetical pick.
+## Where to go next
 
-**Every ambiguity emits a record**, including when resolved with no model in the loop.
-Records are replayed on rerun rather than re-asked — which is how determinism survives
-having a model available at all.
-
-## Modules too, not just parameters
-
-`IRNode.selection` carries a tier for the module choice itself, and `needs_review()` lists
-a tier-4 one by node. Before that field existed, a module chosen because it was the only
-option looked exactly like one chosen by priority — and for a while the review list scanned
-only parameters, so the CLI printed "0 requiring review" while an aligner had been picked
-alphabetically. A record nobody is shown is not a flag.
-
-## Reading them
-
-```bash
-uv run python -c "
-import yaml
-p = yaml.safe_load(open('build/pipeline.yml'))
-for s in p['steps']:
-    print(s['id'], 'tier', s['why']['tier'], '—', s['why']['reason'])
-    for setting in s['settings']:
-        w = setting['why']
-        print('   ', setting['name'], '=', setting['value'],
-              'tier', w['tier'], 'by', w['source'])
-"
-```
-
-`source: human` means somebody answered a tier-4 question by editing the file. The tier stays
-4 — the pipeline still contains a question that had to be answered — but it stops appearing
-under `REVIEW` and appears under `ANSWERED` instead.
-
-## Where they came from
-
-`packages/comeni-core/src/comeni_core/tiers.py`. The tier-to-review mapping is a function
-rather than stored data, so the table in the docs cannot drift from the table in the code.
+For the user workflow, read [Reviewing decisions](reviewing-decisions.md). For the routing
+algorithm, read [How tools get chosen](how-tools-get-chosen.md).

@@ -9,6 +9,38 @@ told.
 
 Full field list: [reference/contract-schema.md](reference/contract-schema.md).
 
+## The intuition first
+
+A Nextflow module is executable code. A contract is the meaning Comeni needs before it can place
+that module in a pipeline.
+
+For example, nf-core metadata can say a process emits a `*.bam` file. That is not enough for a
+builder. The next step may need a coordinate-sorted BAM, an unsorted BAM, or a BAM plus an
+index. A contract makes the implicit sentence explicit:
+
+```text
+SAMTOOLS_SORT consumes alignment.bam
+SAMTOOLS_SORT produces alignment.bam[coordinate_sorted]
+```
+
+Once that sentence is true and checked, Comeni can reuse it anywhere a future analysis needs a
+coordinate-sorted BAM.
+
+## Before and after
+
+Before the contract exists, the builder has no reliable way to place the tool. It may know the
+tool exists as source code, but it cannot safely answer the routing questions:
+
+| Question | Without a contract | With a contract |
+|---|---|---|
+| Can this tool consume my upstream output? | unknown | checked against input ports |
+| Can this tool produce what the next step needs? | unknown | checked against output types and states |
+| How should Nextflow call it? | unknown | declared by process name, include path, and inputs |
+| Why is a default parameter acceptable? | hidden or manual | recorded beside the parameter |
+
+After the contract lands, the tool becomes a candidate. It still does not appear everywhere; it
+appears only where its declared inputs and outputs fit the pipeline being built.
+
 ## The shape
 
 One contract per file, opening with `declares: contract`. **Where you put it is free** — the
