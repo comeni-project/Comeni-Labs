@@ -1,6 +1,6 @@
 # Comeni Labs
 
-*After Comenius, who argued that knowledge belongs to everyone.*
+*After John Comenius, who argued that knowledge belongs to everyone.*
 
 Comeni Labs is a Nextflow-based platform for closing the gap between the wet lab and the dry lab. 
 It gives researchers a low-code, modular way to create, deploy, and maintain real pipelines, 
