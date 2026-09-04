@@ -162,10 +162,58 @@ downstream of an existing one, or outside the prompt-taint path the way the forg
 (decided 2026-08-17, `notes/specs/2026-08-17-forge-phase-2.md` §1). Do not widen `DOORS` without
 putting that question in front of somebody.
 
-**One gap left as drawn.** The plan's state diagram reaches `archived` only from `review`, so a
-permanently failed adaptation — the tool was deleted upstream — is retryable forever and closeable
-never. It is implemented as drawn and noted rather than widened, because widening a state machine
-is cheap later and narrowing one is not. It is a real hole and it is the operator's call.
+**One gap left as drawn, and the design decided but not built.** The plan's state diagram reaches
+`archived` only from `review`, so a failed adaptation is retryable forever and closeable never. It
+was implemented as drawn and put to the operator, who settled it: **archiving is the right exit,
+because it destroys nothing.**
+
+That is the whole argument and it is worth keeping. Every foreign key here is `RESTRICT`,
+`forge_event` has no update path, and revisions and invocation audit survive — so `archived` is a
+lifecycle statement, *nobody is working on this*, not a disposal. The usual objection to closing a
+failure ("you would lose the record") has no purchase, because there is nothing to lose.
+
+**The real defect is not the missing arrow; it is that `failed` and `archived` answer different
+questions and the table conflates them.** `failed` says *the last attempt did not complete*.
+`archived` says *nobody is working on this*. They are orthogonal, and a failed adaptation somebody
+is still fighting with is a genuinely different row from one they have walked away from. Making
+`failed` imply *still open* is what creates the trap.
+
+The asymmetry is also backwards. `review` can archive, and `review` is the *healthier* state — a
+candidate exists and somebody read it. Being able to close the good outcome and not the bad one is
+the wrong way round.
+
+**The rule to implement, rather than one arrow:** *archiving is legal from any state a worker does
+not hold.* `RUNNING = frozenset({GENERATING, VALIDATING})` already exists in `workflow.py` for
+exactly that question, and it is the right exclusion for its own reason — archiving under a live
+worker makes that worker's next transition lose on `MI0100` and orphan its own work. So `archived`
+becomes reachable from `scaffolding`, `queued`, `review`, `changes_requested` and `failed`, and
+derived from `RUNNING` and `TERMINAL` rather than enumerated, which is the habit `TERMINAL` itself
+already follows.
+
+It also makes `MI0101` honest. That refusal says *"archive it, or finish it, before starting
+another"* — advice the state machine currently refuses in most of the states where somebody would
+want to take it.
+
+**Why this matters more than it sounds:** `TERMINAL` is derived, `ACTIVE` is its complement, and
+the partial unique index `ix_forge_adaptation_one_active` excludes exactly `TERMINAL`. A failed
+adaptation therefore holds its catalogue item's one-active slot forever, and the only exits are
+retrying the thing that keeps failing or an `UPDATE` in psql. For a catalogue of ~190 PEGiS images
+where most attempts are exploratory, abandonment is the ordinary outcome.
+
+**The counter-argument, recorded rather than dismissed:** an enumerated `ALLOWED` is auditable by
+reading, and a computed one makes a reader run a set expression in their head. `TERMINAL` sets the
+precedent so it is not disqualifying, but it is a cost.
+
+**One thing the change needs, and it is the only way it could lose information.** `_record()`
+takes `kind`, `detail` and `actor` — **not the previous state**. With archiving legal from five
+states, an adaptation archived from `scaffolding` (never produced anything) and one archived from
+`review` (had a candidate somebody read) would be indistinguishable in the history. The archive
+event has to carry the state it left; that is one field in `move()`.
+
+**Not built.** The change is: `ALLOWED` derived from `RUNNING`, `forge_state.archive()` taking
+`expect` instead of hardcoding `AdaptationState.REVIEW` (line 310), the previous state on the
+event, and two tests — that a failed adaptation frees its catalogue item, and that a running one
+cannot be archived out from under its worker.
 
 **A module testing system comes after the plan**, by the operator's decision. `supplies_tests`
 and the `test_result` output hint are what it will key off; nothing more was built for it.
