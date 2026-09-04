@@ -3969,3 +3969,51 @@ nothing is checked, because a checkout cannot answer *is there a page for this t
 build can, which is the same reason `mkdocs.yml` excludes `tools/*/*.md` from its nav check.
 The blind spot is bounded to that one directory by the third guard above, so it cannot spread
 to a real documentation directory the way a prefix exclusion silently can.
+
+## The source catalogue — Forge MVP Tasks 2 and 3, 2026-09-04
+
+Two adapters read upstream for the first time: nf-core's module tree and the PEGiS Docker Hub
+namespace joined to `pegi3s/dockerfiles`. Everything here is about a *number a person reads and
+acts on*, so every guard was reverted against the specific way that number goes wrong.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `test_source_base.py::test_an_incomplete_catalogue_is_refused` | `if not raw.complete:` neutered | failed | `DID NOT RAISE UpstreamError`, twice |
+| 2026-09-04 | `test_source_base.py::test_a_304_reuses_the_previous_snapshot` | the `unchanged` branch neutered | failed | `a 304 emptied the catalogue` — `assert [] == ['a', 'b']` |
+| 2026-09-04 | `test_source_base.py::test_a_fact_citing_missing_evidence_is_refused` | the evidence-id check neutered | failed | `DID NOT RAISE UpstreamError` |
+| 2026-09-04 | `test_source_base.py::test_observe_says_a_derived_fact_was_not_quoted` | `_cited` made to fall back to the first excerpt | failed | `assert 'not quoted' in 'process FASTQC {'` |
+| 2026-09-04 | `test_source_nfcore_catalogue.py::test_an_unrelated_module_changing_leaves_this_one_current` | `content_digest` set to the repository commit | failed | `an unrelated module's change aged fastqc` |
+| 2026-09-04 | `test_source_nfcore_catalogue.py::test_editing_a_modules_test_moves_its_digest` | `content_digest` set to `digest_of(ref)` | failed | `a module's own test changed and its digest did not` |
+| 2026-09-04 | `test_source_pegi3s.py::test_every_public_repository_is_discovered` | unsupported entries filtered out of the snapshot | failed | the ref sets differ, then `StopIteration` on the orphan |
+
+**The digest pair is the entry worth reading, because neither half is sufficient alone.**
+`test_an_unrelated_module_changing_leaves_this_one_current` is the one the plan asks for, and it
+passes happily against a digest that is *constant* — `digest_of(ref)` never moves, so nothing is
+ever aged and the assertion is trivially satisfied. `test_editing_a_modules_test_moves_its_digest`
+is what refuses that, and it in turn passes against a digest taken from the repository HEAD,
+which moves for everything. Only the two together pin *moves for this tool and no other*, and
+that was established by reverting to each wrong answer in turn rather than by reasoning about
+one test.
+
+**A guard that could not fire, found by reverting it.** `pegi3s.ALIASES` excludes `latest`,
+`stable`, `dev` and friends from becoming a version — and removing the check entirely left every
+test green, because anchored `SEMVER` already rejects any name that does not start with a digit.
+It was a check that read as protection while doing nothing, which is the shape CLAUDE.md names
+for a *comment* claiming a guard exists. It is kept, because `SEMVER` is the only thing standing
+between an alias and a version claim and somebody will eventually loosen it, and
+`test_the_alias_list_is_redundant_only_while_semver_is_strict` now fails the moment that happens
+— which converts dead code into a line whose new load-bearing status is announced.
+
+**A defect the tests found that reading had not.** `_modules_in` grouped blobs by their
+immediate parent directory, so `fastqc/tests/main.nf.test` became a separate group called
+`fastqc/tests`, which held neither required file and vanished. The module therefore shipped with
+no tests in its bundle while `SourceCapabilities.supplies_tests` claimed it had them, and
+editing an upstream test did not move the module's digest. Found by
+`test_a_bundle_includes_the_test_directory`, which asserts the capability is true rather than
+declared.
+
+**And a test that passed for the wrong reason.** `test_a_module_with_unparseable_metadata_is_kept_not_dropped`
+overrode a blob to return duplicate-key YAML — and the fixture handler checked its own `META`
+map *before* the override, so the test ran against unmodified metadata and asserted nothing. The
+same class as the `docs/tools/` probe earlier the same day: a fixture that quietly declines to
+be modified.

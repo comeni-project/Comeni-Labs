@@ -23,9 +23,20 @@ dependencies = [
   "comeni-core>=0.1.0",
   "mendel-resolver>=0.1.0",
   "mendel-compiler>=0.1.0",
+  "httpx>=0.27",
   "pydantic>=2.9",
   "pyyaml>=6.0",
 ]
+# **`httpx` is a real dependency and not an extra, unlike `comeni-ai` below.** Reading an
+# upstream catalogue *is* what a source adapter does, so a forge that cannot reach the network
+# has no source path at all — there is no useful "offline forge" for this to be optional for.
+# It is also small, where litellm's stack is 152MB, so the argument that made the model path an
+# extra does not transfer.
+#
+# This package is classified impure in `tests/guards/test_purity.py`, so the arrow it adds
+# points mendel-forge -> the network and never touches the pure four. `comeni-vendor` already
+# holds the same position for fetching a module, and it is the reason that verb is not
+# `mendel vendor`.
 
 [project.optional-dependencies]
 model = ["comeni-ai>=0.1.0"]

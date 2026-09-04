@@ -71,6 +71,21 @@ _StrictLoader.add_constructor(
 def load(path: Path) -> Any:
     """Parse one declared file. Raises `DuplicateKeyError` naming the file and both lines."""
     try:
-        return yaml.load(path.read_text(), Loader=_StrictLoader)  # noqa: S506 — strict subclass
+        return loads(path.read_text())
     except DuplicateKeyError as error:
         raise DuplicateKeyError(f"{path}: {error}") from None
+
+
+def loads(text: str) -> Any:
+    """The same strict parse, for YAML that never was a local file.
+
+    **A caller with text rather than a path is not a reason for a second parser.** The forge's
+    source adapters read an upstream `meta.yml` over HTTP, and a `yaml.safe_load` there would
+    take the second of two duplicate keys silently — the exact defect this module exists to
+    refuse, arriving through the one door that had no strict spelling.
+
+    Reading the network is the caller's business and stays outside this package: this takes a
+    string. `load` is now a thin wrapper, so "which parser reads declared data" keeps one
+    answer.
+    """
+    return yaml.load(text, Loader=_StrictLoader)  # noqa: S506 — strict subclass

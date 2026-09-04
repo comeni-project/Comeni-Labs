@@ -1,0 +1,35 @@
+{
+  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "truncated": false,
+  "tree": [
+    {"path": "README.md", "type": "blob", "sha": "b000readme"},
+    {"path": "modules", "type": "tree", "sha": "t000modules"},
+    {"path": "modules/nf-core", "type": "tree", "sha": "t001nfcore"},
+
+    {"path": "modules/nf-core/fastqc", "type": "tree", "sha": "t100fastqc"},
+    {"path": "modules/nf-core/fastqc/main.nf", "type": "blob", "sha": "b100fastqcmain"},
+    {"path": "modules/nf-core/fastqc/meta.yml", "type": "blob", "sha": "b101fastqcmeta"},
+    {"path": "modules/nf-core/fastqc/environment.yml", "type": "blob", "sha": "b102fastqcenv"},
+    {"path": "modules/nf-core/fastqc/tests", "type": "tree", "sha": "t103fastqctests"},
+    {"path": "modules/nf-core/fastqc/tests/main.nf.test", "type": "blob", "sha": "b103fastqctest"},
+
+    {"path": "modules/nf-core/samtools", "type": "tree", "sha": "t200samtools"},
+    {"path": "modules/nf-core/samtools/sort", "type": "tree", "sha": "t201sort"},
+    {"path": "modules/nf-core/samtools/sort/main.nf", "type": "blob", "sha": "b200sortmain"},
+    {"path": "modules/nf-core/samtools/sort/meta.yml", "type": "blob", "sha": "b201sortmeta"},
+
+    {"path": "modules/nf-core/samtools/index", "type": "tree", "sha": "t210index"},
+    {"path": "modules/nf-core/samtools/index/main.nf", "type": "blob", "sha": "b210indexmain"},
+    {"path": "modules/nf-core/samtools/index/meta.yml", "type": "blob", "sha": "b211indexmeta"},
+
+    {"path": "modules/nf-core/helperonly", "type": "tree", "sha": "t300helper"},
+    {"path": "modules/nf-core/helperonly/main.nf", "type": "blob", "sha": "b300helpermain"},
+
+    {"path": "modules/nf-core/metaonly", "type": "tree", "sha": "t400metaonly"},
+    {"path": "modules/nf-core/metaonly/meta.yml", "type": "blob", "sha": "b400metaonlymeta"},
+
+    {"path": "subworkflows", "type": "tree", "sha": "t500sub"},
+    {"path": "subworkflows/nf-core/bam_sort/main.nf", "type": "blob", "sha": "b500submain"},
+    {"path": "subworkflows/nf-core/bam_sort/meta.yml", "type": "blob", "sha": "b501submeta"}
+  ]
+}

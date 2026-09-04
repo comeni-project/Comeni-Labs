@@ -72,6 +72,7 @@ HEADINGS: dict[str, str] = {
     "routing": "Routing and resolution",
     "gates": "Gates and emission",
     "validation": "Validating a hand-built graph",
+    "catalogue": "The forge — reading an upstream source catalogue",
     "scaffolding": "The forge — a scaffold, its holes, and filling them",
     "verification": "The forge — whether a draft holds up",
     "workspace": "The forge — drafts on disk",

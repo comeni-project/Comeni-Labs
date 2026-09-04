@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "name": "0.11.9",
+      "images": [
+        {
+          "digest": "sha256:aaa111",
+          "os": "linux",
+          "architecture": "amd64"
+        },
+        {
+          "digest": "sha256:aaa222",
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ]
+    },
+    {
+      "name": "latest",
+      "images": [
+        {
+          "digest": "sha256:aaa111",
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ]
+    }
+  ],
+  "next": null
+}

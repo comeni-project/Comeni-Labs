@@ -1,0 +1,30 @@
+name: samtools_sort
+description: Sort SAM/BAM/CRAM file
+keywords:
+  - sort
+  - bam
+  - sam
+tools:
+  - samtools:
+      description: Tools for manipulating next-generation sequencing data
+      homepage: http://www.htslib.org/
+      licence: ["MIT"]
+input:
+  - - meta:
+        type: map
+        description: Groovy Map containing sample information
+    - bam:
+        type: file
+        description: BAM/CRAM/SAM file
+        pattern: "*.{bam,cram,sam}"
+output:
+  bam:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.bam":
+          type: file
+          description: Sorted BAM file
+          pattern: "*.{bam}"
+maintainers:
+  - "@ewels"

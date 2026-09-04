@@ -1,0 +1,15 @@
+{
+  "results": [
+    {
+      "name": "latest",
+      "images": [
+        {
+          "digest": "sha256:ccc111",
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ]
+    }
+  ],
+  "next": null
+}

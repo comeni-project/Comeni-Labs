@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "name": "1.9",
+      "images": [
+        {
+          "digest": "sha256:bbb111",
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ]
+    },
+    {
+      "name": "1.10",
+      "images": [
+        {
+          "digest": "sha256:bbb222",
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ]
+    },
+    {
+      "name": "latest",
+      "images": [
+        {
+          "digest": "sha256:bbb222",
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ]
+    }
+  ],
+  "next": null
+}

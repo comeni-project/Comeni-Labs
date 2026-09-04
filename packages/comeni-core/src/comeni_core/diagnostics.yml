@@ -25,6 +25,7 @@
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
+#   MF0200-MF0299  the forge: reading an upstream source catalogue
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
@@ -2254,6 +2255,107 @@ MF0107:
     this reason: a submodule's `.git` is a FILE holding `gitdir: ../../../.git/worktrees/...`,
     so it is present inside a bind-mount while every git call fails. The check is
     `git rev-parse`, not whether `.git` exists.
+MF0200:
+  emitted_by: forge
+  concern: catalogue
+  says: "the source catalogue came back incomplete, so its total would be wrong"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    Nothing to configure. The adapter could not prove it saw the whole catalogue, so it
+    refused rather than publishing a short total. Re-run the sync; the previous snapshot is
+    still in place and the page shows it as stale.
+
+    If it recurs, the source is paging further than the adapter's circuit breaker allows —
+    raise that limit deliberately in `sources/base.py` rather than accepting a partial list.
+  explanation: |
+    GitHub's tree endpoint truncates at a documented limit and says so in the response; a
+    paged API can end early on a transport failure. In both cases the adapter has *some* of
+    the catalogue and no way to know how much.
+
+    **A partial catalogue is worse than no catalogue**, which is why this refuses instead of
+    degrading. A short list produces a plausible total that is wrong, a progress bar with a
+    wrong denominator, and — worst — an "up to date" claim about tools the sync never saw.
+    Every one of those reads as a fact rather than as an absence.
+
+MF0201:
+  emitted_by: forge
+  concern: catalogue
+  says: "the source answered with an error status"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    The status and the URL are in the message. A `404` usually means the revision moved
+    between listing and fetching — re-sync. A `401` or `403` means the source wants
+    credentials, or that an anonymous rate limit has been reached; set `GITHUB_TOKEN` or
+    Docker Hub credentials if you have them.
+
+    Public development is expected to work without either, within the provider's anonymous
+    limits.
+  explanation: |
+    Retried first, on the statuses that can change — `408`, `425`, `429` and the `5xx` band.
+    A `404` or a `422` is returned immediately, because retrying an answer that will never
+    change turns one clear failure into three slow ones.
+
+    `403` is deliberately **not** retried even though a rate-limited GitHub returns it: a
+    `403` with no `Retry-After` is far more often a token problem, and the rate-limit case is
+    handled by reading the header rather than by guessing from the status.
+
+MF0202:
+  emitted_by: forge
+  concern: catalogue
+  says: "the source could not be reached after every attempt"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    A transport failure rather than a refusal — DNS, TLS, a timeout, a dropped connection.
+    Check the machine has network access to the source, then re-run the sync. The previous
+    snapshot is untouched.
+  explanation: |
+    Four attempts with exponential backoff and full jitter, capped. The jitter is not
+    decoration: every worker in a fleet retrying on the same schedule reconstructs the
+    thundering herd the backoff exists to prevent.
+
+    The last underlying error is quoted, because a transport boundary that swallows the
+    original message reports somebody else's problem as ours — the same lesson `MA0007`
+    records for the model transport.
+
+MF0203:
+  emitted_by: forge
+  concern: catalogue
+  says: "the source reported no change and there is no previous snapshot to reuse"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    Re-run the sync without a conditional request. Something recorded an `ETag` without
+    recording the snapshot it belonged to, so a `304` now points at nothing.
+  explanation: |
+    A `304` means *reuse what you have*, and the failure this refuses is the case where there
+    is nothing to reuse. Treating it as an empty catalogue would report zero tools and, worse,
+    would mark every adapted tool in the registry as no longer present upstream.
+
+    **`unchanged` and `empty` are opposite facts with identical shapes**, which is exactly why
+    `RawCatalogue` carries a separate flag rather than letting an empty item list mean both.
+
+MF0204:
+  emitted_by: forge
+  concern: catalogue
+  says: "a fact cites an evidence id the bundle does not carry"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    The missing ids are listed. An adapter attaching a fact it *derived* rather than read
+    should pass `evidence_id=None`, which records the value honestly as underived rather than
+    pointing at an excerpt that does not exist.
+  explanation: |
+    A citation a reviewer cannot follow is worse than no citation. Somebody who clicks `E014`
+    and lands nowhere has learned nothing about whether the claim is true, and cannot tell a
+    broken pointer from a fabricated one.
+
+    This is the same rule the nf-core source already applies to line numbers: citing a line
+    for a value nothing was read from is a false citation, and a reviewer who follows it finds
+    text that does not support the claim.
+
 MA0001:
   emitted_by: ai
   concern: model-access

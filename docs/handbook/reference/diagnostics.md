@@ -149,6 +149,16 @@ decline to curate one.
 | `MD0508` | the graph contains a cycle |
 | `MD0509` | a node names a contract that is not in the registry stack |
 
+## The forge — reading an upstream source catalogue
+
+| Code | Says |
+|---|---|
+| `MF0200` | the source catalogue came back incomplete, so its total would be wrong |
+| `MF0201` | the source answered with an error status |
+| `MF0202` | the source could not be reached after every attempt |
+| `MF0203` | the source reported no change and there is no previous snapshot to reuse |
+| `MF0204` | a fact cites an evidence id the bundle does not carry |
+
 ## The forge — a scaffold, its holes, and filling them
 
 | Code | Says |

@@ -1,0 +1,51 @@
+{
+  "sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "truncated": false,
+  "tree": [
+    {
+      "path": "README.md",
+      "type": "blob",
+      "sha": "s000root"
+    },
+    {
+      "path": "fastqc",
+      "type": "tree",
+      "sha": "st01"
+    },
+    {
+      "path": "fastqc/Dockerfile",
+      "type": "blob",
+      "sha": "s100fastqcdockerfile"
+    },
+    {
+      "path": "fastqc/README.md",
+      "type": "blob",
+      "sha": "s101fastqcreadme"
+    },
+    {
+      "path": "clustalw",
+      "type": "tree",
+      "sha": "st02"
+    },
+    {
+      "path": "clustalw/Dockerfile",
+      "type": "blob",
+      "sha": "s200clustaldockerfile"
+    },
+    {
+      "path": "prodigal",
+      "type": "tree",
+      "sha": "st03"
+    },
+    {
+      "path": "prodigal/Dockerfile",
+      "type": "blob",
+      "sha": "s300prodigaldockerfile"
+    },
+    {
+      "path": "prodigal/README.md",
+      "type": "blob",
+      "sha": "s301prodigalreadme"
+    }
+  ]
+}

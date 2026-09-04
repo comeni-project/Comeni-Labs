@@ -77,3 +77,27 @@ def get(name: str) -> Source:
 def discover_all(root: Path) -> list[ToolRef]:
     found = [ref for name in names() for ref in _REGISTERED[name].discover(root)]
     return sorted(found, key=lambda r: (r.source, r.ident))
+
+
+# ── the catalogue adapters ─────────────────────────────────────────────────────────────
+#
+# **A second registry, deliberately.** `_REGISTERED` above holds `Source` implementations for
+# the deprecated `forge draft` path, which reads a local layer. `BaseSourceAdapter` answers a
+# different question — what exists *upstream* — and needs an injected HTTP client, so it cannot
+# be constructed at import time the way a `Source` is.
+#
+# `adapters()` names the classes rather than instances for exactly that reason: the caller owns
+# the client's lifetime, and a module-level `httpx.AsyncClient` created at import would outlive
+# every event loop that ever used it. Task 13 retires the older half.
+
+
+def adapters() -> dict[str, type]:
+    """Every upstream catalogue adapter, by source name.
+
+    Imported inside the function so `import mendel_forge.sources` stays cheap and so the
+    `httpx` dependency is not pulled in by a caller that only wants `ToolRef`.
+    """
+    from mendel_forge.sources.nfcore_catalogue import NfCoreAdapter
+    from mendel_forge.sources.pegi3s import Pegi3sAdapter
+
+    return {NfCoreAdapter.name: NfCoreAdapter, Pegi3sAdapter.name: Pegi3sAdapter}
