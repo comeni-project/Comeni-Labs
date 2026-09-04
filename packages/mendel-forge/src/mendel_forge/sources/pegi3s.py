@@ -87,7 +87,23 @@ CAPABILITIES = SourceCapabilities(
 A scaffold reads these and behaves differently: with no Nextflow upstream a module has to be
 *authored*, which is the single largest difference in how much a model is trusted with, and
 with no structured ports every port is a hole rather than a hole in a known shape.
+
+**The floor, not the answer.** `_capabilities` raises `supplies_tests` per tool when its
+metadata entry carries one — see there. nf-core's constant is genuinely uniform across its
+catalogue; PEGiS's is not, and a class constant that under-reports what a particular tool
+supplies costs that tool a validation rung it could have had.
 """
+
+TEST_FIELDS = ("test_invocation", "test_data", "test_result")
+"""What makes a PEGiS entry runnable, and the reason it matters more here than anywhere else.
+
+nf-core ships nf-test files; PEGiS ships three strings — a command, an input, and the file that
+command should produce. That is a weaker artefact and it is the **only** executable check these
+tools have, which makes it the thing standing between a model-authored module and nobody
+knowing whether it works.
+
+A tool with all three can have a stub fixture generated for it. One with none cannot, and the
+scaffold needs to know which it is looking at rather than assuming the worse case for both."""
 
 SEMVER = re.compile(r"^v?\d+(\.\d+)*([.-][A-Za-z0-9]+)*$")
 """What counts as a version tag.
@@ -485,9 +501,14 @@ def _item(
         # `input_data_type` is PEGiS stating what the tool eats, in its own words. A *hint*, in
         # the field's own sense — not a port, not a type id, and never resolved into one here.
         input_hints=tuple(_split(by_name.get("input_data_type"))),
+        # **`test_result` is the only machine-readable output signal PEGiS has**, and it is one
+        # filename rather than a port list. A tool that writes four files names one of them
+        # here, so this is a floor on the outputs and never the set of them — which is exactly
+        # what `output_hints` means and why it is not `produces`.
+        output_hints=tuple(_split(by_name.get("test_result"))),
         classifications=classifications,
         source_facts=tuple(SourceFact(name=name, value=value) for name, value in facts),
-        capabilities=CAPABILITIES,
+        capabilities=_capabilities(entry),
         adaptable=reason is None,
         unsupported_reason=reason,
         content_digest=_digest(repo, refs, blobs, entry, classifications, central),
@@ -536,6 +557,32 @@ def _digest(
             for c in classifications
             if (term := ontology.get(c.id)) is not None
         ),
+    )
+
+
+def _capabilities(entry: Entry | None) -> SourceCapabilities:
+    """`CAPABILITIES`, with `supplies_tests` raised for a tool that carries a runnable check.
+
+    **Per tool, because PEGiS is not uniform.** nf-core's capabilities are a fact about the
+    whole catalogue — every module there ships a process, structured ports and nf-test files.
+    PEGiS's are a fact about the *adapter's reach* for most fields and a fact about the
+    *entry* for this one: some tools name a test command, an input and an expected result, and
+    most do not.
+
+    Why it is worth distinguishing: the module for a PEGiS tool has to be **authored**, and an
+    authored module is exactly the artefact nobody can trust on inspection. A tool that can be
+    stub-run against a known input and a known output file can be *checked*; one that cannot
+    reaches review on prose alone. Flattening both to `supplies_tests=False` throws away the
+    difference at the moment it matters most.
+
+    All three fields are required. A command with no expected result proves the process starts,
+    which is not the same as proving it did anything.
+    """
+    if entry is None:
+        return CAPABILITIES
+    facts = dict(entry.facts())
+    return CAPABILITIES.model_copy(
+        update={"supplies_tests": all(facts.get(field) for field in TEST_FIELDS)}
     )
 
 

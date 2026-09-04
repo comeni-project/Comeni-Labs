@@ -333,7 +333,41 @@ async def test_the_source_claims_no_nextflow_and_no_structured_ports():
         assert not item.capabilities.supplies_nextflow
         assert not item.capabilities.supplies_structured_ports
         assert item.capabilities.supplies_container_digest
-        assert not item.capabilities.supplies_tests
+
+
+@pytest.mark.asyncio
+async def test_a_runnable_test_is_claimed_per_tool_rather_than_per_source():
+    """PEGiS is not uniform and nf-core is, so this one capability varies by entry.
+
+    An authored module is the artefact nobody can trust on inspection. A tool that can be
+    stub-run against a known input and a known expected file can be *checked*; one that cannot
+    reaches review on prose alone. Reporting `False` for both throws away the difference at
+    the moment it matters most.
+    """
+    got = await _adapter().sync()
+    fastqc = next(i for i in got.items if i.ref == "fastqc")
+    clustalw = next(i for i in got.items if i.ref == "clustalw")
+    prodigal = next(i for i in got.items if i.ref == "prodigal")
+
+    assert fastqc.capabilities.supplies_tests, "fastqc declares all three test fields"
+    assert not clustalw.capabilities.supplies_tests, "clustalw declares none of them"
+    assert not prodigal.capabilities.supplies_tests, "prodigal has no metadata entry at all"
+
+
+@pytest.mark.asyncio
+async def test_a_partial_test_declaration_does_not_count():
+    """A command with no expected result proves the process starts, which is not the same as
+    proving it did anything."""
+    partial = (FIXTURES / "pegi3s_metadata.json").read_text()
+    partial = partial.replace('"test_result": "reads_fastqc.html",', '"test_result": "",')
+    got = await Pegi3sAdapter(
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(_handler(blobs={"m001metadatajson": partial}))
+        ),
+        now=WHEN,
+    ).sync()
+    fastqc = next(i for i in got.items if i.ref == "fastqc")
+    assert not fastqc.capabilities.supplies_tests
 
 
 # ── the digest covers image and documentation together ─────────────────────────────────
@@ -525,12 +559,32 @@ async def test_source_facts_are_preserved_verbatim():
 
 
 @pytest.mark.asyncio
-async def test_input_data_type_becomes_a_hint_and_not_a_port():
-    """PEGiS stating what a tool eats, in its own words. §8: not a port, not a type id."""
+async def test_declared_metadata_becomes_a_hint_and_not_a_port():
+    """PEGiS stating what a tool eats and writes, in its own words. Not ports, not type ids.
+
+    `input_data_type` and `test_result` are *declared fields*, which is what makes them
+    legitimate hints. §8 forbids deriving a port from a **category**, and a category is
+    nowhere in either of these.
+    """
     got = await _adapter().sync()
     fastqc = next(i for i in got.items if i.ref == "fastqc")
     assert fastqc.input_hints == ("FASTQ", "BAM")
-    assert fastqc.output_hints == (), "an output port was invented from a category"
+    assert fastqc.output_hints == ("reads_fastqc.html",)
+
+
+@pytest.mark.asyncio
+async def test_no_hint_is_derived_from_a_classification():
+    """The rule §8 actually states, asserted against the tool that has classifications.
+
+    `clustalw` is classified `Alignment` and its metadata declares no `test_result`. If a
+    category ever leaked into the port hints, this is where it would show up.
+    """
+    got = await _adapter().sync()
+    clustalw = next(i for i in got.items if i.ref == "clustalw")
+    assert clustalw.classifications, "the fixture no longer exercises this"
+    assert clustalw.output_hints == ()
+    names = {c.name for c in clustalw.classifications}
+    assert not (names & set(clustalw.input_hints)), "a category became a port hint"
 
 
 @pytest.mark.asyncio
