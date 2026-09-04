@@ -158,6 +158,10 @@ decline to curate one.
 | `MF0202` | the source could not be reached after every attempt |
 | `MF0203` | the source reported no change and there is no previous snapshot to reuse |
 | `MF0204` | a fact cites an evidence id the bundle does not carry |
+| `MF0205` | a central metadata file could not be used, in whole or in part |
+| `MF0206` | the classification ontology is malformed |
+| `MF0207` | a classification names a tool that was not discovered |
+| `MF0208` | a discovered image has no entry in the source's central metadata |
 
 ## The forge — a scaffold, its holes, and filling them
 

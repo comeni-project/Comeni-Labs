@@ -9,6 +9,11 @@
       "name": "orphanimage",
       "description": "an image with no source directory",
       "last_updated": "2026-01-05T08:00:00Z"
+    },
+    {
+      "name": "seda",
+      "description": "SEquence DAtaset builder",
+      "last_updated": "2026-08-01T09:00:00Z"
     }
   ],
   "next": null

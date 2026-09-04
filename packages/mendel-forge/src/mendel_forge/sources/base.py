@@ -48,12 +48,16 @@ from mendel_forge.catalogue import (
     BundleFact,
     BundleFile,
     CatalogueItem,
+    Classification,
     ContainerRef,
+    FilterNode,
     LandedSource,
     NumberedExcerpt,
     SourceBundle,
     SourceCapabilities,
+    SourceFact,
     SourceSnapshot,
+    SyncWarning,
 )
 from mendel_forge.observe import Observation
 
@@ -120,6 +124,8 @@ class RawItem(BaseModel):
     last_updated_at: datetime | None = None
     input_hints: tuple[str, ...] = ()
     output_hints: tuple[str, ...] = ()
+    classifications: tuple[Classification, ...] = ()
+    source_facts: tuple[SourceFact, ...] = ()
     capabilities: SourceCapabilities = SourceCapabilities()
     adaptable: bool = True
     unsupported_reason: str | None = None
@@ -140,6 +146,12 @@ class RawCatalogue(BaseModel):
     source_revision: str
     etag: str | None = None
     items: tuple[RawItem, ...] = ()
+    filters: tuple[FilterNode, ...] = ()
+    """The source's filter vocabulary, if it has one. Carried through to the snapshot
+    untouched — the base has no opinion about what a source's taxonomy means."""
+    warnings: tuple[SyncWarning, ...] = ()
+    """What the adapter could not use. Non-fatal by construction: a sync that raised on a
+    malformed assignment line would report zero tools for a typo."""
     complete: bool = True
     unchanged: bool = False
     """The source answered `304`. `items` is then empty and the previous snapshot is reused —
@@ -246,6 +258,8 @@ class BaseSourceAdapter(ABC):
                 self._normalise(item, raw.source_revision)
                 for item in sorted(raw.items, key=lambda i: i.ref)
             ),
+            filters=raw.filters,
+            warnings=raw.warnings,
         )
 
     async def bundle(self, item: CatalogueItem) -> SourceBundle:
@@ -435,6 +449,8 @@ class BaseSourceAdapter(ABC):
             last_updated_at=raw.last_updated_at,
             input_hints=raw.input_hints,
             output_hints=raw.output_hints,
+            classifications=raw.classifications,
+            source_facts=raw.source_facts,
             capabilities=raw.capabilities,
             adaptable=raw.adaptable,
             unsupported_reason=raw.unsupported_reason,

@@ -2356,6 +2356,93 @@ MF0204:
     for a value nothing was read from is a false citation, and a reviewer who follows it finds
     text that does not support the claim.
 
+MF0205:
+  emitted_by: forge
+  concern: catalogue
+  says: "a central metadata file could not be used, in whole or in part"
+  fires_on: [forge sync]
+  refuses: false
+  fix: |
+    A warning, not a refusal — the sync completed and every tool is still listed. The message
+    names the file and, where there is one, the line or entry.
+
+    A malformed line is upstream's to fix; report it to the source project. An assignment
+    naming an ontology id that no term declares usually means a term was renamed in `dio.obo`
+    without `dio.diaf` being updated to match.
+  explanation: |
+    PEGiS keeps three central files and each does one job: `metadata.json` describes each
+    image, `dio.obo` defines the classification vocabulary, `dio.diaf` assigns terms to
+    images. This code covers a file that could not be read or parsed, a malformed assignment
+    line, and an assignment naming a term the ontology does not carry.
+
+    **None of them refuses the sync**, and that is the whole point. A sync that died because
+    one line of a two-hundred-line assignment file names a renamed term would report zero
+    tools for a typo — the catalogue would go from complete to empty over something that
+    affects one classification on one tool.
+
+MF0206:
+  emitted_by: forge
+  concern: catalogue
+  says: "the classification ontology is malformed"
+  fires_on: [forge sync]
+  refuses: false
+  fix: |
+    Report it upstream. A term stanza with no `id`, an id declared twice, or an `is_a`
+    pointing at a term nobody declares are all errors in `dio.obo` itself.
+
+    The affected terms are dropped or truncated; every other term still builds, and tools
+    classified under unaffected branches are unchanged.
+  explanation: |
+    Distinct from `MF0205` because the *vocabulary* being wrong and an *assignment* being
+    wrong have different consequences. A bad assignment costs one tool one category; a bad
+    ontology can detach a whole branch of the filter tree, so a reader needs to be able to
+    tell which happened without parsing the message.
+
+    A duplicated id keeps the **first** stanza and reports the collision, rather than
+    silently taking the last — the same defect `yaml_strict` exists to refuse, one format
+    over.
+
+MF0207:
+  emitted_by: forge
+  concern: catalogue
+  says: "a classification names a tool that was not discovered"
+  fires_on: [forge sync]
+  refuses: false
+  fix: |
+    Usually harmless: the source classifies an image it has not published to the registry
+    yet, or has since withdrawn. Nothing is lost — the assignment is skipped.
+
+    If the tool should exist, check the discovery source lists it under exactly that name.
+  explanation: |
+    **The assignment is skipped rather than creating a catalogue row**, and that asymmetry is
+    deliberate. A fabricated entry would be a tool somebody can click, read a description
+    for, and never run, because no image was ever discovered for it — worse than an absence,
+    because an absence is obviously an absence.
+
+    Discovery decides what exists; the central metadata decides what those things *are*.
+    Letting the second invent members of the first inverts that.
+
+MF0208:
+  emitted_by: forge
+  concern: catalogue
+  says: "a discovered image has no entry in the source's central metadata"
+  fires_on: [forge sync]
+  refuses: false
+  fix: |
+    The tool stays in the catalogue and can still be adapted; it carries no central
+    description and no classifications, so it will not appear under any filter.
+
+    If it should be classified, the fix is upstream: add it to `metadata.json` and, if it
+    belongs in the taxonomy, to `dio.diaf`.
+  explanation: |
+    The mirror of `MF0207`, and it resolves the other way: here the image is real and
+    pullable and only its documentation is missing, so hiding it would make the catalogue
+    smaller than the namespace it is describing — quietly, which is the worst way for a total
+    to be wrong.
+
+    A tool with less evidence behind it is a tool a reviewer will have to work harder on. It
+    is not a tool that does not exist.
+
 MA0001:
   emitted_by: ai
   concern: model-access

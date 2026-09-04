@@ -4017,3 +4017,45 @@ overrode a blob to return duplicate-key YAML — and the fixture handler checked
 map *before* the override, so the test ran against unmodified metadata and asserted nothing. The
 same class as the `docs/tools/` probe earlier the same day: a fixture that quietly declines to
 be modified.
+
+## PEGiS reads its own ontology — 2026-09-04
+
+The adapter discovered images and assigned no categories at all: `RawItem.categories` was `()`
+for every PEGiS tool. Categories are not stored per tool and must not be inferred from prose —
+they are centralised in `pegi3s/dockerfiles/metadata/`, split across three files that do three
+different jobs. `dio.obo` is the filter *vocabulary*; `dio.diaf` is the many-to-many *assignment*
+table; `metadata.json` describes each image.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `test_source_pegi3s_dio.py::test_two_terms_with_the_same_name_stay_distinct` | terms indexed by display name instead of DIO id | failed | the two `Alignment` terms collapsed into one |
+| 2026-09-04 | `test_source_pegi3s.py::test_an_assigned_child_is_discoverable_under_its_ancestors` | `ancestors=()` on every classification | failed, with two others | `fastqc` no longer reachable under `DIO:0000010` |
+| 2026-09-04 | `test_source_pegi3s_dio.py` (55 tests) | an unknown ontology id raised instead of warning | 55 failed | one renamed term upstream took the whole catalogue down |
+| 2026-09-04 | `test_source_pegi3s_dio.py::test_an_unknown_tool_warns_and_creates_nothing` | the undiscovered-tool check removed | failed | `'nosuchtool' in {...}` — a fabricated entry |
+| 2026-09-04 | `test_source_pegi3s.py::test_the_three_central_files_are_fetched_once_from_one_commit` | `_central` called per tool | failed | `m001metadatajson was fetched 6 times` |
+
+**A guard that could not fire, and it was belt-and-braces that hid it.** `SourceSnapshot.classified()`
+matched an item if *any* of its classifications had the target id **or** carried it in
+`ancestors`. Because an item materialises an inherited `Classification` per ancestor *and*
+resolves `ancestors` onto the direct one, those are two independent routes to the same answer:
+deleting the ancestry resolution left filtering working through the inherited entries, and
+deleting the inherited entries left it working through the ancestry. Neither defect could fail a
+test. It now matches on **direct classifications only**, so the ancestry is load-bearing and the
+revert above brings down three tests instead of none.
+
+That is the third redundancy of this shape in two days — after `pegi3s.ALIASES`, which anchored
+`SEMVER` had already made unreachable. The pattern to distrust: two mechanisms that each fully
+answer one question, presented as defence in depth.
+
+**A field that had a typed home and was therefore left out of the canonical set.**
+`description` maps to `CatalogueItem.summary`, so it was not listed in `FACT_FIELDS` — which is
+also what the content digest is computed over. An upstream rewrite of a tool's description
+changed the summary a reader sees and moved no digest, so nothing was ever marked outdated for
+it. Found by the freshness test, not by reading. A field having somewhere to go is not the same
+as it being covered.
+
+**And the fixture-precedence bug, for the third time in two days.** The test handler checked its
+on-disk map of central files *before* the per-test override, so `_digests(metadata=...)` swapped
+nothing and four digest tests asserted against unmodified fixtures — passing for the wrong
+reason. Same shape as `docs/tools/`'s probe and the nf-core metadata override. Whenever a
+fixture handler has two sources for the same key, the override must be checked first.

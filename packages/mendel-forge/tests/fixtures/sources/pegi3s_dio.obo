@@ -1,0 +1,52 @@
+format-version: 1.2
+ontology: dio
+
+[Term]
+id: DIO:0000001
+name: Data_type
+def: "The kind of data a tool consumes or produces." [PEGI3S:dio]
+
+[Term]
+id: DIO:0000004
+name: Sequences
+def: "Biological sequence data." [PEGI3S:dio]
+is_a: DIO:0000001 ! Data_type
+
+[Term]
+id: DIO:0000010
+name: Short_reads
+def: "Short sequencing reads." [PEGI3S:dio]
+is_a: DIO:0000004 ! Sequences
+
+[Term]
+id: DIO:0000036
+name: Quality
+def: "Quality assessment of short reads." [PEGI3S:dio]
+is_a: DIO:0000010 ! Short_reads
+
+[Term]
+id: DIO:0000050
+name: Analysis
+def: "What a tool does to data." [PEGI3S:dio]
+
+[Term]
+id: DIO:0000051
+name: Alignment
+def: "Aligning sequences to one another as an analysis step." [PEGI3S:dio]
+is_a: DIO:0000050 ! Analysis
+
+[Term]
+id: DIO:0000052
+name: Alignment
+def: "An alignment considered as a kind of data." [PEGI3S:dio]
+is_a: DIO:0000004 ! Sequences
+
+[Term]
+id: DIO:0000060
+name: Editing
+def: "Editing and curating existing data." [PEGI3S:dio]
+is_a: DIO:0000050 ! Analysis
+
+[Typedef]
+id: part_of
+name: part of

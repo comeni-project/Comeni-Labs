@@ -107,6 +107,93 @@ class ContainerRef(BaseModel):
         return f"{self.registry}/{self.repository}:{self.tag}"
 
 
+class Classification(BaseModel):
+    """One category a source assigns to a tool, with enough context to filter and to explain.
+
+    **Identity is `id`, never `name`.** PEGiS's ontology carries more than one term called
+    `Alignment` under different parents, so keying on the display name silently merges two
+    categories: one filter, two meanings, and a tool listed under a branch nobody assigned it
+    to. `path` is what lets a person tell them apart on screen.
+
+    **`direct` is the provenance and must survive.** A tool assigned to *Quality* is discoverable
+    under *Sequences* because *Sequences* is an ancestor — but it was not classified there, and a
+    reviewer reading a dossier needs to know which claim the source actually made. Flattening the
+    two into one list is the specific loss §6 forbids.
+
+    Source-neutral: a second source with its own taxonomy fills the same shape. Nothing here is
+    inferred — a classification exists because an assignment file said so.
+    """
+
+    model_config = _FROZEN
+
+    id: str
+    name: str
+    definition: str = ""
+    parents: tuple[str, ...] = ()
+    ancestors: tuple[str, ...] = ()
+    """Every id above this one, nearest first. What hierarchical filtering reads."""
+    path: tuple[str, ...] = ()
+    """A readable breadcrumb, root first — for a person, not for matching."""
+    direct: bool = True
+
+
+class FilterNode(BaseModel):
+    """One node of a source's filter tree, independent of any tool.
+
+    **On the snapshot rather than derived from the items**, because §6 asks that the API return
+    the filter tree without scanning the catalogue — and because a tree assembled from whatever
+    tools happen to be classified is missing every branch nobody has used yet, which makes the
+    filter silently narrower than the vocabulary.
+    """
+
+    model_config = _FROZEN
+
+    id: str
+    name: str
+    definition: str = ""
+    parents: tuple[str, ...] = ()
+    children: tuple[str, ...] = ()
+    path: tuple[str, ...] = ()
+    direct_count: int = 0
+    """How many discovered tools are assigned to this node *itself*. Ancestors are counted by
+    the consumer walking `children`, because a node's total depends on which filters are already
+    applied and the snapshot cannot know that."""
+
+
+class SourceFact(BaseModel):
+    """A field a source publishes that the catalogue has no typed home for.
+
+    **The smallest extension that loses nothing.** PEGiS's `metadata.json` carries some twenty
+    fields — `gui_command`, `singularity`, `invocation_general` — that mean nothing to nf-core.
+    Twenty-odd optional columns on a shared record would be twenty-odd fields every other source
+    leaves null, and inventing typed fields for one source's vocabulary is how a shared model
+    becomes that source's model.
+
+    They are preserved verbatim, in the order the source declares them, and read by the dossier
+    as evidence. Nothing consumes them structurally.
+    """
+
+    model_config = _FROZEN
+
+    name: str
+    value: str
+
+
+class SyncWarning(BaseModel):
+    """Something a sync could not use, reported rather than raised.
+
+    A sync that dies because one line of an assignment file names a renamed term is a sync that
+    reports zero tools for a typo. §7's rule is that an imperfect join must never hide a tool, so
+    every join failure lands here and the snapshot still publishes.
+    """
+
+    model_config = _FROZEN
+
+    code: str
+    detail: str
+    subject: str = ""
+
+
 class Freshness(StrEnum):
     """Where one catalogue item stands against the registry.
 
@@ -187,6 +274,20 @@ class CatalogueItem(BaseModel):
     """What the source suggests goes in and comes out, in its own words. **Hints, in the name,
     because they are not ports**: a filename pattern is evidence and a channel name is not a
     semantic type. They exist so a person can judge a tool before importing it."""
+
+    classifications: tuple[Classification, ...] = ()
+    """What the source's own taxonomy says this tool is, direct and inherited.
+
+    Empty for a source with no taxonomy, and empty for a tool its source has not classified —
+    which is an ordinary state, not a defect. §7: a tool with no assignment stays visible.
+
+    **Catalogue and filter metadata, not port declarations.** A category is authoritative about
+    where a tool belongs in a menu and says nothing exact about inputs, outputs or parameters.
+    §8 forbids deriving any of those from a category, and this field carries no shape that could
+    be mistaken for one."""
+
+    source_facts: tuple[SourceFact, ...] = ()
+    """Fields the source publishes that have no typed home here. See `SourceFact`."""
 
     capabilities: SourceCapabilities = SourceCapabilities()
     adaptable: bool = True
@@ -287,6 +388,39 @@ class SourceSnapshot(BaseModel):
     """For the next conditional request. `None` when the source offers no validator."""
     synced_at: datetime
     items: tuple[CatalogueItem, ...]
+
+    filters: tuple[FilterNode, ...] = ()
+    """The source's whole filter vocabulary, whether or not any tool uses a given branch.
+
+    Independent of `items` on purpose — see `FilterNode`. Empty for a source with no taxonomy."""
+
+    warnings: tuple[SyncWarning, ...] = ()
+    """What this sync could not use. A snapshot with warnings is still a successful sync: the
+    items are whole and something upstream was malformed."""
+
+    def classified(self, term_id: str) -> tuple[CatalogueItem, ...]:
+        """Every item under `term_id`, **including through inheritance**.
+
+        This is what makes a hierarchical filter work: `fastqc` is assigned to *Quality* and has
+        to appear when somebody clicks *Sequences*, three levels up. The ancestry is resolved on
+        the item at sync time, so this is a membership test rather than a tree walk.
+
+        **Direct classifications only, and their `ancestors`.** An item also carries an
+        *inherited* entry per ancestor, for display — so matching on every classification's `id`
+        would answer this question a second way, and the two were redundant: dropping the
+        ancestry resolution left filtering working through the inherited entries, and dropping
+        the inherited entries left it working through the ancestry. Neither defect could fail a
+        test, which is a guard that cannot fire dressed as belt and braces. One path, and it is
+        the one the source actually asserted.
+        """
+        return tuple(
+            item
+            for item in self.items
+            if any(
+                found.direct and (found.id == term_id or term_id in found.ancestors)
+                for found in item.classifications
+            )
+        )
 
     @model_validator(mode="after")
     def _every_item_belongs_to_this_source(self) -> Self:

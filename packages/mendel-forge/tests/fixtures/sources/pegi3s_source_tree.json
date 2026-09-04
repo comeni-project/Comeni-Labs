@@ -46,6 +46,41 @@
       "path": "prodigal/README.md",
       "type": "blob",
       "sha": "s301prodigalreadme"
+    },
+    {
+      "path": "seda",
+      "type": "tree",
+      "sha": "st04"
+    },
+    {
+      "path": "seda/Dockerfile",
+      "type": "blob",
+      "sha": "s400sedadockerfile"
+    },
+    {
+      "path": "seda/README.md",
+      "type": "blob",
+      "sha": "s401sedareadme"
+    },
+    {
+      "path": "metadata",
+      "type": "tree",
+      "sha": "stmeta"
+    },
+    {
+      "path": "metadata/metadata.json",
+      "type": "blob",
+      "sha": "m001metadatajson"
+    },
+    {
+      "path": "metadata/dio.obo",
+      "type": "blob",
+      "sha": "m002dioobo"
+    },
+    {
+      "path": "metadata/dio.diaf",
+      "type": "blob",
+      "sha": "m003diodiaf"
     }
   ]
 }

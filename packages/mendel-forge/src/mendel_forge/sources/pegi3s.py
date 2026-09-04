@@ -30,6 +30,7 @@ unrecoverable without a full re-sync, so they are all preserved in `container_re
 import asyncio
 import base64
 import re
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 
 import httpx
@@ -39,9 +40,13 @@ from pydantic import BaseModel, ConfigDict
 from mendel_forge.catalogue import (
     BundleFile,
     CatalogueItem,
+    Classification,
     ContainerRef,
+    FilterNode,
     SourceCapabilities,
+    SourceFact,
     SourceSnapshot,
+    SyncWarning,
 )
 from mendel_forge.sources.base import (
     BaseSourceAdapter,
@@ -51,6 +56,15 @@ from mendel_forge.sources.base import (
     RawItem,
     UpstreamError,
     digest_of,
+)
+from mendel_forge.sources.dio import (
+    Assignments,
+    Entry,
+    Ontology,
+    normalise,
+    parse_diaf,
+    parse_metadata,
+    parse_obo,
 )
 
 HUB = "https://hub.docker.com/v2"
@@ -104,6 +118,28 @@ That is a real limit, and the digest beside the version is what makes it surviva
 
 CONCURRENCY = 8
 
+CENTRAL: dict[str, str] = {
+    "metadata": "metadata/metadata.json",
+    "obo": "metadata/dio.obo",
+    "diaf": "metadata/dio.diaf",
+}
+"""PEGiS's authoritative central files, and the three jobs they do.
+
+Categories are **not** stored inside a tool's directory and are **not** inferrable from a
+description or a Docker Hub topic. They live here, and the project's own `CONTRIBUTING.md` is
+what says which file does what: `metadata.json` describes each image, `dio.obo` defines the
+classification ontology, `dio.diaf` assigns ontology terms to images.
+
+Fetched from one resolved commit per sync — see `_central` for why independently is wrong."""
+
+RESERVED = frozenset({"metadata", ".github"})
+"""Top-level directories in `dockerfiles` that are not tools.
+
+Their files sit one level down exactly like a tool's do, so the path partition that finds tool
+directories files them under a phantom tool. Excluded by name because there is no structural
+signal to distinguish them; a real Docker Hub repository called `metadata` would collide and is
+a decision for whoever meets it."""
+
 
 class _Repo(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -111,6 +147,65 @@ class _Repo(BaseModel):
     name: str
     description: str = ""
     last_updated: datetime | None = None
+
+
+class _SourceTree(BaseModel):
+    """One read of `pegi3s/dockerfiles`, split into the two things it answers."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    commit: str
+    tools: Mapping[str, dict[str, str]]
+    """`{tool directory: {filename: blob sha}}`."""
+    central: Mapping[str, str]
+    """`{path: blob sha}` for the files in `CENTRAL`, from this same tree."""
+
+
+class _Central(BaseModel):
+    """The three central files, parsed and indexed, for one sync."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
+
+    entries: Mapping[str, Entry]
+    ontology: Ontology
+    assignments: Assignments
+    warnings: tuple[SyncWarning, ...] = ()
+
+    def classifications(self, tool: str) -> tuple[Classification, ...]:
+        """Every category for `tool`, direct first, then inherited.
+
+        **Direct and inherited are both present and stay distinguishable.** A tool assigned to
+        *Quality* must be findable under *Sequences* — §6 — and a reviewer must still be able to
+        see that *Sequences* is not a claim the source made about it. Flattening them into one
+        undifferentiated list is the loss that rule forbids.
+        """
+        direct = self.assignments.for_tool(tool)
+        found: list[Classification] = [
+            self._one(term_id, direct=True) for term_id in direct if self.ontology.get(term_id)
+        ]
+        inherited: list[str] = []
+        for term_id in direct:
+            for ancestor in self.ontology.ancestors(term_id):
+                if ancestor not in direct and ancestor not in inherited:
+                    inherited.append(ancestor)
+        found += [
+            self._one(term_id, direct=False)
+            for term_id in sorted(inherited)
+            if self.ontology.get(term_id)
+        ]
+        return tuple(found)
+
+    def _one(self, term_id: str, *, direct: bool) -> Classification:
+        term = self.ontology.terms[term_id]
+        return Classification(
+            id=term.id,
+            name=term.name,
+            definition=term.definition,
+            parents=term.parents,
+            ancestors=self.ontology.ancestors(term_id),
+            path=self.ontology.path(term_id),
+            direct=direct,
+        )
 
 
 class Pegi3sAdapter(BaseSourceAdapter):
@@ -141,21 +236,32 @@ class Pegi3sAdapter(BaseSourceAdapter):
     # ── catalogue ──────────────────────────────────────────────────────────────────────
 
     async def _fetch_catalogue(self, previous: SourceSnapshot | None) -> RawCatalogue:
+        """Discovery from Docker Hub, enriched from the central metadata at one commit.
+
+        **The order is the design.** Docker Hub says what images exist — that is discovery and
+        it is unchanged. The GitHub files say what those images *are* and where they sit in the
+        taxonomy — that is enrichment. Reversing it would make a tool's existence depend on
+        somebody having written it into `metadata.json`, which is a different and worse
+        catalogue.
+        """
         commit = await self._source_head()
         repositories = await self._repositories()
-        documented = await self._documented(commit)
+        tree = await self._tree(commit)
+        central = await self._central(tree, (repo.name for repo in repositories))
 
         semaphore = asyncio.Semaphore(CONCURRENCY)
 
         async def one(repo: _Repo) -> RawItem:
             async with semaphore:
                 tags = await self._tags(repo.name)
-            return _item(repo, tags, documented.get(repo.name), commit)
+            return _item(repo, tags, tree.tools.get(repo.name), commit, central)
 
         items = await asyncio.gather(*(one(r) for r in repositories))
         return RawCatalogue(
             source_revision=commit,
             items=tuple(items),
+            filters=_filters(central, items),
+            warnings=(*central.warnings, *_missing_metadata(central, items)),
             # **Docker Hub is paged and `paginate` refuses a partial read**, so reaching here
             # means the list is whole. `complete` is not a guess.
             complete=True,
@@ -197,12 +303,20 @@ class Pegi3sAdapter(BaseSourceAdapter):
             )
         return str(sha)
 
-    async def _documented(self, commit: str) -> dict[str, dict[str, str]]:
-        """`{tool: {filename: blob sha}}` for every directory in `pegi3s/dockerfiles`.
+    async def _tree(self, commit: str) -> _SourceTree:
+        """One tree read, answering two questions: which images have source, and where the
+        central metadata files are.
 
-        Read once for the whole catalogue rather than per repository: one tree request answers
-        *which images have source* for all ~190 of them, where 190 directory probes would be
-        190 requests against a rate limit.
+        Read once for the whole catalogue rather than per repository: one request answers *which
+        images have source* for all ~190 of them, where 190 directory probes would be 190
+        requests against a rate limit. The three `metadata/` blobs come out of the **same**
+        response, which is what makes "all three files from one commit" structural rather than a
+        convention somebody has to remember.
+
+        **`metadata/` is not a tool.** Its files sit one directory down like every tool's do, so
+        the naive partition below files them under a phantom tool called `metadata`. It is
+        excluded by name; a Docker Hub repository called `metadata` would be a real collision and
+        `RESERVED` is where that would be argued out.
         """
         url = f"{GITHUB}/repos/{SOURCE_OWNER}/{SOURCE_REPO}/git/trees/{commit}?recursive=1"
         body = (await self.get(url, headers=self._github())).json()
@@ -211,16 +325,72 @@ class Pegi3sAdapter(BaseSourceAdapter):
                 coded("MF0200", f"{self.name}: the {SOURCE_REPO} tree came back truncated")
                 + "\n  every image would read as undocumented, which is a false total"
             )
-        found: dict[str, dict[str, str]] = {}
+        tools: dict[str, dict[str, str]] = {}
+        central: dict[str, str] = {}
         for entry in body.get("tree", []):
             if entry.get("type") != "blob":
                 continue
             path = str(entry["path"])
             if "/" not in path:
                 continue
-            tool, _, filename = path.partition("/")
-            found.setdefault(tool, {})[filename] = str(entry["sha"])
-        return found
+            if path in CENTRAL.values():
+                central[path] = str(entry["sha"])
+                continue
+            directory, _, filename = path.partition("/")
+            if directory in RESERVED:
+                continue
+            tools.setdefault(directory, {})[filename] = str(entry["sha"])
+        return _SourceTree(commit=commit, tools=tools, central=central)
+
+    async def _central(self, tree: _SourceTree, discovered: Iterable[str]) -> _Central:
+        """`metadata.json`, `dio.obo` and `dio.diaf`, read once and indexed.
+
+        **Three blob reads per sync, from the commit the tree came from.** Not per tool, and not
+        from `master` independently — fetching `dio.obo` from one commit and `dio.diaf` from
+        another lets an assignment reference a term the ontology read does not carry, which
+        looks exactly like upstream corruption and is entirely self-inflicted.
+
+        Order matters: the ontology is parsed first because `parse_diaf` needs the known term
+        ids to tell a renamed term from a real one, and the discovered tool names because it
+        must refuse to fabricate a tool nobody can run.
+        """
+        warnings: list[SyncWarning] = []
+
+        async def text(key: str) -> str:
+            sha = tree.central.get(CENTRAL[key])
+            if sha is None:
+                warnings.append(
+                    SyncWarning(
+                        code="MF0205",
+                        detail=(
+                            f"{CENTRAL[key]} is not in {SOURCE_REPO} at {tree.commit[:7]}; "
+                            "every tool loses its classifications for this sync"
+                        ),
+                        subject=CENTRAL[key],
+                    )
+                )
+                return ""
+            return await self._blob(sha)
+
+        metadata_text, obo_text, diaf_text = (
+            await text("metadata"),
+            await text("obo"),
+            await text("diaf"),
+        )
+
+        entries, metadata_warnings = parse_metadata(metadata_text)
+        ontology, obo_warnings = parse_obo(obo_text)
+        assignments, diaf_warnings = parse_diaf(diaf_text, ontology.terms, discovered)
+        warnings += [
+            SyncWarning(code=w.code, detail=w.detail, subject=w.subject)
+            for w in (*metadata_warnings, *obo_warnings, *diaf_warnings)
+        ]
+        return _Central(
+            entries=entries,
+            ontology=ontology,
+            assignments=assignments,
+            warnings=tuple(warnings),
+        )
 
     # ── bundle ─────────────────────────────────────────────────────────────────────────
 
@@ -237,8 +407,7 @@ class Pegi3sAdapter(BaseSourceAdapter):
                 + f"\n  {item.unsupported_reason}"
             )
         commit = item.source_revision
-        documented = await self._documented(commit)
-        blobs = documented.get(item.ref) or {}
+        blobs = (await self._tree(commit)).tools.get(item.ref) or {}
         if not blobs:
             raise UpstreamError(
                 coded("MF0201", f"{self.name}: {item.ref} has no source at {commit[:7]}")
@@ -274,39 +443,177 @@ class Pegi3sAdapter(BaseSourceAdapter):
 
 
 def _item(
-    repo: _Repo, tags: list[dict], blobs: dict[str, str] | None, commit: str
+    repo: _Repo,
+    tags: list[dict],
+    blobs: dict[str, str] | None,
+    commit: str,
+    central: _Central,
 ) -> RawItem:
-    """One catalogue row, and the decision about whether it can be adapted at all."""
+    """One catalogue row: Docker Hub discovery, enriched from the central metadata."""
     refs = _container_refs(repo.name, tags)
-    version = _proved_version(tags)
     reason = _why_not(refs, blobs)
     documentation = sorted(blobs or {})
+    entry = central.entries.get(normalise(repo.name))
+    facts = entry.facts() if entry else ()
+    by_name = dict(facts)
+    classifications = central.classifications(repo.name)
 
     return RawItem(
         ref=repo.name,
         display_name=repo.name,
-        summary=repo.description,
+        # **`metadata.json` outranks Docker Hub's blurb.** It is the description PEGiS
+        # maintains; the Hub's is a one-line summary that is often empty or stale. Falling back
+        # rather than replacing keeps a tool with no entry exactly as readable as before.
+        summary=_first(by_name.get("description"), repo.description),
         homepage_url=f"https://hub.docker.com/r/{NAMESPACE}/{repo.name}",
-        documentation_url=(
+        # `manual_url` when PEGiS publishes one, else the source directory. A manual is
+        # documentation; a directory listing is where the recipe lives.
+        documentation_url=_first(
+            by_name.get("manual_url"),
             f"https://github.com/{SOURCE_OWNER}/{SOURCE_REPO}/tree/{commit}/{repo.name}"
             if blobs
-            else None
+            else None,
         ),
         repository_url=f"https://github.com/{SOURCE_OWNER}/{SOURCE_REPO}",
-        latest_version=version,
+        # **`latest` from metadata beats the tag heuristic**, because it is the publisher
+        # stating a version rather than this adapter recognising a tag shape. The heuristic
+        # stays as the fallback for a tool with no entry — that is discovery behaviour and §1
+        # says not to replace it without cause.
+        latest_version=_first(by_name.get("latest"), _proved_version(tags)),
         container_refs=refs,
         last_updated_at=repo.last_updated,
+        # `input_data_type` is PEGiS stating what the tool eats, in its own words. A *hint*, in
+        # the field's own sense — not a port, not a type id, and never resolved into one here.
+        input_hints=tuple(_split(by_name.get("input_data_type"))),
+        classifications=classifications,
+        source_facts=tuple(SourceFact(name=name, value=value) for name, value in facts),
         capabilities=CAPABILITIES,
         adaptable=reason is None,
         unsupported_reason=reason,
-        # **The digest covers the image and its documentation together.** Either moving is a
-        # reason to re-adapt: a new image is new behaviour, and a rewritten README is new
-        # evidence for ports that were inferred from prose.
-        content_digest=digest_of(
-            *(ref.pinned() for ref in refs),
-            *(f"{name}\0{sha}" for name, sha in sorted((blobs or {}).items())),
+        content_digest=_digest(repo, refs, blobs, entry, classifications, central),
+        evidence=_catalogue_evidence(repo, refs, documentation, entry, classifications),
+    )
+
+
+def _digest(
+    repo: _Repo,
+    refs: tuple[ContainerRef, ...],
+    blobs: dict[str, str] | None,
+    entry: Entry | None,
+    classifications: tuple[Classification, ...],
+    central: _Central,
+) -> str:
+    """Everything about *this* tool that a person would want to re-review, canonically.
+
+    §9's list, and the reason each part is here:
+
+    - **image pins** — a new image is new behaviour;
+    - **source files** — a rewritten README is new evidence for ports inferred from prose;
+    - **its `metadata.json` entry** — a changed invocation or status changes what the tool is;
+    - **its direct assignments** — a reclassification changes where it belongs;
+    - **every referenced term and its ancestors**, by id *and* by name and definition, because
+      renaming `Quality` changes what a reviewer reads without changing any id.
+
+    **Ancestors are included deliberately and the cost is stated.** Renaming a term high in the
+    tree — `Data_type` — will age every tool beneath it. That is correct rather than
+    unfortunate: the breadcrumb those tools display has genuinely changed. What it must not do
+    is age tools on *other* branches, and it does not, because only this tool's own ancestry is
+    hashed.
+
+    Nothing here reads the repository HEAD, a timestamp or an HTTP header. Two syncs of
+    unchanged content produce the same digest.
+    """
+    ontology = central.ontology
+    return digest_of(
+        *(ref.pinned() for ref in refs),
+        *(f"{name}\0{sha}" for name, sha in sorted((blobs or {}).items())),
+        *(f"{name}\0{value}" for name, value in (entry.facts() if entry else ())),
+        # Direct assignments are hashed as ids; the terms themselves carry their own text, so a
+        # renamed category moves the digest of every tool that displays it.
+        *(f"direct\0{c.id}" for c in classifications if c.direct),
+        *(
+            f"term\0{c.id}\0{term.name}\0{term.definition}\0{','.join(term.parents)}"
+            for c in classifications
+            if (term := ontology.get(c.id)) is not None
         ),
-        evidence=_catalogue_evidence(repo, refs, documentation),
+    )
+
+
+def _first(*values: str | None) -> str | None:
+    """The first value that is present and non-empty.
+
+    An explicitly empty upstream field is an unknown, not a claim — §3 — so it falls through to
+    the next candidate rather than winning as a blank.
+    """
+    for value in values:
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _split(value: str | None) -> list[str]:
+    """A comma-separated metadata field as a list, unchanged otherwise."""
+    if not value:
+        return []
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _missing_metadata(central: _Central, items: Iterable[RawItem]) -> tuple[SyncWarning, ...]:
+    """A discovered image with no `metadata.json` entry.
+
+    **A diagnostic, and the tool stays visible.** §7's first rule. An image PEGiS publishes and
+    has not documented centrally is a real, pullable tool with less evidence behind it — hiding
+    it would make the catalogue smaller than the namespace, and quietly.
+    """
+    return tuple(
+        SyncWarning(
+            code="MF0208",
+            detail=(
+                f"{item.ref} is published on Docker Hub and has no metadata.json entry, so it "
+                "carries no central description or classifications"
+            ),
+            subject=item.ref,
+        )
+        for item in items
+        if normalise(item.ref) not in central.entries
+    )
+
+
+def _filters(central: _Central, items: Iterable[RawItem]) -> tuple[FilterNode, ...]:
+    """The whole ontology as a filter tree, whether or not any tool uses a branch.
+
+    **Built from `dio.obo`, not from the tools.** A tree assembled from the classifications that
+    happen to be in use is missing every branch nobody has been assigned to yet, which makes the
+    filter narrower than the vocabulary and does so silently. §6 asks that the API can return
+    this without scanning the catalogue, which is why it lands on the snapshot.
+
+    `direct_count` counts only tools assigned to the node itself. A consumer wanting the total
+    beneath a node walks `children`, because the answer depends on which other filters are
+    applied and a snapshot cannot know that.
+    """
+    ontology = central.ontology
+    direct: dict[str, int] = {}
+    for item in items:
+        for found in item.classifications:
+            if found.direct:
+                direct[found.id] = direct.get(found.id, 0) + 1
+
+    children: dict[str, list[str]] = {}
+    for term in ontology.terms.values():
+        for parent in term.parents:
+            children.setdefault(parent, []).append(term.id)
+
+    return tuple(
+        FilterNode(
+            id=term.id,
+            name=term.name,
+            definition=term.definition,
+            parents=term.parents,
+            children=tuple(sorted(children.get(term.id, ()))),
+            path=ontology.path(term.id),
+            direct_count=direct.get(term.id, 0),
+        )
+        for term in sorted(ontology.terms.values(), key=lambda t: t.id)
     )
 
 
@@ -406,7 +713,11 @@ def _sortable(tag: str) -> tuple:
 
 
 def _catalogue_evidence(
-    repo: _Repo, refs: tuple[ContainerRef, ...], documentation: list[str]
+    repo: _Repo,
+    refs: tuple[ContainerRef, ...],
+    documentation: list[str],
+    entry: Entry | None = None,
+    classifications: tuple[Classification, ...] = (),
 ) -> tuple[RawEvidence, ...]:
     found: list[RawEvidence] = []
     if repo.description:
@@ -423,6 +734,40 @@ def _catalogue_evidence(
                 locator=f"hub.docker.com/r/{NAMESPACE}/{repo.name}/tags",
                 text=refs[0].pinned(),
                 kind="container",
+            )
+        )
+    for name, value in entry.facts() if entry else ():
+        found.append(
+            RawEvidence(
+                locator=f"{SOURCE_OWNER}/{SOURCE_REPO}/{CENTRAL['metadata']}:{repo.name}.{name}",
+                text=f"{name}: {value}",
+                kind="metadata",
+            )
+        )
+    # **Labelled as a classification, and only the direct ones.**
+    #
+    # §8: a PEGiS category is authoritative catalogue and filter metadata and useful context for
+    # a model — and it is *not* a port declaration. A dossier entry reading "PEGiS classifies
+    # this as ..." is a claim about where the tool belongs; one reading "Sequences" beside a
+    # list of ports invites exactly the inference that rule forbids, so the sentence carries its
+    # own frame.
+    #
+    # Inherited terms are excluded here: they are true, and they are not something the source
+    # said about this tool. Sending them as evidence would put a claim nobody made in front of a
+    # model, which is the same reason `Classification.direct` exists at all.
+    for found_class in (c for c in classifications if c.direct):
+        breadcrumb = " > ".join(found_class.path) or found_class.name
+        definition = f" — {found_class.definition}" if found_class.definition else ""
+        found.append(
+            RawEvidence(
+                locator=(
+                    f"{SOURCE_OWNER}/{SOURCE_REPO}/{CENTRAL['diaf']}:{found_class.id}"
+                ),
+                text=(
+                    f"PEGiS classifies this tool as {found_class.id} ({breadcrumb})"
+                    f"{definition}. A catalogue category, not a port or parameter declaration."
+                ),
+                kind="classification",
             )
         )
     if documentation:

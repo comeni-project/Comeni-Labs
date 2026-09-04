@@ -1,0 +1,50 @@
+[
+  {
+    "name": "fastqc",
+    "description": "A quality control tool for high throughput sequence data.",
+    "project_active": true,
+    "status": "OK",
+    "recommended": ["0.11.9"],
+    "latest": "0.11.9",
+    "bug_found": "",
+    "not_working": false,
+    "no_longer_tested": false,
+    "manual_url": "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/",
+    "source_url": "https://github.com/s-andrews/FastQC",
+    "comments": "",
+    "gui": false,
+    "gui_command": "",
+    "podman": "OK",
+    "singularity": "OK",
+    "invocation_general": "docker run --rm -v $(pwd):/data pegi3s/fastqc <args>",
+    "usual_invocation_specific": "fastqc /data/reads.fastq.gz -o /data/out",
+    "usual_invocation_specific_comments": "writes an HTML report and a zip archive",
+    "test_invocation": "fastqc --version",
+    "test_data": "reads.fastq.gz",
+    "test_result": "reads_fastqc.html",
+    "input_data_type": "FASTQ, BAM",
+    "auto_tests": true,
+    "icon": "fastqc.png"
+  },
+  {
+    "name": "clustalw",
+    "description": "General purpose multiple sequence alignment.",
+    "project_active": true,
+    "status": "OK",
+    "latest": "1.10",
+    "input_data_type": "FASTA",
+    "gui": false,
+    "singularity": "OK"
+  },
+  {
+    "name": "seda",
+    "description": "A desktop application for processing FASTA files.",
+    "project_active": true,
+    "status": "OK",
+    "latest": "1.6.0",
+    "gui": true,
+    "gui_command": "seda",
+    "input_data_type": "FASTA",
+    "comments": "runs with a graphical interface"
+  }
+]
