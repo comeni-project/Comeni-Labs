@@ -85,8 +85,33 @@ it up is what 2026-09-02 was.
 
 ## Current state
 
-> **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — and **2026-09-01 has
-> THREE entries that a filename sort does not order.** The one to read is
+> **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
+> [`2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md`](docs/notes/journal/2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md),
+> covering **Tasks 1–5 of the Forge MVP plan**, on the worktree `.claude/worktrees/forge-mvp`.
+> The forge can now say how big the world is: two source adapters over a common base, PEGiS
+> reading its own `dio.obo`/`dio.diaf`/`metadata.json` ontology, seven Postgres tables for the
+> adaptation workflow, and a scaffold whose holes are addressed by **channel name rather than by
+> index**. `mendel-ai` became **`comeni-ai`**, with a one-file shim left behind.
+>
+> **That entry's lesson is one sentence and it repeated five times in three days:** *two
+> mechanisms that each fully answer one question, presented as defence in depth, are almost always
+> one mechanism and one decoration.* `SourceSnapshot.classified`, `pegi3s.ALIASES`,
+> `forge_state.move`'s `row_version`, `Workspace._inside`. **The test that separates an earning
+> pair from a hiding one is to delete each half separately and watch what fails** — one-active-
+> adaptation passes it, the other four did not.
+>
+> **Task 6 is where the review chat meets the egress guard, and that is a decision rather than an
+> implementation.** `ForgeMessage.content` is free text written by a curator *and* a model and
+> goes back to the model on the next turn. Whether that is a fifth door, downstream of an existing
+> one, or outside the prompt-taint path the way the forge itself is — **undecided**. Do not widen
+> `DOORS` without putting it in front of the operator.
+>
+> **The forge is no longer deprecated-and-untouched**; this plan is its rework, and Tasks 1–5 are
+> done. What has *not* happened is anybody opening a browser: Tasks 10 and 11 build the UI, and
+> every lesson below about guards being blind to appearance is unpaid.
+>
+> Before it, **2026-09-01 has THREE entries that a filename sort does not order.** The one to
+> read is
 > [`2026-09-01-the-run-page-and-the-first-verb.md`](docs/notes/journal/2026-09-01-the-run-page-and-the-first-verb.md),
 > covering **Plan 6 — the run page rebuilt against its artboard, and Wiener's first verb.**
 > `/runs/{id}` is bands rather than four tabs; band 1 is four panels; the timeline exists and

@@ -16,6 +16,13 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
+> **The newest entry is
+> [`2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md`](2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md)**
+> — Tasks 1–5 of the Forge MVP plan, on the worktree `.claude/worktrees/forge-mvp`. Read it for
+> what the forge can now do, and for the day's lesson: **two mechanisms presented as defence in
+> depth are almost always one mechanism and one decoration**, five times in three days, with the
+> test that tells them apart.
+>
 > **2026-09-01 has THREE entries and a filename sort orders none of them.** In order:
 > [`2026-09-01-a-channel-gets-a-name.md`](2026-09-01-a-channel-gets-a-name.md) — Plan 5B phases
 > 1 to 3, where a channel stopped being a property of a type;
