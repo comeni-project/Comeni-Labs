@@ -2133,6 +2133,36 @@ MF0010:
     Overwriting is deliberately not offered as a flag: the recovery is to pick another name,
     and the caller always can. The refusal is about the NAME rather than the tool, because two
     drafts of one tool at two versions is exactly what a version bump looks like.
+MF0011:
+  emitted_by: forge
+  concern: scaffolding
+  says: "a generated module still declares a placeholder channel — say what the tool really takes and emits"
+  fires_on: [forge draft, forge verify, forge land]
+  refuses: false
+  fix: |
+    Read the tool's own documentation — its `usual_invocation`, its README, its test
+    invocation — and replace the marked declaration with the real one. The number of input
+    channels and the tuple width are what Nextflow matches on, so both have to be right.
+
+    The marker is a comment, so deleting it without changing the declaration under it makes
+    this stop firing and changes nothing else. That is the one way to get this wrong.
+  explanation: |
+    A source that ships no Nextflow gives the forge a container and a name and nothing about
+    the process's shape. The skeleton used to declare one input — `tuple val(meta),
+    path(input)` — and one output, `path("*.out")`, neither read from anything, and the
+    result looked exactly like a module somebody had checked.
+
+    **`-stub-run` cannot see a hollow input.** An nf-core stub never reads what it is given,
+    so a process handed the wrong number of channels is as green as one handed the right
+    number, and the same is true of a module that declares an output pattern nothing will ever
+    match. Two contracts shipped that way before — STAR built an index from nothing and
+    aligned against no annotation — and `NfInput.empty` gained its `because` field for it.
+    This is that lesson applied one layer up, where the module itself is the guess.
+
+    **It warns rather than refusing**, because a scaffold is *supposed* to have open sections;
+    that is what a scaffold is. What must not happen is one reaching a registry, and
+    `MF0107` is where that becomes a refusal.
+
 MF0100:
   emitted_by: forge
   concern: landing

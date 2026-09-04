@@ -172,6 +172,7 @@ decline to curate one.
 | `MF0003` | the value is not one this hole declares as legal |
 | `MF0004` | the scaffold still has open holes and cannot become a declared file |
 | `MF0005` | the generated module's script body has not been written |
+| `MF0011` | a generated module still declares a placeholder channel — say what the tool really takes and emits |
 
 ## The forge — whether a draft holds up
 

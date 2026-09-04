@@ -105,13 +105,31 @@ class ModuleSpec(BaseModel):
 
     @classmethod
     def parse(cls, main_nf: Path) -> "ModuleSpec":
-        source = main_nf.read_text()
+        return cls.of(
+            main_nf.read_text(),
+            meta_yml=_read(main_nf.parent / "meta.yml"),
+            where=str(main_nf),
+        )
 
+    @classmethod
+    def of(cls, source: str, *, meta_yml: str | None = None, where: str = "<text>") -> "ModuleSpec":
+        """The same parse, over text that is not on disk.
+
+        **One definition, two entry points**, and the reason is that the forge now fetches a
+        module over HTTP and never writes it before reading it. A second parser for in-memory
+        text would be a second answer to *what does this module declare* — and the whole value
+        of `ModuleSpec` is that conformance and the forge get the same one. Writing the text to
+        a temporary file to reuse `parse` was the alternative, and it makes a pure function
+        touch a filesystem to read a string it already has.
+
+        `where` is only ever a message. It never reaches a locator, because a caller working
+        from text has no path a reviewer on another machine could open.
+        """
         process = _PROCESS.search(source)
         if process is None:
-            raise ValueError(f"{main_nf}: no `process NAME {{` declaration")
+            raise ValueError(f"{where}: no `process NAME {{` declaration")
 
-        slots = _slots(source, main_nf)
+        slots = _slots(source, where)
         emits = _emits(source)
         meta_reads = [MetaRead(variable=v, key=k) for v, k in dict.fromkeys(_META.findall(source))]
 
@@ -123,7 +141,7 @@ class ModuleSpec(BaseModel):
             meta_reads=meta_reads,
             reads_ext_args="task.ext.args" in source,
             reads_ext_prefix="task.ext.prefix" in source,
-            documented=_documented(main_nf.parent / "meta.yml"),
+            documented=_documented_in(meta_yml),
             lines=_positions(source, process, slots, emits, meta_reads),
         )
 
@@ -205,10 +223,10 @@ def _container(source: str) -> str | None:
     return alternatives[-1] if alternatives else directive.group(1).strip() or None
 
 
-def _slots(source: str, main_nf: Path) -> list[InputSlot]:
+def _slots(source: str, where: str) -> list[InputSlot]:
     block = _INPUT_BLOCK.search(source)
     if block is None:
-        raise ValueError(f"{main_nf}: no `input:` block")
+        raise ValueError(f"{where}: no `input:` block")
     slots = []
     for line in block.group(1).splitlines():
         stripped = line.strip()
@@ -243,13 +261,20 @@ def _emits(source: str) -> list[str]:
     return list(dict.fromkeys(_EMIT.findall(block.group(1)))) if block else []
 
 
-def _documented(meta_yml: Path) -> list[DocumentedInput]:
+def _read(path: Path) -> str | None:
+    """The file's text, or `None` when there is none. **`None` and `""` differ here**: an
+    absent `meta.yml` and an empty one are the same to `_documented_in`, but keeping the
+    distinction at the boundary means a caller working from text can say which it has."""
+    return path.read_text() if path.exists() else None
+
+
+def _documented_in(meta_yml: str | None) -> list[DocumentedInput]:
     """nf-core's `input:` is a list of lists of single-key maps. Walk it defensively —
     the shape has changed twice upstream and a parse failure here must not block a build
     over documentation."""
-    if not meta_yml.exists():
+    if not meta_yml:
         return []
-    data = yaml_strict.load(meta_yml) or {}
+    data = yaml_strict.loads(meta_yml) or {}
     found: list[DocumentedInput] = []
 
     def visit(node: object) -> None:

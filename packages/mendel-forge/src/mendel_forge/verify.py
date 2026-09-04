@@ -1,6 +1,6 @@
-"""Does this draft hold up? Five questions, cheapest first.
+"""Does this draft hold up? Six questions, cheapest first.
 
-**Four of the five rungs are machinery that already exists**, pointed at a draft instead of
+**Four of the six rungs are machinery that already exists**, pointed at a draft instead of
 at a build. That is the argument for this shape over a bespoke validator: a second
 implementation of *"is this contract sound"* would disagree with the first one inside a plan.
 
@@ -36,24 +36,34 @@ from mendel_resolver import layers
 from mendel_resolver.layers import Layers
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from mendel_forge import assemble
+from mendel_forge import assemble, modulegen
 from mendel_forge.scaffold import Scaffold
 
 _CODE = re.compile(r"\b([A-Z]{2}\d{4})\b")
 
 
 class Rung(StrEnum):
-    """The five questions, in the order they are asked — which is cheapest first.
+    """The six questions, in the order they are asked — which is cheapest first.
 
     Order is load-bearing: `verify` stops at the first refusal, so a reviewer sees the
     one refusal that caused the rest to be skipped rather than a wall of consequences.
     """
 
     COMPLETE = "complete"
+    SECTIONS = "sections"
     CONSTRUCTS = "constructs"
     LOADS = "loads"
     CONFORMS = "conforms"
     ROUTES = "routes"
+    """**Six now, and `sections` is the one that was missing.** `modulegen.SCRIPT_HOLE`'s
+    docstring said *"`verify.py` raises the same code as a `Diagnostic` when it finds this
+    marker"* — and nothing in this file had ever looked at a generated module. That is the
+    second comment in this repository claiming a guard that does not exist, after
+    `geometry.ts`. Before trusting a sentence like that, grep for what it names.
+
+    It sits second because it is the cheapest check after counting holes, and because a module
+    whose channels are still placeholders makes every conformance diagnostic below it a
+    consequence rather than a finding."""
 
 
 class Verdict(BaseModel):
@@ -68,13 +78,23 @@ def refuses(verdicts: list[Verdict]) -> bool:
     return any(v.refused for v in verdicts)
 
 
-def verify(scaffold: Scaffold, *, registry_root: Path, source_root: Path) -> list[Verdict]:
+def verify(
+    scaffold: Scaffold,
+    *,
+    registry_root: Path,
+    source_root: Path,
+    module: str | None = None,
+) -> list[Verdict]:
+    """`module` is the generated `main.nf`, for a source that ships none. `None` when the
+    source shipped one, which is the nf-core case and the majority."""
     verdicts: list[Verdict] = []
 
     complete = _complete(scaffold)
     verdicts.append(complete)
     if complete.refused:
         return verdicts
+
+    verdicts.append(_sections(module))
 
     constructs = _constructs(scaffold)
     verdicts.append(constructs)
@@ -136,6 +156,34 @@ def _complete(scaffold: Scaffold) -> Verdict:
                 summary=f"{len(open_fields)} field(s) still open",
                 detail="    " + "\n    ".join(open_fields),
                 fix="run `forge show` for what each hole wants, then `forge fill` for each",
+            )
+        ],
+    )
+
+
+def _sections(module: str | None) -> Verdict:
+    """Does the generated module still carry a marker where a fact belongs?
+
+    **Warns rather than refusing**, and the ladder continues past it — a scaffold is supposed
+    to have open sections, which is what a scaffold is. What must not happen is one reaching a
+    registry, and `land` is where that is a refusal.
+
+    A source that shipped its own Nextflow has nothing to check, and an empty verdict says
+    *this rung ran and found nothing* rather than *this rung was skipped*. Those look identical
+    in a summary and are not the same claim.
+    """
+    found = modulegen.open_sections(module or "")
+    if not found:
+        return Verdict(rung=Rung.SECTIONS)
+    return Verdict(
+        rung=Rung.SECTIONS,
+        diagnostics=[
+            Diagnostic(
+                code="MF0011",
+                where="main.nf",
+                summary=f"{len(found)} generated section(s) are still placeholders",
+                detail="    " + "\n    ".join(marker.removeprefix("// ") for marker in found),
+                fix="read the tool's own documentation and declare what it takes and emits",
             )
         ],
     )

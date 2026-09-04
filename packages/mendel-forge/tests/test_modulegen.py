@@ -74,3 +74,58 @@ def test_the_skeleton_parses_back_through_ModuleSpec(tmp_path, widget_scaffold):
     assert spec.container == "docker.io/example/widget:1.4.0"
     assert "out" in spec.emits
     assert spec.reads_ext_args is True
+
+
+def test_the_input_block_is_marked_as_a_placeholder(widget_scaffold):
+    """**The defect this replaces had shipped.** The skeleton declared exactly one input —
+    `tuple val(meta), path(input)` — read from nothing. For an image taking a reference and a
+    query that is simply wrong, and `-stub-run` cannot see it: an nf-core stub never reads what
+    it is given, so the wrong arity is exactly as green as the right one.
+    """
+    from mendel_forge.modulegen import INPUT_HOLE
+
+    text = skeleton(widget_scaffold)
+    assert INPUT_HOLE in text
+    assert "MF0011" in INPUT_HOLE
+    inputs = text.split("input:")[1].split("output:")[0]
+    assert INPUT_HOLE in inputs, "the marker must be inside the block it is about"
+
+
+def test_the_output_block_is_marked_as_a_placeholder(widget_scaffold):
+    """The other half, and the one that used to claim a filename pattern: `path("*.out")` is a
+    guess about what a tool writes, and no tool the forge has ever read writes `*.out`."""
+    from mendel_forge.modulegen import OUTPUT_HOLE
+
+    text = skeleton(widget_scaffold)
+    assert OUTPUT_HOLE in text
+    assert '"*.out"' not in text, "the invented filename pattern is what this replaced"
+
+
+def test_every_open_section_is_reported_together(widget_scaffold):
+    """`OPEN_SECTIONS` exists so nothing has to remember all three. A rung that scanned for two
+    would pass a module whose outputs were still a guess, silently."""
+    from mendel_forge.modulegen import OPEN_SECTIONS, open_sections
+
+    found = open_sections(skeleton(widget_scaffold))
+    assert set(found) == set(OPEN_SECTIONS)
+    assert len(OPEN_SECTIONS) == 3
+
+
+def test_a_module_with_nothing_open_reports_nothing():
+    """A source that shipped its own Nextflow has no markers, and the empty tuple is what says
+    so. It must not be confused with the check having been skipped."""
+    from mendel_forge.modulegen import open_sections
+
+    assert open_sections("process FASTQC {\n    input:\n    tuple val(meta), path(reads)\n}") == ()
+
+
+def test_the_marked_skeleton_still_parses_through_ModuleSpec(widget_scaffold):
+    """The markers are comments beside a declaration, never instead of one. A skeleton that did
+    not parse could not be read by conformance at all, so the rung meant to catch a placeholder
+    would be the rung that never ran."""
+    from mendel_compiler.modulespec import ModuleSpec
+
+    spec = ModuleSpec.of(skeleton(widget_scaffold), where="skeleton")
+    assert spec.process == "WIDGET"
+    assert len(spec.inputs) == 1
+    assert "out" in spec.emits

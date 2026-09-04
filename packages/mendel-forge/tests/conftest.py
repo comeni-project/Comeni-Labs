@@ -142,3 +142,23 @@ def broken_registry(tmp_path):
         return copy
 
     return _break
+
+
+def pytest_addoption(parser):
+    """`--regenerate` rewrites the scaffold goldens.
+
+    A flag rather than an environment variable: it appears in `pytest --help`, it cannot be left
+    set in a shell and quietly rewrite a golden on the next run, and a CI lane that never passes
+    it cannot regenerate by accident.
+    """
+    parser.addoption(
+        "--regenerate",
+        action="store_true",
+        default=False,
+        help="rewrite the scaffold goldens instead of comparing against them",
+    )
+
+
+@pytest.fixture
+def regenerate_goldens(request) -> bool:
+    return bool(request.config.getoption("--regenerate"))

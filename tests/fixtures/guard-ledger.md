@@ -4114,3 +4114,52 @@ both places.
 ref to 64 characters with zeros, which made `tool1` and `tool10` identical — so a twelve-tool
 sync stored eleven rows and the paging test failed on its own fixture. Ids are now
 `sha256(source + ref)`, which is what the adapters compute anyway.
+
+## A scaffold gets an address and a marked hole — 2026-09-04
+
+The deterministic bundle: `bundle.py` composes a directory as values, `workspace.py` writes it,
+and a hole is addressed by the channel it is about rather than by its position.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `test_bundle.py::test_a_hole_is_addressed_by_the_channel_and_not_by_its_index` | `port_hole_id` returning `f"{group}[0].{field}"` | failed, with the nf-core golden | `consumes.reads.type_id` was gone from the manifest |
+| 2026-09-04 | `test_bundle.py::test_the_settled_contract_is_written_with_sorted_keys` | `sort_keys=False` in the bundle's JSON writer | failed, with both goldens | insertion order reached the file |
+| 2026-09-04 | `test_modulegen.py::test_the_output_block_is_marked_as_a_placeholder` | `path("*.out")` restored, marker removed | failed, with two others | the invented filename pattern came back |
+| 2026-09-04 | `test_bundle.py::test_a_bundle_built_by_model_validate_still_cannot_write_outside_the_workspace` | the containment check in `Workspace._inside` | failed | `../../escaped.txt` was written outside the workspace |
+| 2026-09-04 | `test_scaffold_goldens.py` (both) | — | held every change above | a golden is what catches a change nobody looked for |
+
+**A guard that could not fire, for the fifth time in three days.** `Workspace._inside` did two
+checks — a string inspection for `..` and a leading `/`, then a resolved containment comparison —
+with a docstring claiming the halves caught different mistakes. Deleting the string half changed
+no test, and it cannot: `resolve()` normalises `..` lexically *and* follows a symlink out of the
+workspace, so the containment comparison strictly contains it. It was removed rather than kept.
+
+The list is now `SourceSnapshot.classified`, `pegi3s.ALIASES`, `ForgeAdaptation.row_version`, and
+this. **The test that separates an earning pair from a hiding one is to delete each half
+separately and watch what fails.** `bundle.joined` and `Workspace._inside` pass it — one prevents
+a bad path being composed, the other refuses one that arrived through `model_validate` and never
+went near a constructor — and one-active-adaptation passes it, where the service refusal produces
+a sentence and only the partial index survives two simultaneous requests.
+
+**A comment claiming a guard exists, for the second time in this repository.**
+`modulegen.SCRIPT_HOLE` said *"`verify.py` raises the same code as a `Diagnostic` when it finds
+this marker"* — and nothing in `verify.py` had ever looked at a generated module. `geometry.ts`
+was the first. `Rung.SECTIONS` is that sentence made true; before trusting one like it, grep for
+what it names.
+
+**Two defects found by printing a real derivation, not by a test**, which is the running theme
+and the reason a golden exists now:
+
+- **`assemble.DERIVED_FIELDS` maps the *fact* `process` onto the *field* `nf_process`**, and the
+  new bridge named the fact after the field. `assemble` opens a hole for every fact it cannot
+  find, so a module plainly declaring `process FASTQC {` produced a scaffold asking a human what
+  the process was called. Nothing failed; there was one extra hole nobody counted.
+- **A PEGiS container digest opened a hole instead of settling one.** Pinning by digest is the
+  single axis on which PEGiS beats nf-core — nf-core pins a mutable *tag* — and leaving
+  `container` open asked a person to retype a 64-character digest that had been fetched from an
+  API. Both now have standing tests.
+
+**And a fixture collision that read as a service bug.** `_item` in `test_forge_catalogue.py`
+built ids by padding a ref to 64 characters with zeros, which made `tool1` and `tool10`
+identical: a twelve-tool sync stored eleven rows and the paging test failed on its own fixture.
+Ids are `sha256(source + ref)` now, which is what the adapters compute.

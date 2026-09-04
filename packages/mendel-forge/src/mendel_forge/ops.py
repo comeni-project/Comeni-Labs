@@ -498,7 +498,10 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
 def verify_(req: VerifyRequest) -> VerifyResult:
     found = Workspace(root=req.workspace_root).load(req.name)
     verdicts = _run_verify(
-        found.scaffold, registry_root=req.registry_root, source_root=req.source_root
+        found.scaffold,
+        registry_root=req.registry_root,
+        source_root=req.source_root,
+        module=found.module,
     )
     return VerifyResult(
         name=req.name, verdicts=verdicts, refused=any(v.refused for v in verdicts)

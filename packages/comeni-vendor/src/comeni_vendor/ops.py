@@ -8,6 +8,7 @@ import hashlib
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -68,10 +69,29 @@ def digest_of_module(path: Path) -> str:
     counts — including the dotfiles, which is where a `.gitignore` or a `.nf-core.yml` would
     live.
     """
-    parts: list[str] = []
-    for entry in sorted(p for p in path.rglob("*") if p.is_file() and not p.is_symlink()):
-        body = hashlib.sha256(entry.read_bytes()).hexdigest()
-        parts.append(f"{entry.relative_to(path).as_posix()}\0{body}")
+    return digest_of_contents(
+        {
+            entry.relative_to(path).as_posix(): entry.read_bytes()
+            for entry in path.rglob("*")
+            if entry.is_file() and not entry.is_symlink()
+        }
+    )
+
+
+def digest_of_contents(files: Mapping[str, bytes]) -> str:
+    """The same digest, over content that is not on disk yet.
+
+    **One definition, two entry points**, and that is the whole point of extracting it. The
+    forge scaffolds a module directory in memory before anything writes it, and a scaffold's
+    digest has to be comparable with a vendored module's — a second implementation that agreed
+    today would be a second implementation that stopped agreeing on the first change to either.
+
+    Relative POSIX paths, sorted, each with its content hash. The `\\0` separates a path from
+    its digest so that two files whose names concatenate to a third's cannot collide.
+    """
+    parts = [
+        f"{name}\0{hashlib.sha256(body).hexdigest()}" for name, body in sorted(files.items())
+    ]
     return "sha256:" + hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
