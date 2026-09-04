@@ -22,16 +22,24 @@ import re
 from typing import Protocol, TypeVar, runtime_checkable
 
 from comeni_core.diagnostics import coded
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-from mendel_ai.access import ModelAccess, NoModelError
+from comeni_ai.access import ModelAccess, NoModelError
 
 T = TypeVar("T", bound=BaseModel)
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
 
 
-__all__ = ["Client", "LiteLLMTransport", "ModelUnavailableError", "NoModelError", "Transport"]
+__all__ = [
+    "Client",
+    "LiteLLMTransport",
+    "Metered",
+    "ModelUnavailableError",
+    "NoModelError",
+    "Transport",
+    "Usage",
+]
 
 
 class ModelUnavailableError(ValueError):
@@ -51,6 +59,42 @@ class Transport(Protocol):
     def send(self, access: ModelAccess, prompt: str) -> str: ...
 
 
+class Usage(BaseModel):
+    """What a provider said about a call it just served.
+
+    **Every field but `model` and `duration_ms` is nullable, and that is the honest shape.**
+    Token counts are a provider's courtesy, not a guarantee: a local Ollama endpoint may report
+    none, and a `0` where the provider said nothing is a measurement nobody took. §2's audit
+    rule asks for token counts *when the provider supplies them*, which is a different
+    requirement from asking for them.
+
+    **`model` is what answered, not what was asked for.** A provider may serve a dated
+    snapshot for a floating alias, and a review record naming the alias cannot be reproduced.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    model: str
+    duration_ms: int
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    finish_reason: str | None = None
+
+
+@runtime_checkable
+class Metered(Protocol):
+    """A transport that can also say what the call cost.
+
+    **A second protocol rather than a wider `Transport`.** Every fake in the suite implements
+    `send` and would have to grow a method it has nothing to say for; a recorded fixture has no
+    honest duration to report at all. `Client` asks for `deliver` and falls back, so the
+    metadata is present where a provider supplied it and absent where nothing did — which is
+    the same distinction `Usage`'s nullable fields draw one level down.
+    """
+
+    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]: ...
+
+
 class Client:
     def __init__(self, access: ModelAccess, transport: "Transport | None" = None) -> None:
         self.access = access
@@ -62,12 +106,32 @@ class Client:
         **Cleared on success.** A stale refusal read after a later success would name the wrong
         call, and a caller reporting per hole reads this once per hole.
         """
+        self.last_usage: Usage | None = None
+        """What the most recent call cost, when the transport could say. `None` otherwise.
+
+        **Cleared at the start of every `generate`, like `last_refusal`.** A usage record left
+        over from a previous call would be attributed to this one by an audit row that reads it
+        afterwards, which is worse than recording nothing.
+        """
+        self.last_prompt: str | None = None
+        """The exact text sent, for the caller that has to store a digest of it.
+
+        `_prompt` composes the schema and the evidence around the instruction, so the
+        instruction a caller passed in is *not* what crossed the wire — and a stored digest of
+        the wrong string cannot be compared against a re-render later.
+        """
 
     def generate(self, instruction: str, shape: type[T], evidence: list[str]) -> T | None:
         """Ask, then validate. `None` when the model declines or its answer will not fit."""
         self.last_refusal = None
+        self.last_usage = None
+        prompt = _prompt(instruction, shape, evidence)
+        self.last_prompt = prompt
         try:
-            body = self._transport.send(self.access, _prompt(instruction, shape, evidence))
+            if isinstance(self._transport, Metered):
+                body, self.last_usage = self._transport.deliver(self.access, prompt)
+            else:
+                body = self._transport.send(self.access, prompt)
         except TimeoutError as failure:
             self.last_refusal = str(failure)
             return None
@@ -138,8 +202,14 @@ class LiteLLMTransport:
     """
 
     def send(self, access: ModelAccess, prompt: str) -> str:
+        return self.deliver(access, prompt)[0]
+
+    def deliver(self, access: ModelAccess, prompt: str) -> tuple[str, Usage]:
+        import time
+
         import litellm
 
+        started = time.monotonic()
         try:
             response = litellm.completion(
                 model=access.model,
@@ -167,4 +237,26 @@ class LiteLLMTransport:
             raise ModelUnavailableError(
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
-        return response.choices[0].message.content or ""
+        return response.choices[0].message.content or "", _usage(access, response, started)
+
+
+def _usage(access: ModelAccess, response: object, started: float) -> Usage:
+    """What the provider said, defensively.
+
+    **Every field is read through `getattr` and every one may be absent.** LiteLLM normalises
+    across a dozen providers and a local endpoint is free to omit the whole `usage` block; an
+    attribute error here would turn a successful answer into a transport failure, which is the
+    worst possible trade for a diagnostic field. `model` falls back to what was asked for.
+    """
+    import time
+
+    elapsed = int((time.monotonic() - started) * 1000)
+    usage = getattr(response, "usage", None)
+    choices = getattr(response, "choices", None) or []
+    return Usage(
+        model=getattr(response, "model", None) or access.model,
+        duration_ms=elapsed,
+        input_tokens=getattr(usage, "prompt_tokens", None),
+        output_tokens=getattr(usage, "completion_tokens", None),
+        finish_reason=getattr(choices[0], "finish_reason", None) if choices else None,
+    )

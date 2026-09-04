@@ -20,6 +20,10 @@ COPY packages/comeni-core/pyproject.toml packages/comeni-core/README.md packages
 COPY packages/mendel-resolver/pyproject.toml packages/mendel-resolver/README.md packages/mendel-resolver/LICENSE ./packages/mendel-resolver/
 COPY packages/mendel-compiler/pyproject.toml packages/mendel-compiler/README.md packages/mendel-compiler/LICENSE ./packages/mendel-compiler/
 COPY packages/mendel-forge/pyproject.toml packages/mendel-forge/README.md packages/mendel-forge/LICENSE ./packages/mendel-forge/
+COPY packages/comeni-ai/pyproject.toml packages/comeni-ai/README.md packages/comeni-ai/LICENSE ./packages/comeni-ai/
+# `mendel-ai` is a deprecation shim as of 2026-09-04 and re-exports `comeni-ai`. It is
+# still a workspace member, and `--all-packages` resolves every member, so it needs its
+# line here for exactly as long as it exists.
 COPY packages/mendel-ai/pyproject.toml packages/mendel-ai/README.md packages/mendel-ai/LICENSE ./packages/mendel-ai/
 COPY packages/mendel-api/pyproject.toml ./packages/mendel-api/
 # The four that arrived with Wiener on 2026-08-24. `dag-core` is not optional for

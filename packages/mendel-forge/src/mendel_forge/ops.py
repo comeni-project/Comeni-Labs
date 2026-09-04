@@ -410,12 +410,12 @@ def fill_with_model(req: ModelFillRequest, filler: HoleFiller | None = None) -> 
     and `why` are all required and a model fill supplies none of them up front — sharing one
     request model would mean weakening the hand-fill path to suit the model one.
     """
-    # **Imported here rather than at module scope.** `mendel-ai` is an optional extra of this
+    # **Imported here rather than at module scope.** `comeni-ai` is an optional extra of this
     # package (`mendel-forge[model]`): the served API cannot reach this verb, and the model
     # client is 152MB of the image. A top-level import made an opt-in path a mandatory
     # dependency, which is the same mistake `--no-ai` not being a flag exists to avoid.
-    from mendel_ai.access import ModelAccess
-    from mendel_ai.client import Client
+    from comeni_ai.access import ModelAccess
+    from comeni_ai.client import Client
 
     from mendel_forge.filler import ModelFiller
 

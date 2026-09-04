@@ -8,10 +8,10 @@ import json
 from pathlib import Path
 
 import pytest
-from mendel_ai.access import ModelAccess
-from mendel_ai.choice import Option, choose_one
-from mendel_ai.client import Client
-from mendel_ai.recorded import RecordedTransport, key_for
+from comeni_ai.access import ModelAccess
+from comeni_ai.choice import Option, choose_one
+from comeni_ai.client import Client
+from comeni_ai.recorded import RecordedTransport, key_for
 
 ACCESS = ModelAccess(model="test/model")
 FIXTURES = Path(__file__).parent / "fixtures"

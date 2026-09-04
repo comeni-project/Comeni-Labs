@@ -4,9 +4,9 @@ Every test injects a transport — no test in this repository may reach a live m
 `tests/test_no_live_model.py` is what holds that.
 """
 
+from comeni_ai.access import ModelAccess
+from comeni_ai.client import Client
 from comeni_core.review import ValueSource
-from mendel_ai.access import ModelAccess
-from mendel_ai.client import Client
 from mendel_forge.filler import ModelFiller
 from mendel_forge.observe import Excerpt, Observation
 from mendel_forge.scaffold import Candidate, Hole

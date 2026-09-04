@@ -6,9 +6,9 @@ can be checked mechanically, and it is why the forge attempts candidate-bearing 
 
 import json
 
-from mendel_ai.access import ModelAccess
-from mendel_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
-from mendel_ai.client import Client
+from comeni_ai.access import ModelAccess
+from comeni_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
+from comeni_ai.client import Client
 
 ACCESS = ModelAccess(model="test/model")
 OPTIONS = [Option(value="qc_per_sample", note="declared role"), Option(value="aligner")]

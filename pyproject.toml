@@ -18,7 +18,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler", "mendel-forge", "mendel-ai", "mendel-api", "wiener-core", "wiener-api", "dag-core", "comeni-vendor"]
+dependencies = ["comeni-core", "mendel-resolver", "mendel-compiler", "mendel-forge", "comeni-ai", "mendel-ai", "mendel-api", "wiener-core", "wiener-api", "dag-core", "comeni-vendor"]
 
 [project.urls]
 Homepage = "https://github.com/comeni-project/Comeni-Labs"
@@ -35,6 +35,7 @@ comeni-core = { workspace = true }
 mendel-resolver = { workspace = true }
 mendel-compiler = { workspace = true }
 mendel-forge = { workspace = true }
+comeni-ai = { workspace = true }
 mendel-ai = { workspace = true }
 mendel-api = { workspace = true }
 wiener-core = { workspace = true }

@@ -2261,11 +2261,11 @@ MA0001:
   fires_on: [forge fill --model]
   refuses: true
   fix: |
-    Set `MENDEL_MODEL`, and either `MENDEL_API_KEY` for a provider or `MENDEL_BASE_URL`
+    Set `COMENI_AI_MODEL`, and either `COMENI_AI_API_KEY` for a provider or `COMENI_AI_BASE_URL`
     for a local endpoint:
 
-        export MENDEL_MODEL=anthropic/claude-sonnet-4-5
-        export MENDEL_API_KEY=sk-...
+        export COMENI_AI_MODEL=anthropic/claude-sonnet-4-5
+        export COMENI_AI_API_KEY=sk-...
 
     Or drop `--model` — every forge verb works without one, and that is the lane CI runs.
   explanation: |
@@ -2280,7 +2280,7 @@ MA0002:
   fires_on: [forge fill --model]
   refuses: true
   fix: |
-    Check `MENDEL_API_KEY`. For a local endpoint set `MENDEL_BASE_URL` and leave the key
+    Check `COMENI_AI_API_KEY`. For a local endpoint set `COMENI_AI_BASE_URL` and leave the key
     unset — a local model needs no credential, and sending an empty one looks like a
     credential to a provider that wanted none.
   explanation: |
@@ -2294,10 +2294,10 @@ MA0003:
   fires_on: [forge fill --model]
   refuses: false
   fix: |
-    Raise `MENDEL_TIMEOUT_SECONDS`, or use a smaller model. A local endpoint on a cold
+    Raise `COMENI_AI_TIMEOUT_SECONDS`, or use a smaller model. A local endpoint on a cold
     cache is the common cause — the first call loads weights.
 
-        export MENDEL_TIMEOUT_SECONDS=180
+        export COMENI_AI_TIMEOUT_SECONDS=180
   explanation: |
     Not a refusal, because a hole nobody answered is a hole a person still sees. The
     fill that timed out is reported as declined and the draft keeps every fill made
@@ -2361,9 +2361,9 @@ MA0007:
   fires_on: [forge fill --model]
   refuses: true
   fix: |
-    Check `MENDEL_MODEL` names a provider as well as a model — LiteLLM wants
+    Check `COMENI_AI_MODEL` names a provider as well as a model — LiteLLM wants
     `<provider>/<model>`, so `anthropic/claude-sonnet-4-5` rather than `claude-sonnet-4-5`.
-    For a local endpoint, check `MENDEL_BASE_URL` points at something that is running.
+    For a local endpoint, check `COMENI_AI_BASE_URL` points at something that is running.
 
     The provider's own message is included after the colon.
   explanation: |
@@ -2375,6 +2375,45 @@ MA0007:
     **A transport boundary that lets a third-party exception through reports somebody
     else's error message to our user.** Wrapping it costs the original message nothing:
     it is quoted verbatim after the model id.
+
+MA0008:
+  emitted_by: ai
+  concern: model-access
+  says: "no committed prompt file carries that id, or the id is not a versioned one"
+  fires_on: [forge fill --model]
+  refuses: true
+  fix: |
+    Prompt ids are the filename without `.md`, and every one ends in an explicit `.vN` —
+    `forge.analysis.v1`, not `forge.analysis`. Check the file exists under the calling
+    package's `prompts/` directory; the refusal lists the ids that are there.
+
+    If you are changing what a prompt asks for, add `v2` beside `v1` rather than editing
+    `v1` in place.
+  explanation: |
+    A prompt is product code, and a review record naming `forge.analysis.v1` has to be able
+    to reach the text that was actually sent. An id whose content moved underneath it
+    describes nothing, so an unversioned id cannot be spelled at all.
+
+    **This refuses rather than falling back to a default prompt.** A missing template that
+    quietly became a generic instruction would send a model a question nobody wrote and
+    record it under an id nobody can audit.
+
+MA0009:
+  emitted_by: ai
+  concern: model-access
+  says: "the values supplied do not match the prompt's placeholders"
+  fires_on: [forge fill --model]
+  refuses: true
+  fix: |
+    The refusal names both directions. A **missing** value is a placeholder with nothing to
+    put in it; a **surplus** value is context the caller believed it supplied and did not.
+    Add the missing keys, or drop the surplus ones.
+  explanation: |
+    Both directions refuse, and the surplus one is why this check exists. A missing
+    placeholder is loud — the literal `{{dossier}}` reaches the provider and the answer is
+    obviously wrong. A surplus value is silent: the caller assembled a dossier, passed it
+    under a key the template does not read, and the model answered a question with no
+    evidence in it. That reads as a weak model rather than as a bug.
 
 MD0501:
   emitted_by: resolver

@@ -19,7 +19,7 @@ and routing a model's answer through it means one rule rather than two that drif
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from mendel_ai.client import Client
+from comeni_ai.client import Client
 
 _NO_EXTRAS = ConfigDict(extra="forbid")
 

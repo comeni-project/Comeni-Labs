@@ -15,8 +15,7 @@ two that drift.
 `ports.py`'s point and the reason the return type has always been optional.
 """
 
-from comeni_core.review import ValueSource
-from mendel_ai.choice import (
+from comeni_ai.choice import (
     Option,
     Proposed,
     choose_many,
@@ -24,7 +23,8 @@ from mendel_ai.choice import (
     choose_or_propose,
     suggest,
 )
-from mendel_ai.client import Client
+from comeni_ai.client import Client
+from comeni_core.review import ValueSource
 
 from mendel_forge.observe import Observation
 from mendel_forge.scaffold import FilledValue, Hole, Proposal

@@ -70,7 +70,7 @@ def parser() -> argparse.ArgumentParser:
         nargs="?",
         const="",
         default=None,
-        help="attempt candidate-bearing holes with a model. Bare --model reads MENDEL_MODEL",
+        help="attempt candidate-bearing holes with a model. Bare --model reads COMENI_AI_MODEL",
     )
     fill.add_argument("--workspace", type=Path, default=_WORKSPACE)
 

@@ -3916,3 +3916,30 @@ Both problems named the file and line. Reverting (`git checkout docs/start/index
 honesty claim rests on — the `!!! warning "Not built yet"` convention every user-facing page
 will carry — and A14 required it be watched failing before being believed rather than merely
 read.
+
+## The `comeni-ai` rename — Forge MVP Task 1, 2026-09-04
+
+`mendel-ai` became `comeni-ai` because a second consumer appeared. Five guards were written or
+inherited by that move, and A14 says a guard nobody has watched fail may be inert rather than
+merely weak. All five were reverted against the **specific** defect they exist for, not merely
+against something.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `packages/mendel-ai/tests/test_shim.py::test_no_in_repo_module_imports_the_shim` | `filler.py`'s `from comeni_ai.client import Client` changed back to `from mendel_ai import Client` | failed | `packages/mendel-forge/src/mendel_forge/filler.py:26` |
+| 2026-09-04 | `packages/comeni-ai/tests/test_access.py::test_the_new_name_wins_when_both_are_set` | `_read` reordered to prefer the deprecated `MENDEL_*` name over `COMENI_AI_*` | failed | `assert 'anthropic/old' == 'anthropic/new'` |
+| 2026-09-04 | `packages/comeni-ai/tests/test_usage.py::test_usage_is_cleared_before_each_call` | `self.last_usage = None` deleted from the top of `Client.generate` | failed | `assert Usage(model='m', duration_ms=1, ...) is None` — "a timed-out call kept the previous call's usage" |
+| 2026-09-04 | `tests/guards/test_purity.py::test_every_package_is_classified` | `"comeni-ai"` deleted from `IMPURE_PACKAGES` | failed | `on disk, unclassified: ['comeni-ai']` |
+| 2026-09-04 | `tests/repo/test_dockerfile.py::test_every_workspace_member_reaches_the_image` | the `COPY packages/comeni-ai/...` line deleted | failed | `['comeni-ai']` — the fourth time this list would have been wrong |
+
+**The one worth reading is the third.** `test_usage_is_cleared_before_each_call` is the only
+one of the five whose defect is invisible in every other test: with the clearing line removed
+the whole suite still passes, because every other assertion reads `last_usage` after a
+*successful* call. It fails only on the sequence success-then-failure, which is exactly the
+sequence an audit row reads — and a stale `Usage` attributed to the call that timed out is a
+token count and a duration for work that never happened.
+
+The precedence one is the second-most useful. Reversing `_read` leaves a half-migrated `.env`
+silently reading the old value while the operator believes they have migrated, and every
+existing `test_access.py` case still passes, because those cases set one spelling or the other
+and never both. The guard has to set both to see anything.

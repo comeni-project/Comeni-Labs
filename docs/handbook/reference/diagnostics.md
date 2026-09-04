@@ -195,6 +195,8 @@ decline to curate one.
 | `MA0002` | the provider refused the credentials |
 | `MA0003` | the model did not answer within the timeout |
 | `MA0007` | the provider rejected the request, or could not be reached |
+| `MA0008` | no committed prompt file carries that id, or the id is not a versioned one |
+| `MA0009` | the values supplied do not match the prompt's placeholders |
 
 ## What a model answered
 

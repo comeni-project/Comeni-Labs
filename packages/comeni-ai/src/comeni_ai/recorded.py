@@ -16,8 +16,8 @@ import hashlib
 import json
 from pathlib import Path
 
-from mendel_ai.access import ModelAccess
-from mendel_ai.client import Transport
+from comeni_ai.access import ModelAccess
+from comeni_ai.client import Transport
 
 
 def key_for(access: ModelAccess, prompt: str) -> str:

@@ -102,12 +102,12 @@ def _run(argv: list[str] | None = None) -> int:
         # Bare `--model` means "the one I configured"; `--model <id>` overrides it. Either way
         # the key and base URL come from the environment, because a credential on a command
         # line is a credential in a shell history.
-        # Imported here: `mendel-ai` is `mendel-forge[model]`, so `forge --help` and every
+        # Imported here: `comeni-ai` is `mendel-forge[model]`, so `forge --help` and every
         # other verb must not pull a model client. See `test_model_path_is_optional.py`.
-        from mendel_ai.access import ModelAccess
+        from comeni_ai.access import ModelAccess
 
         access = ModelAccess.require_from_env(
-            {**os.environ, **({"MENDEL_MODEL": args.model} if args.model else {})}
+            {**os.environ, **({"COMENI_AI_MODEL": args.model} if args.model else {})}
         )
         model_result = ops.fill_with_model(
             ops.ModelFillRequest(

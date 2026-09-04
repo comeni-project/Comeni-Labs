@@ -1,29 +1,37 @@
-"""Model access for Mendel.
+"""Re-exports of `comeni_ai`. **Nothing is implemented here.**
 
-**One primitive.** `generate(instruction, shape, evidence)` asks a model for something and
-validates the answer against a declared Pydantic shape before any caller sees it. Closed
-choice — `choose_one`, `choose_many` — is a helper over it, for the case where the shape is
-*one of these values*.
+The package moved to `comeni-ai` on 2026-09-04, because a second consumer appeared: the Forge,
+the builder and Wiener's agents would otherwise have grown three model clients, and
+`MENDEL_MODEL` configuring a Wiener agent is a lie in a `.env` file.
 
-That is the boundary, and it is the one the rest of the system already enforces: not that a
-model may not speak, but that nothing it says is taken on trust. A drafted rule has the rule
-validator; a `Goal` is a Pydantic model. **A module's script body has no shape**, which is why
-`MF0005` refuses it and why nothing here will fill one.
+**This shim exists for released consumers, not for this repository.** Every in-repo import has
+already moved; `test_no_in_repo_module_imports_the_shim` is what keeps it that way, so a new
+caller reaching for `mendel_ai` fails in the suite rather than in a year. Releases are per
+package here (`docs/guides/releasing.md`), so `mendel-ai` at `0.1.0` is on a tag somebody may
+have pinned, and deleting the import outright would break them with no warning.
 
-**This package holds no Mendel domain types.** It speaks in strings and shapes its caller
-declares, which is what lets the tier-4 ambiguity resolver reuse it unchanged when Plan 3
-arrives (`docs/notes/README.md` row 17). `comeni-core` is imported for `coded()` and nothing else.
+**It is a window and it should close.** Remove this package once no released consumer pins
+`mendel-ai`; the version here is bumped to `0.2.0` to carry the deprecation, and the honest
+next step is a `0.3.0` that is nothing but this docstring, then deletion.
 
-**It is impure and classified as such** in `tests/guards/test_purity.py`. The arrow points
-`mendel-ai -> comeni-core`, never back.
-
-Read `docs/notes/specs/2026-08-17-forge-phase-2.md` §4 before changing this package's surface —
-§4.3 records two ways the first design of it was wrong.
+The names are the pre-rename surface exactly. `Metered`, `Usage`, `PromptTemplate`, `Turn` and
+`converse` are deliberately **absent**: they did not exist under the old name, so re-exporting
+them would invite new code to be written against the deprecated spelling.
 """
 
-from mendel_ai.access import ModelAccess
-from mendel_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
-from mendel_ai.client import Client, ModelUnavailableError, NoModelError, Transport
+import warnings
+
+from comeni_ai.access import ModelAccess
+from comeni_ai.choice import WHY_LIMIT, Choice, Choices, Option, choose_many, choose_one
+from comeni_ai.client import Client, ModelUnavailableError, NoModelError, Transport
+
+warnings.warn(
+    "mendel_ai is deprecated and re-exports comeni_ai; import comeni_ai instead. "
+    "The environment variables moved too: COMENI_AI_MODEL, COMENI_AI_API_KEY, "
+    "COMENI_AI_BASE_URL. The MENDEL_* names are read as a fallback for now.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 __all__ = [
     "WHY_LIMIT",

@@ -170,6 +170,7 @@ BANLIST_PACKAGES = ["mendel-compiler"]
 
 IMPURE_PACKAGES: list[str] = [
     "mendel-forge",
+    "comeni-ai",
     "mendel-ai",
     "mendel-api",
     "wiener-api",

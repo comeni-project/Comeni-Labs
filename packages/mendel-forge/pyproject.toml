@@ -28,11 +28,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-model = ["mendel-ai>=0.1.0"]
+model = ["comeni-ai>=0.1.0"]
 # **`forge fill --model` is opt-in, and this is where that stops being a convention.** The
 # served API cannot reach the model path — invariant 3 confines runtime AI to three points and
 # none is built — so an image that syncs `--package mendel-api` skips litellm and its stack,
-# measured at 152MB of a 285MB virtualenv. The root project still depends on `mendel-ai`, so
+# measured at 152MB of a 285MB virtualenv. The root project still depends on `comeni-ai`, so
 # `uv sync` for development and CI installs it and nothing changes for them.
 
 

@@ -29,7 +29,7 @@ PACKAGE_OF = {
     "resolver": "mendel-resolver",
     "compiler": "mendel-compiler",
     "forge": "mendel-forge",
-    "ai": "mendel-ai",
+    "ai": "comeni-ai",
     "api": "mendel-api",
     "wiener": "wiener-core",
     "vendor": "comeni-vendor",

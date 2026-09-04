@@ -30,11 +30,45 @@ class NoModelError(ValueError):
     """
 
 
-MODEL = "MENDEL_MODEL"
-API_KEY = "MENDEL_API_KEY"
-BASE_URL = "MENDEL_BASE_URL"
-TIMEOUT = "MENDEL_TIMEOUT_SECONDS"
-TEMPERATURE = "MENDEL_TEMPERATURE"
+MODEL = "COMENI_AI_MODEL"
+API_KEY = "COMENI_AI_API_KEY"
+BASE_URL = "COMENI_AI_BASE_URL"
+TIMEOUT = "COMENI_AI_TIMEOUT_SECONDS"
+TEMPERATURE = "COMENI_AI_TEMPERATURE"
+MAX_CONCURRENT_JOBS = "COMENI_AI_MAX_CONCURRENT_JOBS"
+"""Read by the AI worker, not by this package. Declared here so the shared configuration
+surface has one home and a second consumer does not invent a second spelling."""
+
+DEPRECATED: dict[str, str] = {
+    MODEL: "MENDEL_MODEL",
+    API_KEY: "MENDEL_API_KEY",
+    BASE_URL: "MENDEL_BASE_URL",
+    TIMEOUT: "MENDEL_TIMEOUT_SECONDS",
+    TEMPERATURE: "MENDEL_TEMPERATURE",
+}
+"""The names this package read while it was `mendel-ai`, kept as a fallback.
+
+**An engine-specific prefix on a shared package is the thing being fixed**, not a cosmetic
+rename: `MENDEL_MODEL` configuring a Wiener agent would be a lie in a `.env` file, and three
+consumers reading three prefixes is the drift this package exists to prevent.
+
+The fallback is a compatibility window and not a permanent alias. It is read only when the
+`COMENI_AI_` name is absent, so an installation that sets both gets the new one — the
+direction that cannot silently un-migrate somebody. Remove it once no deployment sets the
+old names; `test_the_deprecated_names_are_a_window` is what will fail loudly when they go."""
+
+
+def _read(env: Mapping[str, str], name: str) -> str:
+    """The new name, else the deprecated one. Empty string when neither is set.
+
+    **An empty string is not a value**, here as in `from_env` — `COMENI_AI_API_KEY=` exported
+    and empty must fall through to the old name rather than shadow it, or a half-migrated
+    `.env` reads as fully migrated and the credential vanishes.
+    """
+    current = env.get(name, "").strip()
+    if current:
+        return current
+    return env.get(DEPRECATED.get(name, ""), "").strip()
 
 
 class ModelAccess(BaseModel):
@@ -71,7 +105,7 @@ class ModelAccess(BaseModel):
         a refusal a user can act on and `None` is a value somebody forgets to check. The
         non-raising form stays for the question *is anything configured at all*.
 
-        This raises here, in `mendel-ai`, rather than in whichever CLI resolves the
+        This raises here, in `comeni-ai`, rather than in whichever CLI resolves the
         configuration — `MA0001` is declared `emitted_by: ai`, and
         `tests/diagnostics/test_diagnostics_ownership.py` checks a code is raised by the package
         that owns it. Moving the raise would move the code.
@@ -96,14 +130,14 @@ class ModelAccess(BaseModel):
         lane's most likely misconfiguration, and an empty credential looks like a credential to
         a provider that wanted none.
         """
-        model = env.get(MODEL, "").strip()
+        model = _read(env, MODEL)
         if not model:
             return None
-        timeout = env.get(TIMEOUT, "").strip()
+        timeout = _read(env, TIMEOUT)
         return cls(
             model=model,
-            api_key=env.get(API_KEY) or None,
-            base_url=env.get(BASE_URL) or None,
+            api_key=_read(env, API_KEY) or None,
+            base_url=_read(env, BASE_URL) or None,
             timeout_seconds=float(timeout) if timeout else 60.0,
-            temperature=float(env.get(TEMPERATURE, "").strip() or 0.0),
+            temperature=float(_read(env, TEMPERATURE) or 0.0),
         )

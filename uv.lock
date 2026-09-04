@@ -9,6 +9,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "comeni-ai",
     "comeni-core",
     "comeni-labs",
     "comeni-vendor",
@@ -395,6 +396,23 @@ wheels = [
 ]
 
 [[package]]
+name = "comeni-ai"
+version = "0.1.0"
+source = { editable = "packages/comeni-ai" }
+dependencies = [
+    { name = "comeni-core" },
+    { name = "litellm" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "litellm", specifier = ">=1.50" },
+    { name = "pydantic", specifier = ">=2.9" },
+]
+
+[[package]]
 name = "comeni-core"
 version = "0.2.0"
 source = { editable = "packages/comeni-core" }
@@ -414,6 +432,7 @@ name = "comeni-labs"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "comeni-ai" },
     { name = "comeni-core" },
     { name = "comeni-vendor" },
     { name = "dag-core" },
@@ -442,6 +461,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "comeni-ai", editable = "packages/comeni-ai" },
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "comeni-vendor", editable = "packages/comeni-vendor" },
     { name = "dag-core", editable = "packages/dag-core" },
@@ -1299,20 +1319,14 @@ wheels = [
 
 [[package]]
 name = "mendel-ai"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/mendel-ai" }
 dependencies = [
-    { name = "comeni-core" },
-    { name = "litellm" },
-    { name = "pydantic" },
+    { name = "comeni-ai" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "comeni-core", editable = "packages/comeni-core" },
-    { name = "litellm", specifier = ">=1.50" },
-    { name = "pydantic", specifier = ">=2.9" },
-]
+requires-dist = [{ name = "comeni-ai", editable = "packages/comeni-ai" }]
 
 [[package]]
 name = "mendel-api"
@@ -1384,13 +1398,13 @@ dependencies = [
 
 [package.optional-dependencies]
 model = [
-    { name = "mendel-ai" },
+    { name = "comeni-ai" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "comeni-ai", marker = "extra == 'model'", editable = "packages/comeni-ai" },
     { name = "comeni-core", editable = "packages/comeni-core" },
-    { name = "mendel-ai", marker = "extra == 'model'", editable = "packages/mendel-ai" },
     { name = "mendel-compiler", editable = "packages/mendel-compiler" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
     { name = "pydantic", specifier = ">=2.9" },

@@ -20,7 +20,7 @@ summary of a twelve-thousand-word design record is a second copy that drifts.
 | `mendel-resolver` | the four-tier ladder, rules, routing, ports | **pure** | this page |
 | `mendel-compiler` | IR → Nextflow, the gates, the CLI | **pure** | this page |
 | `mendel-forge` | drafting registry data from sources | impure | §10 below |
-| `mendel-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
+| `comeni-ai` | model access over LiteLLM, behind the ports | impure | §9 below |
 | `mendel-api` | the HTTP surface, drafts, the builder's backend | impure | `docs/design/forge-review.md`, `dashboard.md` |
 | `wiener-core` | run state: admit, fold, decide, spans | **pure** | `docs/design/wiener.md` |
 | `wiener-api` | launch, ingest, project, stream | impure | `docs/design/wiener.md` |
@@ -533,10 +533,10 @@ with the `IREdge.states` serialiser deleted. Anything new that serialises a set 
 
 `mendel_resolver/ports.py` declares `AmbiguityResolver` as a `Protocol`; `FlagOnlyResolver` is
 the shipped implementation, which picks the first candidate, flags it, and never guesses
-cleverly. The dependency arrow points `mendel-ai → mendel-resolver`, never the reverse, and
+cleverly. The dependency arrow points `comeni-ai → mendel-resolver`, never the reverse, and
 `tests/guards/test_purity.py` is what holds it.
 
-**Nothing implements `AmbiguityResolver` over a model yet** (checked 2026-09-02). `mendel-ai`
+**Nothing implements `AmbiguityResolver` over a model yet** (checked 2026-09-04). `comeni-ai`
 exists and is transport — `generate(shape)` over LiteLLM and closed-choice helpers — and the
 forge uses it through a *different* seam, `HoleFiller`. So `mendel build` has no model path at
 all: the tier-4 resolver is the thing that would add one.
@@ -577,14 +577,14 @@ mendel-forge/
 
 ### Phase 2 — a model behind the seam
 
-`mendel_forge.filler.ModelFiller` implements `HoleFiller` over `mendel-ai`. It attempts
+`mendel_forge.filler.ModelFiller` implements `HoleFiller` over `comeni-ai`. It attempts
 **candidate-bearing holes only**: those are the holes whose legal answers come off the layer
 stack, so an answer is checkable, and `Hole.legal` refuses one that is not. A hole with no
 candidates is free text and is **declined without being sent** — stronger than asking and
 discarding, because no prose about it ever leaves. Issue #70 gates the other direction, and
 `priority_because` is the one such value that would reach a registry.
 
-Every answer is validated twice: `mendel_ai.choose_*` refuses a value the model was not
+Every answer is validated twice: `comeni_ai.choose_*` refuses a value the model was not
 offered, and `hole.legal` refuses it again on the way in. The second is not redundancy — it is
 the check a person's fill already goes through, so a model's answer meets one rule rather than
 a second that can drift from it.
@@ -600,7 +600,7 @@ goal, build, pipeline, publish — and the forge is offline authoring outside it
 modules and registry files. `DOORS` and `tests/guards/test_egress.py` did not change when Phase 2 wired
 a model in. `notes/specs/2026-08-17-forge-phase-2.md` §1 is the argument.
 
-### `mendel-ai` — model access
+### `comeni-ai` — model access
 
 One primitive: `generate(instruction, shape, evidence)` validates a model's answer against a
 declared Pydantic shape before any caller sees it, and returns `None` when it declines or will
@@ -612,9 +612,21 @@ same rule closed vocabularies and contract-versus-module checking already enforc
 has the rule validator; a `Goal` is a Pydantic model. A module's script body has no shape, which
 is why `MF0005` refuses it.
 
-The package holds **no Mendel domain types** — it speaks in strings and shapes its caller
-declares, which is what lets the tier-4 ambiguity resolver reuse it unchanged in Plan 3. It is
-impure and classified as such. `MA0001`–`MA0007` are its diagnostics.
+The package holds **no domain types** — it speaks in strings and shapes its caller declares,
+which is what lets the tier-4 ambiguity resolver reuse it unchanged in Plan 3. It is impure and
+classified as such. `MA0001`–`MA0009` are its diagnostics.
+
+`converse` is the same validation over a multi-turn exchange, and `PromptTemplate` loads,
+renders and versions a *caller's* committed prompt files — it owns no prompt text, because
+shared infrastructure that accumulates every agent's prompts has become a shared pile rather
+than a boundary.
+
+**It was `mendel-ai` until 2026-09-04.** The rename is not cosmetic: an engine-specific name on
+the shared transport is what would have produced three clients, one each for the Forge, the
+builder and Wiener's agents, and `MENDEL_MODEL` configuring a Wiener agent is a lie in a `.env`
+file. The configuration is `COMENI_AI_*` and the `MENDEL_*` spellings are read as a fallback.
+`mendel-ai` survives as a deprecation shim that re-exports this package and holds no code;
+`packages/mendel-ai/tests/test_shim.py` refuses a new in-repo import of it.
 
 ### A scaffold is not a half-built contract
 

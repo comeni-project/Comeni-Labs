@@ -6,8 +6,8 @@ Every test here injects a transport. No test in this repository may call a live 
 
 import json
 
-from mendel_ai.access import ModelAccess
-from mendel_ai.client import Client, Transport
+from comeni_ai.access import ModelAccess
+from comeni_ai.client import Client, Transport
 from pydantic import BaseModel, Field
 
 ACCESS = ModelAccess(model="test/model")

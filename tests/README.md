@@ -7,7 +7,7 @@ concluding something is untested.
 
 | Where | What it holds |
 |---|---|
-| **`packages/<name>/tests/`** | **The bulk of the suite** — one directory per package, beside the code it exercises. `comeni-core`, `mendel-resolver`, `mendel-compiler`, `mendel-ai`, `mendel-forge`, `mendel-api`, `wiener-core`, `wiener-api`, `dag-core`, `comeni-vendor` |
+| **`packages/<name>/tests/`** | **The bulk of the suite** — one directory per package, beside the code it exercises. `comeni-core`, `mendel-resolver`, `mendel-compiler`, `comeni-ai`, `mendel-forge`, `mendel-api`, `wiener-core`, `wiener-api`, `dag-core`, `comeni-vendor` |
 | **`frontend/src/`** | `Component.test.tsx` beside `Component.tsx`, the Vitest convention |
 | **`tests/`** (here) | Only what belongs to **no single package**: a pipeline built end to end, a scan over the whole repository, an invariant held across a boundary |
 

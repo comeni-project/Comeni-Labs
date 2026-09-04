@@ -59,7 +59,7 @@ bare `user_note: str` passed every rule it had.
 - Vulnerabilities in Nextflow, Docker, or container images.
 - A pipeline producing scientifically wrong results. Real and important, but it is a bug —
   and Mendel makes no claim that a pipeline is correct, only that every choice is recorded.
-- Missing hardening in `mendel-api`, `mendel-ai` or `mendel-forge`. They do not exist yet.
+- Missing hardening in `mendel-api`, `comeni-ai` or `mendel-forge`. They do not exist yet.
 
 ## Scope and versions
 

@@ -1,13 +1,15 @@
-# mendel-ai
+# mendel-ai — deprecated
 
-Model access for Mendel. One primitive — `generate(instruction, shape, evidence)` — which
-validates model output against a declared Pydantic shape before returning it. `choose_one` and
-`choose_many` are helpers over it for closed choices.
+This package moved to [`comeni-ai`](../comeni-ai/) on 2026-09-04. Import `comeni_ai`.
 
-There is no free-text generation call, and that is a design position rather than an omission:
-what a model returns is checked against a declaration before any caller sees it. See
-[the spec](../../docs/notes/specs/2026-08-17-forge-phase-2.md) §4, and §4.3.1 for what that guard is
-and is not — it is cost-raising, not a proof.
+`mendel_ai` re-exports the names it used to implement and holds no code of its own. It exists
+for released consumers that pinned `mendel-ai` at `0.1.0`; every caller inside this repository
+has moved, and a test refuses a new one.
 
-Impure by design: this is where the network lives. `comeni-core`, `mendel-resolver` and
-`mendel-compiler` do not reach it, and `tests/test_purity.py` holds that direction.
+The environment variables moved with it — `COMENI_AI_MODEL`, `COMENI_AI_API_KEY`,
+`COMENI_AI_BASE_URL`, `COMENI_AI_TIMEOUT_SECONDS`, `COMENI_AI_TEMPERATURE`. The `MENDEL_*`
+spellings are read as a fallback for the compatibility window.
+
+**Why the rename.** A second consumer appeared. The Forge, the builder and Wiener's agents
+would otherwise have grown three model clients, and an engine-specific prefix on shared
+configuration — `MENDEL_MODEL` setting up a Wiener agent — is a lie in a `.env` file.

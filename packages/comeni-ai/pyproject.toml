@@ -1,8 +1,8 @@
 [project]
-name = "mendel-ai"
-version = "0.2.0"
+name = "comeni-ai"
+version = "0.1.0"
 requires-python = ">=3.12"
-description = "Deprecated: re-exports comeni-ai. Import comeni_ai instead."
+description = "Model access for Comeni Labs — one primitive, validated against a declared shape"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -18,11 +18,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# **One dependency, and it is the replacement.** This package holds no implementation as of
-# 0.2.0 — every name it exports comes from `comeni-ai`, so pinning litellm or pydantic here
-# would be a second place to keep one version constraint honest.
+# Lower bounds, no caps — see mendel-resolver's manifest and docs/guides/releasing.md.
+# comeni-core is here for `coded()` and nothing else: this package holds no Mendel domain
+# types, which is what lets a second consumer reuse it unchanged.
 dependencies = [
-  "comeni-ai>=0.1.0",
+  "comeni-core>=0.1.0",
+  "litellm>=1.50",
+  "pydantic>=2.9",
 ]
 
 [project.urls]
@@ -37,4 +39,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mendel_ai"]
+packages = ["src/comeni_ai"]
