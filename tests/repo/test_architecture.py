@@ -180,6 +180,91 @@ def test_every_documented_clone_command_gets_the_submodule():
     )
 
 
+def test_a_generated_page_is_not_reported():
+    """`docs/tools/index.md -> catalogue.md` is a correct link to a page `make wiki-tools`
+    renders, and the checker reported it as broken until 2026-09-04.
+
+    The mechanism asks git, so this asserts against the real case rather than a fabricated
+    one: the catalogue must be recognised as generated, and recognised *because the ignore
+    rules say so* rather than because a list somewhere names it.
+    """
+    root = ROOT
+    sys.path.insert(0, str(root / "tools"))
+    import check_links
+
+    catalogue = (root / "docs" / "tools" / "catalogue.md").resolve()
+    assert check_links._generated({catalogue}) == {catalogue}, (
+        "the catalogue is not recognised as generated — `make links` will report a correct "
+        "link, which is what this test exists to prevent"
+    )
+
+
+def test_a_missing_page_is_still_reported():
+    """The other half, and the one that matters.
+
+    Exempting generated targets is a hole if it exempts too much. A documentation page outside
+    the generated tree is not ignored, so it must still be reported — otherwise the fix for one
+    false positive has turned the checker off.
+
+    **This was watched failing, and the first attempt at it passed for the wrong reason.** The
+    probe was originally `docs/tools/a-page-nobody-wrote.md`, which the ignore rule covers, so
+    the checker stayed green on a genuine 404 and the exemption looked airtight when it was
+    not. The probe has to sit outside `docs/tools/`; the cost inside it is what the test below
+    bounds.
+    """
+    root = ROOT
+    sys.path.insert(0, str(root / "tools"))
+    import check_links
+
+    absent = (root / "docs" / "handbook" / "a-page-nobody-wrote.md").resolve()
+    assert not absent.exists()
+    assert check_links._generated({absent}) == set(), (
+        "a merely-absent page is treated as generated, so the checker would pass on a real 404"
+    )
+
+
+def test_the_generated_exemption_covers_only_the_generated_tree():
+    """The blind spot is `docs/tools/`, and it must not spread.
+
+    The ignore rule covers that whole directory, so a link *into* it naming a page the
+    generator does not produce is unreported. That is accepted — a checkout genuinely cannot
+    answer "is there a page for this tool", which is the same reason `mkdocs.yml` excludes
+    `tools/*/*.md` from its nav check — but it is accepted for **one** directory.
+
+    A prefix exclusion is a blocklist, and this repository has learned twice what a blocklist
+    costs. So this asserts the complement: probe every directory under `docs/` with a name that
+    does not exist, and exactly one may come back ignored.
+    """
+    root = ROOT
+    sys.path.insert(0, str(root / "tools"))
+    import check_links
+
+    docs = root / "docs"
+    directories = [docs, *(p for p in docs.rglob("*") if p.is_dir())]
+    assert len(directories) > 10, "the probe is not probing"
+
+    probes = {(d / "__a_page_nobody_wrote__.md").resolve() for d in directories}
+    ignored = {p.parent.relative_to(root) for p in check_links._generated(probes)}
+
+    assert ignored == {pathlib.Path("docs/tools")}, (
+        "the generated-page exemption covers a directory other than docs/tools/. A link into "
+        f"one of these is now unchecked and nothing says so:\n  {sorted(map(str, ignored))}"
+    )
+
+
+def test_the_generated_exemption_is_scoped_to_docs():
+    """`.venv/` and `build/` are ignored too, and a link to one of those is a mistake rather
+    than a page a target renders. The narrow scope is what keeps this from being a loophole."""
+    root = ROOT
+    sys.path.insert(0, str(root / "tools"))
+    import check_links
+
+    outside = (root / "build" / "pipeline.yml").resolve()
+    assert check_links._generated({outside}) == set(), (
+        "the generated-page exemption reaches outside docs/"
+    )
+
+
 def test_notes_are_the_only_docs_exclusion():
     """`docs/notes/` and `docs/superpowers/` are skipped by the link checker, and **nothing
     else under `docs/` is.**

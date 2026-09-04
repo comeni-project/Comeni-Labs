@@ -3943,3 +3943,29 @@ The precedence one is the second-most useful. Reversing `_read` leaves a half-mi
 silently reading the old value while the operator believes they have migrated, and every
 existing `test_access.py` case still passes, because those cases set one spelling or the other
 and never both. The guard has to set both to see anything.
+
+## `check_links.py` learns what a generated page is — 2026-09-04
+
+`docs/tools/index.md -> catalogue.md` had been reported as broken by `make links` for as long
+as anybody had run it. The link is **correct**: `catalogue.md` is rendered by `make wiki-tools`
+and is ignored, so it exists in a built site and not in a checkout. The checker now asks the
+ignore rules whether a target under `docs/` is generated, and exempts one that is.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `make links` | the fix itself, before it existed | reported a correct link | `docs/tools/index.md -> catalogue.md` |
+| 2026-09-04 | `make links` | a link to `a-page-nobody-wrote.md` added to `docs/index.md` | failed, correctly | `docs/index.md -> a-page-nobody-wrote.md` |
+| 2026-09-04 | `tests/repo/test_architecture.py::test_the_generated_exemption_covers_only_the_generated_tree` | `/docs/handbook/*.md` appended to `.gitignore`, simulating a second generated directory | failed | `the generated-page exemption covers a directory other than docs/tools/` |
+
+**The first attempt at the missing-page guard passed for the wrong reason, and that is the
+entry worth reading.** The probe was `docs/tools/a-page-nobody-wrote.md`. The ignore rule is
+`/docs/tools/*.md`, so the probe was itself exempt: the checker stayed green on a deliberate
+404 and the exemption looked airtight. It was found by breaking the checker on purpose and
+watching it *not* fail — the failure mode A14 names, arriving in the very place a guard was
+being written to prevent it.
+
+The real limit is now stated in `check_links.py` rather than discovered: inside `docs/tools/`
+nothing is checked, because a checkout cannot answer *is there a page for this tool* — only a
+build can, which is the same reason `mkdocs.yml` excludes `tools/*/*.md` from its nav check.
+The blind spot is bounded to that one directory by the third guard above, so it cannot spread
+to a real documentation directory the way a prefix exclusion silently can.

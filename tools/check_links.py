@@ -38,12 +38,46 @@ accidentally check the notes, and this one can accidentally stop checking a real
 directory whose name someone nests under `docs/notes/` or `docs/superpowers/`.
 `test_notes_are_the_only_docs_exclusion` holds the exclusion to exactly these two prefixes.
 
+**A generated page is checked for being generated, not for being present.** `docs/tools/` is
+written by `make wiki-tools` — `mendel docs` renders one page per tool and
+`generate_tools_catalogue.py` renders the catalogue that groups them — so those files exist in
+a built site and not in a checkout. `docs/tools/index.md` linking to `catalogue.md` is
+*correct*, and reporting it costs somebody the ten minutes it takes to discover that.
+
+The question is asked of **git, not of a list here**: a path under `docs/` that git ignores is
+one a make target writes, because that is what those ignore rules exist to say
+(`.gitignore` §"The tool catalogue is generated from the registry"). A second list naming the
+generated pages would be a second thing to keep honest, and this repository has a Dockerfile
+that went wrong three times for exactly that reason.
+
+**What this costs, stated rather than discovered.** The ignore rule is `/docs/tools/*.md` plus
+`/docs/tools/**/*.md`, so it covers the whole directory — which means a link *into* `docs/tools/`
+naming a page the generator does not produce is no longer reported either. That blind spot was
+found by breaking the checker on purpose and watching it stay green, not by reading this.
+
+It is accepted because the alternative is worse and because the same limit is already accepted
+next door: `mkdocs.yml`'s `not_in_nav: tools/*/*.md` exists because the page set is a function
+of `--registry` and *cannot be known ahead of time*. A checkout genuinely does not hold the
+answer to "is there a page for this tool"; only a build does. Reporting every correct link as
+broken to catch a hypothetical typo is the trade that made somebody spend ten minutes on
+`catalogue.md`.
+
+The blind spot is bounded and pinned. `docs/tools/` is the only directory under `docs/` where
+any `.md` is ignored, and `test_the_generated_exemption_covers_only_the_generated_tree` fails
+if a second one appears — so this cannot spread to a real documentation directory the way a
+prefix exclusion silently can. Outside that tree an absent page is still reported, which
+`test_a_missing_page_is_still_reported` holds.
+
+It is scoped to `docs/` deliberately. Elsewhere an ignored target is more likely to be a build
+artifact somebody linked by mistake than a page a target renders.
+
 Anchors (`#section`) are not checked — that needs a markdown parser, and the failure mode is a
 reader scrolling rather than a reader hitting a 404.
 """
 
 import pathlib
 import re
+import subprocess
 
 ROOT = pathlib.Path(__file__).parent.parent
 LINK = re.compile(r"\[[^\]]*\]\((?!https?:|mailto:|#)([^)#]+)")
@@ -79,13 +113,52 @@ def _markdown() -> list[pathlib.Path]:
     )
 
 
+DOCS = ROOT / "docs"
+
+
+def _generated(paths: set[pathlib.Path]) -> set[pathlib.Path]:
+    """Of `paths`, the ones a make target writes — asked of git, in one call.
+
+    **Absent is not the same as ignored**, which is the whole distinction: a page that will be
+    rendered into a checkout is ignored, and a page somebody deleted or misspelled is not.
+
+    Returns nothing rather than raising when git cannot answer. A checker that dies because it
+    is being run outside a checkout is worse than one that reports a generated page as broken,
+    and the tests below are what stop that degradation from being silent.
+    """
+    under_docs = sorted(p for p in paths if DOCS in p.parents)
+    if not under_docs:
+        return set()
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "check-ignore", "--stdin"],
+            input="\n".join(str(p) for p in under_docs),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return set()
+    # `check-ignore` exits 1 when nothing matched, which is an ordinary answer and not an error.
+    if result.returncode not in (0, 1):
+        return set()
+    return {pathlib.Path(line) for line in result.stdout.splitlines() if line}
+
+
 def broken() -> list[str]:
-    found = []
+    seen: list[tuple[pathlib.Path, str, pathlib.Path]] = []
     for path in _markdown():
-        for target in LINK.findall(_prose(path.read_text())):
-            if not (path.parent / target.strip()).exists():
-                found.append(f"{path.relative_to(ROOT)} -> {target.strip()}")
-    return found
+        for raw in LINK.findall(_prose(path.read_text())):
+            target = raw.strip()
+            resolved = path.parent / target
+            if not resolved.exists():
+                seen.append((path, target, resolved.resolve()))
+    generated = _generated({resolved for _, _, resolved in seen})
+    return [
+        f"{path.relative_to(ROOT)} -> {target}"
+        for path, target, resolved in seen
+        if resolved not in generated
+    ]
 
 
 def main() -> int:
