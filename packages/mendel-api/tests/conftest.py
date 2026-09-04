@@ -20,6 +20,31 @@ def clean_db():
 
 
 @pytest.fixture
+def clean_forge():
+    """An empty forge workflow around each test.
+
+    **All seven in one `TRUNCATE`, not seven statements.** Every foreign key in that block is
+    `RESTRICT`, so truncating `forge_catalogue_item` on its own is refused while an adaptation
+    points at it — which is the constraint working, and exactly what these tests are for.
+    Naming them together in one statement is how Postgres is told the whole set is going.
+
+    `ai_invocation` is in the list despite not being named `forge_*`: it is referenced by
+    `forge_message`, and leaving it out makes the truncation fail on the first test that
+    records a model call.
+    """
+    from mendel_api.db import session_scope
+    from sqlalchemy import text
+
+    tables = (
+        "forge_message, forge_event, forge_revision, forge_adaptation, "
+        "forge_catalogue_item, forge_source_snapshot, ai_invocation"
+    )
+    with session_scope() as session:
+        session.execute(text(f"TRUNCATE TABLE {tables}"))
+    yield
+
+
+@pytest.fixture
 def broken_registry_copy(tmp_path):
     """The API-side twin of the forge's `broken_registry`.
 

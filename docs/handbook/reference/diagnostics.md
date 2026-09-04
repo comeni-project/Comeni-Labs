@@ -188,6 +188,15 @@ decline to curate one.
 | `MF0008` | no such draft, or a draft name that is not a plain name |
 | `MF0010` | a draft with that name already exists |
 
+## The forge — adapting a tool, and in what order
+
+| Code | Says |
+|---|---|
+| `MF0300` | an adaptation cannot move from the state it is in to the one that was asked for |
+| `MF0301` | this candidate does not meet the conditions for approval |
+| `MI0100` | this adaptation moved while you were looking at it — re-read it before acting |
+| `MI0101` | this tool is already being adapted |
+
 ## The forge — landing a draft into a registry
 
 | Code | Says |

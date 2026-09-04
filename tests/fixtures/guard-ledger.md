@@ -4059,3 +4059,58 @@ on-disk map of central files *before* the per-test override, so `_digests(metada
 nothing and four digest tests asserted against unmodified fixtures — passing for the wrong
 reason. Same shape as `docs/tools/`'s probe and the nf-core metadata override. Whenever a
 fixture handler has two sources for the same key, the override must be checked first.
+
+## The forge's workflow gets a database — 2026-09-04
+
+Seven tables, one transition service, and a migration written by hand. Every row of the table
+below was watched failing against the *specific* defect it exists to catch, not merely watched
+failing.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-04 | `test_models.py::test_the_partial_index_names_exactly_the_terminal_states` | `archived` dropped from the index's `WHERE` | failed | `the index excludes ['published'] and workflow.TERMINAL is ['archived', 'published']` |
+| 2026-09-04 | `test_migrations.py::test_no_foreign_key_cascades` | one `ondelete="RESTRICT"` made `CASCADE` | failed | `these foreign keys cascade: ['snapshot_id']` |
+| 2026-09-04 | `test_migrations.py::test_every_model_column_is_created_by_a_migration` | `failed_stage` deleted from the migration only | failed | `these columns exist in models.py and in no migration: ['forge_adaptation.failed_stage']` |
+| 2026-09-04 | `test_forge_state.py::test_a_tab_that_left_review_and_came_back_to_it_still_loses` | `row_version` dropped from the compare-and-swap | failed | one test, after the revert first passed all seventeen — see below |
+| 2026-09-04 | `test_forge_state.py::test_the_partial_index_refuses_a_second_active_row_even_without_the_service` | `DROP INDEX ix_forge_adaptation_one_active` against the live database | failed | the second active row inserted cleanly |
+| 2026-09-04 | `test_forge_catalogue.py::test_a_second_sync_does_not_reset_when_a_tool_was_first_seen` | `first_seen_at` added back into the upsert's `set_` | failed | every tool looked newly discovered on the second sync |
+| 2026-09-04 | `test_forge_catalogue.py::test_a_tool_that_vanished_upstream_keeps_its_row_and_stops_being_present` | the reconcile `UPDATE … present=False` deleted | failed | `assert (2 == 1)` — a removed tool stayed in the catalogue |
+
+**A guard that proved nothing, caught by reverting rather than by reading — and it is the same
+shape as `SourceSnapshot.classified` two days ago.** `forge_state.move` compares both the
+expected state and the expected `row_version`; deleting the version compare left **all seventeen
+tests green**. Every stale case the suite had also carried a *mismatched state*, so `expect`
+alone answered all of them and the version looked like belt and braces.
+
+The case it actually covers is a state moved through and back: a reviewer opens a candidate,
+somebody else requests changes, the model produces a new revision, and the adaptation returns to
+`review`. The first tab is holding the right state and the wrong candidate, and *Approve* there
+approves work it has never seen. `test_a_tab_that_left_review_and_came_back_to_it_still_loses`
+is that case, written after the revert, and it is now the only test in the file the version
+compare is load-bearing for.
+
+**Two mechanisms that each fully answer one question, presented as defence in depth** is the
+pattern to distrust, and this is the fourth instance in three days. The way to tell an earning
+pair from a hiding pair is to delete each half separately: one active adaptation per catalogue
+item survives that test — the service refusal produces a sentence naming what is in flight, the
+partial index is the only half that holds when two requests arrive together, and deleting either
+one brings down a different test.
+
+**A test that passed over an empty collection, exactly as `tests/README.md` warns.**
+`test_migrations.py` compares `Base.metadata` against rendered DDL, and `Base` alone does not
+populate that mapping — `mendel_api.models` has to be imported for its side effect. Without it,
+every "for each table" assertion iterated nothing and passed. What caught it was the one test
+that reads the DDL and compares *the other direction*: it reported eleven tables the models did
+not declare. `test_the_scan_reached_the_models` is the standing version.
+
+**`metadata` is a reserved attribute on any SQLAlchemy declarative class**, and the failure is
+several frames from anything that names the column: `'MetaData' object has no attribute
+'_bulk_update_tuples'`. `insert(ForgeCatalogueItem).values(metadata=…)` resolves the ORM
+attribute; `insert(ForgeCatalogueItem.__table__)` resolves the column. The Python attribute is
+`metadata_json` and the database column is `metadata`, which is the pair that reads correctly in
+both places.
+
+**A fixture collision that read as a service bug.** `_item` built catalogue ids by padding the
+ref to 64 characters with zeros, which made `tool1` and `tool10` identical — so a twelve-tool
+sync stored eleven rows and the paging test failed on its own fixture. Ids are now
+`sha256(source + ref)`, which is what the adapters compute anyway.

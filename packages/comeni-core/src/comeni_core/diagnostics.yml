@@ -26,7 +26,9 @@
 #   MF0001-MF0099  the forge: a scaffold, its holes, and filling them
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MF0200-MF0299  the forge: reading an upstream source catalogue
+#   MF0300-MF0399  the forge: the adaptation workflow — what may happen, and in what order
 #   MI0001-MI0099  the API: gating a drawn pipeline
+#   MI0100-MI0199  the API: the forge workflow's durable state
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
@@ -2443,6 +2445,55 @@ MF0208:
     A tool with less evidence behind it is a tool a reviewer will have to work harder on. It
     is not a tool that does not exist.
 
+MF0300:
+  emitted_by: forge
+  concern: workflow
+  says: "an adaptation cannot move from the state it is in to the one that was asked for"
+  fires_on: [forge adapt, forge review]
+  refuses: true
+  fix: |
+    Read the adaptation's current state before acting on it. The refusal names every state
+    it *can* move to; if none of them is what you wanted, the work that would make it legal
+    has not happened yet.
+  explanation: |
+    Every transition names its allowed predecessors, in one table — `mendel_forge.workflow.ALLOWED`.
+    A page that shows *Approve* on an adaptation that is still generating is a page that will
+    eventually be clicked, and a service that accepted the click would approve a candidate that
+    does not exist yet.
+
+    **The refusal is what makes two browser tabs safe.** The transition is applied against an
+    expected current state and an expected row version, so a second tab holding a stale view
+    loses rather than overwrites. That is the same argument `Displacement` rests on, in a place
+    where the losing party is a person rather than a layer.
+
+MF0301:
+  emitted_by: forge
+  concern: workflow
+  says: "this candidate does not meet the conditions for approval"
+  fires_on: [forge review]
+  refuses: true
+  fix: |
+    Every unmet condition is listed, not just the first. Approval needs all six: a current
+    revision, no unresolved required holes, a green validation, a named human, a reason, and
+    the same registry the candidate was validated against.
+
+    If the last one is what failed, re-validate. A green verdict describes the layer that was
+    read at the time, and that layer is gone.
+  explanation: |
+    Approval is the transition that writes to the registry, and it is the only one — invariant 2
+    says a person approves and nothing writes automatically. So this is where the conditions
+    live, rather than spread across the page that offers the button and the service that
+    performs it.
+
+    **All six are reported together on purpose.** Returning the first failure makes a reviewer
+    fix one thing, press the button and be told about the next; six presses to learn six facts
+    the server knew at the first one.
+
+    The registry check is the one that goes stale while nobody is looking. Nothing about the
+    adaptation changed — the layer moved underneath it, and *validated green* became a
+    statement about something that no longer exists. `mendel upgrade` rests on the same
+    argument for a pipeline; this is it for a contract.
+
 MA0001:
   emitted_by: ai
   concern: model-access
@@ -2771,6 +2822,54 @@ MI0001:
     to the API. `MA0001`-`MA0007` already belonged to the AI adapters, and the strict loader
     refused the duplicate rather than letting the second win. The sentence was the thing that
     was wrong; it is corrected at the top of this file.
+
+MI0100:
+  emitted_by: api
+  concern: workflow
+  says: "this adaptation moved while you were looking at it — re-read it before acting"
+  fires_on: [forge review, forge worker]
+  refuses: true
+  fix: |
+    Re-read the adaptation and act on what it says now. The refusal reports the state and
+    version it actually holds, so the recovery is one request rather than a poll.
+
+    A worker seeing this has lost a claim to another worker, which is the correct outcome:
+    the job is already being done, and it must not be done twice.
+  explanation: |
+    Every transition is one `UPDATE … WHERE id AND state AND row_version`, and the row count is
+    the answer. Read-then-write would leave a window between the check and the write, and the
+    window is not theoretical — a reviewer with the candidate and the diff open in two tabs is
+    the ordinary case, and ARQ's at-least-once delivery hands one queued job to two workers on
+    any redeploy.
+
+    **The expected state and the expected version are both compared, and they catch different
+    mistakes.** The state catches acting on a row the caller has misread. The version catches
+    acting on a row that happens to match but has moved *through* the state and back — a
+    `review` that a request-changes cycle already left and returned to. Comparing only the
+    state would let the second case through, and the second case is the one where a person
+    approves a candidate they never saw.
+
+MI0101:
+  emitted_by: api
+  concern: workflow
+  says: "this tool is already being adapted"
+  fires_on: [forge adapt]
+  refuses: true
+  fix: |
+    The refusal names the adaptation already in flight and the state it is in. Open it, finish
+    it, or archive it. A tool that has been *published* is not in flight and can be adapted
+    again — that is what a version bump upstream looks like.
+  explanation: |
+    One catalogue item may have many historical adaptations and at most one active one.
+    Without that, two curators answer the same questions in parallel, and one of the two
+    answers is silently discarded at approval.
+
+    **Two mechanisms enforce it, and they are not defence in depth.** This refusal produces a
+    sentence naming what is already in flight; a partial unique index on the table refuses when
+    two requests arrive together, which no service-level check can. Deleting either leaves a
+    real defect, which is the test of whether a second mechanism is earning its place — and it
+    is the test `SourceSnapshot.classified` failed, where two routes to one answer meant
+    neither could be broken by a test.
 
 MW0001:
   emitted_by: wiener
