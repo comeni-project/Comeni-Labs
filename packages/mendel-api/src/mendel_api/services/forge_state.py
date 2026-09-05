@@ -17,11 +17,13 @@ is what turns a candidate into files, and it stays the only thing that does — 
 """
 
 import secrets
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from comeni_core.diagnostics import coded
 from mendel_forge.workflow import (
     ALLOWED,
+    RUNNING,
     TERMINAL,
     AdaptationState,
     EventKind,
@@ -49,6 +51,24 @@ class Moved(BaseModel):
     id: str
     state: AdaptationState
     row_version: int
+
+
+AI_HELD = frozenset({AdaptationState.GENERATING, AdaptationState.VALIDATING})
+"""The half of `workflow.RUNNING` the AI worker holds — `generate_forge_revision` spans both.
+
+Declared as a subset of `RUNNING` rather than beside it, and `test_the_held_halves_cover_running`
+holds that the two halves partition it. A state in neither is a state no sweep reclaims, which
+is rule 7 failing quietly.
+"""
+
+ORDINARY_HELD = RUNNING - AI_HELD
+"""`scaffolding` and `publishing` — the ordinary worker's half.
+
+**Derived, so it cannot drift.** Adding a state to `RUNNING` puts it in exactly one half
+automatically, which is what stops a new worker-held state from being swept by nobody. Nothing
+calls `stale()` with this yet: the jobs that would hold those states are Task 12's, and
+sweeping a state no job holds restarts work nobody asked for.
+"""
 
 
 def _now() -> datetime:
@@ -393,14 +413,27 @@ def add_revision(
     return revision_id
 
 
-def stale(older_than: datetime) -> list[str]:
+def stale(
+    older_than: datetime, *, states: Iterable[AdaptationState] = AI_HELD
+) -> list[str]:
     """Adaptations a worker claimed and never finished.
 
-    Rule 7 — a failed or lost job must not leave a row in `generating` forever. This reports;
-    the caller decides, because "the worker died" and "the model is slow" look identical from
-    here and only the caller knows what the timeout should be.
+    Rule 7 — a lost job must not leave a row running forever. This reports; the caller decides,
+    because *the worker died* and *the model is slow* look identical from here and only the
+    caller knows what timeout applies.
+
+    **`states` is an argument because two workers sweep different halves.** It enumerated
+    `(generating, validating)` inline until 2026-09-05, which was a second answer to a question
+    `workflow.RUNNING` already answers — and the two silently disagreed the moment `RUNNING`
+    gained `scaffolding` and `publishing`.
+
+    The default is the AI worker's half rather than all of `RUNNING`, and that is deliberate:
+    the ordinary worker's jobs do not exist yet, so a row sits in `scaffolding` with nothing
+    behind it and reclaiming it would restart work nobody asked for. When
+    `scaffold_forge_adaptation` and `publish_forge_adaptation` land, the ordinary worker calls
+    this with `ORDINARY_HELD` — a second call to one verb, not a second implementation.
     """
-    running = [s.value for s in (AdaptationState.GENERATING, AdaptationState.VALIDATING)]
+    running = [s.value for s in states]
     with session_scope() as session:
         return list(
             session.scalars(

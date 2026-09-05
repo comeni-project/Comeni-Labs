@@ -4399,3 +4399,55 @@ mid-validation left a row whose only legal move was to promote a half-validated 
 until now created a fresh table, so the first `ALTER TABLE … ADD COLUMN` in this schema read as
 *a column no migration creates* — the guard reporting the opposite of the truth, and sending
 somebody to write a migration that already existed. It reads both forms now.
+
+## The AI worker and its queue — 2026-09-05
+
+Task 7's plumbing: two queues, job ids derived from the work, a claim before any work, and a
+startup sweep for rows whose worker did not come back. Redis is faked — the queue behaviour that
+matters is one line of bookkeeping — and Postgres is real, because *does a compare-and-swap
+exclude the second worker* is a question only a database answers.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_jobs.py::test_a_duplicate_delivery_does_not_queue_twice` | `job_id=None` on the generation enqueue | failed, with two others | a redeploy would have queued two model calls for one adaptation |
+| 2026-09-05 | `test_forge_jobs.py::test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_failed` | the `state is not QUEUED` check removed | failed | the second delivery tried to claim a row already claimed |
+| 2026-09-05 | `test_forge_jobs.py::test_a_reclaim_says_why_in_a_code_a_page_can_render` | the reclaim detail replaced with a raw provider string | failed | `http://10.0.0.4:11434` and a key prefix reached `forge_event.detail` |
+| 2026-09-05 | `test_forge_jobs.py::test_a_provider_failure_reaches_the_page_as_a_code_and_not_as_a_stack` | `sanitised` returning `str(failure)` | failed | the same leak through the other path |
+| 2026-09-05 | `test_forge_jobs.py::test_the_held_halves_cover_running` | `ORDINARY_HELD` enumerated as `{publishing}` instead of derived | failed, with the sweep test | `scaffolding` was in no half, so no sweep would ever reclaim it |
+
+**The last one is the reason `ORDINARY_HELD` is `RUNNING - AI_HELD` rather than a literal.** A
+worker-held state in neither half is a state rule 7 does not cover, and it fails *quietly* — the
+row simply sits there and no sweep is looking for it. Deriving one half from the other means
+adding a state to `RUNNING` puts it in exactly one, automatically.
+
+**And `stale()` stopped enumerating its own states.** It held `(generating, validating)` inline,
+which was a second answer to a question `workflow.RUNNING` already answered — the two disagreed
+silently the moment `RUNNING` gained `scaffolding` and `publishing` earlier the same day. It
+takes the set as an argument now, defaulting to the AI worker's half, so the ordinary worker's
+sweep is a second *call* rather than a second implementation.
+
+## The AI worker and its queue — 2026-09-05
+
+Task 7's plumbing: two queues, job ids derived from the work, a claim before any work, and a
+startup sweep for rows whose worker did not come back. Redis is faked — the queue behaviour that
+matters is one line of bookkeeping — and Postgres is real, because *does a compare-and-swap
+exclude the second worker* is a question only a database answers.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_jobs.py::test_a_duplicate_delivery_does_not_queue_twice` | `job_id=None` on the generation enqueue | failed, with two others | a redeploy would have queued two model calls for one adaptation |
+| 2026-09-05 | `test_forge_jobs.py::test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_failed` | the `state is not QUEUED` check removed | failed | the second delivery tried to claim a row already claimed |
+| 2026-09-05 | `test_forge_jobs.py::test_a_reclaim_says_why_in_a_code_a_page_can_render` | the reclaim detail replaced with a raw provider string | failed | `http://10.0.0.4:11434` and a key prefix reached `forge_event.detail` |
+| 2026-09-05 | `test_forge_jobs.py::test_a_provider_failure_reaches_the_page_as_a_code_and_not_as_a_stack` | `sanitised` returning `str(failure)` | failed | the same leak through the other path |
+| 2026-09-05 | `test_forge_jobs.py::test_the_held_halves_cover_running` | `ORDINARY_HELD` enumerated as `{publishing}` instead of derived | failed, with the sweep test | `scaffolding` was in no half, so no sweep would ever reclaim it |
+
+**The last one is the reason `ORDINARY_HELD` is `RUNNING - AI_HELD` rather than a literal.** A
+worker-held state in neither half is a state rule 7 does not cover, and it fails *quietly* — the
+row simply sits there and no sweep is looking for it. Deriving one half from the other means
+adding a state to `RUNNING` puts it in exactly one, automatically.
+
+**And `stale()` stopped enumerating its own states.** It held `(generating, validating)` inline,
+which was a second answer to a question `workflow.RUNNING` already answered — the two disagreed
+silently the moment `RUNNING` gained `scaffolding` and `publishing` earlier the same day. It
+takes the set as an argument now, defaulting to the AI worker's half, so the ordinary worker's
+sweep is a second *call* rather than a second implementation.

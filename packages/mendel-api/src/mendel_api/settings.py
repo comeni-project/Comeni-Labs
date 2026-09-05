@@ -36,5 +36,26 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 
+    ai_max_jobs: int = 1
+    """How many provider calls the AI worker runs at once.
+
+    **One, and it is correct rather than conservative.** A local Ollama serves one request at a
+    time, so a second concurrent call makes both slower rather than either faster; a hosted
+    provider has a rate limit the worker cannot see. Raising it is an operator's decision about
+    a limit they know, not a default worth tuning — and work waiting in a queue is visible,
+    where work failing on a rate limit is a retry storm.
+    """
+    ai_job_timeout_seconds: int = 900
+    """The ceiling on one AI job, and the age at which a claimed adaptation is reclaimed.
+
+    **One setting for both**, because two would have to be kept in a sensible relation by
+    whoever edits them: a reclaim threshold below the job timeout sweeps rows that are still
+    being worked on, and the symptom is a model call that completes into a row somebody else
+    already failed.
+
+    900s is the stub gate's cold-cache figure from `CLAUDE.md`, used here as the longest thing
+    this system is known to legitimately wait for. A model fill was measured at 227s.
+    """
+
 
 settings = Settings()

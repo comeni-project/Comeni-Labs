@@ -197,6 +197,7 @@ decline to curate one.
 | `MF0301` | this candidate does not meet the conditions for approval |
 | `MI0100` | this adaptation moved while you were looking at it — re-read it before acting |
 | `MI0101` | this tool is already being adapted |
+| `MI0103` | the worker holding this job did not come back |
 
 ## The forge — what a model is told, and what it cites
 
@@ -207,6 +208,7 @@ decline to curate one.
 | `MF0402` | a response answers a hole the scaffold never opened |
 | `MF0403` | a response answers a closed question with a value outside its candidate set |
 | `MF0404` | a repair was given a different dossier than the attempt it repairs |
+| `MI0102` | a provider could not be reached while the worker was generating |
 
 ## The forge — landing a draft into a registry
 

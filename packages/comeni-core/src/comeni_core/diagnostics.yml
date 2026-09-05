@@ -29,7 +29,7 @@
 #   MF0300-MF0399  the forge: the adaptation workflow — what may happen, and in what order
 #   MF0400-MF0499  the forge: composing what a model is told, and reading what it said
 #   MI0001-MI0099  the API: gating a drawn pipeline
-#   MI0100-MI0199  the API: the forge workflow's durable state
+#   MI0100-MI0199  the API: the forge workflow's durable state, and the workers that move it
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
 #
@@ -2644,6 +2644,56 @@ MF0404:
     **It is checked rather than promised**, because the promise is easy to keep by accident and
     easy to break by a refactor that pushes dossier construction one call deeper. The digest is
     on every attempt, so the check is a set with one member.
+
+MI0102:
+  emitted_by: api
+  concern: prompt
+  says: "a provider could not be reached while the worker was generating"
+  fires_on: [forge generate, forge review]
+  refuses: true
+  fix: |
+    The adaptation is recorded as failed at the stage it reached, and `retry` resumes there —
+    nothing was lost and nothing has to be redone by hand.
+
+    **The reason this message is thin is deliberate.** What the provider actually said is in
+    the worker's log, with the endpoint and the stack; look there. If the log says the model is
+    unreachable rather than refusing, the fix is configuration and not this adaptation.
+  explanation: |
+    A provider error carries an endpoint, sometimes a key prefix, and always a stack, and
+    `forge_event.detail` is rendered on a page a curator reads. So the code and the exception's
+    *type* cross that boundary and nothing else does.
+
+    **`GateFailure` learned this once already.** Nextflow's stderr names work directories and
+    input filenames, so `ErrorCategory` is a closed vocabulary and the output stays on the
+    machine that produced it. This is the same trade for the same reason, one subsystem over:
+    machine-generated text is the likeliest leak precisely because nobody wrote it and nobody
+    reads it.
+
+MI0103:
+  emitted_by: api
+  concern: workflow
+  says: "the worker holding this job did not come back"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Nothing was lost. The adaptation records the stage it was reclaimed at, so `retry` resumes
+    there rather than starting over.
+
+    If this appears repeatedly for one tool, the job is killing its worker rather than the
+    worker dying under it — check whether the adaptation is large enough to hit
+    `MENDEL_AI_JOB_TIMEOUT_SECONDS`.
+  explanation: |
+    Rule 7: a lost job must not leave a row running forever. A worker that dies mid-job leaves
+    an adaptation in a state a worker is supposed to be holding, and nothing else will ever
+    move it — the queue has no record, because the job was delivered.
+
+    **The sweep runs when a worker starts, not on a timer.** A timer has to guess a duration
+    that distinguishes *the process died* from *the model is slow*, and the row shows neither;
+    a worker starting is proof the previous one is gone.
+
+    **Reclaimed rows fail rather than requeue.** A job that kills its worker would otherwise
+    kill the next one, and the one after that. Retrying is a verb a person has, and the row
+    carries `failed_stage` so it costs them nothing to use it.
 
 MA0001:
   emitted_by: ai
