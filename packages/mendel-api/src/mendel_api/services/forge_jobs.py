@@ -23,13 +23,14 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+import httpx
 from comeni_core.diagnostics import coded
 from mendel_forge.workflow import AdaptationState
 
 from mendel_api import jobs
 from mendel_api.db import session_scope
 from mendel_api.models import ForgeAdaptation
-from mendel_api.services import forge_state
+from mendel_api.services import forge_catalogue, forge_state
 
 log = logging.getLogger(__name__)
 
@@ -182,16 +183,62 @@ async def enqueue_publish(adaptation_id: str, revision_id: str) -> bool:
     )
 
 
-# **The three ordinary job *bodies* are deliberately not here yet, and neither is a stub for
-# them.** `sync_forge_sources` wires an adapter's `sync()` to `forge_catalogue.record`,
-# `scaffold_forge_adaptation` wires `bundle.derive` to `Workspace.write_bundle`, and
-# `publish_forge_adaptation` calls `land.py` — three integrations, none of which this task's
-# checklist asks for.
-#
-# A function raising `NotImplementedError` on a worker's function list is worse than an absent
-# one: it is enqueueable, so the failure arrives at run time on a real adaptation instead of at
-# the call site. The `enqueue_*` helpers above are real and settled — which queue, and what the
-# id is keyed on — and those are the decisions that would be expensive to change later.
+async def sync_forge_sources(ctx: dict, source: str) -> int:
+    """Walk one upstream catalogue and reconcile the stored items against it. Returns the count.
+
+    **Touches no adaptation, so there is nothing to claim.** A sync is about the catalogue, and
+    an adaptation already in flight keeps the snapshot it was started from — which is why this
+    is the one forge job with no compare-and-swap in it, and why it is safe beside anything.
+
+    **A failure is recorded, not swallowed.** `record_failure` writes a snapshot row and touches
+    no item, so *the sync broke* and *upstream removed everything* stay distinguishable. Without
+    it they are the same empty catalogue, and the second one silently marks sixteen hundred
+    tools absent.
+
+    The exception is re-raised after recording, because ARQ's retry is the right response to a
+    transient upstream and this job is safe to run again — unlike a generation, it costs a
+    catalogue walk rather than a model call.
+    """
+    started = datetime.now(UTC)
+    adapter_for = _adapters().get(source)
+    if adapter_for is None:
+        raise KeyError(f"no source adapter named {source!r}; known: {sorted(_adapters())}")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            snapshot = await adapter_for(client).sync()
+    except Exception as failure:
+        log.warning("sync of %s failed: %r", source, failure)
+        await asyncio.to_thread(
+            forge_catalogue.record_failure,
+            source,
+            error=coded("MI0104", f"the {source} catalogue could not be read"),
+            started_at=started,
+        )
+        raise
+
+    await asyncio.to_thread(forge_catalogue.record, snapshot, started_at=started)
+    return len(snapshot.items)
+
+
+def _adapters() -> dict[str, type]:
+    """Imported inside the call so `httpx` is not pulled in by importing this module.
+
+    `sources.adapters()` makes the same argument for the same reason, and this is a second
+    call to it rather than a second table — a source registered there and missing here would be
+    a source the API cannot sync, silently.
+    """
+    from mendel_forge import sources
+
+    return sources.adapters()
+
+
+# **`scaffold_forge_adaptation` and `publish_forge_adaptation` are still absent, and there is no
+# stub for either.** A function raising `NotImplementedError` on a worker's function list is
+# worse than an absent one: it is enqueueable, so the failure arrives at run time on a real
+# adaptation instead of at the call site. Their `enqueue_*` helpers above are real and settled —
+# which queue, and what the id is keyed on — and those are the decisions that get expensive once
+# a job has been landing somewhere in production.
 
 
 async def reclaim(*, after: int) -> list[str]:

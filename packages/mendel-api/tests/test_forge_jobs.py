@@ -8,6 +8,7 @@ database can answer. So the pool is a stand-in and the rows are not.
 
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from mendel_api import jobs
 from mendel_api.db import session_scope
@@ -154,6 +155,148 @@ async def test_publishing_is_keyed_on_the_revision_and_syncing_on_the_source(poo
     assert await forge_jobs.enqueue_sync("nf-core") is True
     assert await forge_jobs.enqueue_sync("nf-core") is False
     assert await forge_jobs.enqueue_sync("pegi3s") is True
+
+
+# ── syncing a catalogue ───────────────────────────────────────────────────────────────
+
+
+class _Adapter:
+    """One source adapter, reduced to `sync()`.
+
+    A real adapter walks GitHub and a container registry; nothing here is about whether it
+    walks them correctly — `test_source_nfcore.py` and `test_source_pegi3s.py` are. What is
+    under test is what the *job* does with a snapshot and with a failure.
+    """
+
+    name = "fake"
+
+    def __init__(self, client, *, snapshot=None, blow_up=None):
+        self.client = client
+        self._snapshot = snapshot
+        self._blow_up = blow_up
+
+    async def sync(self, previous=None):
+        if self._blow_up is not None:
+            raise self._blow_up
+        return self._snapshot
+
+
+def _snapshot(*refs: str):
+    from mendel_forge.catalogue import CatalogueItem, SourceSnapshot
+
+    now = datetime.now(UTC)
+    return SourceSnapshot(
+        source="fake",
+        source_revision="abc123",
+        synced_at=now,
+        items=tuple(
+            CatalogueItem(
+                id=f"{n:064d}",
+                source="fake",
+                ref=ref,
+                display_name=ref,
+                content_digest=f"{n:064d}",
+            )
+            for n, ref in enumerate(refs, start=1)
+        ),
+    )
+
+
+@pytest.fixture
+def adapter(monkeypatch):
+    """Install a fake adapter under the name `fake`, through the same table the job reads."""
+
+    def install(**kwargs):
+        def build(client):
+            return _Adapter(client, **kwargs)
+
+        monkeypatch.setattr(forge_jobs, "_adapters", lambda: {"fake": build})
+
+    return install
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_sync_stores_what_it_walked(clean_forge, adapter):
+    adapter(snapshot=_snapshot("samtools/sort", "fastqc"))
+    assert await forge_jobs.sync_forge_sources({}, "fake") == 2
+    with session_scope() as session:
+        assert session.query(ForgeCatalogueItem).count() == 2
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_failed_sync_marks_nothing_absent(clean_forge, adapter):
+    """**The defect this guards is silent and large.** A sync marks every item it did not see as
+    absent, so a walk that fails halfway — or returns nothing because a token expired — is
+    indistinguishable from a source that genuinely removed everything. The second reading
+    retires sixteen hundred tools and nobody notices until a build cannot route.
+    """
+    adapter(snapshot=_snapshot("samtools/sort", "fastqc"))
+    await forge_jobs.sync_forge_sources({}, "fake")
+
+    adapter(blow_up=httpx.ConnectError("upstream is down"))
+    with pytest.raises(httpx.ConnectError):
+        await forge_jobs.sync_forge_sources({}, "fake")
+
+    with session_scope() as session:
+        present = session.query(ForgeCatalogueItem).filter_by(present=True).count()
+        assert present == 2, "a failed sync must not retire the catalogue"
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_failed_sync_is_recorded_rather_than_swallowed(clean_forge, adapter):
+    """A swallowed exception leaves a gap in the snapshot record that reads as *nobody has
+    synced since Tuesday*, which is a different problem with a different fix."""
+    from mendel_api.models import ForgeSourceSnapshot
+
+    adapter(blow_up=httpx.ConnectError("upstream is down"))
+    with pytest.raises(httpx.ConnectError):
+        await forge_jobs.sync_forge_sources({}, "fake")
+
+    with session_scope() as session:
+        recorded = session.scalars(
+            select(ForgeSourceSnapshot).where(ForgeSourceSnapshot.source == "fake")
+        ).one()
+        assert recorded.ok is False
+        assert "MI0104" in (recorded.error or "")
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_failed_sync_does_not_carry_the_upstream_message(clean_forge, adapter):
+    """`MI0102`'s rule, one subsystem over: a registry error names an endpoint and sometimes a
+    token, and this string is rendered on a page."""
+    from mendel_api.models import ForgeSourceSnapshot
+
+    adapter(blow_up=httpx.ConnectError("https://ghcr.io/v2/ token=ghp_secret123 refused"))
+    with pytest.raises(httpx.ConnectError):
+        await forge_jobs.sync_forge_sources({}, "fake")
+
+    with session_scope() as session:
+        recorded = session.scalars(
+            select(ForgeSourceSnapshot).where(ForgeSourceSnapshot.source == "fake")
+        ).one()
+        assert "ghp_secret" not in (recorded.error or "")
+        assert "ghcr.io" not in (recorded.error or "")
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_source_names_the_ones_that_exist():
+    """A typo in a source name is the ordinary case, and a bare `KeyError` makes somebody go
+    and read a registration table to find out what they meant."""
+    with pytest.raises(KeyError, match="known:"):
+        await forge_jobs.sync_forge_sources({}, "nf-corr")
+
+
+def test_the_job_reads_the_adapter_table_rather_than_its_own():
+    """A source registered in `sources.adapters()` and missing from a table here would be a
+    source the API cannot sync, silently."""
+    from mendel_forge import sources
+
+    assert set(forge_jobs._adapters()) == set(sources.adapters())
+    assert forge_jobs._adapters(), "an empty table would make that comparison vacuous"
 
 
 def test_no_job_on_a_worker_list_is_an_unimplemented_stub():

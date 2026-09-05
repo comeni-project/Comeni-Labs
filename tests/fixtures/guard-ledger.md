@@ -4451,3 +4451,18 @@ which was a second answer to a question `workflow.RUNNING` already answered — 
 silently the moment `RUNNING` gained `scaffolding` and `publishing` earlier the same day. It
 takes the set as an argument now, defaulting to the AI worker's half, so the ordinary worker's
 sweep is a second *call* rather than a second implementation.
+
+**And the sync job's failure path, same day.** `sync_forge_sources` walks a source and
+`forge_catalogue.record` marks every item it did *not* see as absent — so a walk that fails
+halfway, or returns nothing because a token expired, is indistinguishable from a source that
+genuinely removed everything. The second reading retires sixteen hundred tools and nobody
+notices until a build cannot route.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_jobs.py::test_a_failed_sync_marks_nothing_absent` | the failure swallowed and `return 0` in its place | failed, with two others | a `ConnectError` retired the whole catalogue |
+| 2026-09-05 | `test_forge_jobs.py::test_a_failed_sync_does_not_carry_the_upstream_message` | `error=str(failure)` instead of the code | failed | `https://ghcr.io/v2/ token=ghp_secret123` reached a column rendered on a page |
+
+The second is `MI0102`'s rule one subsystem over, and it is worth restating because the two
+leaks look different and are the same: a *provider* error names an endpoint and a key, and a
+*registry* error names an endpoint and a token. Neither belongs in a string a curator reads.

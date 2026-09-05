@@ -2695,6 +2695,31 @@ MI0103:
     kill the next one, and the one after that. Retrying is a verb a person has, and the row
     carries `failed_stage` so it costs them nothing to use it.
 
+MI0104:
+  emitted_by: api
+  concern: workflow
+  says: "an upstream catalogue could not be read, and the sync recorded that rather than an empty world"
+  fires_on: [forge sync]
+  refuses: true
+  fix: |
+    Nothing was marked absent. The catalogue still holds what the last successful sync stored,
+    and the next successful sync reconciles against upstream as usual.
+
+    The upstream error itself is in the worker's log. A rate limit, an expired token and a
+    network partition all arrive here as the same sentence, deliberately — see below.
+  explanation: |
+    A sync walks a source and marks every item it did *not* see as absent. So a sync that fails
+    halfway, or returns nothing because a token expired, is indistinguishable from a source that
+    genuinely removed everything — and the second reading silently retires sixteen hundred tools.
+
+    **Recording the failure is what keeps them distinguishable.** `record_failure` writes a
+    snapshot row with `ok=False` and touches no item, so the catalogue is unchanged and the
+    history says why. A swallowed exception would leave a gap in the snapshot record that reads
+    as *nobody has synced since Tuesday*.
+
+    The upstream message is not carried, for the reason `MI0102` gives: a provider or registry
+    error names an endpoint and sometimes a token, and this string is rendered on a page.
+
 MA0001:
   emitted_by: ai
   concern: model-access
