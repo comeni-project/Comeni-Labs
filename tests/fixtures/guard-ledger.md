@@ -4182,3 +4182,23 @@ eleven legal values does not know it was shown nine, answers confidently from wh
 the answer passes every schema check on the way back. There is nothing in the response that
 distinguishes a truncated candidate set from a complete one, which is why `MF0400` refuses
 rather than trims.
+
+## The response, and what it may be about — 2026-09-05
+
+`mendel_forge/ai/schemas.py`, Task 6 step 2. A response answers scaffold holes by id and
+`admit()` is the gate between a validated shape and anything that reads it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_schemas.py::test_an_answer_outside_an_exhaustive_candidate_set_is_refused` | the membership test in `admit`, leaving `exhaustive` read and ignored | failed | `DID NOT RAISE` — `fastq.invented` was admitted against a closed vocabulary |
+| 2026-09-05 | `test_ai_schemas.py::test_a_citation_of_evidence_not_in_the_dossier_is_refused` | `invented = []` in place of the citation set difference | failed, with the message test | `E014` was admitted with nothing in the dossier to support it |
+| 2026-09-05 | `test_ai_schemas.py::test_an_answer_to_a_hole_that_was_never_opened_is_refused` | `unknown = []` in place of the hole set difference | failed, with the whole-response test | a response answered `produces.invented.type_id` and was accepted |
+| 2026-09-05 | `test_ai_schemas.py::test_no_response_field_can_be_used_as_a_destination_path` | an `output_path: str` field added to `ModuleProposal` | failed | `ModuleProposal gained or lost a field` |
+
+**The last one is the guard that could not have been written as a rule.** There is no way to
+recognise a path by its type — every candidate is `str`, and a field called `versions_command`
+is as string-shaped as one called `output_path`. So it is an allowlist held literally in the
+test, which means widening the response surface requires editing a file that says *these are
+all the fields a response has*. That is the egress guard's construction, applied to the other
+direction of the same boundary: `test_egress.py` names what may leave, this names what may
+come back.

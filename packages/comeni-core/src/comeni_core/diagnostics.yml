@@ -2576,6 +2576,54 @@ MF0401:
     is worse than no citation, because a reviewer follows it, finds real text, and reads it as
     support for a claim it does not make.
 
+MF0402:
+  emitted_by: forge
+  concern: prompt
+  says: "a response answers a hole the scaffold never opened"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    The whole response is refused, not just the stray answer. A model that invented one hole
+    id was not answering the question it was asked, and the answers that happen to match real
+    ids are not more trustworthy for being well-formed.
+
+    The usual cause is a prompt that described the fields in prose instead of listing the hole
+    ids. Check that the rendered dossier's `holes` section is present and complete.
+  explanation: |
+    The scaffold opens a fixed set of typed questions and the response closes them by id. That
+    is what makes the model's contribution auditable — a reader can see exactly which parts of
+    a contract a model touched, and the rest is reproducible without one.
+
+    **An unrecognised id is that property failing, not a typo.** A response free to name its
+    own fields is a response producing a document rather than answering questions, and there
+    is then nothing that says which parts of the result came from arithmetic over declared
+    data and which came from a model.
+
+MF0403:
+  emitted_by: forge
+  concern: prompt
+  says: "a response answers a closed question with a value outside its candidate set"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    If the value is genuinely right and the vocabulary does not contain it, the vocabulary is
+    what has to change — through the forge's approval queue, as a reviewed data change.
+    Invariant 7 says vocabularies are closed and new states arrive that way, never by a build
+    accepting an undeclared one.
+
+    A hole marked `exhaustive: false` is the other case, and this never fires on one: an open
+    vocabulary genuinely means *we listed what we found*.
+  explanation: |
+    This is invariant 3's closed-choice constraint reaching the forge. A model resolving a
+    tier-4 ambiguity cannot produce a value outside the candidate set, and a model answering a
+    scaffold hole must not either — otherwise the forge is the hole in a guarantee the rest of
+    the system keeps.
+
+    **The check is mechanical because the question carried its own answer set.** `exhaustive`
+    is the field that makes it decidable: a closed vocabulary is a set membership test, and an
+    open one is a ranking. Fusing them would have made every hole either unenforceable or a
+    refusal of legitimate new vocabulary.
+
 MA0001:
   emitted_by: ai
   concern: model-access

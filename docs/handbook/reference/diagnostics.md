@@ -204,6 +204,8 @@ decline to curate one.
 |---|---|
 | `MF0400` | the dossier does not fit its budget and nothing left in it may be dropped |
 | `MF0401` | a response cites an evidence id that is not in the dossier it was given |
+| `MF0402` | a response answers a hole the scaffold never opened |
+| `MF0403` | a response answers a closed question with a value outside its candidate set |
 
 ## The forge — landing a draft into a registry
 
