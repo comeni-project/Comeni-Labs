@@ -699,10 +699,26 @@ Violating any of these breaks the product claim, not just a test.
     **pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication — and
     the fifth carries **forge review**. `DoorPath` is the distinction and `doors_on()` is how
     each half stays separately checkable.
-    **The pipeline doors track the prompt taint path**, which is what
-    `docs/design/clinical-data-protection.md` §4.2 states and what this one-line summary lost:
-    *free text enters at exactly one door*, and the question for anything else is whether it is
-    downstream of it. Those four are one path — prompt, goal, build, pipeline, publish.
+    **Why this exists, in the order the reasons actually hold** — restated 2026-09-05, because
+    the first reason below is the one that survives whether or not anybody is talking about
+    clinical data, and a rule whose stated purpose has gone quiet is a rule the next reader
+    deletes.
+    **First: it is what makes a model call reproducible and auditable.** Every crossing has a
+    declared input type, which is what lets a response be recorded and replayed, a prompt be
+    held to a golden file, and `admit()` check an answer against the question that was asked.
+    Untyped model calls take dicts, and nothing about a dict is reproducible. This is the
+    differentiator's machinery, not a compliance feature: *a reader can see exactly which parts
+    a model touched* is only true if there is a boundary to point at.
+    **Second: the pipeline doors track the prompt taint path.** *Free text enters at exactly
+    one door*, and the question for anything else is whether it is downstream of it — those
+    four are one path, prompt → goal → build → pipeline → publish.
+    **Third, and as a consequence rather than a purpose: clinical non-receipt.**
+    `docs/design/clinical-data-protection.md` §4.2 is the long form. The claim is real and it is
+    *downstream* of the two above — the doors were not built to satisfy it, and it would not
+    survive without them. **The expensive half of that story is deliberately unbuilt**: no
+    `EgressRecord` exists for any door, and the three protection profiles are
+    [#71](https://github.com/comeni-project/Comeni-Labs/issues/71), which nothing has started.
+    Do not start them on privacy grounds alone.
     **The forge was not a door until 2026-09-05, and the leg that changed is named.** The
     2026-08-17 exemption (`notes/specs/2026-08-17-forge-phase-2.md` §1) stood on three: it has
     no prompt, takes no `Goal`, and writes no `pipeline.yml`. A **review chat breaks the first**
@@ -836,7 +852,14 @@ crossing, tier 4 always flagged, typed-only publish bundles, no patient data rec
 [#71](https://github.com/comeni-project/Comeni-Labs/issues/71). A search for
 `ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, because every
 row describes a subsystem that does not exist: the prompt door, compiler repair and tier-4
-resolution are all Plan 3 or later. **The profiles govern the build path**, and deterministic
+resolution are all Plan 3 or later.
+
+**Deprioritised 2026-09-05, by the operator's PI**, and it costs nothing today because it was
+never started. Do not open #71 on privacy grounds alone; open it when a *user* needs a posture,
+or when `sealed` closing the forge review chat is something somebody has asked for. **The doors
+themselves stay** — they are cheap, and invariant 14 now states the reasons in the order that
+survives this decision: reproducibility of a model call first, the taint path second, clinical
+non-receipt as a consequence. **The profiles govern the build path**, and deterministic
 scaffolding in `mendel-forge` is outside them for the same reason it is not a door: nothing a
 person typed crosses it.
 **The forge review chat is the exception, and it is where the table gains a real row** — door 5

@@ -508,6 +508,35 @@ every goal's profile through it. Without that last step a goal file carrying
 **A guard that has not been watched failing has proven one thing, not the general property.**
 Three of three earlier guards had holes, all found that way.
 
+### Why the egress guard is here, and it is not primarily privacy
+
+Stated in this order because the first reason holds whether or not anybody is talking about
+clinical data, and a rule whose purpose has gone quiet is a rule the next reader deletes as
+ceremony.
+
+**It is what makes a model call reproducible.** Every crossing carries a declared type, which is
+what lets a response be recorded and replayed in CI, a rendered prompt be held to a golden file,
+and an answer be checked against the question that was asked. The alternative is passing a dict,
+and nothing about a dict can be frozen, diffed or replayed. §9's seam only works because the
+payload on each side of it has a shape.
+
+**It is where "which parts did a model touch" becomes answerable.** That is the product claim,
+not a compliance feature: *the rest is reproducible without a model* is only checkable if there
+is a boundary to point at and a list of what crossed it.
+
+**Clinical non-receipt is a consequence of those two, not the reason for them.** It is a real
+claim and `docs/design/clinical-data-protection.md` is the long form — but the doors were not
+built to satisfy it, and it is the part of this that would not survive on its own. The expensive
+half of that story is deliberately unbuilt: **no `EgressRecord` exists for any door**, and the
+three protection profiles are issue #71, which nothing has started.
+
+**What the guard costs, measured.** Declaring door 5 on 2026-09-05 took under an hour, most of
+it prose; the mechanical part was a Pydantic type that would have existed anyway, one entry in
+`DECLARED`, and two lines in a list. It found two defects on the way in, neither privacy-shaped:
+a response model carrying a `file` field that the path allowlist never walked, and a global
+free-text count asserted in a test about channel scope, which would have broken on any unrelated
+change.
+
 `tests/repo/test_generated_types.py` is a fourth of a different kind: `profile.pyi` is generated
 from the measurement declarations, and `--check` in CI is what stops it rotting. A stale stub
 costs autocomplete and never correctness — which is exactly why nobody would notice.
