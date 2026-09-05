@@ -32,16 +32,18 @@ describe("routing", () => {
   });
 
   it("keeps the shell mounted across navigation", async () => {
-    at("/forge/queue");
-    // The nav is in the layout route, so it must be present on a child route too — that is
-    // what makes the registry panel able to stay open across navigation. Asserted on the
-    // landmark, not on the word "Forge": the design uses it twice, as the wordmark and as a
-    // workspace tab, and both are right.
-    await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
+    at("/forge/catalogue");
+    // The shell is in the layout route, so it must be present on a child route too.
+    //
+    // **Asserted on the wordmark, not on the `navigation` landmark.** There are two landmarks
+    // on a Registry page since Task 10 — the global bar and the section subnav — and a bare
+    // `getByRole("navigation")` throws on *finding both*, which is the design working. The
+    // wordmark belongs to the shell and to nothing else.
+    await waitFor(() => expect(screen.getByLabelText("Comeni — home")).toBeTruthy());
   });
 
   it("has no destination left to disable", () => {
-    at("/forge/queue");
+    at("/forge/catalogue");
     // **The list reached zero, so the assertion inverts rather than disappearing** — the same
     // move `/`'s redirect test made when 3B built the landing page.
     //
@@ -87,14 +89,32 @@ describe("routing", () => {
   );
 
   it.each([
-    ["/forge/queue"],
-    ["/forge/tools"],
+    ["/forge/queue", "/forge/work"],
+    ["/forge/tools", "/forge/catalogue"],
+    ["/forge/sources", "/forge/catalogue"],
+    ["/forge/contracts", "/forge/catalogue"],
+  ])("sends %s to %s rather than 404ing it", async (from, to) => {
+    // **The rework's last box, and it waited on purpose.** These four resolved through Tasks
+    // 10 to 12 because the plan says *only after this walk*: a redirect installed before the
+    // replacement had been driven end to end sends somebody from a screen that works to one
+    // that does not.
+    //
+    // **Redirected, never 404ed.** These paths are in the operator's history, in `make dev`'s
+    // banner and in four journal entries. A merged screen that breaks every saved link is a
+    // merge that costs more than it gives.
+    const router = at(from);
+    await waitFor(() => expect(router.state.location.pathname).toBe(to));
+    expect(screen.queryByText("Something broke")).toBeNull();
+  });
+
+  it.each([
     ["/forge/queue/question/consumes%5B0%5D.type_id"],
     ["/forge/contracts/nf-core/fastqc@0.12.1"],
-  ])("keeps %s resolvable after the tabs came out", async (path) => {
-    // **The other half.** A route nobody can see is a route somebody deletes, and the operator,
-    // `make dev`'s banner and three journal entries all still reach these by URL. The
-    // `ErrorBoundary` is what a broken route renders, so its absence is the assertion.
+  ])("keeps %s resolvable, because it addresses one object", async (path) => {
+    // **The line the redirects stop at.** A question and a contract are addressed by an id in
+    // the path, and there is nowhere in the new section that answers about the same object —
+    // sending them to a list would turn a deep link into a shrug. They keep their screens
+    // until the cleanup PR replaces them.
     const router = at(path);
     await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
     // Compared as given: react-router keeps the pathname percent-encoded, which is the whole

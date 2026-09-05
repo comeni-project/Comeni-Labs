@@ -1,3 +1,14 @@
+/* FORGE-REWORK — no route points here as of 2026-09-05 (Task 13).
+ *
+ * `/forge/catalogue` is what answers this screen's question now, and `router.tsx` redirects
+ * `/forge/tools` to it. This file, its tests and its helpers are kept rather than deleted because
+ * the plan's own box says *delete old code in a later cleanup PR*: a redirect and a
+ * two-thousand-line deletion in one diff is a diff nobody can review separately.
+ *
+ * **It is not dead-and-unwatched.** `Tools.test.tsx` still exercises it, so it compiles and runs
+ * in every suite — which is the difference between code awaiting deletion and code that
+ * rots invisibly. `make forge-rework` is the list.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";

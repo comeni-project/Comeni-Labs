@@ -4673,3 +4673,43 @@ and only one of the two could hold a credential — so a hosted lane needed a `M
 that would have been a *third* home for a key, on a settings object that prints in a traceback.
 `model_access()` reads the one surface.
 
+## The publication boundary — 2026-09-05
+
+Task 13: staged, locked, checked, recoverable — and a walk that closes the loop. **Publication
+is the door with no undo**, so every guard here is about what happens before anything is written
+or what the checkout looks like when something goes wrong.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_land_boundary.py::test_a_registry_that_moved_since_validation_is_refused` | the `expect_base` comparison disabled | failed | a contract published into a registry it was never checked against |
+| 2026-09-05 | `test_land_boundary.py::test_a_failure_mid_write_leaves_no_branch_and_no_files` | `_rewind` removed from the `except` | failed | a half-written branch the next publication refuses as a dirty tree |
+| 2026-09-05 | `test_land_boundary.py::test_two_publications_into_one_checkout_take_turns` | `flock` removed from the lock | failed | two publications racing on one HEAD |
+| 2026-09-05 | `test_full_cycle.py::test_the_loop_closes` | `approved_by` back to `_worker(ctx)` | failed | `approved_by: worker:walk` in a registry file that outlives the deployment |
+| 2026-09-05 | `router.test.tsx::sends /forge/queue to /forge/work` | the redirect deleted | failed | a link in four journal entries 404ing |
+| 2026-09-05 | `test_land_boundary.py::test_staging_cannot_write_into_a_registry` | a `registry:` parameter added to `stage` | failed | somewhere to write is all a composing step needs to stop composing |
+| 2026-09-05 | `test_diagnostics_registry.py::test_the_generated_table_is_current` | — | **fired on the first run** | `MF0108` declared and the page not regenerated |
+
+**One probe was inert and the guard was strengthened rather than the probe fixed.**
+`test_staging_writes_nothing` scanned the registry directory for new files — and reverting
+`stage` to write one left it green, because the injected write went to the working directory
+while the scan looked at a checkout. It is now `test_staging_cannot_write_into_a_registry` and
+asserts the **structural** fact: `stage` is not *given* a registry, so there is no root for it
+to write under, and adding one is a signature change somebody looks at. The directory scan stays
+beside it as the behavioural half.
+
+That is the second inert probe in three tasks (`forge_state.standing` was the first), and the
+two failed differently in a way worth keeping: that one's *revert* did not reproduce the defect,
+this one's revert did and the *guard* could not see it. A revert that leaves a guard green is
+only evidence once you know which of the two it was.
+
+**The walk caught the attribution defect this task fixed**, which is the case for having one at
+all. Every unit test passed with `approved_by=_worker(ctx)`: nothing else in the suite reads a
+landed contract's provenance, because nothing else in the suite lands one and then opens it.
+`assert "approved_by: rafael" in contract` is one line and it is the only line in the repository
+that would have noticed.
+
+**A fixture registry with no `roles/` refused the walk on its first run**, with `MD0302` — the
+loader enforcing invariant 7 against a role no layer declares. That is the shape of finding a
+walk exists for: not a bug in the code, a gap between what one half writes and what the other
+half will accept.
+

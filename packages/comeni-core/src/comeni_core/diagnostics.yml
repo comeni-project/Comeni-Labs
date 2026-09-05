@@ -2288,6 +2288,30 @@ MF0107:
     this reason: a submodule's `.git` is a FILE holding `gitdir: ../../../.git/worktrees/...`,
     so it is present inside a bind-mount while every git call fails. The check is
     `git rev-parse`, not whether `.git` exists.
+MF0108:
+  emitted_by: forge
+  concern: landing
+  says: "the registry moved since this candidate was validated"
+  fires_on: [forge land]
+  refuses: true
+  fix: |
+    Re-validate the candidate against the registry as it is now, then approve it again.
+    `forge verify <draft>` re-runs the ladder; on the review page, *request changes* and
+    approve the next revision.
+  explanation: |
+    A green verdict is a statement about the layer that was read at the time. Between
+    approval and publication a colleague can merge a contract, a type's states can change,
+    or `comeni-vendor` can move a module — and the checks that passed describe a registry
+    that no longer exists.
+
+    **The same argument `mendel upgrade` rests on**, one document over: a decision recorded
+    against one registry is replayed against the current one rather than assumed to still
+    hold. `MF0301` makes this check at the moment somebody presses approve; this one makes
+    it again at the moment anything is written, because publication happens in a worker and
+    the gap between the two is exactly where a registry moves.
+
+    Publication is the door with no undo. Refusing here costs a re-validation; not refusing
+    costs a contract in a registry it was never checked against.
 MF0200:
   emitted_by: forge
   concern: catalogue

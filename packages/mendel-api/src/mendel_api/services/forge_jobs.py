@@ -27,12 +27,14 @@ import httpx
 from comeni_core.artifact.pipeline import SCHEMA_VERSION
 from comeni_core.diagnostics import coded
 from mendel_forge.workflow import AdaptationState, EventKind, RevisionState
+from sqlalchemy import select
 
 from mendel_api import jobs
 from mendel_api.db import session_scope
 from mendel_api.models import (
     ForgeAdaptation,
     ForgeCatalogueItem,
+    ForgeEvent,
     ForgeMessage,
     ForgeRevision,
 )
@@ -672,18 +674,67 @@ async def publish_forge_adaptation(ctx: dict, adaptation_id: str, revision_id: s
     return published.state.value
 
 
+def _approval(adaptation_id: str) -> tuple[str, str, str]:
+    """Who approved, when, and against which registry. Read from the row and its audit.
+
+    **The approver is the person, never the worker.** `Provenance.approved_by` ends up in a
+    registry file that outlives the deployment, and it read `worker:<job id>` — which is a
+    statement about which container happened to pick the job up, in the one field invariant 2
+    is about. The `approved` event carries the actual name because `forge_state.approve` writes
+    it there, so the audit had the answer all along and the file did not.
+
+    `registry_digest` is the digest the candidate was **validated** against, which is what
+    `MF0108` compares. Reading it here rather than re-deriving it is the point: re-deriving
+    would produce the digest of the registry as it is now, and the check would compare a number
+    against itself.
+    """
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation_id)
+        if row is None:
+            raise KeyError(adaptation_id)
+        approval = session.scalars(
+            select(ForgeEvent)
+            .where(
+                ForgeEvent.adaptation_id == adaptation_id,
+                ForgeEvent.kind == EventKind.APPROVED.value,
+            )
+            .order_by(ForgeEvent.id.desc())
+            .limit(1)
+        ).first()
+        # No approval event is not a state this job can be in — `approve` writes one before
+        # anything is queued — so falling back to the row's owner is a belt on a brace rather
+        # than a plausible path. It is still better than attributing to the worker.
+        return (
+            approval.actor if approval else row.who,
+            (approval.at if approval else row.updated_at).isoformat(),
+            row.registry_digest,
+        )
+
+
 def _land(adaptation_id: str, ctx: dict) -> str:
-    """Call `land.py` on the stored draft. Returns the branch it landed on."""
+    """Call `land.py` on the stored draft. Returns the branch it landed on.
+
+    **Everything `land` needs to refuse with is passed in.** The vocabulary makes it prove the
+    contract loads before git is touched, and `expect_base` makes it refuse a registry that
+    moved since validation — `MF0301` asks that question when somebody presses approve, and
+    this asks it again at the moment anything is written, because the gap between the two is a
+    worker queue.
+    """
     from mendel_forge import land as land_module
     from mendel_forge.workspace import Workspace
 
+    from mendel_api.services import registry as registry_service
+
     draft = Workspace(root=settings.workspace_root).load(adaptation_id)
+    approved_by, approved_at, base = _approval(adaptation_id)
     result = land_module.land(
         draft,
         registry=settings.registry_root,
         branch=f"forge/{draft.scaffold.target}",
-        approved_by=_worker(ctx),
-        approved_at=datetime.now(UTC).isoformat(),
+        approved_by=approved_by,
+        approved_at=approved_at,
+        vocabulary=registry_service.stack().vocabulary,
+        expect_base=base or None,
     )
     return f"landed on {getattr(result, 'branch', 'a branch')}"
 

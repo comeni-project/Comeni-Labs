@@ -4,7 +4,10 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeClient } from "../app/queryClient";
-import { routes } from "../app/router";
+// FORGE-REWORK — mounts `legacyRoutes`, not the application's table. `/forge/queue` and
+// `/forge/tools` redirect into the Registry section as of Task 13; these screens are kept
+// compiled and exercised until the cleanup PR deletes them. `make forge-rework` is the list.
+import { legacyRoutes as routes } from "../app/router";
 
 const BOARD = {
   rows: [],

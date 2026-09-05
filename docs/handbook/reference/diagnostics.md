@@ -231,6 +231,7 @@ decline to curate one.
 | `MF0105` | the registry checkout is at a detached HEAD |
 | `MF0106` | no contract in this registry has that id |
 | `MF0107` | the registry is not a git checkout |
+| `MF0108` | the registry moved since this candidate was validated |
 
 ## Reaching a model
 
