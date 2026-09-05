@@ -49,6 +49,79 @@ def test_the_terminal_states_are_derived_and_are_the_two_expected():
     assert RUNNING < ACTIVE
 
 
+def test_the_table_matches_the_rules_spelled_out():
+    """**The readability half of computing `ALLOWED`.**
+
+    An enumerated table can be read at a glance; a computed one has to be run. This is the
+    glance, written out, so a reader has one and a change to `_exits` has to be agreed with in
+    two places rather than absorbed silently by every caller.
+
+    It is not a duplicate of the rules — it is the rules *applied*, which is exactly what a
+    reader of a comprehension cannot see.
+    """
+    S = AdaptationState
+    assert {state: set(onward) for state, onward in ALLOWED.items()} == {
+        S.SCAFFOLDING: {S.QUEUED, S.FAILED},
+        S.QUEUED: {S.GENERATING, S.FAILED, S.ARCHIVED},
+        S.GENERATING: {S.VALIDATING, S.FAILED},
+        S.VALIDATING: {S.REVIEW, S.FAILED},
+        S.REVIEW: {S.CHANGES_REQUESTED, S.PUBLISHING, S.FAILED, S.ARCHIVED},
+        S.CHANGES_REQUESTED: {S.GENERATING, S.FAILED, S.ARCHIVED},
+        S.PUBLISHING: {S.PUBLISHED, S.REVIEW, S.FAILED},
+        S.PUBLISHED: set(),
+        S.FAILED: {S.QUEUED, S.SCAFFOLDING, S.ARCHIVED},
+        S.ARCHIVED: set(),
+    }
+
+
+def test_anything_a_worker_holds_can_record_its_own_failure():
+    """Rule 7, and the hole that computing the table closed.
+
+    `validating` had `review` as its only successor, so a worker killed mid-validation left a
+    row whose only legal move was **forward** — Task 7's recovery sweep would have had to
+    promote a half-validated candidate or write a state the table forbids.
+    """
+    for state in RUNNING:
+        assert AdaptationState.FAILED in ALLOWED[state], f"{state} cannot record a failure"
+
+
+def test_a_row_a_worker_holds_cannot_be_archived_out_from_under_it():
+    """The distinction `_exits` draws: failing is what a *sweep* does to a row whose worker is
+    already gone; archiving would orphan a job that is still running.
+
+    `publishing` is the sharpest case — it is the transition that writes to the registry.
+    """
+    for state in RUNNING:
+        assert AdaptationState.ARCHIVED not in ALLOWED[state], f"{state} can be archived"
+    assert RUNNING, "an empty set would make that loop assert nothing"
+
+
+def test_a_failed_adaptation_can_finally_be_closed():
+    """Settled by the operator on 2026-09-04 and built on 2026-09-05.
+
+    Archiving destroys nothing — every foreign key is `RESTRICT`, `forge_event` has no update
+    path, revisions and the invocation audit survive — so it is a lifecycle statement rather
+    than a disposal. The old table let `review` archive and `failed` not, which is backwards:
+    the *healthier* state could be closed and the stuck one could not.
+
+    The cost of that was concrete: the partial unique index excludes exactly the finished
+    states, so a failed adaptation held its catalogue item's one-active slot forever, with no
+    exit but retry or a manual `UPDATE`.
+    """
+    assert allowed(AdaptationState.FAILED, AdaptationState.ARCHIVED)
+    assert AdaptationState.ARCHIVED in TERMINAL
+
+
+def test_no_state_transitions_to_itself():
+    """`failed -> failed` fell straight out of the derivation.
+
+    A compare-and-swap that expects `failed` and writes `failed` succeeds: it bumps the row
+    version, records an event and changes nothing — a retry loop reporting progress. The
+    enumerated table could not express this defect, which is the price of computing one.
+    """
+    assert [state for state, onward in ALLOWED.items() if state in onward] == []
+
+
 def test_a_legal_transition_is_not_refused():
     assert allowed(AdaptationState.REVIEW, AdaptationState.PUBLISHING)
     assert refuse(AdaptationState.REVIEW, AdaptationState.PUBLISHING) is None
@@ -86,10 +159,20 @@ def test_publishing_can_fall_back_to_review():
 
 def test_requesting_changes_returns_to_generating_rather_than_ending_anything():
     """§1.6 — *request changes* is not rejection. It queues another attempt, so the state it
-    leads to is one an attempt starts from."""
+    leads to is one an attempt starts from.
+
+    **This asserted `ARCHIVED not in ALLOWED[CHANGES_REQUESTED]` until 2026-09-05, and that was
+    the enumerated table's gap wearing a test's clothes.** The claim being made is that
+    requesting changes *continues* rather than ends — which is about where it leads, not about
+    what a curator may later decide. Someone who asks for changes and then concludes the tool
+    is not worth adapting should be able to close it; refusing that was never a design position,
+    it was a row nobody wrote.
+    """
     assert allowed(AdaptationState.REVIEW, AdaptationState.CHANGES_REQUESTED)
     assert allowed(AdaptationState.CHANGES_REQUESTED, AdaptationState.GENERATING)
-    assert AdaptationState.ARCHIVED not in ALLOWED[AdaptationState.CHANGES_REQUESTED]
+    assert AdaptationState.PUBLISHED not in ALLOWED[AdaptationState.CHANGES_REQUESTED], (
+        "requesting changes must not be a route to publishing without another attempt"
+    )
 
 
 def test_a_scaffold_failure_retries_as_a_scaffold_and_not_as_a_model_call():

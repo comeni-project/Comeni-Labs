@@ -394,6 +394,22 @@ class ForgeEvent(Base):
     kind: Mapped[str] = mapped_column(String(32), index=True)
     """An `EventKind` value — closed, because an audit whose vocabulary any call site may extend
     with a free string is one nothing can query."""
+    from_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    """The state the adaptation was in before this event, or `None` for one that moved nothing.
+
+    **Added 2026-09-05, when archiving became legal from five states rather than one.** Until
+    then every `archived` event came from `review` and the column would have said nothing; now
+    an adaptation archived from `scaffolding` and one archived after a failure are the same row
+    in history without it, and they are very different stories.
+
+    It is a machine fact and `detail` is a person's sentence, so they are separate columns
+    rather than one string with a prefix — the same split Plan 1.14 made when `reason` was
+    answering both *why this axis* and *why this answer*, which is how the registry came to cite
+    the STAR paper as the reason HISAT2 was chosen (A79/A107).
+
+    Nullable because an event may record something that is not a transition — a message, an
+    invocation — and a sentinel like `""` would be a state name that is not one.
+    """
     detail: Mapped[str] = mapped_column(Text, default="")
     actor: Mapped[str] = mapped_column(String(200), default="")
     """A person's name, or the worker's. ATTRIBUTION, not authentication."""

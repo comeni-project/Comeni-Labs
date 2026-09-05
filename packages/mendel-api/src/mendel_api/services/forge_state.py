@@ -63,13 +63,20 @@ def _record(
     actor: str,
     detail: str = "",
     revision_id: str | None = None,
+    from_state: AdaptationState | None = None,
 ) -> None:
-    """Append an event. **Public detail only** — see `models.ForgeEvent`."""
+    """Append an event. **Public detail only** — see `models.ForgeEvent`.
+
+    `from_state` is passed by `move()` and by nothing else: it is the state that was compared
+    against, so it is a fact the transition already established rather than one this function
+    has to go and read.
+    """
     session.add(
         ForgeEvent(
             adaptation_id=adaptation_id,
             revision_id=revision_id,
             kind=kind.value,
+            from_state=from_state.value if from_state is not None else None,
             detail=detail,
             actor=actor,
             at=_now(),
@@ -175,7 +182,15 @@ def move(
                 + f"\n  it is {row.state} at version {row.row_version}"
                 + "\n  re-read it before acting on it"
             )
-        _record(session, adaptation_id, kind, actor=actor, detail=detail, revision_id=revision_id)
+        _record(
+            session,
+            adaptation_id,
+            kind,
+            actor=actor,
+            detail=detail,
+            revision_id=revision_id,
+            from_state=expect,
+        )
 
     return Moved(id=adaptation_id, state=target, row_version=row_version + 1)
 
@@ -303,11 +318,29 @@ def approve(
     )
 
 
-def archive(adaptation_id: str, *, row_version: int, who: str, reason: str) -> Moved:
+def archive(
+    adaptation_id: str,
+    *,
+    expect: AdaptationState,
+    row_version: int,
+    who: str,
+    reason: str,
+) -> Moved:
+    """Close an adaptation nobody is working on.
+
+    **`expect` is an argument since 2026-09-05**, where it was hardcoded to `review`. Archiving
+    is now legal from any state a worker does not hold, which is five of them — a caller that
+    could not say which one it had read would be a caller archiving on a guess, and `move`'s
+    whole compare-and-swap rests on `expect` being what the caller actually saw.
+
+    `workflow.ALLOWED` refuses a running state, so passing `generating` here fails with
+    `MF0300` before any row is touched. That is the check; this signature only makes it
+    reachable.
+    """
     return move(
         adaptation_id,
         AdaptationState.ARCHIVED,
-        expect=AdaptationState.REVIEW,
+        expect=expect,
         row_version=row_version,
         actor=who,
         kind=EventKind.ARCHIVED,

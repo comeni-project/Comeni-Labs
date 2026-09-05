@@ -4370,3 +4370,32 @@ every *unrelated* widening, and it is a second source of truth for a number that
 think to check for it. It now asserts what it is about: no channel field is on the free-text
 list. Watched failing by adding `("IRChannel", "scope_reason")`, and watched *staying green*
 under an unrelated widening, which is the half that was broken.
+
+## The transition table becomes two rules — 2026-09-05
+
+`ALLOWED` is computed from `_exits` rather than enumerated. Anything unfinished can fail;
+anything a job is not holding can be archived. The DB rows were run against a real Postgres on
+port 55432, not skipped.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_workflow.py::test_anything_a_worker_holds_can_record_its_own_failure` | `exits = set()`, dropping the fail rule | failed, with three others | `validating cannot record a failure` |
+| 2026-09-05 | `test_workflow.py::test_a_row_a_worker_holds_cannot_be_archived_out_from_under_it` | the `RUNNING` check dropped, archiving legal everywhere | failed, with the literal table | a `publishing` row could be archived mid-registry-write |
+| 2026-09-05 | `test_workflow.py::test_no_state_transitions_to_itself` | `exits - {state}` reduced to `exits` | failed, with the literal table | `failed -> failed` came back |
+| 2026-09-05 | `test_forge_state.py::test_archiving_a_failed_adaptation_frees_its_catalogue_item` | `_exits` restricted to archiving from `review` only | failed, with the event test | `MF0300: an adaptation in failed cannot become archived` |
+| 2026-09-05 | `test_forge_state.py::test_an_archive_records_the_state_it_closed_from` | `from_state=None` in `move`'s event write | failed | the archive event no longer said what it closed |
+| 2026-09-05 | `test_migrations.py::test_every_model_column_is_created_by_a_migration` | the `add_column` body emptied | failed | `forge_event.from_state` exists in models.py and in no migration |
+
+**Three defects the computed table produced, none of which the enumerated one could express.**
+`failed -> failed` fell straight out of the rule — a compare-and-swap expecting `failed` and
+writing `failed` succeeds, bumps the version, records an event and changes nothing, which is a
+retry loop reporting progress. `RUNNING` held two of the four states a job actually holds, and
+the omission was free while nothing read the set and became a real hole the moment `_exits`
+did. And the plan's own diagram had `validating` reaching only `review`, so a worker killed
+mid-validation left a row whose only legal move was to promote a half-validated candidate.
+
+**A guard that had been correct by accident for five migrations.**
+`test_every_model_column_is_created_by_a_migration` reads `CREATE TABLE` bodies. Every migration
+until now created a fresh table, so the first `ALTER TABLE … ADD COLUMN` in this schema read as
+*a column no migration creates* — the guard reporting the opposite of the truth, and sending
+somebody to write a migration that already existed. It reads both forms now.

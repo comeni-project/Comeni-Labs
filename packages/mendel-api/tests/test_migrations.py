@@ -54,6 +54,18 @@ def _created(ddl: str, table: str) -> str:
     return found.group(1) if found else ""
 
 
+def _added(ddl: str, table: str) -> set[str]:
+    """Columns the chain adds to a table *after* creating it.
+
+    **The first `ALTER TABLE` in this schema is what found the gap.** Every migration until
+    2026-09-05 created a fresh table, so reading only `CREATE TABLE` bodies was correct by
+    accident — and the accident held for five migrations. A column added by a later migration
+    read as a column no migration creates, which is the guard reporting the opposite of the
+    truth: it would have sent somebody to write a migration that already existed.
+    """
+    return set(re.findall(rf"ALTER TABLE {table} ADD COLUMN (\w+)", ddl))
+
+
 def test_the_scan_reached_the_models():
     """`tests/README.md`: a loop is not an assertion. Every comparison below iterates
     `Base.metadata.tables`, and an empty mapping makes all of them pass while checking nothing.
@@ -101,8 +113,10 @@ def test_every_model_column_is_created_by_a_migration(ddl):
     missing = []
     for name, table in sorted(Base.metadata.tables.items()):
         body = _created(ddl, name)
+        added = _added(ddl, name)
         for column in table.columns:
-            if not re.search(rf"^\s*{re.escape(column.name)}\s", body, re.MULTILINE):
+            in_create = re.search(rf"^\s*{re.escape(column.name)}\s", body, re.MULTILINE)
+            if not in_create and column.name not in added:
                 missing.append(f"{name}.{column.name}")
     assert missing == [], f"these columns exist in models.py and in no migration: {missing}"
 

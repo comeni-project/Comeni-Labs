@@ -25,7 +25,7 @@ from mendel_api.db import session_scope
 from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem, ForgeEvent, ForgeSourceSnapshot
 from mendel_api.services import forge_state
 from mendel_forge.workflow import AdaptationState, EventKind, RevisionState
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 
 def _database_is_reachable() -> bool:
@@ -390,7 +390,105 @@ def test_a_worker_that_never_came_back_is_reportable(item):
 
 
 def test_a_scaffolding_adaptation_is_not_reported_as_a_lost_job(item):
-    """Only states a *worker* holds. A row sitting in `scaffolding` because nobody pressed the
-    next button is not a lost job, and reclaiming it would restart work nobody asked for."""
+    """A row sitting in `scaffolding` because nobody pressed the next button is not a lost job,
+    and reclaiming it would restart work nobody asked for.
+
+    **`scaffolding` joined `workflow.RUNNING` on 2026-09-05 and this still holds**, because
+    `stale()` enumerates its own two states rather than reading that set. The two answer
+    different questions — *can this be archived* and *should this be reclaimed* — and they
+    converge only once every state in `RUNNING` is genuinely job-backed. Task 7 is where
+    `scaffold_forge_adaptation` makes that true, and where this test should start failing.
+    """
     forge_state.begin(item, who="rafael")
     assert forge_state.stale(datetime.now(UTC) + timedelta(hours=1)) == []
+
+
+def test_archiving_a_failed_adaptation_frees_its_catalogue_item(item):
+    """**The point of the whole change**, and it needs a database because the slot is a partial
+    unique index and a service refusal, not a rule.
+
+    Before 2026-09-05 a failed adaptation could reach only `queued` or `scaffolding`. The
+    index excludes exactly the finished states, so the row held its tool's one-active slot
+    forever: `begin()` refused with `MI0101`, and the only exits were retrying something that
+    had already failed — a tool deleted upstream retries forever — or a manual `UPDATE`.
+    """
+    first = forge_state.begin(item, who="rafael")
+    forge_state.fail(
+        first,
+        stage=AdaptationState.SCAFFOLDING,
+        row_version=1,
+        actor="worker",
+        detail="MF0201 the source did not answer",
+    )
+    with pytest.raises(ValueError, match="MI0101"):
+        forge_state.begin(item, who="rafael")
+
+    forge_state.archive(
+        first,
+        expect=AdaptationState.FAILED,
+        row_version=2,
+        who="rafael",
+        reason="the tool was withdrawn upstream",
+    )
+    second = forge_state.begin(item, who="rafael")
+    assert second != first
+
+
+def test_an_archive_records_the_state_it_closed_from(item):
+    """With archiving legal from five states, an adaptation archived from `scaffolding` and one
+    archived after a failure are the same row in history without this.
+
+    `from_state` is a machine fact and `detail` is a person's sentence, so they are separate
+    columns — the split Plan 1.14 made when one `reason` was answering two questions.
+    """
+    adaptation = forge_state.begin(item, who="rafael")
+    forge_state.fail(
+        adaptation,
+        stage=AdaptationState.SCAFFOLDING,
+        row_version=1,
+        actor="worker",
+        detail="MF0201",
+    )
+    forge_state.archive(
+        adaptation,
+        expect=AdaptationState.FAILED,
+        row_version=2,
+        who="rafael",
+        reason="withdrawn upstream",
+    )
+    with session_scope() as session:
+        archived = session.scalars(
+            select(ForgeEvent).where(
+                ForgeEvent.adaptation_id == adaptation,
+                ForgeEvent.kind == EventKind.ARCHIVED.value,
+            )
+        ).one()
+        assert archived.from_state == AdaptationState.FAILED.value
+        assert archived.detail == "withdrawn upstream"
+
+
+def test_archiving_a_row_a_worker_holds_is_refused_before_the_database_is_touched(item):
+    """`workflow.ALLOWED` refuses it, so `archive()` never reaches an `UPDATE`.
+
+    Archiving a running row would orphan the job rather than stop it — and for `publishing`,
+    which is the one transition that writes to the registry, it would do so mid-write.
+    """
+    adaptation = forge_state.begin(item, who="rafael")
+    forge_state.move(
+        adaptation,
+        AdaptationState.QUEUED,
+        expect=AdaptationState.SCAFFOLDING,
+        row_version=1,
+        actor="rafael",
+        kind=EventKind.QUEUED,
+    )
+    forge_state.claim(adaptation, row_version=2, worker="w")
+    with pytest.raises(ValueError, match="MF0300"):
+        forge_state.archive(
+            adaptation,
+            expect=AdaptationState.GENERATING,
+            row_version=3,
+            who="rafael",
+            reason="changed my mind",
+        )
+    assert _state(adaptation)[0] is AdaptationState.GENERATING

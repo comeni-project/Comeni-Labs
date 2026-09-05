@@ -14,9 +14,18 @@ and written down rather than absorbed:**
   not be built is not repaired by queueing a model. `retry_target` is that rule, and `SCAFFOLDING`
   joins `QUEUED` as a successor of `FAILED`.
 - The diagram draws `archived` only out of `review`. A permanently failed adaptation — the tool
-  was deleted upstream — is then retryable forever and closeable never. **That is left as drawn**,
-  because widening a state machine is cheap later and narrowing one is not, and because
-  §1.6 makes archiving a deliberate product act rather than a cleanup. It is a real gap.
+  was deleted upstream — was then retryable forever and closeable never. **Left as drawn until
+  2026-09-05**, on the argument that widening a state machine is cheap later and narrowing one
+  is not. The operator settled it the other way: archiving destroys nothing, so the objection to
+  closing a failure has no purchase, and the asymmetry was backwards — `review`, the healthier
+  state, could archive and `failed` could not.
+
+**So the table is computed now, from two rules rather than ten rows.** Anything unfinished can
+fail; anything a worker is not holding can be archived. `_exits` is that sentence and it is why
+`ALLOWED` is a comprehension. The second rule closed a hole the first one made visible:
+`validating` had `review` as its only successor, so a worker killed mid-validation left a row
+whose only legal move was to promote a half-validated candidate — which is exactly what Task 7's
+startup recovery sweep would otherwise have had to do.
 """
 
 from enum import StrEnum
@@ -44,37 +53,120 @@ class AdaptationState(StrEnum):
     ARCHIVED = "archived"
 
 
-ALLOWED: dict[AdaptationState, frozenset[AdaptationState]] = {
-    AdaptationState.SCAFFOLDING: frozenset({AdaptationState.QUEUED, AdaptationState.FAILED}),
+FINISHED = frozenset({AdaptationState.PUBLISHED, AdaptationState.ARCHIVED})
+"""The two states nothing leaves. Declared before the table because the table is derived from
+it, where it used to be derived from the table."""
+
+RUNNING = frozenset(
+    {
+        AdaptationState.SCAFFOLDING,
+        AdaptationState.GENERATING,
+        AdaptationState.VALIDATING,
+        AdaptationState.PUBLISHING,
+    }
+)
+"""States a job holds, so **archiving one would orphan the job rather than stop it**. That is
+what `_exits` reads it for, and it is the only thing that reads it.
+
+**It held two of the four until 2026-09-05, and the omission had no consequence until it did.**
+Nothing read this set at all, so `scaffolding` and `publishing` being absent cost nothing while
+it was decorative. It stopped being decorative the moment `_exits` derived the archive rule from
+it: two states with a job in flight would have been archivable out from under that job, and
+`publishing` is the transition that writes to the registry.
+
+The membership test is *is a job holding this row* — one per state, from Task 7's list:
+`scaffold_forge_adaptation`, `generate_forge_revision` (which spans generating and validating),
+and `publish_forge_adaptation`. `queued` is waiting rather than held; `review` and
+`changes_requested` are held by a person, which is not the same thing at all — a person cannot
+be orphaned by an archive, they can be told.
+
+**This set is deliberately NOT what `services/forge_state.stale()` sweeps, today.** That
+docstring used to say a sweep reads this and must not enumerate the states itself, and it was
+false in both directions: `stale()` enumerates `(generating, validating)` inline, and reading
+this set instead would make it reclaim `scaffolding` rows — which is wrong until Task 7 actually
+enqueues `scaffold_forge_adaptation`, because until then a row sits in `scaffolding` with no job
+behind it and reclaiming it would restart work nobody asked for.
+
+The two questions are *can this be archived* and *should this be reclaimed*, and they have the
+same answer only once every state here is genuinely job-backed. **Wiring `stale()` to `RUNNING`
+belongs in Task 7**, with the jobs that make it true and the test that can then fail."""
+
+_ONWARD: dict[AdaptationState, frozenset[AdaptationState]] = {
+    AdaptationState.SCAFFOLDING: frozenset({AdaptationState.QUEUED}),
     AdaptationState.QUEUED: frozenset({AdaptationState.GENERATING}),
-    AdaptationState.GENERATING: frozenset({AdaptationState.VALIDATING, AdaptationState.FAILED}),
+    AdaptationState.GENERATING: frozenset({AdaptationState.VALIDATING}),
     AdaptationState.VALIDATING: frozenset({AdaptationState.REVIEW}),
     AdaptationState.REVIEW: frozenset(
-        {
-            AdaptationState.CHANGES_REQUESTED,
-            AdaptationState.PUBLISHING,
-            AdaptationState.ARCHIVED,
-        }
+        {AdaptationState.CHANGES_REQUESTED, AdaptationState.PUBLISHING}
     ),
-    AdaptationState.CHANGES_REQUESTED: frozenset(
-        {AdaptationState.GENERATING, AdaptationState.FAILED}
-    ),
+    AdaptationState.CHANGES_REQUESTED: frozenset({AdaptationState.GENERATING}),
     AdaptationState.PUBLISHING: frozenset({AdaptationState.PUBLISHED, AdaptationState.REVIEW}),
     AdaptationState.PUBLISHED: frozenset(),
     AdaptationState.FAILED: frozenset({AdaptationState.QUEUED, AdaptationState.SCAFFOLDING}),
     AdaptationState.ARCHIVED: frozenset(),
 }
-"""Successors, by current state. Every member of `AdaptationState` is a key — a state missing
-from this table would be one nothing could ever leave, which is a typo rather than a decision,
-so `test_every_state_is_in_the_table` is what makes the omission fail."""
+"""Progress only — where an adaptation goes when something *works*.
+
+Failing and archiving are not in here, because they are not steps in a workflow; they are two
+rules that hold everywhere, and `ALLOWED` applies them below.
+"""
+
+
+def _exits(state: AdaptationState) -> frozenset[AdaptationState]:
+    """The two rules that are not steps.
+
+    **Anything unfinished can fail.** A stage that cannot record its own failure has to invent
+    somewhere to put one, and `validating` was exactly that: its only successor was `review`, so
+    a worker killed mid-validation left a row whose only legal move was *forward*, promoting a
+    half-validated candidate. That is what the startup recovery sweep would have had to do.
+
+    **Archiving is legal from any state a worker does not hold.** Settled by the operator on
+    2026-09-04: archiving destroys nothing — every foreign key is `RESTRICT`, `forge_event` has
+    no update path, and revisions and invocation audit survive — so it is a lifecycle statement,
+    *nobody is working on this*, rather than a disposal. The old table let `review` archive and
+    `failed` not, which is backwards: it is the *healthier* state that could be closed. A failed
+    adaptation held its catalogue item's one-active slot forever, with no exit but retry or a
+    manual `UPDATE`, because the partial unique index excludes exactly `FINISHED` and `begin()`
+    refuses with `MI0101`.
+
+    A `RUNNING` state is excluded from archiving and not from failing, which is the whole
+    distinction: a worker holds the row, and archiving it out from under a running job would
+    orphan the job rather than stop it. Failing is what a *sweep* does to a row whose worker is
+    already gone.
+    """
+    if state in FINISHED:
+        return frozenset()
+    exits = {AdaptationState.FAILED}
+    if state not in RUNNING:
+        exits.add(AdaptationState.ARCHIVED)
+    # **No self-transition.** `failed -> failed` fell straight out of the rule and is nonsense:
+    # a compare-and-swap that expects `failed` and writes `failed` succeeds, bumps the row
+    # version, records an event, and changes nothing — a retry loop that reports progress. The
+    # enumerated table could not express this defect, which is the cost of computing one.
+    return frozenset(exits - {state})
+
+
+ALLOWED: dict[AdaptationState, frozenset[AdaptationState]] = {
+    state: onward | _exits(state) for state, onward in _ONWARD.items()
+}
+"""Successors, by current state — **computed rather than enumerated, since 2026-09-05.**
+
+The trade is real and was recorded rather than dismissed: an enumerated table is readable at a
+glance and this one has to be run to be read. What buys that back is that the two rules cannot
+drift from the states they are about. `FAILED` reachable from eight states was eight rows to
+keep in step; `ARCHIVED` from five was five, and the enumerated version had one.
+
+Every member of `AdaptationState` is a key — a state missing would be one nothing could ever
+leave, which is a typo rather than a decision, so `test_every_state_is_in_the_table` is what
+makes the omission fail. `test_the_table_matches_the_rules_spelled_out` is the readability
+half: it asserts the computed result against a literal, so a reader who wants the old glance
+has one and a change to `_exits` has to be agreed with in two places.
+"""
 
 TERMINAL = frozenset(state for state, onward in ALLOWED.items() if not onward)
-"""`published` and `archived`. Derived rather than listed: a second literal list is a second
-answer to the same question, and the two drift."""
-
-RUNNING = frozenset({AdaptationState.GENERATING, AdaptationState.VALIDATING})
-"""States a *worker* holds. Rule 7 — a lost job must not leave a row in one of these forever —
-so a sweep needs to know which they are, and it must not have to enumerate them itself."""
+"""`published` and `archived`. Still derived from the table rather than listed, so it stays a
+statement about what `ALLOWED` says rather than a second answer beside it — and
+`test_terminal_is_exactly_finished` holds it against `FINISHED`, which is now the input."""
 
 ACTIVE = frozenset(AdaptationState) - TERMINAL
 """Rule 2: at most one *active* adaptation per catalogue item. Everything that is not finished."""
