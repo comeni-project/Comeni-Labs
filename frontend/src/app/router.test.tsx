@@ -54,17 +54,37 @@ describe("routing", () => {
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);
   });
 
-  it("offers no way into the forge from the frame", async () => {
-    // **Hidden, not removed** — Plan 4 phase 0, operator's decision 2026-08-30. The forge is
-    // carried as needing testing and rework, so the frame stops advertising it. This half of
-    // the pair asserts the advertising is gone; the next one asserts the destinations are not.
+  it("advertises the Registry and none of the screens it replaces", async () => {
+    // **The frame offered no way into the forge at all from 2026-08-30 to 2026-09-05**, which
+    // was the operator's decision while the forge was deprecated and unmaintained. Its rework
+    // is what changed the premise: `/forge` is now a built section, so it is advertised, and
+    // this assertion inverts rather than disappearing — the same move `/`'s redirect test made.
+    //
+    // **What is still not advertised is every screen the rework replaces.** `/forge/queue` and
+    // `/forge/tools` resolve and the next test holds that they do; a frame that linked to both
+    // the new section and the old ones would be offering a person two registries.
     at("/build");
     await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
     const into = Array.from(screen.getByRole("navigation").querySelectorAll("a"))
       .map((a) => a.getAttribute("href") ?? "")
       .filter((href) => href.startsWith("/forge"));
-    expect(into).toEqual([]);
+    expect(into).toEqual(["/forge"]);
   });
+
+  it.each([["/forge"], ["/forge/catalogue"], ["/forge/work"]])(
+    "puts the section subnav below the frame on %s",
+    async (path) => {
+      // **Below, and never in it** — §8 says so twice. Three section links in the global bar
+      // would make the Registry read as three workspaces rather than as one destination, and
+      // the global bar is where a person picks which half of the product they are in.
+      at(path);
+      const sections = await screen.findByRole("navigation", { name: "Registry sections" });
+      expect(
+        Array.from(sections.querySelectorAll("a")).map((a) => a.getAttribute("href")),
+      ).toEqual(["/forge", "/forge/catalogue", "/forge/work"]);
+      expect(screen.queryByText("Something broke")).toBeNull();
+    },
+  );
 
   it.each([
     ["/forge/queue"],

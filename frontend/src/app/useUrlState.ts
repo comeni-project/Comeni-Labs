@@ -32,3 +32,30 @@ export function useUrlState<T extends string = string>(
 
   return [value, set];
 }
+
+/** Several query parameters in ONE write.
+ *
+ * **Two `useUrlState` setters called from one handler clobber each other**, and that is not a
+ * subtle race: both close over the same `params` from the render they were created in, so the
+ * second builds its copy from a `URLSearchParams` that never saw the first. Setting a filter
+ * and resetting the page number is exactly that shape, and the symptom is the filter silently
+ * not applying — found by a test asserting the URL rather than the rendered table, because the
+ * table looked plausible either way.
+ *
+ * An empty string REMOVES the key, the same rule `useUrlState` uses: a link says what is
+ * unusual about a view rather than restating every default.
+ */
+export function useUrlPatch(): (patch: Record<string, string>) => void {
+  const [params, setParams] = useSearchParams();
+  return useCallback(
+    (patch: Record<string, string>) => {
+      const next = new URLSearchParams(params);
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === "") next.delete(key);
+        else next.set(key, value);
+      }
+      setParams(next, { replace: true });
+    },
+    [params, setParams],
+  );
+}

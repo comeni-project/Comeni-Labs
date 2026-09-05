@@ -96,6 +96,24 @@ def test_no_request_body_accepts_a_path_a_key_or_a_model():
     assert REQUEST_FIELDS, "an empty table would make this loop assert nothing"
 
 
+RESPONSES = {
+    # What a `202` carries — checked by the 202 tests, which assert what it says rather than
+    # what a caller may send.
+    "Queued",
+    # The catalogue's answer. A row is a tool plus where it stands with us, and neither half
+    # is anything a browser supplies.
+    "CatalogueRow",
+    "CataloguePage",
+}
+"""Models on this surface that a caller never sends.
+
+**Listed rather than subtracted by a rule**, for the same reason `REQUEST_FIELDS` is literal:
+there is no property of a Pydantic model that says *this one is outbound*, so the only thing
+that stops a request body being waved through as "probably a response" is that somebody had to
+type its name here and say which it is.
+"""
+
+
 def test_the_table_covers_every_request_body_on_this_surface():
     """**The hole in the test above.** It walks its own table, so a body added to `forge.py`
     and not to the table is a body nothing inspects — the same shape as the egress guard taking
@@ -108,8 +126,7 @@ def test_the_table_covers_every_request_body_on_this_surface():
         and issubclass(obj, BaseModel)
         and obj.__module__ == routes.__name__
     }
-    # `Queued` is a *response*, not a request; it is checked by the 202 tests instead.
-    assert defined - {"Queued"} == set(REQUEST_FIELDS)
+    assert defined - RESPONSES == set(REQUEST_FIELDS)
 
 
 def test_every_request_body_forbids_unknown_fields():

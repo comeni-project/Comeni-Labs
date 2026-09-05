@@ -22,7 +22,8 @@ from mendel_forge.catalogue import (
     SourceCounts,
     SourceSnapshot,
 )
-from mendel_forge.workflow import TERMINAL
+from mendel_forge.workflow import ACTIVE, TERMINAL, AdaptationState
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -160,7 +161,158 @@ def _counts_from_items(items: tuple[CatalogueItem, ...]) -> dict[str, int]:
     return {"discovered": len(items), "adaptable": adaptable}
 
 
-def counts(source: str, landed: Mapping[str, LandedSource]) -> SourceCounts:
+_FROZEN = ConfigDict(extra="forbid", frozen=True)
+
+_ACTIVE = [state.value for state in ACTIVE]
+_PUBLISHED = AdaptationState.PUBLISHED.value
+
+
+class Standing(BaseModel):
+    """Where one catalogue item stands, and the adaptation that says so.
+
+    **The adaptation id is here because the row's action needs it.** A catalogue row offers
+    *Adapt this tool* or *Open the adaptation*, and a page that knew only the freshness would
+    have to go and find the id — one request per row on a page of fifty.
+    """
+
+    model_config = _FROZEN
+
+    freshness: Freshness
+    adaptation_id: str | None = None
+    adaptation_state: AdaptationState | None = None
+
+
+def landed_of(source: str) -> dict[str, LandedSource]:
+    """What the forge has published for a source, keyed by ref.
+
+    **Read out of the forge's own tables, not out of the registry, and that is a narrower
+    claim than `LandedSource` was designed for.** Its docstring says the registry is the
+    authority on what has landed — and it is, but a contract's `Provenance` carries no source
+    content digest, so the registry cannot answer *was it the current version that landed*.
+    `ForgeAdaptation.source_digest` can, because it is the digest the adaptation was built
+    from.
+
+    What that costs: a contract removed from the registry by hand still reads as landed here,
+    because the publish that put it there happened. That is a smaller error than the previous
+    behaviour, which passed `{}` and reported every tool in the world as never adapted.
+    Recording the source digest on the contract is what closes it, and it belongs to the
+    publication boundary rather than here.
+    """
+    with session_scope() as session:
+        rows = session.execute(
+            select(ForgeCatalogueItem.ref, ForgeAdaptation.source_digest)
+            .join(ForgeAdaptation, ForgeAdaptation.catalogue_item_id == ForgeCatalogueItem.id)
+            .where(
+                ForgeCatalogueItem.source == source,
+                ForgeAdaptation.state == _PUBLISHED,
+            )
+            .order_by(ForgeAdaptation.updated_at)
+        ).all()
+    # Later rows win, so a tool published twice is described by its most recent publish.
+    return {
+        ref: LandedSource(source=source, ref=ref, content_digest=digest) for ref, digest in rows
+    }
+
+
+def standing(items: list[CatalogueItem]) -> dict[str, Standing]:
+    """Freshness for a page of items, in two queries rather than one per row.
+
+    **`CatalogueItem.freshness` is the one implementation and this calls it**, rather than
+    re-deriving the same verdict from the same two digests — which is how the card and the row
+    would come to disagree about a single tool.
+    """
+    if not items:
+        return {}
+    ids = [item.id for item in items]
+    with session_scope() as session:
+        published = {
+            item_id: digest
+            for item_id, digest in session.execute(
+                select(ForgeAdaptation.catalogue_item_id, ForgeAdaptation.source_digest)
+                .where(
+                    ForgeAdaptation.catalogue_item_id.in_(ids),
+                    ForgeAdaptation.state == _PUBLISHED,
+                )
+                .order_by(ForgeAdaptation.updated_at)
+            ).all()
+        }
+        active = {
+            item_id: (adaptation_id, AdaptationState(state))
+            for item_id, adaptation_id, state in session.execute(
+                select(
+                    ForgeAdaptation.catalogue_item_id,
+                    ForgeAdaptation.id,
+                    ForgeAdaptation.state,
+                ).where(
+                    ForgeAdaptation.catalogue_item_id.in_(ids),
+                    ForgeAdaptation.state.in_(_ACTIVE),
+                )
+            ).all()
+        }
+
+    out: dict[str, Standing] = {}
+    for item in items:
+        digest = published.get(item.id)
+        was_landed = (
+            LandedSource(source=item.source, ref=item.ref, content_digest=digest)
+            if digest is not None
+            else None
+        )
+        running = active.get(item.id)
+        out[item.id] = Standing(
+            freshness=item.freshness(was_landed, in_progress=running is not None),
+            adaptation_id=running[0] if running else None,
+            adaptation_state=running[1] if running else None,
+        )
+    return out
+
+
+def _status_filter(status: str):
+    """A `Freshness` value as a WHERE clause, so a filter is a query and not a page walk.
+
+    **Filtering after paging is the defect this exists to avoid**: taking fifty rows and
+    dropping the ones that do not match gives a page of eleven and a total of sixteen hundred,
+    and the next page silently skips whatever the first one dropped.
+    """
+    published = (
+        select(ForgeAdaptation.catalogue_item_id)
+        .where(ForgeAdaptation.state == _PUBLISHED)
+        .scalar_subquery()
+    )
+    current = (
+        select(ForgeAdaptation.catalogue_item_id)
+        .where(
+            ForgeAdaptation.state == _PUBLISHED,
+            ForgeAdaptation.source_digest == ForgeCatalogueItem.content_digest,
+        )
+        .scalar_subquery()
+    )
+    running = (
+        select(ForgeAdaptation.catalogue_item_id)
+        .where(ForgeAdaptation.state.in_(_ACTIVE))
+        .scalar_subquery()
+    )
+    adaptable = ForgeCatalogueItem.adaptable.is_(True)
+    return {
+        Freshness.UNSUPPORTED.value: ForgeCatalogueItem.adaptable.is_(False),
+        Freshness.CURRENT.value: adaptable & ForgeCatalogueItem.id.in_(current),
+        Freshness.OUTDATED.value: adaptable
+        & ForgeCatalogueItem.id.in_(published)
+        & ForgeCatalogueItem.id.not_in(current),
+        Freshness.IN_PROGRESS.value: adaptable
+        & ForgeCatalogueItem.id.not_in(published)
+        & ForgeCatalogueItem.id.in_(running),
+        Freshness.UNADAPTED.value: adaptable
+        & ForgeCatalogueItem.id.not_in(published)
+        & ForgeCatalogueItem.id.not_in(running),
+        # `adapted` is not a `Freshness` member: it is the union of the two landed verdicts,
+        # and it is what the overview's *N of M adaptable* figure counts. Offered because a
+        # person clicking that number means "the ones we have done", not "the current ones".
+        "adapted": adaptable & ForgeCatalogueItem.id.in_(published),
+    }.get(status)
+
+
+def counts(source: str, landed: Mapping[str, LandedSource] | None = None) -> SourceCounts:
     """One source card, assembled from the catalogue, the workflow and the registry.
 
     `landed` is passed in rather than read here, and that is the boundary this service keeps:
@@ -170,6 +322,8 @@ def counts(source: str, landed: Mapping[str, LandedSource]) -> SourceCounts:
     **Freshness is digest equality, never a date** — `CatalogueItem.freshness` is the one
     implementation, and this counts its verdicts rather than re-deriving them.
     """
+    if landed is None:
+        landed = landed_of(source)
     with session_scope() as session:
         rows = session.scalars(
             select(ForgeCatalogueItem).where(
@@ -217,11 +371,28 @@ def latest(source: str) -> ForgeSourceSnapshot | None:
         ).first()
 
 
+def one(item_id: str) -> CatalogueItem:
+    """One tool, by its opaque id.
+
+    **A primary-key lookup, and it replaces a scan.** The route used to ask `search` for the
+    first two hundred rows and walk them, so every tool past the two-hundredth answered 404 —
+    invisible against a fixture catalogue of six and certain against a real one of sixteen
+    hundred. Raising `KeyError` is what the transport turns into a 404, and it now means
+    *no such tool* rather than *not in the first page*.
+    """
+    with session_scope() as session:
+        row = session.get(ForgeCatalogueItem, item_id)
+        if row is None or not row.present:
+            raise KeyError(item_id)
+        return CatalogueItem.model_validate(row.metadata_json)
+
+
 def search(
     *,
     source: str | None = None,
     query: str = "",
     adaptable_only: bool = False,
+    status: str = "",
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[CatalogueItem], int]:
@@ -241,6 +412,11 @@ def search(
         where.append(ForgeCatalogueItem.source == source)
     if adaptable_only:
         where.append(ForgeCatalogueItem.adaptable.is_(True))
+    if status:
+        clause = _status_filter(status)
+        if clause is None:
+            raise ValueError(f"no such status: {status}")
+        where.append(clause)
     if query.strip():
         like = f"%{query.strip().lower()}%"
         where.append(

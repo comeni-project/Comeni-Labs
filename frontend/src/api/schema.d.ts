@@ -738,6 +738,10 @@ export interface paths {
          * Every tool a source can read
          * @description A page of the catalogue, and the total it is a slice of.
          *
+         *     **`status` is a SQL clause, never a filter over the page.** Fetching fifty and dropping the
+         *     ones that do not match gives a page of eleven under a total of sixteen hundred, and the
+         *     next page silently skips whatever the first one dropped.
+         *
          *     **Offset here and a cursor on adaptations, deliberately.** The catalogue is ordered by
          *     `(source, ref)` — a stable key that a sync updates in place rather than reordering — so an
          *     offset page does not shift under a refresh the way a list ordered by `updated_at` does.
@@ -759,7 +763,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One tool, in full */
+        /**
+         * One tool, in full
+         * @description One tool, by id — what the catalogue's inspector opens when the row is not on screen.
+         */
         get: operations["forgeCatalogueItem"];
         put?: never;
         post?: never;
@@ -1285,6 +1292,143 @@ export interface components {
             total: number;
         };
         /**
+         * CatalogueItem
+         * @description One tool a source says exists.
+         *
+         *     Frozen, because a snapshot is a record of what a source said at a revision. Mutating one
+         *     in place would make the digest describe something other than the fields beside it.
+         */
+        CatalogueItem: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Ref */
+            ref: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Homepage Url */
+            homepage_url?: string | null;
+            /** Documentation Url */
+            documentation_url?: string | null;
+            /** Repository Url */
+            repository_url?: string | null;
+            /**
+             * Licence
+             * @default []
+             */
+            licence: string[];
+            /**
+             * Keywords
+             * @default []
+             */
+            keywords: string[];
+            /**
+             * Categories
+             * @default []
+             */
+            categories: string[];
+            /**
+             * Maintainers
+             * @default []
+             */
+            maintainers: string[];
+            /** Latest Version */
+            latest_version?: string | null;
+            /**
+             * Container Refs
+             * @default []
+             */
+            container_refs: components["schemas"]["ContainerRef"][];
+            /**
+             * Source Revision
+             * @default
+             */
+            source_revision: string;
+            /** Content Digest */
+            content_digest: string;
+            /** Last Updated At */
+            last_updated_at?: string | null;
+            /**
+             * Input Hints
+             * @default []
+             */
+            input_hints: string[];
+            /**
+             * Output Hints
+             * @default []
+             */
+            output_hints: string[];
+            /**
+             * Classifications
+             * @default []
+             */
+            classifications: components["schemas"]["Classification"][];
+            /**
+             * Source Facts
+             * @default []
+             */
+            source_facts: components["schemas"]["SourceFact"][];
+            /**
+             * @default {
+             *       "supplies_nextflow": false,
+             *       "supplies_structured_ports": false,
+             *       "supplies_container_digest": false,
+             *       "supplies_tests": false
+             *     }
+             */
+            capabilities: components["schemas"]["SourceCapabilities"];
+            /**
+             * Adaptable
+             * @default true
+             */
+            adaptable: boolean;
+            /** Unsupported Reason */
+            unsupported_reason?: string | null;
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: components["schemas"]["Excerpt"][];
+        };
+        /**
+         * CataloguePage
+         * @description A slice of the catalogue, and the total it is a slice of.
+         *
+         *     **Typed rather than a `dict`, and that is a fix.** This route answered `-> dict`, so
+         *     `CatalogueItem` never reached the OpenAPI document and the generated client had nothing to
+         *     describe a tool with — the one screen that lists sixteen hundred of them would have had to
+         *     hand-write the shape, which is exactly the drift `frontend/src/api/` exists to make
+         *     impossible. Found on the first consumer.
+         */
+        CataloguePage: {
+            /**
+             * Rows
+             * @default []
+             */
+            rows: components["schemas"]["CatalogueRow"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * CatalogueRow
+         * @description One tool, and where it stands with us.
+         *
+         *     **Two halves that come from two places.** `item` is what upstream published and is a cache
+         *     of somebody else's words; `standing` is what this installation has done about it. Keeping
+         *     them as separate objects rather than flattening is what stops a page reading a freshness as
+         *     though the source had asserted it.
+         */
+        CatalogueRow: {
+            item: components["schemas"]["CatalogueItem"];
+            standing: components["schemas"]["Standing"];
+        };
+        /**
          * ChannelView
          * @description One channel the pipeline reads from outside, as the canvas draws it.
          *
@@ -1322,6 +1466,54 @@ export interface components {
             /** Ports */
             ports: string[];
         };
+        /**
+         * Classification
+         * @description One category a source assigns to a tool, with enough context to filter and to explain.
+         *
+         *     **Identity is `id`, never `name`.** PEGiS's ontology carries more than one term called
+         *     `Alignment` under different parents, so keying on the display name silently merges two
+         *     categories: one filter, two meanings, and a tool listed under a branch nobody assigned it
+         *     to. `path` is what lets a person tell them apart on screen.
+         *
+         *     **`direct` is the provenance and must survive.** A tool assigned to *Quality* is discoverable
+         *     under *Sequences* because *Sequences* is an ancestor — but it was not classified there, and a
+         *     reviewer reading a dossier needs to know which claim the source actually made. Flattening the
+         *     two into one list is the specific loss §6 forbids.
+         *
+         *     Source-neutral: a second source with its own taxonomy fills the same shape. Nothing here is
+         *     inferred — a classification exists because an assignment file said so.
+         */
+        Classification: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Definition
+             * @default
+             */
+            definition: string;
+            /**
+             * Parents
+             * @default []
+             */
+            parents: string[];
+            /**
+             * Ancestors
+             * @default []
+             */
+            ancestors: string[];
+            /**
+             * Path
+             * @default []
+             */
+            path: string[];
+            /**
+             * Direct
+             * @default true
+             */
+            direct: boolean;
+        };
         /** CompareIn */
         CompareIn: {
             graph: components["schemas"]["DraftGraph"];
@@ -1358,6 +1550,26 @@ export interface components {
             required_states?: components["schemas"]["RequiredStates"][];
             /** Params */
             params?: components["schemas"]["ParamOverride"][];
+        };
+        /**
+         * ContainerRef
+         * @description One image, pinned as well as the source allows.
+         *
+         *     **`digest` is what gets written into a proposal; `tag` is how a human recognises it.** Both
+         *     are kept because a digest with no tag beside it is unreadable in review, and a tag with no
+         *     digest is unreproducible in a run.
+         */
+        ContainerRef: {
+            /** Registry */
+            registry: string;
+            /** Repository */
+            repository: string;
+            /** Tag */
+            tag?: string | null;
+            /** Digest */
+            digest?: string | null;
+            /** Platform */
+            platform?: string | null;
         };
         /**
          * DataProfile
@@ -1785,6 +1997,17 @@ export interface components {
             /** Target */
             target?: string | null;
         };
+        /**
+         * Freshness
+         * @description Where one catalogue item stands against the registry.
+         *
+         *     **`IN_PROGRESS` is not `ADAPTED`.** Work that is scaffolded, queued, generating, validating,
+         *     in review or awaiting changes has produced no contract, and counting it as adapted makes
+         *     the registry look more complete than it is — which is the one direction a progress figure
+         *     must never err in.
+         * @enum {string}
+         */
+        Freshness: "unadapted" | "in_progress" | "current" | "outdated" | "unsupported";
         /**
          * Gate
          * @description Cheapest first. Each is strictly more evidence than the one above it.
@@ -2453,6 +2676,57 @@ export interface components {
             premise: string[];
         };
         /**
+         * SourceCapabilities
+         * @description What a source can prove, as opposed to what a tool happens to have.
+         *
+         *     This is a property of the *adapter's reach*, not of the tool: nf-core supplies a Nextflow
+         *     process and structured port metadata for every module it lists, and a container registry
+         *     supplies neither for any image in it. The Forge branches on these — an nf-core scaffold
+         *     copies the process and never asks a model to write one; a container-only scaffold must ask
+         *     — so they belong in the catalogue where a person can see them before choosing.
+         */
+        SourceCapabilities: {
+            /**
+             * Supplies Nextflow
+             * @default false
+             */
+            supplies_nextflow: boolean;
+            /**
+             * Supplies Structured Ports
+             * @default false
+             */
+            supplies_structured_ports: boolean;
+            /**
+             * Supplies Container Digest
+             * @default false
+             */
+            supplies_container_digest: boolean;
+            /**
+             * Supplies Tests
+             * @default false
+             */
+            supplies_tests: boolean;
+        };
+        /**
+         * SourceFact
+         * @description A field a source publishes that the catalogue has no typed home for.
+         *
+         *     **The smallest extension that loses nothing.** PEGiS's `metadata.json` carries some twenty
+         *     fields — `gui_command`, `singularity`, `invocation_general` — that mean nothing to nf-core.
+         *     Twenty-odd optional columns on a shared record would be twenty-odd fields every other source
+         *     leaves null, and inventing typed fields for one source's vocabulary is how a shared model
+         *     becomes that source's model.
+         *
+         *     They are preserved verbatim, in the order the source declares them, and read by the dossier
+         *     as evidence. Nothing consumes them structurally.
+         */
+        SourceFact: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * SourceRow
          * @description One source's counts, plus whether its last look at upstream worked.
          */
@@ -2529,6 +2803,20 @@ export interface components {
              * @default 0
              */
             failed: number;
+        };
+        /**
+         * Standing
+         * @description Where one catalogue item stands, and the adaptation that says so.
+         *
+         *     **The adaptation id is here because the row's action needs it.** A catalogue row offers
+         *     *Adapt this tool* or *Open the adaptation*, and a page that knew only the freshness would
+         *     have to go and find the id — one request per row on a page of fifty.
+         */
+        Standing: {
+            freshness: components["schemas"]["Freshness"];
+            /** Adaptation Id */
+            adaptation_id?: string | null;
+            adaptation_state?: components["schemas"]["AdaptationState"] | null;
         };
         /**
          * Start
@@ -3933,6 +4221,8 @@ export interface operations {
                 q?: string;
                 /** @description Only this source */
                 source?: string | null;
+                /** @description Only tools standing here with us */
+                status?: components["schemas"]["Freshness"] | "adapted" | null;
                 /** @description Hide what cannot be adapted */
                 adaptable_only?: boolean;
                 limit?: number;
@@ -3950,9 +4240,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CataloguePage"];
                 };
             };
             /** @description Validation Error */
@@ -3983,9 +4271,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CatalogueItem"];
                 };
             };
             /** @description Validation Error */

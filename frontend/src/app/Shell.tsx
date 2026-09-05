@@ -36,10 +36,14 @@ import { Field } from "../ui/Field";
  * forge URL still mounts — because *hidden* rots into *broken* the first time somebody deletes
  * a route nobody can see any more.
  *
- * **This is not the `Registry` section.** `ov-blocked` on the redesign canvas asks for
- * `Builder / Runs / Registry` with the forge inside Registry, and that is right — but Registry
- * does not exist, and inventing a section to hold one hidden thing is worse than a nav with two
- * tabs. Raise it when Registry has a second occupant.
+ * **`Registry` arrived on 2026-09-05**, which is what `ov-blocked` on the redesign canvas asked
+ * for and what the note here said to wait for: it now has more than one occupant — an overview,
+ * a catalogue of every tool a source can read, and the work queue — so a section holding them is
+ * a section rather than a wrapper around one hidden screen.
+ *
+ * **The 3A/3B/3D forge screens are still not in this nav**, and that is unchanged: `/forge/queue`
+ * and `/forge/tools` resolve, `router.test.tsx` holds that they do, and none of them is what the
+ * new `Registry` tab points at. They are the surface the rework replaces, not a fourth tab.
  *
  * **There is no Registry box.** It was a text input in the nav that took a type id from memory
  * and opened a panel — the operator's verdict was *ugly, unintuitive and useless*, and the
@@ -121,6 +125,7 @@ export function Shell() {
 
         <Tab to="/build">Builder</Tab>
         <Tab to="/runs">Runs</Tab>
+        <Tab to="/forge">Registry</Tab>
       </nav>
       <Outlet />
     </div>

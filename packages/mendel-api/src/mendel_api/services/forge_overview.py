@@ -201,12 +201,13 @@ def _failed_syncs() -> int:
 def overview(landed: dict | None = None) -> Overview:
     """The whole front page, in one call.
 
-    `landed` maps a tool ref to what the registry already has, and it is passed in rather than
-    read here: `forge_catalogue.counts` needs it to tell *adapted* from *outdated*, and the
-    registry is a different store with a different refresh. A default of `{}` reports every
-    adaptable tool as un-adapted, which is wrong but visibly so.
+    `landed` maps a tool ref to what has already been published for it, and telling *current*
+    from *outdated* is the whole of what it is for. **`None` now means `forge_catalogue` reads
+    it**, where it used to mean an empty mapping — which reported every adaptable tool in the
+    world as never adapted, so the two figures the source cards are built out of were both
+    structurally zero. The parameter stays for a caller that has a better answer than the
+    forge's own tables; `landed_of` carries what that better answer would be.
     """
-    landed = landed or {}
     by_state = _by_state()
     sources = []
     with session_scope() as session:
@@ -214,7 +215,7 @@ def overview(landed: dict | None = None) -> Overview:
             {row for (row,) in session.execute(select(ForgeSourceSnapshot.source).distinct())}
         )
     for name in names:
-        counts = forge_catalogue.counts(name, landed)
+        counts = forge_catalogue.counts(name, landed)  # `None` → read from what was published
         snapshot = forge_catalogue.latest(name)
         synced = snapshot.finished_at if snapshot else None
         if synced is not None and synced.tzinfo is None:

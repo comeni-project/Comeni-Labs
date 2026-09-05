@@ -13,7 +13,13 @@ import pytest
 from mendel_api.db import session_scope
 from mendel_api.models import ForgeCatalogueItem
 from mendel_api.services import forge_catalogue, forge_state
-from mendel_forge.catalogue import CatalogueItem, LandedSource, SourceSnapshot, SyncWarning
+from mendel_forge.catalogue import (
+    CatalogueItem,
+    Freshness,
+    LandedSource,
+    SourceSnapshot,
+    SyncWarning,
+)
 from sqlalchemy import text
 
 
@@ -244,3 +250,157 @@ def test_the_latest_sync_is_the_most_recent_attempt_not_the_most_recent_success(
     forge_catalogue.record(_snapshot(_item("fastqc")), started_at=old)
     forge_catalogue.record_failure("nf-core", error="MF0201", started_at=datetime.now(UTC))
     assert forge_catalogue.latest("nf-core").ok is False
+
+
+# ── what has landed, and how a page filters on it ─────────────────────────────────────
+
+
+def _publish(item_id: str, *, digest: str) -> None:
+    """Put a tool in `published` carrying the source digest it was built from.
+
+    Written against the columns rather than driven through the workflow because what is under
+    test is the *reader*: `landed_of` and `_status_filter` both answer from `state` and
+    `source_digest`, and walking six transitions to arrive at those two values would be testing
+    the transitions again.
+    """
+    from mendel_api.models import ForgeAdaptation
+
+    adaptation = forge_state.begin(item_id, who="rafael")
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation)
+        row.state = "published"
+        row.source_digest = digest
+
+
+def test_what_landed_is_read_from_what_was_published(clean_forge):
+    """**The registry cannot answer this and the forge can.** A contract's `Provenance` carries
+    no source content digest, so *was it the current version that landed* is unanswerable from
+    registry files — `ForgeAdaptation.source_digest` is the digest the adaptation was built
+    from, and it is what makes current and outdated distinguishable at all."""
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="a" * 64)))
+    _publish(forge_catalogue.search()[0][0].id, digest="a" * 64)
+
+    assert forge_catalogue.landed_of("nf-core")["fastqc"].content_digest == "a" * 64
+
+
+def test_counts_read_what_landed_rather_than_reporting_nothing_ever_did(clean_forge):
+    """**The default was `{}` and it was structurally wrong.** Every source card's `current` and
+    `outdated` were zero on every deployment, because the overview passed no mapping and the
+    parameter defaulted to an empty one — so the two figures the completeness bar is built out
+    of said *nothing has ever been adapted*, always."""
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="a" * 64)))
+    _publish(forge_catalogue.search()[0][0].id, digest="a" * 64)
+
+    assert forge_catalogue.counts("nf-core").current == 1
+    # And it still yields to a caller who has a better answer.
+    assert forge_catalogue.counts("nf-core", landed={}).current == 0
+
+
+def test_a_published_tool_goes_outdated_when_upstream_moves(clean_forge):
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="a" * 64)))
+    _publish(forge_catalogue.search()[0][0].id, digest="a" * 64)
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="b" * 64)))
+
+    card = forge_catalogue.counts("nf-core")
+    assert (card.current, card.outdated) == (0, 1)
+
+
+def test_standing_names_the_adaptation_a_row_would_open(clean_forge):
+    """A catalogue row offers *Adapt* or *Open*, and the second needs an id. Without it the
+    page would ask the adaptations endpoint once per row — fifty requests for one screen."""
+    forge_catalogue.record(_snapshot(_item("fastqc")))
+    item = forge_catalogue.search()[0][0]
+    adaptation = forge_state.begin(item.id, who="rafael")
+
+    where = forge_catalogue.standing([item])[item.id]
+    assert where.freshness is Freshness.IN_PROGRESS
+    assert where.adaptation_id == adaptation
+
+
+def test_standing_is_two_queries_whatever_the_page_size(clean_forge):
+    """A page of fifty must not be fifty round trips. Asserted as *the whole page comes back*
+    rather than by counting queries, because the count is an implementation detail and the
+    thing that breaks is a row silently missing a standing."""
+    forge_catalogue.record(_snapshot(*[_item(f"tool{n}") for n in range(12)]))
+    items = forge_catalogue.search(limit=12)[0]
+    assert set(forge_catalogue.standing(items)) == {item.id for item in items}
+
+
+def test_standing_of_nothing_is_nothing(clean_forge):
+    """The empty page. An `IN ()` over no ids is a query some backends refuse and all of them
+    waste, and the caller has nothing to key on either way."""
+    assert forge_catalogue.standing([]) == {}
+
+
+def test_a_status_filter_is_a_query_and_not_a_walk_of_the_page(clean_forge):
+    """**Filtering after paging reports eleven of sixteen hundred.** The total describes the
+    whole catalogue and the rows describe what survived the page — and the next page skips
+    whatever the first one dropped. Both numbers here come from the same WHERE clause."""
+    forge_catalogue.record(
+        _snapshot(
+            _item("fastqc", digest="a" * 64),
+            _item("samtools/sort", digest="b" * 64),
+            _item("broken", adaptable=False),
+        )
+    )
+    by_ref = {item.ref: item for item in forge_catalogue.search()[0]}
+    _publish(by_ref["fastqc"].id, digest="a" * 64)
+    forge_state.begin(by_ref["samtools/sort"].id, who="rafael")
+
+    def refs(status: str) -> set[str]:
+        found, total = forge_catalogue.search(status=status)
+        assert total == len(found), f"{status}: the total and the page disagree"
+        return {item.ref for item in found}
+
+    assert refs("current") == {"fastqc"}
+    assert refs("adapted") == {"fastqc"}
+    assert refs("in_progress") == {"samtools/sort"}
+    assert refs("unadapted") == set()
+    assert refs("unsupported") == {"broken"}
+    assert refs("outdated") == set()
+
+
+def test_an_outdated_tool_is_adapted_and_not_current(clean_forge):
+    """The one status that is a *pair* of facts: something landed, and it is not what upstream
+    has now. A filter that read only the first would put it under `current`."""
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="a" * 64)))
+    _publish(forge_catalogue.search()[0][0].id, digest="a" * 64)
+    forge_catalogue.record(_snapshot(_item("fastqc", digest="b" * 64)))
+
+    assert {item.ref for item in forge_catalogue.search(status="outdated")[0]} == {"fastqc"}
+    assert forge_catalogue.search(status="current")[1] == 0
+    assert forge_catalogue.search(status="adapted")[1] == 1
+
+
+def test_every_freshness_is_a_filter_somebody_can_ask_for(clean_forge):
+    """**The overview links one per segment**, so a `Freshness` member with no clause would be
+    a number on the front door that goes nowhere. This is what makes a sixth member fail here
+    rather than on the screen."""
+    for freshness in Freshness:
+        forge_catalogue.search(status=freshness.value)
+    with pytest.raises(ValueError):
+        forge_catalogue.search(status="invented")
+
+
+def test_one_tool_is_found_past_the_first_page(clean_forge):
+    """**The route used to scan the first two hundred rows and walk them**, so every tool past
+    the two-hundredth answered 404 — invisible against a fixture catalogue of six and certain
+    against a real one of sixteen hundred."""
+    forge_catalogue.record(_snapshot(*[_item(f"tool{n}") for n in range(250)]))
+    last = forge_catalogue.search(limit=1, offset=249)[0][0]
+
+    assert forge_catalogue.one(last.id).ref == last.ref
+    with pytest.raises(KeyError):
+        forge_catalogue.one("no-such-tool")
+
+
+def test_a_tool_that_vanished_upstream_is_not_found_by_id(clean_forge):
+    """`present` is what a sync writes when a tool stops being published, and the row stays so
+    an approved contract keeps its provenance. Serving it as though it were still on offer
+    would put an *Adapt* button on a tool nobody can fetch."""
+    forge_catalogue.record(_snapshot(_item("fastqc"), _item("gone")))
+    gone = {item.ref: item for item in forge_catalogue.search()[0]}["gone"]
+    forge_catalogue.record(_snapshot(_item("fastqc")))
+
+    with pytest.raises(KeyError):
+        forge_catalogue.one(gone.id)

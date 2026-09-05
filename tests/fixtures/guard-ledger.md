@@ -4542,3 +4542,43 @@ AdaptationRow* rather than anything about the code under test. And
 `test_the_older_endpoints_are_still_served` asserted `/api/sources` and `/api/contracts`, which
 are prefixes rather than endpoints: a test that would have passed on a system where nothing
 under them existed.
+
+## The Registry section in a browser — 2026-09-05
+
+Task 10: the shell's third tab, and the three screens under it. **These are the first forge
+guards that live in `frontend/`**, which matters because the recurring lesson on this project is
+that a Python suite is blind to appearance and to the URL — and the URL is where two of these
+defects were.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `Registry.test.tsx::writes a chip into the URL so the view can be sent to somebody` | `patch({status, page})` back to `setStatus(...)` then `setPage(...)` | failed | `expected '' to contain 'status=outdated'` |
+| 2026-09-05 | `test_forge_catalogue.py::test_counts_read_what_landed_rather_than_reporting_nothing_ever_did` | `landed_of(source)` back to `{}` | failed | `assert 0 == 1` — every source card's `current` was structurally zero |
+| 2026-09-05 | `test_forge_catalogue.py::test_a_published_tool_goes_outdated_when_upstream_moves` | the same | failed | `assert (0, 0) == (0, 1)` |
+| 2026-09-05 | `test_forge_catalogue.py::test_one_tool_is_found_past_the_first_page` | `session.get` back to a scan of the first 200 rows | failed | a `KeyError` for a tool that exists |
+| 2026-09-05 | `tokens.test.ts::names no colour outside the token file` | — | **fired on the first run** | `#1C262B` lifted from the artboard into `Overview.tsx` |
+| 2026-09-05 | `test_forge_routes.py::test_the_table_covers_every_request_body_on_this_surface` | — | **fired on the first run** | `CatalogueRow`/`CataloguePage` were models the table did not classify |
+| 2026-09-05 | `router.test.tsx::offers no way into the forge from the frame` | — | **fired on the first run**, correctly | the premise changed: `/forge` is a built section now, so the assertion inverts |
+
+**Two `useUrlState` setters in one handler clobber each other**, and that is the defect worth
+carrying forward. Both close over the same `params` from the render that made them, so the
+second builds its copy from a `URLSearchParams` that never saw the first — setting a filter and
+resetting the page number is exactly that shape, and the filter silently does not apply. It was
+found only because the test asserted `router.state.location.search` rather than the rendered
+table: **the table looks right either way**, because the query it did not send would have
+returned the same fixture. `useUrlPatch` is the fix and it is a shared hook rather than a local
+helper, so the next screen that needs two keys gets the correct tool.
+
+**The first version of that test asserted `window.location.search` and failed for the wrong
+reason.** A memory router never touches `window.location`, so the assertion read `''`
+unconditionally — it would have "caught" the defect on code that did not have it. A guard that
+fails for a reason other than the defect is not evidence, and this one only became evidence
+after it was pointed at the router.
+
+**Three figures on the front door were structurally zero and no test said so.** `overview()`
+defaulted `landed` to `{}` and its own docstring said the result was *"wrong but visibly so"* —
+it was not visible at all: the bar rendered, the numbers added up, and every source read as
+though nothing had ever been adapted. `LandedSource` is now read from `ForgeAdaptation.
+source_digest`, which is a narrower claim than the registry would make and the only one anything
+can currently answer; the caveat is on `landed_of`.
+

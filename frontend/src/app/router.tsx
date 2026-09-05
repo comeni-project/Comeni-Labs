@@ -5,6 +5,9 @@ import { Home } from "../home/Home";
 import { ContractRoute } from "../forge/ContractRoute";
 import { Builder } from "../build/Builder";
 import { Queue } from "../forge/Queue";
+import { Catalogue } from "../forge/registry/Catalogue";
+import { Overview as Registry } from "../forge/registry/Overview";
+import { Work } from "../forge/registry/Work";
 import { Board as Runs } from "../runs/Board";
 import { Run } from "../runs/Run";
 import { Tools } from "../forge/Tools";
@@ -29,6 +32,13 @@ export const routes: RouteObject[] = [
       { path: "/build", element: <Builder /> },
       { path: "/runs", element: <Runs /> },
       { path: "/runs/:id", element: <Run /> },
+      // **The Registry section — `/forge` is its front door, not a redirect.** The three
+      // screens below it are one destination with a subnav, for the same reason filters are
+      // query params here: they are views of *the registry*, and three top-level tabs would
+      // make them read as three workspaces.
+      { path: "/forge", element: <Registry /> },
+      { path: "/forge/catalogue", element: <Catalogue /> },
+      { path: "/forge/work", element: <Work /> },
       { path: "/forge/queue", element: <Queue /> },
       { path: "/forge/queue/question/:subject", element: <Question /> },
       { path: "/forge/tools", element: <Tools /> },

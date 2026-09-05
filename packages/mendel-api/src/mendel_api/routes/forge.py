@@ -11,10 +11,11 @@ rather than as a rule, because a path cannot be recognised by its type — the s
 get to it. A page that reads `200` as done shows a finished adaptation that has not started.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from comeni_core.artifact.digest import digest_of_directory
 from fastapi import APIRouter, Body, Query, status
+from mendel_forge.catalogue import CatalogueItem, Freshness
 from mendel_forge.workflow import AdaptationState
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +25,15 @@ from mendel_api.services import forge_review as review_service
 from mendel_api.settings import settings
 
 router = APIRouter(prefix="/forge", tags=["forge"])
+
+Adapted = Literal["adapted"]
+"""The one status that is not a `Freshness`: the union of `current` and `outdated`.
+
+It exists because *N of M adaptable* on the overview counts exactly that union, and a person
+clicking that figure means "the ones we have done" rather than "the ones that are up to date".
+Spelled as a `Literal` beside the enum rather than added to `Freshness`, because a sixth member
+would be a sixth thing `counts` has to tally and it is not a state a tool can be in — it is two.
+"""
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
@@ -74,6 +84,38 @@ class Approval(BaseModel):
     """
 
 
+class CatalogueRow(BaseModel):
+    """One tool, and where it stands with us.
+
+    **Two halves that come from two places.** `item` is what upstream published and is a cache
+    of somebody else's words; `standing` is what this installation has done about it. Keeping
+    them as separate objects rather than flattening is what stops a page reading a freshness as
+    though the source had asserted it.
+    """
+
+    model_config = _FROZEN
+
+    item: CatalogueItem
+    standing: forge_catalogue.Standing
+
+
+class CataloguePage(BaseModel):
+    """A slice of the catalogue, and the total it is a slice of.
+
+    **Typed rather than a `dict`, and that is a fix.** This route answered `-> dict`, so
+    `CatalogueItem` never reached the OpenAPI document and the generated client had nothing to
+    describe a tool with — the one screen that lists sixteen hundred of them would have had to
+    hand-write the shape, which is exactly the drift `frontend/src/api/` exists to make
+    impossible. Found on the first consumer.
+    """
+
+    model_config = _FROZEN
+
+    rows: tuple[CatalogueRow, ...] = ()
+    total: int
+    """The count for the CURRENT filter, unlimited by the page — what `1–50 of 1,612` needs."""
+
+
 class Queued(BaseModel):
     """What a `202` carries: the row as it is now, and that work was queued.
 
@@ -100,11 +142,19 @@ def overview() -> forge_overview.Overview:
 def catalogue(
     q: Annotated[str, Query(description="Match the ref, name or summary")] = "",
     source: Annotated[str | None, Query(description="Only this source")] = None,
+    status: Annotated[
+        Freshness | Adapted | None,
+        Query(description="Only tools standing here with us"),
+    ] = None,
     adaptable_only: Annotated[bool, Query(description="Hide what cannot be adapted")] = False,
     limit: Annotated[int, Query(ge=1, le=forge_adaptations.MAX_LIMIT)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> dict:
+) -> CataloguePage:
     """A page of the catalogue, and the total it is a slice of.
+
+    **`status` is a SQL clause, never a filter over the page.** Fetching fifty and dropping the
+    ones that do not match gives a page of eleven under a total of sixteen hundred, and the
+    next page silently skips whatever the first one dropped.
 
     **Offset here and a cursor on adaptations, deliberately.** The catalogue is ordered by
     `(source, ref)` — a stable key that a sync updates in place rather than reordering — so an
@@ -112,20 +162,26 @@ def catalogue(
     A total is also cheap over that ordering and is what a *1 to 50 of 1,612* control needs.
     """
     items, total = forge_catalogue.search(
-        source=source, query=q, adaptable_only=adaptable_only, limit=limit, offset=offset
+        source=source,
+        query=q,
+        status=status.value if status else "",
+        adaptable_only=adaptable_only,
+        limit=limit,
+        offset=offset,
     )
-    return {"items": [item.model_dump(mode="json") for item in items], "total": total}
+    where = forge_catalogue.standing(items)
+    return CataloguePage(
+        rows=tuple(CatalogueRow(item=item, standing=where[item.id]) for item in items),
+        total=total,
+    )
 
 
 @router.get(
     "/catalogue/{item_id}", operation_id="forgeCatalogueItem", summary="One tool, in full"
 )
-def catalogue_item(item_id: str) -> dict:
-    items, _ = forge_catalogue.search(limit=forge_adaptations.MAX_LIMIT)
-    for item in items:
-        if item.id == item_id:
-            return item.model_dump(mode="json")
-    raise KeyError(item_id)
+def catalogue_item(item_id: str) -> CatalogueItem:
+    """One tool, by id — what the catalogue's inspector opens when the row is not on screen."""
+    return forge_catalogue.one(item_id)
 
 
 @router.post(
