@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router";
 
 import {
@@ -10,6 +9,7 @@ import {
 import { useTitle } from "../../app/useTitle";
 import { useUrlState } from "../../app/useUrlState";
 import { Failed, Loading } from "../../ui/States";
+import { ReasonButton } from "./ReasonButton";
 import { LOOK, Mark, Subnav } from "./Status";
 
 /** `/forge/work` — everything in flight, in the order somebody would act on it.
@@ -159,57 +159,21 @@ function Lane({ rows }: { rows: AdaptationRow[] }) {
   );
 }
 
-/** Retry, with the reason the API requires — asked for rather than invented.
+/** Retry, with the reason the API requires.
  *
- * **The endpoint takes a reason and this could have sent a constant.** It does not: a retry
- * writes an event that a person reads six months later, and "retried from the work queue"
- * answers nothing that the timestamp beside it did not.
+ * **One component with the adaptation page's retry and archive**, because they are the same
+ * interaction and the reason for it is the same: a retry writes an event somebody reads six
+ * months later, and a constant would be filling in the audit trail on their behalf.
  */
 function Retry({ row }: { row: AdaptationRow }) {
   const retry = useRetryAdaptation();
-  const [open, setOpen] = useState(false);
-  const [why, setWhy] = useState("");
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="font-data text-label tracking-[.08em] uppercase border border-line-2
-                   rounded-[var(--r)] px-[11px] py-[5px] bg-transparent text-ink hover:bg-surface"
-      >
-        Retry
-      </button>
-    );
-  }
   return (
-    <span className="flex items-center gap-2">
-      <input
-        autoFocus
-        value={why}
-        onChange={(event) => setWhy(event.target.value)}
-        placeholder="Why retry?"
-        aria-label={`Why retry ${row.display_name}`}
-        className="border border-line-2 bg-surface text-ink text-secondary rounded-[var(--r)]
-                   px-2.5 py-1 w-[210px] focus-visible:outline-none
-                   focus-visible:shadow-[var(--ring)]"
-      />
-      <button
-        type="button"
-        disabled={!why.trim() || retry.isPending}
-        onClick={() =>
-          retry.mutate(
-            { id: row.id, reason: why.trim() },
-            { onSuccess: () => setOpen(false) },
-          )
-        }
-        className="font-data text-label tracking-[.08em] uppercase border border-pea text-pea
-                   rounded-[var(--r)] px-[11px] py-[5px] bg-transparent hover:bg-pea-soft
-                   disabled:border-line disabled:text-ink-3 disabled:cursor-not-allowed"
-      >
-        Go
-      </button>
-    </span>
+    <ReasonButton
+      label="Retry"
+      placeholder={`Why retry ${row.display_name || row.ref}?`}
+      busy={retry.isPending}
+      onSend={(reason) => retry.mutate({ id: row.id, reason })}
+    />
   );
 }
 

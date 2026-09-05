@@ -315,7 +315,7 @@ describe("the work queue", () => {
     serve({ "/forge/adaptations": WORK });
     at("/forge/work?band=failed");
     await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(screen.getByLabelText("Why retry bwa")).toBeTruthy();
+    expect(screen.getByLabelText("Why retry bwa?")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Go" }).hasAttribute("disabled")).toBe(true);
   });
 

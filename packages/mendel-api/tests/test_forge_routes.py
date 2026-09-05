@@ -171,15 +171,26 @@ def test_every_forge_operation_has_a_stable_operation_id(client):
     assert len(ids) == len(set(ids)), "two operations share an id"
 
 
-def test_the_surface_is_the_twelve_paths_the_plan_names(client):
+def test_the_surface_is_the_paths_the_plan_names(client):
     """§7 lists them. Held literally so an endpoint arriving without a line in the plan is a
-    diff somebody has to look at."""
+    diff somebody has to look at.
+
+    **Two arrived in Task 11 that §7 does not list**, and they are recorded here rather than
+    waved through: `/candidate` and `/approval`. §8.5 asks the review page for a semantic
+    graph, per-field provenance, side-by-side files, clickable evidence and an approval button
+    that explains itself — and every one of those is a *read* the twelve paths could not
+    answer. `/adaptations/{id}` carries the workflow row and its revisions; the candidate is
+    files in the workspace and the refusals are computed, so neither could be folded in without
+    making the detail response mean two things.
+    """
     schema = client.get("/openapi.json").json()
     assert sorted(p for p in schema["paths"] if p.startswith("/api/forge")) == [
         "/api/forge/adaptations",
         "/api/forge/adaptations/{adaptation_id}",
+        "/api/forge/adaptations/{adaptation_id}/approval",
         "/api/forge/adaptations/{adaptation_id}/approve",
         "/api/forge/adaptations/{adaptation_id}/archive",
+        "/api/forge/adaptations/{adaptation_id}/candidate",
         "/api/forge/adaptations/{adaptation_id}/changes",
         "/api/forge/adaptations/{adaptation_id}/messages",
         "/api/forge/adaptations/{adaptation_id}/retry",

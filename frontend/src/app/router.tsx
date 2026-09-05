@@ -5,6 +5,7 @@ import { Home } from "../home/Home";
 import { ContractRoute } from "../forge/ContractRoute";
 import { Builder } from "../build/Builder";
 import { Queue } from "../forge/Queue";
+import { Adaptation } from "../forge/registry/Adaptation";
 import { Catalogue } from "../forge/registry/Catalogue";
 import { Overview as Registry } from "../forge/registry/Overview";
 import { Work } from "../forge/registry/Work";
@@ -39,6 +40,9 @@ export const routes: RouteObject[] = [
       { path: "/forge", element: <Registry /> },
       { path: "/forge/catalogue", element: <Catalogue /> },
       { path: "/forge/work", element: <Work /> },
+      // **One route owns every state of an adaptation** — §8.4. A refresh, or the candidate
+      // finishing while somebody reads it, never sends the reviewer to a different page.
+      { path: "/forge/adaptations/:id", element: <Adaptation /> },
       { path: "/forge/queue", element: <Queue /> },
       { path: "/forge/queue/question/:subject", element: <Question /> },
       { path: "/forge/tools", element: <Tools /> },

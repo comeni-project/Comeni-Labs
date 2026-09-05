@@ -20,7 +20,13 @@ from mendel_forge.workflow import AdaptationState
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_api.identity import default_author
-from mendel_api.services import forge_adaptations, forge_catalogue, forge_jobs, forge_overview
+from mendel_api.services import (
+    forge_adaptations,
+    forge_candidate,
+    forge_catalogue,
+    forge_jobs,
+    forge_overview,
+)
 from mendel_api.services import forge_review as review_service
 from mendel_api.settings import settings
 
@@ -238,6 +244,36 @@ def adaptation(adaptation_id: str) -> forge_adaptations.Adaptation:
 )
 def revision(adaptation_id: str, revision_id: str) -> forge_adaptations.Revision:
     return forge_adaptations.revision(adaptation_id, revision_id)
+
+
+@router.get(
+    "/adaptations/{adaptation_id}/candidate",
+    operation_id="forgeCandidate",
+    summary="The candidate contract, its provenance and its files",
+)
+def candidate(adaptation_id: str) -> forge_candidate.ReviewCandidate:
+    """What the review page renders — read out of the workspace, never recomputed.
+
+    **404 until something has been scaffolded.** An adaptation still in `scaffolding` has no
+    candidate, and an empty one would read as *the scaffold produced nothing*.
+    """
+    return forge_candidate.candidate(adaptation_id)
+
+
+@router.get(
+    "/adaptations/{adaptation_id}/approval",
+    operation_id="forgeApprovalState",
+    summary="Whether approval is available, and every reason it is not",
+)
+def approval(adaptation_id: str) -> forge_adaptations.ApprovalState:
+    """**Read before the click.** §8.5 asks approval to be disabled with a visible reason, and
+    the reasons are `approval_refusals`' — the same six the POST refuses on, so a button that
+    says it is available and a server that then refuses cannot disagree."""
+    return forge_adaptations.approval(
+        adaptation_id,
+        who=default_author(),
+        registry_digest_now=digest_of_directory(settings.registry_root),
+    )
 
 
 @router.post(

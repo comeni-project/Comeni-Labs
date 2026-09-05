@@ -293,6 +293,31 @@ def request_changes(adaptation_id: str, *, who: str, reason: str) -> AdaptationR
     return detail(adaptation_id).adaptation
 
 
+class ApprovalState(BaseModel):
+    """Whether approval is available, and every reason it is not.
+
+    **Not `Approval`** — that name is the request body on `routes/forge.py`, and two schemas
+    sharing a name make FastAPI module-qualify *both*, which renames a type the frontend was
+    already using. `NeedsYou` is the same lesson one screen over.
+    """
+
+    model_config = _FROZEN
+
+    can_approve: bool
+    refusals: tuple[str, ...] = ()
+    """Coded `MF0301` sentences, all of them at once. `approval_refusals` returns the whole
+    list rather than the first for the reason its docstring gives: six clicks to learn six
+    facts the server knew at the first one."""
+
+
+def approval(adaptation_id: str, *, who: str, registry_digest_now: str) -> ApprovalState:
+    """What the Approve button should say before anybody presses it."""
+    refusals = forge_state.standing(
+        adaptation_id, who=who, registry_digest_now=registry_digest_now
+    )
+    return ApprovalState(can_approve=not refusals, refusals=tuple(refusals))
+
+
 def approve(
     adaptation_id: str, *, who: str, reason: str, registry_digest_now: str
 ) -> AdaptationRow:

@@ -855,6 +855,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/adaptations/{adaptation_id}/candidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The candidate contract, its provenance and its files
+         * @description What the review page renders — read out of the workspace, never recomputed.
+         *
+         *     **404 until something has been scaffolded.** An adaptation still in `scaffolding` has no
+         *     candidate, and an empty one would read as *the scaffold produced nothing*.
+         */
+        get: operations["forgeCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether approval is available, and every reason it is not
+         * @description **Read before the click.** §8.5 asks approval to be disabled with a visible reason, and
+         *     the reasons are `approval_refusals`' — the same six the POST refuses on, so a button that
+         *     says it is available and a server that then refuses cannot disagree.
+         */
+        get: operations["forgeApprovalState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/adaptations/{adaptation_id}/retry": {
         parameters: {
             query?: never;
@@ -1147,6 +1192,23 @@ export interface components {
             reason: string;
             /** Rule Candidate Ids */
             rule_candidate_ids?: string[];
+        };
+        /**
+         * ApprovalState
+         * @description Whether approval is available, and every reason it is not.
+         *
+         *     **Not `Approval`** — that name is the request body on `routes/forge.py`, and two schemas
+         *     sharing a name make FastAPI module-qualify *both*, which renames a type the frontend was
+         *     already using. `NeedsYou` is the same lesson one screen over.
+         */
+        ApprovalState: {
+            /** Can Approve */
+            can_approve: boolean;
+            /**
+             * Refusals
+             * @default []
+             */
+            refusals: string[];
         };
         /**
          * Artifact
@@ -1467,6 +1529,40 @@ export interface components {
             ports: string[];
         };
         /**
+         * Citation
+         * @description One thing a chat answer points at, so the UI can make it clickable.
+         *
+         *     Either an evidence id or a candidate file and line — §5.8's two permitted anchors. A claim
+         *     that cites neither is an opinion, and the curator asked precisely because they wanted to
+         *     check something.
+         */
+        Citation: {
+            kind: components["schemas"]["ClaimKind"];
+            /**
+             * Evidence Id
+             * @default
+             */
+            evidence_id: string;
+            /**
+             * File
+             * @default
+             */
+            file: string;
+            /** Line */
+            line?: number | null;
+        };
+        /**
+         * ClaimKind
+         * @description What sort of thing a claim in a chat answer is.
+         *
+         *     §5.8 asks the answer to distinguish four, and they are here as a closed vocabulary rather
+         *     than as a sentence in the prompt, because the distinction is the whole value of the answer:
+         *     a model proposal presented as a source fact is the failure a review exists to catch, and a
+         *     reviewer skimming prose cannot see which one they are reading.
+         * @enum {string}
+         */
+        ClaimKind: "source_fact" | "derivation" | "proposal" | "reviewer_decision";
+        /**
          * Classification
          * @description One category a source assigns to a tool, with enough context to filter and to explain.
          *
@@ -1570,6 +1666,31 @@ export interface components {
             digest?: string | null;
             /** Platform */
             platform?: string | null;
+        };
+        /**
+         * ContractField
+         * @description One settled field of the candidate contract, and who settled it.
+         */
+        ContractField: {
+            /** Field */
+            field: string;
+            /**
+             * Hole Id
+             * @default
+             */
+            hole_id: string;
+            /** Value */
+            value: string;
+            how: components["schemas"]["ValueSource"];
+            /** By */
+            by: string;
+            /** Why */
+            why: string;
+            /**
+             * Evidence Ids
+             * @default []
+             */
+            evidence_ids: string[];
         };
         /**
          * DataProfile
@@ -1965,6 +2086,18 @@ export interface components {
             excerpt: string | null;
         };
         /**
+         * FilePane
+         * @description One candidate file, whole, with the relative name a reviewer sees.
+         */
+        FilePane: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+            /** Authored */
+            authored: boolean;
+        };
+        /**
          * FilledValue
          * @description A settled hole. Adds nothing to `Answer` — see the spec's §4.2, where that is read
          *     as a signal the base is drawn at about the right place.
@@ -2086,6 +2219,43 @@ export interface components {
             states: string[];
         };
         /**
+         * GraphPort
+         * @description One side of the input/output graph — §8.5's *ports show semantic type and states*.
+         *
+         *     **`origin` is three-valued and not a boolean.** *From the source*, *proposed by a model* and
+         *     *still open* are what the artboard's solid, outlined and dashed marks say, and collapsing
+         *     the last two would draw an unanswered question as an answer.
+         */
+        GraphPort: {
+            /** Channel */
+            channel: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Type Id
+             * @default
+             */
+            type_id: string;
+            /**
+             * States
+             * @default []
+             */
+            states: string[];
+            /**
+             * Origin
+             * @default open
+             */
+            origin: string;
+            /**
+             * Hole Id
+             * @default
+             */
+            hole_id: string;
+        };
+        /**
          * Grouping
          * @enum {string}
          */
@@ -2142,6 +2312,37 @@ export interface components {
          * @enum {string}
          */
         Impact: "routes" | "builds" | "records";
+        /**
+         * IoGraph
+         * @description Inputs on the left, one process node, outputs on the right.
+         *
+         *     **Not `dag-core`.** §8.5 allows it *only if its layout can express this without coupling the
+         *     Forge to builder state*, and it cannot without carrying one: this graph is three columns
+         *     with no edges to route, and `dag-core` answers *where do nodes go in a DAG*. Using it here
+         *     would be importing a layout engine to place three boxes in a row.
+         */
+        IoGraph: {
+            /**
+             * Process
+             * @default
+             */
+            process: string;
+            /**
+             * Consumes
+             * @default []
+             */
+            consumes: components["schemas"]["GraphPort"][];
+            /**
+             * Produces
+             * @default []
+             */
+            produces: components["schemas"]["GraphPort"][];
+            /**
+             * Params
+             * @default 0
+             */
+            params: number;
+        };
         /** Kept */
         Kept: {
             /** Path */
@@ -2279,6 +2480,68 @@ export interface components {
              */
             outdated_count: number;
         };
+        /**
+         * NumberedExcerpt
+         * @description An `Excerpt` with an address a model can cite and a reviewer can click.
+         *
+         *     **The id is assigned by the base adapter, in a deterministic order.** An adapter numbering
+         *     its own would be free to renumber between two syncs, and a stored review citing `E014`
+         *     would then point at different text than the reviewer read.
+         */
+        NumberedExcerpt: {
+            /** Id */
+            id: string;
+            excerpt: components["schemas"]["Excerpt"];
+            /**
+             * Kind
+             * @default prose
+             */
+            kind: string;
+        };
+        /**
+         * OpenHole
+         * @description A question still open on this candidate.
+         *
+         *     Carried in full — `question`, `why_open`, the legal values and whether that list is the
+         *     whole of what is legal — because §8.4 asks the scaffold summary to link each hole to its
+         *     evidence and its prompt hint, and a page given only an id would have to invent the sentence.
+         */
+        OpenHole: {
+            /** Id */
+            id: string;
+            /** Pointer */
+            pointer: string;
+            /** Kind */
+            kind: string;
+            /** Question */
+            question: string;
+            /** Why Open */
+            why_open: string;
+            /** Required */
+            required: boolean;
+            /**
+             * Legal Values
+             * @default []
+             */
+            legal_values: string[];
+            /**
+             * Exhaustive
+             * @default true
+             */
+            exhaustive: boolean;
+            /** Suggested */
+            suggested?: string | null;
+            /**
+             * Evidence Ids
+             * @default []
+             */
+            evidence_ids: string[];
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+        };
         /** OpenQuestion */
         OpenQuestion: {
             /** @default question */
@@ -2321,6 +2584,32 @@ export interface components {
          * @enum {string}
          */
         Ordering: "consequence" | "recent";
+        /**
+         * Origins
+         * @description How many values came from where. §8.5's provenance summary, counted once.
+         */
+        Origins: {
+            /**
+             * Derived
+             * @default 0
+             */
+            derived: number;
+            /**
+             * Model
+             * @default 0
+             */
+            model: number;
+            /**
+             * Human
+             * @default 0
+             */
+            human: number;
+            /**
+             * Open
+             * @default 0
+             */
+            open: number;
+        };
         /** Overview */
         Overview: {
             /**
@@ -2608,6 +2897,52 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /**
+         * ReviewCandidate
+         * @description Everything the review page renders about one candidate.
+         *
+         *     One response rather than five, for the reason `detail` gives: a graph from one moment beside
+         *     a hole list from another shows a port as settled that the hole list says is open.
+         */
+        ReviewCandidate: {
+            /** Adaptation Id */
+            adaptation_id: string;
+            graph: components["schemas"]["IoGraph"];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: components["schemas"]["ContractField"][];
+            /**
+             * Holes
+             * @default []
+             */
+            holes: components["schemas"]["OpenHole"][];
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: components["schemas"]["NumberedExcerpt"][];
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FilePane"][];
+            /**
+             * @default {
+             *       "derived": 0,
+             *       "model": 0,
+             *       "human": 0,
+             *       "open": 0
+             *     }
+             */
+            origins: components["schemas"]["Origins"];
+            /**
+             * Source Digest
+             * @default
+             */
+            source_digest: string;
         };
         /** Revision */
         Revision: {
@@ -2903,8 +3238,11 @@ export interface components {
             state: components["schemas"]["MessageState"];
             /** Content */
             content: string;
-            /** Citations */
-            citations: unknown[];
+            /**
+             * Citations
+             * @default []
+             */
+            citations: components["schemas"]["Citation"][];
             /** Revision Id */
             revision_id?: string | null;
             /**
@@ -4440,6 +4778,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Revision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewCandidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeApprovalState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalState"];
                 };
             };
             /** @description Validation Error */

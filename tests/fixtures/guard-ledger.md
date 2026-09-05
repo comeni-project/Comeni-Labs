@@ -4582,3 +4582,45 @@ though nothing had ever been adapted. `LandedSource` is now read from `ForgeAdap
 source_digest`, which is a narrower claim than the registry would make and the only one anything
 can currently answer; the caveat is on `landed_of`.
 
+## The review page — 2026-09-05
+
+Task 11: one route for every state of an adaptation, and the screen where a person decides
+whether a candidate is true. **The claim every guard here protects is one sentence** — a model's
+proposal must be distinguishable from a fact read off the source — and it is the claim the whole
+product rests on, so it is worth naming which guards actually hold it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_candidate.py::test_a_port_says_whether_it_was_read_or_proposed` | `origin` hard-coded to `derived` | failed | a proposal reported as a source fact |
+| 2026-09-05 | `Adaptation.test.tsx::tells a model's proposal from a source fact on the graph` | `LOOK[port.origin]` → `LOOK.derived` | failed | `Unable to find an element with the title: AI proposed` |
+| 2026-09-05 | `test_forge_candidate.py::test_a_hole_and_its_field_address_one_thing` | the join keyed on `hole.id` instead of `_key(hole.pointer)` | failed | a settled field lost its hole id, its evidence and its inspector |
+| 2026-09-05 | `test_forge_candidate.py::test_a_value_keeps_its_json_spelling` | `json.dumps` → `str` | failed | `['coordinate_sorted']` and `coordinate_sorted` rendered alike |
+| 2026-09-05 | `test_forge_state.py::test_approval_reports_every_condition_at_once` | `standing` sliced to `[:1]` | failed | `assert 1 > 1` — six clicks to learn six facts |
+| 2026-09-05 | `Adaptation.test.tsx::explains every blocking condition at once` | `<WhyBlocked>` removed from the Overview tab | failed | a disabled Approve with no visible reason |
+| 2026-09-05 | `Adaptation.test.tsx::shows a pending turn immediately` | the pending branch made unreachable | failed | *sent* and *lost* looked the same for 227 seconds |
+| 2026-09-05 | `tokens.test.ts::names no colour outside the token file` | — | **fired on the first run** | the modal scrim was `rgba(8,11,13,.72)` in a component |
+| 2026-09-05 | `test_forge_routes.py::test_the_surface_is_the_paths_the_plan_names` | — | **fired on the first run** | `/candidate` and `/approval` were not in §7's twelve |
+| 2026-09-05 | `test_openapi.py::test_every_operation_is_named_by_hand` | — | **fired on the first run** | two operations the literal table did not name |
+
+**One probe was inert and the fix was to the probe, not to the guard.** Setting
+`revision_id=None` in `standing` *adds* a refusal, so `len(refusals) > 1` still held — the
+revert did not reproduce the defect the test is about. Slicing the result to `[:1]` does, and
+that is what the row above records. A revert that leaves a guard green is only evidence when the
+revert actually is the defect; otherwise it is a revert that proves nothing, which is exactly the
+shape W2's batching test had.
+
+**A fixture bug cost three rounds and is worth writing down.** `Adaptation.test.tsx` routes a
+stubbed `fetch` by path, and `/api/forge/adaptations/ad-1` is a *prefix* of
+`.../ad-1/candidate` — so a `includes()` router answered the candidate request with the detail
+body, and the page rendered *nothing has been scaffolded* against a fixture that had one, or
+crashed on a field the wrong body lacks. Matching the **longest** fragment inverted the bug
+rather than fixing it, because `/adaptations/ad-1` is the longer string. Matching the path's
+**tail** is the rule that actually distinguishes a resource from its sub-resource, and it makes
+an endpoint the map does not name a 404 — which several of those tests are about.
+
+**A `str` and a JSON string are the same width on a screen.** `ContractField.value` is JSON
+rather than `str(value)` because `['coordinate_sorted']` and `coordinate_sorted` render
+identically otherwise, on the one screen whose job is to show exactly what will be written. That
+is the same class as `frozenset` having no stable order: a difference the reader cannot see is a
+difference the reader cannot check.
+

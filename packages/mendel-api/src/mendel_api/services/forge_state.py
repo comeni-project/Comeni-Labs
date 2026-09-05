@@ -295,6 +295,40 @@ def request_changes(adaptation_id: str, *, row_version: int, who: str, reason: s
     )
 
 
+def standing(adaptation_id: str, *, who: str, registry_digest_now: str) -> list[str]:
+    """Every condition approval is currently failing, as `approve` would report them.
+
+    **The page has to be able to ask this before the button is pressed.** §8.5: *approval is
+    disabled with a visible reason* — a disabled button that says nothing makes a reviewer guess
+    which of six conditions is unmet, and a button that is enabled and then refuses makes them
+    guess after doing the work.
+
+    `reason` is passed as a placeholder because it is the one condition that is about the form
+    rather than about the candidate: a reviewer who has typed nothing yet is not *blocked*, and
+    reporting "approval needs a reason" beside "the registry moved" would put a field they are
+    about to fill in beside a fact they cannot change.
+    """
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation_id)
+        if row is None:
+            raise KeyError(adaptation_id)
+        revision = (
+            session.get(ForgeRevision, row.current_revision_id)
+            if row.current_revision_id
+            else None
+        )
+        return approval_refusals(
+            revision_id=row.current_revision_id,
+            revision_state=RevisionState(revision.state) if revision else None,
+            unresolved_required=revision.unresolved_required if revision else 0,
+            validation_green=bool(revision and revision.green),
+            who=who,
+            reason="(not yet given)",
+            registry_digest_at_validation=row.registry_digest,
+            registry_digest_now=registry_digest_now,
+        )
+
+
 def approve(
     adaptation_id: str, *, row_version: int, who: str, reason: str, registry_digest_now: str
 ) -> Moved:

@@ -42,6 +42,13 @@
      opaque, which turned every band into a card floating on a backdrop — the single biggest
      reason the built page and its artboard did not look like the same design. */
   --panel: rgba(12, 18, 22, .62);
+  /* What a modal lays over the page. **A role `--panel` could not fill**: a panel is
+     translucent so the arc field reads *through* it, and a scrim exists to stop the page
+     underneath competing for attention — same technique, opposite purpose, and using one for
+     the other gives a dialog that the field shows through. Darker than `--panel` for that
+     reason, and it is the ground colour rather than the panel's, so it reads as the lights
+     going down rather than as another surface. */
+  --scrim: rgba(8, 11, 13, .72);
   /* The field's CRT scan line. A texture rather than a surface, which is why it is
      an alpha over whatever it lands on and not a colour. */
   --scan-line: rgba(255, 255, 255, .010);
@@ -120,6 +127,7 @@
     --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
   --line-soft: #E7ECE9;
   --panel: rgba(255, 255, 255, .72);
+  --scrim: rgba(18, 21, 26, .45);
     --scan-line: rgba(0, 0, 0, .012);
     --rule-line: rgba(60, 110, 160, .045);
   --rule-line: rgba(60, 110, 160, .045);
@@ -146,6 +154,7 @@
   --line: #DCE2DF; --line-2: #C4CDC8; --link-line: #B6D4F0;
   --line-soft: #E7ECE9;
   --panel: rgba(255, 255, 255, .72);
+  --scrim: rgba(18, 21, 26, .45);
   --scan-line: rgba(0, 0, 0, .012);
   --rule-line: rgba(60, 110, 160, .045);
   --pea: #2C6E49; --pea-soft: #E4EEE8; --on-pea: #FFFFFF;

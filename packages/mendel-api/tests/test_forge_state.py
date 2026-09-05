@@ -492,3 +492,38 @@ def test_archiving_a_row_a_worker_holds_is_refused_before_the_database_is_touche
             reason="changed my mind",
         )
     assert _state(adaptation)[0] is AdaptationState.GENERATING
+
+
+# ── what the Approve button reads before anybody presses it ───────────────────────────
+
+
+def test_approval_reports_every_condition_at_once(item):
+    """**All of them, not the first.** `approval_refusals` returns the whole list for the reason
+    its docstring gives — six clicks to learn six facts the server knew at the first one — and a
+    read that stopped early would put the page back to reporting them one at a time.
+
+    A fresh adaptation fails several: no revision, nothing validated, no reason. What is asserted
+    is the count rather than the wording, because the wording is `MF0301`'s and is tested where
+    it is written.
+    """
+    adaptation = forge_state.begin(item, who="rafael")
+
+    refusals = forge_state.standing(adaptation, who="rafael", registry_digest_now="41a9")
+    assert len(refusals) > 1, "a single refusal means the read stopped at the first condition"
+    assert all(refusal.startswith("MF0301") for refusal in refusals)
+
+
+def test_approval_does_not_refuse_on_a_reason_nobody_has_typed_yet(item):
+    """**The one condition that is about the form rather than the candidate.** A reviewer who
+    has typed nothing is not *blocked*; reporting "approval needs a reason" beside "the registry
+    moved" puts a field they are about to fill in next to a fact they cannot change."""
+    adaptation = forge_state.begin(item, who="rafael")
+
+    refusals = forge_state.standing(adaptation, who="rafael", registry_digest_now="41a9")
+    assert not any("needs a reason" in refusal for refusal in refusals)
+
+
+def test_approval_of_a_missing_adaptation_is_a_key_error(clean_forge):
+    with pytest.raises(KeyError):
+        forge_state.standing("no-such-adaptation", who="rafael", registry_digest_now="41a9")
+

@@ -13,6 +13,7 @@ one. That is also what makes it safe to ask a question while a generation is run
 from datetime import UTC, datetime
 
 from comeni_core.diagnostics import coded
+from mendel_forge.ai.schemas import Citation
 from mendel_forge.workflow import MessageRole, MessageState
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
@@ -40,7 +41,11 @@ class Turn(BaseModel):
     role: MessageRole
     state: MessageState
     content: str
-    citations: list
+    citations: tuple[Citation, ...] = ()
+    """**Typed, so the page can make each one clickable.** It was a bare `list`, which reaches
+    the generated client as `unknown[]` — and §5.8's whole argument for an envelope rather than
+    prose is that a claim resting on a source fact and one resting on a model proposal must be
+    told apart by a reader. An untyped list puts that distinction where nothing can read it."""
     revision_id: str | None = None
     at: datetime
 

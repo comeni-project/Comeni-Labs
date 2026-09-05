@@ -25,6 +25,18 @@ export type AdaptationPage = S["Page"];
 export type Adaptation = S["Adaptation"];
 export type Revision = S["Revision"];
 export type AdaptationState = S["AdaptationState"];
+export type Event = S["Event"];
+export type ReviewCandidate = S["ReviewCandidate"];
+export type ContractField = S["ContractField"];
+export type OpenHole = S["OpenHole"];
+export type GraphPort = S["GraphPort"];
+export type FilePane = S["FilePane"];
+export type IoGraph = S["IoGraph"];
+export type Origins = S["Origins"];
+export type NumberedExcerpt = S["NumberedExcerpt"];
+export type ApprovalState = S["ApprovalState"];
+export type Turn = S["Turn"];
+export type Citation = S["Citation"];
 export type CatalogueItem = S["CatalogueItem"];
 export type CatalogueRow = S["CatalogueRow"];
 export type CataloguePage = S["CataloguePage"];
@@ -135,6 +147,43 @@ export function useAdaptation(id: string | undefined) {
   });
 }
 
+/** The candidate a reviewer reads — read out of the workspace, so it changes only when a job
+ *  writes one. It follows the adaptation's own tick rather than having a second answer to
+ *  *is this still moving*. */
+export function useCandidate(id: string | undefined, moving: boolean) {
+  return useQuery({
+    queryKey: ["forge", "candidate", id],
+    queryFn: () => get<ReviewCandidate>(`/forge/adaptations/${id}/candidate`),
+    enabled: Boolean(id),
+    refetchInterval: moving ? TICK : false,
+    // **A 404 here is an ordinary state, not a failure.** An adaptation still scaffolding has
+    // no candidate yet, and retrying three times with backoff would make the page spin on the
+    // one state where it has something useful to say.
+    retry: false,
+  });
+}
+
+/** Why Approve is disabled, before anybody presses it. Recomputed against the registry as it
+ *  is *now*, which is the one condition that can go stale while nobody touches the page. */
+export function useApproval(id: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["forge", "approval", id],
+    queryFn: () => get<ApprovalState>(`/forge/adaptations/${id}/approval`),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+/** The whole thread, oldest first. Ticks while a turn is pending, and stops when none is. */
+export function useConversation(id: string | undefined) {
+  return useQuery({
+    queryKey: ["forge", "messages", id],
+    queryFn: () => get<Turn[]>(`/forge/adaptations/${id}/messages`),
+    enabled: Boolean(id),
+    refetchInterval: (query) =>
+      query.state.data?.some((turn) => turn.state === "pending") ? TICK : false,
+  });
+}
+
 function useForgeMutation<T>(run: (body: T) => Promise<unknown>) {
   const client = useQueryClient();
   return useMutation({
@@ -163,5 +212,31 @@ export function useStartAdaptation() {
 export function useRetryAdaptation() {
   return useForgeMutation<{ id: string; reason: string }>(({ id, reason }) =>
     post<unknown>(`/forge/adaptations/${id}/retry`, { reason }),
+  );
+}
+
+export function useAsk(id: string) {
+  return useForgeMutation<string>((message) =>
+    post<{ message: Turn; queued: boolean }>(`/forge/adaptations/${id}/messages`, { message }),
+  );
+}
+
+/** **Not `reject`** — §1.6's word, and the reason is that a terminal word makes an ordinary
+ *  correction feel destructive. The candidate being corrected is kept. */
+export function useRequestChanges(id: string) {
+  return useForgeMutation<string>((reason) =>
+    post<unknown>(`/forge/adaptations/${id}/changes`, { reason }),
+  );
+}
+
+export function useApprove(id: string) {
+  return useForgeMutation<{ reason: string; rule_candidate_ids: string[] }>((body) =>
+    post<unknown>(`/forge/adaptations/${id}/approve`, body),
+  );
+}
+
+export function useArchive(id: string) {
+  return useForgeMutation<string>((reason) =>
+    post<unknown>(`/forge/adaptations/${id}/archive`, { reason }),
   );
 }
