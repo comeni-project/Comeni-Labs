@@ -24,6 +24,8 @@ from mendel_forge.scaffold import Scaffold
 
 if TYPE_CHECKING:  # `bundle` imports nothing from here, and this keeps it that way
     from mendel_forge.bundle import ScaffoldBundle
+    from mendel_forge.catalogue import SourceBundle
+    from mendel_forge.hole_manifest import ScaffoldHole
 
 _NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -92,7 +94,46 @@ class Workspace(BaseModel):
 
     # ── the adaptation bundle ──────────────────────────────────────────────────────────
 
-    def write_bundle(self, bundle: "ScaffoldBundle") -> Path:
+    def read_source(self, adaptation_id: str) -> "SourceBundle":
+        """The fetched source, as it was when the scaffold was built.
+
+        **Stored rather than re-fetched, and that is a queue decision.** The dossier needs the
+        evidence excerpts, and they live on the `SourceBundle` rather than on the scaffold. A
+        generation job that re-fetched would be the AI worker reaching GitHub — exactly the
+        arrangement the two-queue split exists to prevent, and it would also mean the model saw
+        a source that had moved since the holes were computed.
+        """
+        from mendel_forge.catalogue import SourceBundle
+
+        path = self.root / "forge" / adaptation_id / "source.json"
+        if not path.exists():
+            raise ValueError(
+                coded("MF0008", f"no stored source for adaptation {adaptation_id!r}")
+                + "\n  the scaffold job writes it; this adaptation was never scaffolded"
+            )
+        return SourceBundle.model_validate_json(path.read_text())
+
+    def read_holes(self, adaptation_id: str) -> tuple["ScaffoldHole", ...]:
+        """The questions the scaffold opened, read back from the manifest beside the files.
+
+        Read from `bundle.json` rather than recomputed, for the reason `read_source` gives and
+        one more: the manifest is what a reviewer sees, so a hole a model was asked about and a
+        hole a page renders come from one document rather than two derivations that agree today.
+        """
+        from mendel_forge.bundle import MANIFEST
+        from mendel_forge.hole_manifest import ScaffoldHole
+
+        path = self.root / "forge" / adaptation_id / MANIFEST
+        if not path.exists():
+            raise ValueError(
+                coded("MF0008", f"no bundle manifest for adaptation {adaptation_id!r}")
+            )
+        stored = json.loads(path.read_text())
+        return tuple(ScaffoldHole.model_validate(hole) for hole in stored.get("holes", ()))
+
+    def write_bundle(
+        self, bundle: "ScaffoldBundle", *, source: "SourceBundle | None" = None
+    ) -> Path:
         """Write one adaptation's directory, and hand back its root.
 
         **This is the only thing in `mendel-forge` that writes a bundle**, and `bundle.py`
@@ -118,7 +159,16 @@ class Workspace(BaseModel):
                 coded("MF0010", f"an adaptation directory already exists at {root.name}")
                 + "\n  a source bundle is immutable — a new attempt is a new revision inside it"
             )
-        for relative, text in (*bundle.files(), (bundle.manifest_path(), _manifest(bundle))):
+        written = [*bundle.files(), (bundle.manifest_path(), _manifest(bundle))]
+        if source is not None:
+            # **The immutable half, kept whole.** The bundle carries the derived files and the
+            # holes; the evidence excerpts and the read facts live only here, and a generation
+            # job needs them to build a dossier. Storing it is what lets the AI worker stay off
+            # the network — see `read_source`.
+            written.append(
+                (f"forge/{bundle.adaptation_id}/source.json", source.model_dump_json(indent=2))
+            )
+        for relative, text in written:
             target = self._inside(relative)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)

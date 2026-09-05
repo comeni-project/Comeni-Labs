@@ -489,17 +489,57 @@ def derive(
     the key `assemble.contract_from` reads when the draft is finally assembled. Normalising
     `settled` would make the bundle prettier and make Task 6 convert it back.
     """
+    built, _, _ = derive_all(
+        source,
+        stack,
+        adaptation_id=adaptation_id,
+        registry_digest=registry_digest,
+        version=version,
+    )
+    return built
+
+
+def derive_all(
+    source: SourceBundle,
+    stack: Layers,
+    *,
+    adaptation_id: str,
+    registry_digest: str,
+    version: str = "",
+) -> tuple[ScaffoldBundle, Scaffold, str | None]:
+    """`derive`, plus the two things a worker needs afterwards and cannot cheaply recompute.
+
+    The bundle is the *record* — immutable, written once, byte-identical for identical inputs.
+    The `Scaffold` is the *working object*: it is what `Scaffold.fill` moves, what `land.py`
+    reads, and what a curator's answer and a model's answer both go into. The module text is the
+    skeleton for a source that ships none.
+
+    **They are returned together because recomputing them means fetching the source again.**
+    `derive` is deterministic, so a second call would produce the same `Scaffold` — but only
+    given the same `SourceBundle`, which lives at the other end of a network call. A generation
+    job re-deriving would be a model worker reaching GitHub, which is the arrangement Task 7's
+    queue split exists to prevent.
+
+    `derive` stays as the one-value entry point because most callers — the goldens, the tests,
+    the CLI — want the bundle and nothing else, and a three-tuple at every one of those call
+    sites would be two unused names apiece.
+    """
     ident = f"{source.item.source}/{source.item.ref}"
     observation = observation_of(source, ident=ident)
     derived = assemble.scaffold_for(
         observation, stack, ident=ident, version=version or source.item.latest_version or "0"
     )
     settled = derived.filled.get("process")
-    return scaffold(
+    module = module_for(
+        source.item,
+        process=str(settled.value) if settled else _process_name(source.item.ref),
+    )
+    holes = holes_of(derived, observation)
+    built = scaffold(
         adaptation_id=adaptation_id,
         source=source,
         registry_digest=registry_digest,
-        holes=(holes := holes_of(derived, observation)),
+        holes=holes,
         contract={
             "id": derived.filled["id"].value,
             "kind": derived.kind.value,
@@ -507,11 +547,9 @@ def derive(
             "settled": {name: value.value for name, value in sorted(derived.filled.items())},
             "open": [hole.id for hole in holes],
         },
-        module=module_for(
-            source.item,
-            process=str(settled.value) if settled else _process_name(source.item.ref),
-        ),
+        module=module,
     )
+    return built, derived, module
 
 
 def _process_name(ref: str) -> str:

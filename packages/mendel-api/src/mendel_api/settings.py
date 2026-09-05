@@ -36,6 +36,25 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 
+    ai_model: str = ""
+    """The LiteLLM model id the AI worker calls — `ollama/qwen2.5-coder:14b`, say.
+
+    **Empty by default, and that is the no-AI lane rather than a missing setting.** A laboratory
+    that wants no model calls does not configure this, which is stronger than a flag: there is
+    nothing to reach a provider *with*. `generate_forge_revision` fails the adaptation with
+    `MI0106` rather than crashing, so the reason shows up on the page instead of in a log.
+
+    Task 12 supplies it through Compose as `MENDEL_AI_MODEL`; nothing about the code changes
+    between a local Ollama and a hosted provider, which is invariant 13.
+    """
+    ai_base_url: str = ""
+    """An OpenAI-compatible endpoint, when the model is served rather than hosted. Empty means
+    the provider's own."""
+    ai_context_tokens: int = 32_000
+    """What the configured model can hold. The dossier is budgeted against it — see
+    `mendel_forge.ai.context.Budget`, which reserves room for the answer because a context
+    window is shared between the prompt and the response."""
+
     ai_max_jobs: int = 1
     """How many provider calls the AI worker runs at once.
 

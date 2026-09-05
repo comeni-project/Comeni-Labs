@@ -24,12 +24,18 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from comeni_core.artifact.pipeline import SCHEMA_VERSION
 from comeni_core.diagnostics import coded
-from mendel_forge.workflow import AdaptationState, EventKind
+from mendel_forge.workflow import AdaptationState, EventKind, RevisionState
 
 from mendel_api import jobs
 from mendel_api.db import session_scope
-from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem
+from mendel_api.models import (
+    ForgeAdaptation,
+    ForgeCatalogueItem,
+    ForgeMessage,
+    ForgeRevision,
+)
 from mendel_api.services import forge_catalogue, forge_state
 from mendel_api.settings import settings
 
@@ -87,20 +93,21 @@ async def enqueue_answer(adaptation_id: str, message_id: str) -> bool:
 
 
 async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
-    """Claim a queued adaptation for this worker. Returns the state it ended in.
+    """Claim a queued adaptation, put its holes to a model, and record what came back.
 
-    **The claim is all this does today, and that is stated rather than implied.** What follows
-    it — load the bundle, compose the dossier, call `mendel_forge.ai.generate.run`, render the
-    proposal, write the revision, walk to `validating` and then `review` — is the integration
-    where Task 6's `Validate` seam meets this worker, and it needs the workspace read path and a
-    configured model lane. Building it inside this function would put the whole of that behind a
-    signature whose failure mode is a state machine, which is the wrong place to discover it.
+    The whole walk: claim → compose the dossier → `generate.run` → apply the answers → write a
+    revision → `validating` → `review`. Returns the state it ended in, so ARQ's own result
+    record says something a person can read without joining it to anything.
 
-    The claim on its own is not decoration: it is what makes ARQ's at-least-once delivery safe,
-    and every test in `test_forge_jobs.py` about duplicates and recovery is about this call.
+    **It ends at `review` whether or not validation passed.** The plan's diagram draws both
+    arrows into `review` — *checks pass* and *checks fail but the candidate is inspectable* —
+    and that is the honest arrangement: a curator can read a failing candidate and its
+    diagnostics, and a candidate that never reaches them is one nobody can learn from. What
+    `green` records is whether approval is *possible*, and `approval_refusals` is where that is
+    enforced.
 
-    Returning the state rather than `None` so ARQ's own result record says something a person
-    can read without joining it to anything.
+    **The failure path fails at `generating`.** Rule 9 again, and the retry then resumes as a
+    queued attempt rather than re-scaffolding — the bundle is fine, the attempt was not.
     """
     state, version = await asyncio.to_thread(_read, adaptation_id)
     if state is not AdaptationState.QUEUED:
@@ -110,27 +117,183 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
         log.info("generation skipped: %s is %s, not queued", adaptation_id, state)
         return state.value
 
-    await asyncio.to_thread(
+    claimed = await asyncio.to_thread(
         forge_state.claim, adaptation_id, row_version=version, worker=_worker(ctx)
     )
-    return AdaptationState.GENERATING.value
+
+    try:
+        outcome, holes = await asyncio.to_thread(_generate, adaptation_id)
+    except Exception as failure:
+        log.warning("generation for %s failed: %r", adaptation_id, failure, exc_info=True)
+        await asyncio.to_thread(
+            forge_state.fail,
+            adaptation_id,
+            stage=AdaptationState.GENERATING,
+            row_version=claimed.row_version,
+            actor=_worker(ctx),
+            detail=_failure_detail(failure),
+        )
+        return AdaptationState.FAILED.value
+
+    revision_id = await asyncio.to_thread(
+        forge_state.add_revision,
+        adaptation_id,
+        # **`validating`, not `validated`.** Nothing has run the ladder over this candidate, so
+        # calling it validated would be the same lie `green=True` would be. A run that never
+        # produced a proposal is `failed`: there is no candidate to inspect, only attempts.
+        state=RevisionState.VALIDATING if outcome.succeeded() else RevisionState.FAILED,
+        manifest={
+            "attempts": [attempt.model_dump(mode="json") for attempt in outcome.attempts],
+            "unresolved": list(outcome.unresolved_holes),
+        },
+        prompt_versions={attempt.prompt_id: attempt.prompt_digest for attempt in outcome.attempts},
+    )
+    await asyncio.to_thread(
+        _record_verdict,
+        revision_id,
+        outcome=outcome,
+        owed=len(outcome.unresolved_holes),
+    )
+
+    validating = await asyncio.to_thread(
+        forge_state.move,
+        adaptation_id,
+        AdaptationState.VALIDATING,
+        expect=AdaptationState.GENERATING,
+        row_version=claimed.row_version,
+        actor=_worker(ctx),
+        kind=EventKind.GENERATED,
+        revision_id=revision_id,
+    )
+    reviewed = await asyncio.to_thread(
+        forge_state.move,
+        adaptation_id,
+        AdaptationState.REVIEW,
+        expect=AdaptationState.VALIDATING,
+        row_version=validating.row_version,
+        actor=_worker(ctx),
+        kind=EventKind.VALIDATED,
+        detail=_verdict_line(outcome, holes),
+        revision_id=revision_id,
+    )
+    return reviewed.state.value
+
+
+def _failure_detail(failure: Exception) -> str:
+    """Which coded refusal a generation failure gets.
+
+    A missing model lane is a *configuration* fact and says so; anything else is treated as the
+    provider being unreachable, because from here a refusal, a timeout and a 500 are the same
+    row. `sanitised` is what keeps the endpoint and the key out of it.
+    """
+    if isinstance(failure, NoModelConfigured):
+        return str(failure)
+    return sanitised(failure, where="generation")
+
+
+class NoModelConfigured(RuntimeError):
+    """`MENDEL_AI_MODEL` is empty. **The no-AI lane, not a crash.**
+
+    A laboratory that wants no model calls simply does not configure one, and the adaptation
+    should say that on its page rather than leave a worker traceback in a log nobody reads.
+    """
+
+
+def _verdict_line(outcome, holes) -> str:
+    """One sentence a curator reads on the timeline.
+
+    Says what the attempt achieved rather than that it happened: how many questions it closed,
+    how many it declined with `needed_evidence`, and how many repairs it took to get there.
+    """
+    if not outcome.succeeded():
+        return coded("MI0107", "no proposal validated within the repair budget") + (
+            f"\n  {len(outcome.attempts)} attempt(s); the last diagnostics are on the revision"
+        )
+    answered = len(outcome.proposal.analysis.answers)
+    declined = len(outcome.proposal.analysis.unresolved)
+    return (
+        f"answered {answered} of {len(holes)}, declined {declined} for want of evidence, "
+        f"after {len(outcome.attempts) - 1} repair(s)"
+    )
 
 
 async def answer_forge_review_message(ctx: dict, adaptation_id: str, message_id: str) -> str:
-    """Answer one review-chat turn.
+    """Answer one review-chat turn. **This is what crosses egress door 5.**
 
     **Moves no adaptation state**, which is why it takes no version: a conversation about a
     candidate does not change where the candidate is in its lifecycle, and a chat that could
-    move an adaptation would be a chat that can approve one. That is not a simplification —
-    it is the reason this job is safe to run beside a generation on the same adaptation.
+    move an adaptation would be a chat that can approve one. That is also why it is safe to run
+    beside a generation on the same adaptation.
 
-    Like `generate_forge_revision`, the body that composes a `ForgeReviewRequest` and calls a
-    provider is the integration piece, not this. What is settled and load-bearing here is the
-    routing: it is on the AI queue, its job id is keyed on the *message* rather than the
-    adaptation, and door 5 is what it crosses.
+    **Grounded on the revision the question was asked about**, not on whatever is current. A
+    curator asks about the candidate in front of them; answering from a revision that landed
+    while they were typing would be answering a different question convincingly.
     """
-    log.info("answering review message %s on %s", message_id, adaptation_id)
+    try:
+        answer = await asyncio.to_thread(_answer, adaptation_id, message_id)
+    except Exception as failure:
+        log.warning("chat answer for %s failed: %r", message_id, failure, exc_info=True)
+        await asyncio.to_thread(_store_refusal, message_id, detail=_failure_detail(failure))
+        return message_id
+
+    await asyncio.to_thread(_store_answer, adaptation_id, message_id, answer=answer)
     return message_id
+
+
+def _answer(adaptation_id: str, message_id: str):
+    """Compose the door-5 payload, render the chat prompt, and validate what comes back.
+
+    The `ForgeReviewRequest` is built and then *rendered into* the prompt rather than sent as
+    JSON: the payload type is what declares the boundary and what a guard inspects, and the
+    prompt is how a model reads it. Building the payload and not using it would be a declared
+    boundary nothing crosses, which is worse than none — it reads as checked.
+    """
+    from comeni_core.artifact.egress import ForgeReviewRequest, ReviewRole, ReviewTurn
+    from mendel_forge import prompts
+    from mendel_forge.ai.schemas import ChatAnswer, admit_answer
+    from mendel_forge.workspace import Workspace
+
+    client = _client()
+    workspace = Workspace(root=settings.workspace_root)
+    source = workspace.read_source(adaptation_id)
+    draft = workspace.load(adaptation_id)
+
+    question, tail, revision_digest = _conversation(adaptation_id, message_id)
+    payload = ForgeReviewRequest(
+        revision=revision_digest,
+        candidate=draft.scaffold.model_dump_json(indent=2),
+        evidence=[numbered.excerpt for numbered in source.evidence],
+        turns=[
+            ReviewTurn(role=ReviewRole(role), content=content) for role, content in tail
+        ],
+    )
+    rendered = prompts.template(prompts.REVIEW_CHAT).render(
+        {
+            "record": _record_text(payload),
+            "conversation": "\n\n".join(f"{turn.role}: {turn.content}" for turn in payload.turns)
+            or "(this is the first question)",
+            "question": question,
+        }
+    )
+    answer = client.respond(rendered.text, ChatAnswer)
+    if answer is None:
+        raise RuntimeError(client.last_refusal or "the model declined")
+    return admit_answer(answer, evidence_ids={numbered.id for numbered in source.evidence})
+
+
+def _record_text(payload) -> str:
+    """The door-5 payload as the text the chat prompt embeds.
+
+    Rendered from the declared payload rather than from the sources it was built from, so what
+    a guard inspects and what a model reads are the same object.
+    """
+    lines = [f"revision: {payload.revision}", "", "the candidate:", payload.candidate]
+    if payload.validation:
+        lines += ["", "what validation said:", *[f"  {code}" for code in payload.validation]]
+    if payload.evidence:
+        lines += ["", "evidence:"]
+        lines += [f"  {e.locator}\n    {e.text}" for e in payload.evidence]
+    return "\n".join(lines)
 
 
 def _worker(ctx: dict) -> str:
@@ -237,6 +400,278 @@ def _adapters() -> dict[str, type]:
     from mendel_forge import sources
 
     return sources.adapters()
+
+
+def _client():
+    """A `Client` for the configured lane, or a refusal naming the setting.
+
+    Built here rather than held as a module global: `settings` is read at construction, and a
+    worker that cached one at import would ignore a changed environment on restart in the one
+    place where an operator most expects it to be read.
+    """
+    from comeni_ai import Client, ModelAccess
+
+    if not settings.ai_model:
+        raise NoModelConfigured(
+            coded("MI0106", "no model is configured, so nothing can be generated")
+            + "\n  set MENDEL_AI_MODEL to a LiteLLM model id — `ollama/qwen2.5-coder:14b`"
+            + "\n  leaving it empty is the no-AI lane and is a legitimate way to run the forge"
+        )
+    return Client(
+        ModelAccess(
+            model=settings.ai_model,
+            base_url=settings.ai_base_url or None,
+            timeout_seconds=float(settings.ai_job_timeout_seconds),
+        )
+    )
+
+
+def _vocabularies(stack) -> list:
+    """§5.3's section 6, from the registry that is actually loaded.
+
+    **Every legal value, whole.** This is the section `MI0400` refuses to truncate, and the
+    argument is on `context.compose`: a model shown nine of eleven does not know it was shown
+    nine, and its answer passes every schema check on the way back.
+    """
+    from mendel_forge.ai import select
+
+    return [
+        select.vocabulary(
+            name="types",
+            values=sorted(stack.vocabulary.types),
+            note="every semantic type the registry declares:",
+        ),
+        select.vocabulary(
+            name="roles",
+            values=sorted(stack.roles),
+            note="every role a contract may take:",
+        ),
+    ]
+
+
+def _generate(adaptation_id: str):
+    """Compose the dossier, call the model, apply the answers, and save the draft.
+
+    Blocking, and run in a thread by its caller: `layers.load` walks a directory tree and the
+    provider call is synchronous. Returning the outcome *and* the holes because the caller
+    writes a verdict line that counts both.
+    """
+    from mendel_forge.ai import generate as ai_generate
+    from mendel_forge.ai import render, select
+    from mendel_forge.ai.context import Budget
+    from mendel_forge.workspace import Draft, Workspace
+    from mendel_resolver import layers
+
+    client = _client()
+    workspace = Workspace(root=settings.workspace_root)
+    source = workspace.read_source(adaptation_id)
+    holes = workspace.read_holes(adaptation_id)
+    stack = layers.load(settings.registry_root)
+    draft = workspace.load(adaptation_id)
+
+    dossier = select.analysis_dossier(
+        source=source,
+        scaffold_holes=holes,
+        registry_digest=draft.scaffold.observation.ref_id,
+        schema_version=SCHEMA_VERSION,
+        vocabularies=_vocabularies(stack),
+        instruction="Answer every hole above, or say what evidence would close it.",
+        budget=Budget(tokens=settings.ai_context_tokens).characters(),
+    )
+
+    outcome = ai_generate.run(
+        client=client,
+        dossier=dossier,
+        holes=holes,
+        # **Nothing validates a proposal yet, and an empty verdict says *green* rather than
+        # *unchecked*.** Wiring `verify.py`'s rungs needs the candidate written to the
+        # workspace first, which is the next piece; until then the honest reading is that the
+        # revision carries `green=False` and approval refuses on it — see `_record_verdict`.
+        validate=lambda _: (),
+    )
+    if outcome.succeeded():
+        filled = render.apply(
+            draft.scaffold, outcome.proposal, holes=holes, by=settings.ai_model
+        )
+        module = render.module_text(draft.module, outcome.proposal) if draft.module else None
+        workspace.save(Draft(name=adaptation_id, scaffold=filled, module=module))
+    return outcome, holes
+
+
+def _record_verdict(revision_id: str, *, outcome, owed: int) -> None:
+    """Store what validation said, and whether approval is possible.
+
+    **`green` stays `False` while nothing runs the ladder.** An unchecked candidate recorded as
+    green is a candidate a curator can approve on the strength of a check that never happened,
+    and `approval_refusals` reads exactly this field. The `validation` blob says why, so the
+    page can show *not yet checked* rather than *failed*.
+    """
+    with session_scope() as session:
+        row = session.get(ForgeRevision, revision_id)
+        if row is None:
+            raise KeyError(revision_id)
+        row.validation = {
+            "ran": False,
+            "why": coded("MI0108", "the validation ladder is not wired to this worker yet"),
+            "diagnostics": list(outcome.last_diagnostics()),
+        }
+        row.green = False
+        row.unresolved_required = owed
+
+
+CHAT_TAIL = 6
+"""How many prior turns go into a chat prompt.
+
+§5.8: *only the bounded conversation tail*. Unbounded, a long thread eventually pushes the
+record out of the window and the model answers from the conversation alone — which is the one
+thing grounding on a revision exists to prevent. Six is three exchanges: enough for *what about
+the other port* to make sense, short enough that the candidate stays the largest thing present.
+"""
+
+
+def _conversation(adaptation_id: str, message_id: str) -> tuple[str, list[tuple[str, str]], str]:
+    """The question, the bounded tail before it, and the revision it is grounded on.
+
+    Read in one session so the three are consistent: a revision that lands between reading the
+    question and reading the tail would ground the answer on a candidate the curator never saw.
+    """
+    from mendel_forge.workflow import MessageRole
+
+    with session_scope() as session:
+        asked = session.get(ForgeMessage, int(message_id))
+        if asked is None:
+            raise KeyError(message_id)
+        prior = (
+            session.query(ForgeMessage)
+            .filter(ForgeMessage.adaptation_id == adaptation_id, ForgeMessage.id < asked.id)
+            .order_by(ForgeMessage.id.desc())
+            .limit(CHAT_TAIL)
+            .all()
+        )
+        tail = [
+            (
+                "curator" if row.role == MessageRole.CURATOR.value else "model",
+                row.content,
+            )
+            for row in reversed(prior)
+        ]
+        adaptation = session.get(ForgeAdaptation, adaptation_id)
+        revision = asked.revision_id or (adaptation.current_revision_id if adaptation else None)
+        if not revision:
+            raise ValueError(
+                coded("MI0109", "this question is not attached to any revision")
+                + "\n  a chat answer is grounded on one candidate; there is nothing to ground on"
+            )
+        # `ForgeRevision.id` is 32 hex characters, and `Digest` wants `sha256:` and 64. The
+        # revision id *is* the grounding — this spells it as the door's declared shape rather
+        # than widening that shape to admit a shorter string.
+        return asked.content, tail, "sha256:" + revision.rjust(64, "0")
+
+
+def _store_answer(adaptation_id: str, message_id: str, *, answer) -> None:
+    """Write the model's turn, and mark the question answered.
+
+    Two rows change together: the question stops being `pending` and the answer arrives as its
+    own turn. Split across two calls they can disagree, and a question stuck at `pending` beside
+    a visible answer is a page that offers to retry something that already happened.
+    """
+    from mendel_forge.workflow import MessageRole, MessageState
+
+    with session_scope() as session:
+        asked = session.get(ForgeMessage, int(message_id))
+        if asked is None:
+            raise KeyError(message_id)
+        asked.state = MessageState.ANSWERED.value
+        session.add(
+            ForgeMessage(
+                adaptation_id=adaptation_id,
+                revision_id=asked.revision_id,
+                role=MessageRole.ASSISTANT.value,
+                state=MessageState.ANSWERED.value,
+                content=answer.answer,
+                citations=[c.model_dump(mode="json") for c in answer.citations],
+                at=datetime.now(UTC),
+            )
+        )
+
+
+def _store_refusal(message_id: str, *, detail: str) -> None:
+    """Mark a question failed, with a coded reason a page can render.
+
+    **Failed rather than left pending.** A question that stays `pending` after its job died is
+    one the page spins on forever, and the curator has no way to tell *thinking* from *gone*.
+    """
+    from mendel_forge.workflow import MessageState
+
+    with session_scope() as session:
+        asked = session.get(ForgeMessage, int(message_id))
+        if asked is None:
+            raise KeyError(message_id)
+        asked.state = MessageState.FAILED.value
+        asked.content = f"{asked.content}\n\n{detail}" if asked.content else detail
+
+
+async def publish_forge_adaptation(ctx: dict, adaptation_id: str, revision_id: str) -> str:
+    """Land an approved revision into the registry.
+
+    **`land.py` is the only thing that writes registry files** — invariant 2 — so this claims
+    the row, calls it, and does no writing of its own.
+
+    **A refusal returns to `review`, not to `failed`.** The plan draws that arrow and it is the
+    right one: `land` refuses on a dirty checkout, a protected branch, or a draft that still has
+    holes, and every one of those is something a person fixes and then approves again. Failing
+    would send them through `retry`, which re-runs a generation nobody asked for.
+    """
+    state, version = await asyncio.to_thread(_read, adaptation_id)
+    if state is not AdaptationState.PUBLISHING:
+        log.info("publish skipped: %s is %s, not publishing", adaptation_id, state)
+        return state.value
+
+    try:
+        landed = await asyncio.to_thread(_land, adaptation_id, ctx)
+    except Exception as failure:
+        log.warning("publish of %s failed: %r", adaptation_id, failure, exc_info=True)
+        returned = await asyncio.to_thread(
+            forge_state.move,
+            adaptation_id,
+            AdaptationState.REVIEW,
+            expect=AdaptationState.PUBLISHING,
+            row_version=version,
+            actor=_worker(ctx),
+            kind=EventKind.FAILED,
+            detail=coded("MI0110", "the registry refused this candidate"),
+            revision_id=revision_id,
+        )
+        return returned.state.value
+
+    published = await asyncio.to_thread(
+        forge_state.move,
+        adaptation_id,
+        AdaptationState.PUBLISHED,
+        expect=AdaptationState.PUBLISHING,
+        row_version=version,
+        actor=_worker(ctx),
+        kind=EventKind.PUBLISHED,
+        detail=landed,
+        revision_id=revision_id,
+    )
+    return published.state.value
+
+
+def _land(adaptation_id: str, ctx: dict) -> str:
+    """Call `land.py` on the stored draft. Returns the branch it landed on."""
+    from mendel_forge import land as land_module
+    from mendel_forge.workspace import Workspace
+
+    draft = Workspace(root=settings.workspace_root).load(adaptation_id)
+    result = land_module.land(
+        draft,
+        registry=settings.registry_root,
+        branch=f"forge/{draft.scaffold.target}",
+        approved_by=_worker(ctx),
+        approved_at=datetime.now(UTC).isoformat(),
+    )
+    return f"landed on {getattr(result, 'branch', 'a branch')}"
 
 
 def _item_and_state(adaptation_id: str) -> tuple[object, AdaptationState, int]:

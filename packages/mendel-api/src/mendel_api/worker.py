@@ -60,6 +60,7 @@ class WorkerSettings:
         run_gate_job,
         forge_jobs.sync_forge_sources,
         forge_jobs.scaffold_forge_adaptation,
+        forge_jobs.publish_forge_adaptation,
     ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about
     starvation: a catalogue sync is seconds and somebody is waiting on it, and a generation is

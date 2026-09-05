@@ -2743,6 +2743,106 @@ MI0105:
     Without it every retry assumes the model was at fault, and a source that is temporarily
     unreachable would be retried by queueing a generation against a bundle that does not exist.
 
+MI0106:
+  emitted_by: api
+  concern: workflow
+  says: "no model is configured, so nothing can be generated"
+  fires_on: [forge generate, forge review]
+  refuses: true
+  fix: |
+    Set `MENDEL_AI_MODEL` to a LiteLLM model id — `ollama/qwen2.5-coder:14b` for a local
+    model, or a hosted one — and `MENDEL_AI_BASE_URL` when the endpoint is your own.
+
+    **Leaving it empty is a legitimate way to run the forge**, not a misconfiguration. Every
+    deterministic verb still works: a catalogue syncs, a scaffold derives, holes open with
+    their candidate sets ranked, and a curator fills them by hand. What is unavailable is the
+    model proposing answers first.
+  explanation: |
+    A laboratory that wants no model calls does not configure one, which is stronger than a
+    flag: there is nothing to reach a provider *with*. `CLAUDE.md` makes the same argument for
+    why `--no-ai` is not a flag in the forge.
+
+    **This is a refusal on the adaptation rather than a crash in a worker**, because the
+    distinction matters to whoever is looking at the page. A traceback in a log says the system
+    is broken; this says the system is configured a particular way and the next step is a
+    person's.
+
+MI0107:
+  emitted_by: api
+  concern: workflow
+  says: "no proposal validated within the repair budget"
+  fires_on: [forge generate]
+  refuses: false
+  fix: |
+    Read the candidate and its diagnostics — the revision carries every attempt, both
+    directions, with digests. Three attempts that each fix one diagnostic and break another are
+    not converging, and the fourth would not either.
+
+    Often the honest answer is that the source does not say enough, and the fix is evidence
+    rather than another attempt.
+  explanation: |
+    §5.7 bounds repair at two passes and sends the inspectable failure to review. **It is not a
+    refusal**: the adaptation reaches `review` and a curator can read what happened, which is
+    the whole point of storing every attempt rather than only the last.
+
+    What it is *not* allowed to do is look like success. The revision is `draft` rather than
+    `validated` and `green` is false, so `approval_refusals` blocks approval on it.
+
+MI0108:
+  emitted_by: api
+  concern: workflow
+  says: "this revision has not been through the validation ladder"
+  fires_on: [forge generate]
+  refuses: false
+  fix: |
+    Nothing to fix in the adaptation. The candidate can be read and its holes answered by hand;
+    what cannot happen yet is approval, because approval requires a green validation and there
+    has not been one.
+  explanation: |
+    **An unchecked candidate recorded as green is worse than one recorded as failing.** A
+    curator approving on the strength of a check that never ran is exactly the failure the
+    whole review step exists to prevent, so `green` stays false and this code says why.
+
+    The distinction the page needs is *not yet checked* against *checked and failed*, and a
+    boolean cannot carry it — which is why the reason is stored beside the flag.
+
+MI0109:
+  emitted_by: api
+  concern: workflow
+  says: "this question is not attached to any revision"
+  fires_on: [forge review]
+  refuses: true
+  fix: |
+    Ask the question from an adaptation that has a candidate. A conversation before the first
+    generation has nothing to be about.
+  explanation: |
+    §5.8 grounds a chat on an immutable revision id, so an answer is about a specific candidate
+    rather than about whatever the conversation has drifted to — the same reason `pipeline.yml`
+    pins contracts by digest.
+
+    A question with no revision cannot be grounded, and answering it anyway would produce a
+    confident answer about nothing in particular.
+
+MI0110:
+  emitted_by: api
+  concern: workflow
+  says: "the registry refused this candidate, and the adaptation is back in review"
+  fires_on: [forge publish]
+  refuses: true
+  fix: |
+    The reason is in the worker's log and is usually one of three: the registry checkout has
+    uncommitted changes, the branch is the default one, or the draft still has open holes.
+
+    The adaptation is at `review`, not `failed`, so fixing the cause and approving again is the
+    whole recovery — no regeneration is needed and none happens.
+  explanation: |
+    `land.py` is the only thing that writes registry files (invariant 2), and every refusal it
+    makes is something a person fixes rather than something a model retries.
+
+    **Returning to `review` rather than failing is the distinction.** `failed` routes through
+    `retry`, which re-runs a generation nobody asked for and costs a model call to arrive back
+    at the same candidate.
+
 MA0001:
   emitted_by: ai
   concern: model-access

@@ -4483,3 +4483,31 @@ stores `domain.model_dump(mode="json")`, the same shape the sync writes.
 That is the third fixture defect in this plan after `_item`'s zero-padded ids and the empty
 `Base.metadata` scan, and the shape is identical each time: **a fixture is only as good as the
 field somebody eventually uses.**
+
+## The generation walk, the chat answer, and publishing — 2026-09-05
+
+Task 7's job table finished: all five bodies exist and both worker lists are complete.
+`generate_forge_revision` walks claim → dossier → `generate.run` → apply → revision →
+`validating` → `review`.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_jobs.py::test_an_unchecked_candidate_is_never_recorded_green` | `row.green = True` in `_record_verdict` | failed, with the walk test | a candidate nothing validated was approvable |
+| 2026-09-05 | `test_forge_jobs.py::test_a_generation_claims_before_it_calls_anything` | the claim moved after the model call | failed, with three others | the duplicate window became the whole 227s call |
+| 2026-09-05 | `test_forge_jobs.py::test_a_refused_publish_returns_to_review_rather_than_failing` | a refused publish routed to `failed` | failed | `MF0101` sent a curator through `retry`, re-running a generation nobody asked for |
+
+**`green` is the one that would have been most expensive.** `approval_refusals` reads exactly
+that field, so an unchecked candidate recorded as green is a curator approving on the strength
+of a check that never ran — the failure the whole review step exists to prevent. Nothing runs
+the validation ladder from this worker yet, so `green` stays false and `MI0108` says *not yet
+checked* rather than *failed*: a boolean cannot carry that distinction and the page needs it.
+
+**Claiming before calling is not an ordering preference.** A second delivery arriving mid-call
+finds the row at `generating` and stops. Claim afterwards and the window is the length of the
+model call, which is the one measurement this plan has: 227 seconds.
+
+**Two older tests had encoded a smaller job as a claim.** `test_a_claim_moves_a_queued_adaptation
+_to_generating` asserted the job *ended* at `generating`, which was true while the body was a
+stub and false once it walked. The sweep tests had the same shape — they reached `generating` by
+running the generation job, so they were testing the generation path with the sweep as an
+afterthought. They claim directly now, through `_held`.

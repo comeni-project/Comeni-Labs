@@ -12,9 +12,15 @@ import httpx
 import pytest
 from mendel_api import jobs
 from mendel_api.db import session_scope
-from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem, ForgeEvent, ForgeSourceSnapshot
+from mendel_api.models import (
+    ForgeAdaptation,
+    ForgeCatalogueItem,
+    ForgeEvent,
+    ForgeRevision,
+    ForgeSourceSnapshot,
+)
 from mendel_api.services import forge_jobs, forge_state
-from mendel_forge.workflow import RUNNING, AdaptationState, EventKind
+from mendel_forge.workflow import RUNNING, AdaptationState, EventKind, RevisionState
 from sqlalchemy import select, text
 
 
@@ -388,6 +394,236 @@ async def test_a_duplicate_scaffold_is_skipped_rather_than_rewriting_the_bundle(
     assert calls == [adaptation], "the source must not be fetched twice"
 
 
+# ── generating ────────────────────────────────────────────────────────────────────────
+
+
+class _Outcome:
+    """`generate.Outcome`'s shape, reduced to what the job reads."""
+
+    def __init__(self, *, ok=True, attempts=1, answers=1, declined=0, owed=()):
+        from mendel_forge.ai.generate import Attempt
+        from mendel_forge.ai.schemas import Analysis, Answer, Proposal, Unresolved
+
+        self.proposal = (
+            Proposal(
+                analysis=Analysis(
+                    answers=tuple(
+                        Answer(hole_id=f"h{n}", value="fastq.reads") for n in range(answers)
+                    ),
+                    unresolved=tuple(
+                        Unresolved(hole_id=f"u{n}", needed_evidence="the man page")
+                        for n in range(declined)
+                    ),
+                )
+            )
+            if ok
+            else None
+        )
+        self.attempts = tuple(
+            Attempt(
+                ordinal=n,
+                prompt_id="forge.analysis.v1",
+                prompt_digest=f"sha256:{n:064d}",
+                response_digest=f"sha256:{n:064d}",
+                dossier_digest="sha256:" + "d" * 64,
+            )
+            for n in range(attempts)
+        )
+        self.unresolved_holes = tuple(owed)
+
+    def succeeded(self):
+        return self.proposal is not None
+
+    def last_diagnostics(self):
+        return ()
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_generation_walks_to_review_and_records_a_revision(item, monkeypatch):
+    """The whole point of the job. **It ends at `review` whether or not validation passed** —
+    the plan draws both arrows there, and a candidate a curator never sees is one nobody can
+    learn from."""
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), ()))
+    adaptation = _queued(item)
+
+    ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    assert ended == AdaptationState.REVIEW.value
+
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation)
+        assert row.current_revision_id is not None
+        revision = session.get(ForgeRevision, row.current_revision_id)
+        assert revision.green is False, "nothing validated it, so it is not green"
+        assert "MI0108" in revision.validation["why"]
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_an_unchecked_candidate_is_never_recorded_green(item, monkeypatch):
+    """**The load-bearing one.** A curator approving on the strength of a check that never ran
+    is the failure the whole review step exists to prevent, and `approval_refusals` reads
+    exactly this field."""
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), ()))
+    adaptation = _queued(item)
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation)
+        revision = session.get(ForgeRevision, row.current_revision_id)
+        assert revision.green is False
+        assert revision.validation["ran"] is False
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_run_that_never_validated_still_reaches_review(item, monkeypatch):
+    """§5.7 sends the *inspectable failure* to review. The revision is `draft` rather than
+    `validated`, so approval refuses — but a person can read what happened."""
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(ok=False, attempts=3), ()))
+    adaptation = _queued(item)
+
+    ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    assert ended == AdaptationState.REVIEW.value
+
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation)
+        revision = session.get(ForgeRevision, row.current_revision_id)
+        assert revision.state == "failed"
+        assert len(revision.manifest["attempts"]) == 3
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_generation_failure_fails_at_generating_not_at_scaffolding(item, monkeypatch):
+    """Rule 9 the other way round: the bundle is fine and the attempt was not, so a retry is a
+    queued attempt rather than a re-fetch of the source."""
+
+    def explode(adaptation_id):
+        raise TimeoutError("the provider did not answer")
+
+    monkeypatch.setattr(forge_jobs, "_generate", explode)
+    adaptation = _queued(item)
+
+    ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    assert ended == AdaptationState.FAILED.value
+
+    resumed = forge_state.retry(adaptation, row_version=4, actor="rafael")
+    assert resumed.state is AdaptationState.QUEUED
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_no_configured_model_is_a_refusal_on_the_page_not_a_crash(item, monkeypatch):
+    """**The no-AI lane.** A laboratory that wants no model calls does not configure one, and
+    the adaptation should say so rather than leave a traceback in a log nobody reads."""
+
+    def explode(adaptation_id):
+        raise forge_jobs.NoModelConfigured(
+            forge_jobs.coded("MI0106", "no model is configured, so nothing can be generated")
+        )
+
+    monkeypatch.setattr(forge_jobs, "_generate", explode)
+    adaptation = _queued(item)
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+
+    with session_scope() as session:
+        failed = session.scalars(
+            select(ForgeEvent).where(
+                ForgeEvent.adaptation_id == adaptation,
+                ForgeEvent.kind == EventKind.FAILED.value,
+            )
+        ).one()
+        assert "MI0106" in failed.detail
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_provider_failure_during_generation_is_sanitised(item, monkeypatch):
+    """The endpoint and the key stay in the log; `MI0102` reaches the page."""
+
+    def explode(adaptation_id):
+        raise TimeoutError("http://10.0.0.4:11434 timed out, key sk-abc123")
+
+    monkeypatch.setattr(forge_jobs, "_generate", explode)
+    adaptation = _queued(item)
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+
+    with session_scope() as session:
+        failed = session.scalars(
+            select(ForgeEvent).where(
+                ForgeEvent.adaptation_id == adaptation,
+                ForgeEvent.kind == EventKind.FAILED.value,
+            )
+        ).one()
+        assert "MI0102" in failed.detail
+        assert "10.0.0.4" not in failed.detail
+        assert "sk-abc" not in failed.detail
+
+
+def test_a_model_lane_is_empty_by_default():
+    """Not a missing setting — the no-AI lane. There is nothing to reach a provider *with*,
+    which `CLAUDE.md` calls stronger than a flag."""
+    from mendel_api.settings import Settings
+
+    assert Settings().ai_model == ""
+
+
+# ── publishing ────────────────────────────────────────────────────────────────────────
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_refused_publish_returns_to_review_rather_than_failing(item, monkeypatch):
+    """**`land` refuses on a dirty checkout, a protected branch, or open holes**, and every one
+    of those is something a person fixes and then approves again. Failing would route them
+    through `retry`, which re-runs a generation nobody asked for."""
+
+    def refuse(adaptation_id, ctx):
+        raise ValueError("MF0101: the registry has uncommitted changes")
+
+    monkeypatch.setattr(forge_jobs, "_land", refuse)
+    adaptation, revision = _publishing(item)
+
+    ended = await forge_jobs.publish_forge_adaptation({"job_id": "j1"}, adaptation, revision)
+    assert ended == AdaptationState.REVIEW.value
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_successful_publish_ends_the_adaptation(item, monkeypatch):
+    monkeypatch.setattr(forge_jobs, "_land", lambda a, ctx: "landed on forge/samtools-sort")
+    adaptation, revision = _publishing(item)
+
+    ended = await forge_jobs.publish_forge_adaptation({"job_id": "j1"}, adaptation, revision)
+    assert ended == AdaptationState.PUBLISHED.value
+    assert _state(adaptation) is AdaptationState.PUBLISHED
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_duplicate_publish_is_skipped(item, monkeypatch):
+    """Landing twice would be two commits for one approval."""
+    calls = []
+    monkeypatch.setattr(forge_jobs, "_land", lambda a, ctx: calls.append(a) or "landed")
+    adaptation, revision = _publishing(item)
+
+    await forge_jobs.publish_forge_adaptation({"job_id": "j1"}, adaptation, revision)
+    again = await forge_jobs.publish_forge_adaptation({"job_id": "j1"}, adaptation, revision)
+    assert again == AdaptationState.PUBLISHED.value
+    assert len(calls) == 1
+
+
+# ── the review chat ───────────────────────────────────────────────────────────────────
+
+
+def test_the_chat_tail_is_bounded():
+    """§5.8: *only the bounded conversation tail*. Unbounded, a long thread eventually pushes
+    the record out of the window and the model answers from the conversation alone — which is
+    the one thing grounding on a revision exists to prevent."""
+    assert 0 < forge_jobs.CHAT_TAIL <= 12
+
+
 def test_no_job_on_a_worker_list_is_an_unimplemented_stub():
     """A function raising `NotImplementedError` on a worker's list is worse than an absent one:
     it is enqueueable, so the failure arrives at run time on a real adaptation rather than at
@@ -511,6 +747,60 @@ def _queued(item: str) -> str:
     return adaptation
 
 
+def _held(item: str) -> str:
+    """An adaptation a worker is holding, reached by claiming rather than by running the job.
+
+    **The sweep is about rows in a worker-held state, not about how they got there.** Routing
+    these through `generate_forge_revision` used to work when that job did nothing but claim;
+    now it walks to `review`, and a sweep test that went through it would be testing the
+    generation path with the sweep as an afterthought.
+    """
+    adaptation = _queued(item)
+    forge_state.claim(adaptation, row_version=2, worker="w")
+    return adaptation
+
+
+def _publishing(item: str) -> tuple[str, str]:
+    """An adaptation parked at `publishing`, the state the publish job claims.
+
+    Walked through the real transitions rather than written straight into the row, so the
+    fixture cannot set up a state the workflow would refuse — which is how a test comes to
+    assert something the system can never reach.
+    """
+    adaptation = _queued(item)
+    forge_state.claim(adaptation, row_version=2, worker="w")
+    revision = forge_state.add_revision(
+        adaptation, state=RevisionState.VALIDATED, manifest={}
+    )
+    forge_state.move(
+        adaptation,
+        AdaptationState.VALIDATING,
+        expect=AdaptationState.GENERATING,
+        row_version=3,
+        actor="w",
+        kind=EventKind.GENERATED,
+        revision_id=revision,
+    )
+    forge_state.move(
+        adaptation,
+        AdaptationState.REVIEW,
+        expect=AdaptationState.VALIDATING,
+        row_version=4,
+        actor="w",
+        kind=EventKind.VALIDATED,
+    )
+    forge_state.move(
+        adaptation,
+        AdaptationState.PUBLISHING,
+        expect=AdaptationState.REVIEW,
+        row_version=5,
+        actor="rafael",
+        kind=EventKind.APPROVED,
+        detail="looks right",
+    )
+    return adaptation, revision
+
+
 def _state(adaptation_id: str) -> AdaptationState:
     with session_scope() as session:
         return AdaptationState(session.get(ForgeAdaptation, adaptation_id).state)
@@ -518,24 +808,42 @@ def _state(adaptation_id: str) -> AdaptationState:
 
 @needs_db
 @pytest.mark.asyncio
-async def test_a_claim_moves_a_queued_adaptation_to_generating(item):
+async def test_a_generation_claims_before_it_calls_anything(item, monkeypatch):
+    """**The claim happens first, and a failure after it still leaves the row claimed.**
+
+    That ordering is what makes at-least-once delivery safe: a second copy arriving while the
+    first is mid-call finds the row at `generating` and stops. Claiming *after* the work would
+    make the window the whole model call, which is 227 seconds wide.
+    """
+    seen = []
+
+    def watch(adaptation_id):
+        seen.append(_state(adaptation_id))
+        return _Outcome(), ()
+
+    monkeypatch.setattr(forge_jobs, "_generate", watch)
     adaptation = _queued(item)
-    ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
-    assert ended == AdaptationState.GENERATING.value
-    assert _state(adaptation) is AdaptationState.GENERATING
+    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    assert seen == [AdaptationState.GENERATING]
 
 
 @needs_db
 @pytest.mark.asyncio
-async def test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_failed(item):
+async def test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_failed(
+    item, monkeypatch
+):
     """The id has aged out of Redis, or the job was re-delivered after finishing. The row is no
     longer `queued`, and **that is the mechanism working** — raising would mark the job failed
     and ARQ would retry it, which is the same duplicate with a delay in front of it."""
+    calls = []
+    monkeypatch.setattr(
+        forge_jobs, "_generate", lambda a: (calls.append(a), (_Outcome(), ()))[1]
+    )
     adaptation = _queued(item)
     await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
     again = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
-    assert again == AdaptationState.GENERATING.value
-    assert _state(adaptation) is AdaptationState.GENERATING
+    assert again == AdaptationState.REVIEW.value
+    assert calls == [adaptation], "the second delivery must not call a model"
 
 
 @needs_db
@@ -561,8 +869,7 @@ async def test_the_claim_is_attributed_to_the_job_that_made_it(item):
 async def test_a_worker_that_never_came_back_is_failed_at_the_stage_it_held(item):
     """Rule 7. The row keeps `failed_stage`, so a person's `retry` resumes where it stopped
     rather than starting over."""
-    adaptation = _queued(item)
-    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    adaptation = _held(item)
 
     reclaimed = await forge_jobs.reclaim(after=-1)
     assert reclaimed == [adaptation]
@@ -578,8 +885,7 @@ async def test_a_reclaim_says_why_in_a_code_a_page_can_render(item):
     """`MI0103`. The event is `failed` rather than `reclaimed`, because what a reader needs
     first is *this failed and why* — a separate kind would compete with `failed` in every
     count and hide that it did."""
-    adaptation = _queued(item)
-    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    adaptation = _held(item)
     await forge_jobs.reclaim(after=-1)
     with session_scope() as session:
         failed = session.scalars(
@@ -597,8 +903,7 @@ async def test_a_reclaim_says_why_in_a_code_a_page_can_render(item):
 async def test_a_job_still_inside_its_timeout_is_not_reclaimed(item):
     """*The worker died* and *the model is slow* look identical from the row, so the only thing
     separating them is time — and sweeping too early fails a call that is about to succeed."""
-    adaptation = _queued(item)
-    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    adaptation = _held(item)
     assert await forge_jobs.reclaim(after=3600) == []
     assert _state(adaptation) is AdaptationState.GENERATING
 
@@ -608,8 +913,7 @@ async def test_a_job_still_inside_its_timeout_is_not_reclaimed(item):
 async def test_a_reclaim_that_loses_a_race_skips_rather_than_raising(item):
     """The worker was slow rather than gone, and it finished between the sweep and the write.
     Losing that race is the correct outcome: the sweep's job is to catch what is abandoned."""
-    adaptation = _queued(item)
-    await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
+    adaptation = _held(item)
     forge_state.move(
         adaptation,
         AdaptationState.VALIDATING,
