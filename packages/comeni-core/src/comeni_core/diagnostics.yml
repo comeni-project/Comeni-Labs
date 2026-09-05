@@ -2624,6 +2624,27 @@ MF0403:
     open one is a ranking. Fusing them would have made every hole either unenforceable or a
     refusal of legitimate new vocabulary.
 
+MF0404:
+  emitted_by: forge
+  concern: prompt
+  says: "a repair was given a different dossier than the attempt it repairs"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Build the dossier once per run and hand the same object to every attempt. Rebuilding it
+    between attempts is the cause even when the inputs look identical — a re-read source, a
+    reloaded registry, a differently ordered vocabulary all produce a dossier that is equal in
+    substance and different in bytes.
+  explanation: |
+    §5.7 asks the repair prompt to carry the prior proposal, the exact diagnostics, and the
+    **unchanged** dossier. That word is doing real work: if the context also moved, a
+    difference between two attempts is no longer attributable to the model's answer, and the
+    repair loop stops being a measurement of whether the diagnostics were understood.
+
+    **It is checked rather than promised**, because the promise is easy to keep by accident and
+    easy to break by a refactor that pushes dossier construction one call deeper. The digest is
+    on every attempt, so the check is a set with one member.
+
 MA0001:
   emitted_by: ai
   concern: model-access

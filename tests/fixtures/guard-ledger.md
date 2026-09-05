@@ -4245,3 +4245,23 @@ and design history, on every call to a provider.
 `_structure_only` strips `description` and `title` recursively. The shape says what is legal
 and the prompt says what it means; keeping them separate also stops a docstring edit from
 silently changing a prompt.
+
+## The generation loop — 2026-09-05
+
+`mendel_forge/ai/generate.py`, Task 6 step 5: ask, validate, repair at most twice, record both
+directions with digests. The client is a real `Client` over a scripted transport, so the JSON
+extraction, the schema validation and the refusal bookkeeping are all the real ones — a fake
+client would have made every assertion a claim about the fake.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_generate.py::test_the_loop_stops_after_two_repairs` | the bound raised from `repairs + 1` to `repairs + 3` | failed, with the inspectable-failure test | five prompts were sent where §5.7 allows three |
+| 2026-09-05 | `test_ai_generate.py::test_the_repair_prompt_carries_the_prior_proposal_and_the_exact_diagnostics` | the repair prompt given `previous=""` and *it did not validate* in place of the diagnostics | failed | the model was asked to guess which of its answers was wrong |
+| 2026-09-05 | `test_ai_generate.py::test_a_response_citing_invented_evidence_raises_rather_than_repairing` | `admit()` removed from the loop | failed | `E404` was validated and repaired instead of refused |
+
+**The third revert is the one that reads as a judgement call and is not.** Letting a response
+with an invented citation into the repair loop looks generous — it gets another chance, and the
+second answer might cite real evidence. But a response citing evidence that does not exist is
+not a weaker proposal, it is a different document: the audit trail is the part of the artifact
+nothing else validates, and treating its failure as a formatting problem is how a fabricated
+`E014` reaches a reviewer who follows it, finds real text, and reads it as support.

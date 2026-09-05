@@ -122,10 +122,23 @@ class Client:
         """
 
     def generate(self, instruction: str, shape: type[T], evidence: list[str]) -> T | None:
-        """Ask, then validate. `None` when the model declines or its answer will not fit."""
+        """Ask, then validate. `None` when the model declines or its answer will not fit.
+
+        Composition plus `respond`. The two are separate because a caller that has already
+        composed its own prompt — the Forge, whose §5.3 fixes the order of ten sections down
+        to which one comes last — must not have `_prompt` frame it again.
+        """
+        return self.respond(_prompt(instruction, shape, evidence), shape)
+
+    def respond(self, prompt: str, shape: type[T]) -> T | None:
+        """Send an already-composed prompt and validate the answer against `shape`.
+
+        The lower half of `generate`, and the whole of what a caller with its own prompt
+        needs. It sets `last_prompt`, `last_usage` and `last_refusal` exactly as `generate`
+        does, so an audit row is written the same way whichever entry point produced it.
+        """
         self.last_refusal = None
         self.last_usage = None
-        prompt = _prompt(instruction, shape, evidence)
         self.last_prompt = prompt
         try:
             if isinstance(self._transport, Metered):
