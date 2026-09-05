@@ -4265,3 +4265,25 @@ second answer might cite real evidence. But a response citing evidence that does
 not a weaker proposal, it is a different document: the audit trail is the part of the artifact
 nothing else validates, and treating its failure as a formatting problem is how a fabricated
 `E014` reaches a reviewer who follows it, finds real text, and reads it as support.
+
+## A proposal becoming files — 2026-09-05
+
+`mendel_forge/ai/render.py`, Task 6 step 6. A model's answer goes in through `Scaffold.fill`,
+the same call a curator's does, differing in one argument.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_render.py::test_a_model_fill_is_recorded_as_a_model_fill` | `ValueSource.MODEL` changed to `HUMAN` | failed | a model's fill was indistinguishable from a curator's in the record |
+| 2026-09-05 | `test_ai_render.py::test_an_unfilled_section_keeps_its_marker` | the `body.strip()` condition dropped, so an empty section substituted | failed, with the partly-filled test | `MF0005`'s marker was replaced by nothing and the hole stopped being a hole |
+| 2026-09-05 | `tests/guards/test_forge_write_boundary.py::test_only_land_and_the_workspace_write_to_disk` | — | **fired on the first write of this module**, before any revert | `str.replace` in `module_text` read as `Path.replace` to the AST scan |
+
+**The third row is the guard working, and it is the third time.** The scan cannot tell
+`str.replace` from `Path.replace` without inferring types, and its whole value is that it is
+blunt and unfoolable. `body.strip().join(text.split(marker))` costs one line; teaching the
+guard to read Python costs the boundary. Recorded here rather than fixed, for the fourth
+occurrence.
+
+**The second is the one that would have shipped.** An empty `script:` block is a process that
+runs nothing and reports success — invisible to `-stub-run`, because a stub never reads its
+inputs or runs its command, and invisible in review because the module looks complete. The
+marker surviving is what keeps `MF0005` attached to it.
