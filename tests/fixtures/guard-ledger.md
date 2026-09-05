@@ -4202,3 +4202,24 @@ test, which means widening the response surface requires editing a file that say
 all the fields a response has*. That is the egress guard's construction, applied to the other
 direction of the same boundary: `test_egress.py` names what may leave, this names what may
 come back.
+
+## The prompt files — 2026-09-05
+
+Three task templates and eight instruction fragments, under `mendel_forge/prompts/`. Task 6
+step 3, and the last part of the stack that involves no model at all.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_prompts.py::test_every_hint_a_hole_can_name_is_a_committed_file` | `hints/container.version.v1.md` moved out of the package | failed | `MA0008: no prompt 'container.version.v1'` |
+| 2026-09-05 | `test_ai_prompts.py::test_every_generation_prompt_carries_the_shared_invariant_block_verbatim` | *Source facts are immutable* paraphrased to *should not be changed* in one of the three | failed, with the position test | `forge.repair.v1 does not open with §5.4's block` |
+| 2026-09-05 | `test_ai_prompts.py::test_the_analysis_prompt_forces_every_distinction_the_plan_names` | *Confidence never turns missing evidence into a fact* softened to *do not overstate your certainty* | failed | the analysis prompt no longer says the phrase |
+
+**Why the second is held verbatim rather than by keyword.** A paraphrase is precisely what the
+check exists to catch: three copies of §5.4's block that drifted would be three different sets
+of rules, and the drift is invisible in review because each file reads correctly on its own.
+The reverted version was a reasonable sentence — that is the point. It said something weaker to
+a model, and no keyword scan would have noticed.
+
+**The third revert is the same failure one level down.** *Do not overstate your certainty* asks
+for calibration; *confidence never turns missing evidence into a fact* forbids a trade. A model
+reads the difference even where a reviewer skimming a diff does not.
