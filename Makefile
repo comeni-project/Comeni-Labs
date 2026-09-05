@@ -7,6 +7,12 @@
 export DOCKER_UID := $(shell id -u)
 export DOCKER_GID := $(shell id -g)
 
+# Read from `.env` so the banner can print addresses that are actually listening. Compose reads
+# that file itself for interpolation; make does not, and the two disagreeing is how `make dev`
+# came to advertise `:8000` on a stack published at `:58000`.
+-include .env
+export
+
 DC       := docker compose
 RUN_DIR  := .run
 PIDFILE  := $(RUN_DIR)/vite.pid
@@ -159,10 +165,13 @@ dev: names-free $(DEVREG) dev-refresh $(NODEDEPS)  ## the whole stack, plus Vite
 		echo $$! > $(PIDFILE); sleep 1; \
 	fi
 	@echo ""
+	@# **The ports come from the environment, not from a literal.** Every one of these was
+	@# hardcoded, so a checkout with `API_HOST_PORT` set — which is what a second stack on one
+	@# machine needs — printed addresses that answer nothing. Found by running two.
 	@echo "  Home (HMR):     http://localhost:5173/"
-	@echo "  Home (built):   http://localhost/"
-	@echo "  Queue:          http://localhost:5173/forge/queue"
-	@echo "  API:            http://localhost:8000/docs"
+	@echo "  Home (built):   http://localhost:$(or $(WEB_HOST_PORT),80)/"
+	@echo "  Registry:       http://localhost:5173/forge"
+	@echo "  API:            http://localhost:$(or $(API_HOST_PORT),8000)/docs"
 	@echo "  Runs:           http://localhost:5173/runs"
 	@echo "  Logs:           make dev-logs    ·    Vite: tail -f $(LOGFILE)"
 

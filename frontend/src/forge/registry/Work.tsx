@@ -10,7 +10,7 @@ import { useTitle } from "../../app/useTitle";
 import { useUrlState } from "../../app/useUrlState";
 import { Failed, Loading } from "../../ui/States";
 import { ReasonButton } from "./ReasonButton";
-import { LOOK, Mark, Subnav } from "./Status";
+import { LOOK, Mark, RegistrySection } from "./Status";
 
 /** `/forge/work` — everything in flight, in the order somebody would act on it.
  *
@@ -233,8 +233,7 @@ export function Work() {
     shown.filter((row) => bandOf(row.state) === key);
 
   return (
-    <>
-      <Subnav />
+    <RegistrySection>
       <div className="gutter pb-10 overflow-y-auto">
         <div className="settle flex items-center justify-between pt-[26px] pb-5">
           <h1 className="text-[22px] font-semibold tracking-[-.025em] m-0">Work queue</h1>
@@ -326,6 +325,6 @@ export function Work() {
           </>
         )}
       </div>
-    </>
+    </RegistrySection>
   );
 }

@@ -288,3 +288,40 @@ def test_the_lock_lives_in_the_git_directory_and_not_in_the_tree(tmp_path):
     with _only_one_publication(repo):
         assert _git(repo, "status", "--porcelain") == ""
     assert (repo / ".git" / "forge-land.lock").exists()
+
+
+def test_a_role_no_layer_declares_is_refused_before_anything_is_written(complete_scaffold):
+    """**Roles are closed (invariant 7) and staging did not check them.**
+
+    `ModuleContract.load` validates states against the vocabulary and nothing else; roles are
+    checked one level up, by `layers.load`. So a contract naming a role no layer declares passed
+    every check in `stage`, landed, and then made the *whole registry* fail to load with
+    `MD0302` — the exact failure staging exists to prevent, one vocabulary over.
+
+    Found on 2026-09-05 by landing a real candidate whose model-drafted role was
+    `gene_prediction`. The automated walk missed it because its fixture registry happened to
+    declare the role its fixture used, which is what a fixture does.
+    """
+    from comeni_core.declared.roles import RoleVocabulary, UnknownRoleError
+
+    with pytest.raises(UnknownRoleError, match="MD0302"):
+        stage(
+            Draft(name="f", scaffold=complete_scaffold, module=None),
+            approved_by="rafael",
+            approved_at="2026-09-05",
+            roles=RoleVocabulary(names=frozenset({"alignment", "trimming"})),
+        )
+
+
+def test_a_declared_role_passes_staging(complete_scaffold):
+    """The other half — a check that refuses everything is a check somebody deletes."""
+    from comeni_core.declared.roles import RoleVocabulary
+
+    staged = stage(
+        Draft(name="f", scaffold=complete_scaffold, module=None),
+        approved_by="rafael",
+        approved_at="2026-09-05",
+        roles=RoleVocabulary(names=frozenset({"qc_per_sample"})),
+    )
+    assert staged.contract_id
+

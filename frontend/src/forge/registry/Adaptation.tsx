@@ -22,7 +22,7 @@ import { ReasonButton } from "./ReasonButton";
 import { ContractPane, CodePane, OriginKey } from "./ReviewDiff";
 import { ReviewChat } from "./ReviewChat";
 import { ReviewGraph } from "./ReviewGraph";
-import { LOOK, Mark, Status, Subnav } from "./Status";
+import { LOOK, Mark, Status, RegistrySection } from "./Status";
 import { Provenance, Validation } from "./Validation";
 
 /** `/forge/adaptations/:id` — **one route owns every state** (§8.4).
@@ -294,8 +294,7 @@ export function Adaptation() {
   );
 
   return (
-    <>
-      <Subnav />
+    <RegistrySection>
       <div className="gutter pb-10 overflow-y-auto">
         {isPending && <Loading what="this adaptation" />}
         {error && <Failed error={error} />}
@@ -580,6 +579,6 @@ export function Adaptation() {
           onClose={() => setDialog("")}
         />
       )}
-    </>
+    </RegistrySection>
   );
 }

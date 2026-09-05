@@ -207,6 +207,7 @@ decline to curate one.
 | `MI0110` | the registry refused this candidate, and the adaptation is back in review |
 | `MI0111` | that page cursor is not one this endpoint issued |
 | `MI0112` | a review question is empty, or longer than the limit |
+| `MI0113` | the model answered and its answer was refused |
 
 ## The forge — what a model is told, and what it cites
 

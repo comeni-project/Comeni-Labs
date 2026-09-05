@@ -27,6 +27,7 @@ from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.layered import MODULE_DIR
 from comeni_core.declared.module import key_of
+from comeni_core.declared.roles import RoleVocabulary
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict
@@ -92,7 +93,12 @@ class Staged(BaseModel):
 
 
 def stage(
-    draft: Draft, *, approved_by: str, approved_at: str, vocabulary: Vocabulary | None = None
+    draft: Draft,
+    *,
+    approved_by: str,
+    approved_at: str,
+    vocabulary: Vocabulary | None = None,
+    roles: "RoleVocabulary | None" = None,
 ) -> Staged:
     """Compose the approved bundle and prove it loads. **Writes nothing.**
 
@@ -101,6 +107,16 @@ def stage(
     it stands now would refuse every contract that introduces a type, which is most of them;
     validating against nothing would accept a contract the registry then refuses to load, which
     is the outcome `_must_load` exists to prevent one verb over.
+
+    **`roles` is the second half, and its absence was a real hole.** `ModuleContract.load`
+    validates *states against the vocabulary* and nothing else; roles are closed by invariant 7
+    and checked one level up, by `layers.load`. So a contract naming a role no layer declares
+    passed every check here, landed, and then made the **whole registry** fail to load with
+    `MD0302` — the exact failure staging exists to prevent, one vocabulary over.
+
+    Found on 2026-09-05 by landing a real candidate whose model-drafted role was
+    `gene_prediction`. The automated walk missed it because its fixture registry happened to
+    declare the role the fixture used, which is what a fixture does.
     """
     # First, because a draft with holes must be refused before anything else happens. `MF0004`
     # comes from `contract_from`, which is the one place that refusal is decided.
@@ -151,6 +167,12 @@ def stage(
         )
 
     contract_id = str(draft.scaffold.filled["id"].value)
+    if roles is not None:
+        # **Before `_must_load`, because it is the cheaper refusal and the clearer message.**
+        # `MD0302` names the role and lists the ones that exist; `MF0103` would wrap it in
+        # "would not load into this registry", which is true and one step further from the fix.
+        declared = draft.scaffold.filled.get("roles")
+        roles.check(contract_id, list(declared.value) if declared else [])
     if vocabulary is not None:
         _must_load(
             contract_yaml,
@@ -235,6 +257,7 @@ def land(
     approved_by: str,
     approved_at: str,
     vocabulary: Vocabulary | None = None,
+    roles: "RoleVocabulary | None" = None,
     expect_base: str | None = None,
 ) -> LandResult:
     """Publish one approved bundle onto a branch in a registry checkout.
@@ -254,7 +277,11 @@ def land(
     meet `MF0101`'s dirty tree and refuse for a reason that has nothing to do with it.
     """
     staged = stage(
-        draft, approved_by=approved_by, approved_at=approved_at, vocabulary=vocabulary
+        draft,
+        approved_by=approved_by,
+        approved_at=approved_at,
+        vocabulary=vocabulary,
+        roles=roles,
     )
 
     default = _default_branch(registry)

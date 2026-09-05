@@ -1,10 +1,12 @@
 # Walking the forge by hand
 
-**What a test cannot do.** Task 13 asks for the loop to be driven end to end, and three of its
-boxes need a person: a browser, a real model, and eyes on a screen beside the drawing it came
-from. `packages/mendel-api/tests/test_full_cycle.py` does the half a suite can — catalogue →
-scaffold → answered holes → approval → a git commit → a layer that loads back — and this page is
-the other half.
+**This walk has been run once, on 2026-09-05, and it found six defects.** They are listed at the
+end and every one is in `tests/fixtures/guard-ledger.md`. Nothing here is hypothetical: the
+numbers, the refusals and the screenshots below came from doing it.
+
+`packages/mendel-api/tests/test_full_cycle.py` does the half a suite can — catalogue → scaffold →
+answered holes → approval → a git commit → a layer that loads back. This page is the half that
+needs the stack up, a real model, and somebody looking.
 
 It is a checklist, not a tutorial. `docs/handbook/the-stack.md` is how to bring the stack up.
 
@@ -96,8 +98,12 @@ grep -A3 "<the new contract id>" /tmp/walk/pipeline.yml
 a translucent panel drawn opaque, an envelope at half width, and a squashed timeline.
 
 ```bash
-uv run python .design/_prev.py --glob 'Forge*.dc.html'
+python3 .design/_prev.py --glob 'Forge*'      # the drawings
+python3 .design/_shots.py                     # the running pages
 ```
+
+`_shots.py` needs the stack up and `google-chrome-stable` on `PATH`. It shoots against nginx
+rather than Vite: the built bundle is what a person is served.
 
 - [ ] `/forge` beside `ForgeOverview`
 - [ ] `/forge/catalogue` beside `ForgeCatalogue`
@@ -118,3 +124,31 @@ Everything. The point of driving it by hand is that the suites are green and hav
 through four tasks — what they are blind to is appearance, the browser, and any seam that only
 exists once two containers are running. Write down what you find; the journal entry is where it
 goes.
+
+---
+
+## What it found the first time
+
+Every suite was green before this and green after. What changed is that something ran.
+
+1. **Both workers died when Redis restarted and stayed dead.** Only `web` carried a `restart:`
+   policy in the base compose file. `docker ps` showed a green stack with no worker in it.
+2. **No generation had ever reached a model against a real registry.** `sorted(stack.roles)`
+   iterates a Pydantic model and yields `(field, value)` pairs, so the dossier's vocabulary
+   section died on a `TypeError` before the call.
+3. **A 60-second timeout with 600 configured** — the `api` service was given three of the six
+   `COMENI_AI_*` names and the worker all six.
+4. **A model that answered was reported as unreachable.** `sanitised()` said *could not be
+   reached* for every failure on the model path, including a reply refused for its shape.
+   `MI0113` is the second code.
+5. **A contract landed and the whole registry stopped loading** — `stage()` validated types and
+   not roles, and roles are closed by invariant 7.
+6. **Roughly 900 pixels of empty ground on every Registry page**, invisible to 421 frontend
+   tests because jsdom computes no layout.
+
+**And two things that are working as designed and still cost a walk to see.** `forge land`
+writes new *types* with the contract that wanted them and has no equivalent for a *role*, so a
+tool whose job the registry has no word for needs a separate hand-written commit. And a contract
+for a source that ships no Nextflow lands `MD0100 unverified` and is not runnable until
+something vendors or generates a module — the build says so, and the Files tab shows no files.
+

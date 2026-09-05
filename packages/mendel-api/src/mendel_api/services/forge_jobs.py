@@ -313,6 +313,15 @@ def _worker(ctx: dict) -> str:
     return f"worker:{ctx.get('job_id', 'unknown')}"
 
 
+UNREACHABLE = ("ModelUnavailableError", "TimeoutError", "ConnectError", "APIConnectionError")
+"""Exception type names that mean *the lane is broken*, as opposed to *the answer was refused*.
+
+Matched on the **name** rather than by importing the classes, because they come from three
+packages — `comeni_ai`, `httpx` and LiteLLM — and importing a transport's exception hierarchy
+into the job module would be reaching across the seam `_client` exists to keep.
+"""
+
+
 def sanitised(failure: Exception, *, where: str) -> str:
     """A provider failure as something `forge_event.detail` may carry.
 
@@ -320,9 +329,21 @@ def sanitised(failure: Exception, *, where: str) -> str:
     a key prefix, and always a stack — and `detail` is rendered on the adaptation page. The type
     name is kept because *a timeout* and *a refusal* are different stories for a curator, and
     the rest goes to the log at the call site.
+
+    **And those two stories now get two codes.** This said *the model could not be reached* for
+    every failure on the model path, including one where the model was reached, answered, and had
+    its answer refused for not matching the declared shape — which sends somebody to check a
+    network that is fine. Found by asking a real local model a review question on 2026-09-05: the
+    guarantee held and the reason given for it was false.
     """
-    return coded("MI0102", f"the model could not be reached during {where}") + (
-        f"\n  the worker recorded a {type(failure).__name__}; the detail is in its log"
+    name = type(failure).__name__
+    if name in UNREACHABLE:
+        return coded("MI0102", f"the model could not be reached during {where}") + (
+            f"\n  the worker recorded a {name}; the detail is in its log"
+        )
+    return coded("MI0113", f"the model answered during {where} and its answer was refused") + (
+        f"\n  the worker recorded a {name}; the detail is in its log"
+        "\n  nothing was applied to the candidate — try again, or use a larger model"
     )
 
 
@@ -459,7 +480,17 @@ def _vocabularies(stack) -> list:
         ),
         select.vocabulary(
             name="roles",
-            values=sorted(stack.roles),
+            # **`.names`, and the missing word cost every generation.** `stack.roles` is a
+            # `RoleVocabulary`, and iterating a Pydantic model yields `(field, value)` pairs —
+            # so this passed `[("names", frozenset({...}))]` to a function that joins strings,
+            # and `_generate` died on `sequence item 0: expected str instance, tuple found`
+            # before the dossier was composed. **No generation had ever reached a model against
+            # a real registry**; every test that exercises this path builds the vocabulary
+            # segment from a list of strings by hand.
+            #
+            # Found by running one, on 2026-09-05. `test_the_dossier_is_built_from_a_real_stack`
+            # is what fails now instead.
+            values=sorted(stack.roles.names),
             note="every role a contract may take:",
         ),
     ]
@@ -734,6 +765,7 @@ def _land(adaptation_id: str, ctx: dict) -> str:
         approved_by=approved_by,
         approved_at=approved_at,
         vocabulary=registry_service.stack().vocabulary,
+        roles=registry_service.stack().roles,
         expect_base=base or None,
     )
     return f"landed on {getattr(result, 'branch', 'a branch')}"

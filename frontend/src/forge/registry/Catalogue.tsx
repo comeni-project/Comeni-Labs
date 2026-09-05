@@ -12,7 +12,7 @@ import {
 import { useTitle } from "../../app/useTitle";
 import { useUrlPatch, useUrlState } from "../../app/useUrlState";
 import { Failed, Loading } from "../../ui/States";
-import { LOOK, Mark, Subnav } from "./Status";
+import { LOOK, Mark, RegistrySection } from "./Status";
 
 /** `/forge/catalogue` — every tool a source can read, and what we have done about each.
  *
@@ -284,8 +284,7 @@ export function Catalogue() {
   const last = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <>
-      <Subnav />
+    <RegistrySection>
       <div className="gutter pb-10 overflow-y-auto">
         <div className="settle flex items-center gap-3.5 pt-[26px] pb-4">
           <input
@@ -471,7 +470,7 @@ export function Catalogue() {
           </div>
         )}
       </div>
-    </>
+    </RegistrySection>
   );
 }
 

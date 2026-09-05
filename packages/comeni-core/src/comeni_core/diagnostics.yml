@@ -2907,6 +2907,30 @@ MI0112:
     is one somebody eventually pastes a file into, and the field a curator types in is the one
     genuinely new author on invariant 14's free-text list.
 
+MI0113:
+  emitted_by: api
+  concern: workflow
+  says: "the model answered and its answer was refused"
+  fires_on: [forge generate, forge review]
+  refuses: true
+  fix: |
+    Nothing is wrong with the lane — the model was reached and it replied. What it sent back
+    did not match the declared response shape, so it was refused rather than applied.
+
+    Try again: a different sampling of the same prompt often conforms. If it keeps happening,
+    the model is too small for the schema — `MA0004` names which shape it missed, and the
+    committed prompt files under `mendel_forge/ai/prompts/` are where the schema is shown to it.
+  explanation: |
+    **Distinct from `MI0102`, and the distinction is the point.** That code says the model could
+    not be reached; this one says it was. They send an operator to different places — one to the
+    network and the model server, the other to the prompt and the model's size — and for a while
+    they were the same sentence, because `sanitised()` said *could not be reached* for every
+    failure on the model path while keeping the exception's type name beside it.
+
+    Found on 2026-09-05 by asking a real local model a review question: it answered, `admit_answer`
+    refused the envelope with `MA0004`, and the page reported that the model could not be reached.
+    The guarantee held — nothing was applied to the candidate — and the reason given for it was
+    false.
 MA0001:
   emitted_by: ai
   concern: model-access

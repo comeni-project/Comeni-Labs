@@ -56,9 +56,19 @@ services:
       # names the worker gets. Nothing on this service enqueues to the AI queue and nothing
       # on it builds a `Client` — `ai_worker.AIWorkerSettings.functions` is the allowlist of
       # what may reach a provider, and it is a different process.
+      # **All six, the same six the worker gets.** It shipped with three — model, base URL and
+      # key — on the reasoning that the API only reports. That was wrong twice over: it builds
+      # a real `ModelAccess` through `model_access()`, so a missing `COMENI_AI_TIMEOUT_SECONDS`
+      # silently gave it the 60s default while the worker had the configured value; and two
+      # containers disagreeing about one configuration is precisely what having one spelling
+      # was for. Found by running a generation and watching it time out at 60s with 600
+      # configured.
       COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
       COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
       COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
+      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
+      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
       - ./packages:/app/packages
@@ -86,6 +96,15 @@ services:
   worker:
     build: .
     container_name: ${WORKER_CONTAINER_NAME:-mendel-worker}
+    # **A worker that outlives its broker's restart, and it did not.** Found by running the
+    # stack on 2026-09-05: `redis` was recreated while both workers were already up, they died
+    # on the dropped connection, and they stayed dead — `docker ps` showed a green stack with no
+    # worker in it, and the only thing that said so was `/api/health/ai`'s `worker_available`.
+    #
+    # `web` has carried this since Plan 4 with a comment about nginx resolving its upstream once
+    # and dying if it cannot. A worker has the same shape and had none of the protection: it
+    # connects to Redis at startup and has no reconnect of its own.
+    restart: unless-stopped
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       postgres: {condition: service_healthy}
@@ -130,6 +149,7 @@ services:
     # this comment — the same lesson `geometry.ts` taught about a comment claiming a guard.
     build: .
     container_name: ${AI_WORKER_CONTAINER_NAME:-mendel-ai-worker}
+    restart: unless-stopped  # see `worker`
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       postgres: {condition: service_healthy}
@@ -241,6 +261,7 @@ services:
     # cannot reach this"; an unpublished port is another.
     build: .
     container_name: ${WIENER_INGEST_CONTAINER_NAME:-wiener-ingest}
+    restart: unless-stopped  # see `worker`
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       wiener-postgres: {condition: service_healthy}
@@ -256,6 +277,7 @@ services:
     # Nextflow and Java on its PATH — and the one that gets redeployed most often.
     build: .
     container_name: ${WIENER_WORKER_CONTAINER_NAME:-wiener-worker}
+    restart: unless-stopped  # see `worker`
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       wiener-postgres: {condition: service_healthy}

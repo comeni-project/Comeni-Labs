@@ -4713,3 +4713,48 @@ loader enforcing invariant 7 against a role no layer declares. That is the shape
 walk exists for: not a bug in the code, a gap between what one half writes and what the other
 half will accept.
 
+## The walk, driven for real — 2026-09-05
+
+Task 13's last three boxes were left for an operator and then done here instead: the stack was
+brought up, a real local model (`ollama/gemma3:12b`) drafted a contract, a person corrected one
+value and approved it, the registry took it, a pipeline resolved through it, and every Registry
+page was screenshotted beside its artboard.
+
+**Six defects, and not one of them was findable by a test that was already written.** Every
+suite was green before this and green after; what changed is that something ran.
+
+| what broke | how it showed | where it was |
+|---|---|---|
+| both workers died when Redis restarted and stayed dead | `docker ps` showed a green stack with no worker in it | no `restart:` on any worker in the base compose file — only `web` had one |
+| **every generation failed before reaching the model** | `TypeError: sequence item 0: expected str instance, tuple found` | `sorted(stack.roles)` iterates a Pydantic model and yields `(field, value)` pairs; it wanted `.names` |
+| a 60s timeout with 600 configured | `litellm.Timeout: Connection timed out after 60.0 seconds` | the `api` service got three of the six `COMENI_AI_*` names and the worker got all six |
+| a model that answered was reported as unreachable | the page said *the model could not be reached*; it had replied and been refused | `sanitised()` said that sentence for every failure on the model path |
+| **a contract landed and the whole registry stopped loading** | `MD0302: declares role 'gene_prediction', which no layer declares` | `stage()` validated types and not roles — `ModuleContract.load` checks states, and roles are checked one level up by `layers.load` |
+| ~900px of empty ground on every Registry page | one screenshot | the four pages returned a fragment of *two* elements into `grid-rows-[auto_1fr]`, so the **subnav** took the `1fr` row |
+
+**The role hole is the one worth reading twice**, because it is a hole in what this very task
+built. `stage()`'s whole argument is *everything that can refuse, refuses before git is touched*,
+and it refused on types while a role sailed past — so a candidate landed, and the registry it
+landed in would not load. The automated walk missed it for the most ordinary reason there is:
+its fixture registry declared the role its fixture used.
+
+**The layout defect is the third time the same lesson has arrived.** 421 frontend tests passed
+over it through four tasks. jsdom computes no layout, so a page can be structurally perfect and
+visually broken and nothing in the suite has an opinion. `.design/_shots.py` exists now for the
+same reason `_prev.py` does.
+
+**Two findings recorded rather than fixed.**
+
+`stage()` refusing a role is right, and it leaves a real gap one level up: **`forge land` writes
+new *types* with the contract that wanted them and has no equivalent for a *role*.** A tool whose
+job the registry has no word for cannot be published at all without a separate hand-written
+commit — which is what this walk did. Whether a role should ride along the way a type does is a
+judgement about how much one approval may carry, and §4.2's *one review, not two* argues both
+ways: a type with no consumer cannot be judged, and a role is scientific policy in a way a type
+is not.
+
+And a candidate for a source that ships no Nextflow lands `MD0100 unverified` — correct, and it
+means the published contract is not runnable until something vendors or generates a module. The
+build says so; the review page's Files tab shows no files. Both are honest and neither is a
+finished loop.
+

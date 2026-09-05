@@ -8,7 +8,7 @@ import {
 } from "../../api/registry";
 import { useTitle } from "../../app/useTitle";
 import { Failed, Loading } from "../../ui/States";
-import { Mark, Subnav } from "./Status";
+import { Mark, RegistrySection } from "./Status";
 
 /** `/forge` — how complete and healthy is the registry, and what needs me now.
  *
@@ -292,8 +292,7 @@ export function Overview() {
   const sync = useSyncSources();
 
   return (
-    <>
-      <Subnav />
+    <RegistrySection>
       <div className="gutter pb-10 overflow-y-auto">
         <div className="settle flex items-end justify-between pt-[26px] pb-[22px]">
           <div>
@@ -387,6 +386,6 @@ export function Overview() {
           </>
         )}
       </div>
-    </>
+    </RegistrySection>
   );
 }

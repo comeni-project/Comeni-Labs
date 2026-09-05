@@ -80,6 +80,55 @@ const tab = "px-3 py-1.5 font-data text-label tracking-[.08em] uppercase no-unde
  * make the Registry read as three workspaces, and the global bar is where a person decides
  * which half of the product they are in rather than which page of one.
  */
+/** A Registry page: the section subnav, then whatever the page is.
+ *
+ * **One root element, and that is the whole reason this exists.** `Shell` lays its children out
+ * as `grid-rows-[auto_1fr] h-dvh` — a bar and a page — and every other screen in the product
+ * returns a single element into it. These four returned a fragment of two, so the *subnav*
+ * became the `1fr` row and stretched to fill the viewport: roughly 900 pixels of empty ground
+ * between the tabs and the page, with the active tab's background painted down the left of it.
+ *
+ * **Invisible to the entire suite and obvious in a screenshot.** jsdom computes no layout, so
+ * 421 frontend tests passed over it through Tasks 10 to 13; it took `_shots.py` and one look.
+ * That is the 2026-09-01 lesson arriving for the third time — *reading finds wrong strings; it
+ * does not find wrong pictures* — and it is why this wrapper is a component rather than a note
+ * asking the next page to remember.
+ */
+export function Section({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-rows-[auto_1fr] min-h-0">
+      <Subnav />
+      {children}
+    </div>
+  );
+}
+
+/** A Registry page: the section subnav, then whatever the page is.
+ *
+ * **One root element, and that is the whole reason this exists.** `Shell` lays its children out
+ * as `grid-rows-[auto_1fr] h-dvh` — a bar and a page — and every other screen in the product
+ * returns a single element into it. These four returned a fragment of *two*, so the **subnav**
+ * became the `1fr` row and stretched to fill the viewport: roughly 900 pixels of empty ground
+ * between the tabs and the page, with the active tab's background painted down the left of it.
+ *
+ * **Invisible to the entire suite and obvious in one screenshot.** jsdom computes no layout, so
+ * 421 frontend tests passed over it through Tasks 10 to 13; `.design/_shots.py` and one look
+ * found it. That is the 2026-09-01 lesson arriving for the third time — *reading finds wrong
+ * strings; it does not find wrong pictures* — and it is why this is a component rather than a
+ * note asking the next page to remember.
+ *
+ * Named in full because `Catalogue.tsx` already has a local `Section` for the inspector's
+ * labelled blocks, and two `Section`s in one import graph is a rename waiting to happen.
+ */
+export function RegistrySection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-rows-[auto_1fr] min-h-0">
+      <Subnav />
+      {children}
+    </div>
+  );
+}
+
 export function Subnav() {
   return (
     <nav className="gutter flex gap-0.5 border-b border-line-soft" aria-label="Registry sections">
