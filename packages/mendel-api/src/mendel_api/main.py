@@ -18,10 +18,11 @@ mount and `mendel_forge.http` were both removed in phase 6 —
 
 from fastapi import FastAPI
 
-from mendel_api.refusals import refusal_handler
+from mendel_api.refusals import missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import build as build_routes
 from mendel_api.routes import contracts as contracts_routes
+from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import questions as questions_routes
 from mendel_api.routes import registry as registry_routes
@@ -35,6 +36,13 @@ TAGS = [
     {"name": "contracts", "description": "What has landed. Read only."},
     {"name": "sources", "description": "What can be read, and starting a draft."},
     {"name": "attention", "description": "What needs a person, across both halves."},
+    {
+        "name": "forge",
+        "description": (
+            "Adapting a tool: the catalogue, an adaptation and its revisions, and the "
+            "review conversation. Queued mutations answer 202."
+        ),
+    },
 ]
 
 
@@ -55,6 +63,9 @@ def create_app() -> FastAPI:
     # One handler: a coded refusal is a 422 whatever raised it — the convention the forge's
     # CLI and its (now deleted) transport both followed.
     app.add_exception_handler(ValueError, refusal_handler)
+    # A `KeyError` is *this id names nothing*, and it was a 500 until 2026-09-05 —
+    # `refusals.missing_handler` records why that mattered.
+    app.add_exception_handler(KeyError, missing_handler)
 
     @app.get(
         "/api/health", operation_id="liveness", summary="Is the service up", tags=["health"]
@@ -80,6 +91,11 @@ def create_app() -> FastAPI:
     app.include_router(build_routes.router, prefix="/api")
     app.include_router(tools_routes.router, prefix="/api")
     app.include_router(attention_routes.router, prefix="/api")
+    # **Added rather than replacing anything.** Task 8 keeps the existing endpoints alive
+    # through the migration: `/tools`, `/sources` and `/contracts` are what the built SPA
+    # reads today, and removing them in the same change that adds their replacement would
+    # mean the interface is broken for exactly as long as the rework takes.
+    app.include_router(forge_routes.router, prefix="/api")
     return app
 
 

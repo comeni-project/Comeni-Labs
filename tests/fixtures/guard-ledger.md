@@ -4511,3 +4511,34 @@ _to_generating` asserted the job *ended* at `generating`, which was true while t
 stub and false once it walked. The sweep tests had the same shape — they reached `generating` by
 running the generation job, so they were testing the generation path with the sweep as an
 afterthought. They claim directly now, through `_held`.
+
+## The forge's HTTP surface — 2026-09-05
+
+Task 8: twelve paths, fourteen operations, three services. §7's opening sentence — *no request
+body accepts a path, provider key, base URL, or model name* — is held as a literal field
+allowlist, because every one of those is a `str` and no rule can tell them apart.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_routes.py::test_no_request_body_accepts_a_path_a_key_or_a_model` | a `registry_root: str` added to `Start` | failed, with the behavioural test | a browser could choose what only `settings` may |
+| 2026-09-05 | `test_forge_routes.py::test_the_table_covers_every_request_body_on_this_surface` | a `Sneaky(BaseModel)` with `base_url` added to `forge.py` | failed | a request body nobody listed passed the allowlist |
+| 2026-09-05 | `test_forge_routes.py::test_a_queued_mutation_answers_202` | the 202 dropped from `POST /adaptations` | failed | a page reading 200 as done would show a finished adaptation that had not started |
+| 2026-09-05 | `test_openapi.py::test_every_operation_is_named_by_hand` | — | **fired on the first run of the new router** | fourteen operations existed that the literal table did not name |
+
+**The third of these is the same construction for the third time.** `test_egress.py` lists what
+may leave, `test_ai_schemas.py` lists what a model may say back, and this lists what a caller may
+send. All three exist because the thing being forbidden — a path, a credential, a destination —
+is indistinguishable by type from the thing being allowed.
+
+**A `KeyError` was a 500 on every route that could raise one.** The services raise
+`KeyError(identifier)` for an adaptation, revision or catalogue item that does not exist — a
+convention older than any of them being reachable over HTTP, and one nothing on the wire
+honoured. Found by writing a test that asked for an adaptation that is not there and expecting
+404. `missing_handler` answers 404 now, and `REFUSES` declares it so a generated client types it.
+
+**Two of my own tests were wrong before the code was.** `forge_adaptations.begin` returns an
+`AdaptationRow` and I passed it where an id belonged — SQLAlchemy reported *cannot adapt type
+AdaptationRow* rather than anything about the code under test. And
+`test_the_older_endpoints_are_still_served` asserted `/api/sources` and `/api/contracts`, which
+are prefixes rather than endpoints: a test that would have passed on a system where nothing
+under them existed.

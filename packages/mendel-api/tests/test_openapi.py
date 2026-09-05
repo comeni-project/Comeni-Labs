@@ -74,6 +74,27 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/gates/{run_id}", "get"): "readGate",
         ("/api/sources/draft", "post"): "draftTool",
         ("/api/attention", "get"): "whatNeedsYou",
+        # **The forge surface, §7 of the Forge MVP plan.** Fourteen operations over twelve
+        # paths, added in Task 8 *beside* `/tools` rather than replacing it — that migration
+        # is Tasks 10 and 11's, and removing the old endpoints in the change that adds their
+        # replacement would break the interface for as long as the rework takes.
+        ("/api/forge/overview", "get"): "forgeOverview",
+        ("/api/forge/catalogue", "get"): "forgeCatalogue",
+        ("/api/forge/catalogue/{item_id}", "get"): "forgeCatalogueItem",
+        ("/api/forge/sources/sync", "post"): "forgeSyncSources",
+        ("/api/forge/adaptations", "get"): "forgeAdaptations",
+        ("/api/forge/adaptations", "post"): "forgeStartAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}", "get"): "forgeAdaptation",
+        (
+            "/api/forge/adaptations/{adaptation_id}/revisions/{revision_id}",
+            "get",
+        ): "forgeRevision",
+        ("/api/forge/adaptations/{adaptation_id}/retry", "post"): "forgeRetryAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}/messages", "get"): "forgeReviewConversation",
+        ("/api/forge/adaptations/{adaptation_id}/messages", "post"): "forgeAskReview",
+        ("/api/forge/adaptations/{adaptation_id}/changes", "post"): "forgeRequestChanges",
+        ("/api/forge/adaptations/{adaptation_id}/approve", "post"): "forgeApproveAdaptation",
+        ("/api/forge/adaptations/{adaptation_id}/archive", "post"): "forgeArchiveAdaptation",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
     }

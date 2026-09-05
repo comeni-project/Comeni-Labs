@@ -2843,6 +2843,41 @@ MI0110:
     `retry`, which re-runs a generation nobody asked for and costs a model call to arrive back
     at the same candidate.
 
+MI0111:
+  emitted_by: api
+  concern: workflow
+  says: "that page cursor is not one this endpoint issued"
+  fires_on: [forge review]
+  refuses: true
+  fix: |
+    Ask for the first page and follow `next_cursor`. A cursor is opaque and is not meant to be
+    constructed, edited or kept across a schema change.
+  explanation: |
+    A cursor names a position in an ordering — `(updated_at, id)` — rather than a distance from
+    the start, which is what makes a page stable while a sync inserts sixteen hundred rows
+    underneath it. Offset paging would silently skip and repeat rows instead.
+
+    **Opaque on purpose.** A cursor a caller can construct is a cursor a caller will construct,
+    and the ordering then becomes a public contract that cannot change. `routes/build.py`
+    records the same argument for why a draft id is opaque.
+
+MI0112:
+  emitted_by: api
+  concern: workflow
+  says: "a review question is empty, or longer than the limit"
+  fires_on: [forge review]
+  refuses: true
+  fix: |
+    Say what you are asking about. If the question is long because it quotes the whole
+    candidate, quote the part in question instead — the model already has the candidate.
+  explanation: |
+    An empty turn costs a model call and tells the next reader nothing, and the conversation is
+    part of the record a reviewer reads six months later.
+
+    **The upper bound is there because this string crosses egress door 5.** An unbounded field
+    is one somebody eventually pastes a file into, and the field a curator types in is the one
+    genuinely new author on invariant 14's free-text list.
+
 MA0001:
   emitted_by: ai
   concern: model-access

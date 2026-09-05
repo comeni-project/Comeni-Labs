@@ -705,6 +705,260 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forge/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Counts across the whole forge
+         * @description **Counts and never lists.** `docs/design/forge-review.md` §3 records an Overview page
+         *     designed and cut for answering the same question as the queue; the moment a tool ref appears
+         *     here it has become that page.
+         */
+        get: operations["forgeOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every tool a source can read
+         * @description A page of the catalogue, and the total it is a slice of.
+         *
+         *     **Offset here and a cursor on adaptations, deliberately.** The catalogue is ordered by
+         *     `(source, ref)` — a stable key that a sync updates in place rather than reordering — so an
+         *     offset page does not shift under a refresh the way a list ordered by `updated_at` does.
+         *     A total is also cheap over that ordering and is what a *1 to 50 of 1,612* control needs.
+         */
+        get: operations["forgeCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/catalogue/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One tool, in full */
+        get: operations["forgeCatalogueItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/sources/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a source's catalogue
+         * @description Queued, not performed. A walk of sixteen hundred tools does not belong in a request.
+         */
+        post: operations["forgeSyncSources"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Adaptations, newest first */
+        get: operations["forgeAdaptations"];
+        put?: never;
+        /**
+         * Start adapting one tool
+         * @description Creates the durable state and queues the deterministic scaffold.
+         *
+         *     **The row exists before the job is enqueued**, so a queue that is down costs a scaffold
+         *     rather than the record of what somebody asked for. `forge_jobs.enqueue_scaffold` is
+         *     idempotent on the adaptation id, so a retried request cannot start two.
+         */
+        post: operations["forgeStartAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One adaptation, its revisions and its history */
+        get: operations["forgeAdaptation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/revisions/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One revision of one adaptation */
+        get: operations["forgeRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a failed adaptation at the stage it failed
+         * @description **Rule 9 decides where it resumes, not this endpoint.** `retry_target` reads
+         *     `failed_stage`: a scaffold that could not be built is not repaired by queueing a model.
+         */
+        post: operations["forgeRetryAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The whole review conversation */
+        get: operations["forgeReviewConversation"];
+        put?: never;
+        /**
+         * Ask a question about this candidate
+         * @description The pending turn is visible immediately — §7. A curator who sees nothing until an answer
+         *     arrives cannot tell *sent* from *lost*, and at 227 seconds they retype it.
+         */
+        post: operations["forgeAskReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a candidate back for another attempt
+         * @description **Not rejection** — §1.6's word, and the reason it is not `reject` is that a terminal word
+         *     makes an ordinary correction feel destructive. The candidate being corrected is kept.
+         */
+        post: operations["forgeRequestChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a candidate for publication
+         * @description Records that a named human approved, and queues the one job that writes to a registry.
+         *
+         *     **The registry digest is read here, at the moment of approval.** `approval_refusals` compares
+         *     it against the one the candidate was validated against, because a green verdict describes the
+         *     layer that was read at the time and that layer can be gone.
+         */
+        post: operations["forgeApproveAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/adaptations/{adaptation_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an adaptation nobody is working on
+         * @description **200, not 202** — nothing is queued. Archiving is one row moving, and it is the one
+         *     mutation on this surface that finishes when the request does.
+         *
+         *     Legal from any state a worker does not hold; `ALLOWED` refuses the rest with `MF0300`.
+         */
+        post: operations["forgeArchiveAdaptation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -734,6 +988,87 @@ export interface components {
             branch: string;
             /** Commit */
             commit: string;
+        };
+        /**
+         * Adaptation
+         * @description One adaptation in full: where it is, what it produced, and what happened to it.
+         */
+        Adaptation: {
+            adaptation: components["schemas"]["AdaptationRow"];
+            /**
+             * Revisions
+             * @default []
+             */
+            revisions: components["schemas"]["Revision"][];
+            /**
+             * Events
+             * @default []
+             */
+            events: components["schemas"]["Event"][];
+        };
+        /**
+         * AdaptationRow
+         * @description One adaptation, as a list renders it. **No candidate text and no holes** — those are the
+         *     detail endpoint's, and a list that carried them would be a list nobody can page.
+         */
+        AdaptationRow: {
+            /** Id */
+            id: string;
+            /** Catalogue Item Id */
+            catalogue_item_id: string;
+            /** Source */
+            source: string;
+            /** Ref */
+            ref: string;
+            /** Display Name */
+            display_name: string;
+            state: components["schemas"]["AdaptationState"];
+            /** Row Version */
+            row_version: number;
+            /** Who */
+            who: string;
+            failed_stage?: components["schemas"]["AdaptationState"] | null;
+            /** Current Revision Id */
+            current_revision_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AdaptationState
+         * @description Where one tool's adaptation has got to.
+         *
+         *     A plain string column in Postgres rather than a native enum, for the reason
+         *     `models.GateRun.state` already records: adding a member to a Postgres enum is a migration,
+         *     and this class is already the closed vocabulary that matters.
+         * @enum {string}
+         */
+        AdaptationState: "scaffolding" | "queued" | "generating" | "validating" | "review" | "changes_requested" | "publishing" | "published" | "failed" | "archived";
+        /**
+         * AiLane
+         * @description What the AI worker is doing, and how long the front of its queue has waited.
+         *
+         *     **`waiting` is counted from the database, not from Redis.** A queue depth read from the
+         *     broker counts jobs; this counts adaptations, and they disagree exactly when something has
+         *     gone wrong — a job delivered whose row never moved. Counting the thing a person cares about
+         *     is what makes that visible instead of reassuring.
+         */
+        AiLane: {
+            /** Concurrency */
+            concurrency: number;
+            /** Active */
+            active: number;
+            /** Waiting */
+            waiting: number;
+            /** Oldest Wait Seconds */
+            oldest_wait_seconds: number;
         };
         /** AlignedStep */
         AlignedStep: {
@@ -799,6 +1134,13 @@ export interface components {
             /** Refused */
             refused: components["schemas"]["RefusedDraft"][];
         };
+        /** Approval */
+        Approval: {
+            /** Reason */
+            reason: string;
+            /** Rule Candidate Ids */
+            rule_candidate_ids?: string[];
+        };
         /**
          * Artifact
          * @description A kept pipeline, as the document it is.
@@ -813,20 +1155,12 @@ export interface components {
             sections: string[];
         };
         /**
-         * Attention
-         * @description What needs a person, now.
-         *
-         *     **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
-         *     12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
-         *     state, not YOURS, and it is why the old page read as slop — information with no question
-         *     behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
-         *     a model with no consumer is a model that comes back.
+         * Ask
+         * @description A curator's question. `message` and nothing else — see the module docstring.
          */
-        Attention: {
-            /** Forge */
-            forge?: components["schemas"]["Call"][];
-            /** Mendel */
-            mendel?: components["schemas"]["Call"][];
+        Ask: {
+            /** Message */
+            message: string;
         };
         /**
          * Band
@@ -886,6 +1220,11 @@ export interface components {
             contract_id?: string | null;
             /** Draft */
             draft?: string | null;
+        };
+        /** Body_forgeSyncSources */
+        Body_forgeSyncSources: {
+            /** Source */
+            source: string;
         };
         /** BuiltPipeline */
         BuiltPipeline: {
@@ -1008,11 +1347,11 @@ export interface components {
          * DataProfile
          * @description Measured properties of the input data.
          *
-         *     A list rather than a mapping because `tests/test_egress.py` forbids mappings in
+         *     A list rather than a mapping because `tests/guards/test_egress.py` forbids mappings in
          *     anything reachable from a payload: a typed key does not prove a *declared* key.
          *
          *     Build one through `MeasurementRegistry.profile()`, which is the only place that
-         *     validates values against their declarations — `tests/test_construction.py` enforces
+         *     validates values against their declarations — `tests/guards/test_construction.py` enforces
          *     that. The mapping shorthand below exists because it is the natural way to *write* one
          *     in a goal file, and because `Goal` needs a default.
          */
@@ -1194,8 +1533,8 @@ export interface components {
          *     published pipeline.
          *
          *     It also adds nothing to invariant 14's list of free-text fields: a `DraftGraph` is not a
-         *     door payload and `tests/test_egress.py` is untouched by this change, which is the assertion
-         *     rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
+         *     door payload and `tests/guards/test_egress.py` is untouched by this change, which is the
+         *     assertion rather than an aside. If a later change wants a label in `pipeline.yml`, that is a
          *     fifteenth entry on that list and it gets the argument the tenth one got, in writing, first.
          */
         DraftLabel: {
@@ -1330,6 +1669,21 @@ export interface components {
             verdict: components["schemas"]["mendel_forge__drift__Verdict"];
             /** Says */
             says: string;
+        };
+        /** Event */
+        Event: {
+            /** Kind */
+            kind: string;
+            from_state?: components["schemas"]["AdaptationState"] | null;
+            /** Detail */
+            detail: string;
+            /** Actor */
+            actor: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /**
          * Excerpt
@@ -1577,6 +1931,21 @@ export interface components {
             /** By */
             by?: string | null;
         };
+        /**
+         * MessageRole
+         * @description Who wrote a review-chat message.
+         *
+         *     `CURATOR` rather than `user`: the person here is reviewing somebody else's proposal, and
+         *     the word a table uses is the word a page ends up using.
+         * @enum {string}
+         */
+        MessageRole: "curator" | "assistant";
+        /**
+         * MessageState
+         * @description A chat turn's own lifecycle. §1.7 — chat never changes files, so this is short.
+         * @enum {string}
+         */
+        MessageState: "pending" | "answered" | "failed";
         /** ModulePage */
         ModulePage: {
             /** Id */
@@ -1677,6 +2046,34 @@ export interface components {
          * @enum {string}
          */
         Ordering: "consequence" | "recent";
+        /** Overview */
+        Overview: {
+            /**
+             * Sources
+             * @default []
+             */
+            sources: components["schemas"]["SourceRow"][];
+            stages: components["schemas"]["Stages"];
+            ai_lane: components["schemas"]["AiLane"];
+            attention: components["schemas"]["mendel_api__services__forge_overview__Attention"];
+        };
+        /**
+         * Page
+         * @description A slice, and how to ask for the next one. **No total.**
+         *
+         *     A keyset page cannot cheaply say how many rows are behind it, and a count that needed a
+         *     second full scan on every page would be the cost this paging exists to avoid. The overview
+         *     is where totals live, and they are counted once over the unfiltered world.
+         */
+        Page: {
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["AdaptationRow"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /**
          * ParamOverride
          * @description A parameter the user pinned. Closed, so it cannot carry a path.
@@ -1791,7 +2188,7 @@ export interface components {
          *     `vocabularies/`; a person moves it, which is invariant 2's approval step and the whole of
          *     what bounds a model inventing an id and a sentence.
          *
-         *     See `notes/specs/2026-08-17-vocabulary-proposals.md`.
+         *     See `docs/notes/specs/2026-08-17-vocabulary-proposals.md`.
          */
         Proposal: {
             /** Id */
@@ -1879,6 +2276,35 @@ export interface components {
             total: number;
         };
         /**
+         * Queued
+         * @description What a `202` carries: the row as it is now, and that work was queued.
+         *
+         *     **`queued` may be `False` and the request still succeeded.** ARQ refuses a duplicate job id,
+         *     which is the mechanism working — the caller pressed twice, or two tabs are open. Reporting
+         *     it lets a page say *already running* instead of implying a second attempt started.
+         */
+        Queued: {
+            adaptation: components["schemas"]["AdaptationRow"];
+            /**
+             * Queued
+             * @default true
+             */
+            queued: boolean;
+        };
+        /**
+         * Reason
+         * @description Every state-changing request carries one, and it is the only field.
+         *
+         *     **`extra="forbid"` is what makes the allowlist test meaningful.** A body that silently
+         *     ignored an unknown key would accept `{"reason": "...", "registry_root": "/etc"}` and the
+         *     test that says *these are all the fields* would be describing a model rather than a
+         *     boundary.
+         */
+        Reason: {
+            /** Reason */
+            reason: string;
+        };
+        /**
          * Refusal
          * @description A coded refusal. `detail` is `"<code>: <message>"` — `forge explain <code>` expands it.
          */
@@ -1897,7 +2323,7 @@ export interface components {
          * RequiredStates
          * @description States a wanted output must carry.
          *
-         *     A record rather than a mapping key, because `tests/test_egress.py` forbids mappings in
+         *     A record rather than a mapping key, because `tests/guards/test_egress.py` forbids mappings in
          *     anything reachable from a payload and `Goal` became reachable when the publication payload
          *     started carrying one. `dict[TypeId, list[StateName]]` type-checks perfectly while
          *     saying nothing about whether the key was ever declared.
@@ -1907,6 +2333,28 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /** Revision */
+        Revision: {
+            /** Id */
+            id: string;
+            /** Ordinal */
+            ordinal: number;
+            /** State */
+            state: string;
+            /** Green */
+            green: boolean;
+            /** Unresolved Required */
+            unresolved_required: number;
+            /** Validation */
+            validation: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * RowKind
@@ -1951,6 +2399,95 @@ export interface components {
              * @default []
              */
             premise: string[];
+        };
+        /**
+         * SourceRow
+         * @description One source's counts, plus whether its last look at upstream worked.
+         */
+        SourceRow: {
+            /** Source */
+            source: string;
+            /** Discovered */
+            discovered: number;
+            /** Adaptable */
+            adaptable: number;
+            /** Adapted */
+            adapted: number;
+            /** Current */
+            current: number;
+            /** Outdated */
+            outdated: number;
+            /** In Progress */
+            in_progress: number;
+            /** Unsupported */
+            unsupported: number;
+            /** Last Synced At */
+            last_synced_at?: string | null;
+            /**
+             * Snapshot Stale
+             * @default false
+             */
+            snapshot_stale: boolean;
+            /**
+             * Sync Error
+             * @default
+             */
+            sync_error: string;
+        };
+        /**
+         * Stages
+         * @description How many adaptations are at each stage a person might act on.
+         *
+         *     `published` and `archived` are absent on purpose: they are finished, and a band counting
+         *     them would be a band whose number only ever grows, which reads as work rather than history.
+         */
+        Stages: {
+            /**
+             * Scaffolding
+             * @default 0
+             */
+            scaffolding: number;
+            /**
+             * Queued
+             * @default 0
+             */
+            queued: number;
+            /**
+             * Generating
+             * @default 0
+             */
+            generating: number;
+            /**
+             * Validating
+             * @default 0
+             */
+            validating: number;
+            /**
+             * Review
+             * @default 0
+             */
+            review: number;
+            /**
+             * Changes Requested
+             * @default 0
+             */
+            changes_requested: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+        };
+        /**
+         * Start
+         * @description Which catalogue item to adapt. **An id, never a ref or a path.**
+         *
+         *     A ref would have to be resolved against a source, and *which source* is then a second field
+         *     a caller could get wrong; the id already names exactly one row.
+         */
+        Start: {
+            /** Catalogue Item Id */
+            catalogue_item_id: string;
         };
         /**
          * State
@@ -2014,6 +2551,27 @@ export interface components {
             what: string;
             /** Colour */
             colour: string;
+        };
+        /**
+         * Turn
+         * @description One message, as a page renders it.
+         */
+        Turn: {
+            /** Id */
+            id: number;
+            role: components["schemas"]["MessageRole"];
+            state: components["schemas"]["MessageState"];
+            /** Content */
+            content: string;
+            /** Citations */
+            citations: unknown[];
+            /** Revision Id */
+            revision_id?: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /** TypeCard */
         TypeCard: {
@@ -2102,6 +2660,22 @@ export interface components {
             findings: components["schemas"]["Finding"][];
         };
         /**
+         * Attention
+         * @description What needs a person, now.
+         *
+         *     **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
+         *     12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
+         *     state, not YOURS, and it is why the old page read as slop — information with no question
+         *     behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
+         *     a model with no consumer is a model that comes back.
+         */
+        mendel_api__services__attention__Attention: {
+            /** Forge */
+            forge?: components["schemas"]["Call"][];
+            /** Mendel */
+            mendel?: components["schemas"]["Call"][];
+        };
+        /**
          * Candidate
          * @description One contract that could go here, and why it is where it is in the list.
          */
@@ -2120,6 +2694,32 @@ export interface components {
             priority: number;
             /** Why */
             why: string;
+        };
+        /**
+         * Attention
+         * @description What needs somebody, in the four shapes it comes in.
+         */
+        mendel_api__services__forge_overview__Attention: {
+            /**
+             * Failed Syncs
+             * @default 0
+             */
+            failed_syncs: number;
+            /**
+             * Failed Adaptations
+             * @default 0
+             */
+            failed_adaptations: number;
+            /**
+             * Stale Review Count
+             * @default 0
+             */
+            stale_review_count: number;
+            /**
+             * Outdated Count
+             * @default 0
+             */
+            outdated_count: number;
         };
         /**
          * Verdict
@@ -2214,6 +2814,15 @@ export interface operations {
                     "application/json": components["schemas"]["Visited"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2245,6 +2854,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Answered"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2280,6 +2898,15 @@ export interface operations {
                     "application/json": components["schemas"]["AnsweredAll"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2313,6 +2940,15 @@ export interface operations {
                     "application/json": components["schemas"]["Proposed"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2344,6 +2980,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Decided"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2417,6 +3062,15 @@ export interface operations {
                     "application/json": components["schemas"]["TypeCard"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2446,6 +3100,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriftReport"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2483,6 +3146,15 @@ export interface operations {
                     "application/json": components["schemas"]["AcceptResult"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2512,6 +3184,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModulePage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2545,6 +3226,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DraftResult"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2618,6 +3308,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuiltPipeline"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2778,6 +3477,15 @@ export interface operations {
                     "application/json": components["schemas"]["DraftOut"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2875,6 +3583,15 @@ export interface operations {
                     "application/json": components["schemas"]["Kept"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2906,6 +3623,15 @@ export interface operations {
                     "application/json": components["schemas"]["Artifact"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -2935,6 +3661,15 @@ export interface operations {
                 };
                 content: {
                     "application/zip": unknown;
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -2970,6 +3705,15 @@ export interface operations {
                     "application/json": components["schemas"]["Comparison"];
                 };
             };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
             422: {
                 headers: {
@@ -3001,6 +3745,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuiltPipeline"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -3036,6 +3789,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GateView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
                 };
             };
             /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
@@ -3129,7 +3891,476 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Attention"];
+                    "application/json": components["schemas"]["mendel_api__services__attention__Attention"];
+                };
+            };
+        };
+    };
+    forgeOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    forgeCatalogue: {
+        parameters: {
+            query?: {
+                /** @description Match the ref, name or summary */
+                q?: string;
+                /** @description Only this source */
+                source?: string | null;
+                /** @description Hide what cannot be adapted */
+                adaptable_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeCatalogueItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeSyncSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Body_forgeSyncSources"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeAdaptations: {
+        parameters: {
+            query?: {
+                /** @description Only this stage */
+                state?: components["schemas"]["AdaptationState"] | null;
+                /** @description Only this source */
+                source?: string | null;
+                /** @description From a previous page's next_cursor */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeStartAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Start"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adaptation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeRetryAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeReviewConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Turn"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeAskReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Ask"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeRequestChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeApproveAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Approval"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgeArchiveAdaptation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adaptation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reason"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptationRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -205,6 +205,8 @@ decline to curate one.
 | `MI0108` | this revision has not been through the validation ladder |
 | `MI0109` | this question is not attached to any revision |
 | `MI0110` | the registry refused this candidate, and the adaptation is back in review |
+| `MI0111` | that page cursor is not one this endpoint issued |
+| `MI0112` | a review question is empty, or longer than the limit |
 
 ## The forge — what a model is told, and what it cites
 

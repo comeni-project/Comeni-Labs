@@ -30,6 +30,24 @@ async def refusal_handler(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+async def missing_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A `KeyError` is *this id names nothing*, which is a 404.
+
+    **Added 2026-09-05, and until then every one of them was a 500.** The services raise
+    `KeyError(identifier)` for an adaptation, a revision or a catalogue item that does not
+    exist — a convention that predates any of them being reachable over HTTP, and one nothing
+    on the wire honoured. A 500 tells a caller the server is broken when the truth is that they
+    asked for something that is not there, and it puts a traceback in a log for an outcome that
+    is not a fault.
+
+    `str(KeyError)` is the repr of its argument — `"'deadbeef'"` — so the id is unquoted here
+    rather than interpolated raw: a detail reading `'deadbeef' not found` is one a person has to
+    look at twice.
+    """
+    identifier = exc.args[0] if exc.args else ""
+    return JSONResponse(status_code=404, content={"detail": f"{identifier} does not exist"})
+
+
 #: Attach to any operation that can refuse.
 #:
 #: **Declared as `Refusal` alone, and that is a judgement rather than the whole truth.** A body
@@ -43,6 +61,10 @@ async def refusal_handler(request: Request, exc: Exception) -> JSONResponse:
 #: generated from this document, so a malformed body is a compile error rather than a runtime
 #: 422. The shape a client can actually receive is this one.
 REFUSES: dict[int | str, dict[str, Any]] = {
+    404: {
+        "model": Refusal,
+        "description": "The id in the path names nothing.",
+    },
     422: {
         "model": Refusal,
         "description": (
