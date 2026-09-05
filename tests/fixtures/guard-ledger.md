@@ -4287,3 +4287,26 @@ occurrence.
 runs nothing and reports success — invisible to `-stub-run`, because a stub never reads its
 inputs or runs its command, and invisible in review because the module looks complete. The
 marker surviving is what keeps `MF0005` attached to it.
+
+## The golden prompts — 2026-09-05
+
+The exact text that would be sent to a provider, for one nf-core tool and one PEGiS tool.
+`test_prompt_goldens.py`, Task 6 step 7.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_prompt_goldens.py::test_the_nf_core_analysis_prompt_is_unchanged` | — | **failed on its first run, against a real scaffold** | `MA0008: no prompt 'ports.name.v1'` |
+
+**This is the whole argument for a prompt golden, and it paid on the first attempt.**
+`ScaffoldHole.hint` returns `prompt_hint_id or HINTS[kind]`, and `bundle._KINDS` sets an override
+for a port's *name* — a `TYPE` hole whose default fragment is about semantic types and is the
+wrong one. `test_ai_prompts.py` checked every value in `HINTS` and all eight resolved; no unit
+test anywhere carried a hole with an override, so the ninth fragment was missing and nothing
+said so.
+
+The unit test now covers the override table too, and it asserts that table is non-empty first —
+a loop over `_KINDS.values()` filtered to non-empty hints passes silently if the filter removes
+everything, which is the failure mode `tests/README.md` names.
+
+**Neither test would have caught it without a real source.** Both are loops over declared data,
+and the defect was in the *join* between two declarations that no fixture had ever joined.

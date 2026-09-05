@@ -9,6 +9,7 @@ requires it to say*.
 import pytest
 from comeni_ai import UnknownPromptError
 from mendel_forge import prompts
+from mendel_forge.bundle import _KINDS
 from mendel_forge.hole_manifest import HINTS, HoleKind
 
 INVARIANT_BLOCK = (
@@ -39,6 +40,25 @@ def test_every_hint_a_hole_can_name_is_a_committed_file():
     for kind, prompt_id in HINTS.items():
         loaded = prompts.hint(prompt_id)
         assert loaded.body.strip(), f"{kind.value} names {prompt_id}, which is empty"
+
+
+def test_every_hint_a_scaffold_can_override_to_is_a_committed_file_too():
+    """**`HINTS` is not the whole set, and the first version of this file assumed it was.**
+
+    `ScaffoldHole.hint` returns `prompt_hint_id or HINTS[kind]`, and `bundle._KINDS` sets an
+    override for a port's *name* — a `TYPE` hole whose default fragment is the wrong one.
+    Checking only the table left `ports.name.v1` naming a file that did not exist, and nothing
+    failed: no hole in any unit test carried an override, so the loop above ran over eight ids
+    that all resolved.
+
+    **The golden prompt is what caught it**, on the first attempt to render a real nf-core
+    scaffold — which is the argument for having one. This test is the cheap version of that
+    catch, sited where a new override would be added.
+    """
+    overrides = {hint_id for _, hint_id in _KINDS.values() if hint_id}
+    assert overrides, "_KINDS declares no overrides, so this asserted nothing"
+    for prompt_id in overrides:
+        assert prompts.hint(prompt_id).body.strip()
 
 
 def test_every_generation_prompt_carries_the_shared_invariant_block_verbatim():

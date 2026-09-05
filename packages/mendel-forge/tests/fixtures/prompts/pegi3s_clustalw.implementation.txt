@@ -1,0 +1,272 @@
+You are proposing registry work for human review. Source facts are immutable. Use only the
+evidence ids supplied; never invent a citation, input, output, version, container, or scientific
+claim. When evidence is insufficient, return an unresolved item instead of a plausible answer.
+Use existing registry vocabulary when it fits. Propose a new type/state/role only when none fits,
+and explain the incompatibility. Output only the declared JSON shape.
+
+# What you are looking at
+
+This tool ships a container and documentation, and no Nextflow. A module skeleton has been
+generated with the parts that could be derived — the process name, the container reference, the
+directives — and three blocks left marked open. You fill those three blocks and nothing else.
+
+You are not returning a file. The skeleton around your blocks is not yours to change: rewriting
+the container line or the process name would put a model's word where a pinned fact was, and the
+diff a reviewer reads would be against nothing.
+
+# What the blocks must satisfy
+
+**DSL2 process syntax**, for the Nextflow version this repository supports.
+
+**The container is the one supplied.** It is pinned. Do not substitute, do not add a fallback,
+do not write a conda directive beside it.
+
+**Conventions.** Read flags from `task.ext.args`. Name outputs with `task.ext.prefix` where the
+module produces one file per sample. Respect `task.ext.when`.
+
+**The input signature must match the contract**, in order and in tuple width, and every join or
+broadcast must be explicit. A channel that arrives as a value where a queue was expected is a
+process that silently runs once.
+
+**Named emits must match the contract's output port names exactly.** The port name is what the
+compiler reads as `PROCESS.out.<name>`; a mismatch is a pipeline that fails at include time.
+
+**A versions block based on a real, evidenced command.** If no documentation shows the tool
+printing its version, leave it empty and say so as an unresolved item. Inventing `--version` for
+a tool that does not support it produces a module that dies on an unknown flag, in a place that
+looks like an infrastructure failure.
+
+**A stub that creates every declared file shape.** The stub is how the whole DAG is validated in
+seconds; one that omits an output makes the process downstream of it fail for no visible reason.
+
+# What you may not write
+
+No network access. No absolute host path. No sample data, no credential, no secret. No shell
+interpolation of anything unbounded. Nothing that replaces a deterministic file or a fact read
+from the source.
+
+# What is in front of you
+
+## identity: identity
+tool: clustalw (pegi3s:clustalw)
+source revision: (none recorded)
+content digest: 5555555555555555555555555555555555555555555555555555555555555555
+fetched digest: 7777777777777777777777777777777777777777777777777777777777777777
+registry digest: rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+latest version: 2.1
+
+what this source can prove:
+  ships a Nextflow process: False
+  declares ports machine-readably: False
+  pins its container by digest: True
+  ships something runnable: True
+
+## evidence: E001
+[prose] README.md:3
+Multiple sequence alignment.
+
+## facts: facts
+(the adapter read nothing)
+
+## holes: nf_include
+id: nf_include
+asks: a value for nf_include
+open because: not derivable
+required: True
+
+Nextflow DSL2. The process name is uppercase with underscores and matches the tool and its
+subcommand — `CLUSTALW_ALIGN`, `SAMTOOLS_SORT`.
+
+Flags come from `task.ext.args`, never hard-coded. Output filenames use `task.ext.prefix` where
+the tool produces one file per sample. Named emits match the contract's output port names exactly
+— that name is what the compiler reads as `PROCESS.out.<name>`.
+
+The stub block must create every file shape the process declares. It is how the whole pipeline is
+validated in seconds, and one that omits an output breaks the process downstream of it in a way
+that reads as an infrastructure fault.
+
+## holes: nf_process
+id: nf_process
+asks: a value for nf_process
+open because: this source ships no Nextflow module, so the process name is whatever the generated one is called
+required: True
+
+Nextflow DSL2. The process name is uppercase with underscores and matches the tool and its
+subcommand — `CLUSTALW_ALIGN`, `SAMTOOLS_SORT`.
+
+Flags come from `task.ext.args`, never hard-coded. Output filenames use `task.ext.prefix` where
+the tool produces one file per sample. Named emits match the contract's output port names exactly
+— that name is what the compiler reads as `PROCESS.out.<name>`.
+
+The stub block must create every file shape the process declares. It is how the whole pipeline is
+validated in seconds, and one that omits an output breaks the process downstream of it in a way
+that reads as an infrastructure fault.
+
+## holes: priority_because
+id: priority_because
+asks: why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does
+open because: why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about
+required: True
+
+The published work behind this tool — a DOI, or a stable URL to the paper.
+
+Take it from the evidence you were given: a `meta.yml` bibliography entry, a README citation
+section, a documentation page. Do not reconstruct one from the tool's name and a remembered
+author, and do not offer a citation you have not been shown.
+
+A wrong DOI is worse than none. It resolves, and the reviewer who follows it finds a real paper
+about something else.
+
+## holes: roles
+id: roles
+asks: the job this tool does in a pipeline — every one of the 12 contracts in this registry declares exactly one role
+open because: a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool
+required: True
+legal values (these are the only legal answers): alignment, bam_indexing, bam_sorting, index_building, profiling, qc_aggregation, qc_per_sample, quantification, trimming
+
+What this tool is *for*, in the vocabulary the registry already uses — `align_reads`, `sort_bam`,
+`qc_per_sample`, `count_features`.
+
+A role is how a goal finds this tool. It is not a description, not a category, and not the tool's
+own name: two tools that do the same job carry the same role and compete on their contracts.
+
+Prefer a role that already exists. Propose a new one only when no existing role would ever route
+to this tool, and say which one you considered and why it does not fit.
+
+## registry-version: registry-version
+registry schema version: 6
+
+## vocabulary: parameter-routes
+how a resolved value can reach a tool:
+ext.args, meta, positional, directive
+
+## vocabulary: roles
+every role the registry already declares:
+align_reads, count_features, qc_per_sample, sort_bam
+
+## response-schema: response-schema
+{
+  "$defs": {
+    "Analysis": {
+      "additionalProperties": false,
+      "properties": {
+        "answers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Answer"
+          },
+          "type": "array"
+        },
+        "unresolved": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Unresolved"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Answer": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hole_id": {
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hole_id",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ModuleProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "input_block": {
+          "default": "",
+          "type": "string"
+        },
+        "output_block": {
+          "default": "",
+          "type": "string"
+        },
+        "script": {
+          "default": "",
+          "type": "string"
+        },
+        "versions_command": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Unresolved": {
+      "additionalProperties": false,
+      "properties": {
+        "hole_id": {
+          "type": "string"
+        },
+        "needed_evidence": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hole_id",
+        "needed_evidence"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "analysis": {
+      "$ref": "#/$defs/Analysis"
+    },
+    "module": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModuleProposal"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "analysis"
+  ],
+  "type": "object"
+}
+
+## task: task
+Answer every hole above, or say what evidence would close it.
+
+# What to return
+
+The three blocks, the versions command if one is evidenced, and the evidence ids you relied on.

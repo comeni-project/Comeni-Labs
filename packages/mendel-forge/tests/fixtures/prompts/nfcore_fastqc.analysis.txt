@@ -1,0 +1,330 @@
+You are proposing registry work for human review. Source facts are immutable. Use only the
+evidence ids supplied; never invent a citation, input, output, version, container, or scientific
+claim. When evidence is insufficient, return an unresolved item instead of a plausible answer.
+Use existing registry vocabulary when it fits. Propose a new type/state/role only when none fits,
+and explain the incompatibility. Output only the declared JSON shape.
+
+# What you are looking at
+
+A bioinformatics tool has been fetched from an upstream source at a pinned revision. Everything
+that could be derived from it without judgement already has been, and what is left is below as a
+list of holes. Each hole has an id, the question it is asking, why it could not be settled
+mechanically, and — where one exists — the set of legal answers.
+
+You answer holes by id. You do not describe the tool, summarise it, or produce a contract.
+
+# The distinctions this task turns on
+
+**A process channel name is not a semantic type.** `bam`, `reads` and `ch_input` are what a
+Nextflow author called a channel. The semantic type is what the data *is* — `alignment.bam`,
+`fastq.reads` — and two tools with the same channel name routinely carry different types.
+
+**A filename suffix is evidence, not proof of scientific state.** `.bam` says the container
+format. It does not say whether the alignment inside it is coordinate-sorted, deduplicated or
+filtered, and a state claimed from a suffix is a guess wearing a citation.
+
+**Direction comes from how the command runs, not from prose order.** A sentence that mentions
+the output first still describes an output. Read the command line: what is passed in, what is
+written out.
+
+**One module's ports must be mutually coherent.** A tool that consumes `fastq.reads` and produces
+`alignment.bam` is an aligner and needs a reference; one that consumes and produces the same type
+is changing its state, and the state that changed is the whole content of the contract.
+
+**Choose the smallest true set of roles and states.** Every extra state is a routing constraint
+that will one day make a legitimate pipeline unbuildable.
+
+**A parameter is exposed only when a user or a rule needs to vary it across analyses.** Mandatory
+plumbing — a thread count the executor sets, a path the workflow computes — belongs in
+`nf_inputs` or in baseline arguments, never as a choice a user is asked to make. Every parameter
+you propose needs a concrete route: `ext.args`, a positional argument, a `meta` key, or a process
+directive. A parameter with no route is a value that reaches nothing.
+
+**A default needs evidence and a reason.** The tool's own documented default is evidence. What
+another tool does is not.
+
+**A rule is scientific policy, not metadata.** Propose none unless the evidence supports its
+premise, its effect, the row it applies to, and a citation you can name.
+
+**Confidence never turns missing evidence into a fact.** There is no field for it. An answer you
+would qualify is an unresolved item.
+
+# What is in front of you
+
+## identity: identity
+tool: fastqc (nf-core:fastqc)
+source revision: (none recorded)
+content digest: 2222222222222222222222222222222222222222222222222222222222222222
+fetched digest: 3333333333333333333333333333333333333333333333333333333333333333
+registry digest: rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+latest version: 0.12.1
+
+what this source can prove:
+  ships a Nextflow process: True
+  declares ports machine-readably: True
+  pins its container by digest: False
+  ships something runnable: True
+
+## evidence: E001
+[metadata] meta.yml:description
+Run FastQC on sequenced reads
+
+## facts: facts
+nf_include = 'modules/nf-core/fastqc/main'   [(derived, not read)]
+
+## holes: consumes.reads.name
+id: consumes.reads.name
+asks: what this contract calls the thing arriving on channel 0
+open because: a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice
+required: True
+legal values (these are the only legal answers): reads
+
+The **channel name** for this port — the label the compiler reads as `PROCESS.out.<name>`.
+
+This is not the semantic type, and it is not a description. It is the identifier the emitted
+Nextflow will use, and it must match the module's own named emit exactly. Take it from the
+process source when there is one; a mismatch is a pipeline that fails at include time with an
+error naming neither the contract nor the tool.
+
+Where the module names nothing — a single unnamed output — use the short, lowercase form of what
+the port carries: `bam`, `reads`, `html`, `versions`. Keep it stable: this name is what a
+pipeline refers to, so changing it later breaks every pipeline that used it.
+
+## holes: consumes.reads.type_id
+id: consumes.reads.type_id
+asks: the semantic type of the input the module calls reads
+open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
+required: True
+legal values (these are the only legal answers): fastq.reads, alignment.bai, alignment.bam, annotation.gtf, counts.matrix, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+
+The semantic type of a port: what the data *is*, independent of how it is stored and of what this
+module's author called the channel.
+
+`fastq.reads` is sequencing reads. `alignment.bam` is aligned reads. `annotation.gtf` is a feature
+annotation. The channel carrying it may be called `reads`, `ch_in`, `bam` or `input`, and none of
+those is the answer.
+
+Ask what a downstream tool would need to know before consuming this. That is the type.
+
+## holes: priority_because
+id: priority_because
+asks: why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does
+open because: why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about
+required: True
+
+The published work behind this tool — a DOI, or a stable URL to the paper.
+
+Take it from the evidence you were given: a `meta.yml` bibliography entry, a README citation
+section, a documentation page. Do not reconstruct one from the tool's name and a remembered
+author, and do not offer a citation you have not been shown.
+
+A wrong DOI is worse than none. It resolves, and the reviewer who follows it finds a real paper
+about something else.
+
+## holes: produces.html.type_id
+id: produces.html.type_id
+asks: the semantic type of the output the module emits as html
+open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
+required: True
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+
+The semantic type of a port: what the data *is*, independent of how it is stored and of what this
+module's author called the channel.
+
+`fastq.reads` is sequencing reads. `alignment.bam` is aligned reads. `annotation.gtf` is a feature
+annotation. The channel carrying it may be called `reads`, `ch_in`, `bam` or `input`, and none of
+those is the answer.
+
+Ask what a downstream tool would need to know before consuming this. That is the type.
+
+## holes: produces.versions-fastqc.type_id
+id: produces.versions-fastqc.type_id
+asks: the semantic type of the output the module emits as versions_fastqc
+open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
+required: True
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+
+The semantic type of a port: what the data *is*, independent of how it is stored and of what this
+module's author called the channel.
+
+`fastq.reads` is sequencing reads. `alignment.bam` is aligned reads. `annotation.gtf` is a feature
+annotation. The channel carrying it may be called `reads`, `ch_in`, `bam` or `input`, and none of
+those is the answer.
+
+Ask what a downstream tool would need to know before consuming this. That is the type.
+
+## holes: produces.zip.type_id
+id: produces.zip.type_id
+asks: the semantic type of the output the module emits as zip
+open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
+required: True
+legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
+
+The semantic type of a port: what the data *is*, independent of how it is stored and of what this
+module's author called the channel.
+
+`fastq.reads` is sequencing reads. `alignment.bam` is aligned reads. `annotation.gtf` is a feature
+annotation. The channel carrying it may be called `reads`, `ch_in`, `bam` or `input`, and none of
+those is the answer.
+
+Ask what a downstream tool would need to know before consuming this. That is the type.
+
+## holes: roles
+id: roles
+asks: the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role
+open because: a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool
+required: True
+legal values (these are the only legal answers): alignment, bam_indexing, bam_sorting, index_building, profiling, qc_aggregation, qc_per_sample, quantification, trimming
+
+What this tool is *for*, in the vocabulary the registry already uses — `align_reads`, `sort_bam`,
+`qc_per_sample`, `count_features`.
+
+A role is how a goal finds this tool. It is not a description, not a category, and not the tool's
+own name: two tools that do the same job carry the same role and compete on their contracts.
+
+Prefer a role that already exists. Propose a new one only when no existing role would ever route
+to this tool, and say which one you considered and why it does not fit.
+
+## registry-version: registry-version
+registry schema version: 6
+
+## vocabulary: parameter-routes
+how a resolved value can reach a tool:
+ext.args, meta, positional, directive
+
+## vocabulary: roles
+every role the registry already declares:
+align_reads, count_features, qc_per_sample, sort_bam
+
+## response-schema: response-schema
+{
+  "$defs": {
+    "Analysis": {
+      "additionalProperties": false,
+      "properties": {
+        "answers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Answer"
+          },
+          "type": "array"
+        },
+        "unresolved": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Unresolved"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Answer": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hole_id": {
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hole_id",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ModuleProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "input_block": {
+          "default": "",
+          "type": "string"
+        },
+        "output_block": {
+          "default": "",
+          "type": "string"
+        },
+        "script": {
+          "default": "",
+          "type": "string"
+        },
+        "versions_command": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Unresolved": {
+      "additionalProperties": false,
+      "properties": {
+        "hole_id": {
+          "type": "string"
+        },
+        "needed_evidence": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hole_id",
+        "needed_evidence"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "analysis": {
+      "$ref": "#/$defs/Analysis"
+    },
+    "module": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModuleProposal"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "analysis"
+  ],
+  "type": "object"
+}
+
+## task: task
+Answer every hole above, or say what evidence would close it.
+
+# What to return
+
+For every hole, exactly one of:
+
+- an **answer** — its id, the value, the evidence ids that support it, and why;
+- an **unresolved** item — its id, and what evidence would close it. Write that as something a
+  curator could go and find: a file, a flag, a section of documentation.
+
+A hole you neither answer nor decline will be sent back to you.
