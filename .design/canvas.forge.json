@@ -1,0 +1,109 @@
+{
+  "artboards": [
+    {
+      "file": "ForgeOverview.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1400,
+      "h": 848,
+      "title": "Overview \u2014 /forge"
+    },
+    {
+      "file": "ForgeCatalogue.dc.html",
+      "x": 1520,
+      "y": 0,
+      "w": 1400,
+      "h": 772,
+      "title": "Catalogue \u2014 /forge/catalogue"
+    },
+    {
+      "file": "ForgeWork.dc.html",
+      "x": 3040,
+      "y": 0,
+      "w": 1400,
+      "h": 1020,
+      "title": "Work queue \u2014 /forge/work"
+    },
+    {
+      "file": "ForgeAdaptation.dc.html",
+      "x": 0,
+      "y": 1240,
+      "w": 1400,
+      "h": 646,
+      "title": "Adaptation, running \u2014 /forge/adaptations/:id"
+    },
+    {
+      "file": "ForgeReview.dc.html",
+      "x": 1520,
+      "y": 1240,
+      "w": 1400,
+      "h": 691,
+      "title": "Review \u2014 same route"
+    },
+    {
+      "file": "ForgeReviewChanges.dc.html",
+      "x": 3040,
+      "y": 1240,
+      "w": 1400,
+      "h": 757,
+      "title": "Request changes, stale base"
+    },
+    {
+      "file": "ForgeReviewCode.dc.html",
+      "x": 0,
+      "y": 2500,
+      "w": 1400,
+      "h": 854,
+      "title": "Files \u2014 what is actually being approved"
+    },
+    {
+      "file": "ForgeReviewParams.dc.html",
+      "x": 1520,
+      "y": 2500,
+      "w": 1400,
+      "h": 982,
+      "title": "Parameters and rule candidates"
+    },
+    {
+      "file": "ForgeAnswerHole.dc.html",
+      "x": 3040,
+      "y": 2500,
+      "w": 1400,
+      "h": 968,
+      "title": "Answering a hole by hand"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -230,
+      "w": 460,
+      "text": "Forge MVP \u00a78 \u2014 six boards, one fixture.\n\nEvery count, status and revision comes from one dict in .design/build_forge.py, so the overview's \"5 ready for review\" and the work queue's five rows cannot disagree.\n\nObservatory palette lifted by value from frontend/src/tokens.css \u2014 no second Forge theme."
+    },
+    {
+      "id": "status-rule",
+      "x": 1520,
+      "y": -230,
+      "w": 440,
+      "text": "Status is a SHAPE plus a label, never colour alone.\n\nsquare = adapted \u00b7 triangle = in review \u00b7 diamond = failed \u00b7 circle = running \u00b7 outline = not adapted. Each carries its word beside it."
+    },
+    {
+      "id": "review-row",
+      "x": 0,
+      "y": 2270,
+      "w": 900,
+      "text": "The three boards this row adds are all the SAME route as Review \u2014 tabs on /forge/adaptations/:id, not new pages.\n\nThe last one is the product's whole claim made reachable: typed questions a person closes. Nothing on the first six let anybody answer a hole, and there was no other screen where they could."
+    },
+    {
+      "id": "edge-cases",
+      "x": 3040,
+      "y": -230,
+      "w": 440,
+      "text": "Edge cases carried on purpose:\n\n\u00b7 a tool name long enough to need wrapping (subread/featurecounts)\n\u00b7 \"version unresolved\" where nothing proved one\n\u00b7 a stale source with its sync error (pegi3s, MI0104)\n\u00b7 failed validation and a moved registry base (ReviewChanges)\n\u00b7 tables scroll inside themselves; the page never scrolls sideways"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

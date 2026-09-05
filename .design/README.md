@@ -16,8 +16,25 @@ rot references that are still being read.
 | [`w2-mockups/`](w2-mockups/) | W2, reading a run | [b36d76fb](https://claude.ai/code/artifact/b36d76fb-0025-4a6a-9f10-400bcc10de10) |
 | [`wiener-mockups/`](wiener-mockups/) | the visual direction picked on 2026-08-23 — A–D, C chosen | **gone** — see below |
 | [`runs-board/`](runs-board/) | the across-runs boards | [55693858](https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92) |
+| `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
 
-**One of those four is already gone, which is the argument for the rest of this file.**
+**Two canvases now live flat at the root, and only one owns `Main.dc.html`.** The 2026-08-29
+redesign has it and the Forge boards deliberately have none: that file is cited by path from
+live documents, so the Forge canvas launches on the whole board rather than on an entry
+artboard. `build_forge.py` records this where writing one would otherwise be tempting.
+
+**`build_forge.py` is the Forge canvas's generator, and its fixture is the point.** Every count,
+status, revision and activity line on all nine boards comes from one dict — §8.6 asks for that
+so the overview's *5 ready for review* and the work queue's five rows cannot disagree. Change a
+number once and re-run it.
+
+**`_prev.py` renders any board to PNG, at 1400 and 900 by default** —
+`python3 _prev.py --glob 'Forge*'`. Use it before believing a board is right: on 2026-09-05 it
+found a status shape that collapsed to nothing inside a table cell, a flow connector that
+rendered as empty space, and a chat rail that ran off the edge at tablet width. None of the
+three is visible in the HTML.
+
+**One of those five is already gone, which is the argument for the rest of this file.**
 `notes/journal/2026-08-23-wiener-designed.md` records the wiener-mockups canvas at artifact
 `6518257f-b5e3-4f13-808d-abab64a60f6b`; that URL no longer resolves. The artboards in
 `wiener-mockups/` are now the only surviving copy of the four directions and the argument for

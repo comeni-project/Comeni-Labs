@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; }
+    body { margin:0; background:#080B0D; color:#DFE6E6;
+           font-family:"Geist", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; text-decoration:none; } a:hover { color:#fff; }
+    .m  { font-family:"Geist Mono", ui-monospace, monospace; }
+    .lb { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#67757A; }
+    .layer { position:absolute; inset:0; pointer-events:none; }
+    .breathe { animation:breathe 46s ease-in-out infinite alternate; }
+    @keyframes breathe { to { opacity:1.85; } }
+    .slowA { transform-box:view-box; transform-origin:140px 900px;
+             animation:spin 680s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .rule { background-image:
+              linear-gradient(rgba(108,183,255,.026) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(108,183,255,.026) 1px, transparent 1px);
+            background-size:36px 36px;
+            mask-image:radial-gradient(105% 62% at 16% 0%, #000 0%, transparent 66%); }
+    .scan { background-image:repeating-linear-gradient(180deg,
+             rgba(255,255,255,.010) 0 1px, transparent 1px 3px); }
+    .vig  { background:radial-gradient(130% 92% at 50% 3%, transparent 44%,
+             rgba(8,11,13,.9) 100%); }
+    /* first-paint bar growth only; the AI lane is the one thing that flows. */
+    .settle { animation:settle 200ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes settle { from { opacity:0; transform:translateY(4px); } }
+    .grow { animation:grow 520ms cubic-bezier(.32,.72,0,1) backwards; transform-origin:left; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    .flow { background-image:linear-gradient(90deg, transparent 0 7px,
+             rgba(8,11,13,.5) 7px 11px); background-size:18px 100%;
+             animation:flow 1.1s linear infinite; }
+    @keyframes flow { to { background-position:18px 0; } }
+    .cur { animation:blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .lift { transition:background-color 140ms ease, border-color 140ms ease,
+                       transform 140ms cubic-bezier(.32,.72,0,1); }
+    .lift:hover { background-color:#0E1418; transform:translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .breathe,.slowA,.settle,.grow,.flow,.cur { animation:none !important; }
+      .lift { transition:none; }
+    }
+    :focus-visible { outline:2px solid #6CB7FF; outline-offset:2px; }
+    .btn { font-family:"Geist", system-ui, sans-serif; font-size:12px; padding:7px 14px;
+           border:1px solid #2A3438; background:transparent; color:#DFE6E6;
+           cursor:pointer; transition:background-color 140ms ease; }
+    .btn:hover { background:#0E1418; }
+    .btn.go { border-color:#10AA91; color:#10AA91; }
+    .btn.off { border-color:#172025; color:#67757A; cursor:not-allowed; }
+    .seg { border:0; cursor:pointer; font-family:"Geist Mono", ui-monospace, monospace;
+           font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:6px 13px;
+           background:transparent; color:#67757A; }
+    .seg[aria-current="true"] { background:#0E1418; color:#DFE6E6; }
+    /* status is a SHAPE plus a label, never colour alone — §8 */
+    /* **`inline-block`, and it is a bug fix.** `.dot` was inline, so width/height did
+       nothing wherever it was a direct child of a `<td>` — the work queue rendered every
+       status cell empty while the same class was correct inside a flex parent. Found by
+       looking at a screenshot, which is the only way it could have been found. */
+    .dot { display:inline-block; vertical-align:middle;
+           width:8px; height:8px; flex:0 0 8px; }
+    .dot.done { background:#10AA91; }
+    .dot.open { background:transparent; border:1px solid #4A5C64; }
+    .dot.review { background:#C1B508; clip-path:polygon(50% 0,100% 100%,0 100%); }
+    .dot.fail { background:#E3674E; clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); }
+    .dot.run { background:#BD6DCD; border-radius:50%; }
+    table { border-collapse:collapse; width:100%; }
+    th { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+         letter-spacing:.15em; text-transform:uppercase; color:#67757A;
+         text-align:left; font-weight:400; padding:0 0 9px; border-bottom:1px solid #172025; }
+    td { padding:11px 0; border-bottom:1px solid #121A1D; font-size:12.5px; vertical-align:top; }
+    .scroller { overflow-x:auto; }
+    /* **The 1180 breakpoint, and it was missing.** §8.5: the chat rail stacks below
+       content under 1180; §8.1: source cards and lower columns stack. Every split was an
+       inline grid with no query, so at 900px the rail ran off the edge instead of stacking. */
+    .split { display:grid; gap:26px; align-items:start; grid-template-columns:minmax(0,1fr) 372px; }
+    .split.narrow { grid-template-columns:minmax(0,1fr) 340px; }
+    .split.slim { grid-template-columns:minmax(0,1fr) 320px; }
+    .two { display:grid; gap:20px; align-items:start;
+           grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    @media (max-width:1180px) {
+      .split, .split.narrow, .split.slim, .two { grid-template-columns:minmax(0, 1fr); }
+    }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:772px; overflow:hidden; background:#080B0D;">
+  <svg class="layer" viewBox="0 0 1400 772" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="breathe" fill="none">
+      <g class="slowA" stroke="#6CB7FF" stroke-width="1">
+        <circle cx="140" cy="900" r="600"  opacity=".085"/>
+        <circle cx="140" cy="900" r="880"  opacity=".055"/>
+        <circle cx="140" cy="900" r="1220" opacity=".034"/>
+      </g>
+      <path d="M-60 780 Q 640 1000 1470 630" stroke="#10AA91" stroke-width="1" opacity=".026"/>
+    </g>
+  </svg>
+  <div class="layer rule"></div>
+  <div class="layer scan"></div>
+  <div class="layer vig"></div>
+
+  <div style="position:relative; padding:26px 44px 40px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:18px; border-bottom:1px solid #172025;">
+      <div style="display:flex; align-items:baseline; gap:28px;">
+        <span style="font-size:14px; font-weight:700; letter-spacing:-.02em;">Comeni</span>
+        <span style="font-size:12.5px; color:#67757A;">Builder</span>
+        <span style="font-size:12.5px; color:#67757A;">Runs</span>
+        <span style="font-size:12.5px; color:#DFE6E6;">Registry</span>
+      </div>
+      <span class="m" style="font-size:11px; color:#67757A;">Ferreira lab</span>
+    </div>
+    <div style="display:flex; gap:2px; padding:14px 0 0; border-bottom:1px solid #121A1D;">
+<button class="seg" aria-current="false">Overview</button><button class="seg" aria-current="true">Catalogue</button><button class="seg" aria-current="false">Work queue</button>
+    </div>
+
+    <div class="settle" style="display:flex; align-items:center; gap:14px; padding:26px 0 16px;">
+      <div style="flex:1; border:1px solid #2A3438; background:#0C1216; padding:9px 13px;
+                  font-size:12.5px; color:#67757A;">
+        Search name, description or keyword</div>
+      <span class="m" style="font-size:11px; color:#67757A;">1,379 tools</span>
+    </div>
+    <div style="display:flex; gap:9px; padding-bottom:20px;">
+      <button class="btn" style="padding:6px 12px; font-size:11.5px;">Source &#9662;</button>
+      <button class="btn" style="padding:6px 12px; font-size:11.5px;">Status &#9662;</button>
+      <button class="btn" style="padding:6px 12px; font-size:11.5px;">Category &#9662;</button>
+      <button class="btn" style="padding:6px 12px; font-size:11.5px;">Has Nextflow &#9662;</button>
+    </div>
+
+    <div class="split">
+      <div class="scroller">
+        <table style="min-width:720px;">
+          <thead><tr>
+            <th>status</th><th>tool / source</th><th>what it does</th>
+            <th>latest</th><th>evidence</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr class="lift" style="cursor:pointer; background:#0E1418;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot review"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">in review</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">prodigal</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  pegi3s</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Predicts protein-coding genes in bacterial and archaeal genomes</td>
+              <td class="m" style="width:132px; font-size:11px; color:#889699;">digest</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">container + prose</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Review</button>
+              </td>
+            </tr>
+            <tr class="lift" style="cursor:pointer;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot open"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">not adapted</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">fastqc</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  nf-core</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Quality control checks on raw sequence data</td>
+              <td class="m" style="width:132px; font-size:11px; color:#889699;">0.12.1</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">Nextflow + metadata</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Adapt</button>
+              </td>
+            </tr>
+            <tr class="lift" style="cursor:pointer;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot open"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">not adapted</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">clustalw</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  pegi3s</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Multiple sequence alignment for DNA or proteins</td>
+              <td class="m" style="width:132px; font-size:11px; color:#455257;">version unresolved</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">container + prose</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Adapt</button>
+              </td>
+            </tr>
+            <tr class="lift" style="cursor:pointer;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot done"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">adapted</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">samtools/sort</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  nf-core</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Sorts a BAM file by coordinate or by read name</td>
+              <td class="m" style="width:132px; font-size:11px; color:#889699;">1.21</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">Nextflow + metadata</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Open</button>
+              </td>
+            </tr>
+            <tr class="lift" style="cursor:pointer;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot done"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">adapted</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">star/align</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  nf-core</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Spliced transcript alignment to a reference</td>
+              <td class="m" style="width:132px; font-size:11px; color:#889699;">2.7.11b</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">Nextflow + metadata</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Open</button>
+              </td>
+            </tr>
+            <tr class="lift" style="cursor:pointer;">
+              <td style="width:104px;">
+                <span style="display:flex; align-items:center; gap:7px;">
+                  <span class="dot open"></span>
+                  <span class="m" style="font-size:10px; color:#67757A;">not adapted</span>
+                </span>
+              </td>
+              <td style="width:210px;">
+                <div style="font-weight:500;">subread/featurecounts</div>
+                <div class="m" style="font-size:10.5px; color:#67757A; padding-top:3px;">
+                  nf-core</div>
+              </td>
+              <td style="color:#889699; padding-right:24px;">Counts reads against genomic features — a very long display name that has to wrap or truncate without pushing the action column off the row</td>
+              <td class="m" style="width:132px; font-size:11px; color:#889699;">2.0.6</td>
+              <td class="m" style="width:150px; font-size:10.5px; color:#67757A;">Nextflow + metadata</td>
+              <td style="width:84px; text-align:right;">
+                <button class="btn" style="padding:5px 11px; font-size:11px;">Adapt</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="display:flex; justify-content:space-between; align-items:center;
+                    padding-top:16px;">
+          <span class="m" style="font-size:10.5px; color:#67757A;">1&ndash;6 of 1,379</span>
+          <button class="btn" style="padding:5px 12px; font-size:11px;">Next &rsaquo;</button>
+        </div>
+      </div>
+
+      <div class="settle" style="border:1px solid #172025; background:#0C1216; padding:18px 20px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <span style="font-size:16px; font-weight:600;">prodigal</span>
+          <span class="m" style="font-size:10.5px; color:#67757A;">pegi3s</span>
+        </div>
+        <div style="font-size:12.5px; color:#889699; padding:9px 0 16px;">
+          Predicts protein-coding genes in bacterial and archaeal genomes.</div>
+
+        <div class="lb" style="padding-bottom:8px;">Container</div>
+        <div class="m" style="font-size:10.5px; color:#889699; word-break:break-all;
+                    padding-bottom:16px;">
+          pegi3s/prodigal@sha256:9f2c…e41b<br>
+          <span style="color:#67757A;">linux/amd64 &middot; pinned by digest</span></div>
+
+        <div class="lb" style="padding-bottom:8px;">What scaffolding can settle</div>
+        <div style="display:flex; flex-direction:column; gap:7px; padding-bottom:16px;">
+          <span style="display:flex; gap:8px; font-size:12px;">
+            <span class="dot done" style="margin-top:4px;"></span>
+            container reference, process name, directives</span>
+          <span style="display:flex; gap:8px; font-size:12px;">
+            <span class="dot open" style="margin-top:4px;"></span>
+            <span>9 holes &mdash; every port type and state, the script body
+              <span style="color:#67757A;">(no Nextflow upstream)</span></span></span>
+        </div>
+
+        <div class="lb" style="padding-bottom:8px;">Licence &amp; maintainers</div>
+        <div style="font-size:12px; color:#889699; padding-bottom:18px;">
+          GPL-3.0 &middot; pegi3s consortium</div>
+
+        <button class="btn go" style="width:100%;">Adapt this tool</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; }
+    body { margin:0; background:#080B0D; color:#DFE6E6;
+           font-family:"Geist", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+    a { color:#6CB7FF; text-decoration:none; } a:hover { color:#fff; }
+    .m  { font-family:"Geist Mono", ui-monospace, monospace; }
+    .lb { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+          letter-spacing:.15em; text-transform:uppercase; color:#67757A; }
+    .layer { position:absolute; inset:0; pointer-events:none; }
+    .breathe { animation:breathe 46s ease-in-out infinite alternate; }
+    @keyframes breathe { to { opacity:1.85; } }
+    .slowA { transform-box:view-box; transform-origin:140px 900px;
+             animation:spin 680s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .rule { background-image:
+              linear-gradient(rgba(108,183,255,.026) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(108,183,255,.026) 1px, transparent 1px);
+            background-size:36px 36px;
+            mask-image:radial-gradient(105% 62% at 16% 0%, #000 0%, transparent 66%); }
+    .scan { background-image:repeating-linear-gradient(180deg,
+             rgba(255,255,255,.010) 0 1px, transparent 1px 3px); }
+    .vig  { background:radial-gradient(130% 92% at 50% 3%, transparent 44%,
+             rgba(8,11,13,.9) 100%); }
+    /* first-paint bar growth only; the AI lane is the one thing that flows. */
+    .settle { animation:settle 200ms cubic-bezier(.32,.72,0,1) backwards; }
+    @keyframes settle { from { opacity:0; transform:translateY(4px); } }
+    .grow { animation:grow 520ms cubic-bezier(.32,.72,0,1) backwards; transform-origin:left; }
+    @keyframes grow { from { transform:scaleX(0); } }
+    .flow { background-image:linear-gradient(90deg, transparent 0 7px,
+             rgba(8,11,13,.5) 7px 11px); background-size:18px 100%;
+             animation:flow 1.1s linear infinite; }
+    @keyframes flow { to { background-position:18px 0; } }
+    .cur { animation:blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+    .lift { transition:background-color 140ms ease, border-color 140ms ease,
+                       transform 140ms cubic-bezier(.32,.72,0,1); }
+    .lift:hover { background-color:#0E1418; transform:translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .breathe,.slowA,.settle,.grow,.flow,.cur { animation:none !important; }
+      .lift { transition:none; }
+    }
+    :focus-visible { outline:2px solid #6CB7FF; outline-offset:2px; }
+    .btn { font-family:"Geist", system-ui, sans-serif; font-size:12px; padding:7px 14px;
+           border:1px solid #2A3438; background:transparent; color:#DFE6E6;
+           cursor:pointer; transition:background-color 140ms ease; }
+    .btn:hover { background:#0E1418; }
+    .btn.go { border-color:#10AA91; color:#10AA91; }
+    .btn.off { border-color:#172025; color:#67757A; cursor:not-allowed; }
+    .seg { border:0; cursor:pointer; font-family:"Geist Mono", ui-monospace, monospace;
+           font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:6px 13px;
+           background:transparent; color:#67757A; }
+    .seg[aria-current="true"] { background:#0E1418; color:#DFE6E6; }
+    /* status is a SHAPE plus a label, never colour alone — §8 */
+    /* **`inline-block`, and it is a bug fix.** `.dot` was inline, so width/height did
+       nothing wherever it was a direct child of a `<td>` — the work queue rendered every
+       status cell empty while the same class was correct inside a flex parent. Found by
+       looking at a screenshot, which is the only way it could have been found. */
+    .dot { display:inline-block; vertical-align:middle;
+           width:8px; height:8px; flex:0 0 8px; }
+    .dot.done { background:#10AA91; }
+    .dot.open { background:transparent; border:1px solid #4A5C64; }
+    .dot.review { background:#C1B508; clip-path:polygon(50% 0,100% 100%,0 100%); }
+    .dot.fail { background:#E3674E; clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); }
+    .dot.run { background:#BD6DCD; border-radius:50%; }
+    table { border-collapse:collapse; width:100%; }
+    th { font-family:"Geist Mono", ui-monospace, monospace; font-size:9.5px;
+         letter-spacing:.15em; text-transform:uppercase; color:#67757A;
+         text-align:left; font-weight:400; padding:0 0 9px; border-bottom:1px solid #172025; }
+    td { padding:11px 0; border-bottom:1px solid #121A1D; font-size:12.5px; vertical-align:top; }
+    .scroller { overflow-x:auto; }
+    /* **The 1180 breakpoint, and it was missing.** §8.5: the chat rail stacks below
+       content under 1180; §8.1: source cards and lower columns stack. Every split was an
+       inline grid with no query, so at 900px the rail ran off the edge instead of stacking. */
+    .split { display:grid; gap:26px; align-items:start; grid-template-columns:minmax(0,1fr) 372px; }
+    .split.narrow { grid-template-columns:minmax(0,1fr) 340px; }
+    .split.slim { grid-template-columns:minmax(0,1fr) 320px; }
+    .two { display:grid; gap:20px; align-items:start;
+           grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    @media (max-width:1180px) {
+      .split, .split.narrow, .split.slim, .two { grid-template-columns:minmax(0, 1fr); }
+    }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:848px; overflow:hidden; background:#080B0D;">
+  <svg class="layer" viewBox="0 0 1400 848" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="breathe" fill="none">
+      <g class="slowA" stroke="#6CB7FF" stroke-width="1">
+        <circle cx="140" cy="900" r="600"  opacity=".085"/>
+        <circle cx="140" cy="900" r="880"  opacity=".055"/>
+        <circle cx="140" cy="900" r="1220" opacity=".034"/>
+      </g>
+      <path d="M-60 780 Q 640 1000 1470 630" stroke="#10AA91" stroke-width="1" opacity=".026"/>
+    </g>
+  </svg>
+  <div class="layer rule"></div>
+  <div class="layer scan"></div>
+  <div class="layer vig"></div>
+
+  <div style="position:relative; padding:26px 44px 40px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;
+                padding-bottom:18px; border-bottom:1px solid #172025;">
+      <div style="display:flex; align-items:baseline; gap:28px;">
+        <span style="font-size:14px; font-weight:700; letter-spacing:-.02em;">Comeni</span>
+        <span style="font-size:12.5px; color:#67757A;">Builder</span>
+        <span style="font-size:12.5px; color:#67757A;">Runs</span>
+        <span style="font-size:12.5px; color:#DFE6E6;">Registry</span>
+      </div>
+      <span class="m" style="font-size:11px; color:#67757A;">Ferreira lab</span>
+    </div>
+    <div style="display:flex; gap:2px; padding:14px 0 0; border-bottom:1px solid #121A1D;">
+<button class="seg" aria-current="true">Overview</button><button class="seg" aria-current="false">Catalogue</button><button class="seg" aria-current="false">Work queue</button>
+    </div>
+
+    <div class="settle" style="display:flex; align-items:flex-end;
+                justify-content:space-between; padding:26px 0 22px;">
+      <div>
+        <div style="font-size:26px; font-weight:600; letter-spacing:-.03em;">Registry</div>
+        <div style="font-size:13px; color:#889699; padding-top:5px;">
+          Keep the tool catalogue supplied and current.</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="m" style="font-size:10.5px; color:#67757A;">last sync 03:00</span>
+        <button class="btn">Sync sources</button>
+      </div>
+    </div>
+
+    <div class="two">
+        <div class="settle lift" style="border:1px solid #172025; background:#0C1216;
+                    padding:18px 20px; cursor:pointer;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;
+                      padding-bottom:12px;">
+            <span class="lb" style="color:#889699; font-size:10.5px;">nf-core</span>
+            <span class="m" style="font-size:10.5px; color:#67757A;">synced 14m ago</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:12px;">
+            <span style="font-size:30px; font-weight:600; letter-spacing:-.03em;
+                         line-height:1;">214</span>
+            <span style="font-size:13px; color:#889699;">of 1,184 adaptable</span>
+          </div>
+          <div style="display:flex; gap:2px; height:10px;"><div class="grow" title="current: 198" style="flex:0 0 16.723%; background:#10AA91; animation-delay:0ms;"></div><div class="grow" title="outdated: 16" style="flex:0 0 1.351%; background:#C1B508; animation-delay:60ms;"></div><div class="grow" title="in progress: 8" style="flex:0 0 0.676%; background:#BD6DCD; animation-delay:120ms;"></div><div class="grow" title="not adapted: 962" style="flex:0 0 81.250%; background:#1C262B; animation-delay:180ms;"></div></div>
+          <div style="display:flex; gap:14px; padding-top:10px; font-size:11.5px; color:#889699;">
+            <span><span class="dot done" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>198 current</span>
+            <span><span class="dot review" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>16 outdated</span>
+            <span><span class="dot run" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>8 in progress</span>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#67757A; padding-top:8px;">
+            1,184 discovered
+          </div>
+        </div>
+        <div class="settle lift" style="border:1px solid #172025; background:#0C1216;
+                    padding:18px 20px; cursor:pointer;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;
+                      padding-bottom:12px;">
+            <span class="lb" style="color:#889699; font-size:10.5px;">pegi3s</span>
+            <span class="m" style="font-size:10.5px; color:#C1B508;">&#9650; stale &middot; retry available</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; padding-bottom:12px;">
+            <span style="font-size:30px; font-weight:600; letter-spacing:-.03em;
+                         line-height:1;">31</span>
+            <span style="font-size:13px; color:#889699;">of 191 adaptable</span>
+          </div>
+          <div style="display:flex; gap:2px; height:10px;"><div class="grow" title="current: 27" style="flex:0 0 14.136%; background:#10AA91; animation-delay:0ms;"></div><div class="grow" title="outdated: 4" style="flex:0 0 2.094%; background:#C1B508; animation-delay:60ms;"></div><div class="grow" title="in progress: 2" style="flex:0 0 1.047%; background:#BD6DCD; animation-delay:120ms;"></div><div class="grow" title="not adapted: 158" style="flex:0 0 82.723%; background:#1C262B; animation-delay:180ms;"></div></div>
+          <div style="display:flex; gap:14px; padding-top:10px; font-size:11.5px; color:#889699;">
+            <span><span class="dot done" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>27 current</span>
+            <span><span class="dot review" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>4 outdated</span>
+            <span><span class="dot run" style="display:inline-block; margin-right:5px;
+                  vertical-align:middle;"></span>2 in progress</span>
+          </div>
+          <div class="m" style="font-size:10.5px; color:#67757A; padding-top:8px;">
+            195 discovered &middot; <span style="color:#67757A;">4 unsupported</span>
+          </div>
+        </div>
+    </div>
+
+    <div style="padding:30px 0 0;">
+      <div class="lb" style="padding-bottom:13px;">The flow</div>
+      <div class="scroller">
+        <div style="display:flex; align-items:stretch; gap:0; min-width:900px;">
+          <div class="lift" style="border:1px solid #172025; background:#0C1216;
+                      padding:11px 15px; min-width:118px; cursor:pointer;">
+            <div class="lb" style="padding-bottom:6px;">Discovered</div>
+            <div style="font-size:18px; font-weight:600; letter-spacing:-.02em;">1,379</div>
+            
+          </div>
+<div style="flex:0 0 46px; align-self:center; display:flex; align-items:center; gap:0;"><div style="flex:1; height:1px; background:#4A5C64;"></div><div style="width:0; height:0; border-left:4px solid #4A5C64; border-top:3px solid transparent; border-bottom:3px solid transparent;"></div></div>          <div class="lift" style="border:1px solid #172025; background:#0C1216;
+                      padding:11px 15px; min-width:118px; cursor:pointer;">
+            <div class="lb" style="padding-bottom:6px;">Scaffold</div>
+            <div style="font-size:18px; font-weight:600; letter-spacing:-.02em;">2</div>
+            
+          </div>
+<div style="flex:0 0 46px; align-self:center; display:flex; align-items:center; gap:0;"><div style="flex:1; height:1px; background:#4A5C64;" class="flow"></div><div style="width:0; height:0; border-left:4px solid #4A5C64; border-top:3px solid transparent; border-bottom:3px solid transparent;"></div></div>          <div class="lift" style="border:1px solid #BD6DCD; background:#0C1216;
+                      padding:11px 15px; min-width:118px; cursor:pointer;">
+            <div class="lb" style="padding-bottom:6px;">AI lane</div>
+            <div style="font-size:18px; font-weight:600; letter-spacing:-.02em;">1 active</div>
+            <div class="m" style="font-size:10px; color:#67757A; padding-top:5px;">capacity 1 &middot; 6 waiting</div>
+          </div>
+<div style="flex:0 0 46px; align-self:center; display:flex; align-items:center; gap:0;"><div style="flex:1; height:1px; background:#4A5C64;"></div><div style="width:0; height:0; border-left:4px solid #4A5C64; border-top:3px solid transparent; border-bottom:3px solid transparent;"></div></div>          <div class="lift" style="border:1px solid #172025; background:#0C1216;
+                      padding:11px 15px; min-width:118px; cursor:pointer;">
+            <div class="lb" style="padding-bottom:6px;">Review</div>
+            <div style="font-size:18px; font-weight:600; letter-spacing:-.02em;">5</div>
+            
+          </div>
+<div style="flex:0 0 46px; align-self:center; display:flex; align-items:center; gap:0;"><div style="flex:1; height:1px; background:#4A5C64;"></div><div style="width:0; height:0; border-left:4px solid #4A5C64; border-top:3px solid transparent; border-bottom:3px solid transparent;"></div></div>          <div class="lift" style="border:1px solid #172025; background:#0C1216;
+                      padding:11px 15px; min-width:118px; cursor:pointer;">
+            <div class="lb" style="padding-bottom:6px;">Registry</div>
+            <div style="font-size:18px; font-weight:600; letter-spacing:-.02em;">245</div>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two" style="padding:30px 0 0;">
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Needs you</div>
+        <div class="settle lift" style="border-left:2px solid #C1B508; padding:9px 0 9px 14px;
+                    cursor:pointer;">
+          <div style="font-size:14px; font-weight:500;">5 ready for review</div>
+          <div style="font-size:12.5px; color:#889699; padding-top:3px;">
+            Oldest has waited 3 days.</div>
+        </div>
+        <div class="settle lift" style="border-left:2px solid #E3674E; padding:9px 0 9px 14px;
+                    margin-top:12px; cursor:pointer; animation-delay:40ms;">
+          <div style="font-size:14px; font-weight:500;">2 failed</div>
+          <div style="font-size:12.5px; color:#889699; padding-top:3px;">
+            Both retryable at the stage they stopped.</div>
+        </div>
+        <div class="settle lift" style="border-left:2px solid #2A3438; padding:9px 0 9px 14px;
+                    margin-top:12px; cursor:pointer; animation-delay:80ms;">
+          <div style="font-size:14px; font-weight:500;">20 tools outdated</div>
+          <div style="font-size:12.5px; color:#889699; padding-top:3px;">
+            Upstream moved since these were adapted.</div>
+        </div>
+      </div>
+      <div>
+        <div class="lb" style="padding-bottom:13px;">Source health</div>
+        <div style="border:1px solid #172025; background:#0C1216; padding:14px 16px;">
+          <div style="display:flex; align-items:center; gap:9px; font-size:12.5px;">
+            <span class="dot done"></span>nf-core &mdash; synced 14m ago
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:9px; font-size:12.5px;
+                      padding-top:11px;">
+            <span class="dot fail" style="margin-top:4px;"></span>
+            <span>pegi3s &mdash; stale
+              <span class="m" style="display:block; font-size:10.5px; color:#67757A;
+                    padding-top:4px;">MI0104 — the pegi3s catalogue could not be read</span>
+            </span>
+          </div>
+          <button class="btn" style="margin-top:14px;">Retry pegi3s</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
