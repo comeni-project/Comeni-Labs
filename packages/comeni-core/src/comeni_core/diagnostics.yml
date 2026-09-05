@@ -2931,6 +2931,26 @@ MI0113:
     refused the envelope with `MA0004`, and the page reported that the model could not be reached.
     The guarantee held — nothing was applied to the candidate — and the reason given for it was
     false.
+MI0114:
+  emitted_by: api
+  concern: workflow
+  says: "the proposal could not be applied to the scaffold"
+  fires_on: [forge generate]
+  refuses: false
+  fix: |
+    Nothing to do by hand — this is fed back to the model as a diagnostic and the repair
+    attempt answers it. If it survives the repair, the revision is recorded with the refusal
+    on it and a curator answers the hole themselves.
+  explanation: |
+    A model may only answer a hole that exists, with a value from that hole's candidate set —
+    `MF0402` and `MF0003` are those two refusals. When one fires, the proposal cannot be
+    applied at all, and that is the strongest validation result there is: the answer was not
+    merely wrong, it was outside what the question allowed.
+
+    **So it is a diagnostic rather than a crash.** It goes back into the repair prompt under
+    *what validation said*, which is exactly where a model can act on it. Killing the job
+    instead would turn the tightest guarantee in the system — a model cannot produce a value
+    outside the candidate set — into a worker traceback nobody reads.
 MA0001:
   emitted_by: ai
   concern: model-access

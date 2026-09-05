@@ -4758,3 +4758,33 @@ means the published contract is not runnable until something vendors or generate
 build says so; the review page's Files tab shows no files. Both are honest and neither is a
 finished loop.
 
+## The validation ladder, wired — 2026-09-05
+
+**`green` was a constant, so nothing had ever been approvable through the front door.**
+`_record_verdict` hardcoded `False` beside `MI0108` — *the ladder is not wired to this worker
+yet* — and `approval_refusals` reads exactly that field. Every walk that got past approval did
+so by moving the row by hand, including both of mine.
+
+`verify.verify` had been fully built the whole time: six rungs, its own test file. The worker
+simply did not call it, and `ai_generate.run`'s `validate` was `lambda _: ()` — so the repair
+prompt showed *"(none recorded)"* under *what validation said* and had nothing to repair
+against. A model asked to correct a proposal without being told what was wrong is a model asked
+to try again.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_full_cycle.py::test_a_candidate_can_become_approvable_through_the_front_door` | `row.green` back to the constant `False` | failed | the verdict stopped following the rungs |
+| 2026-09-05 | `test_land_boundary.py::test_the_ladder_can_reach_green_against_the_real_registry` | — | **new, and it asserts the half nothing did** | every existing rung test drives a *refusal*; none showed a candidate could pass |
+| 2026-09-05 | `test_forge_jobs.py` (four `_generate` fakes) | — | **fired on the first run** | the 2-tuple return became a 3-tuple and every fake said so |
+
+**A check that can only refuse is a check somebody disables.** `verify.py` had eleven tests and
+every one drove a rung to a refusal — which is the interesting half and not the whole claim.
+Running it against the *shipped* registry on a complete candidate passes all six rungs, and
+that is now a test, so `green` is reachable and provably so.
+
+**`MI0114` is new and it is a diagnostic rather than a crash.** A model may only answer a hole
+that exists, with a value from its candidate set; when `render.apply` refuses (`MF0402`,
+`MF0003`) that is the strongest validation result there is, and it now goes back into the repair
+prompt where a model can act on it. Killing the job instead turned the tightest guarantee in the
+system into a worker traceback nobody reads.
+

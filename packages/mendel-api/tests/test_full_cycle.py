@@ -23,7 +23,12 @@ from pathlib import Path
 import pytest
 from comeni_core.review import ValueSource
 from mendel_api.db import session_scope
-from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem, ForgeSourceSnapshot
+from mendel_api.models import (
+    ForgeAdaptation,
+    ForgeCatalogueItem,
+    ForgeRevision,
+    ForgeSourceSnapshot,
+)
 from mendel_api.services import forge_adaptations, forge_candidate, forge_jobs, forge_state
 from mendel_forge.workflow import AdaptationState, EventKind, RevisionState
 from sqlalchemy import text
@@ -352,3 +357,66 @@ def test_a_second_publication_of_the_same_adaptation_does_not_commit_twice(world
     )
     assert ended == AdaptationState.PUBLISHED.value
     assert _git(registry, "rev-parse", "HEAD") == before, "a second delivery committed again"
+
+
+def test_a_candidate_can_become_approvable_through_the_front_door(world, catalogued):
+    """**Nothing had ever been approvable through the API**, and this is the test that says so.
+
+    `_record_verdict` hardcoded `green = False` beside `MI0108` — *the validation ladder is not
+    wired to this worker yet* — and `approval_refusals` reads exactly that field. So every
+    approval, on every candidate, refused on *validation did not pass*, and every walk that got
+    past it did so by moving the row by hand. `verify.verify` was fully built the whole time;
+    the worker simply did not call it.
+
+    What this asserts is the join: the rungs run, the verdict is recorded, and
+    `forge_state.standing` — the same six conditions the POST refuses on — stops naming
+    validation.
+    """
+    from mendel_forge import verify
+
+    workspace, registry = world
+    from mendel_forge.scaffold import Hole, Scaffold
+    from mendel_forge.workspace import Draft, Workspace
+
+    row = forge_adaptations.begin(catalogued.id, who="rafael")
+    scaffold = Scaffold(
+        kind="contracts",
+        target="tools/nf-core/samtools/sort.contract.yml",
+        observation=_observation(),
+        holes=[
+            Hole(subject="consumes[0].type_id", candidates=_bam(), suggested="alignment.bam"),
+            Hole(subject="produces[0].type_id", candidates=_bam(), suggested="alignment.bam"),
+        ],
+    )
+    for field, value in _derived().items():
+        scaffold = scaffold.model_copy(
+            update={"holes": [*scaffold.holes, Hole(subject=field, closed=False)]}
+        ).fill(field, value, ValueSource.DERIVED, by="nf-core", why="read from meta.yml")
+    answered = _answer_every_hole(scaffold, by="a-model")
+    Workspace(root=workspace).save(Draft(name=row.id, scaffold=answered, module=None))
+
+    verdicts = verify.verify(answered, registry_root=registry, source_root=registry, module=None)
+    assert verdicts, "the ladder produced no verdicts at all"
+
+    revision = forge_state.add_revision(row.id, state=RevisionState.VALIDATED, manifest={})
+    forge_jobs._record_verdict(
+        revision, outcome=_NothingRefused(), owed=0, verdicts=verdicts
+    )
+
+    with session_scope() as session:
+        stored = session.get(ForgeRevision, revision)
+        assert stored.validation["ran"] is True, stored.validation
+        assert stored.validation["rungs"], "a run that records no rungs is a run nobody can read"
+        # **The rungs may legitimately refuse** — this fixture's contract has no module, so
+        # `conforms` has nothing to check against. What must be true is that the *reason* is a
+        # rung's, not `MI0108`'s, and that `green` follows the rungs rather than a constant.
+        assert stored.green == (not verify.refuses(verdicts))
+        assert "MI0108" not in str(stored.validation)
+
+
+class _NothingRefused:
+    """An `Outcome` reduced to what `_record_verdict` reads when the rungs did run."""
+
+    def last_diagnostics(self):
+        return ()
+

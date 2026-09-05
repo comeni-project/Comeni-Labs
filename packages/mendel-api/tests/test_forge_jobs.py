@@ -444,7 +444,7 @@ async def test_a_generation_walks_to_review_and_records_a_revision(item, monkeyp
     """The whole point of the job. **It ends at `review` whether or not validation passed** —
     the plan draws both arrows there, and a candidate a curator never sees is one nobody can
     learn from."""
-    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), ()))
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), (), []))
     adaptation = _queued(item)
 
     ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
@@ -464,7 +464,7 @@ async def test_an_unchecked_candidate_is_never_recorded_green(item, monkeypatch)
     """**The load-bearing one.** A curator approving on the strength of a check that never ran
     is the failure the whole review step exists to prevent, and `approval_refusals` reads
     exactly this field."""
-    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), ()))
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(), (), []))
     adaptation = _queued(item)
     await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
 
@@ -480,7 +480,7 @@ async def test_an_unchecked_candidate_is_never_recorded_green(item, monkeypatch)
 async def test_a_run_that_never_validated_still_reaches_review(item, monkeypatch):
     """§5.7 sends the *inspectable failure* to review. The revision is `draft` rather than
     `validated`, so approval refuses — but a person can read what happened."""
-    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(ok=False, attempts=3), ()))
+    monkeypatch.setattr(forge_jobs, "_generate", lambda a: (_Outcome(ok=False, attempts=3), (), []))
     adaptation = _queued(item)
 
     ended = await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)
@@ -877,7 +877,7 @@ async def test_a_generation_claims_before_it_calls_anything(item, monkeypatch):
 
     def watch(adaptation_id):
         seen.append(_state(adaptation_id))
-        return _Outcome(), ()
+        return _Outcome(), (), []
 
     monkeypatch.setattr(forge_jobs, "_generate", watch)
     adaptation = _queued(item)
@@ -895,7 +895,7 @@ async def test_a_duplicate_delivery_that_reaches_the_worker_is_skipped_not_faile
     and ARQ would retry it, which is the same duplicate with a delay in front of it."""
     calls = []
     monkeypatch.setattr(
-        forge_jobs, "_generate", lambda a: (calls.append(a), (_Outcome(), ()))[1]
+        forge_jobs, "_generate", lambda a: (calls.append(a), (_Outcome(), (), []))[1]
     )
     adaptation = _queued(item)
     await forge_jobs.generate_forge_revision({"job_id": "j1"}, adaptation)

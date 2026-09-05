@@ -26,6 +26,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from comeni_core.artifact.pipeline import SCHEMA_VERSION
 from comeni_core.diagnostics import coded
+from mendel_forge import verify
 from mendel_forge.workflow import AdaptationState, EventKind, RevisionState
 from sqlalchemy import select
 
@@ -124,7 +125,7 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
     )
 
     try:
-        outcome, holes = await asyncio.to_thread(_generate, adaptation_id)
+        outcome, holes, verdicts = await asyncio.to_thread(_generate, adaptation_id)
     except Exception as failure:
         log.warning("generation for %s failed: %r", adaptation_id, failure, exc_info=True)
         await asyncio.to_thread(
@@ -140,10 +141,19 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
     revision_id = await asyncio.to_thread(
         forge_state.add_revision,
         adaptation_id,
-        # **`validating`, not `validated`.** Nothing has run the ladder over this candidate, so
-        # calling it validated would be the same lie `green=True` would be. A run that never
-        # produced a proposal is `failed`: there is no candidate to inspect, only attempts.
-        state=RevisionState.VALIDATING if outcome.succeeded() else RevisionState.FAILED,
+        # **`validated` means the checks FINISHED, not that they passed** — `models.ForgeRevision`
+        # says so, and a candidate that fails its rungs is still inspectable, which is a
+        # reviewable state. So a run that produced a proposal *and* ran the ladder is
+        # `validated`; one that produced a proposal the ladder never saw stays `validating`;
+        # and one that never produced a proposal is `failed` — there is no candidate to look
+        # at, only attempts.
+        state=(
+            RevisionState.FAILED
+            if not outcome.succeeded()
+            else RevisionState.VALIDATED
+            if verdicts
+            else RevisionState.VALIDATING
+        ),
         manifest={
             "attempts": [attempt.model_dump(mode="json") for attempt in outcome.attempts],
             "unresolved": list(outcome.unresolved_holes),
@@ -155,6 +165,7 @@ async def generate_forge_revision(ctx: dict, adaptation_id: str) -> str:
         revision_id,
         outcome=outcome,
         owed=len(outcome.unresolved_holes),
+        verdicts=verdicts,
     )
 
     validating = await asyncio.to_thread(
@@ -526,15 +537,38 @@ def _generate(adaptation_id: str):
         budget=Budget(tokens=settings.ai_context_tokens).characters(),
     )
 
+    def check(proposal) -> tuple:
+        """Run the five rungs over what the model just proposed. Diagnostics feed the repair.
+
+        **This is what `validate` was always for**, and it read `lambda _: ()` — so the repair
+        prompt was shown *"(none recorded)"* under *what validation said* and had nothing to
+        repair against. A model asked to correct a proposal without being told what was wrong
+        is a model asked to try again.
+
+        The proposal is applied to a **copy** and never saved here: `run` may call this on an
+        attempt it then discards, and a workspace written from inside the loop would leave the
+        losing attempt on disk under the winner's name.
+        """
+        try:
+            candidate = render.apply(draft.scaffold, proposal, holes=holes, by=_model_id())
+        except Exception as refusal:
+            # `apply` refuses a value outside the candidate set (`MF0003`) and an unknown hole
+            # (`MF0402`). That IS a validation result — the strongest one — so it goes back as
+            # a diagnostic rather than killing the job.
+            return (coded("MI0114", "the proposal could not be applied") + f"\n  {refusal}",)
+        module = render.module_text(draft.module, proposal) if draft.module else None
+        verdicts = verify.verify(
+            candidate,
+            registry_root=settings.registry_root,
+            source_root=settings.registry_root,
+            module=module,
+        )
+        return tuple(
+            str(diagnostic) for verdict in verdicts for diagnostic in verdict.diagnostics
+        )
+
     outcome = ai_generate.run(
-        client=client,
-        dossier=dossier,
-        holes=holes,
-        # **Nothing validates a proposal yet, and an empty verdict says *green* rather than
-        # *unchecked*.** Wiring `verify.py`'s rungs needs the candidate written to the
-        # workspace first, which is the next piece; until then the honest reading is that the
-        # revision carries `green=False` and approval refuses on it — see `_record_verdict`.
-        validate=lambda _: (),
+        client=client, dossier=dossier, holes=holes, validate=check
     )
     if outcome.succeeded():
         filled = render.apply(
@@ -542,27 +576,56 @@ def _generate(adaptation_id: str):
         )
         module = render.module_text(draft.module, outcome.proposal) if draft.module else None
         workspace.save(Draft(name=adaptation_id, scaffold=filled, module=module))
-    return outcome, holes
+        return outcome, holes, verify.verify(
+            filled,
+            registry_root=settings.registry_root,
+            source_root=settings.registry_root,
+            module=module,
+        )
+    return outcome, holes, []
 
 
-def _record_verdict(revision_id: str, *, outcome, owed: int) -> None:
-    """Store what validation said, and whether approval is possible.
+def _record_verdict(revision_id: str, *, outcome, owed: int, verdicts=()) -> None:
+    """Store what the ladder said, and whether approval is possible.
 
-    **`green` stays `False` while nothing runs the ladder.** An unchecked candidate recorded as
-    green is a candidate a curator can approve on the strength of a check that never happened,
-    and `approval_refusals` reads exactly this field. The `validation` blob says why, so the
-    page can show *not yet checked* rather than *failed*.
+    **`green` is now a statement about a check that happened**, which is what it always claimed
+    to be. It was hardcoded `False` beside `MI0108` — *the validation ladder is not wired to
+    this worker yet* — and `approval_refusals` reads exactly this field, so **nothing had ever
+    been approvable through the front door.** Wiring `verify.verify` is what changed; the
+    honesty of the previous state is why it said so rather than reporting green.
+
+    **Green needs the rungs to have run AND every required hole closed.** `refuses()` answers
+    the first; `owed` answers the second, and neither implies the other — a candidate can pass
+    every rung it reached and still be missing a port nobody could answer.
     """
+    ran = bool(verdicts)
+    refused = verify.refuses(list(verdicts)) if ran else True
     with session_scope() as session:
         row = session.get(ForgeRevision, revision_id)
         if row is None:
             raise KeyError(revision_id)
         row.validation = {
-            "ran": False,
-            "why": coded("MI0108", "the validation ladder is not wired to this worker yet"),
-            "diagnostics": list(outcome.last_diagnostics()),
+            "ran": ran,
+            "rungs": [
+                {
+                    "rung": str(verdict.rung),
+                    "refused": verdict.refused,
+                    "diagnostics": [str(d) for d in verdict.diagnostics],
+                }
+                for verdict in verdicts
+            ],
+            "diagnostics": (
+                [str(d) for verdict in verdicts for d in verdict.diagnostics]
+                if ran
+                else list(outcome.last_diagnostics())
+            ),
+            **(
+                {}
+                if ran
+                else {"why": coded("MI0108", "no candidate reached the validation ladder")}
+            ),
         }
-        row.green = False
+        row.green = ran and not refused and owed == 0
         row.unresolved_required = owed
 
 

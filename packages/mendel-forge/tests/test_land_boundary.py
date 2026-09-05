@@ -325,3 +325,42 @@ def test_a_declared_role_passes_staging(complete_scaffold):
     )
     assert staged.contract_id
 
+
+# ── the ladder ────────────────────────────────────────────────────────────────────────
+
+
+def test_the_ladder_can_reach_green_against_the_real_registry(complete_scaffold):
+    """**Nothing asserted that a candidate could pass.**
+
+    `verify.verify` has had six rungs and a full test file since Phase 2, and every one of those
+    tests drives a rung to a *refusal* — which is the interesting half and not the whole claim.
+    The worker recorded `green = False` unconditionally, so no path in the system had ever
+    produced a green verdict, and *approval through the front door was impossible* in a way no
+    test would have noticed: `approval_refusals` reads `green`, and `green` was a constant.
+
+    This runs the ladder end to end against the **shipped registry** — not a fixture layer —
+    and asserts it passes. A check that can only refuse is a check that will be disabled by
+    whoever is trying to ship.
+    """
+    from mendel_forge import verify
+
+    # **The repository root by walking up to the marker, not by counting `parent`s.**
+    # `tests/README.md` says the depth is a claim that goes false the moment a file moves, and
+    # `support.paths` is not importable from this package's own test run.
+    root = Path(__file__).resolve()
+    while not (root / "registry" / "registry.yml").exists():
+        assert root != root.parent, "no registry/ above this file"
+        root = root.parent
+
+    verdicts = verify.verify(
+        complete_scaffold,
+        registry_root=root / "registry",
+        source_root=root / "registry",
+        module=None,
+    )
+
+    assert len(verdicts) == len(verify.Rung), "a rung was skipped, so something refused early"
+    assert not verify.refuses(verdicts), [
+        (str(v.rung), [str(d) for d in v.diagnostics]) for v in verdicts if v.refused
+    ]
+
