@@ -139,3 +139,37 @@ def test_the_answer_response_is_typed():
     ok = create_app().openapi()["paths"]["/api/questions/answer"]["post"]["responses"]["200"]
     ref = ok["content"]["application/json"]["schema"]["$ref"]
     assert ref.endswith("/Answered")
+
+
+KNOWN_COLLISIONS = [
+    # **Two pairs that predate the guard, listed rather than exempted by a rule.** `Candidate`
+    # is a reviewer's offered option in `comeni_core.review` and a routing candidate in
+    # `services/candidates` — genuinely two things with one word. `Verdict` is a rule's
+    # judgement and the forge's drift result. Both are load-bearing names in their own homes
+    # and neither rename is obviously right, so they are carried and the list is what makes a
+    # THIRD one fail.
+    "comeni_core__review__question__Candidate",
+    "comeni_core__review__verdict__Verdict",
+    "mendel_api__services__candidates__Candidate",
+    "mendel_forge__drift__Verdict",
+]
+
+
+def test_no_two_models_share_a_schema_name():
+    """**A name collision silently renames the OTHER model, and only the frontend notices.**
+
+    FastAPI disambiguates two classes sharing a name by qualifying *both* with their module
+    path — so adding `forge_overview.Attention` beside `services/attention.Attention` renamed
+    the existing one to `mendel_api__services__attention__Attention` in the served document,
+    and `Home.tsx` stopped compiling on a screen nobody had touched.
+
+    Nothing in this suite saw it: `make check` does not typecheck the frontend, and the schema
+    is only a contract when both consumers are built. This is that gap closed on the Python
+    side, where the collision is introduced.
+    """
+    schemas = _schema()["components"]["schemas"]
+    assert sorted(name for name in schemas if "__" in name) == KNOWN_COLLISIONS, (
+        "a schema name is module-qualified because two classes share a name. Rename one — the "
+        "generated client refers to the qualified spelling, so the collision renames a type "
+        "the frontend was already using, on a screen nobody touched."
+    )

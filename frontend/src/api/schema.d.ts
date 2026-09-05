@@ -1163,6 +1163,22 @@ export interface components {
             message: string;
         };
         /**
+         * Attention
+         * @description What needs a person, now.
+         *
+         *     **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
+         *     12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
+         *     state, not YOURS, and it is why the old page read as slop — information with no question
+         *     behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
+         *     a model with no consumer is a model that comes back.
+         */
+        Attention: {
+            /** Forge */
+            forge?: components["schemas"]["Call"][];
+            /** Mendel */
+            mendel?: components["schemas"]["Call"][];
+        };
+        /**
          * Band
          * @description How much a wrong answer costs, which is not the same as how likely one is.
          *
@@ -2004,6 +2020,42 @@ export interface components {
             /** Container */
             container: string;
         };
+        /**
+         * NeedsYou
+         * @description What needs somebody, in the four shapes it comes in.
+         *
+         *     **Not `Attention`, and the name is load-bearing.** `services/attention.py` already has a
+         *     class by that name, and FastAPI disambiguates two schemas sharing one by qualifying BOTH
+         *     with their module path — so adding this one silently renamed the existing
+         *     `Attention` to `mendel_api__services__attention__Attention` in the served document, and
+         *     the generated client stopped compiling on a screen that had not been touched.
+         *
+         *     Nothing in the API suite noticed: `make check` does not typecheck the frontend, and the
+         *     schema is only a contract when both consumers are built. The board it broke is the
+         *     front door.
+         */
+        NeedsYou: {
+            /**
+             * Failed Syncs
+             * @default 0
+             */
+            failed_syncs: number;
+            /**
+             * Failed Adaptations
+             * @default 0
+             */
+            failed_adaptations: number;
+            /**
+             * Stale Review Count
+             * @default 0
+             */
+            stale_review_count: number;
+            /**
+             * Outdated Count
+             * @default 0
+             */
+            outdated_count: number;
+        };
         /** OpenQuestion */
         OpenQuestion: {
             /** @default question */
@@ -2055,7 +2107,7 @@ export interface components {
             sources: components["schemas"]["SourceRow"][];
             stages: components["schemas"]["Stages"];
             ai_lane: components["schemas"]["AiLane"];
-            attention: components["schemas"]["mendel_api__services__forge_overview__Attention"];
+            attention: components["schemas"]["NeedsYou"];
         };
         /**
          * Page
@@ -2660,22 +2712,6 @@ export interface components {
             findings: components["schemas"]["Finding"][];
         };
         /**
-         * Attention
-         * @description What needs a person, now.
-         *
-         *     **`standing` is gone, deliberately** — Plan 4 phase 2. It reported what the *registry holds*:
-         *     12 contracts, 22 types, 3 rules. `ov-settled` cuts it in one line: *that is the PRODUCT's
-         *     state, not YOURS, and it is why the old page read as slop — information with no question
-         *     behind it.* Deleted rather than hidden, along with `frontend/src/home/Standing.tsx`, because
-         *     a model with no consumer is a model that comes back.
-         */
-        mendel_api__services__attention__Attention: {
-            /** Forge */
-            forge?: components["schemas"]["Call"][];
-            /** Mendel */
-            mendel?: components["schemas"]["Call"][];
-        };
-        /**
          * Candidate
          * @description One contract that could go here, and why it is where it is in the list.
          */
@@ -2694,32 +2730,6 @@ export interface components {
             priority: number;
             /** Why */
             why: string;
-        };
-        /**
-         * Attention
-         * @description What needs somebody, in the four shapes it comes in.
-         */
-        mendel_api__services__forge_overview__Attention: {
-            /**
-             * Failed Syncs
-             * @default 0
-             */
-            failed_syncs: number;
-            /**
-             * Failed Adaptations
-             * @default 0
-             */
-            failed_adaptations: number;
-            /**
-             * Stale Review Count
-             * @default 0
-             */
-            stale_review_count: number;
-            /**
-             * Outdated Count
-             * @default 0
-             */
-            outdated_count: number;
         };
         /**
          * Verdict
@@ -3891,7 +3901,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["mendel_api__services__attention__Attention"];
+                    "application/json": components["schemas"]["Attention"];
                 };
             };
         };

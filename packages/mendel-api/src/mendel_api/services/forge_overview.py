@@ -93,8 +93,19 @@ class AiLane(BaseModel):
     oldest_wait_seconds: int
 
 
-class Attention(BaseModel):
-    """What needs somebody, in the four shapes it comes in."""
+class NeedsYou(BaseModel):
+    """What needs somebody, in the four shapes it comes in.
+
+    **Not `Attention`, and the name is load-bearing.** `services/attention.py` already has a
+    class by that name, and FastAPI disambiguates two schemas sharing one by qualifying BOTH
+    with their module path — so adding this one silently renamed the existing
+    `Attention` to `mendel_api__services__attention__Attention` in the served document, and
+    the generated client stopped compiling on a screen that had not been touched.
+
+    Nothing in the API suite noticed: `make check` does not typecheck the frontend, and the
+    schema is only a contract when both consumers are built. The board it broke is the
+    front door.
+    """
 
     model_config = _FROZEN
 
@@ -110,7 +121,7 @@ class Overview(BaseModel):
     sources: tuple[SourceRow, ...] = ()
     stages: Stages
     ai_lane: AiLane
-    attention: Attention
+    attention: NeedsYou
 
 
 def _by_state() -> dict[str, int]:
@@ -236,7 +247,7 @@ def overview(landed: dict | None = None) -> Overview:
             waiting=by_state.get(AdaptationState.QUEUED.value, 0),
             oldest_wait_seconds=_oldest_wait_seconds(),
         ),
-        attention=Attention(
+        attention=NeedsYou(
             failed_syncs=_failed_syncs(),
             failed_adaptations=by_state.get(AdaptationState.FAILED.value, 0),
             stale_review_count=_stale_reviews(STALE_REVIEW_HOURS),
