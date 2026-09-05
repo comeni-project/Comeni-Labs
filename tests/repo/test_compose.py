@@ -55,22 +55,32 @@ def _default_stack(base) -> dict:
     return {name: svc for name, svc in base["services"].items() if not svc.get("profiles")}
 
 
+def _overlay_names() -> set[str]:
+    """Which services the prod overlay says anything about.
+
+    Read from the file rather than passed in, because it is asked for inside one assertion and
+    a fixture would put it in every signature that does not need it.
+    """
+    parsed = yaml.load((ROOT / "docker-compose.prod.yml").read_text(), Loader=_TolerantLoader)
+    return set(parsed["services"])
+
+
 def _publish_a_host_port(base) -> set[str]:
     """Which services the base exposes on the host. Derived, because a written-out list is a
     list that stops matching the stack the day somebody adds a service to it."""
     return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
-def test_the_stack_is_nine_services(base):
+def test_the_default_stack_is_these_ten_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
     that a new service needs a healthcheck and a place in the overlay.
 
-    **It worked.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is
-    what stopped them arriving with a host-published port that the prod overlay had never
-    heard of — the plan's Task 5 said "add the compose services" and said nothing about the
-    overlay, which is precisely the gap a literal list catches."""
+    **It worked twice.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test
+    is what stopped them arriving with a host-published port the prod overlay had never heard
+    of. `ai-worker` arrived on 2026-09-05 and it fired again, for the same reason — Task 12 says
+    "add the services" and says nothing about the overlay."""
     assert sorted(_default_stack(base)) == [
-        "api", "postgres", "redis", "web",
+        "ai-worker", "api", "postgres", "redis", "web",
         "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "worker",
     ]
 
@@ -117,8 +127,9 @@ def test_the_telemetry_backend_is_opt_in(base):
 
     A profile is the third option: defined here, started when asked for. `make telemetry`."""
     profiled = {name for name, svc in base["services"].items() if svc.get("profiles")}
-    assert profiled == {"clickhouse", "otel-collector", "grafana"}
-    assert all(base["services"][name]["profiles"] == ["telemetry"] for name in profiled)
+    assert profiled == {"clickhouse", "otel-collector", "grafana", "ollama"}
+    telemetry = profiled - {"ollama"}
+    assert all(base["services"][name]["profiles"] == ["telemetry"] for name in telemetry)
 
 
 def test_nothing_in_the_default_stack_depends_on_a_profiled_service(base):
@@ -227,10 +238,20 @@ def test_prod_closes_the_ports_with_reset_rather_than_an_empty_list(base, prod_t
     declared = "\n".join(
         line for line in prod_text.splitlines() if not line.lstrip().startswith("#")
     )
-    closes = _publish_a_host_port(base) - {"web"}
+    # **Derived from what the overlay covers**, not from the default stack. `ollama` publishes
+    # a port in the base and is profiled, so it is absent from `_publish_a_host_port` — and it
+    # is named in the overlay, which resets it, because an unauthenticated inference endpoint on
+    # the host's interface is exactly what "safety, not capability" removes. Deriving from the
+    # default stack alone made a correct reset look like an extra one.
+    covered = {
+        name
+        for name, service in base["services"].items()
+        if service.get("ports") and name in _overlay_names()
+    }
+    closes = covered - {"web"}
     assert declared.count("ports: !reset") == len(closes), (
         f"each of {sorted(closes)} must reset its ports; the overlay does it "
-        f"{declared.count('ports: !reset')} times. **The number is derived from the base, not "
+        f"{declared.count('ports: !reset')} times. **The number is derived from the files, not "
         "written here** — it read `== 3` until wiener-postgres and wiener-api arrived and made "
         "it 5, which is a count in a test going stale exactly the way CLAUDE.md says counts do."
     )
@@ -329,3 +350,124 @@ def test_the_overlay_never_introduces_a_migration_the_base_lacks(base, prod):
         assert "alembic upgrade head" in base_command, (
             f"{name}: the overlay migrates and the base does not — dev comes up unmigrated"
         )
+
+
+# ── the AI lane ───────────────────────────────────────────────────────────────────────
+
+FORGE_SERVICES = ("api", "worker", "ai-worker")
+"""The three that touch the forge's workspace.
+
+`web` serves files and the Wiener services are the other half of the product; none of them
+reads a scaffold, so requiring them to mount one would be requiring a mount for its own sake.
+"""
+
+
+def _mounts(service: dict) -> dict[str, str]:
+    """`{container path: host path}` for a service's bind mounts.
+
+    Short form only, which is all these files use. A long-form `type: bind` entry would be
+    absent from this mapping and the assertions below would fail naming the path — loudly, not
+    silently, which is the direction that matters.
+    """
+    found = {}
+    for volume in service.get("volumes", ()):
+        if not isinstance(volume, str) or ":" not in volume:
+            continue
+        host, container, *_ = volume.split(":")
+        found[container] = host
+    return found
+
+
+def test_the_forge_services_agree_on_where_the_workspace_is(base):
+    """**A generation job reads the scaffold the API wrote.** `read_source` and `read_holes`
+    open `MENDEL_WORKSPACE_ROOT/forge/<id>/`, so a container whose workspace is somewhere else
+    refuses with `MF0008` for a draft that is right there — and the refusal names the draft
+    rather than the mount, so nobody would think to look here."""
+    declared = {
+        name: base["services"][name]["environment"]["MENDEL_WORKSPACE_ROOT"]
+        for name in FORGE_SERVICES
+    }
+    assert len(set(declared.values())) == 1, declared
+
+    mounted = {name: _mounts(base["services"][name]).get(declared[name]) for name in FORGE_SERVICES}
+    assert all(mounted.values()), f"a workspace path with nothing behind it: {mounted}"
+    assert len(set(mounted.values())) == 1, mounted
+
+
+def test_the_forge_services_agree_on_where_the_registry_is(base):
+    """The candidate is validated against the layer and then landed into it. Two clones would
+    make *green* a statement about a different registry than the one a contract lands in —
+    which is the fact `MF0301`'s stale-base refusal exists to catch one level up."""
+    declared = {
+        name: base["services"][name]["environment"]["MENDEL_REGISTRY_ROOT"]
+        for name in FORGE_SERVICES
+    }
+    assert len(set(declared.values())) == 1, declared
+
+    mounted = {name: _mounts(base["services"][name]).get(declared[name]) for name in FORGE_SERVICES}
+    assert all(mounted.values()), mounted
+    assert len(set(mounted.values())) == 1, mounted
+
+
+def test_prod_keeps_the_forge_paths_the_base_has(base, prod):
+    """**The overlay is safety, not capability** — its own header. A mount it drops is a mount
+    prod does not have.
+
+    `.run/drafts` was exactly that until 2026-09-05: the base fixed a shared-artifact bug in
+    August, this file kept the shape from before it, and `make prod` therefore still had the
+    bug the base's comment describes as fixed. Found by writing this test.
+    """
+    for name in FORGE_SERVICES:
+        mounted = _mounts(prod["services"][name])
+        assert "/app/workspace" in mounted, name
+        assert "/app/registry" in mounted, name
+        assert "/app/drafts" in mounted, f"{name}: keep writes here and the gate job reads it"
+
+
+def test_the_ai_worker_is_not_behind_a_profile(base):
+    """**The other half of the model server's profile.** It is the image `api` already builds,
+    so it costs no download; and without it the AI queue never drains, so an adaptation sits at
+    `queued` forever with nothing on screen saying why. `/api/health/ai` reports a missing
+    worker, which is only a meaningful report if having one is the ordinary arrangement."""
+    assert "profiles" not in base["services"]["ai-worker"]
+
+
+def test_the_pulled_models_survive_a_restart(base):
+    """A named volume, not an anonymous one. Anonymous makes every `down` and `up` a
+    re-download, which is the whole cost this service has."""
+    assert "ollama-models" in yaml.safe_load(
+        (ROOT / "docker-compose.yml").read_text()
+    )["volumes"]
+    assert any("ollama-models:" in v for v in base["services"]["ollama"]["volumes"])
+
+
+def test_the_ai_lane_is_configured_by_the_shared_names(base):
+    """**`COMENI_AI_*` and nothing else**, which is what makes a hosted deployment a
+    configuration change rather than a code change — invariant 13. A `MENDEL_AI_MODEL` beside
+    them would be a second answer to *which model*, and an operator's `.env` would have to know
+    which consumer read which. `comeni_ai.access` is where those names are declared."""
+    lane = base["services"]["ai-worker"]["environment"]
+    assert {"COMENI_AI_MODEL", "COMENI_AI_BASE_URL", "COMENI_AI_API_KEY"} <= set(lane)
+    assert not [name for name in lane if name.startswith("MENDEL_AI_")]
+
+
+def test_no_credential_is_written_into_the_compose_file(base):
+    """Every AI name is `${...}` with an empty default, so a key lives in `.env` and never in a
+    file that is committed. A literal here would be a credential in git history, which is the
+    one mistake with no undo."""
+    for name, value in base["services"]["ai-worker"]["environment"].items():
+        if name.startswith("COMENI_AI_"):
+            assert str(value).startswith("${"), f"{name} is not read from the environment"
+
+
+def test_nothing_but_the_ai_worker_runs_the_ai_queue(base):
+    """`AIWorkerSettings.functions` is the allowlist of what may reach a provider, and it is an
+    allowlist only if one process runs it. Two services on that worker would make *which
+    container called the model* depend on which one ARQ handed the job to."""
+    running = [
+        name
+        for name, service in base["services"].items()
+        if "ai_worker.AIWorkerSettings" in str(service.get("command", ""))
+    ]
+    assert running == ["ai-worker"]
+

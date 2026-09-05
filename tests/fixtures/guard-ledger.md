@@ -4624,3 +4624,52 @@ identically otherwise, on the one screen whose job is to show exactly what will 
 is the same class as `frozenset` having no stable order: a difference the reader cannot see is a
 difference the reader cannot check.
 
+## The local model lane — 2026-09-05
+
+Task 12: an `ai-worker` and an opt-in `ollama` in Compose, one spelling for model access, and
+`/health/ai`. **Almost everything here lives in YAML or in an environment variable**, which is
+the class of thing every other guard in this repository is blind to — the same gap `make dev`'s
+own history keeps demonstrating.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_compose.py::test_the_forge_services_agree_on_where_the_workspace_is` | `ai-worker`'s workspace moved to `/app/ai-workspace` | failed | a generation job would refuse `MF0008` for a draft that is right there |
+| 2026-09-05 | `test_compose.py::test_prod_keeps_the_forge_paths_the_base_has` | the `.run/drafts` mount removed from prod again | failed | the artifact would live in one container's ephemeral layer |
+| 2026-09-05 | `test_compose.py::test_the_telemetry_backend_is_opt_in` | `profiles: [ai]` removed from `ollama` | failed | `make dev` would pull gigabytes |
+| 2026-09-05 | `test_compose.py::test_the_ai_lane_is_configured_by_the_shared_names` | a `MENDEL_AI_MODEL` added beside `COMENI_AI_MODEL` | failed | two answers to *which model* |
+| 2026-09-05 | `test_ai_health.py::test_the_credential_never_reaches_the_response` | the api key appended to the reported model id | failed | a key in a response read over somebody's shoulder |
+| 2026-09-05 | `test_ai_health.py::test_a_hosted_model_is_reported_and_never_probed` | the base-url condition dropped from the probe | failed | a health check that bills somebody to ask whether the wires are connected |
+| 2026-09-05 | `test_ai_health.py::test_the_probe_does_not_wait_on_the_fault_it_reports` | `conn_retries` back to 5 | failed | several seconds to answer *the broker is down* |
+| 2026-09-05 | `test_compose.py::test_the_stack_is_nine_services` | — | **fired on the first run** | `ai-worker` arrived without a line in the overlay |
+| 2026-09-05 | `test_compose.py::test_prod_closes_the_ports_with_reset_rather_than_an_empty_list` | — | **fired on the first run** | its derivation counted only the default stack |
+| 2026-09-05 | `test_openapi.py::test_every_operation_is_named_by_hand` | — | **fired on the first run** | `aiHealth` was not in the literal table |
+
+**The literal service list earned itself a second time.** `test_the_stack_is_nine_services` was
+written when `wiener-postgres` and `wiener-api` arrived with a published port the overlay had
+never heard of, and its docstring says so. `ai-worker` arrived the same way — Task 12's box says
+*add the services* and says nothing about the overlay — and the list caught it in the first run.
+It is now `test_the_default_stack_is_these_ten_services`.
+
+**A guard fired correctly and its derivation was still too narrow.**
+`test_prod_closes_the_ports_with_reset_rather_than_an_empty_list` derives how many `!reset`s the
+overlay should carry from the services that publish a host port — but from the *default stack*,
+so `ollama` (profiled, publishes a port, correctly reset in prod) read as one reset too many. The
+fix was to the derivation, not to the overlay: it now counts the services the overlay actually
+names. **The guard was right that something did not add up, and wrong about what.**
+
+**`.run/drafts` was missing from the prod overlay and had been since August.** The base carries
+a comment explaining that `keep` (api) writes the artifact and the gate job (worker) runs
+Nextflow in it, and that setting the env var with nothing behind it put the file in one
+container's ephemeral layer — fixed in the base on 2026-08-23 and never carried across, so
+`make prod` still had exactly the bug the comment describes as fixed. Found by writing the
+*identical paths* test this task's box asks for, which is the second time a comment about a fix
+has outlived the fix in a neighbouring file.
+
+**Two answers to "which model" existed and neither was wrong on its own.**
+`mendel_api.settings` declared `MENDEL_AI_MODEL` and `MENDEL_AI_BASE_URL`; `comeni_ai.access`
+declared `COMENI_AI_MODEL`, `COMENI_AI_API_KEY` and `COMENI_AI_BASE_URL` and its own docstring
+called itself the shared surface. An operator's `.env` had to know which consumer read which,
+and only one of the two could hold a credential — so a hosted lane needed a `MENDEL_AI_API_KEY`
+that would have been a *third* home for a key, on a settings object that prints in a traceback.
+`model_access()` reads the one surface.
+

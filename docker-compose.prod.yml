@@ -27,9 +27,17 @@ services:
     # No `./packages` mount: the code is the image. The registry stays a mounted CLONE,
     # because accepting a drift is a commit and a baked copy of files cannot take one —
     # MF0107 says so rather than crashing.
+    #
+    # **`.run/drafts` is here now, and its absence was a real defect.** The base carries a
+    # comment explaining that `keep` (api) writes the artifact and the gate job (worker) runs
+    # Nextflow in it, and that setting the env var with nothing backing it put the file in one
+    # container's ephemeral layer where the other could not see it — fixed in the base on
+    # 2026-08-23 and never carried into this overlay, so `make prod` still had exactly that
+    # bug. Found by writing `test_compose.py` for Task 12's *identical paths* box.
     volumes:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
+      - ./.run/drafts:/app/drafts
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
 
   worker:
@@ -37,6 +45,24 @@ services:
     volumes:
       - ./.run/registry:/app/registry
       - ./workspace:/app/workspace
+      - ./.run/drafts:/app/drafts
+
+  ai-worker:
+    restart: unless-stopped
+    # **The same three mounts as `api` and `worker`, and that is the whole point.** A
+    # generation job reads the scaffold this API wrote; a workspace that differed between them
+    # would refuse with `MF0008` for a draft that is right there.
+    volumes:
+      - ./.run/registry:/app/registry
+      - ./workspace:/app/workspace
+      - ./.run/drafts:/app/drafts
+
+  ollama:
+    # Listed so the overlay covers every service the base defines — its own header says so.
+    # It stays behind the `ai` profile here too; prod is the same stack with the unsafe parts
+    # removed, not a different set of services.
+    restart: unless-stopped
+    ports: !reset []   # the workers reach it on the compose network
 
   web:
     restart: unless-stopped

@@ -176,6 +176,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/health/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the AI lane can do anything, and what is waiting
+         * @description **Three things an operator checks when a generation is not happening**, and the plan
+         *     names all three: worker unavailable, model unavailable, queue depth.
+         *
+         *     It reports and never enqueues. A health endpoint that started work to find out whether work
+         *     can start is a health endpoint that changes the thing it measures.
+         */
+        get: operations["aiHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/registry/tiers": {
         parameters: {
             query?: never;
@@ -1103,6 +1127,38 @@ export interface components {
          * @enum {string}
          */
         AdaptationState: "scaffolding" | "queued" | "generating" | "validating" | "review" | "changes_requested" | "publishing" | "published" | "failed" | "archived";
+        /**
+         * AiHealth
+         * @description Three separate facts, because they fail separately and are fixed separately.
+         *
+         *     **A single `ok` would be the wrong shape.** No worker is a compose problem, no model is a
+         *     `.env` problem, and a queue with eleven things in it is neither — it is the system working.
+         *     Collapsing them gives an operator a red light and no next step, which is what §7's *honest
+         *     empty and error states* is about one layer down.
+         */
+        AiHealth: {
+            /** Configured */
+            configured: boolean;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /** Model Available */
+            model_available?: boolean | null;
+            /** Worker Available */
+            worker_available: boolean;
+            /**
+             * Queue Depth
+             * @default 0
+             */
+            queue_depth: number;
+            /**
+             * Concurrency
+             * @default 1
+             */
+            concurrency: number;
+        };
         /**
          * AiLane
          * @description What the AI worker is doing, and how long the front of its queue has waited.
@@ -3654,6 +3710,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Strip"];
+                };
+            };
+        };
+    };
+    aiHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiHealth"];
                 };
             };
         };

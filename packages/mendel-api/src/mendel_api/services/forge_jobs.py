@@ -37,7 +37,7 @@ from mendel_api.models import (
     ForgeRevision,
 )
 from mendel_api.services import forge_catalogue, forge_state
-from mendel_api.settings import settings
+from mendel_api.settings import model_access, settings
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ def _failure_detail(failure: Exception) -> str:
 
 
 class NoModelConfigured(RuntimeError):
-    """`MENDEL_AI_MODEL` is empty. **The no-AI lane, not a crash.**
+    """`COMENI_AI_MODEL` is empty. **The no-AI lane, not a crash.**
 
     A laboratory that wants no model calls simply does not configure one, and the adaptation
     should say that on its page rather than leave a worker traceback in a log nobody reads.
@@ -405,25 +405,39 @@ def _adapters() -> dict[str, type]:
 def _client():
     """A `Client` for the configured lane, or a refusal naming the setting.
 
-    Built here rather than held as a module global: `settings` is read at construction, and a
-    worker that cached one at import would ignore a changed environment on restart in the one
+    Built here rather than held as a module global: the environment is read at construction, and
+    a worker that cached one at import would ignore a changed environment on restart in the one
     place where an operator most expects it to be read.
-    """
-    from comeni_ai import Client, ModelAccess
 
-    if not settings.ai_model:
+    **The same three names in every lane.** `COMENI_AI_MODEL` with `COMENI_AI_API_KEY` reaches
+    a hosted provider; the same model id with `COMENI_AI_BASE_URL` reaches an Ollama on the
+    compose network. Nothing here branches on which — invariant 13, and the reason the local
+    lane cannot quietly become the degraded one.
+    """
+    from comeni_ai import Client
+    from comeni_ai.access import BASE_URL, MODEL
+
+    access = model_access()
+    if access is None:
         raise NoModelConfigured(
             coded("MI0106", "no model is configured, so nothing can be generated")
-            + "\n  set MENDEL_AI_MODEL to a LiteLLM model id — `ollama/qwen2.5-coder:14b`"
+            + f"\n  set {MODEL} to a LiteLLM model id — `ollama/qwen2.5-coder:14b`"
+            + f"\n  and {BASE_URL} for a local endpoint, or an API key for a provider"
             + "\n  leaving it empty is the no-AI lane and is a legitimate way to run the forge"
         )
-    return Client(
-        ModelAccess(
-            model=settings.ai_model,
-            base_url=settings.ai_base_url or None,
-            timeout_seconds=float(settings.ai_job_timeout_seconds),
-        )
-    )
+    return Client(access)
+
+
+def _model_id() -> str:
+    """What goes in `FilledValue.by` for a value a model answered.
+
+    **The model id, not the string "model".** `land.py` copies `by` verbatim into
+    `Provenance.drafted_by`, so this ends up in a registry file that outlives the deployment —
+    and *which* model proposed a port type is exactly what somebody re-reading a contract in six
+    months needs. `how` already carries that it was a model at all.
+    """
+    access = model_access()
+    return access.model if access else ""
 
 
 def _vocabularies(stack) -> list:
@@ -491,7 +505,7 @@ def _generate(adaptation_id: str):
     )
     if outcome.succeeded():
         filled = render.apply(
-            draft.scaffold, outcome.proposal, holes=holes, by=settings.ai_model
+            draft.scaffold, outcome.proposal, holes=holes, by=_model_id()
         )
         module = render.module_text(draft.module, outcome.proposal) if draft.module else None
         workspace.save(Draft(name=adaptation_id, scaffold=filled, module=module))

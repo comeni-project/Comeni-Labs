@@ -561,12 +561,70 @@ async def test_a_provider_failure_during_generation_is_sanitised(item, monkeypat
         assert "sk-abc" not in failed.detail
 
 
-def test_a_model_lane_is_empty_by_default():
+def test_a_model_lane_is_empty_by_default(monkeypatch):
     """Not a missing setting — the no-AI lane. There is nothing to reach a provider *with*,
-    which `CLAUDE.md` calls stronger than a flag."""
-    from mendel_api.settings import Settings
+    which `CLAUDE.md` calls stronger than a flag.
 
-    assert Settings().ai_model == ""
+    **Asserted through `model_access` rather than through a settings field.** `mendel-api` used
+    to declare `MENDEL_AI_MODEL` of its own beside `comeni_ai.access`'s `COMENI_AI_MODEL` — two
+    answers to *which model*, with an operator's `.env` obliged to know which consumer read
+    which. This reads the one surface, and it clears the environment so a developer with a
+    model configured does not turn the assertion green for the wrong reason.
+    """
+    from comeni_ai import access
+    from mendel_api.settings import model_access
+
+    for name in (*access.DEPRECATED, *access.DEPRECATED.values()):
+        monkeypatch.delenv(name, raising=False)
+
+    assert model_access() is None
+
+
+def test_the_two_lanes_differ_by_configuration_and_by_nothing_else(monkeypatch):
+    """**Invariant 13 at the deployment level.** `test_lanes.py` proves `comeni-ai` builds one
+    `ModelAccess` for both; this proves the *forge* has no second path — the worker builds its
+    client from the environment and branches on nothing, so a hosted deployment sets three
+    variables and changes no setting, no prompt and no code.
+
+    Self-hosted must not be the degraded tier. The way that stops being true is a branch
+    somewhere that treats a base URL as the cheap lane, and the way it is kept true is that
+    there is nowhere to put one.
+    """
+    from comeni_ai import access
+    from mendel_api.services import forge_jobs
+
+    def _built(**env) -> object:
+        for name in (*access.DEPRECATED, *access.DEPRECATED.values()):
+            monkeypatch.delenv(name, raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        return forge_jobs._client()
+
+    local = _built(
+        COMENI_AI_MODEL="ollama/qwen2.5-coder:14b",
+        COMENI_AI_BASE_URL="http://ollama:11434",
+    )
+    hosted = _built(COMENI_AI_MODEL="anthropic/claude-sonnet-4-5", COMENI_AI_API_KEY="sk-x")
+
+    assert type(local) is type(hosted)
+    assert local.access.base_url == "http://ollama:11434"
+    assert hosted.access.base_url is None, "a hosted provider supplies its own endpoint"
+    assert hosted.access.api_key == "sk-x"
+
+
+def test_a_model_answer_is_attributed_to_the_model_that_gave_it(monkeypatch):
+    """**The id, not the word "model".** `land.py` copies `FilledValue.by` verbatim into
+    `Provenance.drafted_by`, so this ends up in a registry file that outlives the deployment —
+    and *which* model proposed a port type is exactly what somebody re-reading a contract in six
+    months needs. `how` already carries that it was a model at all."""
+    from comeni_ai import access
+    from mendel_api.services import forge_jobs
+
+    for name in (*access.DEPRECATED, *access.DEPRECATED.values()):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(access.MODEL, "ollama/qwen2.5-coder:14b")
+
+    assert forge_jobs._model_id() == "ollama/qwen2.5-coder:14b"
 
 
 # ── publishing ────────────────────────────────────────────────────────────────────────

@@ -4,9 +4,15 @@ Every path the API reads is declared here rather than resolved at a call site, b
 second place that decides where the registry lives is a second answer to that question.
 """
 
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+if TYPE_CHECKING:  # a settings module every route imports must not pull in a transport
+    from comeni_ai import ModelAccess
 
 
 class Settings(BaseSettings):
@@ -36,20 +42,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://mendel:mendel@localhost:5432/mendel"
     redis_url: str = "redis://localhost:6379"
 
-    ai_model: str = ""
-    """The LiteLLM model id the AI worker calls — `ollama/qwen2.5-coder:14b`, say.
-
-    **Empty by default, and that is the no-AI lane rather than a missing setting.** A laboratory
-    that wants no model calls does not configure this, which is stronger than a flag: there is
-    nothing to reach a provider *with*. `generate_forge_revision` fails the adaptation with
-    `MI0106` rather than crashing, so the reason shows up on the page instead of in a log.
-
-    Task 12 supplies it through Compose as `MENDEL_AI_MODEL`; nothing about the code changes
-    between a local Ollama and a hosted provider, which is invariant 13.
-    """
-    ai_base_url: str = ""
-    """An OpenAI-compatible endpoint, when the model is served rather than hosted. Empty means
-    the provider's own."""
     ai_context_tokens: int = 32_000
     """What the configured model can hold. The dossier is budgeted against it — see
     `mendel_forge.ai.context.Budget`, which reserves room for the answer because a context
@@ -57,6 +49,12 @@ class Settings(BaseSettings):
 
     ai_max_jobs: int = 1
     """How many provider calls the AI worker runs at once.
+
+    **`COMENI_AI_MAX_CONCURRENT_JOBS` wins when it is set** — `access.py` declares that name as
+    part of the shared configuration surface and says so on the constant: *read by the AI
+    worker, not by this package. Declared here so a second consumer does not invent a second
+    spelling.* `MENDEL_AI_MAX_JOBS` still works, and costs nothing to keep; an operator writing
+    one `.env` for a lane writes `COMENI_AI_*` throughout.
 
     **One, and it is correct rather than conservative.** A local Ollama serves one request at a
     time, so a second concurrent call makes both slower rather than either faster; a hosted
@@ -74,7 +72,48 @@ class Settings(BaseSettings):
 
     900s is the stub gate's cold-cache figure from `CLAUDE.md`, used here as the longest thing
     this system is known to legitimately wait for. A model fill was measured at 227s.
+
+    **Distinct from `COMENI_AI_TIMEOUT_SECONDS`, which is one HTTP request to a provider.**
+    This is the ceiling on a whole job — an analysis, an implementation and two repairs — and
+    the age at which a claimed adaptation is reclaimed. Folding them would make a slow provider
+    look like a dead worker.
     """
+
+    @model_validator(mode="after")
+    def _the_shared_name_wins(self) -> "Settings":
+        """`COMENI_AI_MAX_CONCURRENT_JOBS` over `MENDEL_AI_MAX_JOBS` when both are set.
+
+        The direction `access.DEPRECATED` already chose, and for its reason: an installation
+        that sets both gets the shared name, which is the only direction that cannot silently
+        un-migrate somebody.
+        """
+        shared = os.environ.get("COMENI_AI_MAX_CONCURRENT_JOBS", "").strip()
+        if shared:
+            object.__setattr__(self, "ai_max_jobs", int(shared))
+        return self
 
 
 settings = Settings()
+
+
+def model_access() -> "ModelAccess | None":
+    """How to reach the configured model, or `None` when none is.
+
+    **One spelling for the whole lane, and it is `comeni-ai`'s.** `mendel-api` declared
+    `MENDEL_AI_MODEL` and `MENDEL_AI_BASE_URL` of its own while `comeni_ai.access` declared
+    `COMENI_AI_MODEL`, `COMENI_AI_API_KEY` and `COMENI_AI_BASE_URL` as *the* shared surface —
+    two answers to "which model", with an operator's `.env` obliged to know which consumer read
+    which. That is the drift the package rename was for, arriving one layer up.
+
+    **It is also what makes the hosted lane a configuration change rather than a code change**
+    (invariant 13): a key belongs to a provider and a base URL to a local endpoint, and
+    `from_env` is the one place both are read. A `MENDEL_AI_API_KEY` would have been a *third*
+    home for a credential, on a settings object that is printed in a traceback.
+
+    **`os.environ` at call time, not at import.** A worker holding one would ignore a changed
+    environment on restart, which is the one moment an operator most expects it to be read —
+    the argument `_client` already makes about not caching a module global.
+    """
+    from comeni_ai import ModelAccess
+
+    return ModelAccess.from_env(os.environ)

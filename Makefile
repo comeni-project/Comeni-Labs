@@ -1,5 +1,6 @@
 .PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links test lint fmt types docs docs-status static stub profile forge clean \
-	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve
+	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
+	ai-up ai-down ai-pull ai-logs
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
 # repository owned by another uid, and root-owned drafts in ./workspace are undeletable.
@@ -271,6 +272,43 @@ dev-down:  ## stop Vite and the stack
 
 dev-logs:  ## tail the api and the worker
 	$(DC) logs -f api worker
+
+# ---- the local model lane ------------------------------------------------------------
+#
+# **Separate targets, and `make dev` never touches them.** Bringing a model up means pulling
+# several gigabytes; somebody working on the catalogue should not wait for that to see a page.
+# The `telemetry` targets make the same argument about ClickHouse, and this is the same shape:
+# a compose profile, an explicit verb, and nothing implicit.
+#
+# **`ai-up` does not pull a model either**, which is the part worth being careful about. It
+# starts a server with whatever is already in the volume and tells you what to do next. A target
+# that helpfully downloaded 9GB because you typed *up* is a target people learn to fear.
+
+AI_MODEL ?= qwen2.5-coder:14b
+
+ai-up:  ## start the local Ollama and print the two lines for .env — pulls nothing
+	$(DC) --profile ai up -d ollama
+	@echo
+	@echo "put these in .env, then \`make dev\` (or restart ai-worker):"
+	@echo "  COMENI_AI_MODEL=ollama/$(AI_MODEL)"
+	@echo "  COMENI_AI_BASE_URL=http://ollama:11434"
+	@echo
+	@echo "the model itself:  make ai-pull MODEL=$(AI_MODEL)"
+	@# **The base URL is the compose hostname, not localhost.** The worker reaches it on the
+	@# compose network; `http://localhost:11434` is the worker's own loopback and answers
+	@# nothing. It is the mistake this echo exists to prevent.
+
+ai-pull:  ## download a model into the ollama volume — `make ai-pull MODEL=qwen2.5-coder:14b`
+	@test -n "$(MODEL)" || { echo "MODEL= is required, e.g. make ai-pull MODEL=$(AI_MODEL)"; exit 2; }
+	$(DC) --profile ai up -d ollama
+	$(DC) --profile ai exec ollama ollama pull $(MODEL)
+	@echo "pulled $(MODEL) — set COMENI_AI_MODEL=ollama/$(MODEL)"
+
+ai-logs:  ## tail the AI worker and the model server
+	$(DC) --profile ai logs -f ai-worker ollama
+
+ai-down:  ## stop the model server. The pulled models stay in their named volume
+	$(DC) --profile ai stop ollama
 
 prod:  ## the same stack, with the unsafe parts removed
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

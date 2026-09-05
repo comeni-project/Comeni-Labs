@@ -51,6 +51,14 @@ services:
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
+      # **Read here to REPORT, never to call.** `/api/health/ai` says whether a model is
+      # configured and whether it answers, and it cannot say either without the same three
+      # names the worker gets. Nothing on this service enqueues to the AI queue and nothing
+      # on it builds a `Client` — `ai_worker.AIWorkerSettings.functions` is the allowlist of
+      # what may reach a provider, and it is a different process.
+      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
+      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
+      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
       - ./packages:/app/packages
@@ -101,6 +109,81 @@ services:
       # container's ephemeral layer and the other could not see it.
       - ./.run/drafts:/app/drafts
     command: arq mendel_api.worker.WorkerSettings
+
+  ai-worker:
+    # **The one process allowed to reach a provider**, and the reason it is separate is
+    # starvation: a model call was measured at 227s for one module, a source sync is seconds,
+    # and somebody is watching for the sync's answer. On one queue with a shared concurrency
+    # budget the sync waits behind whatever generation is in flight.
+    #
+    # **In the default stack, not behind the `ai` profile**, even though it does nothing
+    # without a model configured. Two reasons, and neither is convenience: it is the image
+    # `api` and `worker` already build, so it costs no download; and without it the AI queue
+    # never drains, so an adaptation sits at `queued` forever with nothing saying why.
+    # `/api/health/ai` reports a missing worker, and it can only report it if the ordinary
+    # arrangement is that one exists.
+    #
+    # **Every mount is the same path as `api` and `worker`.** The scaffold is written by one
+    # container and read by another: a generation job reads `read_source` and `read_holes` out
+    # of the workspace this API wrote, and a path that differed between them would produce
+    # `MF0008` for a draft that is right there. `test_compose.py` holds it rather than trusting
+    # this comment — the same lesson `geometry.ts` taught about a comment claiming a guard.
+    build: .
+    container_name: ${AI_WORKER_CONTAINER_NAME:-mendel-ai-worker}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      MENDEL_DATABASE_URL: postgresql+psycopg://mendel:mendel@postgres:5432/mendel
+      MENDEL_REDIS_URL: redis://redis:6379
+      MENDEL_REGISTRY_ROOT: /app/registry
+      MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
+      MENDEL_WORKSPACE_ROOT: /app/workspace
+      MENDEL_DRAFT_ROOT: /app/drafts
+      # **The shared surface, and the whole of what changes between lanes.** Unset by default,
+      # which is the no-AI lane rather than a missing setting — `MI0106`, and there is nothing
+      # to reach a provider *with*. `make ai-up` prints the two lines for a local Ollama;
+      # a hosted deployment sets the model and a key and changes nothing else.
+      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
+      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
+      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
+      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
+      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
+    volumes:
+      - ./packages:/app/packages
+      - ./.run/registry:/app/registry
+      - ./examples:/app/examples:ro
+      - ./workspace:/app/workspace
+      - ./.run/drafts:/app/drafts
+    command: arq mendel_api.ai_worker.AIWorkerSettings
+
+  ollama:
+    # **Opt-in, `make ai-up` or `--profile ai`.** This pulls a multi-gigabyte model on first
+    # use, and `make dev` must not — somebody working on the catalogue should not wait for a
+    # 9GB download to see a page. The `telemetry` profile makes the same argument about
+    # ClickHouse.
+    #
+    # **The model volume is named and outlives the container**, which is the difference
+    # between `make ai-down && make ai-up` costing nothing and costing the download again.
+    #
+    # **No published port by default.** The API and the worker reach it on the compose
+    # network; publishing it would put an unauthenticated inference endpoint on the host's
+    # interface, and the one thing an operator gains is `curl` from a terminal —
+    # `OLLAMA_HOST_PORT` is there for whoever decides that trade for themselves.
+    image: ollama/ollama:0.6.5
+    container_name: ${OLLAMA_CONTAINER_NAME:-mendel-ollama}
+    profiles: [ai]
+    volumes: ["ollama-models:/root/.ollama"]
+    ports: ["${OLLAMA_HOST_PORT:-11434}:11434"]
+    healthcheck:
+      # `ollama list` rather than a socket probe: the server answers HTTP before it can serve
+      # a model, so a port check reports healthy on something that refuses every request.
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   # **In the base, not only in prod**, so dev serves the same path prod does — nginx in front,
   # the SPA built, `/api` proxied. Vite on the host is ADDITIONAL, for HMR: dev has strictly
@@ -306,3 +389,6 @@ volumes:
   mendel-pg:
   wiener-pg:
   wiener-clickhouse:
+  # Named, so a pulled model survives `down` and `up`. An anonymous volume here would make
+  # every restart a re-download, which is the whole cost this service has.
+  ollama-models:

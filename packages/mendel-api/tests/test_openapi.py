@@ -89,6 +89,7 @@ def test_every_operation_is_named_by_hand():
             "/api/forge/adaptations/{adaptation_id}/revisions/{revision_id}",
             "get",
         ): "forgeRevision",
+        ("/api/health/ai", "get"): "aiHealth",
         ("/api/forge/adaptations/{adaptation_id}/candidate", "get"): "forgeCandidate",
         ("/api/forge/adaptations/{adaptation_id}/approval", "get"): "forgeApprovalState",
         ("/api/forge/adaptations/{adaptation_id}/retry", "post"): "forgeRetryAdaptation",

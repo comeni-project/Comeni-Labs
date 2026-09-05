@@ -2750,8 +2750,13 @@ MI0106:
   fires_on: [forge generate, forge review]
   refuses: true
   fix: |
-    Set `MENDEL_AI_MODEL` to a LiteLLM model id — `ollama/qwen2.5-coder:14b` for a local
-    model, or a hosted one — and `MENDEL_AI_BASE_URL` when the endpoint is your own.
+    Set `COMENI_AI_MODEL` to a LiteLLM model id — `ollama/qwen2.5-coder:14b` for a local
+    model, or a hosted one — plus `COMENI_AI_BASE_URL` when the endpoint is your own, or
+    `COMENI_AI_API_KEY` for a provider. `make ai-up` starts an Ollama on the compose network
+    and prints the two lines to put in `.env`.
+
+    **The same three names in every lane**, which is what makes self-hosted and hosted a
+    configuration difference rather than a code path — invariant 13.
 
     **Leaving it empty is a legitimate way to run the forge**, not a misconfiguration. Every
     deterministic verb still works: a catalogue syncs, a scaffold derives, holes open with
