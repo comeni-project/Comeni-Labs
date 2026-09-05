@@ -199,6 +199,7 @@ decline to curate one.
 | `MI0101` | this tool is already being adapted |
 | `MI0103` | the worker holding this job did not come back |
 | `MI0104` | an upstream catalogue could not be read, and the sync recorded that rather than an empty world |
+| `MI0105` | the source could not be read, or its scaffold could not be written |
 
 ## The forge — what a model is told, and what it cites
 

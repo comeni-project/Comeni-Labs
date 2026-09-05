@@ -4466,3 +4466,20 @@ notices until a build cannot route.
 The second is `MI0102`'s rule one subsystem over, and it is worth restating because the two
 leaks look different and are the same: a *provider* error names an endpoint and a key, and a
 *registry* error names an endpoint and a token. Neither belongs in a string a curator reads.
+
+**And the scaffold job, finishing Task 7's job table.**
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_forge_jobs.py::test_a_scaffold_failure_fails_at_scaffolding_not_at_queued` | `stage=QUEUED` on the failure | failed, with the code test | a retry would have queued a model against a bundle that does not exist |
+| 2026-09-05 | `test_forge_jobs.py::test_a_duplicate_scaffold_is_skipped_rather_than_rewriting_the_bundle` | the `state is not SCAFFOLDING` guard removed | failed | the second delivery re-fetched the source and its compare-and-swap refused |
+
+**A fixture that stored less than the thing it stood in for.** `test_forge_jobs.py`'s `item`
+built a `ForgeCatalogueItem` with `metadata_json={}`, which was invisible while every test read
+only the row's own columns — and failed the moment the scaffold job rehydrated a `CatalogueItem`
+from it, which is what `forge_catalogue.record` stores and what the real code reads. It now
+stores `domain.model_dump(mode="json")`, the same shape the sync writes.
+
+That is the third fixture defect in this plan after `_item`'s zero-padded ids and the empty
+`Base.metadata` scan, and the shape is identical each time: **a fixture is only as good as the
+field somebody eventually uses.**

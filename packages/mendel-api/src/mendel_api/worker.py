@@ -55,7 +55,12 @@ async def run_gate_job(ctx: dict, run_id: str) -> str:
 
 
 class WorkerSettings:
-    functions = [check_sources, run_gate_job, forge_jobs.sync_forge_sources]
+    functions = [
+        check_sources,
+        run_gate_job,
+        forge_jobs.sync_forge_sources,
+        forge_jobs.scaffold_forge_adaptation,
+    ]
     """**Everything that is not a model call.** The split from `AIWorkerSettings` is about
     starvation: a catalogue sync is seconds and somebody is waiting on it, and a generation is
     measured at 227s. `test_the_two_worker_function_lists_are_disjoint` holds them apart, because

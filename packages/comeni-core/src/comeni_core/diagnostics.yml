@@ -2720,6 +2720,29 @@ MI0104:
     The upstream message is not carried, for the reason `MI0102` gives: a provider or registry
     error names an endpoint and sometimes a token, and this string is rendered on a page.
 
+MI0105:
+  emitted_by: api
+  concern: workflow
+  says: "the source could not be read, or its scaffold could not be written"
+  fires_on: [forge scaffold]
+  refuses: true
+  fix: |
+    The adaptation is failed at `scaffolding`, and `retry` resumes there — rule 9, and it is
+    the difference that matters: a scaffold that could not be built is not repaired by queueing
+    a model, so the retry starts from the fetch rather than one stage on.
+
+    The cause is in the worker's log. If it is the source rather than the workspace, a sync will
+    usually say so first.
+  explanation: |
+    Everything a model is later asked about is decided in this job, and none of it by a model —
+    the contract skeleton, the holes and their candidate sets, the container reference. So a
+    failure here is a failure to establish the *question*, not the answer, and nothing
+    downstream can proceed on a partial one.
+
+    **Failing at `scaffolding` rather than at `queued` is the whole point of `failed_stage`.**
+    Without it every retry assumes the model was at fault, and a source that is temporarily
+    unreachable would be retried by queueing a generation against a bundle that does not exist.
+
 MA0001:
   emitted_by: ai
   concern: model-access

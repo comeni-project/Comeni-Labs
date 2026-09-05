@@ -25,12 +25,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from comeni_core.diagnostics import coded
-from mendel_forge.workflow import AdaptationState
+from mendel_forge.workflow import AdaptationState, EventKind
 
 from mendel_api import jobs
 from mendel_api.db import session_scope
-from mendel_api.models import ForgeAdaptation
+from mendel_api.models import ForgeAdaptation, ForgeCatalogueItem
 from mendel_api.services import forge_catalogue, forge_state
+from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
 
@@ -138,8 +139,13 @@ def _worker(ctx: dict) -> str:
     ARQ puts a job id in the context; that is the most specific true thing available, and it is
     what a reviewer needs in order to find the job in a log. `worker` alone would attribute
     every claim to the same actor.
+
+    **It said `ai-worker:` until the scaffold job arrived**, which was true of both callers at
+    the time and false the moment a job on the ordinary queue used it. A prefix naming a worker
+    a transition did not come from is worse than no prefix: it sends whoever is reading the
+    audit to the wrong log.
     """
-    return f"ai-worker:{ctx.get('job_id', 'unknown')}"
+    return f"worker:{ctx.get('job_id', 'unknown')}"
 
 
 def sanitised(failure: Exception, *, where: str) -> str:
@@ -233,12 +239,113 @@ def _adapters() -> dict[str, type]:
     return sources.adapters()
 
 
-# **`scaffold_forge_adaptation` and `publish_forge_adaptation` are still absent, and there is no
-# stub for either.** A function raising `NotImplementedError` on a worker's function list is
-# worse than an absent one: it is enqueueable, so the failure arrives at run time on a real
-# adaptation instead of at the call site. Their `enqueue_*` helpers above are real and settled —
-# which queue, and what the id is keyed on — and those are the decisions that get expensive once
-# a job has been landing somewhere in production.
+def _item_and_state(adaptation_id: str) -> tuple[object, AdaptationState, int]:
+    """The catalogue item this adaptation is about, plus the row's state and version.
+
+    One session rather than three calls, because the three facts have to be consistent: reading
+    the state, then the item, then the version leaves two windows in which the row can move, and
+    the compare-and-swap that follows would then be against a version from a different moment.
+    """
+    from mendel_forge.catalogue import CatalogueItem
+
+    with session_scope() as session:
+        row = session.get(ForgeAdaptation, adaptation_id)
+        if row is None:
+            raise KeyError(adaptation_id)
+        item_row = session.get(ForgeCatalogueItem, row.catalogue_item_id)
+        if item_row is None:
+            raise KeyError(row.catalogue_item_id)
+        return (
+            CatalogueItem.model_validate(item_row.metadata_json),
+            AdaptationState(row.state),
+            row.row_version,
+        )
+
+
+async def scaffold_forge_adaptation(ctx: dict, adaptation_id: str) -> str:
+    """Fetch the source, derive the deterministic bundle, write it, and queue the adaptation.
+
+    **Everything a model is later asked about is decided here, and none of it by a model.** The
+    contract skeleton, the holes and their candidate sets, the container reference, the module
+    skeleton for a source that ships none — all arithmetic over declared data. That is why the
+    job is on the ordinary queue and why its output is byte-identical for identical inputs.
+
+    The registry digest is recorded on the bundle rather than left implicit: two runs that
+    disagree are two different registries, which `derive()` says is a fact to record rather than
+    a nondeterminism to hide.
+
+    **A failure here fails at `scaffolding`, not at `queued`.** Rule 9, and `retry_target` reads
+    it: a scaffold that could not be built is not repaired by queueing a model, so the retry has
+    to resume here rather than one stage on.
+    """
+    item, state, version = await asyncio.to_thread(_item_and_state, adaptation_id)
+    if state is not AdaptationState.SCAFFOLDING:
+        log.info("scaffold skipped: %s is %s, not scaffolding", adaptation_id, state)
+        return state.value
+
+    try:
+        await asyncio.to_thread(_derive_and_write, adaptation_id, item)
+    except Exception as failure:
+        log.warning("scaffold of %s failed: %r", adaptation_id, failure)
+        await asyncio.to_thread(
+            forge_state.fail,
+            adaptation_id,
+            stage=AdaptationState.SCAFFOLDING,
+            row_version=version,
+            actor=_worker(ctx),
+            detail=coded("MI0105", "the source could not be read or the scaffold not written"),
+        )
+        return AdaptationState.FAILED.value
+
+    moved = await asyncio.to_thread(
+        forge_state.move,
+        adaptation_id,
+        AdaptationState.QUEUED,
+        expect=AdaptationState.SCAFFOLDING,
+        row_version=version,
+        actor=_worker(ctx),
+        kind=EventKind.SCAFFOLDED,
+    )
+    return moved.state.value
+
+
+def _derive_and_write(adaptation_id: str, item) -> None:
+    """The deterministic half, off the event loop.
+
+    **Blocking on purpose, and in a thread on purpose.** `layers.load` reads a directory tree and
+    `write_bundle` writes one; both are synchronous and neither is fast enough to sit on the
+    loop. `asyncio.to_thread` is what keeps one slow scaffold from stalling every other job the
+    ordinary worker is running.
+    """
+    import asyncio as _asyncio
+
+    import httpx
+    from comeni_core.artifact.digest import digest_of_directory
+    from mendel_forge import bundle
+    from mendel_forge.workspace import Workspace
+    from mendel_resolver import layers
+
+    async def fetch():
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            return await _adapters()[item.source](client).bundle(item)
+
+    source = _asyncio.run(fetch())
+    stack = layers.load(settings.registry_root)
+    derived = bundle.derive(
+        source,
+        stack,
+        adaptation_id=adaptation_id,
+        registry_digest=digest_of_directory(settings.registry_root),
+    )
+    Workspace(root=settings.workspace_root).write_bundle(derived)
+
+
+# **`publish_forge_adaptation` is still absent, and there is no stub for it.** A function raising
+# `NotImplementedError` on a worker's function list is worse than an absent one: it is
+# enqueueable, so the failure arrives at run time on a real adaptation instead of at the call
+# site. Its `enqueue_publish` helper above is real and settled — which queue, and that the id is
+# keyed on the revision — and those are the decisions that get expensive once a job has been
+# landing somewhere in production.
 
 
 async def reclaim(*, after: int) -> list[str]:

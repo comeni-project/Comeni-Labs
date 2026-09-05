@@ -299,6 +299,95 @@ def test_the_job_reads_the_adapter_table_rather_than_its_own():
     assert forge_jobs._adapters(), "an empty table would make that comparison vacuous"
 
 
+# ── scaffolding ───────────────────────────────────────────────────────────────────────
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_scaffold_writes_a_bundle_and_queues_the_adaptation(item, monkeypatch, tmp_path):
+    """The happy path, with the deterministic half stubbed.
+
+    `bundle.derive` is `test_scaffold_goldens.py`'s subject and `write_bundle` is
+    `test_bundle.py`'s; what is under test here is the *job* — that it derives before it moves,
+    and that it moves to `queued` rather than straight to `generating`.
+    """
+    written = []
+    monkeypatch.setattr(
+        forge_jobs, "_derive_and_write", lambda adaptation_id, i: written.append(adaptation_id)
+    )
+    adaptation = forge_state.begin(item, who="rafael")
+
+    ended = await forge_jobs.scaffold_forge_adaptation({"job_id": "j1"}, adaptation)
+    assert ended == AdaptationState.QUEUED.value
+    assert written == [adaptation]
+    assert _state(adaptation) is AdaptationState.QUEUED
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_scaffold_failure_fails_at_scaffolding_not_at_queued(item, monkeypatch):
+    """**Rule 9, and the reason `failed_stage` is a column.** A scaffold that could not be built
+    is not repaired by queueing a model: without this the retry would start a generation against
+    a bundle that does not exist.
+    """
+
+    def explode(adaptation_id, i):
+        raise httpx.ConnectError("the source is down")
+
+    monkeypatch.setattr(forge_jobs, "_derive_and_write", explode)
+    adaptation = forge_state.begin(item, who="rafael")
+
+    ended = await forge_jobs.scaffold_forge_adaptation({"job_id": "j1"}, adaptation)
+    assert ended == AdaptationState.FAILED.value
+
+    resumed = forge_state.retry(adaptation, row_version=2, actor="rafael")
+    assert resumed.state is AdaptationState.SCAFFOLDING, "a retry must resume at the fetch"
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_scaffold_failure_says_why_in_a_code(item, monkeypatch):
+    """`MI0105`, and the upstream message stays in the log for the reason `MI0104` gives."""
+
+    def explode(adaptation_id, i):
+        raise httpx.ConnectError("https://api.github.com token=ghp_secret refused")
+
+    monkeypatch.setattr(forge_jobs, "_derive_and_write", explode)
+    adaptation = forge_state.begin(item, who="rafael")
+    await forge_jobs.scaffold_forge_adaptation({"job_id": "j1"}, adaptation)
+
+    with session_scope() as session:
+        failed = session.scalars(
+            select(ForgeEvent).where(
+                ForgeEvent.adaptation_id == adaptation,
+                ForgeEvent.kind == EventKind.FAILED.value,
+            )
+        ).one()
+        assert "MI0105" in failed.detail
+        assert "ghp_secret" not in failed.detail
+        assert failed.from_state == AdaptationState.SCAFFOLDING.value
+
+
+@needs_db
+@pytest.mark.asyncio
+async def test_a_duplicate_scaffold_is_skipped_rather_than_rewriting_the_bundle(
+    item, monkeypatch
+):
+    """The bundle is deterministic, so rewriting it is harmless — but the *transition* is not:
+    the second delivery would find the row at `queued` and its compare-and-swap would refuse,
+    which ARQ marks as a failed job and retries."""
+    calls = []
+    monkeypatch.setattr(
+        forge_jobs, "_derive_and_write", lambda adaptation_id, i: calls.append(adaptation_id)
+    )
+    adaptation = forge_state.begin(item, who="rafael")
+
+    await forge_jobs.scaffold_forge_adaptation({"job_id": "j1"}, adaptation)
+    again = await forge_jobs.scaffold_forge_adaptation({"job_id": "j1"}, adaptation)
+    assert again == AdaptationState.QUEUED.value
+    assert calls == [adaptation], "the source must not be fetched twice"
+
+
 def test_no_job_on_a_worker_list_is_an_unimplemented_stub():
     """A function raising `NotImplementedError` on a worker's list is worse than an absent one:
     it is enqueueable, so the failure arrives at run time on a real adaptation rather than at
@@ -368,7 +457,24 @@ def test_the_held_halves_cover_running():
 
 @pytest.fixture
 def item(clean_forge) -> str:
+    """One catalogue item, stored the way `forge_catalogue.record` stores one.
+
+    **`metadata_json` carries the whole `CatalogueItem`, and it used to be `{}` here.** That was
+    invisible while every test in this file only read the row's own columns, and it failed the
+    moment the scaffold job rehydrated the item from it — which is what the real code does. A
+    fixture that stores less than the thing it stands in for is a fixture that passes until
+    somebody uses the field it left out.
+    """
+    from mendel_forge.catalogue import CatalogueItem
+
     now = datetime.now(UTC)
+    domain = CatalogueItem(
+        id="i" * 64,
+        source="nf-core",
+        ref="samtools/sort",
+        display_name="samtools sort",
+        content_digest="d" * 64,
+    )
     with session_scope() as session:
         session.add(
             ForgeSourceSnapshot(
@@ -378,18 +484,18 @@ def item(clean_forge) -> str:
         session.flush()
         session.add(
             ForgeCatalogueItem(
-                id="i" * 64,
+                id=domain.id,
                 snapshot_id="s" * 32,
-                source="nf-core",
-                ref="samtools/sort",
-                display_name="samtools sort",
-                metadata_json={},
-                content_digest="d" * 64,
+                source=domain.source,
+                ref=domain.ref,
+                display_name=domain.display_name,
+                metadata_json=domain.model_dump(mode="json"),
+                content_digest=domain.content_digest,
                 first_seen_at=now,
                 last_seen_at=now,
             )
         )
-    return "i" * 64
+    return domain.id
 
 
 def _queued(item: str) -> str:
@@ -446,7 +552,7 @@ async def test_the_claim_is_attributed_to_the_job_that_made_it(item):
                 ForgeEvent.kind == EventKind.CLAIMED.value,
             )
         ).one()
-        assert claimed.actor == "ai-worker:abc123"
+        assert claimed.actor == "worker:abc123"
         assert claimed.from_state == AdaptationState.QUEUED.value
 
 
