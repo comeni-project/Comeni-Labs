@@ -1,4 +1,4 @@
-.PHONY: help registry-present names-free check verify slow guards residue links test lint fmt types docs docs-status static stub profile forge clean \
+.PHONY: help registry-present names-free check verify slow guards residue forge-ai-eval links test lint fmt types docs docs-status static stub profile forge clean \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve
 
 # The containers run as the host user so bind-mounted files stay yours: git refuses a
@@ -55,6 +55,9 @@ guards:         ## purity, egress and construction — the tests that hold the i
 
 residue:        ## how much of A14 is left, counted per guard (A69). --list for the names
 	@uv run python tools/guard_residue.py $(ARGS)
+
+forge-ai-eval:  ## §5.9's evaluation corpus: the cases and their answer keys. --json for a machine
+	@uv run python tools/forge_ai_eval.py $(ARGS)
 
 test:           ## run the test suite
 	uv run pytest -v

@@ -4310,3 +4310,23 @@ everything, which is the failure mode `tests/README.md` names.
 
 **Neither test would have caught it without a real source.** Both are loops over declared data,
 and the defect was in the *join* between two declarations that no fixture had ever joined.
+
+## Scoring a proposal — 2026-09-05
+
+`mendel_forge/ai/evaluate.py`, Task 6 step 8. §5.9's metrics, as arithmetic over a proposal and
+a contract a human already approved.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_evaluate.py::test_declining_is_neither_right_nor_wrong` | a decline counted into `wrong` | failed | the honest answer scored as the worst one |
+| 2026-09-05 | `test_ai_evaluate.py::test_precision_is_none_rather_than_perfect_when_nothing_was_judged` | `precision()` returning `1.0` for an empty denominator | failed | a model that answered nothing reported 100% |
+| 2026-09-05 | `test_ai_evaluate.py::test_an_answer_the_key_cannot_judge_is_unknown_rather_than_wrong` | `unknown` folded into `wrong` | failed | a port added upstream since the contract landed scored as a model error |
+
+**An evaluation harness is where a metric goes wrong quietly**, which is why these are guards
+rather than assertions in a script. A number that rewards declining, or one that punishes it,
+will be believed for as long as nobody checks what it counts — and it will be quoted in a pull
+request as the reason a prompt change is fine.
+
+The load-bearing arrangement is that **precision and coverage are printed together and neither
+exists alone**. Declining everything gives perfect precision; guessing everything gives perfect
+coverage. `Score.summary()` has no single-number form on purpose.
