@@ -4223,3 +4223,25 @@ a model, and no keyword scan would have noticed.
 **The third revert is the same failure one level down.** *Do not overstate your certainty* asks
 for calibration; *confidence never turns missing evidence into a fact* forbids a trade. A model
 reads the difference even where a reviewer skimming a diff does not.
+
+## Selecting what goes in the dossier — 2026-09-05
+
+`mendel_forge/ai/select.py`, Task 6 step 4: one adaptation becoming §5.3's ten sections, with
+every input a value and no registry, network or model anywhere in it.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_select.py::test_machine_readable_evidence_is_protected_and_prose_is_droppable` | every excerpt marked `Drop.PROSE` regardless of the adapter's `kind` | failed | a `meta.yml` entry became as droppable as a README paragraph |
+| 2026-09-05 | `test_ai_select.py::test_the_caller_s_first_exemplar_is_the_last_one_dropped` | exemplar `rank` fixed at 0, discarding the caller's ordering | failed | the budget dropped by key order, which is alphabetical by contract id |
+| 2026-09-05 | `test_ai_select.py::test_no_docstring_reaches_the_schema_section` | `_structure_only` removed from `response_schema` | failed | `'confidence' is contained here:` — through `Unresolved`'s own docstring |
+
+**The third was not a revert of a guard, it is how the defect was found.** The test asserted
+that the word `confidence` never reaches the schema section, on the grounds that §5.5 forbids
+the field. It failed on the first run: Pydantic renders a class docstring as `description`, and
+`Unresolved`'s docstring explains *why there is no confidence field* — so the section that must
+be read most precisely was carrying maintainer prose citing invariant numbers, spec file paths
+and design history, on every call to a provider.
+
+`_structure_only` strips `description` and `title` recursively. The shape says what is legal
+and the prompt says what it means; keeping them separate also stops a docstring edit from
+silently changing a prompt.
