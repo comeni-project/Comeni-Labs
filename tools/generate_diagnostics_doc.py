@@ -77,6 +77,7 @@ HEADINGS: dict[str, str] = {
     "verification": "The forge — whether a draft holds up",
     "workspace": "The forge — drafts on disk",
     "workflow": "The forge — adapting a tool, and in what order",
+    "prompt": "The forge — what a model is told, and what it cites",
     "landing": "The forge — landing a draft into a registry",
     "model-access": "Reaching a model",
     "model-output": "What a model answered",

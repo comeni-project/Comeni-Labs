@@ -27,6 +27,7 @@
 #   MF0100-MF0199  the forge: landing a draft into a registry
 #   MF0200-MF0299  the forge: reading an upstream source catalogue
 #   MF0300-MF0399  the forge: the adaptation workflow — what may happen, and in what order
+#   MF0400-MF0499  the forge: composing what a model is told, and reading what it said
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: the forge workflow's durable state
 #   MW0001-MW0099  wiener: ingesting a run's events
@@ -2523,6 +2524,57 @@ MF0301:
     adaptation changed — the layer moved underneath it, and *validated green* became a
     statement about something that no longer exists. `mendel upgrade` rests on the same
     argument for a pipeline; this is it for a contract.
+
+MF0400:
+  emitted_by: forge
+  concern: prompt
+  says: "the dossier does not fit its budget and nothing left in it may be dropped"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Nothing here is fixed by making the budget bigger, and that is deliberate — raise it and
+    the next tool over is the one that fails. Look at what the refusal lists as protected: it
+    is holes, legal values, the response schema and the task. A tool with so many holes that
+    those alone overflow is a tool whose scaffold is wrong, not a tool that needs more room.
+
+    The usual cause is a source that produced hundreds of ports, which is an adapter defect.
+  explanation: |
+    §5.3 names four things that may never be truncated — schemas, legal values, holes and
+    validation diagnostics — and two that may, in order: low-ranked similar contracts first,
+    then redundant prose. Once both droppable classes are gone and it still does not fit,
+    there is no honest reduction left.
+
+    **Refusing is the only safe end to that road.** The alternative is cutting into a legal
+    value list or a hole, and a model that is shown nine of eleven legal values does not know
+    it was shown nine — it answers confidently from what it was given, and the answer passes
+    every schema check on the way back. A truncated candidate set is indistinguishable in the
+    response from a complete one, which is exactly the property that makes silent truncation
+    worse than a stop.
+
+MF0401:
+  emitted_by: forge
+  concern: prompt
+  says: "a response cites an evidence id that is not in the dossier it was given"
+  fires_on: [forge generate, forge review]
+  refuses: true
+  fix: |
+    The citation is rejected and the proposal it supports is refused with it. Nothing is
+    salvaged by dropping the id and keeping the claim — a value whose only support was an
+    invented citation has no support.
+
+    If the evidence genuinely exists upstream and the adapter did not collect it, that is the
+    adapter's defect and the fix is a `NumberedExcerpt`, not a looser check here.
+  explanation: |
+    Every id a model may cite is assigned by the base adapter and carried on the bundle, so
+    the legal set is known exactly, before the prompt is rendered. That makes this a closed
+    check rather than a plausibility judgement.
+
+    **This is the same argument as invariant 3's closed-choice constraint, one level up.** A
+    model answering a typed question cannot produce a value outside the candidate set; a model
+    citing its reasons must not be able to produce a citation outside the evidence set either,
+    or the audit trail is the one part of the artifact nothing validates. A fabricated `E014`
+    is worse than no citation, because a reviewer follows it, finds real text, and reads it as
+    support for a claim it does not make.
 
 MA0001:
   emitted_by: ai

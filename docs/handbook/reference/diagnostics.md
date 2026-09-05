@@ -198,6 +198,13 @@ decline to curate one.
 | `MI0100` | this adaptation moved while you were looking at it — re-read it before acting |
 | `MI0101` | this tool is already being adapted |
 
+## The forge — what a model is told, and what it cites
+
+| Code | Says |
+|---|---|
+| `MF0400` | the dossier does not fit its budget and nothing left in it may be dropped |
+| `MF0401` | a response cites an evidence id that is not in the dossier it was given |
+
 ## The forge — landing a draft into a registry
 
 | Code | Says |

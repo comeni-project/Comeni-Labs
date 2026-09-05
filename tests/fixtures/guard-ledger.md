@@ -4163,3 +4163,22 @@ and the reason a golden exists now:
 built ids by padding a ref to 64 characters with zeros, which made `tool1` and `tool10`
 identical: a twelve-tool sync stored eleven rows and the paging test failed on its own fixture.
 Ids are `sha256(source + ref)` now, which is what the adapters compute.
+
+## The dossier — 2026-09-05
+
+What a model is told about one adaptation, composed as values rather than as text, so that
+what it was *not* shown is recordable. `mendel_forge/ai/context.py`, Task 6 step 1.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_ai_context.py::test_a_dossier_of_only_protected_sections_refuses_rather_than_truncating` | the `Drop.KEPT` filter in `compose`, so everything became giveable | failed, with the refusal-message test | `DID NOT RAISE ValueError` — a hole was silently dropped instead of `MF0400` |
+| 2026-09-05 | `test_ai_context.py::test_a_dropped_excerpt_is_not_a_citable_evidence_id` | `evidence_ids` unioned with an id that had been dropped | failed | a citation of evidence the model never saw would have passed `MF0401` |
+| 2026-09-05 | `test_ai_context.py::test_an_exemplar_goes_before_any_prose` | the drop key negated, reversing §5.3's reduction order | failed | prose went first and the exemplar survived |
+
+**Why the first of those is the one that mattered.** Every other reduction defect is visible in
+the manifest — a dropped exemplar is named, and a reviewer can see the model was working with
+less. Truncating a protected section is the one that is *not* visible: a model shown nine of
+eleven legal values does not know it was shown nine, answers confidently from what it has, and
+the answer passes every schema check on the way back. There is nothing in the response that
+distinguishes a truncated candidate set from a complete one, which is why `MF0400` refuses
+rather than trims.
