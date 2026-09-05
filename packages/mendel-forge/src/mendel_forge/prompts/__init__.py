@@ -33,15 +33,24 @@ ANALYSIS: PromptId = "forge.analysis.v1"
 IMPLEMENTATION: PromptId = "forge.implementation.v1"
 REPAIR: PromptId = "forge.repair.v1"
 
-TEMPLATES: tuple[PromptId, ...] = (ANALYSIS, IMPLEMENTATION, REPAIR)
-"""Every task template that exists today.
+REVIEW_CHAT: PromptId = "forge.review-chat.v1"
 
-`forge.review-chat.v1` is named by §5.2 and is deliberately absent: `ForgeMessage.content` is
-free text written by a curator and by a model and returned to the model on the next turn, and
-whether that is a fifth egress door, downstream of an existing one, or outside the prompt-taint
-path the way the forge itself is has not been decided. The rest of the prompt stack is a build
-path that never touches curator prose, so it does not wait on that answer.
+TEMPLATES: tuple[PromptId, ...] = (ANALYSIS, IMPLEMENTATION, REPAIR, REVIEW_CHAT)
+"""§5.2's four.
+
+**`forge.review-chat.v1` waited on a decision rather than on an implementation**, and the
+decision was taken on 2026-09-05: it is **egress door 5**, `forge_review`, carrying
+`ForgeReviewRequest`. A curator's message is free text typed at request time and sent to a
+model — which is the one leg the forge's 2026-08-17 exemption stood on. The other three
+templates never touch curator prose, which is why they did not wait.
+
+`GENERATION` below is the set that carries §5.4's shared invariant block *and* takes a dossier;
+the chat is held to the same block and composes its context differently, because it is grounded
+on a revision rather than on a scaffold.
 """
+
+GENERATION: tuple[PromptId, ...] = (ANALYSIS, IMPLEMENTATION, REPAIR)
+"""The templates that put a dossier in front of a model and ask for a `Proposal`."""
 
 
 def template(prompt_id: PromptId) -> PromptTemplate:

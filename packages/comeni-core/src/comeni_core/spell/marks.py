@@ -55,6 +55,7 @@ class Mark(StrEnum):
     CONTAINER_REF = "container-ref"
     MODULE_KEY = "module-key"
     ROLE_NAME = "role-name"
+    DIAGNOSTIC_CODE = "diagnostic-code"
     SPDX_ID = "spdx-id"
 
     CHANNEL_NAME = "channel-name"
@@ -610,6 +611,31 @@ this alias.
 """
 
 
+
+def _diagnostic_code(value: str) -> str:
+    """Two uppercase letters and four digits — `MD0105`, `MF0401`, `MI0100`.
+
+    **This alias exists so a door can carry what validation said without carrying what a tool
+    printed.** `GateFailure` already learned that lesson once: Nextflow's stderr names work
+    directories and input filenames, so `ErrorCategory` is a closed vocabulary and the output
+    itself stays on the machine that produced it. A diagnostic code is the same trade one level
+    up — it is the whole of what a reader needs to look something up, and it cannot hold a path.
+
+    Not checked against `diagnostics.yml` here. This module is `comeni_core.spell` and the
+    registry lives in `comeni_core.diagnostics`; importing it would make every marked string
+    pay for the registry, and `coded()` is already the one place a code becomes text.
+    """
+    if len(value) != 6 or not value[:2].isupper() or not value[:2].isalpha():
+        raise ValueError(
+            f"{value!r} is not a diagnostic code. Two uppercase letters then four digits, "
+            "as `mendel explain` accepts them — a field that takes prose is a field a tool's "
+            "stderr fits in."
+        )
+    if not value[2:].isdigit():
+        raise ValueError(f"{value!r} is not a diagnostic code: {value[2:]!r} is not four digits")
+    return value
+
+
 Digest = Annotated[str, Mark.DIGEST, AfterValidator(_digest)]
 """A content digest, `sha256:<64 hex>`. Not a version: a contract can be edited without
 its `@version` moving, and in a private overlay it routinely is."""
@@ -646,6 +672,13 @@ def _test_data_ref(value: str) -> str:
             "backticks, `$`, braces and whitespace.")
         )
     return value
+
+
+DiagnosticCode = Annotated[str, Mark.DIAGNOSTIC_CODE, AfterValidator(_diagnostic_code)]
+"""A refusal, as the code a runbook cites and `mendel explain` resolves.
+
+Carried instead of a message wherever a payload has to say *what validation found* — see
+`_diagnostic_code` for why that is the whole point rather than a compression."""
 
 
 TestDataRef = Annotated[str, Mark.TEST_DATA_REF, AfterValidator(_test_data_ref)]

@@ -1,8 +1,17 @@
-"""Invariant 14: data leaves through four declared doors and no others.
+"""Invariant 14: data leaves through five declared doors and no others.
 
 The doors are listed here, literally, on purpose. Adding one means editing a file
 whose contents say "these are all the ways data leaves this building" — which is
 the moment a person should be thinking, and this test is what makes them.
+
+**Five since 2026-09-05, on two paths.** Four carry pipeline data along one prompt-taint path;
+`forge_review` carries a curator's message to a model about a candidate the forge proposed.
+The forge stayed off this list for as long as it had no prompt — one of the three legs the
+2026-08-17 exemption stood on, beside taking no `Goal` and writing no `pipeline.yml` — and a
+review chat breaks exactly that leg. The other two still hold, which is what `DoorPath` records.
+
+A separate `FORGE_DOORS` was considered and rejected: two files creates a cheaper file, and the
+less-scrutinised one is where a door that belonged on the other list eventually goes.
 """
 
 import enum
@@ -17,7 +26,15 @@ from comeni_core.spell.marks import Mark
 from pydantic import BaseModel, ValidationError, computed_field
 from support.walk import reachable
 
-DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
+PIPELINE_DOORS = {"goal_extraction", "tier4_resolution", "compiler_repair", "publication"}
+"""Invariant 14's original four, and the sentence *pipeline data leaves through four doors*
+stays checkable against this set rather than against the whole list."""
+
+FORGE_DOORS = {"forge_review"}
+"""Registry authoring. Public tool documentation in, reviewed registry data out, and no `Goal`
+anywhere in it — a different path with a different author and the same rules."""
+
+DOORS = PIPELINE_DOORS | FORGE_DOORS
 
 _BINARY = (bytes, bytearray, memoryview)
 """No payload may carry a blob. A signature field on a lockfile is the obvious way this
@@ -108,6 +125,24 @@ FREE_TEXT_FIELDS = {
     # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
     # more declared string crossing a door somebody has to argue for.
     ("ParamDecision", "override_reason"),
+    # Fifteenth and sixteenth, 2026-09-05, and they arrive with a **new door** rather than by a
+    # refactor — the second time that has happened, after `override_reason`.
+    #
+    # `ReviewTurn.content` is the load-bearing one: a curator types it, at request time, and it
+    # goes to a provider. That is what `PromptRequest.prompt` is on the pipeline side, and it
+    # is precisely the leg the forge's 2026-08-17 exemption stood on — *it has no prompt*. The
+    # chat is a prompt, so the exemption stopped covering it and a door was declared instead of
+    # the argument being stretched.
+    #
+    # `ForgeReviewRequest.candidate` is the proposed contract or module as a reviewer sees it.
+    # It is composed rather than typed by anybody, from vendored modules and registry files —
+    # the same public bound that keeps `Excerpt` on this list honest.
+    #
+    # What is NOT here, deliberately: the generation dossier. It is composed entirely from
+    # those same public sources, so the line drawn is *who authored the string* rather than
+    # *how much text crosses*, and by that line generating a proposal is not a door.
+    ("ReviewTurn", "content"),
+    ("ForgeReviewRequest", "candidate"),
 }
 
 
@@ -356,8 +391,69 @@ def test_every_payload_field_is_a_declared_shape():
     assert offenders == [], "these payload fields are not declared shapes:\n" + "\n".join(offenders)
 
 
-def test_the_doors_are_exactly_four():
+def test_the_doors_are_exactly_the_ones_listed_here():
     assert set(egress.DOORS) == DOORS
+
+
+def test_pipeline_data_still_leaves_through_exactly_four():
+    """**Invariant 14's original sentence, kept checkable.**
+
+    Adding door 5 could have made *pipeline data leaves through four doors* untestable, which
+    is the real cost of a fifth entry and the reason `DoorPath` exists. It does not: the claim
+    is now about a subset, and this is that subset.
+
+    A forge door mis-tagged as `PIPELINE` fails here, which is the failure mode a separate
+    `FORGE_DOORS` list would have hidden — there, the mistake is putting a pipeline door on the
+    quieter list, and nothing compares the two.
+    """
+    assert set(egress.doors_on(egress.DoorPath.PIPELINE)) == PIPELINE_DOORS
+    assert set(egress.doors_on(egress.DoorPath.FORGE)) == FORGE_DOORS
+
+
+def test_every_door_declares_which_path_it_is_on():
+    """`DOORS` and `PATHS` are projections of one `DECLARED` mapping rather than two dicts kept
+    in step by hand — a pair that must agree is the shape this repository keeps finding to be
+    one mechanism and one decoration. This is the assertion that they are projections."""
+    assert set(egress.PATHS) == set(egress.DOORS) == set(egress.DECLARED)
+    for name, door in egress.DECLARED.items():
+        assert egress.DOORS[name] is door.payload
+        assert egress.PATHS[name] is door.path
+
+
+def test_the_forge_review_door_is_grounded_on_a_revision():
+    """§5.8 requires an immutable revision id, so an answer is about a specific candidate rather
+    than about whatever the conversation has drifted to — the same reason `pipeline.yml` pins
+    contracts by content digest.
+
+    A chat grounded on the conversation alone is a chat that can be talked into discussing a
+    candidate nobody is looking at, and the reviewer reading the answer has no way to tell.
+    """
+    with pytest.raises(ValidationError):
+        egress.ForgeReviewRequest(candidate="a contract")
+    assert egress.ForgeReviewRequest(revision="sha256:" + "a" * 64, candidate="a contract")
+
+
+def test_the_forge_review_door_carries_codes_rather_than_a_tools_output():
+    """`GateFailure`'s lesson, one level up. Nextflow's stderr names work directories and input
+    filenames, which is why `ErrorCategory` is a closed vocabulary and the output stays on the
+    machine that made it.
+
+    A diagnostic code is the whole of what a reader needs in order to look something up, and it
+    has no room for a path — which is the point of the alias rather than a side effect of it.
+    """
+    grounded = {"revision": "sha256:" + "a" * 64, "candidate": "x"}
+    assert egress.ForgeReviewRequest(**grounded, validation=["MD0105", "MF0401"])
+    with pytest.raises(ValidationError):
+        egress.ForgeReviewRequest(**grounded, validation=["/work/ab/cd12 failed: no such file"])
+
+
+def test_a_review_turn_says_who_wrote_it_from_a_closed_set():
+    """The curator/model distinction is the whole reason this door exists: one is a string a
+    person typed at request time and the other is what came back. A free-text author field
+    would make the two indistinguishable in the record."""
+    assert set(egress.ReviewRole) == {egress.ReviewRole.CURATOR, egress.ReviewRole.MODEL}
+    with pytest.raises(ValidationError):
+        egress.ReviewTurn(role="reviewer", content="hello")
 
 
 def test_every_door_declares_an_egress_payload():

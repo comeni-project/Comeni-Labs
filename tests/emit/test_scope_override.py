@@ -139,14 +139,31 @@ def test_the_override_reaches_the_artifact_on_disk(stack, tmp_path):
     assert reasons == ["per-biopsy"]
 
 
-def test_the_egress_surface_did_not_widen():
+def test_the_scope_override_added_no_free_text_field():
     """**The design constraint, as a test.** A scope override is a value somebody settled at a
     tier for a reason — which is what `ResolvedValue` is — so it needed no field of its own.
 
     The first version gave `IRChannel` a `Scope` and a bare `Line`, and the egress guard refused
     both: a plain `str` on a payload is how a closed vocabulary stops being closed, and the
-    `Line` would have been invariant 14's **fifteenth** free-text field.
+    `Line` would have been a new free-text field on the egress surface.
+
+    **This asserted `len(FREE_TEXT_FIELDS) == 14` until 2026-09-05, and that was the wrong
+    claim.** The subject here is the scope override, and a global count makes this file fail on
+    every *unrelated* widening — which is what happened when the forge review chat became door
+    5 and added two fields that have nothing to do with a channel's scope. It is also a second
+    source of truth for a number, which is precisely what `test_egress.py`'s own comment refuses
+    to write down and what A33 is about. `FREE_TEXT_FIELDS` is the count; this asserts the thing
+    it is actually about.
     """
     from guards.test_egress import FREE_TEXT_FIELDS
 
-    assert len(FREE_TEXT_FIELDS) == 14
+    assert FREE_TEXT_FIELDS, "an empty set would make the check below assert nothing"
+    channel_fields = {
+        (model, field)
+        for model, field in FREE_TEXT_FIELDS
+        if "Channel" in model or field in ("scope", "scope_reason")
+    }
+    assert channel_fields == set(), (
+        f"a channel field reached the egress free-text list: {sorted(channel_fields)}. "
+        "A scope override is a `ResolvedValue` with a `Why`; it needs no field of its own."
+    )

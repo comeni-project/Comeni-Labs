@@ -9,10 +9,14 @@ from mendel_forge.ai import schemas
 from mendel_forge.ai.schemas import (
     Analysis,
     Answer,
+    ChatAnswer,
+    Citation,
+    ClaimKind,
     ModuleProposal,
     Proposal,
     Unresolved,
     admit,
+    admit_answer,
     owed,
 )
 from mendel_forge.hole_manifest import HoleKind, ScaffoldHole
@@ -191,6 +195,17 @@ def test_no_response_field_can_be_used_as_a_destination_path():
             "evidence_ids",
         },
         "Proposal": {"analysis", "module"},
+        # **`Citation.file` is a filename in a response, and it is listed rather than
+        # exempted.** It is a display anchor: the candidate file a claim points at, so the UI
+        # can scroll to it. What makes it safe is not its name but that `ChatAnswer` never
+        # reaches `render.py` — a chat answer is shown to a curator and writes nothing — while
+        # every path that *is* written comes from `bundle.joined(adaptation_id, ...)`.
+        #
+        # It was added on 2026-09-05 and this table did not fail, because the loop below walks
+        # the names in this dict rather than every model in the module. That is the hole in
+        # this guard, and `test_the_table_covers_every_model_in_the_module` closes it.
+        "Citation": {"kind", "evidence_id", "file", "line"},
+        "ChatAnswer": {"answer", "citations", "unanswered"},
     }
     for name, fields in declared.items():
         model = getattr(schemas, name)
@@ -201,6 +216,46 @@ def test_no_response_field_can_be_used_as_a_destination_path():
     assert declared, "an empty table would make this loop assert nothing"
 
 
+def test_the_table_covers_every_model_in_the_module():
+    """**The hole in the test above, closed.** It walks the names in its own table, so a model
+    added to `schemas.py` and not to the table is a model nothing inspects — silently, with a
+    green run to say so.
+
+    That is not hypothetical: `Citation` and `ChatAnswer` arrived with door 5 on 2026-09-05,
+    `Citation` carries a `file` field, and the path allowlist passed without ever looking at it.
+    The same shape as invariant 14's own guard taking its roots from `vars(egress)` rather than
+    from `DOORS`, which walked three doors out of four while reporting green.
+    """
+    from pydantic import BaseModel
+
+    defined = {
+        name
+        for name, obj in vars(schemas).items()
+        if isinstance(obj, type)
+        and issubclass(obj, BaseModel)
+        and obj is not BaseModel
+        # `__module__`, not mere presence in the namespace: `ScaffoldHole` is imported here as
+        # an *input* to `admit()` and is not a response shape. Filtering by name would need a
+        # second allowlist, which is the thing this test exists to avoid.
+        and obj.__module__ == schemas.__name__
+    }
+    assert defined, "no models were found, so this asserted nothing"
+    uncovered = defined - {
+        "Answer",
+        "Unresolved",
+        "Analysis",
+        "ModuleProposal",
+        "Proposal",
+        "Citation",
+        "ChatAnswer",
+    }
+    assert uncovered == set(), (
+        f"these response models are in schemas.py and in no allowlist: {sorted(uncovered)}. "
+        "Add them to the table above after checking that no field of theirs is ever used as a "
+        "destination path."
+    )
+
+
 def test_a_module_proposal_reports_which_open_sections_it_filled():
     """`render.py` puts sections back where `modulegen`'s markers are, and a section left
     blank must stay a marked hole rather than becoming an empty block — an empty `script:` is a
@@ -208,3 +263,57 @@ def test_a_module_proposal_reports_which_open_sections_it_filled():
     proposal = ModuleProposal(script="clustalw2 -INFILE=in.fa", input_block="  path(reads)")
     assert proposal.filled() == ("input_block", "script")
     assert ModuleProposal(script="   ").filled() == ()
+
+
+# ── the review chat's envelope (§5.8) ──────────────────────────────────────────────────
+
+
+def test_a_citation_must_point_at_something():
+    """A citation naming neither an evidence id nor a file renders as a clickable anchor
+    pointing nowhere, which is worse than an uncited sentence — it looks checked."""
+    with pytest.raises(ValueError, match="must name an evidence id or a candidate file"):
+        Citation(kind=ClaimKind.SOURCE_FACT)
+    assert Citation(kind=ClaimKind.SOURCE_FACT, evidence_id="E001")
+    assert Citation(kind=ClaimKind.PROPOSAL, file="contract.yml", line=12)
+
+
+def test_a_claim_says_which_of_the_four_kinds_it_is():
+    """§5.8. A model proposal presented as a source fact is the failure a review exists to
+    catch, and a reviewer skimming prose cannot see which one they are reading — so it is a
+    closed vocabulary on the citation rather than a sentence in the prompt."""
+    assert {kind.value for kind in ClaimKind} == {
+        "source_fact",
+        "derivation",
+        "proposal",
+        "reviewer_decision",
+    }
+
+
+def test_a_chat_answer_cannot_cite_evidence_outside_its_record():
+    """`MF0401` on the chat path. The same claim `admit()` makes about a proposal, and a
+    separate function because a chat answer has no holes — sharing one would mean a caller
+    passing `holes=[]` to switch half the checks off without saying so."""
+    answer = ChatAnswer(
+        answer="it is a BAM",
+        citations=(Citation(kind=ClaimKind.SOURCE_FACT, evidence_id="E404"),),
+    )
+    with pytest.raises(ValueError, match="MF0401"):
+        admit_answer(answer, evidence_ids={"E001"})
+    assert admit_answer(answer, evidence_ids={"E404"})
+
+
+def test_a_file_citation_needs_no_evidence_id():
+    """§5.8 permits two anchors — an evidence id *or* a candidate file line — and a claim about
+    what the candidate itself says has no upstream excerpt behind it."""
+    answer = ChatAnswer(
+        answer="line 12 declares it",
+        citations=(Citation(kind=ClaimKind.DERIVATION, file="contract.yml", line=12),),
+    )
+    assert admit_answer(answer, evidence_ids=set())
+
+
+def test_an_answer_can_report_what_the_record_could_not_settle():
+    """*The evidence here does not say* is a complete answer and the one a curator can act on.
+    A shape with nowhere to put it invites a plausible sentence instead."""
+    answer = ChatAnswer(answer="I cannot tell", unanswered=("the tool's man page",))
+    assert answer.unanswered == ("the tool's man page",)

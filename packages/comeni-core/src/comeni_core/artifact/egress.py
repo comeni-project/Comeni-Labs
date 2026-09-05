@@ -1,7 +1,16 @@
 """The doors data may leave through, and the types that may pass them.
 
-Invariant 14. There are four: goal extraction, tier-4 resolution, compiler repair,
-and publication. Each carries one declared payload type.
+Invariant 14. There are **five**, on **two paths**. Four carry pipeline data along one
+prompt-taint path — goal extraction, tier-4 resolution, compiler repair, publication — and the
+fifth carries forge review, which is a different path with a different author and the same
+rules. Each carries one declared payload type.
+
+**Why one list rather than two.** The forge is not on the pipeline path and never was
+(`notes/specs/2026-08-17-forge-phase-2.md` §1), so a separate `FORGE_DOORS` was the tidy
+option. It is the wrong one: the mechanism this file buys is that widening the boundary means
+editing a file that says *these are all the ways data leaves*, and two files creates a cheaper
+file — the less-scrutinised one, which is where a door that belonged on the other list
+eventually goes. `DoorPath` keeps the distinction without splitting the scrutiny.
 
 This module declares those types and can never send one. Invariant 1 keeps every
 transport in the impure packages, so pure code decides what may leave and impure
@@ -15,6 +24,7 @@ permanently, and git is built to make that hard to reverse.
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 from pydantic import BaseModel, ConfigDict
 
@@ -23,6 +33,7 @@ from comeni_core.plan.ir import PipelineIR
 from comeni_core.review.question import Excerpt
 from comeni_core.spell.marks import (
     ContractId,
+    DiagnosticCode,
     Digest,
     EdgeRef,
     Line,
@@ -248,10 +259,84 @@ class Emitted(BaseModel):
         )
 
 
-DOORS: dict[str, type[BaseModel]] = {
-    "goal_extraction": PromptRequest,
-    "tier4_resolution": AmbiguityRequest,
-    "compiler_repair": RepairRequest,
+class ReviewRole(StrEnum):
+    """Who wrote a turn of a review conversation.
+
+    Closed, and the distinction is the whole reason door 5 exists: a `CURATOR` turn is a string
+    a person typed, at request time, and that is what door 1 is on the pipeline side. A `MODEL`
+    turn is what came back, quoted so the next turn has context.
+    """
+
+    CURATOR = "curator"
+    MODEL = "model"
+
+
+class ReviewTurn(EgressPayload):
+    """One exchange in a forge review conversation."""
+
+    role: ReviewRole
+    content: Text
+
+
+class ForgeReviewRequest(EgressPayload):
+    """Door 5: a curator asking a model about a candidate the forge proposed.
+
+    **Grounded on a revision, not on a conversation.** An answer is about a specific candidate
+    rather than about whatever the chat has drifted to — the same reason `pipeline.yml` pins
+    contracts by content digest.
+
+    **`validation` carries codes, never a tool's output.** That is `GateFailure`'s lesson
+    applied one level up: Nextflow's stderr names work directories and input filenames, so the
+    category is parsed and the output stays on the machine that made it. A diagnostic code is
+    the whole of what a reader needs in order to look something up, and `DiagnosticCode` has no
+    room for a path.
+
+    **`candidate` is free text and is listed as such.** It is the proposed contract or module
+    as a reviewer sees it — composed by the forge from public sources and by a model from those
+    same sources, never from a prompt or a goal, which is the bound that keeps `Excerpt` honest
+    on the list above.
+    """
+
+    revision: Digest
+    candidate: Text
+    validation: list[DiagnosticCode] = []
+    evidence: list[Excerpt] = []
+    turns: list[ReviewTurn] = []
+
+
+class DoorPath(StrEnum):
+    """Which flow a door belongs to.
+
+    `PIPELINE` is invariant 14's original claim — prompt, goal, build, pipeline, publish, one
+    path with free text entering at exactly one point. `FORGE` is registry authoring: public
+    tool documentation in, reviewed registry data out, and no `Goal` anywhere in it.
+
+    They are distinguished rather than separated, so *pipeline data leaves through four doors*
+    stays a checkable sentence while every door still lives in one list.
+    """
+
+    PIPELINE = "pipeline"
+    FORGE = "forge"
+
+
+class Door(NamedTuple):
+    """One declared crossing: what may pass it, and which flow it serves.
+
+    A `NamedTuple` rather than a dataclass because `dataclasses` is not on this package's
+    purity allowlist, and rather than a `BaseModel` because it holds a *type* rather than a
+    value — the payload class itself, which is what the guard walks from. Adding an import to
+    a guard's allowlist to suit one record is the move that allowlist exists to make somebody
+    argue for, and there was no argument here.
+    """
+
+    payload: type[BaseModel]
+    path: DoorPath
+
+
+DECLARED: dict[str, Door] = {
+    "goal_extraction": Door(PromptRequest, DoorPath.PIPELINE),
+    "tier4_resolution": Door(AmbiguityRequest, DoorPath.PIPELINE),
+    "compiler_repair": Door(RepairRequest, DoorPath.PIPELINE),
     # Door 4 carries a `Pipeline` since Plan 1.10 Task 11. `PublishBundle` held goal + IR +
     # decisions + lockfile, which is the same information one layer less assembled; the
     # artifact on disk *is* the payload now, so what a person reads before publishing and
@@ -259,5 +344,34 @@ DOORS: dict[str, type[BaseModel]] = {
     #
     # Imported inside the mapping to keep this module's import graph acyclic:
     # `comeni_core.artifact.pipeline` imports `Emitted` from here.
-    "publication": _publication_payload(),
+    "publication": Door(_publication_payload(), DoorPath.PIPELINE),
+    # Door 5, 2026-09-05. **The first string a person types into the forge.**
+    #
+    # The forge stayed off this list for as long as it had no prompt — that was one of the
+    # three legs the 2026-08-17 exemption stood on, beside taking no `Goal` and writing no
+    # `pipeline.yml`. A review chat breaks exactly that leg: `ReviewTurn.content` is authored
+    # by a curator, at request time, and goes to a provider. The other two legs still hold,
+    # which is what `DoorPath.FORGE` records.
+    #
+    # Generating a proposal is deliberately NOT a door, and the line is *who authored the
+    # string*: a dossier is composed entirely from vendored modules and registry files, which
+    # is the same bound that makes `Excerpt` the one quoted rather than composed entry above.
+    "forge_review": Door(ForgeReviewRequest, DoorPath.FORGE),
 }
+"""Every door, in one place, each saying which flow it serves.
+
+One declaration with two projections below — `DOORS` and `PATHS` — rather than two mappings
+kept in step by hand. A pair of dicts that must agree is the shape this repository keeps finding
+to be one mechanism and one decoration.
+"""
+
+DOORS: dict[str, type[BaseModel]] = {name: door.payload for name, door in DECLARED.items()}
+"""Door name -> the one type that may cross it."""
+
+PATHS: dict[str, DoorPath] = {name: door.path for name, door in DECLARED.items()}
+"""Door name -> the flow it serves."""
+
+
+def doors_on(path: DoorPath) -> dict[str, type[BaseModel]]:
+    """The doors of one flow. `doors_on(DoorPath.PIPELINE)` is invariant 14's original four."""
+    return {name: door.payload for name, door in DECLARED.items() if door.path is path}

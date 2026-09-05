@@ -100,11 +100,13 @@ it up is what 2026-09-02 was.
 > pair from a hiding one is to delete each half separately and watch what fails** — one-active-
 > adaptation passes it, the other four did not.
 >
-> **Task 6 is where the review chat meets the egress guard, and that is a decision rather than an
-> implementation.** `ForgeMessage.content` is free text written by a curator *and* a model and
-> goes back to the model on the next turn. Whether that is a fifth door, downstream of an existing
-> one, or outside the prompt-taint path the way the forge itself is — **undecided**. Do not widen
-> `DOORS` without putting it in front of the operator.
+> **The review chat is a fifth egress door, decided 2026-09-05 by the operator.** A curator's
+> message is free text typed at request time and sent to a model, which is the one leg the
+> forge's 2026-08-17 exemption stood on — *it has no prompt*. `DOORS` has five entries and a
+> `DoorPath` field; **four still carry pipeline data** and `doors_on(DoorPath.PIPELINE)` keeps
+> invariant 14's original sentence checkable. Generating a proposal is **not** a door: the line
+> is *who authored the string*, and a dossier is composed only from vendored modules and
+> registry files. A separate `FORGE_DOORS` was rejected — two lists creates a cheaper list.
 >
 > **The forge is no longer deprecated-and-untouched**; this plan is its rework, and Tasks 1–5 are
 > done. What has *not* happened is anybody opening a browser: Tasks 10 and 11 build the UI, and
@@ -439,9 +441,10 @@ is entirely deterministic: a source is read, facts are derived, and everything t
 derived is a typed **hole** a person fills. `ports.py` declares `HoleFiller` and ships
 `NoFiller`, which declines everything, so `--no-ai` is not a flag in the forge but the only
 mode. `mendel-ai` exists (transport only) and **`mendel-api` and `frontend/` exist as of Plan
-3A** — see the journal. **Phase 2 wires a model into the forge,
-and its first question is the fifth egress door** — a model call sends tool documentation to a
-provider, and invariant 14 says there are four. `ARCHITECTURE.md` §10 is the description;
+3A** — see the journal. **Phase 2 wires a model into the forge, and it did not need a door** —
+sending tool documentation to a provider is sending vendored modules and registry files, which
+are public. **The door arrived on 2026-09-05 with the review chat**, where a curator types
+something. `ARCHITECTURE.md` §10 is the description;
 `notes/specs/2026-08-16-the-forge.md` §10.3 is the argument; and
 the 2026-08-17 forge journal entry (since pruned), **§Phase 2**, was
 the handoff — what is already built, three things that look like blockers and are not, and the
@@ -692,24 +695,40 @@ Violating any of these breaks the product claim, not just a test.
 13. **Self-hosted is not a degraded tier.** Same registry, same resolver, byte-identical
     output. The hosted instance sells convenience, never capability. Anything that would only
     work on our infrastructure is a design error.
-14. **Pipeline data leaves through four declared doors and no others** — goal extraction,
-    tier-4 resolution, compiler repair, publication.
-    **The doors track the prompt taint path**, which is what
+14. **Data leaves through five declared doors and no others, on two paths.** Four carry
+    **pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication — and
+    the fifth carries **forge review**. `DoorPath` is the distinction and `doors_on()` is how
+    each half stays separately checkable.
+    **The pipeline doors track the prompt taint path**, which is what
     `docs/design/clinical-data-protection.md` §4.2 states and what this one-line summary lost:
     *free text enters at exactly one door*, and the question for anything else is whether it is
-    downstream of it. The four are one path — prompt, goal, build, pipeline, publish.
-    **The forge is not on that path and is not a fifth door** (decided 2026-08-17,
-    `notes/specs/2026-08-17-forge-phase-2.md` §1). It has no prompt, takes no `Goal` and writes
-    no `pipeline.yml`; it reads vendored modules and registry files and produces registry data a
-    build later consumes — the offline authoring half of invariant 2. `AiPoint` corroborates
-    this without being changed: invariant 3 declares three runtime AI points and the forge is
-    not one of them. `DOORS` and `tests/guards/test_egress.py` did not change when Phase 2 wired a
-    model into the forge, and that is the point.
-    Each door carries one declared payload type, and
-    **fourteen** fields across the whole surface may hold free text: `PromptRequest.prompt`,
-    `GateFailure.tool_message`, `ResolvedValue.reason`, one `reason` per decision kind,
-    `Why.reason` — the citation beside every value in `pipeline.yml` — and since Plan 1.14 the
-    `axis_reason` on `Why` and `ResolvedValue` plus `ParamDecision.override_reason`.
+    downstream of it. Those four are one path — prompt, goal, build, pipeline, publish.
+    **The forge was not a door until 2026-09-05, and the leg that changed is named.** The
+    2026-08-17 exemption (`notes/specs/2026-08-17-forge-phase-2.md` §1) stood on three: it has
+    no prompt, takes no `Goal`, and writes no `pipeline.yml`. A **review chat breaks the first**
+    — `ReviewTurn.content` is a string a curator types, at request time, and it goes to a
+    provider, which is exactly what `PromptRequest.prompt` is on the pipeline side. The other
+    two legs still hold, and `DoorPath.FORGE` is what records that. `AiPoint` is unchanged and
+    still corroborates the rest: invariant 3 declares three runtime AI points and the forge is
+    not one of them.
+    **Generating a proposal is deliberately not a door**, and the line drawn is *who authored
+    the string* rather than *how much text crosses*: a dossier is composed entirely from
+    vendored modules and registry files, the same public bound that keeps `Excerpt` honest.
+    **One list rather than two.** A separate `FORGE_DOORS` was the tidy option and is the wrong
+    one — the mechanism this buys is that widening the boundary means editing a file saying
+    *these are all the ways data leaves*, and two files creates a cheaper file, which is where
+    a door belonging on the other list eventually goes.
+    Each door carries one declared payload type, and a **named set** of fields across the whole
+    surface may hold free text: `PromptRequest.prompt`, `GateFailure.tool_message`,
+    `ResolvedValue.reason`, one `reason` per decision kind, `Why.reason` — the citation beside
+    every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue` plus
+    `ParamDecision.override_reason` since Plan 1.14, and `ReviewTurn.content` with
+    `ForgeReviewRequest.candidate` since door 5.
+    **The count is deliberately not written here any more** (2026-09-05). It said "exactly two"
+    for a plan and a half, then four, six, seven, ten and fourteen, and it was wrong within a
+    day of every one of those. `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count,
+    it is executable, and a number beside it is a second source of truth that only ever drifts —
+    which is A33, in the file A33 is about.
     **The tenth is the first genuinely new author**: the nine before it are written by a
     contract author, a rule author or the resolver, and `override_reason` is written by the
     person answering a tier-4 question, in the artifact, after resolution. It exists because
@@ -742,6 +761,16 @@ Violating any of these breaks the product claim, not just a test.
     because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
     What bounds it is the source: excerpts come from vendored modules and registry files,
     which are public, and never from a prompt or a goal.
+    **`ReviewTurn.content` is the second genuinely new author, after `override_reason`** —
+    2026-09-05, and it arrives with a whole door rather than by a refactor. A curator types it
+    at request time and it reaches a model, which is what door 1 is on the pipeline side. That
+    is the leg the forge's exemption stood on, and it is why the answer was to declare a door
+    rather than stretch the argument. `ForgeReviewRequest.candidate` beside it is *composed*
+    from the same public sources as `Excerpt`, so it is on the weaker footing that entry
+    already documents. **`ForgeReviewRequest.validation` is the field that is deliberately
+    not free text**: it carries `DiagnosticCode` and never a tool's output, which is
+    `GateFailure`'s lesson one level up — Nextflow's stderr names work directories and input
+    filenames, and a code is the whole of what a reader needs to look something up.
     **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
     reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
     retired. The guard's roots come from `DOORS` rather than from what happens to live in
@@ -799,16 +828,21 @@ curated, federation §4.2), and **three protection profiles** — below.
 | attribution | optional | when available | required |
 | reference pinning | tags | tags | digests required |
 
-Never configurable at any level: the four doors, typed payloads, an `EgressRecord` per crossing,
-tier 4 always flagged, typed-only publish bundles, no patient data received. `guarded` is the
-default because the unconfigured install is the one most likely to exist.
+Never configurable at any level: the declared doors, typed payloads, an `EgressRecord` per
+crossing, tier 4 always flagged, typed-only publish bundles, no patient data received.
+`guarded` is the default because the unconfigured install is the one most likely to exist.
 
 **None of this table is implemented yet, and saying so is the point** —
 [#71](https://github.com/comeni-project/Comeni-Labs/issues/71). A search for
 `ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, because every
 row describes a subsystem that does not exist: the prompt door, compiler repair and tier-4
-resolution are all Plan 3 or later. **The profiles govern the build path**, and offline
-authoring in `mendel-forge` is outside them for the same reason it is not a fifth egress door.
+resolution are all Plan 3 or later. **The profiles govern the build path**, and deterministic
+scaffolding in `mendel-forge` is outside them for the same reason it is not a door: nothing a
+person typed crosses it.
+**The forge review chat is the exception, and it is where the table gains a real row** — door 5
+is somewhere `sealed` can honestly close while scaffolding, generation and landing keep working,
+which is a coherent posture for a lab curating a private registry. That row is not written yet;
+the door being declared is what makes it writable.
 A laboratory wanting no model calls from an installation does not configure `MENDEL_MODEL`,
 which is stronger than a check: there is nothing to reach a provider *with*.
 

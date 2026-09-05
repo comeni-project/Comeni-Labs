@@ -22,6 +22,7 @@ guard holds its payload allowlist.
 """
 
 from collections.abc import Iterable, Sequence
+from enum import StrEnum
 from typing import Self
 
 from comeni_core.diagnostics import coded
@@ -229,3 +230,80 @@ def owed(proposal: Proposal, holes: Sequence[ScaffoldHole]) -> tuple[str, ...]:
     """
     addressed = proposal.analysis.addressed()
     return tuple(sorted(h.id for h in holes if h.required and h.id not in addressed))
+
+
+class ClaimKind(StrEnum):
+    """What sort of thing a claim in a chat answer is.
+
+    §5.8 asks the answer to distinguish four, and they are here as a closed vocabulary rather
+    than as a sentence in the prompt, because the distinction is the whole value of the answer:
+    a model proposal presented as a source fact is the failure a review exists to catch, and a
+    reviewer skimming prose cannot see which one they are reading.
+    """
+
+    SOURCE_FACT = "source_fact"
+    DERIVATION = "derivation"
+    PROPOSAL = "proposal"
+    REVIEWER_DECISION = "reviewer_decision"
+
+
+class Citation(BaseModel):
+    """One thing a chat answer points at, so the UI can make it clickable.
+
+    Either an evidence id or a candidate file and line — §5.8's two permitted anchors. A claim
+    that cites neither is an opinion, and the curator asked precisely because they wanted to
+    check something.
+    """
+
+    model_config = _FROZEN
+
+    kind: ClaimKind
+    evidence_id: str = ""
+    file: str = ""
+    line: int | None = None
+
+    @model_validator(mode="after")
+    def _points_at_something(self) -> Self:
+        if not self.evidence_id and not self.file:
+            raise ValueError(
+                "a citation must name an evidence id or a candidate file. One that names "
+                "neither renders as a clickable anchor pointing nowhere, which is worse than "
+                "an uncited sentence — it looks checked."
+            )
+        return self
+
+
+class ChatAnswer(BaseModel):
+    """The response to `forge.review-chat.v1`.
+
+    **An envelope rather than plain text**, which §5.8 asks for so the UI can make citations
+    clickable. `unanswered` is the part that must not be optional in practice: *the evidence
+    here does not say* is a complete answer and the one a curator can act on, and a shape with
+    nowhere to put it invites a plausible sentence instead.
+    """
+
+    model_config = _FROZEN
+
+    answer: str
+    citations: tuple[Citation, ...] = ()
+    unanswered: tuple[str, ...] = ()
+    """What the record could not settle, each as something a curator could go and find."""
+
+    def cited_evidence(self) -> frozenset[str]:
+        return frozenset(c.evidence_id for c in self.citations if c.evidence_id)
+
+
+def admit_answer(answer: ChatAnswer, *, evidence_ids: Iterable[str]) -> ChatAnswer:
+    """`MF0401` for the chat path.
+
+    The same check as `admit()` and deliberately not folded into it: a chat answer has no holes
+    and no candidate sets, so sharing one function would mean a signature whose arguments are
+    half unused on each call — and a caller passing `holes=[]` to satisfy it is a caller who has
+    switched the hole checks off without saying so.
+    """
+    invented = sorted(answer.cited_evidence() - frozenset(evidence_ids))
+    if invented:
+        raise ValueError(
+            coded("MF0401", f"the chat answer cites evidence not in its record: {invented}")
+        )
+    return answer

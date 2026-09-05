@@ -493,7 +493,7 @@ broken by someone who meant well.
 | Guard | Asserts | Broken by |
 |---|---|---|
 | `tests/guards/test_purity.py` | the pure packages import no web framework, HTTP client or LLM library — closed allowlist for `comeni-core` and `mendel-resolver`, banlist including stdlib transports and dynamic imports for `mendel-compiler` | four lines: `import urllib.request`, `importlib.import_module("httpx")`, `__import__("openai")` |
-| `tests/guards/test_egress.py` | four doors, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the seven named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
+| `tests/guards/test_egress.py` | the declared doors and which path each is on, one payload type each, no `Any`, no mapping, no bare `str`, `extra="forbid"`, free text only in the named fields | a `user_note: str`, which carried no marker to catch and no `Any` to forbid; and roots taken from `vars(egress)` rather than `DOORS`, which walked three doors out of four |
 | `tests/guards/test_construction.py` | a `DataProfile` is built in exactly one place, and that place validates it | — new; watched failing by adding `DataProfile()` to `router.py` |
 
 The third exists because validation *moved*. `DataProfile` used to hold four hardcoded fields,
@@ -595,10 +595,18 @@ lands with the model named in the file and **no artifact schema changed**. `forg
 `(how, by)` beside every value, so a reviewer sees which a model settled without opening
 anything.
 
-**The forge is not an egress door.** Invariant 14's doors track the prompt taint path — prompt,
-goal, build, pipeline, publish — and the forge is offline authoring outside it, reading vendored
-modules and registry files. `DOORS` and `tests/guards/test_egress.py` did not change when Phase 2 wired
-a model in. `notes/specs/2026-08-17-forge-phase-2.md` §1 is the argument.
+**Scaffolding and generation are not egress doors; the review chat is.** Invariant 14's
+*pipeline* doors track the prompt taint path — prompt, goal, build, pipeline, publish — and the
+forge is offline authoring outside it, reading vendored modules and registry files. `DOORS` and
+`tests/guards/test_egress.py` did not change when Phase 2 wired a model in, because a dossier is
+composed only from public sources; `notes/specs/2026-08-17-forge-phase-2.md` §1 is that argument.
+
+**It changed on 2026-09-05, and only for the chat.** The exemption stood on three legs — no
+prompt, no `Goal`, no `pipeline.yml` — and a curator typing a question to a model breaks the
+first. `forge_review` is door 5, carrying `ForgeReviewRequest`; `DoorPath.FORGE` records that
+the other two legs still hold, and `doors_on(DoorPath.PIPELINE)` keeps *pipeline data leaves
+through four doors* a checkable sentence. The line drawn is **who authored the string**, not how
+much text crosses.
 
 ### `comeni-ai` — model access
 
@@ -702,6 +710,9 @@ A filler returns the same `FilledValue` a human's `forge fill` produces, differi
 `filler` and `by`, and `by` is copied verbatim into `Provenance.drafted_by` — a field every
 contract has carried since the first one.
 
-**Phase 2's first question is not an implementation question.** A forge model call sends tool
-documentation to a provider, and invariant 14 says data leaves through *four* declared doors.
-Read §10.3 of `notes/specs/2026-08-16-the-forge.md` before writing an adapter.
+**Phase 2's first question was not an implementation question, and it has been answered.** A
+forge model call sends tool documentation to a provider — which is vendored modules and registry
+files, all public, so it needed no door. What needed one was the **review chat**, where a curator
+types a question: `forge_review` is door 5 as of 2026-09-05. §10.3 of
+`notes/specs/2026-08-16-the-forge.md` is the original argument; the door's own docstring is where
+the decision is recorded.

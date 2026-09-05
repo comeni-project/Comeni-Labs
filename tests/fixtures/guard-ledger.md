@@ -4330,3 +4330,43 @@ request as the reason a prompt change is fine.
 The load-bearing arrangement is that **precision and coverage are printed together and neither
 exists alone**. Declining everything gives perfect precision; guessing everything gives perfect
 coverage. `Score.summary()` has no single-number form on purpose.
+
+## Door 5 — the review chat — 2026-09-05
+
+The forge's review chat became an egress door. `ForgeReviewRequest` in
+`comeni_core/artifact/egress.py`, with `DoorPath` splitting the list into the four that carry
+pipeline data and the one that carries forge review.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-05 | `test_egress.py::test_pipeline_data_still_leaves_through_exactly_four` | `forge_review` tagged `DoorPath.PIPELINE` | failed | the forge door was counted as a pipeline door |
+| 2026-09-05 | `test_egress.py::test_free_text_lives_only_where_declared` | `ReviewTurn.content` changed from `Text` to a bare `str` | failed, with two others | a curator's message crossed a door carrying no marker at all |
+| 2026-09-05 | `test_egress.py::test_the_forge_review_door_carries_codes_rather_than_a_tools_output` | `validation` retyped from `list[DiagnosticCode]` to `list[Text]` | failed, with the free-text allowlist | `/work/ab/cd12 failed: no such file` was accepted as a validation entry |
+| 2026-09-05 | `test_ai_schemas.py::test_the_table_covers_every_model_in_the_module` | a `Sneaky(BaseModel)` with an `output_path` field added to `schemas.py` | failed | a response model nobody listed passed the path allowlist |
+
+**Two guards refused this work before it was finished, and both were right.**
+`test_every_payload_field_is_a_declared_shape` rejected `tuple[...]` on the new payload — its
+container allowlist is `list` and `frozenset` — and `test_pure_packages_import_nothing_impure`
+rejected `dataclasses`, which is not on `comeni-core`'s allowlist. Both were fixed by matching
+the existing surface (`list`, and a `NamedTuple`) rather than by widening an allowlist to suit
+one new record, which is the move those allowlists exist to make somebody argue for.
+
+**The last row is the one that had already gone wrong.** `Citation` carries a `file` field —
+a filename, in a response, on the day a test named
+`test_no_response_field_can_be_used_as_a_destination_path` was supposed to be watching. It
+passed, because it walks the names in its own table rather than the models in the module. That
+is precisely the shape of invariant 14's own historical hole: the egress guard took its roots
+from `vars(egress)` rather than from `DOORS` and walked three doors out of four while reporting
+green. A second test now asserts the table is complete, and it is the one that fires.
+
+**And a second copy of the count, in a file about something else.**
+`tests/emit/test_scope_override.py::test_the_egress_surface_did_not_widen` asserted
+`len(FREE_TEXT_FIELDS) == 14`. Door 5 added two fields that have nothing to do with a channel's
+scope, and a test about the scope override failed.
+
+The number was the defect, not the door. A test in `tests/emit/` pinning a global count fails on
+every *unrelated* widening, and it is a second source of truth for a number that
+`test_egress.py`'s own comment deliberately refuses to write down — A33, in a file nobody would
+think to check for it. It now asserts what it is about: no channel field is on the free-text
+list. Watched failing by adding `("IRChannel", "scope_reason")`, and watched *staying green*
+under an unrelated widening, which is the half that was broken.
