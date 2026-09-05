@@ -423,13 +423,36 @@ def _channel_for(hole: Hole, observation: Observation, group: str, index: int) -
     return str(index)
 
 
-def holes_of(derived: Scaffold, observation: Observation) -> tuple[ScaffoldHole, ...]:
-    """`assemble`'s holes, re-addressed by something that will not move.
+def holes_of(
+    derived: Scaffold,
+    observation: Observation,
+    source: "SourceBundle | None" = None,
+) -> tuple[ScaffoldHole, ...]:
+    """`assemble`'s holes, re-addressed by something that will not move, and **cited**.
 
     Sorted by id rather than kept in `assemble`'s order: that order is by *subject*, which is a
     different order once the subjects are renamed, and keeping it would make the manifest
     silently positional again.
+
+    **`source` is what turns a hole's excerpts into evidence ids, and nothing did that.**
+    There were two evidence systems and no bridge between them: `assemble` gives every hole the
+    `Excerpt`s that bear on it — the tool's description plus that port's own documentation —
+    while the bundle numbers the source's excerpts `E001…` so a model can cite one and `admit()`
+    can check the citation. `ScaffoldHole.evidence_ids` is the join, and it was left empty on
+    every hole ever built.
+
+    What that cost: the dossier renders `related evidence:` from this field, so every hole
+    reached the model reading *(none)*. The excerpts were all present in the dossier's evidence
+    section — so the model could see them, and could not be told *which one bears on this
+    question*. Grounding a hole in the text that settles it is two of the three fixes behind the
+    forge's measured 69% → 88%, and the third was that the question never said what it was about.
+
+    Matched on `locator`, which is the excerpt's identity on both sides — the same string the
+    adapter read it from. Matching on text would pair two ports that quote one sentence.
     """
+    by_locator = {
+        numbered.excerpt.locator: numbered.id for numbered in (source.evidence if source else ())
+    }
     found: list[ScaffoldHole] = []
     for hole in derived.holes:
         port = _PORT.match(hole.subject)
@@ -460,6 +483,15 @@ def holes_of(derived: Scaffold, observation: Observation) -> tuple[ScaffoldHole,
                 # collapses them the first time a vocabulary runs dry.
                 exhaustive=hole.closed and bool(legal),
                 suggested=hole.suggested,
+                # Ordered and de-duplicated, so a hole citing one excerpt twice does not read
+                # as two pieces of evidence agreeing.
+                evidence_ids=tuple(
+                    dict.fromkeys(
+                        found_id
+                        for excerpt in hole.evidence
+                        if (found_id := by_locator.get(excerpt.locator))
+                    )
+                ),
                 prompt_hint_id=hint,
             )
         )
@@ -534,7 +566,7 @@ def derive_all(
         source.item,
         process=str(settled.value) if settled else _process_name(source.item.ref),
     )
-    holes = holes_of(derived, observation)
+    holes = holes_of(derived, observation, source)
     built = scaffold(
         adaptation_id=adaptation_id,
         source=source,

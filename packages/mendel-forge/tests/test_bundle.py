@@ -533,3 +533,34 @@ def test_a_candidate_is_read_for_its_value_and_not_its_note():
     """`Candidate.note` says where a value is declared, for a reviewer. Letting it into
     `legal_values` would make the legal set contain sentences."""
     assert Candidate(value="qc_per_sample", note="declared in roles.yml").value == "qc_per_sample"
+
+
+def test_every_hole_cites_the_evidence_it_rests_on(fastqc_source, stack):
+    """**Two evidence systems existed and nothing bridged them.**
+
+    `assemble` gives every hole the `Excerpt`s that bear on it — the tool's description plus
+    that port's own documentation. The bundle numbers the source's excerpts `E001…` so a model
+    can cite one and `admit()` can check the citation. `ScaffoldHole.evidence_ids` is the join,
+    and `holes_of` never populated it: every hole ever built reached the model reading
+    *related evidence: (none)*.
+
+    The excerpts were all in the dossier's evidence section, so the model could see them — and
+    could not be told which one bears on the question in front of it. Grounding a hole in the
+    text that settles it is two of the three fixes behind the forge's measured 69% → 88%.
+
+    Asserted as *some hole cites something* rather than *every hole does*, because a hole over a
+    field the source documented nowhere legitimately cites nothing — and requiring a citation
+    there is how a false one gets invented.
+    """
+    derived = bundle.derive(
+        fastqc_source, stack, adaptation_id=ADAPTATION, registry_digest="r" * 64
+    )
+    source = fastqc_source
+
+    assert derived.holes, "a derive with no holes asserts nothing here"
+    cited = {found for hole in derived.holes for found in hole.evidence_ids}
+    assert cited, "no hole cites any evidence — the ids never reached the manifest"
+
+    known = {numbered.id for numbered in source.evidence}
+    assert cited <= known, f"a hole cites evidence the bundle does not carry: {cited - known}"
+

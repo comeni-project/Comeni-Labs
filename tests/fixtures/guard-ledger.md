@@ -4788,3 +4788,44 @@ that exists, with a value from its candidate set; when `render.apply` refuses (`
 prompt where a model can act on it. Killing the job instead turned the tightest guarantee in the
 system into a worker traceback nobody reads.
 
+## The scaffolder, run for the first time — 2026-09-06
+
+`_derive_and_write` is monkeypatched in every test that touches it, and both walks hand-built
+their scaffolds. **Nothing had ever read a real tool and produced its holes** — the
+differentiator, with no evidence behind it.
+
+Run against nf-core `fastqc` at a real commit, it works, and the output is the claim: seven holes
+addressed **semantically** (`consumes.reads.type_id`, not `consumes[0].type_id`), each carrying
+what it asks, why it is open, whether it is required, whether the legal list is exhaustive, the
+legal values, and a ranked suggestion where the arithmetic was confident —
+`consumes.reads.type_id → fastq.reads`, correct, with no model involved. `priority_because` comes
+back `exhaustive: False` with no suggestion, which is right: it is prose, not a closed choice.
+
+**And every hole cited nothing.**
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-06 | `test_bundle.py::test_every_hole_cites_the_evidence_it_rests_on` | `holes_of(derived, observation)` — the `source` argument dropped | failed | `assert set()` — no hole cites any evidence |
+| 2026-09-06 | `test_prompt_goldens.py` (three) and `test_scaffold_goldens.py` | — | **fired on the first run**, correctly | the prompt a model is shown changed, which is what a golden is for |
+
+**Two evidence systems existed and nothing bridged them.** `assemble` gives every hole the
+`Excerpt`s that bear on it — the tool's description plus that port's own documentation. The
+bundle numbers the source's excerpts `E001…` so a model can cite one and `admit()` can check the
+citation. `ScaffoldHole.evidence_ids` is the join, and `holes_of` never populated it, so every
+hole ever built reached the model reading *related evidence: (none)*.
+
+The excerpts were all present in the dossier's evidence section — the model could see them and
+could not be told **which one bears on the question in front of it**. Grounding a hole in the
+text that settles it is two of the three fixes behind the forge's measured 69% → 88%, and the
+third was that the question never said what it was about. After the bridge, `fastqc`'s holes cite
+`E001` plus their own port's excerpt, and they differ per hole — which is the point.
+
+**The golden files are where this became visible and reviewable.** `test_prompt_goldens.py`
+exists so a change to what a model is shown is a diff somebody reads, and it produced exactly
+that: `+related evidence: E001`, seven times, and a moved prompt digest.
+
+**One small dishonesty found and left.** `bundle()` on an item with an empty `source_revision`
+answers `MF0201: … the revision may have moved`, when the truth is that there is no revision. The
+real path always has one from the sync, so it is only reachable by driving the adapter by hand —
+recorded here rather than fixed.
+
