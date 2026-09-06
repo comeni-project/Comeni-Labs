@@ -257,7 +257,7 @@ def candidate(adaptation_id: str) -> ReviewCandidate:
     """
     workspace = Workspace(root=settings.workspace_root)
     try:
-        draft = workspace.load(adaptation_id)
+        draft = workspace.read_draft(adaptation_id)
         holes = workspace.read_holes(adaptation_id)
         source = workspace.read_source(adaptation_id)
     except ValueError as absent:

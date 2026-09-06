@@ -113,6 +113,29 @@ class Workspace(BaseModel):
             )
         return SourceBundle.model_validate_json(path.read_text())
 
+    def read_draft(self, adaptation_id: str) -> Draft:
+        """The derived scaffold and any authored module, as the scaffold job left them.
+
+        **Not `load()`, and the difference is the whole reason this exists.** `load` reads
+        `<root>/<name>/draft.json` — the layout the `forge draft` CLI writes — and an adaptation
+        lives at `<root>/forge/<id>/`. So `load` could never find a scaffolded adaptation, and
+        the review page answered 404 for every real one. Found by scaffolding `seqkit/fq2fa`
+        from the real catalogue and opening it.
+
+        **It carries the provenance the stored contract drops.** `scaffold/contract.yml.json` is
+        a flattened projection — `{field: value}` — which is right for the file a reviewer diffs
+        and wrong for the page that has to say *who settled this and why*. `FilledValue.how`,
+        `.by` and `.why` only exist here, and they are the product's claim: a reader can see
+        exactly which parts a model touched.
+        """
+        path = self.root / "forge" / adaptation_id / "draft.json"
+        if not path.exists():
+            raise ValueError(
+                coded("MF0008", f"no stored scaffold for adaptation {adaptation_id!r}")
+                + "\n  the scaffold job writes it; this adaptation was never scaffolded"
+            )
+        return Draft.model_validate_json(path.read_text())
+
     def read_holes(self, adaptation_id: str) -> tuple["ScaffoldHole", ...]:
         """The questions the scaffold opened, read back from the manifest beside the files.
 
@@ -132,7 +155,11 @@ class Workspace(BaseModel):
         return tuple(ScaffoldHole.model_validate(hole) for hole in stored.get("holes", ()))
 
     def write_bundle(
-        self, bundle: "ScaffoldBundle", *, source: "SourceBundle | None" = None
+        self,
+        bundle: "ScaffoldBundle",
+        *,
+        source: "SourceBundle | None" = None,
+        draft: Draft | None = None,
     ) -> Path:
         """Write one adaptation's directory, and hand back its root.
 
@@ -167,6 +194,14 @@ class Workspace(BaseModel):
             # the network — see `read_source`.
             written.append(
                 (f"forge/{bundle.adaptation_id}/source.json", source.model_dump_json(indent=2))
+            )
+        if draft is not None:
+            # **The provenance half.** `scaffold/contract.yml.json` is the flattened contract a
+            # reviewer diffs; this is the derivation behind it — every `FilledValue` with its
+            # `how`, `by` and `why`, plus an authored module for a source that ships none.
+            # Without it the review page can show what a field says and not who settled it.
+            written.append(
+                (f"forge/{bundle.adaptation_id}/draft.json", draft.model_dump_json(indent=2))
             )
         for relative, text in written:
             target = self._inside(relative)

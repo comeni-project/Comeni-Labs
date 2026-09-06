@@ -927,7 +927,7 @@ def _derive_and_write(adaptation_id: str, item) -> None:
     import httpx
     from comeni_core.artifact.digest import digest_of_directory
     from mendel_forge import bundle
-    from mendel_forge.workspace import Workspace
+    from mendel_forge.workspace import Draft, Workspace
     from mendel_resolver import layers
 
     async def fetch():
@@ -936,13 +936,28 @@ def _derive_and_write(adaptation_id: str, item) -> None:
 
     source = _asyncio.run(fetch())
     stack = layers.load(settings.registry_root)
-    derived = bundle.derive(
+    # **`derive_all`, not `derive`** — it exists for precisely this caller and the job was not
+    # using it. `derive` returns only the immutable bundle; the working `Scaffold` and any
+    # authored module are what everything downstream needs, and recomputing them later would be
+    # a second derivation that has to agree with the recorded one.
+    built, derived, module = bundle.derive_all(
         source,
         stack,
         adaptation_id=adaptation_id,
         registry_digest=digest_of_directory(settings.registry_root),
     )
-    Workspace(root=settings.workspace_root).write_bundle(derived)
+    # **`source=` is not optional in practice**, and shipping without it was a defect that no
+    # test could see: `_derive_and_write` is monkeypatched in every test that touches it, so
+    # nothing had ever run this line against a real fetch. `write_bundle` stores the source
+    # bundle only when it is handed one, and `read_source` is what lets the AI worker build a
+    # dossier without going back to the network — which is the whole reason the two queues are
+    # split. Without it, every generation fails one layer away from here, reading *no stored
+    # source for adaptation …*.
+    Workspace(root=settings.workspace_root).write_bundle(
+        built,
+        source=source,
+        draft=Draft(name=adaptation_id, scaffold=derived, module=module),
+    )
 
 
 # **`publish_forge_adaptation` is still absent, and there is no stub for it.** A function raising

@@ -124,9 +124,16 @@ def _write(
     **Through `write_bundle` rather than by writing files**, because the layout is the thing
     under test on the read side: a fixture that placed `bundle.json` by hand would keep passing
     on the day the writer moved it.
+
+    **And through one call, because two was the defect.** This said the same sentence while
+    calling `workspace.save(Draft(...))` first — which writes `<root>/<name>/draft.json`, the
+    layout the `forge draft` CLI uses and the scaffold job does not. So the fixture supplied
+    the file the job never wrote, every test here passed, and `candidate()` answered 404 for
+    every real adaptation. Found by scaffolding `seqkit/fq2fa` from the real catalogue and
+    opening it; a fixture that sets up more than its subject does is a fixture that hides what
+    the subject forgot.
     """
     source = source or _source()
-    workspace.save(Draft(name=adaptation_id, scaffold=scaffold, module=module))
     workspace.write_bundle(
         ScaffoldBundle(
             adaptation_id=adaptation_id,
@@ -139,6 +146,7 @@ def _write(
             ),
         ),
         source=source,
+        draft=Draft(name=adaptation_id, scaffold=scaffold, module=module),
     )
 
 
@@ -260,3 +268,38 @@ def test_no_path_leaves_the_service(workspace):
     body = forge_candidate.candidate(ONE).model_dump_json()
     assert str(workspace.root) not in body
     assert "/tmp" not in body
+
+
+def test_the_scaffold_job_writes_everything_the_review_page_reads():
+    """**The seam that shipped broken twice, held from the writer's side.**
+
+    `_derive_and_write` is monkeypatched in every test that touches it, so no test had ever
+    watched it lay out a directory. Two things were missing and both failed one layer away from
+    the omission: `source=` was never passed, so `read_source` refused and a generation could
+    not build a dossier without going back to the network; and nothing wrote the derived
+    `Scaffold` at all, so `candidate()` answered 404 for every real adaptation.
+
+    Asserted by reading the job's own call rather than by running it — running it needs a
+    network fetch, a registry and a database, which is why it was monkeypatched in the first
+    place. What can be checked cheaply is that the call names every argument the readers need,
+    and that is exactly what was missing.
+    """
+    import ast
+    import inspect
+
+    from mendel_api.services import forge_jobs
+
+    tree = ast.parse(inspect.getsource(forge_jobs._derive_and_write))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "write_bundle"
+    ]
+    assert len(calls) == 1, "the scaffold job no longer writes exactly one bundle"
+    passed = {keyword.arg for keyword in calls[0].keywords}
+    assert {"source", "draft"} <= passed, (
+        f"write_bundle called with {sorted(passed)}; `read_source` and `read_draft` each refuse "
+        "when their half was not written, and both refusals surface far from this line"
+    )
