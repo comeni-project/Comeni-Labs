@@ -11,12 +11,19 @@ That definition is §1.3's and it is enforced here rather than described: `_modu
 only place it exists, so the discovered total and the bundle fetch cannot disagree about what a
 module is.
 
-**One tree request, and a refusal if it was truncated.** GitHub documents that a recursive tree
-response is capped and sets `truncated: true` when it hits the cap. nf-core's module tree is
-comfortably inside that today and will not always be, so the truncated case walks subtrees
-rather than being hoped about — and if even that cannot complete, `RawCatalogue.complete` goes
-false and `BaseSourceAdapter` refuses. A short total is the failure this whole path is arranged
-to prevent.
+**The whole repository arrives in one request, as an archive.** That replaced a walk costing
+about 2,400 calls with one costing 2, and the arithmetic is the argument: the recursive tree
+API is capped and nf-core is past the cap, so the old path fetched a subtree per module
+directory (~700) and then each module's `meta.yml` as its own git blob (~1,700). Against a
+5,000-per-hour authenticated budget that meant one sync nearly spent the hour, and two syncs in
+an hour could not both finish — measured, on 2026-09-06, by watching exactly that happen.
+Adapting a single tool repeated the same walk to locate one directory whose path it already
+knew.
+
+**And it removes the truncation problem rather than handling it.** An archive is the whole
+repository by construction: there is no cap to detect, no subtree fallback, and no partial
+listing that could publish a short total. `RawCatalogue.complete` stays for the other adapter
+and for a source that pages.
 
 **`content_digest` is the module's own subtree**, computed from the sorted `(path, blob sha)`
 pairs beneath its directory. That is what makes an unrelated upstream commit — a change to some
@@ -24,13 +31,15 @@ other module, a README edit at the repository root — leave this module current
 repository HEAD instead would mark every adapted tool in the registry outdated at once, every
 time anybody merged anything, and the outdated count would become noise nobody reads.
 
-**Metadata comes from `meta.yml` at the recorded commit, through the blob API.** The tree
-already gave us each blob's sha, so fetching by sha needs no second path resolution and cannot
-race a branch that moved underneath the listing.
+**Metadata comes from `meta.yml` at the recorded commit**, read out of that same archive, so
+it cannot race a branch that moved underneath the listing. The blob shas the digest is built
+from are computed the way git computes them — see `_blob_sha` — which is what kept every
+existing `content_digest` identical across this change.
 """
 
-import asyncio
-import base64
+import hashlib
+import io
+import tarfile
 from datetime import datetime
 
 import httpx
@@ -79,12 +88,12 @@ it cannot prove.
 are a validation rung when a fixture can be generated, not a guarantee any given module has one.
 """
 
-METADATA_CONCURRENCY = 8
-"""How many `meta.yml` blobs are read at once.
+MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
+"""A ceiling on the archive, because a decompressor with no bound is a denial of service.
 
-Bounded because the catalogue is ~1,400 modules and an unbounded gather is a self-inflicted
-denial of service against a host that rate-limits by the hour. Eight is unremarkable against
-GitHub's anonymous limit and finishes a cold sync in a couple of minutes.
+The real one is 5.8 MB compressed. This is not a tuned number — it is far enough above the
+truth to never fire on legitimate growth, and far enough below memory to fail as a refusal
+rather than as an OOM kill nobody gets a message from.
 """
 
 
@@ -109,9 +118,16 @@ class NfCoreAdapter(BaseSourceAdapter):
         now: datetime | None = None,
         branch: str = BRANCH,
     ) -> None:
-        super().__init__(client, now=now)
-        self._token = token
+        super().__init__(client, now=now, token=token)
         self._branch = branch
+        self._archived_at: str | None = None
+        self._archived: dict[str, bytes] | None = None
+        """The repository archive, kept per commit for the life of one adapter.
+
+        A sync and a bundle fetch each construct their own adapter today, so this saves nothing
+        across jobs — what it does buy is that a *single* adapter asked for the catalogue and
+        then for a module downloads once. Keyed by commit rather than held flat, because two
+        revisions in one adapter's life must not share an answer."""
 
     def _headers(self) -> dict[str, str]:
         """A token is optional and public development must work without one.
@@ -120,13 +136,11 @@ class NfCoreAdapter(BaseSourceAdapter):
         becomes, and a tree response changing shape under a nightly sync is the sort of failure
         that reads as *the catalogue shrank*.
         """
-        headers = {
+        return {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
+            **self._auth(),
         }
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
-        return headers
 
     # ── catalogue ──────────────────────────────────────────────────────────────────────
 
@@ -139,17 +153,13 @@ class NfCoreAdapter(BaseSourceAdapter):
             # bytes*.
             return RawCatalogue(source_revision=commit, unchanged=True, etag=previous.etag)
 
-        blobs, complete = await self._tree(commit)
-        if not complete:
-            return RawCatalogue(source_revision=commit, complete=False)
-
-        modules = _modules_in(blobs)
-        metadata = await self._metadata(modules)
+        files = await self._archive(commit)
+        modules = _modules_in(_blobs_of(files))
         return RawCatalogue(
             source_revision=commit,
             items=tuple(
-                _item(ref, files, metadata.get(ref))
-                for ref, files in sorted(modules.items())
+                _item(ref, blobs, _meta_of(ref, blobs, files))
+                for ref, blobs in sorted(modules.items())
             ),
         )
 
@@ -169,90 +179,68 @@ class NfCoreAdapter(BaseSourceAdapter):
             )
         return str(sha)
 
-    async def _tree(self, commit: str) -> tuple[list[_Blob], bool]:
-        """Every blob in the repository at `commit`, and whether that is all of them."""
-        url = f"{API}/repos/{OWNER}/{REPO}/git/trees/{commit}?recursive=1"
-        body = (await self.get(url, headers=self._headers())).json()
-        blobs = [
-            _Blob(path=entry["path"], sha=entry["sha"])
-            for entry in body.get("tree", [])
-            if entry.get("type") == "blob"
-        ]
-        if not body.get("truncated"):
-            return blobs, True
-        # **Truncation is documented and must be handled, not hoped about.** Walking the
-        # module subtrees one level down is enough for this repository's shape and stays a
-        # bounded number of requests; if that still cannot complete, `complete` goes false and
-        # the base refuses rather than publishing a short total.
-        return await self._walk_subtrees(commit)
+    async def _archive(self, commit: str) -> dict[str, bytes]:
+        """Every module file in the repository at `commit`, from ONE request.
 
-    async def _walk_subtrees(self, commit: str) -> tuple[list[_Blob], bool]:
-        """`modules/nf-core/` one directory at a time, when the whole-tree read was capped."""
-        root = f"{API}/repos/{OWNER}/{REPO}/git/trees/{commit}:{PREFIX.rstrip('/')}"
-        body = (await self.get(root, headers=self._headers())).json()
-        if body.get("truncated"):
-            return [], False
+        **This replaced a walk that cost about 2,400 requests and it costs 2.** The tree API
+        caps a recursive response, so the old path walked ~700 module directories one subtree
+        at a time and then fetched each module's `meta.yml` as its own blob — roughly 2,400
+        calls against a 5,000-per-hour authenticated budget, which meant a full sync nearly
+        exhausted an hour's allowance and two syncs in an hour could not both finish. Measured
+        against the real repository, the tarball is 5.8 MB and arrives in 1.7 seconds.
 
-        directories = [e for e in body.get("tree", []) if e.get("type") == "tree"]
-        semaphore = asyncio.Semaphore(METADATA_CONCURRENCY)
+        It also removes the truncation problem rather than handling it: an archive is the whole
+        repository by construction, so there is no cap to detect and no partial total to refuse.
 
-        async def below(entry: dict) -> tuple[list[_Blob], bool]:
-            async with semaphore:
-                url = f"{API}/repos/{OWNER}/{REPO}/git/trees/{entry['sha']}?recursive=1"
-                inner = (await self.get(url, headers=self._headers())).json()
-            if inner.get("truncated"):
-                return [], False
-            return (
-                [
-                    _Blob(path=f"{PREFIX}{entry['path']}/{e['path']}", sha=e["sha"])
-                    for e in inner.get("tree", [])
-                    if e.get("type") == "blob"
-                ],
-                True,
+        **Nothing is extracted to disk.** Members are read from the stream, so a crafted
+        member name is a dictionary key here rather than a path traversal — the reason to say
+        so is that `tarfile.extractall` on untrusted input is the well-known version of this,
+        and somebody reading this later should be able to see which one it is.
+        """
+        if self._archived is not None and self._archived_at == commit:
+            return self._archived
+
+        url = f"{API}/repos/{OWNER}/{REPO}/tarball/{commit}"
+        # GitHub answers this with a redirect to a separate download host, so it is the one
+        # request in this adapter that follows one.
+        response = await self.get(url, headers=self._headers(), follow_redirects=True)
+        payload = response.content
+        if len(payload) > MAX_ARCHIVE_BYTES:
+            raise UpstreamError(
+                coded("MF0200", f"{self.name}: the archive at {commit[:7]} is too large")
+                + f"\n  {len(payload)} bytes, ceiling {MAX_ARCHIVE_BYTES}"
             )
 
-        collected: list[_Blob] = []
-        for blobs, ok in await asyncio.gather(*(below(d) for d in directories)):
-            if not ok:
-                return [], False
-            collected.extend(blobs)
-        return collected, True
+        files: dict[str, bytes] = {}
+        total = 0
+        with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as archive:
+            for member in archive:
+                if not member.isfile():
+                    continue
+                # The archive root is `<owner>-<repo>-<short sha>/`, which is a fact about the
+                # download rather than about the repository. Strip it so every path here is
+                # repository-relative and matches what the tree API used to return.
+                _, _, path = member.name.partition("/")
+                if not path.startswith(PREFIX):
+                    continue
+                total += member.size
+                if total > MAX_ARCHIVE_BYTES:
+                    raise UpstreamError(
+                        coded("MF0200", f"{self.name}: the archive at {commit[:7]} expands")
+                        + f" past {MAX_ARCHIVE_BYTES} bytes"
+                    )
+                handle = archive.extractfile(member)
+                if handle is not None:
+                    files[path] = handle.read()
 
-    async def _metadata(self, modules: dict[str, list[_Blob]]) -> dict[str, dict]:
-        """Every module's parsed `meta.yml`, read by blob sha with bounded concurrency.
+        if not files:
+            raise UpstreamError(
+                coded("MF0200", f"{self.name}: the archive at {commit[:7]} holds no modules")
+                + f"\n  nothing under {PREFIX} — an empty catalogue is refused, not published"
+            )
 
-        **A module whose `meta.yml` will not parse is kept, not dropped.** It becomes an entry
-        with no summary rather than a hole in the total — dropping it would make the catalogue
-        quietly smaller than the repository, which is the failure `complete` exists to prevent
-        one level up.
-        """
-        semaphore = asyncio.Semaphore(METADATA_CONCURRENCY)
-
-        async def one(ref: str, files: list[_Blob]) -> tuple[str, dict]:
-            blob = next((f for f in files if f.path.endswith("/meta.yml")), None)
-            if blob is None:
-                return ref, {}
-            async with semaphore:
-                text = await self._blob(blob.sha)
-            try:
-                parsed = yaml_strict.loads(text)
-            except Exception:
-                return ref, {}
-            return ref, parsed if isinstance(parsed, dict) else {}
-
-        return dict(await asyncio.gather(*(one(r, f) for r, f in modules.items())))
-
-    async def _blob(self, sha: str) -> str:
-        """One blob's text, by sha.
-
-        By sha rather than by path-and-ref: the tree already gave us the sha, so this needs no
-        second resolution and cannot race a branch that moved after the listing.
-        """
-        url = f"{API}/repos/{OWNER}/{REPO}/git/blobs/{sha}"
-        body = (await self.get(url, headers=self._headers())).json()
-        if body.get("encoding") != "base64":
-            return str(body.get("content") or "")
-        return base64.b64decode(body.get("content") or "").decode("utf-8", errors="replace")
+        self._archived_at, self._archived = commit, files
+        return files
 
     # ── bundle ─────────────────────────────────────────────────────────────────────────
 
@@ -265,12 +253,8 @@ class NfCoreAdapter(BaseSourceAdapter):
         *"AI rewrote a source file"* from a hope into a check.
         """
         commit = item.source_revision
-        blobs, complete = await self._tree(commit)
-        if not complete:
-            raise UpstreamError(
-                coded("MF0200", f"{self.name}: could not read the tree at {commit[:7]}")
-            )
-        wanted = _modules_in(blobs).get(item.ref)
+        archive = await self._archive(commit)
+        wanted = _modules_in(_blobs_of(archive)).get(item.ref)
         if not wanted:
             raise UpstreamError(
                 coded("MF0201", f"{self.name}: {item.ref} is not in the tree at {commit[:7]}")
@@ -278,7 +262,7 @@ class NfCoreAdapter(BaseSourceAdapter):
             )
 
         prefix = f"{PREFIX}{item.ref}/"
-        texts = await self._texts(wanted)
+        texts = {blob.sha: _text(archive[blob.path]) for blob in wanted}
         files = tuple(
             BundleFile(path=blob.path.removeprefix(prefix), text=texts[blob.sha])
             for blob in sorted(wanted, key=lambda b: b.path)
@@ -298,14 +282,51 @@ class NfCoreAdapter(BaseSourceAdapter):
             ),
         )
 
-    async def _texts(self, blobs: list[_Blob]) -> dict[str, str]:
-        semaphore = asyncio.Semaphore(METADATA_CONCURRENCY)
 
-        async def one(blob: _Blob) -> tuple[str, str]:
-            async with semaphore:
-                return blob.sha, await self._blob(blob.sha)
+# ── reading the archive as if it were a tree ───────────────────────────────────────────
 
-        return dict(await asyncio.gather(*(one(b) for b in blobs)))
+
+def _text(payload: bytes) -> str:
+    return payload.decode("utf-8", errors="replace")
+
+
+def _blob_sha(payload: bytes) -> str:
+    """Git's own object id for this content: `sha1("blob <length>\\0" + bytes)`.
+
+    **Computed rather than fetched, so `content_digest` did not change meaning.** The tree API
+    used to supply these and the digest of a module is built from its sorted `(path, sha)`
+    pairs — recomputing them the way git does keeps every existing digest identical, so no
+    adapted tool reads as outdated because of *this* change. A different hash here would have
+    marked the whole registry stale on the next sync, which is the noise the per-module digest
+    exists to avoid in the first place.
+
+    `usedforsecurity=False` because this is a content address in somebody else's format, not a
+    signature; the algorithm is git's choice and not ours to strengthen.
+    """
+    header = f"blob {len(payload)}\0".encode()
+    return hashlib.sha1(header + payload, usedforsecurity=False).hexdigest()
+
+
+def _blobs_of(files: dict[str, bytes]) -> list[_Blob]:
+    """The archive as the tree entries the rest of this module already understood."""
+    return [_Blob(path=path, sha=_blob_sha(payload)) for path, payload in sorted(files.items())]
+
+
+def _meta_of(ref: str, blobs: list[_Blob], files: dict[str, bytes]) -> dict:
+    """One module's parsed `meta.yml`, or `{}`.
+
+    **A module whose `meta.yml` will not parse is kept, not dropped.** It becomes an entry with
+    no summary rather than a hole in the total — dropping it would make the catalogue quietly
+    smaller than the repository, which is exactly the failure a complete archive removed.
+    """
+    blob = next((b for b in blobs if b.path.endswith("/meta.yml")), None)
+    if blob is None:
+        return {}
+    try:
+        parsed = yaml_strict.loads(_text(files[blob.path]))
+    except Exception:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 # ── the definition of a module, in one place ───────────────────────────────────────────

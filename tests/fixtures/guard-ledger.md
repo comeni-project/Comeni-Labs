@@ -4829,3 +4829,86 @@ answers `MF0201: … the revision may have moved`, when the truth is that there 
 real path always has one from the sync, so it is only reachable by driving the adapter by hand —
 recorded here rather than fixed.
 
+
+## 2026-09-06 — the upstream credential, and the parameter nothing ever filled
+
+**The authenticated path was dead code that read as working.** Both catalogue adapters declared
+`token: str | None = None`, both built a correct `Authorization` header from it, and every
+construction site in the API spelled `adapter_for(client)` — so no token had ever been passed. A
+full nf-core sync costs roughly two thousand requests (a commit, a tree, and a `meta.yml` per
+module) against a sixty-per-hour anonymous ceiling, which is why no source had ever synced and
+every catalogue row so far was seeded by hand.
+
+The symptom is the part worth carrying: **it is not an error.** A missing credential here does
+not refuse, it rate-limits — so the failure presents as a slow or flaky upstream, which is the
+one diagnosis nobody acts on.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-06 | `test_source_auth.py::test_a_configured_token_reaches_github` | `open_adapter` back to `kinds[name](client)` — the spelling both call sites used | failed, both adapters | `assert None == 'Bearer probe-token…'` on `api.github.com/repos/pegi3s/dockerfiles/commits/master` |
+| 2026-09-06 | `test_compose.py::test_the_token_reaches_every_service_that_reads_an_upstream` | `COMENI_FORGE_GITHUB_TOKEN` deleted from `worker` | failed | `assert 'COMENI_FORGE_GITHUB_TOKEN' in {'MENDEL_DATABASE_URL': …}` |
+| 2026-09-06 | `test_compose.py::test_no_credential_is_written_into_the_compose_file` | the token set to a literal `github_pat_…` | failed | `where 'github_pat_a_literal_secret' = str(…)` |
+| 2026-09-06 | `test_compose.py::test_the_pulled_models_survive_a_restart` | — | **fired on its own service changing**, correctly | `assert any("ollama-models:" in v …)` — the mount had become `${OLLAMA_MODELS:-ollama-models}` |
+
+**The credential moved to the base class, which is the difference between a convention and a
+mechanism.** It was a subclass concern twice over and both copies were unreachable; a third
+adapter now inherits both the token and `_auth()` or does not construct.
+`test_the_credential_lives_on_the_base_so_a_new_adapter_inherits_it` holds that.
+
+**The compose guard was scoped to one service and one prefix.** It looped over `ai-worker`'s
+`COMENI_AI_` names, and the new token landed on three services — outside the loop on both axes.
+Widened to every service and every `COMENI_` name: a guard that only watches where the last
+credential went is a guard that misses the next one.
+
+**A guard firing on the change that broke it is the system working.** `test_the_pulled_models_
+survive_a_restart` asserted the literal string `ollama-models:`, and making the mount an operator
+setting broke that substring while keeping the property. The property it was protecting — an
+operator who configures nothing lands on a named volume rather than an anonymous one — is what it
+asserts now, and it is stronger for having been about the default rather than about a literal.
+
+## 2026-09-06 — the catalogue walk, and 2,400 requests for a 5.8 MB file
+
+**Measured, after guessing wrong twice in one afternoon.** The nf-core sync cost about 2,400
+GitHub API requests and never once completed: the recursive tree endpoint is capped and
+nf-core is past the cap, so it fetched a subtree per module directory (~700) and then each
+module's `meta.yml` as an individual git blob (~1,700). Against a 5,000-per-hour authenticated
+budget that is one sync per hour at best, and two overlapping syncs exhausted the window
+outright. Adapting a *single* tool repeated the same walk — ~700 requests to locate a directory
+whose path it already had.
+
+The whole repository is one 5.8 MB archive.
+
+| | before | after |
+|---|---|---|
+| requests per sync | ~2,400 | **2** |
+| wall clock | never finished inside one budget | **10.4 s** |
+| modules read | — | **2,062** |
+| requests per tool adaptation | ~700 | **2** |
+
+**The estimate was wrong before the fix and the measurement was cheap.** "~1,500–2,100" was
+asserted twice in one conversation and the real figure was ~2,400 per sync, which only became
+visible when two concurrent syncs spent 5,000 and GitHub said so in a header. A count was one
+request away the whole time.
+
+**`GET /rate_limit` lies for a fine-grained token.** It reported `used: 0, remaining: 5000`
+while a real request in the same second returned `x-ratelimit-used: 5000` and a 403. That
+mis-diagnosis is what sent this session looking for a wiring bug that did not exist. The
+authoritative budget is the `x-ratelimit-*` headers on a real response; `/rate_limit` is not a
+second opinion, it is a wrong one.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-06 | `test_source_nfcore_catalogue.py::test_an_archive_with_no_modules_is_refused_rather_than_published` | — | replaced `test_a_truncated_tree_does_not_publish_a_short_total`, whose mechanism no longer exists | an archive cannot truncate; what can still happen is an archive holding nothing under `modules/nf-core/` |
+| 2026-09-06 | `test_editing_a_modules_test_moves_its_digest` | — | rewritten: it edited a *declared* sha, and shas are now derived from bytes | a test that edits an id and not the file would assert nothing |
+
+**Two mechanisms went away rather than being fixed.** The truncation detection, the subtree
+fallback, and the `complete=False` refusal existed to stop a short total being published. An
+archive is the repository by construction, so there is no cap to detect and no partial listing
+to refuse — the guard that replaced them checks the one failure that survives.
+
+**`content_digest` had to keep its value, and that is why `_blob_sha` computes git's own id.**
+The digest of a module is built from its sorted `(path, blob sha)` pairs, and those shas used
+to come from the tree API. Recomputing them as `sha1("blob <len>\0" + bytes)` keeps every
+existing digest byte-identical, so no adapted tool reads as outdated because of a change to how
+the files were fetched. A different hash would have aged the whole registry at once — which is
+precisely the noise the per-module digest exists to prevent.

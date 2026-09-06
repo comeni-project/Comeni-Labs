@@ -403,13 +403,12 @@ async def sync_forge_sources(ctx: dict, source: str) -> int:
     catalogue walk rather than a model call.
     """
     started = datetime.now(UTC)
-    adapter_for = _adapters().get(source)
-    if adapter_for is None:
+    if source not in _adapters():
         raise KeyError(f"no source adapter named {source!r}; known: {sorted(_adapters())}")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            snapshot = await adapter_for(client).sync()
+            snapshot = await _open(source, client).sync()
     except Exception as failure:
         log.warning("sync of %s failed: %r", source, failure)
         await asyncio.to_thread(
@@ -434,6 +433,17 @@ def _adapters() -> dict[str, type]:
     from mendel_forge import sources
 
     return sources.adapters()
+
+
+def _open(source: str, client):
+    """One adapter, built the only way an adapter may be built.
+
+    Delegating rather than calling the class keeps the upstream credential on `open_adapter`,
+    which is where a test can hold it — see `test_source_auth.py`.
+    """
+    from mendel_forge import sources
+
+    return sources.open_adapter(source, client)
 
 
 def _client():
@@ -922,7 +932,7 @@ def _derive_and_write(adaptation_id: str, item) -> None:
 
     async def fetch():
         async with httpx.AsyncClient(timeout=60.0) as client:
-            return await _adapters()[item.source](client).bundle(item)
+            return await _open(item.source, client).bundle(item)
 
     source = _asyncio.run(fetch())
     stack = layers.load(settings.registry_root)

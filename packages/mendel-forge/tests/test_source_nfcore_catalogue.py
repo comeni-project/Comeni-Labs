@@ -6,8 +6,9 @@ equals the number of directories in the fixture holding both required files is c
 adapter. That rule is the plan's, and `_expected_refs` is where it lives.
 """
 
-import base64
+import io
 import json
+import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,7 +16,13 @@ import httpx
 import pytest
 from mendel_forge.catalogue import CatalogueItem, LandedSource
 from mendel_forge.sources.base import UpstreamError
-from mendel_forge.sources.nfcore_catalogue import NfCoreAdapter, _Blob, _modules_in
+from mendel_forge.sources.nfcore_catalogue import (
+    OWNER,
+    REPO,
+    NfCoreAdapter,
+    _Blob,
+    _modules_in,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "sources"
 WHEN = datetime(2026, 9, 4, tzinfo=UTC)
@@ -51,34 +58,67 @@ def _expected_refs(tree: dict) -> set[str]:
     return {ref for ref, names in files.items() if {"main.nf", "meta.yml"} <= names}
 
 
-def _handler(tree_name: str = "nfcore_tree.json", *, blobs: dict[str, str] | None = None):
-    tree = _tree(tree_name)
-    extra = blobs or {}
+def _contents(tree: dict, extra: dict[str, str]) -> dict[str, str]:
+    """The fixture tree as `{path: text}`, which is what the archive serves.
+
+    **The tree fixture stays the declaration of what exists**, so `_expected_refs` still reads
+    the same file and remains a second opinion rather than the adapter agreeing with itself.
+    What changed is only how the adapter gets the bytes.
+
+    Overrides are still keyed by the fixture's blob sha, because that is how the tests that use
+    them name a file. The adapter recomputes its own sha from the content it receives — as git
+    does — so those two shas are unrelated and nothing here should assert on either.
+    """
+    files: dict[str, str] = {}
+    for entry in tree["tree"]:
+        if entry["type"] != "blob":
+            continue
+        sha = entry["sha"]
+        # `extra` first: a test overriding a file must actually override it. The first version
+        # checked `META` first, so an override of `meta.yml` was silently ignored and the test
+        # passed against the unmodified fixture.
+        if sha in extra:
+            files[entry["path"]] = extra[sha]
+        elif sha in META:
+            files[entry["path"]] = (FIXTURES / META[sha]).read_text()
+        else:
+            files[entry["path"]] = f"contents of {sha}\n"
+    return files
+
+
+def _tarball(files: dict[str, str]) -> bytes:
+    """A gzipped tar shaped like GitHub's, root directory and all."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        for path, text in sorted(files.items()):
+            payload = text.encode()
+            info = tarfile.TarInfo(name=f"{OWNER}-{REPO}-{COMMIT[:7]}/{path}")
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+    return buffer.getvalue()
+
+
+def _handler(
+    tree_name: str = "nfcore_tree.json",
+    *,
+    blobs: dict[str, str] | None = None,
+    commit: str = COMMIT,
+):
+    """The repository at one commit: a sha, and an archive of every file.
+
+    `commit` is a parameter because an upstream change moves the branch — a test that edits a
+    file and leaves the sha where it was is describing something that cannot happen, and the
+    adapter's own short-circuit (*the commit did not move, reuse the snapshot*) reads that as
+    nothing having changed at all.
+    """
+    archive = _tarball(_contents(_tree(tree_name), blobs or {}))
 
     async def handle(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if "/commits/" in url:
-            return httpx.Response(200, json={"sha": COMMIT})
-        if "/git/trees/" in url:
-            return httpx.Response(200, json=tree)
-        if "/git/blobs/" in url:
-            sha = url.rsplit("/", 1)[-1]
-            # `extra` first: a test overriding a blob must actually override it. The first
-            # version checked `META` first, so an override of `meta.yml` was silently ignored
-            # and the test passed against the unmodified fixture.
-            if sha in extra:
-                text = extra[sha]
-            elif sha in META:
-                text = (FIXTURES / META[sha]).read_text()
-            else:
-                text = f"contents of {sha}\n"
-            return httpx.Response(
-                200,
-                json={
-                    "encoding": "base64",
-                    "content": base64.b64encode(text.encode()).decode(),
-                },
-            )
+            return httpx.Response(200, json={"sha": commit})
+        if "/tarball/" in url:
+            return httpx.Response(200, content=archive)
         return httpx.Response(404)
 
     return handle
@@ -164,30 +204,13 @@ async def test_editing_a_modules_test_moves_its_digest():
     """
     before = await _adapter(_handler()).sync()
 
-    moved = _tree()
-    for entry in moved["tree"]:
-        if entry["path"] == "modules/nf-core/fastqc/tests/main.nf.test":
-            entry["sha"] = "b103fastqctest-CHANGED"
+    # **The bytes change, and the sha follows them.** This used to edit the tree's declared
+    # sha, which was the whole story while the sha came from the tree API. Content is now the
+    # only input — `_blob_sha` derives the id git itself would give these bytes — so a test
+    # that edited an id without editing the file would be asserting on nothing.
+    changed = _handler(blobs={"b103fastqctest": "nextflow_process { CHANGED }\n"})
 
-    async def handle(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "/commits/" in url:
-            return httpx.Response(200, json={"sha": COMMIT})
-        if "/git/trees/" in url:
-            return httpx.Response(200, json=moved)
-        if "/git/blobs/" in url:
-            sha = url.rsplit("/", 1)[-1]
-            text = (FIXTURES / META[sha]).read_text() if sha in META else f"contents of {sha}\n"
-            return httpx.Response(
-                200,
-                json={
-                    "encoding": "base64",
-                    "content": base64.b64encode(text.encode()).decode(),
-                },
-            )
-        return httpx.Response(404)
-
-    after = await _adapter(handle).sync()
+    after = await _adapter(changed).sync()
     was = {i.ref: i.content_digest for i in before.items}
     now = {i.ref: i.content_digest for i in after.items}
     assert was["fastqc"] != now["fastqc"], "a module's own test changed and its digest did not"
@@ -198,11 +221,26 @@ async def test_editing_a_modules_test_moves_its_digest():
 
 
 @pytest.mark.asyncio
-async def test_a_truncated_tree_does_not_publish_a_short_total():
-    """GitHub documents the cap and sets the flag. The subtree walk is attempted and this
-    fixture cannot satisfy it either, so the sync refuses rather than reporting what it saw."""
+async def test_an_archive_with_no_modules_is_refused_rather_than_published():
+    """**The truncation case is gone and this is what replaced it.**
+
+    A recursive tree response is capped and had to be detected, walked around, and refused when
+    even that failed — three mechanisms whose whole purpose was to avoid publishing a total
+    shorter than the repository. An archive is the repository, so none of that can happen.
+
+    What *can* still happen is an archive that holds nothing under `modules/nf-core/` — an
+    upstream reorganisation, a wrong ref, a truncated download. That is indistinguishable from
+    "the catalogue is empty" unless it refuses, and an empty catalogue is precisely the wrong
+    answer this whole path is arranged to prevent: it would mark every adapted tool absent.
+    """
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        if "/commits/" in str(request.url):
+            return httpx.Response(200, json={"sha": COMMIT})
+        return httpx.Response(200, content=_tarball({"README.md": "no modules here\n"}))
+
     with pytest.raises(UpstreamError, match="MF0200"):
-        await _adapter(_handler("nfcore_tree_truncated.json")).sync()
+        await _adapter(handle).sync()
 
 
 # ── the digest is the module's own subtree ─────────────────────────────────────────────
@@ -217,31 +255,12 @@ async def test_an_unrelated_module_changing_leaves_this_one_current():
     on every upstream merge.
     """
     before = await _adapter(_handler()).sync()
+    changed = _handler(
+        blobs={"b200sortmain": "process SAMTOOLS_SORT { CHANGED }\n"},
+        commit="bbbbbbbb" + COMMIT[8:],
+    )
 
-    moved = _tree()
-    for entry in moved["tree"]:
-        if entry["path"] == "modules/nf-core/samtools/sort/main.nf":
-            entry["sha"] = "b200sortmain-CHANGED"
-
-    async def handle(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "/commits/" in url:
-            return httpx.Response(200, json={"sha": "bbbbbbbb" + COMMIT[8:]})
-        if "/git/trees/" in url:
-            return httpx.Response(200, json=moved)
-        if "/git/blobs/" in url:
-            sha = url.rsplit("/", 1)[-1]
-            text = (FIXTURES / META[sha]).read_text() if sha in META else f"contents of {sha}\n"
-            return httpx.Response(
-                200,
-                json={
-                    "encoding": "base64",
-                    "content": base64.b64encode(text.encode()).decode(),
-                },
-            )
-        return httpx.Response(404)
-
-    after = await _adapter(handle).sync()
+    after = await _adapter(changed).sync()
     digests_before = {item.ref: item.content_digest for item in before.items}
     digests_after = {item.ref: item.content_digest for item in after.items}
 

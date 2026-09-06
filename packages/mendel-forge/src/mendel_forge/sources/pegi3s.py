@@ -33,7 +33,6 @@ import re
 from collections.abc import Iterable, Mapping
 from datetime import datetime
 
-import httpx
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict
 
@@ -230,24 +229,15 @@ class Pegi3sAdapter(BaseSourceAdapter):
     name = "pegi3s"
     capabilities = CAPABILITIES
 
-    def __init__(
-        self,
-        client: httpx.AsyncClient,
-        *,
-        token: str | None = None,
-        now: datetime | None = None,
-    ) -> None:
-        super().__init__(client, now=now)
-        self._token = token
-
     def _github(self) -> dict[str, str]:
-        headers = {
+        """**The GitHub half only.** Docker Hub says what images exist and needs no credential
+        for a public namespace; the token is a GitHub rate limit and belongs on the requests
+        that spend it."""
+        return {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
+            **self._auth(),
         }
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
-        return headers
 
     # ── catalogue ──────────────────────────────────────────────────────────────────────
 

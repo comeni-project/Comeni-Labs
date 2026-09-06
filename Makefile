@@ -295,8 +295,15 @@ dev-logs:  ## tail the api and the worker
 
 AI_MODEL ?= qwen2.5-coder:14b
 
+# **`OLLAMA_GPU=rocm` layers the AMD override; anything else is the portable default.** A GPU is
+# the one part of this lane that cannot be a `${VAR:-default}` in the base file — `devices:` is
+# a list, and a base file naming `/dev/kfd` refuses to start on a host without an AMD card.
+# NVIDIA needs no override at all: the default image is CUDA-capable.
+OLLAMA_GPU ?=
+DC_AI = $(DC) $(if $(OLLAMA_GPU),-f docker-compose.yml -f docker-compose.ollama-$(OLLAMA_GPU).yml)
+
 ai-up:  ## start the local Ollama and print the two lines for .env — pulls nothing
-	$(DC) --profile ai up -d ollama
+	$(DC_AI) --profile ai up -d ollama
 	@echo
 	@echo "put these in .env, then \`make dev\` (or restart ai-worker):"
 	@echo "  COMENI_AI_MODEL=ollama/$(AI_MODEL)"
@@ -309,15 +316,15 @@ ai-up:  ## start the local Ollama and print the two lines for .env — pulls not
 
 ai-pull:  ## download a model into the ollama volume — `make ai-pull MODEL=qwen2.5-coder:14b`
 	@test -n "$(MODEL)" || { echo "MODEL= is required, e.g. make ai-pull MODEL=$(AI_MODEL)"; exit 2; }
-	$(DC) --profile ai up -d ollama
-	$(DC) --profile ai exec ollama ollama pull $(MODEL)
+	$(DC_AI) --profile ai up -d ollama
+	$(DC_AI) --profile ai exec ollama ollama pull $(MODEL)
 	@echo "pulled $(MODEL) — set COMENI_AI_MODEL=ollama/$(MODEL)"
 
 ai-logs:  ## tail the AI worker and the model server
-	$(DC) --profile ai logs -f ai-worker ollama
+	$(DC_AI) --profile ai logs -f ai-worker ollama
 
 ai-down:  ## stop the model server. The pulled models stay in their named volume
-	$(DC) --profile ai stop ollama
+	$(DC_AI) --profile ai stop ollama
 
 prod:  ## the same stack, with the unsafe parts removed
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

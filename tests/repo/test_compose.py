@@ -26,6 +26,26 @@ def base() -> dict:
     return parsed
 
 
+def env_of(service: dict) -> dict[str, str | None]:
+    """One service's environment, whichever of compose's two spellings it uses.
+
+    **A guard that understands one form is blind to the other**, and compose accepts both: a
+    mapping (`NAME: value`) and a list, where a bare `- NAME` means *pass it through from the
+    host if it is set, and leave it unset otherwise*. That second form is the only way to say
+    "unset" — `NAME: ${NAME:-}` sets an empty string, which is a different thing to every
+    program that checks whether a variable is present.
+
+    A bare name reads as `None` here: present as a declaration, carrying no literal. Every
+    guard below goes through this, because the first list-form entry in this file broke two
+    guards that had nothing to do with it.
+    """
+    declared = service.get("environment") or {}
+    if isinstance(declared, dict):
+        return dict(declared)
+    pairs = (str(entry).partition("=") for entry in declared)
+    return {name: (value if sep else None) for name, sep, value in pairs}
+
+
 class _TolerantLoader(yaml.SafeLoader):
     """Compose's `!reset` and `!override` are YAML tags `safe_load` refuses."""
 
@@ -291,7 +311,7 @@ def test_the_draft_root_is_a_volume_shared_by_the_api_and_the_worker(base):
     """
     services = base["services"]
     for name in ("api", "worker"):
-        root = services[name]["environment"]["MENDEL_DRAFT_ROOT"]
+        root = env_of(services[name])["MENDEL_DRAFT_ROOT"]
         mounts = [v.split(":")[1] for v in services[name]["volumes"] if ":" in v]
         assert root in mounts, f"{name}: MENDEL_DRAFT_ROOT={root} is backed by no volume"
 
@@ -304,7 +324,7 @@ def _database_owners(services: dict) -> dict[str, list[str]]:
     """
     owners: dict[str, list[str]] = {}
     for name, service in services.items():
-        for key, url in (service.get("environment") or {}).items():
+        for key, url in env_of(service).items():
             if key.endswith("_DATABASE_URL"):
                 owners.setdefault(url, []).append(name)
     return owners
@@ -384,7 +404,7 @@ def test_the_forge_services_agree_on_where_the_workspace_is(base):
     refuses with `MF0008` for a draft that is right there — and the refusal names the draft
     rather than the mount, so nobody would think to look here."""
     declared = {
-        name: base["services"][name]["environment"]["MENDEL_WORKSPACE_ROOT"]
+        name: env_of(base["services"][name])["MENDEL_WORKSPACE_ROOT"]
         for name in FORGE_SERVICES
     }
     assert len(set(declared.values())) == 1, declared
@@ -399,7 +419,7 @@ def test_the_forge_services_agree_on_where_the_registry_is(base):
     make *green* a statement about a different registry than the one a contract lands in —
     which is the fact `MF0301`'s stale-base refusal exists to catch one level up."""
     declared = {
-        name: base["services"][name]["environment"]["MENDEL_REGISTRY_ROOT"]
+        name: env_of(base["services"][name])["MENDEL_REGISTRY_ROOT"]
         for name in FORGE_SERVICES
     }
     assert len(set(declared.values())) == 1, declared
@@ -434,11 +454,18 @@ def test_the_ai_worker_is_not_behind_a_profile(base):
 
 def test_the_pulled_models_survive_a_restart(base):
     """A named volume, not an anonymous one. Anonymous makes every `down` and `up` a
-    re-download, which is the whole cost this service has."""
-    assert "ollama-models" in yaml.safe_load(
-        (ROOT / "docker-compose.yml").read_text()
-    )["volumes"]
-    assert any("ollama-models:" in v for v in base["services"]["ollama"]["volumes"])
+    re-download, which is the whole cost this service has.
+
+    **The mount became a setting and the property is now about its default.** `OLLAMA_MODELS`
+    lets an operator bind a host Ollama's home in place rather than downloading a second copy
+    of several gigabytes — and an operator who sets nothing must land on the named volume, not
+    on an anonymous one. This guard caught its own service changing under it.
+    """
+    declared = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["volumes"]
+    assert "ollama-models" in declared
+
+    mounts = base["services"]["ollama"]["volumes"]
+    assert any(m.startswith("${OLLAMA_MODELS:-ollama-models}:") for m in mounts), mounts
 
 
 def test_the_ai_lane_is_configured_by_the_shared_names(base):
@@ -446,18 +473,40 @@ def test_the_ai_lane_is_configured_by_the_shared_names(base):
     configuration change rather than a code change — invariant 13. A `MENDEL_AI_MODEL` beside
     them would be a second answer to *which model*, and an operator's `.env` would have to know
     which consumer read which. `comeni_ai.access` is where those names are declared."""
-    lane = base["services"]["ai-worker"]["environment"]
+    lane = env_of(base["services"]["ai-worker"])
     assert {"COMENI_AI_MODEL", "COMENI_AI_BASE_URL", "COMENI_AI_API_KEY"} <= set(lane)
     assert not [name for name in lane if name.startswith("MENDEL_AI_")]
 
 
 def test_no_credential_is_written_into_the_compose_file(base):
-    """Every AI name is `${...}` with an empty default, so a key lives in `.env` and never in a
-    file that is committed. A literal here would be a credential in git history, which is the
-    one mistake with no undo."""
-    for name, value in base["services"]["ai-worker"]["environment"].items():
-        if name.startswith("COMENI_AI_"):
-            assert str(value).startswith("${"), f"{name} is not read from the environment"
+    """Every `COMENI_` name is `${...}` with an empty default, so a secret lives in `.env` and
+    never in a file that is committed. A literal here would be a credential in git history,
+    which is the one mistake with no undo.
+
+    **Every service and every `COMENI_` name, not the AI worker's `COMENI_AI_` block.** It was
+    scoped to one service and one prefix, and `COMENI_FORGE_GITHUB_TOKEN` arrived on three
+    services — outside the loop on both axes. A guard that only watches where the last
+    credential went is a guard that misses the next one.
+    """
+    for service, spec in base["services"].items():
+        environment = env_of(spec)
+        for name, value in environment.items():
+            if name.startswith("COMENI_"):
+                assert str(value).startswith("${"), f"{service}.{name} is a literal"
+
+
+def test_the_token_reaches_every_service_that_reads_an_upstream(base):
+    """**`worker` is the one that spends it**, and the one nobody would think to check.
+
+    `sync_forge_sources` walks a catalogue and `scaffold_forge_adaptation` fetches one tool's
+    files; both are on `WorkerSettings.functions`, so both run in the default worker rather
+    than in the API or the AI worker. Anonymous GitHub allows sixty requests an hour against a
+    sync costing about two thousand, and the symptom of a missing token is not an error — it
+    is a catalogue that never finishes, which reads as a slow upstream.
+    """
+    for service in ("api", "worker", "ai-worker"):
+        environment = env_of(base["services"][service])
+        assert "COMENI_FORGE_GITHUB_TOKEN" in environment, service
 
 
 def test_nothing_but_the_ai_worker_runs_the_ai_queue(base):

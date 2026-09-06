@@ -69,6 +69,11 @@ services:
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
+      # **A GitHub rate limit, not an access grant.** Both catalogue adapters read public
+      # repositories; anonymous GitHub allows sixty requests an hour and one full nf-core sync
+      # costs about two thousand, so without this a full catalogue is not slow, it is
+      # impossible. Unset is the anonymous lane and works — for one tool at a time.
+      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
       - ./packages:/app/packages
@@ -116,6 +121,11 @@ services:
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
+      # **This worker is the one that spends it.** `sync_forge_sources` walks a whole catalogue
+      # and `scaffold_forge_adaptation` fetches one tool's files; both run here, on the default
+      # queue. The API carries the same line for the reason the AI block does — two containers
+      # disagreeing about one configuration is what having a single spelling was for.
+      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
@@ -171,6 +181,11 @@ services:
       COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
       COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
       COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
+      # **A GitHub rate limit, not an access grant.** Both catalogue adapters read public
+      # repositories; anonymous GitHub allows sixty requests an hour and one full nf-core sync
+      # costs about two thousand, so without this a full catalogue is not slow, it is
+      # impossible. Unset is the anonymous lane and works — for one tool at a time.
+      COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
@@ -192,10 +207,25 @@ services:
     # network; publishing it would put an unauthenticated inference endpoint on the host's
     # interface, and the one thing an operator gains is `curl` from a terminal —
     # `OLLAMA_HOST_PORT` is there for whoever decides that trade for themselves.
-    image: ollama/ollama:0.6.5
+    #
+    # **Both of the next two lines default to exactly what they were.** They are settings
+    # because the two things an operator most often already has are a model server image
+    # matching their GPU and a directory of weights they have already downloaded, and neither
+    # is worth re-acquiring inside a container. `OLLAMA_IMAGE=ollama/ollama:0.6.5-rocm` with
+    # `docker-compose.ollama-rocm.yml` is the AMD lane; `OLLAMA_MODELS=$HOME/.ollama` reuses a
+    # host install's models in place, which is a bind mount rather than a copy.
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.5}
     container_name: ${OLLAMA_CONTAINER_NAME:-mendel-ollama}
     profiles: [ai]
-    volumes: ["ollama-models:/root/.ollama"]
+    volumes: ["${OLLAMA_MODELS:-ollama-models}:/root/.ollama"]
+    environment:
+      # **Ollama's own default is 2048 tokens and the forge budgets a dossier at 32,000.** A
+      # server with a smaller window does not refuse the prompt — it silently drops the front
+      # of it, so the model answers about the tail of a dossier and nothing says so. Raising it
+      # costs VRAM per request, which is why it is the operator's number rather than ours.
+      #
+      # The bare-name form, so unset stays unset and the image keeps its own default.
+      - OLLAMA_CONTEXT_LENGTH
     ports: ["${OLLAMA_HOST_PORT:-11434}:11434"]
     healthcheck:
       # `ollama list` rather than a socket probe: the server answers HTTP before it can serve

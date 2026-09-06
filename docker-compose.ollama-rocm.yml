@@ -1,0 +1,39 @@
+# An AMD GPU for the local model lane. `make ai-up OLLAMA_GPU=rocm`.
+#
+# **An override rather than a setting, because devices are not interpolable.** Every other
+# machine-specific choice in the base file is a `${VAR:-default}`; `devices:` is a list, and a
+# list cannot be defaulted to empty by interpolation. A base file naming `/dev/kfd` would fail
+# to start on every host without an AMD card, which is most of them — so the AMD lane is a
+# second file, and a host with no GPU keeps a compose command that works.
+#
+# Pair it with `OLLAMA_IMAGE=ollama/ollama:<version>-rocm` in `.env`: the default image carries
+# no ROCm runtime, so passing the devices into it changes nothing except the error you get.
+#
+# NVIDIA needs neither file — the default image is CUDA-capable and the container toolkit
+# handles the passthrough — so there is deliberately no `-cuda` sibling here.
+
+services:
+  ollama:
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    # **The render group, by number.** The device nodes are owned by `render`, whose gid differs
+    # between distributions and does not exist inside the image — so a name would not resolve
+    # and the container would fall back to CPU with no error worth reading. `render` is 988 on
+    # CachyOS and 993 on Debian; check with `getent group render`.
+    group_add:
+      - "${RENDER_GID:-render}"
+      - "${VIDEO_GID:-video}"
+    # ROCm's userspace uses `HSA` calls that the default seccomp profile blocks. This is the
+    # configuration AMD documents for ROCm containers, and it is why this file is opt-in.
+    security_opt:
+      - seccomp:unconfined
+    ipc: host
+    environment:
+      # A card whose gfx version ROCm does not ship a kernel for can often use its family's.
+      #
+      # **The bare-name form, so unset stays unset.** `${VAR:-}` would set it to the empty
+      # string, and ROCm reading `HSA_OVERRIDE_GFX_VERSION=` is not the same as not reading it.
+      # An override that is wrong is worse than absent: it turns a clear "unsupported" into a
+      # wrong answer.
+      - HSA_OVERRIDE_GFX_VERSION

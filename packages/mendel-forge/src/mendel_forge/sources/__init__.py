@@ -10,13 +10,36 @@ A `Source` returns an `Observation` and nothing contract-shaped. Keeping the two
 what lets a source for something nobody has written yet need no change here.
 """
 
+import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict
 
 from mendel_forge.observe import Observation
+
+if TYPE_CHECKING:  # a module every CLI verb imports must not pull in a transport
+    import httpx
+
+    from mendel_forge.sources.base import BaseSourceAdapter
+
+GITHUB_TOKEN = "COMENI_FORGE_GITHUB_TOKEN"
+"""The environment variable holding an upstream GitHub credential.
+
+**A rate limit, not an access grant.** Both catalogue adapters read public repositories:
+nf-core's modules, and pegi3s's Dockerfiles and central metadata. Anonymous GitHub allows sixty
+requests an hour and one full nf-core sync costs roughly two thousand — a commit, a tree, and a
+`meta.yml` per module — so the token is what makes a full catalogue possible at all, and it
+needs no scopes whatsoever. Docker Hub's namespace API is not authenticated here and does not
+need to be.
+
+Spelled `COMENI_` rather than `MENDEL_` because it belongs to the forge's upstream lane
+alongside `COMENI_AI_*`, and it is declared here — beside the adapters that spend it — for the
+reason `access.py` gives for its own names: so a second consumer does not invent a second
+spelling."""
+
 
 
 class ToolRef(BaseModel):
@@ -101,3 +124,36 @@ def adapters() -> dict[str, type]:
     from mendel_forge.sources.pegi3s import Pegi3sAdapter
 
     return {NfCoreAdapter.name: NfCoreAdapter, Pegi3sAdapter.name: Pegi3sAdapter}
+
+
+def upstream_token(env: Mapping[str, str] | None = None) -> str | None:
+    """The configured upstream credential, or `None`.
+
+    An empty or whitespace-only value is `None` rather than a token, because `.env` files hold
+    `COMENI_FORGE_GITHUB_TOKEN=` far more often than they hold a secret, and `Bearer ` with
+    nothing after it is a 401 where no header at all is a working anonymous request.
+    """
+    return ((env if env is not None else os.environ).get(GITHUB_TOKEN) or "").strip() or None
+
+
+def open_adapter(
+    name: str,
+    client: "httpx.AsyncClient",
+    *,
+    env: Mapping[str, str] | None = None,
+) -> "BaseSourceAdapter":
+    """The one way to construct a catalogue adapter, credential included.
+
+    **Every construction site was `adapter_for(client)` and every one dropped the token.** Both
+    adapters declared the parameter, both built the header correctly, and nothing had ever
+    passed one — so the whole authenticated path was dead code that read as working. A
+    constructor a caller can spell correctly-but-incompletely is a constructor that will be, and
+    the fix is to leave one spelling rather than to remember the keyword.
+    """
+    kinds = adapters()
+    if name not in kinds:
+        raise ValueError(
+            coded("MF0001", f"{name!r} is not a catalogue source")
+            + f"\n  known: {', '.join(sorted(kinds)) or '(none)'}"
+        )
+    return kinds[name](client, token=upstream_token(env))

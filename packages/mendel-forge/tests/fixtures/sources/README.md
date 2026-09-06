@@ -11,7 +11,6 @@ response *shape*, with the fields the adapters actually read, and the cases that
 | fixture | the case it carries |
 |---|---|
 | `nfcore_tree.json` | a nested tool (`samtools/sort`), a directory with only `main.nf`, and a `tests/` directory — the two things that must **not** count as modules |
-| `nfcore_tree_truncated.json` | `truncated: true`, which must make the sync refuse rather than report a short total |
 | `nfcore_meta_*.yml` | a real `meta.yml` shape, including the nested `input`/`output` blocks and the `meta` Groovy map that is never a port |
 | `pegi3s_repositories.json` | one paged listing, including a repository with **no** matching source directory |
 | `pegi3s_tags_*.json` | a semver tag beside `latest`, a tag with no manifest, and a repository whose only tag is `latest` |

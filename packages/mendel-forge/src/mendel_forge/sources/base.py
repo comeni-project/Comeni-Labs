@@ -207,12 +207,41 @@ class BaseSourceAdapter(ABC):
     name: str
     capabilities: SourceCapabilities
 
-    def __init__(self, client: httpx.AsyncClient, *, now: datetime | None = None) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        now: datetime | None = None,
+        token: str | None = None,
+    ) -> None:
         self._client = client
         self._now = now
         """A fixed clock for tests. Production passes `None` and reads the real one at the
         moment of the sync — a snapshot's `synced_at` is a fact about when, and freezing it in
         a constructor would date every future sync to process start."""
+        self._token = token
+        """The upstream credential, held here rather than on each subclass.
+
+        **It was a subclass concern and both subclasses forgot to be given one.** Each declared
+        `token: str | None = None` and each built its own `Authorization` header, and every
+        construction site in the API passed `adapter_for(client)` — so the parameter existed,
+        was correct, and had never once been filled. A full nf-core catalogue costs roughly two
+        thousand requests against a sixty-per-hour anonymous ceiling, which is why nothing had
+        ever synced.
+
+        On the base, a new adapter inherits the credential and `_auth()` rather than
+        remembering to re-declare both. That is the difference between a convention and a
+        mechanism.
+        """
+
+    def _auth(self) -> dict[str, str]:
+        """The bearer header when a token is configured, and nothing when it is not.
+
+        **Public development must work without one.** Every source this reaches is public; a
+        token buys rate limit, not access, so an unauthenticated run is slower and never
+        broken — and a test suite that had to hold a credential would be a worse test suite.
+        """
+        return {"Authorization": f"Bearer {self._token}"} if self._token else {}
 
     # ── the two source-specific questions ──────────────────────────────────────────────
 
@@ -324,12 +353,18 @@ class BaseSourceAdapter(ABC):
         headers: Mapping[str, str] | None = None,
         etag: str | None = None,
         accept_304: bool = False,
+        follow_redirects: bool = False,
     ) -> httpx.Response:
         """One request, retried on the statuses that can change, and never on the ones that
         cannot.
 
         **`Retry-After` is honoured when the server sends it.** Guessing a backoff against a
         server that has just told you how long to wait is how a client earns a longer ban.
+
+        **`follow_redirects` is off by default and named at the one call that needs it.** An
+        API that answers a redirect where JSON was expected has changed, and following it
+        silently turns that into a parse error somewhere else. GitHub's archive endpoints
+        genuinely redirect to a separate download host, which is what the flag is for.
         """
         sent = dict(headers or {})
         if etag:
@@ -337,7 +372,9 @@ class BaseSourceAdapter(ABC):
         last: Exception | None = None
         for attempt in range(MAX_ATTEMPTS):
             try:
-                response = await self._client.get(url, headers=sent)
+                response = await self._client.get(
+                    url, headers=sent, follow_redirects=follow_redirects
+                )
             except httpx.HTTPError as failure:
                 last = failure
                 if attempt == MAX_ATTEMPTS - 1:
