@@ -114,7 +114,7 @@ Ask what a downstream tool would need to know before consuming this. That is the
 id: priority_because
 asks: why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does
 open because: why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about
-required: True
+required: False
 answer with: a single value
 related evidence: E001
 

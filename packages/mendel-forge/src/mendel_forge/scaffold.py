@@ -49,6 +49,16 @@ class FilledValue(Answer):
     """
 
 
+OPTIONAL = frozenset({"priority_because"})
+"""Contract fields a candidate may be approved without. See `Scaffold.is_complete`.
+
+Read by `bundle.holes_of` too, so `ScaffoldHole.required` and this agree by construction rather
+than by two people remembering. They are two audiences for one judgement — `required` is what a
+model and a review page are told, and this is what `verify` and `land` enforce — and a hole that
+was optional to one and blocking to the other is the shape of defect this file keeps recording.
+"""
+
+
 class Hole(Question):
     """An unanswered question about a contract being drafted.
 
@@ -225,7 +235,26 @@ class Scaffold(BaseModel):
         return [hole.model_dump() for hole in sorted(holes, key=lambda h: h.subject)]
 
     def is_complete(self) -> bool:
-        return not self.holes
+        """Whether every hole that **blocks** is closed.
+
+        **The judgement lives here, which is what `Hole`'s docstring asks for**: *the blocking
+        lives in `Scaffold`, not here — putting that on this class would trade a structural
+        guarantee for a runtime check on a value.* So `OPTIONAL` is a property of the scaffold's
+        completeness rule rather than a field on each hole.
+
+        **One member, and it was blocking every landing.** `priority_because` is `str = ""` in
+        the contract schema, no contract in the registry carries one, and the hole was opened
+        like any other — so `verify`'s completeness rung refused with `MF0004` and
+        `approval_refusals` returned *validation did not pass* for every tool, forever. Issue
+        #99; the operator's decision on 2026-09-06 was not-required, with `priority` defaulting
+        to 0. The hole still opens and a curator with a reason still writes one.
+
+        **Named rather than derived, and the obvious derivation is wrong.** The schema defaults
+        `roles`, `container`, `consumes` and `produces` too, and a contract missing any of those
+        loads and is useless. Schema-defaultedness answers *can this be constructed*; this
+        answers *may a curator approve it*.
+        """
+        return not [hole for hole in self.holes if hole.subject not in OPTIONAL]
 
     def hole(self, field: str) -> Hole | None:
         return next((h for h in self.holes if h.subject == field), None)

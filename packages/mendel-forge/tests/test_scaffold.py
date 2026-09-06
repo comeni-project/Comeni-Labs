@@ -113,3 +113,50 @@ def test_a_list_field_is_checked_member_by_member():
     ).is_complete()
     with pytest.raises(ValueError, match="MF0003"):
         scaffold.fill("roles", ["qc_per_sample", "invented"], ValueSource.HUMAN, by="r", why="w")
+
+
+# ── which holes block an approval ──────────────────────────────────────────────────────
+
+
+def test_an_optional_hole_does_not_block_completeness():
+    """**This was the gate on every landing, for every tool.**
+
+    `priority_because` is `str = ""` in the contract schema and no contract in the registry
+    carries one, but the hole was opened like any other — so `verify`'s completeness rung
+    refused with `MF0004`, `green` stayed false, and `approval_refusals` returned both *required
+    hole(s) are still unresolved* and *validation did not pass* forever. Issue #99.
+
+    The hole still opens: a curator with a reason still writes one.
+    """
+    from comeni_core.review import ValueSource
+    from mendel_forge.observe import Observation
+    from mendel_forge.scaffold import OPTIONAL, Hole, Scaffold
+
+    assert OPTIONAL, "an empty set would make this test assert nothing"
+
+    scaffold = Scaffold(
+        kind="contracts",
+        target="tools/x/contract.yml",
+        observation=Observation(source="nf-core", ref_id="x"),
+        holes=[Hole(subject=name, closed=False) for name in sorted(OPTIONAL)],
+    )
+    assert scaffold.is_complete(), "an optional hole is blocking completeness"
+    assert scaffold.holes, "the hole must still be open — a curator may still answer it"
+
+    blocking = scaffold.model_copy(
+        update={"holes": [*scaffold.holes, Hole(subject="roles", closed=False)]}
+    )
+    assert not blocking.is_complete(), "a required hole stopped blocking"
+
+    answered = blocking.fill("roles", ["trimming"], ValueSource.MODEL, by="m", why="w")
+    assert answered.is_complete(), "closing every blocking hole did not complete the scaffold"
+
+
+def test_the_two_notions_of_required_agree():
+    """`ScaffoldHole.required` is what a model and a review page are told; `Scaffold.is_complete`
+    is what `verify` and `land` enforce. A hole optional to one and blocking to the other is the
+    defect this pair exists to prevent, so they read the same constant."""
+    from mendel_forge import bundle
+    from mendel_forge.scaffold import OPTIONAL
+
+    assert bundle.OPTIONAL_FIELDS is OPTIONAL

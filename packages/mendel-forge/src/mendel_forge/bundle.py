@@ -38,6 +38,7 @@ from mendel_forge import assemble, modulegen
 from mendel_forge.catalogue import CatalogueItem, SourceBundle
 from mendel_forge.hole_manifest import HoleKind, ScaffoldHole, pointer_for, port_hole_id
 from mendel_forge.observe import Excerpt, Fact, Observation
+from mendel_forge.scaffold import OPTIONAL as OPTIONAL_FIELDS
 from mendel_forge.scaffold import Hole, Scaffold
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
@@ -339,6 +340,25 @@ def _kind_of(subject: str) -> tuple[HoleKind, str]:
     return _KINDS.get(found.group(3) if found else subject, (HoleKind.PARAM, ""))
 
 
+"""Fields a candidate may be approved without. **A judgement, named rather than derived.**
+
+`ScaffoldHole.required` says so itself — *deriving it would make a judgement look like a
+classification* — and the obvious derivation is wrong here in a way worth writing down: the
+contract schema defaults `roles`, `container`, `consumes` and `produces` too, and a contract
+missing any of those loads and is useless. Schema-defaultedness answers *can this be
+constructed*; this answers *can a curator approve it*, and they are different questions.
+
+**`priority_because` is the only member and it was blocking every landing.** It is `str = ""`
+in the schema, no contract in the registry carries one, and it was opened `required=True` — so
+`approval_refusals` returned *required hole(s) are still unresolved* and *validation did not
+pass* for every tool, forever. Issue #99, and the operator's decision on 2026-09-06 was
+not-required with `priority` defaulting to 0.
+
+The hole still opens: a curator who has a reason writes one, and a ranking with a stated
+justification is better than one without. What changed is that its absence is no longer a
+refusal, which matches what the registry has always done."""
+
+
 def _takes_several(subject: str) -> bool:
     """Whether the contract field behind this hole holds a list.
 
@@ -505,6 +525,7 @@ def holes_of(
                 # answers a reviewer most needs told apart, and inferring one from a length
                 # collapses them the first time a vocabulary runs dry.
                 exhaustive=hole.closed and bool(legal),
+                required=hole.subject not in OPTIONAL_FIELDS,
                 multiple=_takes_several(hole.subject),
                 suggested=hole.suggested,
                 # Ordered and de-duplicated, so a hole citing one excerpt twice does not read
