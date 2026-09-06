@@ -339,6 +339,29 @@ def _kind_of(subject: str) -> tuple[HoleKind, str]:
     return _KINDS.get(found.group(3) if found else subject, (HoleKind.PARAM, ""))
 
 
+def _takes_several(subject: str) -> bool:
+    """Whether the contract field behind this hole holds a list.
+
+    **Asked of the schema, not of a table here.** `ModuleContract.roles` is `list[RoleName]`
+    and that annotation is the fact; a hand-kept set of multi-valued field names is a second
+    answer to the same question and goes stale the first time a field changes arity — which is
+    A33, in the shape it always takes.
+
+    Only a top-level field is asked about: a port's `type_id` and `name` are scalars inside a
+    list, and the hole is about the element rather than the collection.
+    """
+    from typing import get_origin
+
+    from comeni_core.declared.contract import ModuleContract
+
+    if _PORT.match(subject):
+        return False
+    field = ModuleContract.model_fields.get(subject)
+    if field is None:
+        return False
+    return get_origin(field.annotation) in (list, tuple, set, frozenset)
+
+
 def observation_of(source: SourceBundle, *, ident: str) -> Observation:
     """The fetched bundle, in the shape `assemble` reads.
 
@@ -482,6 +505,7 @@ def holes_of(
                 # answers a reviewer most needs told apart, and inferring one from a length
                 # collapses them the first time a vocabulary runs dry.
                 exhaustive=hole.closed and bool(legal),
+                multiple=_takes_several(hole.subject),
                 suggested=hole.suggested,
                 # Ordered and de-duplicated, so a hole citing one excerpt twice does not read
                 # as two pieces of evidence agreeing.

@@ -81,7 +81,11 @@ def apply(
             )
         updated = updated.fill(
             field_for(hole.pointer),
-            answer.value,
+            # **A list becomes a list, not a tuple.** The contract field is `list[RoleName]` and
+            # the scaffold is serialised to YAML a person reads; a tuple round-trips through
+            # JSON as an array either way, but `Scaffold.fill` stores what it is given and a
+            # `(…,)` in a dumped draft reads as a shape nobody wrote.
+            list(answer.value) if isinstance(answer.value, tuple) else answer.value,
             ValueSource.MODEL,
             by=by,
             why=answer.reason or f"proposed from {', '.join(answer.evidence_ids) or 'no evidence'}",

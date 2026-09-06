@@ -2669,6 +2669,29 @@ MF0404:
     easy to break by a refactor that pushes dossier construction one call deeper. The digest is
     on every attempt, so the check is a set with one member.
 
+MF0405:
+  emitted_by: forge
+  concern: prompt
+  says: "the response answers a hole with the wrong number of values"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Answer a hole that holds a list with a list, and one that holds a single value with a
+    string. `ScaffoldHole.multiple` says which, and it is derived from the contract field's own
+    annotation rather than from a table somebody keeps — `roles` is `list[RoleName]`, a port's
+    `type_id` is a `str`.
+  explanation: |
+    **This exists because the shape made a question unanswerable.** `Answer.value` was a single
+    `str` while `roles` has always been `list[RoleName]`, so *these two roles* had no
+    expressible form at all. Measured on 2026-09-06 driving `nf-core:seqkit/fq2fa` with a local
+    model: every single-valued closed choice was answered and `roles` was skipped on all three
+    attempts, which is the least-wrong response available to it.
+
+    **Cardinality is checked before vocabulary, and separately.** A list handed to a scalar hole
+    is not an answer outside the candidate set — every element may be perfectly legal — and
+    reporting it as `MF0403` would send a model looking for a vocabulary problem it does not
+    have. `legal_values` says which strings are allowed; this says how many.
+
 MI0102:
   emitted_by: api
   concern: prompt

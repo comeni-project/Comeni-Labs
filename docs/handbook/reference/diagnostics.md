@@ -219,6 +219,7 @@ decline to curate one.
 | `MF0402` | a response answers a hole the scaffold never opened |
 | `MF0403` | a response answers a closed question with a value outside its candidate set |
 | `MF0404` | a repair was given a different dossier than the attempt it repairs |
+| `MF0405` | the response answers a hole with the wrong number of values |
 | `MI0102` | a provider could not be reached while the worker was generating |
 
 ## The forge — landing a draft into a registry

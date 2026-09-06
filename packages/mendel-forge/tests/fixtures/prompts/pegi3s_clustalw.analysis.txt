@@ -77,6 +77,7 @@ id: nf_include
 asks: a value for nf_include
 open because: not derivable
 required: True
+answer with: a single value
 related evidence: E001
 
 Nextflow DSL2. The process name is uppercase with underscores and matches the tool and its
@@ -95,6 +96,7 @@ id: nf_process
 asks: a value for nf_process
 open because: this source ships no Nextflow module, so the process name is whatever the generated one is called
 required: True
+answer with: a single value
 related evidence: E001
 
 Nextflow DSL2. The process name is uppercase with underscores and matches the tool and its
@@ -113,6 +115,7 @@ id: priority_because
 asks: why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does
 open because: why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about
 required: True
+answer with: a single value
 related evidence: E001
 
 The published work behind this tool — a DOI, or a stable URL to the paper.
@@ -129,6 +132,7 @@ id: roles
 asks: the job this tool does in a pipeline — every one of the 12 contracts in this registry declares exactly one role
 open because: a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool
 required: True
+answer with: a list of values
 legal values (these are the only legal answers): alignment, bam_indexing, bam_sorting, index_building, profiling, qc_aggregation, qc_per_sample, quantification, trimming
 related evidence: E001
 
@@ -193,7 +197,17 @@ align_reads, count_features, qc_per_sample, sort_bam
           "type": "string"
         },
         "value": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
         }
       },
       "required": [

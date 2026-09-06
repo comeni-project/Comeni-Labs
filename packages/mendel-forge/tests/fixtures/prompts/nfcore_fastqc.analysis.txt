@@ -77,6 +77,7 @@ id: consumes.reads.name
 asks: what this contract calls the thing arriving on channel 0
 open because: a port name says what the channel carries; the module's says what the process calls it, and the two are not the same choice
 required: True
+answer with: a single value
 legal values (these are the only legal answers): reads
 related evidence: E001
 
@@ -96,6 +97,7 @@ id: consumes.reads.type_id
 asks: the semantic type of the input the module calls reads
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
+answer with: a single value
 legal values (these are the only legal answers): fastq.reads, alignment.bai, alignment.bam, annotation.gtf, counts.matrix, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
@@ -113,6 +115,7 @@ id: priority_because
 asks: why this contract should be preferred over another that produces the same type — routing ranks candidates by priority, and this is the sentence a reviewer reads when it does
 open because: why this contract ranks where it does is a judgement, and a bare integer with no reason is the gap audit A128 is about
 required: True
+answer with: a single value
 related evidence: E001
 
 The published work behind this tool — a DOI, or a stable URL to the paper.
@@ -129,6 +132,7 @@ id: produces.html.type_id
 asks: the semantic type of the output the module emits as html
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
+answer with: a single value
 legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
@@ -146,6 +150,7 @@ id: produces.versions-fastqc.type_id
 asks: the semantic type of the output the module emits as versions_fastqc
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
+answer with: a single value
 legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
@@ -163,6 +168,7 @@ id: produces.zip.type_id
 asks: the semantic type of the output the module emits as zip
 open because: nf-core declares an output as `type: file` with a filename pattern; the semantic type exists only in the English description
 required: True
+answer with: a single value
 legal values (these are the only legal answers): alignment.bai, alignment.bam, annotation.gtf, counts.matrix, fastq.reads, genome.fasta, genome.index.hisat2, genome.index.star, measurement.adapter_content, measurement.duplicate_rate, measurement.genome_length, measurement.library_prep, measurement.n_samples, measurement.node_memory_gb, measurement.organism, measurement.paired, measurement.purpose, measurement.read_length, measurement.rrna_fraction, measurement.strandedness, profile.yml, qc.report
 related evidence: E001
 
@@ -180,6 +186,7 @@ id: roles
 asks: the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role
 open because: a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool
 required: True
+answer with: a list of values
 legal values (these are the only legal answers): alignment, bam_indexing, bam_sorting, index_building, profiling, qc_aggregation, qc_per_sample, quantification, trimming
 related evidence: E001
 
@@ -244,7 +251,17 @@ align_reads, count_features, qc_per_sample, sort_bam
           "type": "string"
         },
         "value": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
         }
       },
       "required": [

@@ -129,6 +129,14 @@ def holes(scaffold_holes: Sequence[ScaffoldHole]) -> list[Segment]:
             f"open because: {hole.why_open}",
             f"required: {hole.required}",
         ]
+        # **How many, said before which.** A model given a list of legal values and no
+        # statement of arity reads it as *pick one* — which is right for a type id and wrong
+        # for `roles`, and on 2026-09-06 it was the difference between an answer and a skip.
+        lines.append(
+            "answer with: a list of values"
+            if hole.multiple
+            else "answer with: a single value"
+        )
         if hole.legal_values:
             closed = "these are the only legal answers" if hole.exhaustive else "known so far"
             lines.append(f"legal values ({closed}): {', '.join(hole.legal_values)}")

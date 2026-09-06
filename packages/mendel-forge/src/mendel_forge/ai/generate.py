@@ -152,6 +152,7 @@ def run(
         admit(answer, holes=holes, evidence_ids=legal_evidence)
         diagnostics = tuple(validate(answer))
         attempts.append(attempt.model_copy(update={"diagnostics": diagnostics}))
+        repeated = previous is not None and digest_of(_dump(previous)) == attempt.response_digest
         previous = answer
 
         if not diagnostics:
@@ -161,7 +162,32 @@ def run(
                 unresolved_holes=owed(answer, holes),
             )
 
-    return Outcome(proposal=None, attempts=tuple(attempts))
+        if repeated:
+            # **A repair that changed nothing will change nothing again.** Measured on
+            # 2026-09-06: three attempts against `seqkit/fq2fa` returned byte-identical
+            # proposals — 205s of which 135s were two repairs learning that the model had
+            # already said what it had to say. At temperature 0 that is the expected case, not
+            # a surprise: the repair prompt differs, and if the answer does not, another one
+            # costs a minute to re-read the same sentence.
+            #
+            # Compared on the *proposal*, not on the prompt: two different prompts producing
+            # one answer is exactly the situation worth stopping in.
+            break
+
+    # **The best proposal reached, not `None`.** Returning nothing threw away a proposal that
+    # had answered four of six questions correctly and had been validated — so a curator
+    # inherited an empty candidate after a model call that had done most of the work, and the
+    # `unresolved` count read `0` because there was no proposal to count against.
+    #
+    # `succeeded()` means *a proposal exists*, and whether it is green is what `diagnostics`
+    # and the caller's own verdicts say. Conflating the two is what discarded the work: a
+    # candidate with two open holes is reviewable, which is the same argument
+    # `generate_forge_revision` already makes about ending at `review` either way.
+    return Outcome(
+        proposal=previous,
+        attempts=tuple(attempts),
+        unresolved_holes=owed(previous, holes) if previous is not None else (),
+    )
 
 
 def _dump(proposal: Proposal | None) -> str:

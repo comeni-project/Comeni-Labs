@@ -111,6 +111,19 @@ class ScaffoldHole(BaseModel):
     suggested: str | None = None
     evidence_ids: tuple[str, ...] = ()
     prompt_hint_id: str = ""
+    multiple: bool = False
+    """Whether the field holds several values rather than one.
+
+    **A question nobody could answer was being asked.** `roles` is `list[RoleName]` on the
+    contract and every landed one reads `roles: [qc_per_sample]`, but the answer shape handed
+    to a model was a single string — so *these two roles* had no expressible form and a model
+    given that hole could only decline. Measured on 2026-09-06 driving `seqkit/fq2fa`: every
+    closed-choice hole with one value was answered and this one was skipped, three times.
+
+    **Derived from the contract schema, never listed here.** `list[X]` on the field is the fact;
+    a second list of *which fields are multi-valued* is a second place to be wrong, and it goes
+    stale the first time a field changes arity. `legal_values` still says what each element may
+    be — cardinality and vocabulary are separate questions and only one of them changed."""
 
     @model_validator(mode="after")
     def _the_addressing_holds(self) -> Self:

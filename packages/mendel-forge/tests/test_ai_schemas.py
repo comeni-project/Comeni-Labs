@@ -317,3 +317,112 @@ def test_an_answer_can_report_what_the_record_could_not_settle():
     A shape with nowhere to put it invites a plausible sentence instead."""
     answer = ChatAnswer(answer="I cannot tell", unanswered=("the tool's man page",))
     assert answer.unanswered == ("the tool's man page",)
+
+
+# ── how many values a hole takes ───────────────────────────────────────────────────────
+
+
+def test_a_list_valued_contract_field_opens_a_multi_valued_hole():
+    """**A question nobody could answer was being asked.**
+
+    `roles` is `list[RoleName]` on the contract and every landed one reads
+    `roles: [qc_per_sample]`, but `Answer.value` was a single `str` — so *these two roles* had
+    no expressible form at all. Measured 2026-09-06 on `seqkit/fq2fa`: a local model answered
+    every single-valued closed choice and skipped this one three times running.
+
+    Derived from the schema rather than from a list here, so a field that changes arity carries
+    its own answer.
+    """
+    from comeni_core.declared.contract import ModuleContract
+    from mendel_forge.bundle import _takes_several
+
+    assert _takes_several("roles"), "roles is list[RoleName] and the hole says it takes one"
+    assert not _takes_several("nf_process"), "a process name is one string"
+    assert not _takes_several("consumes[0].type_id"), "a port's type is a scalar inside a list"
+
+    # The derivation is only honest if it tracks the schema, so the schema is read here too.
+    assert ModuleContract.model_fields["roles"].annotation is not str
+
+
+def test_the_roles_hole_a_scaffold_actually_builds_says_it_takes_several():
+    """**Through the real derivation, not through the helper.**
+
+    A first version of the test above called `_takes_several` directly and passed with the call
+    site deleted — it proved the function worked and nothing about the hole a model is handed.
+    This reads the committed scaffold golden, which is what the prompt is rendered from.
+    """
+    from mendel_forge import bundle
+    from mendel_resolver import layers
+
+    from tests.test_scaffold_goldens import ADAPTATION, REGISTRY_DIGEST, ROOT, _nfcore
+
+    built = bundle.derive(
+        _nfcore(),
+        layers.load(ROOT / "registry"),
+        adaptation_id=ADAPTATION,
+        registry_digest=REGISTRY_DIGEST,
+    )
+    holes = {hole.id: hole for hole in built.holes}
+
+    assert holes, "the scaffold opened no holes; this test would assert nothing"
+    assert holes["roles"].multiple is True
+    assert holes["consumes.reads.type_id"].multiple is False
+
+
+def test_admit_refuses_the_wrong_number_of_values():
+    """**Cardinality before vocabulary.** A list handed to a scalar hole is not a value outside
+    the candidate set — every element may be legal — and reporting it as `MF0403` would send a
+    model chasing a vocabulary problem it does not have."""
+    import pytest
+    from mendel_forge.ai.schemas import Analysis, Answer, Proposal, admit
+    from mendel_forge.hole_manifest import HoleKind, ScaffoldHole
+
+    def hole(identifier: str, *, multiple: bool) -> ScaffoldHole:
+        return ScaffoldHole(
+            id=identifier,
+            pointer=f"/{identifier}",
+            kind=HoleKind.ROLE,
+            question="q",
+            why_open="w",
+            legal_values=("a", "b"),
+            multiple=multiple,
+        )
+
+    holes = [hole("many", multiple=True), hole("one", multiple=False)]
+
+    def proposal(hole_id: str, value) -> Proposal:
+        return Proposal(
+            analysis=Analysis(answers=(Answer(hole_id=hole_id, value=value, evidence_ids=("E1",)),))
+        )
+
+    admit(proposal("many", ("a", "b")), holes=holes, evidence_ids=["E1"])
+    admit(proposal("one", "a"), holes=holes, evidence_ids=["E1"])
+
+    with pytest.raises(ValueError, match="MF0405"):
+        admit(proposal("many", "a"), holes=holes, evidence_ids=["E1"])
+    with pytest.raises(ValueError, match="MF0405"):
+        admit(proposal("one", ("a",)), holes=holes, evidence_ids=["E1"])
+
+
+def test_every_element_of_a_list_answer_is_checked_against_the_vocabulary():
+    """One legal member does not make a list legal — `MF0403` still applies, per element."""
+    import pytest
+    from mendel_forge.ai.schemas import Analysis, Answer, Proposal, admit
+    from mendel_forge.hole_manifest import HoleKind, ScaffoldHole
+
+    hole = ScaffoldHole(
+        id="many",
+        pointer="/many",
+        kind=HoleKind.ROLE,
+        question="q",
+        why_open="w",
+        legal_values=("a", "b"),
+        multiple=True,
+    )
+    sneaky = Proposal(
+        analysis=Analysis(
+            answers=(Answer(hole_id="many", value=("a", "invented"), evidence_ids=("E1",)),)
+        )
+    )
+    with pytest.raises(ValueError, match="MF0403"):
+        admit(sneaky, holes=[hole], evidence_ids=["E1"])

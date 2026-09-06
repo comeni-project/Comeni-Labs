@@ -45,15 +45,26 @@ than a silently ignored field.
 class Answer(BaseModel):
     """One hole, closed.
 
-    `value` is a string because every hole's vocabulary is strings — a type id, a state, a
+    `value` carries strings because every hole's vocabulary is strings — a type id, a state, a
     role, a route, a process name. Typing it per `HoleKind` would put the vocabulary in two
     places, and the hole already carries the legal set.
+
+    **A list is allowed, and the reason is a question nobody could answer.** `roles` is
+    `list[RoleName]` on the contract and every landed one reads `roles: [qc_per_sample]`, but
+    this field was a single `str` — so *these two roles* had no expressible form. Measured on
+    2026-09-06 against `seqkit/fq2fa`: a local model answered every single-valued closed choice
+    and skipped this one on all three attempts, which is the least-wrong thing it could do with
+    the shape it was handed.
+
+    The vocabulary argument above is untouched: it says which *strings* are legal, and this
+    says how many. `ScaffoldHole.multiple` is the hole's own statement of that, derived from
+    the contract schema, and `admit()` holds an answer to it.
     """
 
     model_config = _FROZEN
 
     hole_id: str
-    value: str
+    value: str | tuple[str, ...]
     evidence_ids: tuple[str, ...] = ()
     """May be empty **only** for a hole whose answer is a naming choice rather than a claim
     about the tool — a process name is invented, not read. `admit()` enforces which."""
@@ -203,12 +214,26 @@ def admit(
                 coded("MF0401", f"the module proposal cites evidence not in its dossier: {stray}")
             )
 
-    outside = sorted(
-        f"{a.hole_id}={a.value!r}"
+    # **Cardinality before vocabulary**, because a list answering a scalar hole is not a value
+    # outside the candidate set — every element may be perfectly legal — and reporting it as
+    # one would send a model chasing a vocabulary problem it does not have.
+    miscounted = sorted(
+        f"{a.hole_id} takes {'several values' if by_id[a.hole_id].multiple else 'one value'}"
         for a in proposal.analysis.answers
-        if (hole := by_id[a.hole_id]).exhaustive
-        and hole.legal_values
-        and a.value not in hole.legal_values
+        if isinstance(a.value, tuple) is not by_id[a.hole_id].multiple
+    )
+    if miscounted:
+        raise ValueError(
+            coded("MF0405", f"the response answers with the wrong number of values: {miscounted}")
+            + "\n  a hole says whether its field holds one value or a list, and they differ"
+        )
+
+    outside = sorted(
+        f"{a.hole_id}={value!r}"
+        for a in proposal.analysis.answers
+        if (hole := by_id[a.hole_id]).exhaustive and hole.legal_values
+        for value in _each(a.value)
+        if value not in hole.legal_values
     )
     if outside:
         raise ValueError(
@@ -217,6 +242,16 @@ def admit(
         )
 
     return proposal
+
+
+def _each(value: str | tuple[str, ...]) -> tuple[str, ...]:
+    """Every string in an answer, whether it carries one or several.
+
+    A scalar and a one-element list are the same *vocabulary* question and a different
+    *cardinality* one; this is only ever used for the first, and the check above holds the
+    second before this is reached.
+    """
+    return value if isinstance(value, tuple) else (value,)
 
 
 def owed(proposal: Proposal, holes: Sequence[ScaffoldHole]) -> tuple[str, ...]:

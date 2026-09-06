@@ -138,17 +138,71 @@ def test_the_repair_prompt_carries_the_same_dossier_text():
 
 def test_the_loop_stops_after_two_repairs():
     """§5.7: *stop after two repairs and send the inspectable failure to review*. Three
-    attempts that each fix one diagnostic and break another are not converging."""
-    client, transport = _client(_answer(), _answer(), _answer(), _answer(), _answer())
+    attempts that each fix one diagnostic and break another are not converging.
+
+    **Each answer differs**, because the ceiling and the short-circuit below are two separate
+    stopping conditions and a test that triggers both cannot say which one it measured.
+    """
+    client, transport = _client(
+        _answer("fastq.reads", ("E001",)),
+        _answer("alignment.bam", ("E001",)),
+        _answer("fastq.reads", ()),
+        _answer("alignment.bam", ()),
+        _answer("fastq.reads", ("E001",)),
+    )
     outcome = run(
         client=client,
         dossier=_dossier(),
         holes=[_hole()],
         validate=lambda _: ("still wrong",),
     )
-    assert not outcome.succeeded()
     assert len(transport.prompts) == 3
     assert [a.ordinal for a in outcome.attempts] == [0, 1, 2]
+
+
+def test_a_repair_that_changes_nothing_stops_the_loop():
+    """**A repair that returned the same bytes will return them again.**
+
+    Measured on 2026-09-06 driving `seqkit/fq2fa` against a local `gemma3:12b`: three attempts,
+    three identical `response_digest`s, 205s of which 135s were two repairs learning that the
+    model had already said what it had to say. At temperature 0 that is the expected case
+    rather than a surprise.
+
+    Compared on the proposal rather than the prompt: the repair prompt genuinely differs — it
+    carries the prior proposal and the diagnostics — and two different prompts producing one
+    answer is exactly the situation worth stopping in.
+    """
+    client, transport = _client(_answer(), _answer(), _answer(), _answer())
+    outcome = run(
+        client=client,
+        dossier=_dossier(),
+        holes=[_hole()],
+        validate=lambda _: ("still wrong",),
+    )
+    assert len(transport.prompts) == 2, "the second repair asked a question already answered"
+    assert [a.ordinal for a in outcome.attempts] == [0, 1]
+
+
+def test_a_proposal_that_never_went_green_is_still_returned():
+    """**The work is kept, and `succeeded()` never meant *green*.**
+
+    The loop returned `proposal=None` after exhausting its repairs, so a run that answered four
+    of six questions correctly handed a curator an empty candidate and an `unresolved` count of
+    zero — because there was no proposal to count against. A candidate with open holes is
+    reviewable, which is the same argument `generate_forge_revision` already makes about ending
+    at `review` whether or not validation passed.
+    """
+    client, _ = _client(
+        _answer("fastq.reads"), _answer("alignment.bam"), _answer("fastq.reads", ())
+    )
+    outcome = run(
+        client=client,
+        dossier=_dossier(),
+        holes=[_hole()],
+        validate=lambda _: ("still wrong",),
+    )
+    assert outcome.proposal is not None, "the last validated proposal was discarded"
+    assert outcome.last_diagnostics() == ("still wrong",), "and it is returned with its verdict"
 
 
 def test_a_failed_run_keeps_every_attempt_and_the_last_diagnostics():
