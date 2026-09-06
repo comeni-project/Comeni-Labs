@@ -262,15 +262,40 @@ def _strip(node: object, *, naming: bool) -> object:
     return node
 
 
-def response_schema(shape: type) -> Segment:
+def response_schema(shape: type, *, authors_a_module: bool = True) -> Segment:
     """Section 9. Generated from the Pydantic model rather than written out, so a field added
     to the response and a field described to the model cannot drift — and `extra="forbid"`
-    means the shape is also the enforcement."""
+    means the shape is also the enforcement.
+
+    **`authors_a_module=False` removes the `module` arm, because it is a field the source
+    forbids answering.** §5.6: a source that ships Nextflow gets a contract bound to the
+    existing process and must not emit replacement Nextflow, and such a scaffold carries no open
+    sections to fill. The schema offered it anyway.
+
+    Measured 2026-09-06 on `nf-core:fastp`: a local model put `hole_id: "module"` in its
+    answers and `MF0402` refused the whole response — a field that is offered and forbidden is
+    a trap, and a prompt saying *do not use it* is a weaker instrument than not showing it.
+
+    Removed from the rendered schema rather than by defining a second model: `Proposal` is what
+    the client parses, and a second type would be a second place for the response shape to be
+    described. The parser still accepts a `module` if one somehow arrives; what changed is that
+    nothing invites it.
+    """
+    schema = shape.model_json_schema()
+    if not authors_a_module:
+        schema = _without_module(schema)
     return Segment(
         section=Section.RESPONSE_SCHEMA,
         key="response-schema",
-        text=json.dumps(_structure_only(shape.model_json_schema()), indent=2, sort_keys=True),
+        text=json.dumps(_structure_only(schema), indent=2, sort_keys=True),
     )
+
+
+def _without_module(schema: dict) -> dict:
+    """`Proposal` minus its `module` arm, and minus the definition only it referenced."""
+    properties = {k: v for k, v in schema.get("properties", {}).items() if k != "module"}
+    definitions = {k: v for k, v in schema.get("$defs", {}).items() if k != "ModuleProposal"}
+    return {**schema, "properties": properties, "$defs": definitions}
 
 
 def task(instruction: str) -> Segment:
@@ -307,7 +332,18 @@ def analysis_dossier(
             *vocabularies,
             *exemplars(landed),
             *existing_rules(rules),
-            response_schema(Proposal),
+            # **The `module` arm is shown only to a source that can use it.** §5.6: a source
+            # that ships Nextflow gets a contract bound to the existing process and *must not*
+            # emit replacement Nextflow, and such a scaffold carries no open sections to fill —
+            # so `Proposal.module` was a field in the schema that nothing could legally answer.
+            #
+            # Measured 2026-09-06 on `nf-core:fastp`, seventeen holes: a local model put
+            # `hole_id: "module"` in its answers and `MF0402` refused the whole response. A
+            # field offered and forbidden is a trap, and the prompt saying *do not use it* is a
+            # weaker instrument than not offering it.
+            response_schema(
+                Proposal, authors_a_module=not source.item.capabilities.supplies_nextflow
+            ),
             task(instruction),
         ],
         budget=budget,

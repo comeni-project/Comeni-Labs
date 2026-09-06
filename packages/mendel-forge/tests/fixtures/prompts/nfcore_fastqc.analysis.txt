@@ -277,35 +277,6 @@ align_reads, count_features, qc_per_sample, sort_bam
       ],
       "type": "object"
     },
-    "ModuleProposal": {
-      "additionalProperties": false,
-      "properties": {
-        "evidence_ids": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "input_block": {
-          "default": "",
-          "type": "string"
-        },
-        "output_block": {
-          "default": "",
-          "type": "string"
-        },
-        "script": {
-          "default": "",
-          "type": "string"
-        },
-        "versions_command": {
-          "default": "",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
     "Unresolved": {
       "additionalProperties": false,
       "properties": {
@@ -361,17 +332,6 @@ align_reads, count_features, qc_per_sample, sort_bam
   "properties": {
     "analysis": {
       "$ref": "#/$defs/Analysis"
-    },
-    "module": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ModuleProposal"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
     }
   },
   "required": [

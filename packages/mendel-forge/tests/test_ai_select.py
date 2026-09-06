@@ -267,3 +267,24 @@ def test_a_dossier_that_cannot_shed_enough_refuses_rather_than_dropping_a_hole()
     which is the only way to know the protected classes were assigned as this module intends."""
     with pytest.raises(ValueError, match="MF0400"):
         _dossier(budget=200)
+
+
+def test_a_source_that_ships_nextflow_is_not_offered_a_module_arm():
+    """**A field that is offered and forbidden is a trap.**
+
+    §5.6: a source shipping Nextflow gets a contract bound to the existing process and must not
+    emit replacement Nextflow, and such a scaffold carries no open sections to fill. The schema
+    offered `module` anyway. Measured 2026-09-06 on `nf-core:fastp`, seventeen holes: a local
+    model put `hole_id: "module"` in its answers and `MF0402` refused the whole response.
+
+    A prompt saying *do not use this field* is a weaker instrument than not showing it.
+    """
+    authoring = json.loads(select.response_schema(Proposal).text)
+    binding = json.loads(select.response_schema(Proposal, authors_a_module=False).text)
+
+    assert "module" in authoring["properties"], "the authoring case lost its module arm"
+    assert "ModuleProposal" in authoring["$defs"]
+
+    assert "module" not in binding["properties"]
+    assert "ModuleProposal" not in binding["$defs"]
+    assert binding["properties"]["analysis"], "the analysis arm was removed with it"
