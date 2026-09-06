@@ -4947,3 +4947,47 @@ each found only by driving the loop one stage further. The scan finds all of the
 
 **A fixture that sets up more than its subject does is a fixture that hides what the subject
 forgot.** That is the sentence to carry out of this one.
+
+## 2026-09-06 — the question nobody could answer, and 135 seconds spent re-reading one sentence
+
+Driving `nf-core:seqkit/fq2fa` with a local `gemma3:12b` produced a clean, interpretable split:
+**every hole carrying a candidate set was answered, and two were skipped.** One of those was our
+fault and it is the interesting one.
+
+**`roles` had no expressible answer.** It is `list[RoleName]` on the contract and every landed
+one reads `roles: [qc_per_sample]`, but `Answer.value` was a single `str`. A model asked for
+*these two roles* had no shape to say it in, so declining was the least-wrong thing available.
+Three attempts, three skips. The vocabulary argument on that field — *every hole's vocabulary is
+strings, and typing it per kind would put the vocabulary in two places* — was and remains right;
+it simply never covered **how many**.
+
+**And the arity is derived, not listed.** `list[X]` on the contract field is the fact, and a
+second table of which fields are multi-valued goes stale the first time a field changes arity.
+That is A33 in the shape it always takes.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-06 | `test_ai_schemas.py::test_the_roles_hole_a_scaffold_actually_builds_says_it_takes_several` | `multiple=_takes_several(...)` deleted from the hole construction | failed | `where False = ScaffoldHole(id='roles', …, multiple=False).multiple` |
+| 2026-09-06 | the same test, **first version** | the same deletion | **passed** | it called `_takes_several` directly, proving the helper worked and nothing about the hole a model is handed |
+| 2026-09-06 | `test_scaffold_goldens.py` (both) | the same deletion | failed | the golden is the artifact, so it caught what the named test could not |
+| 2026-09-06 | `test_ai_generate.py::test_a_repair_that_changes_nothing_stops_the_loop` | — | new | |
+| 2026-09-06 | `test_ai_generate.py::test_a_proposal_that_never_went_green_is_still_returned` | — | new | |
+
+**A guard that tests the helper instead of the wiring is the failure this file exists for**, and
+it happened here in the same hour as a fixture that supplied a file the job never wrote. Both
+pass on broken code, both read as coverage, and the only thing that separates them from a real
+guard is watching them fail against the specific defect.
+
+**Two stopping conditions in one test measured neither.** `test_the_loop_stops_after_two_repairs`
+scripted five *identical* answers, so after the short-circuit landed it was triggering both the
+repair ceiling and the no-change break — and a test that fires on either cannot say which one
+held. The ceiling test now scripts answers that differ, and the short-circuit has its own.
+
+**205 seconds of correct answers were being discarded.** The loop returned `proposal=None` after
+exhausting its repairs, so a run that answered four of six questions gave a curator an empty
+candidate and an `unresolved` count of `0` — because there was no proposal to count against.
+`succeeded()` is `proposal is not None` and never meant *green*.
+
+**135 of those 205 seconds were two repairs producing byte-identical proposals.** Three attempts,
+three identical `response_digest`s. At temperature 0 that is the expected case rather than a
+surprise, and it is one comparison to detect.

@@ -92,35 +92,91 @@ class Unresolved(BaseModel):
     needed_evidence: str = Field(min_length=1)
 
 
-class Analysis(BaseModel):
-    """The response to `forge.analysis.v1`: every hole either answered or explicitly left open.
+class VocabularyProposal(BaseModel):
+    """A hole whose closed vocabulary has no member that fits, and what would.
 
-    **Both lists are required to be disjoint and to cover nothing they were not asked.** A hole
-    appearing in neither is not an error here — it is reported by `owed()`, because the caller
-    decides whether an incomplete analysis is a repair or a review.
+    **The third thing a model can say, and without it two of the three were lies.** A closed
+    vocabulary is invariant 7 and it is derived from what has been landed by hand — nine roles
+    from twelve contracts. A tool from a 2,062-entry catalogue that does a job none of them
+    names left a model three options and all three were wrong: answer with a role that does not
+    describe the tool, claim `needed_evidence` when no amount of reading will make a new role
+    appear in a closed set, or say nothing. Measured 2026-09-06 on `seqkit/fq2fa`, which
+    converts FASTQ to FASTA against a vocabulary with no `format_conversion`: it said nothing,
+    three times, which is the least damaging of the three.
+
+    **A proposal is not an answer and does not close the hole.** `Scaffold.propose` keeps it
+    open, `is_complete()` stays false, and the candidate stays unapprovable until a person moves
+    the entry into `vocabularies/` — invariant 2's approval step, untouched. What changes is
+    that the hole now says *why* it is open rather than reading as a field nobody reached.
+
+    **No model runs a verb.** This is a typed value in a response envelope; `render.apply` calls
+    `Scaffold.propose` with it. `forge propose` stays the human path and both converge on the
+    same method, so there is one implementation of what a proposal is.
+    """
+
+    model_config = _FROZEN
+
+    hole_id: str
+    value: str
+    """The id being proposed — `format_conversion`, `fasta.sequences`. In the vocabulary's own
+    shape, because a person approving it copies it into a declared file unchanged."""
+    description: str = Field(min_length=1)
+    """What the new entry means, for the vocabulary file it may become."""
+    why: str = Field(min_length=1)
+    """Why nothing declared fits. **The load-bearing field**: a proposal whose reason is *"none
+    of the above"* is a request for a person to redo the analysis, and one that says which
+    candidates were considered and how each falls short is a decision they can check."""
+    evidence_ids: tuple[str, ...] = ()
+
+
+class Analysis(BaseModel):
+    """The response to `forge.analysis.v1`: every hole answered, left open, or proposed against.
+
+    **The three lists are required to be disjoint and to cover nothing they were not asked.** A
+    hole appearing in none of them is not an error here — it is reported by `owed()`, because
+    the caller decides whether an incomplete analysis is a repair or a review.
     """
 
     model_config = _FROZEN
 
     answers: tuple[Answer, ...] = ()
     unresolved: tuple[Unresolved, ...] = ()
+    proposals: tuple[VocabularyProposal, ...] = ()
 
     @model_validator(mode="after")
-    def _a_hole_is_answered_or_open_and_not_both(self) -> Self:
-        both = {a.hole_id for a in self.answers} & {u.hole_id for u in self.unresolved}
+    def _a_hole_is_addressed_exactly_one_way(self) -> Self:
+        seen: dict[str, list[str]] = {}
+        for arm, entries in (
+            ("answered", self.answers),
+            ("reported unresolved", self.unresolved),
+            ("proposed against", self.proposals),
+        ):
+            for entry in entries:
+                seen.setdefault(entry.hole_id, []).append(arm)
+        both = {hole: arms for hole, arms in seen.items() if len(arms) > 1}
         if both:
+            detail = "; ".join(
+                f"{hole} is {' and '.join(arms)}" for hole, arms in sorted(both.items())
+            )
             raise ValueError(
-                f"these holes are both answered and reported unresolved: {sorted(both)}. "
-                "A reviewer reading the candidate would see a settled value and a request for "
-                "more evidence about the same field, with nothing to say which is current."
+                f"these holes are addressed more than one way: {detail}. "
+                "A reviewer reading the candidate would see a settled value and a request about "
+                "the same field, with nothing to say which is current."
             )
         return self
 
     def addressed(self) -> frozenset[str]:
-        return frozenset({a.hole_id for a in self.answers} | {u.hole_id for u in self.unresolved})
+        return frozenset(
+            {a.hole_id for a in self.answers}
+            | {u.hole_id for u in self.unresolved}
+            | {p.hole_id for p in self.proposals}
+        )
 
     def cited(self) -> frozenset[str]:
-        return frozenset(e for a in self.answers for e in a.evidence_ids)
+        return frozenset(
+            [e for a in self.answers for e in a.evidence_ids]
+            + [e for p in self.proposals for e in p.evidence_ids]
+        )
 
 
 class ModuleProposal(BaseModel):
@@ -226,6 +282,32 @@ def admit(
         raise ValueError(
             coded("MF0405", f"the response answers with the wrong number of values: {miscounted}")
             + "\n  a hole says whether its field holds one value or a list, and they differ"
+        )
+
+    # **A proposal is only honest where the vocabulary is closed.** An open hole needs none —
+    # the value is simply legal, and proposing against it is a model asking permission for
+    # something it already has. The check runs before the vocabulary check below because a
+    # proposed value is deliberately *not* in `legal_values`; that is what makes it a proposal.
+    needless = sorted(
+        f"{p.hole_id} has an open vocabulary"
+        for p in proposal.analysis.proposals
+        if not (by_id[p.hole_id].exhaustive and by_id[p.hole_id].legal_values)
+    )
+    if needless:
+        raise ValueError(
+            coded("MF0406", f"the response proposes against a hole that is not closed: {needless}")
+            + "\n  a hole whose vocabulary is open takes the value directly — answer it instead"
+        )
+
+    already = sorted(
+        f"{p.hole_id}={p.value!r}"
+        for p in proposal.analysis.proposals
+        if p.value in by_id[p.hole_id].legal_values
+    )
+    if already:
+        raise ValueError(
+            coded("MF0406", f"the response proposes a value that is already legal: {already}")
+            + "\n  nothing needs declaring — answer the hole with it"
         )
 
     outside = sorted(

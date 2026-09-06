@@ -26,7 +26,14 @@ from comeni_core.review import ValueSource
 from mendel_forge.ai.schemas import Proposal
 from mendel_forge.hole_manifest import ScaffoldHole
 from mendel_forge.modulegen import INPUT_HOLE, OUTPUT_HOLE, SCRIPT_HOLE, open_sections
+from mendel_forge.scaffold import Proposal as VocabularyEntry
 from mendel_forge.scaffold import Scaffold
+
+# **Two types are called `Proposal` and they are not the same thing.** `ai.schemas.Proposal` is
+# a whole model response; `scaffold.Proposal` is one vocabulary entry a hole needs declared. The
+# alias is here rather than a rename because both names are right in their own module, and this
+# is the one file that holds both — reading `Proposal(...)` here and meaning either would be a
+# coin flip for the next person.
 
 _POINTER_PORT = re.compile(r"^/(consumes|produces)/(\d+)/(\w+)$")
 _POINTER_PLAIN = re.compile(r"^/(\w+)$")
@@ -89,6 +96,26 @@ def apply(
             ValueSource.MODEL,
             by=by,
             why=answer.reason or f"proposed from {', '.join(answer.evidence_ids) or 'no evidence'}",
+        )
+
+    for entry in sorted(proposal.analysis.proposals, key=lambda p: p.hole_id):
+        hole = by_id.get(entry.hole_id)
+        if hole is None:
+            raise ValueError(
+                coded("MF0402", f"nothing to propose against for {entry.hole_id!r}")
+                + "\n  `admit()` should have refused this response before it reached rendering"
+            )
+        # **`propose`, never `fill`, and the hole stays open.** A proposed value is by
+        # definition outside the candidate set — that is what proposing means — so `fill` would
+        # refuse it with `MF0003`, and forcing it through would make an unapproved vocabulary
+        # entry indistinguishable from a settled answer. `is_complete()` stays false and the
+        # candidate stays unapprovable until a person moves the entry into `vocabularies/`,
+        # which is invariant 2's approval step and the whole bound on a model inventing an id.
+        updated = updated.propose(
+            field_for(hole.pointer),
+            VocabularyEntry(
+                id=entry.value, description=entry.description, why=entry.why, by=by
+            ),
         )
     return updated
 

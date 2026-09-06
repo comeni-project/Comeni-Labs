@@ -210,7 +210,31 @@ def test_no_docstring_reaches_the_schema_section():
     assert "confidence" not in text
     assert "invariant" not in text
     assert "notes/specs" not in text
-    assert '"description"' not in text
+
+    # **Parsed rather than substring-matched, because a field may be *named* `description`.**
+    # `VocabularyProposal.description` is what a proposed vocabulary entry means, and the name
+    # is not negotiable — `scaffold.Proposal.description` is the field it becomes. The blunt
+    # `'"description"' not in text` fired on that name, and the stripper it was guarding had
+    # the same confusion in the other direction: it deleted the *property* along with the
+    # keyword, so the field silently vanished from the schema the model is shown.
+    def keywords(node: object, *, naming: bool = False) -> list[str]:
+        if isinstance(node, dict):
+            found = [] if naming else [k for k in node if k in ("description", "title")]
+            return found + [
+                key
+                for name, value in node.items()
+                for key in keywords(value, naming=not naming and name in select._NAME_MAPS)
+            ]
+        if isinstance(node, list):
+            return [key for item in node for key in keywords(item)]
+        return []
+
+    schema = json.loads(text)
+    assert schema, "the schema parsed to nothing; this check would assert nothing"
+    assert keywords(schema) == [], "a docstring reached the schema section"
+    assert "description" in schema["$defs"]["VocabularyProposal"]["properties"], (
+        "a field named `description` was stripped as though it were a docstring"
+    )
 
 
 def test_the_task_instruction_is_the_last_thing_in_the_rendered_dossier():

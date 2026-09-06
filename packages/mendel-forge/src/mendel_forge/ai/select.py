@@ -133,7 +133,14 @@ def holes(scaffold_holes: Sequence[ScaffoldHole]) -> list[Segment]:
         # statement of arity reads it as *pick one* — which is right for a type id and wrong
         # for `roles`, and on 2026-09-06 it was the difference between an answer and a skip.
         lines.append(
-            "answer with: a list of values"
+            # **"even when only one applies" is load-bearing.** The `roles` question already
+            # tells a model the observed distribution — *every one of the 12 contracts in this
+            # registry declares exactly one role*, which is derived and is the fix for a
+            # measured failure where a model chose three. Put a bare "answer with: a list of
+            # values" beside that and the two read as a contradiction, and a small model
+            # resolves a contradiction by answering neither. They are both true: the field
+            # holds a list, and one member is what this registry does.
+            "answer with: a list of values, even when only one applies"
             if hole.multiple
             else "answer with: a single value"
         )
@@ -224,15 +231,34 @@ def _structure_only(node: object) -> object:
     arriving through `Unresolved`'s docstring, which explains *why* there is no confidence
     field. The shape says what is legal; the prompt says what it means. Keeping the two
     separate is also what stops a docstring edit from silently changing a prompt.
+
+    **A property named `description` is not the keyword `description`.** The first version
+    filtered every key at every depth, so a model with a field called `description` or `title`
+    had that field silently *removed from the schema the model is shown* — it would then never
+    send it, and nothing would say why. Found by adding `VocabularyProposal.description`, whose
+    name is not negotiable: `scaffold.Proposal.description` is the field it becomes.
+
+    Inside `properties` and `$defs` the keys are names the author chose; everywhere else they
+    are JSON Schema keywords. That distinction is the whole fix.
     """
+    return _strip(node, naming=False)
+
+
+_NAME_MAPS = ("properties", "$defs", "definitions", "patternProperties")
+"""Schema keywords whose immediate keys are author-chosen names rather than keywords."""
+
+
+def _strip(node: object, *, naming: bool) -> object:
     if isinstance(node, dict):
+        if naming:
+            return {key: _strip(value, naming=False) for key, value in node.items()}
         return {
-            key: _structure_only(value)
+            key: _strip(value, naming=key in _NAME_MAPS)
             for key, value in node.items()
             if key not in ("description", "title")
         }
     if isinstance(node, list):
-        return [_structure_only(item) for item in node]
+        return [_strip(item, naming=False) for item in node]
     return node
 
 

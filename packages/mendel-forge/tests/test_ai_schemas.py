@@ -15,6 +15,7 @@ from mendel_forge.ai.schemas import (
     ModuleProposal,
     Proposal,
     Unresolved,
+    VocabularyProposal,
     admit,
     admit_answer,
     owed,
@@ -126,14 +127,41 @@ def test_a_hole_with_no_closed_vocabulary_accepts_anything():
     assert admit(proposal, holes=[hole], evidence_ids=set())
 
 
-def test_a_hole_cannot_be_answered_and_reported_unresolved_at_once():
-    """A reviewer would see a settled value and a request for more evidence about the same
-    field, with nothing to say which is current."""
-    with pytest.raises(ValueError, match="both answered and reported unresolved"):
-        Analysis(
-            answers=(Answer(hole_id="a", value="fastq.reads"),),
-            unresolved=(Unresolved(hole_id="a", needed_evidence="the tool's man page"),),
+def test_a_hole_is_addressed_exactly_one_way():
+    """A reviewer would see a settled value and a request about the same field, with nothing to
+    say which is current.
+
+    **Every pair, not the one pair that existed first.** The check was written when there were
+    two arms and enumerated them; `proposals` arrived and the two new pairs it created were
+    unguarded — a hole could be answered *and* proposed against, which is the same contradiction
+    the original was about.
+    """
+    answered = Answer(hole_id="a", value="fastq.reads")
+    open_for_evidence = Unresolved(hole_id="a", needed_evidence="the tool's man page")
+    proposed = VocabularyProposal(
+        hole_id="a",
+        value="format_conversion",
+        description="converts between formats",
+        why="none fit",
+    )
+
+    for arms in (
+        {"answers": (answered,), "unresolved": (open_for_evidence,)},
+        {"answers": (answered,), "proposals": (proposed,)},
+        {"unresolved": (open_for_evidence,), "proposals": (proposed,)},
+    ):
+        with pytest.raises(ValueError, match="addressed more than one way"):
+            Analysis(**arms)
+
+
+def test_each_arm_alone_is_fine():
+    """The check above is only meaningful if the ordinary case passes it."""
+    assert Analysis(answers=(Answer(hole_id="a", value="fastq.reads"),)).addressed() == {"a"}
+    assert Analysis(
+        proposals=(
+            VocabularyProposal(hole_id="b", value="x", description="d", why="w"),
         )
+    ).addressed() == {"b"}
 
 
 def test_an_unresolved_item_must_say_what_would_close_it():
@@ -186,7 +214,13 @@ def test_no_response_field_can_be_used_as_a_destination_path():
     declared = {
         "Answer": {"hole_id", "value", "evidence_ids", "reason"},
         "Unresolved": {"hole_id", "needed_evidence"},
-        "Analysis": {"answers", "unresolved"},
+        "Analysis": {"answers", "unresolved", "proposals"},
+        # **Checked field by field, which is what this table is for.** `value` is a
+        # vocabulary id, `description` and `why` are prose a curator reads before
+        # approving, and none of the four is ever joined onto a path — a proposal is
+        # recorded in the workspace draft by `Scaffold.propose`, at a location derived
+        # from the adaptation id exactly as a candidate is.
+        "VocabularyProposal": {"hole_id", "value", "description", "why", "evidence_ids"},
         "ModuleProposal": {
             "input_block",
             "output_block",
@@ -243,6 +277,7 @@ def test_the_table_covers_every_model_in_the_module():
     uncovered = defined - {
         "Answer",
         "Unresolved",
+        "VocabularyProposal",
         "Analysis",
         "ModuleProposal",
         "Proposal",

@@ -109,10 +109,19 @@ def run(
     """Ask, validate, and repair up to `repairs` times.
 
     Returns rather than raises on every outcome a reviewer could act on — a refusal, a
-    proposal that never validated, a proposal with holes left open. The one thing that raises
-    is `admit()` finding a response that is not about the question that was asked, because
-    there is nothing to review in that: a response citing invented evidence or answering
-    invented holes is not a weaker proposal, it is a different document.
+    proposal that never validated, a proposal with holes left open.
+
+    **`admit()` refusing used to be the one thing that raised, and it no longer does.** The
+    argument was that a response citing invented evidence or answering invented holes is not a
+    weaker proposal but a different document, so there is nothing to review in it. That is true
+    of what a *curator* can review and false of what a *model* can fix: the refusal names the
+    exact ids that were not asked, which is the most precise diagnostic in the system, and
+    §5.7's repair prompt exists to carry precisely that back.
+
+    Measured 2026-09-06 on `nf-core:fastp`, whose scaffold opens seventeen holes: a local model
+    answered sixteen and invented a `module` id, and 213 seconds were thrown away over the
+    seventeenth. Nothing inadmissible is returned either way — `previous` is assigned only
+    after `admit` passes, and only `previous` is ever put in an `Outcome`.
     """
     attempts: list[Attempt] = []
     legal_evidence = dossier.evidence_ids()
@@ -120,6 +129,14 @@ def run(
     dossier_digest = dossier.manifest.prompt_digest
 
     previous: Proposal | None = None
+    """The best ADMISSIBLE proposal so far, and the only thing that may be returned."""
+    last_seen: Proposal | None = None
+    """The last response of any kind, admissible or not — for the repair prompt alone.
+
+    **Kept apart from `previous` deliberately.** A repair prompt that says *your answer was
+    inadmissible* without showing the answer asks a model to guess which of seventeen ids it
+    invented. But an inadmissible response must never be returned, so it is shown and not
+    kept: `previous` is assigned only after `admit` passes."""
     diagnostics: tuple[str, ...] = ()
 
     for ordinal in range(repairs + 1):
@@ -128,7 +145,7 @@ def run(
         else:
             rendered = template(REPAIR).render(
                 {
-                    "previous": _dump(previous),
+                    "previous": _dump(last_seen),
                     "diagnostics": "\n".join(diagnostics) or "(none recorded)",
                     "dossier": dossier_text,
                 }
@@ -148,8 +165,26 @@ def run(
         if answer is None:
             attempts.append(attempt)
             continue
+        last_seen = answer
 
-        admit(answer, holes=holes, evidence_ids=legal_evidence)
+        try:
+            admit(answer, holes=holes, evidence_ids=legal_evidence)
+        except ValueError as refusal:
+            # **Inadmissible is repairable, and it used to be fatal.** `admit` refuses a response
+            # that is not about the question that was asked — an invented hole id, a fabricated
+            # citation — and *a curator* has nothing to review in that, which is the argument
+            # this raise was written on. A **model** does: it is the most precise diagnostic
+            # available, it names the exact ids that were not asked, and §5.7's repair prompt
+            # exists to hand a model exactly that.
+            #
+            # Measured 2026-09-06 on `nf-core:fastp`, whose scaffold opens seventeen holes: a
+            # local model answered sixteen and invented a `module` id, and 213 seconds were
+            # discarded over the seventeenth. Nothing inadmissible reaches a candidate either
+            # way — `previous` is only assigned below, so a refused response is never returned.
+            attempts.append(attempt.model_copy(update={"diagnostics": (str(refusal),)}))
+            diagnostics = (str(refusal),)
+            continue
+
         diagnostics = tuple(validate(answer))
         attempts.append(attempt.model_copy(update={"diagnostics": diagnostics}))
         repeated = previous is not None and digest_of(_dump(previous)) == attempt.response_digest

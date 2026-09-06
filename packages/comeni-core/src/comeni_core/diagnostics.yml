@@ -2692,6 +2692,30 @@ MF0405:
     reporting it as `MF0403` would send a model looking for a vocabulary problem it does not
     have. `legal_values` says which strings are allowed; this says how many.
 
+MF0406:
+  emitted_by: forge
+  concern: prompt
+  says: "the response proposes a vocabulary entry where none is needed"
+  fires_on: [forge generate]
+  refuses: true
+  fix: |
+    Propose only against a hole whose vocabulary is **closed** and whose legal values do not
+    contain the value you want. An open hole takes the value directly, and a value already in
+    `legal_values` is an answer rather than a proposal.
+  explanation: |
+    A vocabulary proposal says *nothing declared fits, and here is what would* — invariant 7's
+    escape hatch, and the reason `Scaffold.propose` keeps the hole open rather than filling it.
+    It is only a meaningful statement where there is a closed set to be outside of.
+
+    **Two ways it is not.** A hole with an open vocabulary needs no permission: the value is
+    already legal and the model is asking for something it has. A value that is already in
+    `legal_values` needs no declaring either; proposing it would put an entry into the approval
+    queue that duplicates one a person approved already.
+
+    Checked before `MF0403`, because a proposed value is deliberately *not* among the legal
+    values — that is what makes it a proposal — and running the vocabulary check first would
+    refuse every honest one.
+
 MI0102:
   emitted_by: api
   concern: prompt

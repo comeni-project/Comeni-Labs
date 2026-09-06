@@ -59,6 +59,15 @@ For every hole, exactly one of:
 
 - an **answer** — its id, the value, the evidence ids that support it, and why;
 - an **unresolved** item — its id, and what evidence would close it. Write that as something a
-  curator could go and find: a file, a flag, a section of documentation.
+  curator could go and find: a file, a flag, a section of documentation;
+- a **proposal** — for a hole whose legal values are the whole vocabulary and where none of
+  them describes this tool. Give the id you would add, what it means, and why each of the
+  listed values falls short. Naming the closest ones and saying how they miss is what makes it
+  a decision a curator can check rather than a request to redo the work.
 
-A hole you neither answer nor decline will be sent back to you.
+Choose a proposal only when the answer is *nothing declared fits*. Where more reading would
+settle the hole, that is an unresolved item; where one of the listed values is right, answer
+with it. A proposal does not close the hole — a person decides whether the vocabulary grows —
+so it costs nothing to be wrong about and everything to use instead of reading.
+
+A hole you neither answer nor decline nor propose against will be sent back to you.

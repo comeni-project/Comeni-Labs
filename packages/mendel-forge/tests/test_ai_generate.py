@@ -240,16 +240,46 @@ def test_a_refused_answer_is_recorded_and_the_loop_tries_again():
     assert outcome.attempts[1].refusal is None
 
 
-def test_a_response_citing_invented_evidence_raises_rather_than_repairing():
-    """`admit()` refuses before validation, and the loop does not catch it.
+def test_a_response_citing_invented_evidence_is_repaired_and_never_returned():
+    """**The refusal is a diagnostic now, and the guarantee it protected is unchanged.**
 
-    A response citing evidence that does not exist is not a weaker proposal to be repaired —
-    it is a different document, and offering it a second chance would be treating a broken
-    audit trail as a formatting problem.
+    This asserted that `admit()` raising killed the run, on the argument that a response citing
+    evidence that does not exist is not a weaker proposal but a different document. That
+    argument holds for what a *curator* can review; it does not hold for what a *model* can
+    fix. `MF0401` names the exact fabricated id — the most precise diagnostic in the system —
+    and the repair prompt exists to carry it back.
+
+    Measured on `nf-core:fastp`, seventeen holes: a local model answered sixteen and invented a
+    `module` id, and 213 seconds were discarded over the seventeenth.
+
+    **What must not change is that nothing inadmissible reaches a candidate**, and that is the
+    second half of this test: three inadmissible attempts produce no proposal at all.
     """
-    client, _ = _client(_answer(evidence=("E404",)))
-    with pytest.raises(ValueError, match="MF0401"):
-        run(client=client, dossier=_dossier(), holes=[_hole()], validate=_green)
+    client, transport = _client(
+        _answer(evidence=("E404",)),
+        _answer(evidence=("E405",)),
+        _answer(evidence=("E406",)),
+    )
+    outcome = run(client=client, dossier=_dossier(), holes=[_hole()], validate=_green)
+
+    assert len(transport.prompts) == 3, "the refusal was not carried into a repair"
+    assert "MF0401" in outcome.attempts[0].diagnostics[0]
+    assert outcome.proposal is None, "an inadmissible response reached the outcome"
+    assert not outcome.succeeded()
+
+
+def test_a_repair_prompt_shows_the_inadmissible_answer_it_is_about():
+    """A repair that says *your answer was inadmissible* without showing the answer asks a model
+    to guess which of seventeen ids it invented.
+
+    The rejected response is shown and not kept — `previous` holds only what `admit` passed,
+    which is what the test above asserts from the other side.
+    """
+    client, transport = _client(_answer(evidence=("E404",)), _answer())
+    run(client=client, dossier=_dossier(), holes=[_hole()], validate=_green)
+
+    assert "E404" in transport.prompts[1], "the repair prompt does not carry the refused answer"
+    assert "MF0401" in transport.prompts[1]
 
 
 def test_a_proposal_that_leaves_a_required_hole_open_still_succeeds():

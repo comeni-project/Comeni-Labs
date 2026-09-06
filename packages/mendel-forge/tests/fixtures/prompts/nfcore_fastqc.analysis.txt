@@ -186,7 +186,7 @@ id: roles
 asks: the job this tool does in a pipeline — every one of the 11 contracts in this registry declares exactly one role
 open because: a module declares no role — a role is the job it does in a pipeline, which is a judgement about the registry rather than a fact about the tool
 required: True
-answer with: a list of values
+answer with: a list of values, even when only one applies
 legal values (these are the only legal answers): alignment, bam_indexing, bam_sorting, index_building, profiling, qc_aggregation, qc_per_sample, quantification, trimming
 related evidence: E001
 
@@ -220,6 +220,13 @@ align_reads, count_features, qc_per_sample, sort_bam
           "default": [],
           "items": {
             "$ref": "#/$defs/Answer"
+          },
+          "type": "array"
+        },
+        "proposals": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VocabularyProposal"
           },
           "type": "array"
         },
@@ -315,6 +322,39 @@ align_reads, count_features, qc_per_sample, sort_bam
         "needed_evidence"
       ],
       "type": "object"
+    },
+    "VocabularyProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hole_id": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "why": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hole_id",
+        "value",
+        "description",
+        "why"
+      ],
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -349,6 +389,15 @@ For every hole, exactly one of:
 
 - an **answer** — its id, the value, the evidence ids that support it, and why;
 - an **unresolved** item — its id, and what evidence would close it. Write that as something a
-  curator could go and find: a file, a flag, a section of documentation.
+  curator could go and find: a file, a flag, a section of documentation;
+- a **proposal** — for a hole whose legal values are the whole vocabulary and where none of
+  them describes this tool. Give the id you would add, what it means, and why each of the
+  listed values falls short. Naming the closest ones and saying how they miss is what makes it
+  a decision a curator can check rather than a request to redo the work.
 
-A hole you neither answer nor decline will be sent back to you.
+Choose a proposal only when the answer is *nothing declared fits*. Where more reading would
+settle the hole, that is an unresolved item; where one of the listed values is right, answer
+with it. A proposal does not close the hole — a person decides whether the vocabulary grows —
+so it costs nothing to be wrong about and everything to use instead of reading.
+
+A hole you neither answer nor decline nor propose against will be sent back to you.
