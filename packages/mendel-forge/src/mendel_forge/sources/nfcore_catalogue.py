@@ -54,6 +54,7 @@ from mendel_forge.catalogue import (
     SourceCapabilities,
     SourceSnapshot,
 )
+from mendel_forge.sources import Credentials
 from mendel_forge.sources.base import (
     BaseSourceAdapter,
     RawBundle,
@@ -114,11 +115,11 @@ class NfCoreAdapter(BaseSourceAdapter):
         self,
         client: httpx.AsyncClient,
         *,
-        token: str | None = None,
+        credentials: "Credentials | None" = None,
         now: datetime | None = None,
         branch: str = BRANCH,
     ) -> None:
-        super().__init__(client, now=now, token=token)
+        super().__init__(client, now=now, credentials=credentials)
         self._branch = branch
         self._archived_at: str | None = None
         self._archived: dict[str, bytes] | None = None
@@ -139,7 +140,7 @@ class NfCoreAdapter(BaseSourceAdapter):
         return {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            **self._auth(),
+            **self._github_auth(),
         }
 
     # ── catalogue ──────────────────────────────────────────────────────────────────────

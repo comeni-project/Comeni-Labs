@@ -38,6 +38,7 @@ import random
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import httpx
 from comeni_core.diagnostics import coded
@@ -60,6 +61,9 @@ from mendel_forge.catalogue import (
     SyncWarning,
 )
 from mendel_forge.observe import Observation
+
+if TYPE_CHECKING:  # the package imports this module, so the annotation may not be a real import
+    from mendel_forge.sources import Credentials
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
@@ -212,15 +216,17 @@ class BaseSourceAdapter(ABC):
         client: httpx.AsyncClient,
         *,
         now: datetime | None = None,
-        token: str | None = None,
+        credentials: "Credentials | None" = None,
     ) -> None:
         self._client = client
         self._now = now
         """A fixed clock for tests. Production passes `None` and reads the real one at the
         moment of the sync — a snapshot's `synced_at` is a fact about when, and freezing it in
         a constructor would date every future sync to process start."""
-        self._token = token
-        """The upstream credential, held here rather than on each subclass.
+        from mendel_forge.sources import Credentials
+
+        self._credentials = credentials or Credentials()
+        """Every upstream credential, held here rather than on each subclass.
 
         **It was a subclass concern and both subclasses forgot to be given one.** Each declared
         `token: str | None = None` and each built its own `Authorization` header, and every
@@ -229,19 +235,22 @@ class BaseSourceAdapter(ABC):
         thousand requests against a sixty-per-hour anonymous ceiling, which is why nothing had
         ever synced.
 
-        On the base, a new adapter inherits the credential and `_auth()` rather than
+        On the base, a new adapter inherits the credentials and `_github_auth()` rather than
         remembering to re-declare both. That is the difference between a convention and a
         mechanism.
         """
 
-    def _auth(self) -> dict[str, str]:
-        """The bearer header when a token is configured, and nothing when it is not.
+    def _github_auth(self) -> dict[str, str]:
+        """The GitHub bearer header when a token is configured, and nothing when it is not.
 
-        **Public development must work without one.** Every source this reaches is public; a
-        token buys rate limit, not access, so an unauthenticated run is slower and never
-        broken — and a test suite that had to hold a credential would be a worse test suite.
+        **Public development must work without one.** Every source this reaches is public; the
+        GitHub token buys rate limit rather than access, so an unauthenticated run is slower and
+        never broken — and a test suite that had to hold a credential would be a worse test
+        suite. Docker Hub is the one place where a credential buys something anonymous access
+        cannot do at all, and `pegi3s.py` says why beside the call.
         """
-        return {"Authorization": f"Bearer {self._token}"} if self._token else {}
+        token = self._credentials.github
+        return {"Authorization": f"Bearer {token}"} if token else {}
 
     # ── the two source-specific questions ──────────────────────────────────────────────
 

@@ -229,6 +229,13 @@ class Pegi3sAdapter(BaseSourceAdapter):
     name = "pegi3s"
     capabilities = CAPABILITIES
 
+    _hub_session: str | None = None
+    """The Docker Hub JWT, minted on first use and held for the life of the adapter.
+
+    A class attribute read through the instance, so a subclass or a test can set it without an
+    `__init__` existing only to declare it — this adapter has none, and adding one to hold a
+    cache would be the whole reason it existed."""
+
     def _github(self) -> dict[str, str]:
         """**The GitHub half only.** Docker Hub says what images exist and needs no credential
         for a public namespace; the token is a GitHub rate limit and belongs on the requests
@@ -236,7 +243,7 @@ class Pegi3sAdapter(BaseSourceAdapter):
         return {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            **self._auth(),
+            **self._github_auth(),
         }
 
     # ── catalogue ──────────────────────────────────────────────────────────────────────
@@ -273,6 +280,48 @@ class Pegi3sAdapter(BaseSourceAdapter):
             complete=True,
         )
 
+    async def _hub(self) -> dict[str, str]:
+        """Docker Hub headers, with a session when one can be minted.
+
+        **This is the one credential that buys reach rather than rate.** The namespace is
+        public and every field read from it is public, but Hub caps `page_size` at 100 and
+        refuses any offset without a session — *pagination offset too large for anonymous
+        requests; sign in to page further*. The pegi3s namespace holds 199 repositories, so
+        anonymous access sees exactly the first 100 and `paginate` refuses the short list
+        rather than publishing two thirds of a catalogue. Measured 2026-09-06.
+
+        **Minted once per adapter and never logged.** Hub has no bearer form that takes the
+        token directly: a username and token are exchanged for a JWT, which is why the setting
+        is a pair. A failure here raises rather than falling back to anonymous, because a silent
+        downgrade lands back on the 100-of-199 wall with a credential configured and nothing
+        saying it was ignored.
+        """
+        if self._hub_session is not None:
+            return {"Authorization": f"Bearer {self._hub_session}"}
+        if self._credentials.dockerhub is None:
+            return {}
+
+        user, secret = self._credentials.dockerhub
+        response = await self._client.post(
+            f"{HUB}/auth/token",
+            json={"identifier": user, "secret": secret},
+            timeout=30.0,
+        )
+        if response.status_code >= 400:
+            raise UpstreamError(
+                coded("MF0201", f"{self.name}: Docker Hub refused the credential")
+                + f"\n  {response.status_code} from {HUB}/auth/token"
+                + "\n  check COMENI_FORGE_DOCKERHUB_USER and COMENI_FORGE_DOCKERHUB_TOKEN;"
+                + " the token needs only public repository read"
+            )
+        session = str(response.json().get("access_token") or "")
+        if not session:
+            raise UpstreamError(
+                coded("MF0201", f"{self.name}: Docker Hub returned no access token")
+            )
+        self._hub_session = session
+        return {"Authorization": f"Bearer {session}"}
+
     async def _repositories(self) -> list[_Repo]:
         """Every public repository in the namespace.
 
@@ -280,7 +329,9 @@ class Pegi3sAdapter(BaseSourceAdapter):
         `/v2/repositories/{namespace}` form. `paginate` follows `next` to the end and raises
         rather than stopping early.
         """
-        rows = await self.paginate(f"{HUB}/namespaces/{NAMESPACE}/repositories")
+        rows = await self.paginate(
+            f"{HUB}/namespaces/{NAMESPACE}/repositories", headers=await self._hub()
+        )
         return sorted(
             (
                 _Repo(
@@ -296,7 +347,8 @@ class Pegi3sAdapter(BaseSourceAdapter):
 
     async def _tags(self, repository: str) -> list[dict]:
         return await self.paginate(
-            f"{HUB}/namespaces/{NAMESPACE}/repositories/{repository}/tags"
+            f"{HUB}/namespaces/{NAMESPACE}/repositories/{repository}/tags",
+            headers=await self._hub(),
         )
 
     async def _source_head(self) -> str:

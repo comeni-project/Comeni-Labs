@@ -74,6 +74,8 @@ services:
       # costs about two thousand, so without this a full catalogue is not slow, it is
       # impossible. Unset is the anonymous lane and works — for one tool at a time.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
+      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
     ports: ["${API_HOST_PORT:-8000}:8000"]
     volumes:
       - ./packages:/app/packages
@@ -126,6 +128,8 @@ services:
       # queue. The API carries the same line for the reason the AI block does — two containers
       # disagreeing about one configuration is what having a single spelling was for.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
+      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry
@@ -186,6 +190,8 @@ services:
       # costs about two thousand, so without this a full catalogue is not slow, it is
       # impossible. Unset is the anonymous lane and works — for one tool at a time.
       COMENI_FORGE_GITHUB_TOKEN: ${COMENI_FORGE_GITHUB_TOKEN:-}
+      COMENI_FORGE_DOCKERHUB_USER: ${COMENI_FORGE_DOCKERHUB_USER:-}
+      COMENI_FORGE_DOCKERHUB_TOKEN: ${COMENI_FORGE_DOCKERHUB_TOKEN:-}
     volumes:
       - ./packages:/app/packages
       - ./.run/registry:/app/registry

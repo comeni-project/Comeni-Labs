@@ -74,10 +74,24 @@ async def test_no_token_sends_no_header(source, handler):
 
 def test_an_empty_setting_is_not_a_token():
     """`COMENI_FORGE_GITHUB_TOKEN=` is what a copied `.env.example` actually holds."""
-    assert sources.upstream_token({sources.GITHUB_TOKEN: ""}) is None
-    assert sources.upstream_token({sources.GITHUB_TOKEN: "   "}) is None
-    assert sources.upstream_token({}) is None
-    assert sources.upstream_token({sources.GITHUB_TOKEN: f"  {TOKEN} "}) == TOKEN
+    assert sources.upstream_credentials({sources.GITHUB_TOKEN: ""}).github is None
+    assert sources.upstream_credentials({sources.GITHUB_TOKEN: "   "}).github is None
+    assert sources.upstream_credentials({}).github is None
+    assert sources.upstream_credentials({sources.GITHUB_TOKEN: f"  {TOKEN} "}).github == TOKEN
+
+
+def test_half_a_docker_hub_credential_is_none():
+    """**Hub needs both halves, so one of them is not a credential.**
+
+    A username with no token would otherwise reach the login call and fail there — one layer
+    away from the setting that is actually missing, with an HTTP status where a sentence about
+    `.env` belongs.
+    """
+    both = {sources.DOCKERHUB_USER: "someone", sources.DOCKERHUB_TOKEN: "dckr_pat_x"}
+    assert sources.upstream_credentials(both).dockerhub == ("someone", "dckr_pat_x")
+    assert sources.upstream_credentials({sources.DOCKERHUB_USER: "someone"}).dockerhub is None
+    assert sources.upstream_credentials({sources.DOCKERHUB_TOKEN: "dckr_pat_x"}).dockerhub is None
+    assert sources.upstream_credentials({}).dockerhub is None
 
 
 def test_the_credential_lives_on_the_base_so_a_new_adapter_inherits_it():
@@ -87,8 +101,11 @@ def test_the_credential_lives_on_the_base_so_a_new_adapter_inherits_it():
     `_auth()` from the base or the class does not construct — which is the difference between
     a convention and a mechanism.
     """
-    assert "token" in BaseSourceAdapter.__init__.__code__.co_varnames
+    assert "credentials" in BaseSourceAdapter.__init__.__code__.co_varnames
+    carrying = sources.Credentials(github=TOKEN)
     for kind in sources.adapters().values():
         assert issubclass(kind, BaseSourceAdapter)
-        assert kind(None, token=TOKEN)._auth() == {"Authorization": f"Bearer {TOKEN}"}
-        assert kind(None)._auth() == {}
+        assert kind(None, credentials=carrying)._github_auth() == {
+            "Authorization": f"Bearer {TOKEN}"
+        }
+        assert kind(None)._github_auth() == {}

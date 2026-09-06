@@ -1005,3 +1005,4 @@ def test_a_provider_failure_reaches_the_page_as_a_code_and_not_as_a_stack():
     assert "TimeoutError" in detail, "the *kind* of failure is a different story for a curator"
     assert "10.0.0.4" not in detail
     assert "sk-abc" not in detail
+

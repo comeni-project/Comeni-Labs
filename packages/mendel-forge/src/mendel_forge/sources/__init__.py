@@ -25,6 +25,20 @@ if TYPE_CHECKING:  # a module every CLI verb imports must not pull in a transpor
 
     from mendel_forge.sources.base import BaseSourceAdapter
 
+DOCKERHUB_USER = "COMENI_FORGE_DOCKERHUB_USER"
+DOCKERHUB_TOKEN = "COMENI_FORGE_DOCKERHUB_TOKEN"
+"""Docker Hub credentials, as a **pair**, because Hub's API needs both.
+
+**This buys enumeration, not access.** Everything read is a public namespace; what anonymous
+access cannot do is *page*. Hub caps `page_size` at 100 and refuses any offset without a
+session — `pagination offset too large for anonymous requests` — so the pegi3s namespace is
+199 repositories of which 100 are reachable, and the adapter refuses a short total rather than
+publishing two thirds of a catalogue. Measured 2026-09-06.
+
+A personal access token with **Public Repo Read-only** is the whole requirement. Unlike the
+GitHub token, both halves are needed: Hub exchanges a username and token for a session JWT and
+has no bearer form that takes the token directly."""
+
 GITHUB_TOKEN = "COMENI_FORGE_GITHUB_TOKEN"
 """The environment variable holding an upstream GitHub credential.
 
@@ -126,14 +140,44 @@ def adapters() -> dict[str, type]:
     return {NfCoreAdapter.name: NfCoreAdapter, Pegi3sAdapter.name: Pegi3sAdapter}
 
 
-def upstream_token(env: Mapping[str, str] | None = None) -> str | None:
-    """The configured upstream credential, or `None`.
+class Credentials(BaseModel):
+    """What the adapters may use to reach their upstreams. One entry per host.
 
-    An empty or whitespace-only value is `None` rather than a token, because `.env` files hold
+    **Per host rather than per adapter**, because that is what a credential is: both adapters
+    read GitHub and share that token, and only one of them talks to Docker Hub. Keying by
+    adapter would give two names for one secret the day a third source reads a GitHub repo.
+
+    Every field is optional and every source works without any of them — at a lower rate limit
+    for GitHub, and to a hard 100-of-199 ceiling for Docker Hub.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    github: str | None = None
+    dockerhub: tuple[str, str] | None = None
+    """`(username, token)`. Hub needs both to mint a session, so half of it is not a credential
+    and is treated as none — a username with no token would otherwise reach the login call and
+    fail there, one layer away from the setting that is actually missing."""
+
+
+def _setting(env: Mapping[str, str] | None, name: str) -> str | None:
+    """One environment value, or `None` for one that is empty.
+
+    An empty or whitespace-only value is not a credential, because `.env` files hold
     `COMENI_FORGE_GITHUB_TOKEN=` far more often than they hold a secret, and `Bearer ` with
     nothing after it is a 401 where no header at all is a working anonymous request.
     """
-    return ((env if env is not None else os.environ).get(GITHUB_TOKEN) or "").strip() or None
+    return ((env if env is not None else os.environ).get(name) or "").strip() or None
+
+
+def upstream_credentials(env: Mapping[str, str] | None = None) -> Credentials:
+    """Every configured upstream credential, read from the environment."""
+    user = _setting(env, DOCKERHUB_USER)
+    secret = _setting(env, DOCKERHUB_TOKEN)
+    return Credentials(
+        github=_setting(env, GITHUB_TOKEN),
+        dockerhub=(user, secret) if user and secret else None,
+    )
 
 
 def open_adapter(
@@ -156,4 +200,4 @@ def open_adapter(
             coded("MF0001", f"{name!r} is not a catalogue source")
             + f"\n  known: {', '.join(sorted(kinds)) or '(none)'}"
         )
-    return kinds[name](client, token=upstream_token(env))
+    return kinds[name](client, credentials=upstream_credentials(env))
