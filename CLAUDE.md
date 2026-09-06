@@ -86,19 +86,33 @@ it up is what 2026-09-02 was.
 ## Current state
 
 > **Start with the latest entry in [`notes/journal/`](docs/notes/journal/)** — which is
-> [`2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md`](docs/notes/journal/2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md),
-> covering **Tasks 1–5 of the Forge MVP plan**, on the worktree `.claude/worktrees/forge-mvp`.
-> The forge can now say how big the world is: two source adapters over a common base, PEGiS
-> reading its own `dio.obo`/`dio.diaf`/`metadata.json` ontology, seven Postgres tables for the
-> adaptation workflow, and a scaffold whose holes are addressed by **channel name rather than by
-> index**. `mendel-ai` became **`comeni-ai`**, with a one-file shim left behind.
+> [`2026-09-06-the-forge-runs.md`](docs/notes/journal/2026-09-06-the-forge-runs.md).
+> **The Forge MVP is COMPLETE**, merged from `.claude/worktrees/forge-mvp`, and the whole chain
+> runs from one HTTP call: sync → scaffold → the AI worker claiming the job → a local model on a
+> GPU → the validation ladder → `review`.
 >
-> **That entry's lesson is one sentence and it repeated five times in three days:** *two
-> mechanisms that each fully answer one question, presented as defence in depth, are almost always
-> one mechanism and one decoration.* `SourceSnapshot.classified`, `pegi3s.ALIASES`,
-> `forge_state.move`'s `row_version`, `Workspace._inside`. **The test that separates an earning
-> pair from a hiding one is to delete each half separately and watch what fails** — one-active-
-> adaptation passes it, the other four did not.
+> **The numbers are measured, not asserted.** The nf-core catalogue is **2,062 real tools**; a
+> sync costs **2 requests and 10.4 seconds** where it cost ~2,400 and never finished inside an
+> hour's rate-limit budget; adapting one tool costs 2 where it cost ~700. It refreshes hourly
+> and on startup. The deterministic scaffolder — the product's claim, and never once exercised
+> before this day — proves eight values from real upstream data and hands out six typed
+> questions addressed by **channel name**, each with its legal set, whether that set is
+> exhaustive, a ranked suggestion, and the evidence it rests on.
+>
+> **That entry's lesson is one sentence:** *a loop nobody has driven has as many defects as it
+> has stages.* Nine in a day, each found by fixing the one before it, and **not one visible to a
+> 2,400-test suite**. Two shapes account for almost all of them and both are worth knowing
+> before writing a test here: **a fixture that sets up more than its subject does hides what the
+> subject forgot** — the review-page fixture wrote the file the job never wrote, so ten tests
+> passed over a page that 404s in production — and **an all-or-nothing rule throws away
+> almost-complete work**, three times, each defensible alone and each costing a whole run.
+>
+> **What is shaky is the model, not the loop.** `gemma3:12b` locally answered 4 of 6 holes on a
+> small tool and invented a hole id on all three attempts at a seventeen-hole one; structured
+> output degrades with hole count. **Wiring a stronger provider is a configuration change by
+> construction** (invariant 13) and is the highest-value next step. Twice the model declined and
+> was right both times — no closed role describes *convert FASTQ to FASTA*, and no README
+> supports a comparative ranking claim.
 >
 > **The review chat is a fifth egress door, decided 2026-09-05 by the operator.** A curator's
 > message is free text typed at request time and sent to a model, which is the one leg the
@@ -108,9 +122,18 @@ it up is what 2026-09-02 was.
 > is *who authored the string*, and a dossier is composed only from vendored modules and
 > registry files. A separate `FORGE_DOORS` was rejected — two lists creates a cheaper list.
 >
-> **The forge is no longer deprecated-and-untouched**; this plan is its rework, and Tasks 1–5 are
-> done. What has *not* happened is anybody opening a browser: Tasks 10 and 11 build the UI, and
-> every lesson below about guards being blind to appearance is unpaid.
+> **A model can now propose a vocabulary entry** (#100), and the shape of that is the thing to
+> understand before extending it: it returns a **typed value**, and `render.apply` calls
+> `Scaffold.propose` with it — never `fill`. The hole stays open, `is_complete()` stays false,
+> and a person moves the entry into `vocabularies/`. **No model runs a verb.** `forge propose`
+> remains the human path and both converge on one method.
+>
+> **Still unrun, and named so nobody assumes otherwise:** approve → land → `mendel build` on a
+> candidate with every hole closed; request-changes → a second revision; the review chat itself;
+> pegi3s, which needs a Docker Hub credential and unlocks module generation for a source that
+> ships no Nextflow — the last untested *kind* of adaptation. And **nobody has opened a
+> browser**: every screen was checked with `curl` and headless screenshots, so every lesson
+> below about guards being blind to appearance is unpaid.
 >
 > Before it, **2026-09-01 has THREE entries that a filename sort does not order.** The one to
 > read is
@@ -157,7 +180,7 @@ it up is what 2026-09-02 was.
 > covering **Plan 5A: the modules moved into the registry layer and `vendor/` is deleted.**
 > `--registry X` is the whole input to a build, and three checks exist that could not before.
 > Read it before touching the registry, conformance, or anything that used to join a path onto
-> a module root. **The forge is deprecated** — `make forge-rework` is the list.
+> a module root. The forge was deprecated then and **is not any more** — see 2026-09-06.
 >
 > Before it, [`2026-08-30-the-overview.md`](docs/notes/journal/2026-08-30-the-overview.md), covering Plan 4
 > phases 0–5 and then **phase 6, which exists because the operator drove the result**. Phases 0
@@ -386,12 +409,12 @@ never existed in the palette.
 halves and verified them; W2's checkpoints 3, 4, 5 and 6 are owed for the same reason. The
 browser half is unrun, which is exactly the gap 3E's lesson names.
 
-**The forge is DEPRECATED pending its own rework** — the operator's decision, 2026-08-31, and it
-is stronger than the "needs testing and general rework" this said before. **It is not in use and
-the product is deployed nowhere**, so nothing should be invested in making its code or its tests
-correct until the redesign says what it is. Plan 5A moved the registry out from under it and
-changed three of its files anyway, because leaving them would have made `forge land` write into a
-layout the registry no longer uses — *more* broken rather than equally broken.
+**The forge was DEPRECATED from 2026-08-31 and that ended on 2026-09-06**, when the Forge MVP
+completed. Read the journal entry rather than this paragraph — what it is now, and what it still
+cannot do, is there. The deprecation is recorded rather than deleted because the rework was
+*driven by it*: nothing was invested in making the old code correct, and Plan 5A changed three
+of its files anyway, because leaving them would have made `forge land` write into a layout the
+registry no longer uses — *more* broken rather than equally broken.
 
 **`make forge-rework` lists what the rework has to revisit.** Everything Plan 5A touched or
 invalidated carries a `FORGE-REWORK` marker, including one skipped frontend test — skipped rather

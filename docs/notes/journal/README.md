@@ -16,12 +16,23 @@ earlier one — the same discipline as `audits/` and for the same reason.
 
 ## Reading it
 
-> **The newest entry is
-> [`2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md`](2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md)**
-> — Tasks 1–5 of the Forge MVP plan, on the worktree `.claude/worktrees/forge-mvp`. Read it for
-> what the forge can now do, and for the day's lesson: **two mechanisms presented as defence in
-> depth are almost always one mechanism and one decoration**, five times in three days, with the
-> test that tells them apart.
+> **The newest entry is [`2026-09-06-the-forge-runs.md`](2026-09-06-the-forge-runs.md)** — the
+> Forge MVP is complete, and the whole chain runs from one HTTP call: a real nf-core catalogue
+> of 2,062 tools, a scaffold that proves eight values and hands out six typed questions, an AI
+> worker taking a job off its own queue, a local model on a GPU, and the validation ladder.
+> Read it for the day's lesson: **a loop nobody has driven has as many defects as it has
+> stages** — nine in a day, and not one visible to a 2,400-test suite.
+>
+> Two shapes account for almost all of them, and both are worth knowing before writing a test
+> here: **a fixture that sets up more than its subject does hides what the subject forgot**, and
+> **an all-or-nothing rule throws away almost-complete work** — three of those, each defensible
+> alone, each costing a whole run.
+>
+> Before it,
+> [`2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md`](2026-09-04-the-forge-gets-a-catalogue-and-a-spine.md)
+> — Tasks 1–5 of the same plan. Read it for the lesson that repeated five times in three days:
+> **two mechanisms presented as defence in depth are almost always one mechanism and one
+> decoration**, with the test that tells them apart.
 >
 > **2026-09-01 has THREE entries and a filename sort orders none of them.** In order:
 > [`2026-09-01-a-channel-gets-a-name.md`](2026-09-01-a-channel-gets-a-name.md) — Plan 5B phases
