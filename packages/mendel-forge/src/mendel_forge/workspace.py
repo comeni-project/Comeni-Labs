@@ -136,6 +136,23 @@ class Workspace(BaseModel):
             )
         return Draft.model_validate_json(path.read_text())
 
+    def write_draft(self, draft: Draft) -> Path:
+        """Replace an adaptation's derived scaffold, in place.
+
+        **The counterpart to `read_draft`, and deliberately not `save`.** `save` writes the
+        `forge draft` CLI's layout at the workspace root; this writes inside the adaptation
+        directory, beside the bundle and the stored source. A generation that saved through the
+        wrong one produced a file nothing reads and left the adaptation looking unfilled.
+
+        Unlike `write_bundle` this overwrites, because it is the *working* object: the bundle is
+        the immutable record of what was derived, and the draft moves every time a hole is
+        answered.
+        """
+        path = self.root / "forge" / draft.name / "draft.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(draft.model_dump_json(indent=2) + "\n")
+        return path
+
     def read_holes(self, adaptation_id: str) -> tuple["ScaffoldHole", ...]:
         """The questions the scaffold opened, read back from the manifest beside the files.
 

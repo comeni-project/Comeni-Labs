@@ -1006,3 +1006,55 @@ def test_a_provider_failure_reaches_the_page_as_a_code_and_not_as_a_stack():
     assert "10.0.0.4" not in detail
     assert "sk-abc" not in detail
 
+
+def test_scaffolding_queues_the_generation_that_follows_it(monkeypatch):
+    """**`queued` has to mean something is queued.**
+
+    The scaffold job moved the row to `QUEUED` and returned, so an adaptation sat there until
+    somebody called `retry` — a verb that reads `failed_stage` and was therefore the wrong one
+    for a row that had not failed. Nothing drove the loop from one stage to the next, and no
+    test noticed because every test called the job bodies directly.
+    """
+    import ast
+    import inspect
+
+    from mendel_api.services import forge_jobs
+
+    tree = ast.parse(inspect.getsource(forge_jobs.scaffold_forge_adaptation))
+    called = {
+        node.func.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "enqueue_generation" in called, (
+        "the scaffold job leaves the row in `queued` and enqueues nothing; the loop stops there"
+    )
+
+
+def test_no_model_configured_leaves_it_queued_rather_than_failed(monkeypatch):
+    """**The no-AI lane, staying honest.**
+
+    With nothing to reach a provider with, an unconditional enqueue fails the generation on
+    `MI0106` the instant a scaffold lands — so an installation that deliberately configures no
+    model would show every adaptation as `failed`. `queued` is the truthful state: waiting for
+    a model, or for a curator filling holes by hand.
+    """
+    import ast
+    import inspect
+
+    from mendel_api.services import forge_jobs
+
+    tree = ast.parse(inspect.getsource(forge_jobs.scaffold_forge_adaptation))
+    guarded = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.If)
+        and any(
+            isinstance(inner, ast.Call)
+            and isinstance(inner.func, ast.Name)
+            and inner.func.id == "enqueue_generation"
+            for inner in ast.walk(node)
+        )
+        and "model_access" in ast.dump(node.test)
+    ]
+    assert guarded, "the generation is enqueued without checking that a model is configured"

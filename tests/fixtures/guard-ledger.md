@@ -4912,3 +4912,38 @@ to come from the tree API. Recomputing them as `sha1("blob <len>\0" + bytes)` ke
 existing digest byte-identical, so no adapted tool reads as outdated because of a change to how
 the files were fetched. A different hash would have aged the whole registry at once — which is
 precisely the noise the per-module digest exists to prevent.
+
+## 2026-09-06 — driving the loop, and the four defects nothing could see
+
+**The deterministic half had never been run against a real catalogue row**, and every stage of
+the automated chain was broken in a way no test could reach. Each was found by fixing the one
+before it and running again, which is the pattern worth carrying: a loop nobody has driven has
+as many defects as it has stages.
+
+| what | where it surfaced |
+|---|---|
+| `write_bundle` handed no `source=` | every generation would fail reading *no stored source*, one layer from the omission |
+| nothing wrote the derived `Scaffold` at all | `candidate()` answered 404 for **every** real adaptation |
+| the scaffold job enqueued nothing after moving the row to `queued` | an adaptation sat in `queued` forever; `retry` reads `failed_stage` and refuses a row that has not failed |
+| `workspace.load(adaptation_id)` in four places | the CLI draft layout, which cannot address an adaptation |
+
+**Why no test saw any of it.** `_derive_and_write` is monkeypatched in every test that touches
+it, so nothing had watched it lay out a directory — and the review-page fixture called
+`workspace.save(Draft(...))` immediately before `write_bundle`, under a docstring saying it lays
+things out *the way the jobs do*. **The fixture was supplying the file the job never wrote.**
+Ten tests passed over a page that answered 404 in production.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-09-06 | `test_forge_candidate.py::test_the_scaffold_job_writes_everything_the_review_page_reads` | both keyword arguments dropped from `write_bundle` | failed | `E 'draft'` — the call names neither half the readers need |
+| 2026-09-06 | `test_adaptations_use_the_adaptation_layout.py::test_no_adaptation_is_read_through_the_cli_draft_loader` | one call put back to `workspace.load(adaptation_id)` | failed | `assert not [('load', 'adaptation_id')]` |
+| 2026-09-06 | `test_forge_jobs.py::test_scaffolding_queues_the_generation_that_follows_it` | — | new; holds `queued` meaning something is queued | |
+
+**Two layouts in one workspace is the root cause, and the scan is the fix.** `save`/`load`
+address a draft by the name a person gave it; `read_draft`/`write_draft` address an adaptation
+by its id. They take the same type and return the same type, so the compiler cannot tell them
+apart and a reader will not either. Four call sites got it wrong, each failing a layer away, and
+each found only by driving the loop one stage further. The scan finds all of them at once.
+
+**A fixture that sets up more than its subject does is a fixture that hides what the subject
+forgot.** That is the sentence to carry out of this one.

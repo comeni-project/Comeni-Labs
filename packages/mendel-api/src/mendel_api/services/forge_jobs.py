@@ -269,7 +269,7 @@ def _answer(adaptation_id: str, message_id: str):
     client = _client()
     workspace = Workspace(root=settings.workspace_root)
     source = workspace.read_source(adaptation_id)
-    draft = workspace.load(adaptation_id)
+    draft = workspace.read_draft(adaptation_id)
 
     question, tail, revision_digest = _conversation(adaptation_id, message_id)
     payload = ForgeReviewRequest(
@@ -535,7 +535,7 @@ def _generate(adaptation_id: str):
     source = workspace.read_source(adaptation_id)
     holes = workspace.read_holes(adaptation_id)
     stack = layers.load(settings.registry_root)
-    draft = workspace.load(adaptation_id)
+    draft = workspace.read_draft(adaptation_id)
 
     dossier = select.analysis_dossier(
         source=source,
@@ -585,7 +585,7 @@ def _generate(adaptation_id: str):
             draft.scaffold, outcome.proposal, holes=holes, by=_model_id()
         )
         module = render.module_text(draft.module, outcome.proposal) if draft.module else None
-        workspace.save(Draft(name=adaptation_id, scaffold=filled, module=module))
+        workspace.write_draft(Draft(name=adaptation_id, scaffold=filled, module=module))
         return outcome, holes, verify.verify(
             filled,
             registry_root=settings.registry_root,
@@ -829,7 +829,7 @@ def _land(adaptation_id: str, ctx: dict) -> str:
 
     from mendel_api.services import registry as registry_service
 
-    draft = Workspace(root=settings.workspace_root).load(adaptation_id)
+    draft = Workspace(root=settings.workspace_root).read_draft(adaptation_id)
     approved_by, approved_at, base = _approval(adaptation_id)
     result = land_module.land(
         draft,
@@ -911,6 +911,19 @@ async def scaffold_forge_adaptation(ctx: dict, adaptation_id: str) -> str:
         actor=_worker(ctx),
         kind=EventKind.SCAFFOLDED,
     )
+
+    # **`queued` has to mean something is queued, and it did not.** The scaffold job moved the
+    # row here and stopped, so an adaptation sat in `queued` until somebody called `retry` — and
+    # `retry` reads `failed_stage`, so on a row that had not failed it was the wrong verb for
+    # the only thing that worked. Nothing drove the loop; found by driving it.
+    #
+    # **Only when a model is configured**, which is the no-AI lane staying honest rather than a
+    # guard. With nothing to reach a provider with, every generation would fail on `MI0106` the
+    # instant its scaffold landed, and an adaptation that reads `failed` because the
+    # installation has no model is worse than one that reads `queued` and is waiting — for a
+    # model, or for a curator filling holes by hand.
+    if model_access() is not None:
+        await enqueue_generation(adaptation_id, revision=str(moved.row_version))
     return moved.state.value
 
 

@@ -123,6 +123,19 @@ services:
       MENDEL_EXAMPLE_GOAL: /app/examples/rnaseq-goal.yml
       MENDEL_WORKSPACE_ROOT: /app/workspace
       MENDEL_DRAFT_ROOT: /app/drafts
+      # **Read to DECIDE, never to call**, which is the same reason the API carries these.
+      # `scaffold_forge_adaptation` runs here and has to know whether a next stage exists: with
+      # a model configured it queues the generation, and without one it leaves the row in
+      # `queued` — waiting for a model or for a curator filling holes by hand — rather than
+      # failing every adaptation on `MI0106` the instant its scaffold lands. Nothing on this
+      # service builds a `Client`; `ai_worker.AIWorkerSettings.functions` is still the whole
+      # allowlist of what may reach a provider.
+      COMENI_AI_MODEL: ${COMENI_AI_MODEL:-}
+      COMENI_AI_BASE_URL: ${COMENI_AI_BASE_URL:-}
+      COMENI_AI_API_KEY: ${COMENI_AI_API_KEY:-}
+      COMENI_AI_TIMEOUT_SECONDS: ${COMENI_AI_TIMEOUT_SECONDS:-}
+      COMENI_AI_TEMPERATURE: ${COMENI_AI_TEMPERATURE:-}
+      COMENI_AI_MAX_CONCURRENT_JOBS: ${COMENI_AI_MAX_CONCURRENT_JOBS:-}
       # **This worker is the one that spends it.** `sync_forge_sources` walks a whole catalogue
       # and `scaffold_forge_adaptation` fetches one tool's files; both run here, on the default
       # queue. The API carries the same line for the reason the AI block does — two containers
