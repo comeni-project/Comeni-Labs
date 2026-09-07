@@ -3,6 +3,10 @@
 The builder is where a pipeline draft becomes something you can defend. It is a low-code graph
 editor backed by typed tools and rules, not a free-form drawing surface.
 
+The draft is a **living pipeline**: it develops as you describe the analysis, consider choices,
+and change steps or settings. The conversation and canvas should remain two views of that one
+draft, while the artifact remains its durable record.
+
 A draft is the editable graph. An artifact is the saved pipeline record behind it. See
 [Core words](core-words.md) if those terms are new.
 
@@ -74,6 +78,9 @@ UI as suspect.
 The builder is already the main product surface, but some details are expected to change:
 natural-language goal entry, input collection, and run submission are still being shaped. Learn
 the loop and the evidence model; do not treat the current input form as a stable external API.
+The intended MVP keeps the common path linear and makes collections of input files visible
+without requiring one graph branch per file. General workflow branching can grow from that
+model later.
 
 ## Where the science enters
 

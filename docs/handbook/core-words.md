@@ -16,6 +16,10 @@ Comeni uses a few words in a precise way. Learn these before reading the deeper 
 A draft is the working copy. It belongs to the builder and can still be changed. Moving a step,
 answering a question, or swapping a tool changes the draft.
 
+In the builder, think of that working copy as a **living pipeline**: the conversation, canvas,
+and settings are different ways to inspect and change the same draft as it grows. “Living
+pipeline” is the product's mental model, not another lifecycle state or a second artifact.
+
 The draft is useful because it is visual, but it is not the final record. Before Comeni can gate
 or run it, the draft has to become an artifact.
 
