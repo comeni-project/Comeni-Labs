@@ -63,6 +63,8 @@
     .port { position:absolute; width:7px; height:7px; background:#0C1216;
             border:1px solid #4A5C64; }
     .port.on { border-color:#6CB7FF; background:#12222E; }
+    /* nothing on the canvas can legally feed this — the tier-4 colour, on a socket */
+    .port.open { border-color:#E3674E; background:#2C1712; }
     .plus { position:absolute; width:18px; height:18px;
             border:1px solid #1E3A4E; color:#6CB7FF; background:#0A1218;
             display:flex; align-items:center; justify-content:center;
@@ -100,8 +102,9 @@
        the fastest way to make provisional read as committed. Static: `dash`'s marching ants
        are the RUNNING movement and borrowing them here would spend the page's one claim that
        something is happening right now. */
-    .node.ghost { border-style:dashed; border-left-style:dashed; opacity:.62;
+    .node.ghost { border-style:dashed; border-left-style:solid; opacity:.62;
                   background:rgba(12,18,22,.5); }
+    .node.ghost.by-model { border-left-style:dashed; }
     .node.ghost .hd { border-bottom-color:#141E22; }
     /* the same node, being offered as a SUBSTITUTION for one already on the canvas */
     .node.leaving { opacity:.48; }
@@ -296,29 +299,22 @@
           <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter">
             <path d="M136 190.0 H192 V350.0 H260"/><path d="M136 196.0 H198 V356.0 H260"/><path d="M136 202.0 H204 V362.0 H260"/>
             <path d="M656 190.0 H708"/><path d="M656 196.0 H708"/><path d="M656 202.0 H708"/>
-          </g>
-          <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter" opacity=".3">
             <path d="M136 190.0 H260"/><path d="M136 196.0 H260"/><path d="M136 202.0 H260"/>
             <path d="M432 190.0 H484"/><path d="M432 196.0 H484"/><path d="M432 202.0 H484"/>
-          </g>
-          <g fill="none" stroke="#C1B508" stroke-width="1.5" stroke-dasharray="5 5" stroke-linejoin="miter" opacity=".55">
-            <path d="M136 190.0 H484"/><path d="M136 196.0 H484"/><path d="M136 202.0 H484"/>
-            <path d="M380 510.0 H440 V218.0 H484"/>
           </g>
         </svg>
         <div class="src settle" style="left:16px; top:156.0px;">
           <div class="port many" style="right:-4px; top:27.5px;"><i style="top:6px;"></i><i style="top:12px;"></i><i style="top:18px;"></i></div>
           <div class="lb" style="color:#6CB7FF; font-size:8px;">Input</div>
           <div class="m" style="font-size:11px; padding-top:4px;">reads</div>
-          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px; ">fastq.reads[paired]</div>
+          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px;">fastq.reads[paired]</div>
           <div class="m" style="font-size:8.5px; color:#6CB7FF; padding-top:3px;">&times;12 samples</div>
         </div>
-        <div class="src settle" style="left:260px; top:470px;">
+        <div class="src settle" style="left:260px; top:470px; opacity:.55;">
           <div class="port" style="right:-4px; top:36.5px;"></div>
           <div class="lb" style="color:#6CB7FF; font-size:8px;">Input</div>
           <div class="m" style="font-size:11px; padding-top:4px;">reference</div>
-          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px; text-decoration:line-through; text-decoration-color:#C1B508;">genome.index.star</div>
-          <div class="m" style="font-size:8.5px; color:#C1B508; padding-top:2px;">genome.index.hisat2</div>
+          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px;">genome.index.star</div>
         </div>
         <div class="node settle" style="left:260px; top:300px;">
           <div class="port many" style="left:-4px; top:43.5px;"><i style="top:6px;"></i><i style="top:12px;"></i><i style="top:18px;"></i></div>
@@ -338,12 +334,12 @@
             <div class="pr"><span style="color:#4A5C64;">&#9666;</span><span style="color:#7E8F95;">fastq.reads</span></div>
             <div class="pr"><span style="color:#3E5058;">&#9656;</span><span style="color:#6B7C82;">fastq.reads[trimmed]</span></div>
           </div>
-          <div class="ft"><span style="color:#E3674E;">removed by this swap</span></div>
+          <div class="ft"><span style="color:#E3674E;">would go</span></div>
         </div>
         <div class="node settle meas ghost" style="left:484px; top:140px;">
           <div class="port many" style="left:-4px; top:43.5px;"><i style="top:6px;"></i><i style="top:12px;"></i><i style="top:18px;"></i></div>
           <div class="port many" style="right:-4px; top:43.5px;"><i style="top:6px;"></i><i style="top:12px;"></i><i style="top:18px;"></i></div>
-          <div class="port" style="left:-4px; top:74.5px;"></div>
+          <div class="port open" style="left:-4px; top:74.5px;"></div>
           <div class="hd"><span class="m" style="font-size:11px; font-weight:500;">HISAT2_ALIGN</span><span class="m" style="font-size:8.5px; color:#C1B508; margin-left:auto;">INSTEAD</span></div>
           <div class="rows">
             <div class="pr"><span style="color:#4A5C64;">&#9666;</span><span style="color:#7E8F95;">fastq.reads</span></div>
@@ -361,8 +357,6 @@
           </div>
           <div class="ft">6 settled</div>
         </div>
-        <div class="chan" style="left:266px; top:118px;">the reads would pass straight through</div>
-        <div class="chan" style="left:392px; top:486.0px;">a different index</div>
         </div>
         <div style="position:absolute; right:18px; bottom:18px; width:146px; height:58px;
                     border:1px solid #1B262B; background:rgba(8,13,16,.82); z-index:3;">
@@ -391,20 +385,20 @@
             </div>
             <div class="turn settle" style="animation-delay:40ms;">
               <div class="tick "></div>
-              <div class="says">Read length, 151 bp. Tab or hover the alternatives and the canvas puts each one in STAR&rsquo;s place.</div>
+              <div class="says">Read length, 151 bp &mdash; that is why it ranked first.</div>
             </div>
             <div class="turn settle" style="animation-delay:70ms;">
               <div class="tick "></div>
               <div class="blk">
           <div class="hd"><span class="lb">Step 3 &mdash; align the reads</span><span class="m" style="font-size:9.5px; color:#455257;">4 candidates</span></div>
-          <div class="bd"><div class="opt pick lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">On the canvas now. Ranked 1st of 4 &mdash; splice-aware, and your reads are 151 bp.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">in use</span></div><div class="opt foc lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">HISAT2_ALIGN</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">Ranked 2nd. Peaks near 8 GB where STAR wants 38.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">focused</span></div><div class="opt lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">SALMON_QUANT</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">Removes three later steps and answers a different question.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">changes the goal</span></div></div>
+          <div class="bd"><div class="opt pick lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">STAR_ALIGN</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">Ranked 1st. Splice-aware, and your reads are 151 bp.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">in use</span></div><div class="opt foc lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">HISAT2_ALIGN</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">Ranked 2nd. Peaks near 8 GB where STAR wants 38.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">focused</span></div><div class="opt lift"><span class="dot"></span><span style="flex:1;"><span class="m" style="font-size:11px; color:#DFE6E6;">SALMON_QUANT</span><span style="display:block; font-size:11.5px; color:#889699; line-height:1.45; padding-top:4px;">Ranked 3rd. Removes three later steps.</span></span><span class="m" style="font-size:9px; color:#6CB7FF; margin-left:auto; white-space:nowrap;">changes the goal</span></div></div>
               </div>
             </div>
             <div class="turn settle" style="animation-delay:120ms;">
               <div class="tick wait"></div>
               <div class="blk">
           <div class="hd"><span class="lb" style="color:#C1B508;">HISAT2_ALIGN in STAR&rsquo;s place</span><span class="m" style="font-size:9.5px; color:#455257;">preview</span></div>
-          <div class="bd"><div style="font-size:12.5px; color:#889699; line-height:1.5; padding-bottom:10px;">Four things move. Nothing until you say so.</div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#E3674E; font-size:8px; padding-top:5px;">&#9679;</span><div><div class="m" style="font-size:11.5px;">TRIMGALORE removed</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">Only STAR asks for <span class="m" style="font-size:10.5px;">[trimmed]</span>.</div></div></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#C1B508; font-size:8px; padding-top:5px;">&#9679;</span><div><div class="m" style="font-size:11.5px;">A different reference</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;"><span class="m" style="font-size:10.5px;">genome.index.hisat2</span>, a file you will need at run time.</div></div></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#C1B508; font-size:8px; padding-top:5px;">&#9679;</span><div><div class="m" style="font-size:11.5px;">3 settings change</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;"><span class="m" style="font-size:10.5px;">--sjdbOverhang</span> is dropped; two re-resolve.</div></div></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#10AA91; font-size:8px; padding-top:5px;">&#9679;</span><div><div class="m" style="font-size:11.5px;">SAMTOOLS_SORT unaffected</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">Still fed <span class="m" style="font-size:10.5px;">alignment.bam</span>.</div></div></div></div>
+          <div class="bd"><div style="font-size:12.5px; color:#889699; line-height:1.5; padding-bottom:11px;">Four things move. Point at one to see it.</div><div style="display:flex; gap:10px; border:1px solid #6CB7FF; box-shadow:0 0 0 1px rgba(108,183,255,.3); background:#0B141A; margin:0 -8px 10px; padding:7px 8px;"><span style="color:#E3674E; font-size:8px; padding-top:5px;">&#9679;</span><div style="flex:1;"><div class="m" style="font-size:11.5px;">TRIMGALORE would go</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">Only STAR asks for <span class="m" style="font-size:10.5px;">[trimmed]</span>.</div></div><span class="m" style="font-size:9px; color:#6CB7FF; white-space:nowrap; padding-top:2px;">on the canvas</span></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#C1B508; font-size:8px; padding-top:5px;">&#9679;</span><div style="flex:1;"><div class="m" style="font-size:11.5px;">A different reference</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">Its index port is open &mdash; <span class="m" style="font-size:10.5px;">.star</span> cannot feed it.</div></div></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#C1B508; font-size:8px; padding-top:5px;">&#9679;</span><div style="flex:1;"><div class="m" style="font-size:11.5px;">3 settings change</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;"><span class="m" style="font-size:10.5px;">--sjdbOverhang</span> is dropped; two re-resolve.</div></div></div><div style="display:flex; gap:10px; padding-bottom:12px;"><span style="color:#10AA91; font-size:8px; padding-top:5px;">&#9679;</span><div style="flex:1;"><div class="m" style="font-size:11.5px;">SAMTOOLS_SORT unaffected</div><div style="font-size:11.5px; color:#889699; padding-top:4px; line-height:1.45;">Still fed <span class="m" style="font-size:10.5px;">alignment.bam</span>.</div></div></div></div>
           <div class="ft"><span class="go">Apply all four</span><span class="no">Keep STAR</span></div>
               </div>
             </div>

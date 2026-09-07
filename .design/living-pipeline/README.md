@@ -182,10 +182,29 @@ consistent — it just meant the wrong thing.
 
 | Board | What it said | What it should say |
 |---|---|---|
-| `LivingChoose` | HISAT2 drawn as a **second node** below STAR with a connector between them — a pipeline that has *gained a module* | **one slot, one box.** The replacement sits in STAR's place, the tool leaving is named in its footer, and the ribbon runs straight *through* the step being removed. `n-bswap` on the 2026-08-29 canvas had already settled exactly this and departing from it was the mistake |
+| `LivingChoose` | HISAT2 drawn as a **second node** below STAR — a pipeline that has *gained a module* | **one slot, one box.** The replacement sits in STAR's place and the tool leaving is named in its footer |
+| `LivingChoose`, again | the fix put it in the slot and then drew **the whole rerouted graph on top of the old one** — an amber ribbon through TRIMGALORE's port rows, dimmed and dashed wires in the same 24px band, six lines where one belongs | **intrinsic vs asserted**, below |
 | every board with a reference | every source pinned to a **left-hand gutter**, so `genome.index.star` read as an entry channel and dragged a wire across the whole graph | **an input is drawn where it enters.** `dag-core` does layered layout: a source whose only consumer is at layer 2 belongs at layer 1. An input can arrive at any point in the chain, and a step gaining a bound input gains a source node *there* |
 
-The second one generalises past the boards it fixed: a GTF only featureCounts reads, a blacklist
+**A graph diff drawn on top of the graph is unreadable, and no colour tuning fixes it.** What
+does is a split, and it is the design's answer to *how does a preview show consequences*:
+
+- **Intrinsic** — what cannot survive the substitution — is always on the canvas. One ghost box
+  in the slot; a wire the compatibility index would now refuse is simply *gone*, its port left
+  open. Nothing new is ever drawn.
+- **Asserted** — every other consequence — is a rail bullet that marks its object on the canvas
+  only while it is hovered or focused. Four consequences become four things the reader asks for
+  one at a time.
+
+That second half is a rule the design already had — *selecting a chat card focuses its graph
+object* — and this is where it earns itself.
+
+**One real bug fell out of building it.** `.node.ghost` dashed *every* border including the
+left one, and a dashed left bar is how this canvas says *a model chose it* — so every proposal
+on every board read as model-authored, through two renders. Two encodings sharing a stroke will
+collide; check the composition, not each rule alone.
+
+The mid-pipeline rule generalises past the boards it fixed: a GTF only featureCounts reads, a blacklist
 BED, a panel manifest — each is drawn beside the step it feeds. `LivingParam` shows the other
 half of the rule: an input nothing has bound yet has no source node at all, only a finding.
 
