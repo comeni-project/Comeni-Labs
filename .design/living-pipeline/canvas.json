@@ -123,7 +123,7 @@
    "x": 0,
    "y": 2620,
    "w": 620,
-   "text": "HOVER IS ENRICHMENT, NEVER THE ONLY ROUTE.\n\n`impl-walkbugs` records a palette that was unreachable by keyboard \u2014 a bare <div draggable>, no role, no tabindex, absent from the a11y tree. An option list whose canvas preview fires only on hover repeats that exactly.\n\nSo the FOCUSED option carries the same ring and throws the same ghost as the hovered one \u2014 LivingChoose draws both. Touch gets an explicit Preview, or the same information expanded.\n\nThe recommended option is marked IN WORDS (`recommended`, `conventional`, `likely`), never by colour alone. Every interactive block and every option has a stable id, which is what the browser posts back \u2014 never a copied contract object."
+   "text": "ONE SLOT, ONE BOX \u2014 and hover is never the only route.\n\nThe first LivingChoose drew HISAT2 as a SECOND node below STAR with a connector between them, and it read as a pipeline that had gained a module rather than one whose aligner was being swapped. `n-bswap` on the 2026-08-29 canvas had already settled this \u2014 TRIMGALORE struck through, HISAT2 IN PLACE \u2014 and departing from it was the mistake.\n\nThe canvas shows what the graph WOULD BECOME, not a comparison widget. Comparing is the rail's job and it already has the candidate list. So: one box in the slot, the tool leaving named in its footer, and the ribbon drawn straight THROUGH the step being removed \u2014 the picture of the reads reaching the aligner directly. Nothing on the canvas moves.\n\n`impl-walkbugs` records a palette unreachable by keyboard, and an option list whose preview fires only on hover repeats that exactly. So the FOCUSED option carries the same ring and throws the same substitution as the hovered one. The recommended option is marked IN WORDS, never by colour alone."
   },
   {
    "id": "n-collect",
@@ -173,6 +173,13 @@
    "y": 6020,
    "w": 620,
    "text": "WHAT IS MVP HERE, AND WHAT IS DEFERRED.\n\nMVP: one primary left-to-right chain, one pending mutation proposal at a time, the three collection shapes, Build and Spawn over one proposal engine, the values card, the Artifact toggle, Run through the existing sheet.\n\nDEFERRED AND NOT DRAWN: branch creation, branch labels, conditionals, loops, rejoining. An auxiliary branch that the resolver's own blueprint contains is LAID OUT and drawn with neutral wires \u2014 LivingDense has five \u2014 but there is no control for authoring one. General branch authoring is a later design problem and drawing a control for it here would make it look decided.\n\nALSO NOT DRAWN: token streaming, collaborative cursors, a phone. These are desk screens; the rules degrade to a tablet and stop there, deliberately."
+  },
+  {
+   "id": "n-midinput",
+   "x": 3740,
+   "y": 920,
+   "w": 620,
+   "text": "AN INPUT IS DRAWN WHERE IT ENTERS \u2014 not in a left-hand gutter.\n\nThe first version pinned every source beside the entry channels, so `genome.index.star` sat at the far left with a wire dragged across the whole graph. That says two false things: that the index is something you have at the START of the analysis, and that it is an entry channel like the reads.\n\nIt is neither. It enters AT the aligner. `dag-core` does layered layout, so a source whose only consumer is at layer 2 belongs at layer 1 \u2014 beside the steps it is contemporary with, with a short wire into the port that needs it.\n\nThis generalises: an input can arrive at ANY point in the chain. A GTF that only featureCounts reads, a blacklist BED, a panel manifest \u2014 each is drawn in the layer before its consumer, and a step gaining a bound input gains a source node THERE rather than at the front. LivingParam shows the other half: an input nothing has bound yet has no source node at all, only a finding.\n\nOperator, 2026-09-07."
   }
  ],
  "launch": {

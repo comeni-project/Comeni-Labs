@@ -175,6 +175,20 @@ one part of a pipeline, and the conversation is where you read the whole of it.*
 strongest argument for the collapsed log — eleven decisions in the space two expanded cards
 would take. None of the three attempts is distinguishable in the HTML.
 
+### Found by the operator, not by a render
+
+Two, and both are the kind a screenshot cannot catch because the picture was internally
+consistent — it just meant the wrong thing.
+
+| Board | What it said | What it should say |
+|---|---|---|
+| `LivingChoose` | HISAT2 drawn as a **second node** below STAR with a connector between them — a pipeline that has *gained a module* | **one slot, one box.** The replacement sits in STAR's place, the tool leaving is named in its footer, and the ribbon runs straight *through* the step being removed. `n-bswap` on the 2026-08-29 canvas had already settled exactly this and departing from it was the mistake |
+| every board with a reference | every source pinned to a **left-hand gutter**, so `genome.index.star` read as an entry channel and dragged a wire across the whole graph | **an input is drawn where it enters.** `dag-core` does layered layout: a source whose only consumer is at layer 2 belongs at layer 1. An input can arrive at any point in the chain, and a step gaining a bound input gains a source node *there* |
+
+The second one generalises past the boards it fixed: a GTF only featureCounts reads, a blacklist
+BED, a panel manifest — each is drawn beside the step it feeds. `LivingParam` shows the other
+half of the rule: an input nothing has bound yet has no source node at all, only a finding.
+
 ### The 900 pass
 
 The first narrow render squeezed every board to 480px of canvas with the graph clipped —
@@ -196,7 +210,7 @@ Visible only in the 900 shot.
 | `build_living.py` | the generator. One fixture, one shell, one canvas, one rail |
 | `_lhead.html` | the shared style block — `_bhead.html` verbatim, then this canvas's three additions and the breakpoints |
 | `Living*.dc.html` | the eleven artboards. **Generated — edit the generator, not these** |
-| `canvas.json` | artboard placement and the twelve notes arguing the decisions |
+| `canvas.json` | artboard placement and the thirteen notes arguing the decisions |
 
 `.gitignore` carries `/.design/living-pipeline/living-pipeline.html` for the seeded canvas, one
 line, anchored and literal — the same rule the others follow, and for the same reason. **The

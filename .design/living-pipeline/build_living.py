@@ -179,7 +179,7 @@ def node(x, y, nm, rows, foot, tier='ok', by='res', sel=False, ghost=False,
             f'          <div class="hd"><span class="m" style="font-size:11px; font-weight:500;">{nm}</span>{extra}</div>\n'
             f'          <div class="rows">\n{pr}          </div>\n{ft}{ch}        </div>\n')
 
-def src(x, y, label, type_id, many=False, count=None):
+def src(x, y, label, type_id, many=False, count=None, becomes=None, dim=False):
     """A SOURCE carries a TYPE and never a path — invariant 15, drawn."""
     tall = 25 if many else 7
     bars = '<i style="top:6px;"></i><i style="top:12px;"></i><i style="top:18px;"></i>' if many else ''
@@ -188,13 +188,18 @@ def src(x, y, label, type_id, many=False, count=None):
         n = f'&times;{count} samples' if count else '&times;N items'
         tag = (f'          <div class="m" style="font-size:8.5px; color:#6CB7FF; padding-top:3px;">'
                f'{n}</div>\n')
-    return (f'        <div class="src settle" style="left:{x}px; top:{y}px;">\n'
+    was = ('text-decoration:line-through; text-decoration-color:#C1B508;' if becomes else '')
+    new = (f'          <div class="m" style="font-size:8.5px; color:#C1B508; padding-top:2px;">'
+           f'{becomes}</div>\n' if becomes else '')
+    o = ' opacity:.55;' if dim else ''
+    return (f'        <div class="src settle" style="left:{x}px; top:{y}px;{o}">\n'
             f'          <div class="port{" many" if many else ""}" style="right:-4px;'
             f' top:{SH/2 - tall/2}px;">{bars}</div>\n'
             f'          <div class="lb" style="color:#6CB7FF; font-size:8px;">Input</div>\n'
             f'          <div class="m" style="font-size:11px; padding-top:4px;">{label}</div>\n'
-            f'          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px;">{type_id}</div>\n'
-            f'{tag}        </div>\n')
+            f'          <div class="m" style="font-size:8.5px; color:#5D6C71; padding-top:3px;'
+            f' {was}">{type_id}</div>\n'
+            f'{new}{tag}        </div>\n')
 
 # ── wires. `1 -> 1` is one stroke; `N -> N` is a ribbon; `N -> 1` converges. ────────────────
 STRANDS = (-6, 0, 6)
@@ -453,8 +458,13 @@ def board_goal():
 # ══════════════════════════════════════════════════════════════════════════════════════════
 #  3. BUILD — the primary state. Four settled, one proposed as a ghost.
 # ══════════════════════════════════════════════════════════════════════════════════════════
-YM, YQ = 150, 380            # the main chain, and the QC branch
-YS, YR = YM + SPINE - SH/2, 300
+YM, YQ = 140, 300            # the main chain, and the QC branch
+YS = YM + SPINE - SH / 2     # the entry source lines up with the chain it feeds
+# **A mid-pipeline input sits in the layer before the step that consumes it**, not in a
+# left-hand gutter beside the entry channels. `genome.index.star` is not something you have at
+# the start of an analysis — it enters AT the aligner, and drawing it at the far left both said
+# otherwise and dragged a wire across the whole graph.
+YREF = 470
 
 def built_graph(ghost=('SAMTOOLS_SORT', ['alignment.bam'], ['alignment.bam[sorted]']),
                 star_by='res', star_sel=False, star_leaving=False, sub=None):
@@ -464,7 +474,7 @@ def built_graph(ghost=('SAMTOOLS_SORT', ['alignment.bam'], ['alignment.bam[sorte
     first column, so three nested strands rendered as six vertical lines in a 32px gutter. The
     gutter is 124px now and the bend sits in the middle of it."""
     ps = [('in', SPINE, 'many'), ('out', SPINE, 'many')]
-    reads, ref = (16 + SW, YS + SH/2), (16 + SW, YR + SH/2)
+    reads, ref = (16 + SW, YS + SH/2), (gx(0) + SW, YREF + SH/2)
     branch = gx(0) - 62
     solid = ('        <svg style="position:absolute; inset:0;" width="100%" height="100%" aria-hidden="true">\n'
              '          <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter">\n')
@@ -482,7 +492,7 @@ def built_graph(ghost=('SAMTOOLS_SORT', ['alignment.bam'], ['alignment.bam[sorte
     solid += '        </svg>\n'
 
     g = (src(16, YS, 'reads', 'fastq.reads[paired]', many=True, count=S['samples'])
-         + src(16, YR, 'reference', 'genome.index.star')
+         + src(gx(0), YREF, 'reference', 'genome.index.star')
          + node(gx(0), YQ, 'FASTQC', [('in', 'fastq.reads'), ('out', 'qc.report')],
                 '4 settled', ports=ps)
          + node(gx(0), YM, 'TRIMGALORE',
@@ -537,21 +547,65 @@ def board_build():
 #  4. CHOOSE — an alternative previewed on the canvas, and everything it would drag with it
 # ══════════════════════════════════════════════════════════════════════════════════════════
 def board_choose():
-    """Hover AND focus preview. `impl-walkbugs` records a palette that was unreachable by
-    keyboard; an option list whose preview only fires on hover repeats that exactly, so the
-    focused option carries the same ring and the same ghost."""
-    sub = node(gx(1), YM + 190, 'HISAT2_ALIGN',
-               [('in', 'fastq.reads'), ('in', 'genome.index.hisat2'), ('out', 'alignment.bam')],
-               '', ghost=True, tier='meas',
-               ports=[('in', SPINE, 'many'), ('out', SPINE, 'many'), ('in', SPINE2, '')],
-               extra='<span class="m" style="font-size:8.5px; color:#C1B508;'
-                     ' margin-left:auto;">INSTEAD</span>')
-    arrow = (f'        <svg style="position:absolute; inset:0;" width="100%" height="100%" aria-hidden="true">\n'
-             f'          <g fill="none" stroke="#C1B508" stroke-width="1.5" stroke-dasharray="4 4" opacity=".6">\n'
-             f'            <path d="M{gx(1)+NW/2} {YM+NH+8} V{YM+182}"/>\n'
-             f'          </g>\n        </svg>\n')
+    """**One slot, one box.** The first version drew HISAT2 as a second node BELOW STAR with a
+    connector between them, and it read as a pipeline that had gained a module rather than one
+    whose aligner was being swapped. `n-bswap` on the 2026-08-29 canvas already settled this —
+    *TRIMGALORE struck through, HISAT2 IN PLACE* — and departing from it was the mistake.
 
-    alts = (option('STAR_ALIGN', 'On the canvas now. Ranked 1st of 4 &mdash; splice-aware and '
+    The canvas shows what the graph WOULD BECOME, not a comparison widget. Comparing is the
+    rail's job, and it already has the candidate list.
+
+    Hover **and** focus preview: `impl-walkbugs` records a palette unreachable by keyboard, and
+    an option list whose canvas preview fires only on hover repeats that exactly."""
+    ps = [('in', SPINE, 'many'), ('out', SPINE, 'many')]
+    reads = (16 + SW, YS + SH / 2)
+    ref = (gx(0) + SW, YREF + SH / 2)
+
+    sv = ('        <svg style="position:absolute; inset:0;" width="100%" height="100%" aria-hidden="true">\n'
+          # what SURVIVES the swap, at full strength
+          '          <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter">\n'
+          '            ' + wire(reads, (inn(0), YQ + SPINE), 'many', bend=gx(0) - 62) + '\n'
+          '            ' + wire((out(1), YM + SPINE), (inn(2), YM + SPINE), 'many') + '\n'
+          '          </g>\n'
+          # what GOES: dimmed, not deleted — the slot and its neighbours must stay put
+          '          <g fill="none" stroke="#2C3E45" stroke-width="1.5" stroke-linejoin="miter"'
+          ' opacity=".3">\n'
+          '            ' + wire(reads, (inn(0), YM + SPINE), 'many') + '\n'
+          '            ' + wire((out(0), YM + SPINE), (inn(1), YM + SPINE), 'many') + '\n'
+          '          </g>\n'
+          # what would ARRIVE: dashed, and the reads reach the aligner directly
+          '          <g fill="none" stroke="#C1B508" stroke-width="1.5" stroke-dasharray="5 5"'
+          ' stroke-linejoin="miter" opacity=".55">\n')
+    sv += ('            ' + wire(reads, (inn(1), YM + SPINE), 'many') + '\n'
+           '            ' + wire(ref, (inn(1), YM + SPINE2), 'one', bend=gx(1) - 44) + '\n'
+           '          </g>\n        </svg>\n')
+
+    g = (src(16, YS, 'reads', 'fastq.reads[paired]', many=True, count=S['samples'])
+         + src(gx(0), YREF, 'reference', 'genome.index.star',
+               becomes='genome.index.hisat2')
+         + node(gx(0), YQ, 'FASTQC', [('in', 'fastq.reads'), ('out', 'qc.report')],
+                '4 settled', ports=ps)
+         + node(gx(0), YM, 'TRIMGALORE',
+                [('in', 'fastq.reads'), ('out', 'fastq.reads[trimmed]')],
+                '<span style="color:#E3674E;">removed by this swap</span>',
+                leaving=True, ports=ps)
+         # ONE box in the slot. The tool leaving is named in the footer, so the SLOT persists
+         # and nothing on the canvas moves — object permanence without a second node.
+         + node(gx(1), YM, 'HISAT2_ALIGN',
+                [('in', 'fastq.reads'), ('in', 'genome.index.hisat2'), ('out', 'alignment.bam')],
+                '<span style="color:#C1B508; text-decoration:line-through;'
+                ' text-decoration-color:#C1B508;">STAR_ALIGN</span>',
+                ghost=True, tier='meas', ports=ps + [('in', SPINE2, '')],
+                extra='<span class="m" style="font-size:8.5px; color:#C1B508;'
+                      ' margin-left:auto;">INSTEAD</span>')
+         + node(gx(2), YM, 'SAMTOOLS_SORT',
+                [('in', 'alignment.bam'), ('out', 'alignment.bam[sorted]')], '6 settled',
+                ports=ps))
+
+    labels = (chan_label(gx(0) + 6, YM - 22, 'the reads would pass straight through')
+              + chan_label(ref[0] + 12, ref[1] - 24, 'a different index'))
+
+    alts = (option('STAR_ALIGN', 'On the canvas now. Ranked 1st of 4 &mdash; splice-aware, and '
                    'your reads are 151 bp.', pick=True, tag='in use')
             + option('HISAT2_ALIGN', 'Ranked 2nd. Peaks near 8 GB where STAR wants 38.',
                      foc=True, tag='focused')
@@ -559,28 +613,30 @@ def board_choose():
                      'question.', tag='changes the goal'))
 
     changes = ('<div style="font-size:12.5px; color:#889699; line-height:1.5;'
-               ' padding-bottom:11px;">Four things move, and nothing until you say so.</div>'
+               ' padding-bottom:10px;">Four things move. Nothing until you say so.</div>'
                + bullet('#E3674E', 'TRIMGALORE removed',
                         'Only STAR asks for <span class="m" style="font-size:10.5px;">[trimmed]</span>.')
-               + bullet('#E3674E', '--sjdbOverhang dropped', 'HISAT2 has no route for it.')
-               + bullet('#C1B508', '2 settings re-resolve',
-                        '<span class="m" style="font-size:10.5px;">--rna-strandness</span> and '
-                        '<span class="m" style="font-size:10.5px;">--max-intronlen</span>.')
+               + bullet('#C1B508', 'A different reference',
+                        '<span class="m" style="font-size:10.5px;">genome.index.hisat2</span>, '
+                        'a file you will need at run time.')
+               + bullet('#C1B508', '3 settings change',
+                        '<span class="m" style="font-size:10.5px;">--sjdbOverhang</span> is '
+                        'dropped; two re-resolve.')
                + bullet('#10AA91', 'SAMTOOLS_SORT unaffected',
                         'Still fed <span class="m" style="font-size:10.5px;">alignment.bam</span>.'))
 
     rail_html = rail(
         said('why star and not hisat2?', 0)
-        + says('Read length, 151 bp. Tab or hover through the alternatives and the canvas '
-               'shows what each would do.', 40)
+        + says('Read length, 151 bp. Tab or hover the alternatives and the canvas puts each '
+               'one in STAR&rsquo;s place.', 40)
         + block('Step 3 &mdash; align the reads', alts, right='4 candidates', delay=70)
-        + block('Switching to HISAT2_ALIGN', changes,
+        + block('HISAT2_ALIGN in STAR&rsquo;s place', changes,
                 foot='<span class="go">Apply all four</span><span class="no">Keep STAR</span>',
-                right='preview', tick='wait', tone='#C1B508', delay=160))
+                right='preview', tick='wait', tone='#C1B508', delay=120))
 
-    body = cols(canvas(built_graph(ghost=None, star_leaving=True, sub=sub + arrow)), rail_html)
+    body = cols(canvas(sv + g + labels), rail_html)
     write('LivingChoose', body,
-          header_html=header('building &middot; 3 of 7 steps &middot; '
+          header_html=header('building &middot; 4 of 7 steps &middot; '
                              '<span style="color:#C1B508;">previewing a swap</span>'))
 
 
