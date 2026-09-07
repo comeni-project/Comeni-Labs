@@ -196,7 +196,21 @@ Visible only in the 900 shot.
 | `build_living.py` | the generator. One fixture, one shell, one canvas, one rail |
 | `_lhead.html` | the shared style block — `_bhead.html` verbatim, then this canvas's three additions and the breakpoints |
 | `Living*.dc.html` | the eleven artboards. **Generated — edit the generator, not these** |
-| `canvas.living.json` | artboard placement and the twelve notes arguing the decisions |
+| `canvas.json` | artboard placement and the twelve notes arguing the decisions |
 
 `.gitignore` carries `/.design/living-pipeline/living-pipeline.html` for the seeded canvas, one
-line, anchored and literal — the same rule the other four follow, and for the same reason.
+line, anchored and literal — the same rule the others follow, and for the same reason. **The
+seed is a build output; these sources are the artifact.** One of the five canvases this
+repository has published already lost its URL, which is the whole argument for that rule.
+
+## Published
+
+[0877ba13](https://claude.ai/code/artifact/0877ba13-690f-44cc-9ba8-d92036441653) — eleven
+artboards on one page, each with the note arguing it underneath, and the three general notes in
+a band above.
+
+**There is no `Main.dc.html`, deliberately, and the seeder warns about it.** The Forge canvas
+does the same thing for the same reason: this canvas opens on the whole board rather than on an
+entry artboard, so `launch` is `{"view": "canvas"}` and the entry file is only a fallback. The
+seeder names `LivingBuild.dc.html` as that fallback, which is the right one — it is the primary
+state.

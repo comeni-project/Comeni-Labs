@@ -17,7 +17,7 @@ rot references that are still being read.
 | [`wiener-mockups/`](wiener-mockups/) | the visual direction picked on 2026-08-23 — A–D, C chosen | **gone** — see below |
 | [`runs-board/`](runs-board/) | the across-runs boards | [55693858](https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92) |
 | `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
-| [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | not yet |
+| [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | [0877ba13](https://claude.ai/code/artifact/0877ba13-690f-44cc-9ba8-d92036441653) |
 
 **Only one canvas owns `Main.dc.html`.** The 2026-08-29
 redesign has it and the Forge boards deliberately have none: that file is cited by path from
