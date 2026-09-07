@@ -32,3 +32,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # `*` does not cross a `/`, so this covers the flat generators only — the three in
 # subdirectories are named above, with the extra exemption they need and this one does not.
 ".design/*.py" = ["E501"]
+# The living-pipeline canvas is the same class once more, and it is in a subdirectory because
+# `.design/README.md` had run out of room at the root. `*` does not cross a `/`, so the line
+# above does not reach it. E501 only, for the same reason and with the same F811 argument.
+".design/living-pipeline/build_living.py" = ["E501"]

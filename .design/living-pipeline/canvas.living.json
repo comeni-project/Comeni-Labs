@@ -1,0 +1,181 @@
+{
+ "artboards": [
+  {
+   "file": "LivingOpen.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "title": "The door \u2014 describe it, and choose Build or Spawn"
+  },
+  {
+   "file": "LivingGoal.dc.html",
+   "x": 1520,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "title": "Goal \u2014 what it read back, and the one thing it will not assume"
+  },
+  {
+   "file": "LivingBuild.dc.html",
+   "x": 3040,
+   "y": 0,
+   "w": 1400,
+   "h": 880,
+   "title": "Build \u2014 the primary state. Four settled, one proposed"
+  },
+  {
+   "file": "LivingChoose.dc.html",
+   "x": 0,
+   "y": 1000,
+   "w": 1400,
+   "h": 880,
+   "title": "Choose \u2014 an alternative previewed, and what it drags with it"
+  },
+  {
+   "file": "LivingParam.dc.html",
+   "x": 1520,
+   "y": 1000,
+   "w": 1400,
+   "h": 880,
+   "title": "Parameters \u2014 the one value the engine could not settle"
+  },
+  {
+   "file": "LivingCollect.dc.html",
+   "x": 3040,
+   "y": 1000,
+   "w": 1400,
+   "h": 880,
+   "title": "Collection \u2014 1\u21921, N\u2192N, N\u21921, and never N copies of a node"
+  },
+  {
+   "file": "LivingSpawn.dc.html",
+   "x": 0,
+   "y": 2000,
+   "w": 1400,
+   "h": 880,
+   "title": "Spawn \u2014 the same engine, and honest about who chose what"
+  },
+  {
+   "file": "LivingTrouble.dc.html",
+   "x": 1520,
+   "y": 2000,
+   "w": 1400,
+   "h": 880,
+   "title": "When it does not work \u2014 pending, refusal, stale, failed, no model"
+  },
+  {
+   "file": "LivingDense.dc.html",
+   "x": 3040,
+   "y": 2000,
+   "w": 1400,
+   "h": 880,
+   "title": "Hard content \u2014 fifteen steps, a long id, five ports"
+  },
+  {
+   "file": "LivingQuiet.dc.html",
+   "x": 0,
+   "y": 3000,
+   "w": 1400,
+   "h": 880,
+   "title": "Narrower, and still \u2014 three widths and every movement off"
+  },
+  {
+   "file": "LivingDone.dc.html",
+   "x": 3040,
+   "y": 3000,
+   "w": 1400,
+   "h": 880,
+   "title": "Done \u2014 the artifact, and who settled what"
+  }
+ ],
+ "annotations": [
+  {
+   "id": "brief",
+   "x": 0,
+   "y": -430,
+   "w": 560,
+   "text": "THE LIVING PIPELINE \u2014 ten boards, one fixture, one session.\n\nA researcher says what they have and what they want; the RESOLVER builds the pipeline and the conversation hands it over one decision at a time. The model never authors the graph, the YAML or a coordinate \u2014 it produces a typed Goal, or picks from candidates the server supplied.\n\nEvery count, name, tier and author on all ten boards comes from one dict, `S` in build_living.py. Observatory palette lifted by value from frontend/src/tokens.css \u2014 tokens.css is UNCHANGED by this design and no hue is added.\n\nPlan: docs/superpowers/plans/2026-09-07-the-living-pipeline.md, Task 1."
+  },
+  {
+   "id": "n-idea",
+   "x": 0,
+   "y": -230,
+   "w": 560,
+   "text": "THE ONE IDEA: THERE IS NO INSPECTOR.\n\nThe conversation IS the inspector, because every object on the canvas was put there by a decision that is already in the transcript. Select a node and the log scrolls to the decision that created it; select a card and the object highlights.\n\nThat is what dissolves the tab strip. The old builder stacked four bands of chrome above the first sentence anybody wanted to read \u2014 a panel header, Builder's three tabs, Rail's own three, and the gate panel. The living builder has ONE strip and no tabs anywhere beneath it, because the rail has nothing to switch between."
+  },
+  {
+   "id": "n-settled",
+   "x": 620,
+   "y": -430,
+   "w": 620,
+   "text": "WHAT THIS REOPENS FROM THE 2026-08-29 CANVAS \u2014 one thing, named.\n\n`impl-settled` says: NO PROMPT BOX ON THE POPULATED PAGE. Creation is monthly; checking a run is daily. The prompt lives in the empty state and the command palette. Never as a banner.\n\nTHAT RULE STANDS AND THIS IS NOT AN EXCEPTION TO IT. What it forbids is a CREATION affordance on a page about something else. The rail here is not a prompt box: it is the provenance record of this pipeline, made navigable, and it is the only place a tier-4 question can be asked. It appears on an AUTHORING session and nowhere else \u2014 /build?draft=<id> on an old manual draft opens the canvas without it.\n\nTwo rules from that note are load-bearing here and are NOT reopened:\n\u00b7 the left steps list stays deleted. Two columns, never three \u2014 and the transcript must not become a steps list wearing a different border, which is why an accepted decision collapses to one line and history sits above the fold.\n\u00b7 settings live in the card on the node. The conversation ASKS a question; it never LISTS values. Asking and listing are different, and two lists of one thing is what was removed."
+  },
+  {
+   "id": "n-author",
+   "x": 620,
+   "y": -100,
+   "w": 620,
+   "text": "AUTHOR IS DRAWN AS STROKE. TIER IS DRAWN AS COLOUR.\n\n`impl-inv` fixes colour to the tier ladder \u2014 settled spends none, measured is amber, open is red. So author cannot have a hue without destroying what colour already says. Plan 3B settled the other axis: certainty is drawn as STROKE. This is that, applied to the node's left bar.\n\n  solid          the resolver settled it \u2014 the common case, and it says nothing\n  dashed         a model chose it \u2014 the one that must be visible\n  solid + notch  a person chose it \u2014 a benchmark mark at the bar's midpoint\n\nThe same three marks are the transcript's ticks, so the rail and the canvas are one language read in two directions. An amber dashed bar composes correctly: measured, chosen by a model.\n\nSEE LivingSpawn. The MODEL text tag was removed from that node during this pass \u2014 the bar IS the statement, and saying it twice weakens the encoding the board exists to prove."
+  },
+  {
+   "id": "n-collect",
+   "x": 1520,
+   "y": -430,
+   "w": 560,
+   "text": "COLLECTION IS DRAWN ON THE WIRE \u2014 LivingCollect.\n\n\u00a71.7: one logical channel, never N nodes and never N wires. Today a per-sample channel and a run-scoped one are the same single stroke, so the canvas cannot say the one thing a researcher most needs to know about their own data.\n\n  1 \u2192 1   one stroke\n  N \u2192 N   a three-strand ribbon, 12px band\n  N \u2192 1   the ribbon CONVERGES into one stroke at a wide port\n\nThe convergence is the picture of .collect(). Three strands whether N is 12 or 12,000 \u2014 the COUNT is on the source node, never on the wire, and `\u00d712 samples` is drawn only where measurement.n_samples supplies it. Otherwise `\u00d7N items` and nothing more. No filename or sample id ever reaches Mendel to decorate a canvas (invariant 15)."
+  },
+  {
+   "id": "n-log",
+   "x": 1520,
+   "y": -120,
+   "w": 560,
+   "text": "THE TRANSCRIPT IS A RULED LOG, NOT A CHAT.\n\nBubbles were the shipped artboard's form \u2014 build_boards.py::RAIL_ASSISTANT, a right-aligned #122029 bubble \u2014 and they are wrong here for a reason that is not taste: a chat log has nowhere to put WHO DECIDED THIS. A hairline with a tick per turn does.\n\nAn accepted decision COLLAPSES to one line carrying its name, its step, and who settled it. LivingDense is the proof: eleven decisions in the space two expanded cards would take, with a scannable settled / model chose / you chose column. Expanded, that is fifteen tall cards nobody scrolls through.\n\nTHE LOG SCROLLS TO THE PENDING BLOCK. History sits above the fold. That rule was found by rendering, not by reading \u2014 four boards drew full history AND a tall block, which is a state the product never shows."
+  },
+  {
+   "id": "n-motion",
+   "x": 0,
+   "y": 2120,
+   "w": 620,
+   "text": "SIX DOMAIN EVENTS, FIVE EXISTING MOVEMENTS, NO NEW CURVE \u2014 LivingQuiet.\n\n  proposal_shown       settle 200ms   the card, and the ghost on the canvas\n  proposal_accepted    settle 200ms   the node at its blueprint position\n  edge_committed       grow-x 520ms   first paint only, keyed on the edge's identity\n  parameter_committed  settle 200ms   the value row, and its line in the artifact\n  proposal_rejected    \u2014              the ghost is removed. Nothing moves to say so\n  validation_changed   \u2014              the status line changes. Numbers never tween\n\nA ghost is STATIC. `dash` \u2014 marching ants \u2014 is the RUNNING movement and borrowing it here would spend the page's one claim that something is happening right now.\n\nNOTHING HERE IS ONLY AN ANIMATION. A proposal arriving is a dashed node and a card; accepted, a solid node and a collapsed row. Both are states and both are true in a screenshot. Reduced motion drops the fade and keeps the edge."
+  },
+  {
+   "id": "n-resp",
+   "x": 620,
+   "y": 2120,
+   "w": 620,
+   "text": "1180 AND 1000, AND THE SECOND ONE IS A THIRD BREAKPOINT.\n\n`rs-page-1` puts them at 1180 and 760 and says not to add one without content that needs it. This has some: a proposal card carries two actions side by side and the canvas beside it carries a 172px column, and under about 1000px those cannot both exist. At 1180 they still can, so the rail narrows to 360 there and stacks lower down.\n\nTHE CONVERSATION GOES ON TOP when it stacks \u2014 it is where the next thing to do lives. Stacking canvas-first puts an empty graph above the only actionable thing on the page. `order`, not DOM order: the canvas stays first for a screen reader.\n\nA RAIL STACKS, IT DOES NOT OVERLAY. An overlay drawer hides the graph the conversation is talking about.\n\nThe breakpoints are IN the artboards' shared head, so `_prev.py --width 900` renders the stacked layout rather than a squeezed 1400. A board that cannot be rendered narrow cannot be checked narrow."
+  },
+  {
+   "id": "n-keys",
+   "x": 1240,
+   "y": 2120,
+   "w": 620,
+   "text": "HOVER IS ENRICHMENT, NEVER THE ONLY ROUTE.\n\n`impl-walkbugs` records a palette that was unreachable by keyboard \u2014 a bare <div draggable>, no role, no tabindex, absent from the a11y tree. An option list whose canvas preview fires only on hover repeats that exactly.\n\nSo the FOCUSED option carries the same ring and throws the same ghost as the hovered one \u2014 LivingChoose draws both. Touch gets an explicit Preview, or the same information expanded.\n\nThe recommended option is marked IN WORDS (`recommended`, `conventional`, `likely`), never by colour alone. Every interactive block and every option has a stable id, which is what the browser posts back \u2014 never a copied contract object."
+  },
+  {
+   "id": "n-deferred",
+   "x": 1240,
+   "y": 2560,
+   "w": 620,
+   "text": "WHAT IS MVP HERE, AND WHAT IS DEFERRED.\n\nMVP: one primary left-to-right chain, one pending mutation proposal at a time, the three collection shapes, Build and Spawn over one proposal engine, the values card, the Artifact toggle, Run through the existing sheet.\n\nDEFERRED AND NOT DRAWN: branch creation, branch labels, conditionals, loops, rejoining. An auxiliary branch that the resolver's own blueprint contains is LAID OUT and drawn with neutral wires \u2014 LivingDense has five \u2014 but there is no control for authoring one. General branch authoring is a later design problem and drawing a control for it here would make it look decided.\n\nALSO NOT DRAWN: token streaming, collaborative cursors, a phone. These are desk screens; the rules degrade to a tablet and stop there, deliberately."
+  },
+  {
+   "id": "n-dense",
+   "x": 0,
+   "y": 2560,
+   "w": 620,
+   "text": "BEYOND ABOUT SIX STEPS YOU PAN \u2014 LivingDense, and it took three tries.\n\nFirst version wrapped a fifteen-step chain onto three rows to make it fit, which put a wire running RIGHT TO LEFT on a canvas whose first law is left-to-right. `dag-core` does layered layout and never produces one. Second version shrank it to fit and every label went with it.\n\nThe honest answer is the third: four columns at 1:1, the minimap saying where you are, and the transcript carrying all fifteen. THAT IS THE FINDING \u2014 beyond about six steps the canvas is where you look at ONE PART of a pipeline and the conversation is where you read the whole of it. It is also the strongest argument for the collapsed log.\n\nNone of the three is distinguishable in the HTML."
+  },
+  {
+   "id": "n-artifact",
+   "x": 3040,
+   "y": 3920,
+   "w": 620,
+   "text": "THE ARTIFACT NEEDS NO NEW SURFACE \u2014 LivingDone.\n\n`impl-settled`: the second view of the canvas is the ARTIFACT (pipeline.yml), not a list. So the living pipeline's YAML preview is the toggle that already exists, and what is new is only that it GREW while you answered \u2014 the lines your last answer wrote carry a left rule and a tint, then settle to ordinary artifact text.\n\nThe server serialises it. `pipeline_file.dump` is the only canonical writer and the browser diffs successive text for PRESENTATION only. Preview is not Keep: it sets no `kept` flag, writes no file, stages no modules and makes no gate available.\n\nA MODEL \u2014 NOTHING is the line this board exists for. On a pipeline where no tier-4 choice needed one, the completion block says so in the same table that credits the engine and the person. Provenance is per decision, and a summary that could only ever say `AI-assisted` is not one.\n\nBrowsing is NOT redrawn: BuilderBrowse.dc.html and BuilderPort.dc.html are established artboards for the same overlays, reached the same way, and redrawing them would create a second specification for one screen."
+  }
+ ],
+ "launch": {
+  "view": "canvas"
+ }
+}

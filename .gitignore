@@ -59,6 +59,7 @@ frontend/dist/
 /.design/w2-mockups/wiener-w2-screens.html
 /.design/runs-board/runs-board.html
 /.design/forge-registry-boards.html
+/.design/living-pipeline/living-pipeline.html
 
 # JetBrains IDE files — local to a checkout, never shared
 .idea/

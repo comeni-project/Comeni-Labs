@@ -9,6 +9,7 @@
 #     python3 _prev.py ForgeOverview         # named boards
 #     python3 _prev.py --glob 'Forge*'       # a different set
 #     python3 _prev.py --width 900           # one width; repeatable
+#     python3 _prev.py --dir living-pipeline --glob 'Living*'   # a canvas in a subdirectory
 #
 # Widths default to 1400 and 900 — the desktop and tablet targets §8 names. **The 900 pass is
 # not optional**: a two-column layout with no breakpoint looks correct at 1400 and loses its
@@ -77,18 +78,23 @@ def main() -> None:
     parser.add_argument("names", nargs="*", help="board stems, without .dc.html")
     parser.add_argument("--glob", default="Run*", help="which boards when none are named")
     parser.add_argument("--width", type=int, action="append", dest="widths")
+    # **A canvas may live in a subdirectory**, which `.design/README.md` reserves for a
+    # superseded one — and a NEW canvas has no citations to rot, so it starts there rather than
+    # adding a fourth set of boards to an already crowded root.
+    parser.add_argument("--dir", default=".", help="board directory, relative to .design/")
     args = parser.parse_args()
 
+    src = (HERE / args.dir).resolve()
     OUT.mkdir(parents=True, exist_ok=True)
     widths = args.widths or [1400, 900]
     names = args.names or sorted(
-        p.name.replace(".dc.html", "") for p in HERE.glob(f"{args.glob}.dc.html")
+        p.name.replace(".dc.html", "") for p in src.glob(f"{args.glob}.dc.html")
     )
     if not names:
         raise SystemExit(f"no boards matched {args.glob!r} — nothing to render")
 
     for name in names:
-        text, declared = flatten(HERE / f"{name}.dc.html")
+        text, declared = flatten(src / f"{name}.dc.html")
         page = OUT / f"{name}.html"
         page.write_text(text)
         for width in widths:

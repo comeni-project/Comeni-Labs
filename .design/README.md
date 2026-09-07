@@ -17,8 +17,9 @@ rot references that are still being read.
 | [`wiener-mockups/`](wiener-mockups/) | the visual direction picked on 2026-08-23 — A–D, C chosen | **gone** — see below |
 | [`runs-board/`](runs-board/) | the across-runs boards | [55693858](https://claude.ai/code/artifact/55693858-69a2-49f1-baaf-33e0cf199d92) |
 | `./Forge*.dc.html` (flat) | the Forge MVP §8 boards — the Registry section, nine artboards. **Current** | [51526cef](https://claude.ai/code/artifact/51526cef-d6a5-4a33-acc8-7273b975f814) |
+| [`living-pipeline/`](living-pipeline/) | the conversational builder — eleven artboards. **Current** | not yet |
 
-**Two canvases now live flat at the root, and only one owns `Main.dc.html`.** The 2026-08-29
+**Only one canvas owns `Main.dc.html`.** The 2026-08-29
 redesign has it and the Forge boards deliberately have none: that file is cited by path from
 live documents, so the Forge canvas launches on the whole board rather than on an entry
 artboard. `build_forge.py` records this where writing one would otherwise be tempting.
@@ -28,8 +29,14 @@ status, revision and activity line on all nine boards comes from one dict — §
 so the overview's *5 ready for review* and the work queue's five rows cannot disagree. Change a
 number once and re-run it.
 
+**A subdirectory is not only for a superseded canvas any more.** `living-pipeline/` is
+current and lives in one, decided 2026-09-07: the rule above exists so that live documents
+citing a path do not rot, and a canvas nothing cites yet has nothing to rot. Three current
+canvases flat at this root is already one more than the paragraph above is comfortable with.
+
 **`_prev.py` renders any board to PNG, at 1400 and 900 by default** —
-`python3 _prev.py --glob 'Forge*'`. Use it before believing a board is right: on 2026-09-05 it
+`python3 _prev.py --glob 'Forge*'`, or `--dir living-pipeline --glob 'Living*'` for a canvas
+in a subdirectory. Use it before believing a board is right: on 2026-09-05 it
 found a status shape that collapsed to nothing inside a table cell, a flow connector that
 rendered as empty space, and a chat rail that ran off the edge at tablet width. None of the
 three is visible in the HTML.
@@ -42,7 +49,7 @@ choosing C — which is exactly what a published link cannot be relied on to hol
 `.dc.html` sources are the artifact and the seed is a build output.
 
 **The seeded canvas HTML is never committed.** Each is megabytes of editor payload rebuilt from
-the `.dc.html` sources and `canvas.json` beside it; `.gitignore` names all three, one line each,
+the `.dc.html` sources and `canvas.json` beside it; `.gitignore` names each of them on its own line,
 and the published Artifact above is the copy you open. **A new canvas adds a line there** — the
 patterns are anchored and literal on purpose, because `*.html` here would also swallow the
 artboards and the `_*.html` partials.

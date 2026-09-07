@@ -379,24 +379,66 @@ exists.
 artboards, their dimensions, interaction states, and the exact command used to render them.
 Follow the existing `.design` convention: source, not screenshots alone.
 
-- [ ] Design a desktop Build state with the living canvas and conversation as the two primary
+- [x] Design a desktop Build state with the living canvas and conversation as the two primary
   surfaces; inspection, problems, browsing, and YAML are contextual surfaces.
-- [ ] Design the opening composer with a clear Build/Spawn choice.
-- [ ] Design goal summary, edit, ambiguous grouping question, module proposal, alternatives,
+- [x] Design the opening composer with a clear Build/Spawn choice.
+- [x] Design goal summary, edit, ambiguous grouping question, module proposal, alternatives,
   parameter question, pending model, refusal, validation finding, completion, and stale proposal.
-- [ ] Design hover **and focus** preview of an alternative as a ghost node/substitution.
-- [ ] Design Spawn's rapid staged reveal without pretending each automatic choice was human.
-- [ ] Design collection flow for `×N items`, `×12 samples`, `once per item`, and `collect all`.
-- [ ] Design widths near 1440, 1180, 900, and a narrow stacked layout. No essential operation
+- [x] Design hover **and focus** preview of an alternative as a ghost node/substitution.
+- [x] Design Spawn's rapid staged reveal without pretending each automatic choice was human.
+- [x] Design collection flow for `×N items`, `×12 samples`, `once per item`, and `collect all`.
+- [x] Design widths near 1440, 1180, 900, and a narrow stacked layout. No essential operation
   may require hover or a desktop pointer.
-- [ ] Design reduced-motion equivalents for every animation-bearing state.
-- [ ] Put difficult content in the artboards: long contract ids, four ports, long reasons, a
+- [x] Design reduced-motion equivalents for every animation-bearing state.
+- [x] Put difficult content in the artboards: long contract ids, four ports, long reasons, a
   failed model turn, and 15 modules. A design that works only on five short boxes is not done.
-- [ ] Open the rendered artboards side by side and record the comparison in the design README.
+- [x] Open the rendered artboards side by side and record the comparison in the design README.
   Do not approve a design by reading its HTML or source.
 
 **Checkpoint:** no production React changes before the artboards and interaction storyboard are
 inspectable. The design should explicitly label what is MVP and what is deferred branching.
+
+### Execution record — 2026-09-07
+
+`frontend-design` was invoked and followed. Nothing under `frontend/` was touched.
+
+**Delivered:** [`.design/living-pipeline/`](../../../.design/living-pipeline/) — eleven
+artboards at 1400×880 generated from one fixture by `build_living.py`, a shared `_lhead.html`,
+`canvas.living.json` with twelve notes arguing the decisions, and a README carrying the design
+plan and the board-by-board comparison record. Registered in `.design/README.md` and
+`.gitignore`.
+
+| Step | Carried out as written? | Deviation |
+|---|---|---|
+| desktop Build state | yes | `LivingBuild` |
+| opening composer, Build/Spawn | yes | `LivingOpen` |
+| the eleven interaction states | yes, plus one board | *completion* had no home until `LivingDone` was added, which also draws the artifact/YAML surface the first ten boards omitted |
+| hover **and** focus preview | yes | `LivingChoose` draws both, with the same ghost |
+| Spawn's staged reveal | yes | `LivingSpawn` |
+| collection flow | yes | `LivingCollect` — this is the board that needed the most iteration |
+| 1440 / 1180 / 900 / narrow | **deviated** | authored at **1400**, matching the twenty-four existing artboards and `_prev.py`'s default, rather than the plan's 1440. The breakpoints are 1180 and **1000** — a third one, argued in `LivingQuiet` and the README |
+| reduced motion | yes | `LivingQuiet`, and no new movement was added: six domain events map onto the five existing ones |
+| difficult content | yes | `LivingDense` — fifteen steps, a 52-character contract id, a five-port signature |
+| open them side by side | yes | the README's comparison table is the record. Twenty defects, none visible in the HTML |
+
+**Three things a reader of the plan should know before Task 2:**
+
+1. **`impl-settled`'s *no prompt box on the populated page* was examined and not overturned.**
+   The rail is not a creation affordance; it is the pipeline's provenance record made
+   navigable, and it appears on an authoring session only. The argument is in
+   `canvas.living.json`'s `n-settled` note and the README.
+2. **Two encodings are proposed that the product does not have**, both extensions of a language
+   it does: *author is drawn as stroke while tier stays colour*, and *collection is drawn on the
+   wire*. `tokens.css` is unchanged and no hue was added.
+3. **The canvas is not where a large pipeline is read.** `LivingDense` took three attempts and
+   the finding is that beyond about six steps you pan, and the transcript carries the whole. That
+   is the strongest argument for the collapsed decision row, and it should shape Task 9 and
+   Task 10.
+
+**Two additions outside `.design/living-pipeline/`:** `_prev.py` gained a `--dir` flag (the
+boards live in a subdirectory) and the shared head carries the breakpoints, so `--width 900`
+renders the stacked layout rather than a squeezed 1400. Without that the narrow pass was
+meaningless, which is how the first nine boards passed it.
 
 ---
 
