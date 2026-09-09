@@ -61,17 +61,22 @@ def _publish_a_host_port(base) -> set[str]:
     return {name for name, service in _default_stack(base).items() if service.get("ports")}
 
 
-def test_the_stack_is_nine_services(base):
+def test_the_stack_is_ten_services(base):
     """Named literally: adding one means editing this test, which is where somebody notices
     that a new service needs a healthcheck and a place in the overlay.
 
-    **It worked.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this test is
-    what stopped them arriving with a host-published port that the prod overlay had never
-    heard of — the plan's Task 5 said "add the compose services" and said nothing about the
-    overlay, which is precisely the gap a literal list catches."""
+    **It worked, twice.** `wiener-postgres` and `wiener-api` arrived on 2026-08-24 and this
+    test is what stopped them arriving with a host-published port that the prod overlay had
+    never heard of — the plan's Task 5 said "add the compose services" and said nothing about
+    the overlay, which is precisely the gap a literal list catches.
+
+    **`wiki` arrived the same way on 2026-09-09 and failed five tests in this file**, which is
+    the whole return on the literal: no healthcheck, no restart policy, and a host port the
+    overlay did not close. It was written as a service and nothing else, exactly as the wiener
+    pair had been."""
     assert sorted(_default_stack(base)) == [
         "api", "postgres", "redis", "web",
-        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "worker",
+        "wiener-api", "wiener-ingest", "wiener-postgres", "wiener-worker", "wiki", "worker",
     ]
 
 
